@@ -35,7 +35,7 @@ interface Patient {
   home_address: string;
   postal_address: string;
   postal_code: string;
-  medical_aid_details?: {
+  medical_aid_details: {
     id: string;
     provider: string;
     scheme: string;
@@ -44,13 +44,13 @@ interface Patient {
     main_member_name: string;
     main_member_id_number: string;
     relationship_to_main: string;
-  };
-  next_of_kin?: {
+  } | null;
+  next_of_kin: {
     name: string;
     relationship: string;
     phone: string;
     address: string;
-  };
+  } | null;
 }
 
 const PatientDetail: React.FC = () => {
@@ -72,52 +72,47 @@ const PatientDetail: React.FC = () => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log('Fetching details for patient ID:', id);
 
-      const { data, error: fetchError } = await supabase
+      // First fetch the patient details
+      const { data: patientData, error: patientError } = await supabase
         .from('patients')
-        .select(`
-          *,
-          medical_aid_details (
-            id,
-            provider,
-            scheme,
-            membership_number,
-            plan_type,
-            main_member_name,
-            main_member_id_number,
-            relationship_to_main
-          ),
-          next_of_kin (
-            name,
-            relationship,
-            phone,
-            address
-          )
-        `)
+        .select('*')
         .eq('id', id)
         .single();
 
-      if (fetchError) {
-        console.error('Error fetching patient details:', {
-          message: fetchError.message,
-          details: fetchError.details,
-          hint: fetchError.hint
-        });
-        throw fetchError;
+      if (patientError) throw patientError;
+
+      // Then fetch medical aid details
+      const { data: medicalAidData, error: medicalAidError } = await supabase
+        .from('medical_aid_details')
+        .select('*')
+        .eq('patient_id', id)
+        .single();
+
+      if (medicalAidError && medicalAidError.code !== 'PGRST116') { // Ignore not found error
+        throw medicalAidError;
       }
 
-      if (!data) {
-        throw new Error('Patient not found');
+      // Fetch next of kin details
+      const { data: nextOfKinData, error: nextOfKinError } = await supabase
+        .from('next_of_kin')
+        .select('*')
+        .eq('patient_id', id)
+        .single();
+
+      if (nextOfKinError && nextOfKinError.code !== 'PGRST116') { // Ignore not found error
+        throw nextOfKinError;
       }
 
-      console.log('Fetched patient data:', {
-        patientId: data.id,
-        hasMedicalAid: !!data.medical_aid_details,
-        medicalAidDetails: data.medical_aid_details
-      });
+      // Combine all data
+      const fullPatientData: Patient = {
+        ...patientData,
+        medical_aid_details: medicalAidData || null,
+        next_of_kin: nextOfKinData || null
+      };
 
-      setPatient(data);
+      console.log('Fetched patient data:', fullPatientData);
+      setPatient(fullPatientData);
     } catch (err) {
       console.error('Error in fetchPatientDetails:', err);
       setError(err instanceof Error ? err.message : 'Failed to load patient details');
@@ -157,19 +152,7 @@ const PatientDetail: React.FC = () => {
         <CardTitle>Medical Aid Information</CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 size={20} className="animate-spin text-gray-400 mr-2" />
-            <span className="text-gray-500">Loading medical aid details...</span>
-          </div>
-        ) : error ? (
-          <div className="text-center py-4">
-            <p className="text-error-600">{error}</p>
-            <Button variant="outline" size="sm" className="mt-2" onClick={fetchPatientDetails}>
-              Retry
-            </Button>
-          </div>
-        ) : patient?.medical_aid_details ? (
+        {patient.medical_aid_details ? (
           <div className="space-y-4">
             <div>
               <h4 className="text-sm font-medium text-gray-500">Provider</h4>
