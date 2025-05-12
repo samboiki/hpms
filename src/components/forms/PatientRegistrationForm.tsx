@@ -1,12 +1,7 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import Button from '../ui/Button';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from '../../lib/supabase';
 
 interface PatientRegistrationFormData {
   // Personal Details
