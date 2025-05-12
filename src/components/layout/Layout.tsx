@@ -5,13 +5,13 @@ import Header from './Header';
 import { cn } from '../../utils/cn';
 
 const Layout: React.FC = () => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white shadow-md">
         <div className="flex items-center justify-between h-16 px-4">
           <div className="font-semibold text-lg text-brand-blue">REMEDICA</div>
           <button
@@ -62,7 +62,7 @@ const Layout: React.FC = () => {
       </div>
 
       {/* Desktop Layout */}
-      <div className="hidden md:flex">
+      <div className="hidden md:block">
         <Sidebar
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -74,10 +74,10 @@ const Layout: React.FC = () => {
       <div
         className={cn(
           "flex-1 min-h-screen transition-all duration-300",
-          "md:ml-[240px]",
+          "md:ml-[72px]",
           {
-            "md:ml-[72px]": sidebarCollapsed,
-            "mt-16": !sidebarCollapsed,
+            "md:ml-[240px]": !sidebarCollapsed,
+            "mt-16 md:mt-0": true
           }
         )}
       >

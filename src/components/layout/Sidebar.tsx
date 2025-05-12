@@ -40,7 +40,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div 
       className={cn(
-        "fixed left-0 top-0 h-screen bg-white border-r border-gray-100 transition-all duration-300 z-30",
+        "fixed left-4 top-4 h-[calc(100vh-32px)] bg-white rounded-xl transition-all duration-300 z-30",
+        "shadow-[0_8px_30px_rgb(0,0,0,0.08)]",
         collapsed && !isMobile ? "w-[72px]" : "w-[240px]"
       )}
     >
@@ -84,7 +85,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {!isMobile && (
         <button
           onClick={onToggle}
-          className="absolute -right-3 top-20 bg-white border border-gray-200 rounded-full p-1 shadow-soft"
+          className="absolute -right-3 top-20 bg-white border border-gray-200 rounded-full p-1 shadow-md hover:shadow-lg transition-shadow"
         >
           {collapsed ? (
             <ChevronRight size={16} className="text-gray-600" />
