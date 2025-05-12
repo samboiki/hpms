@@ -102,7 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           onClick={logout}
           className={cn(
             "flex items-center w-full px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors min-h-[44px]",
-            collapsed && !iMobile && "justify-center"
+            collapsed && !isMobile && "justify-center"
           )}
         >
           <LogOut size={20} strokeWidth={1.5} />
