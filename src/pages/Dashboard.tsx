@@ -20,3 +20,4 @@ const Dashboard: React.FC = () => {
     isOpen={isQueueManagementModalOpen}
     onClose={() => setIsQueueManagementModalOpen(false)}
   />
+}
