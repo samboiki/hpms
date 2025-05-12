@@ -75,15 +75,9 @@ const PatientDetail: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      console.log('Fetching details for patient ID:', id);
-
       const { data, error } = await supabase
-        .from('patients')
-        .select(`
-          *,
-          medical_aid_details (*),
-          next_of_kin (*)
-        `)
+        .from('patient_details_view')
+        .select('*')
         .eq('id', id)
         .single();
 
