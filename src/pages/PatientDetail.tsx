@@ -63,13 +63,17 @@ const PatientDetail: React.FC = () => {
   const [isAddRecordModalOpen, setIsAddRecordModalOpen] = useState(false);
 
   useEffect(() => {
-    fetchPatientDetails();
+    if (id) {
+      fetchPatientDetails();
+    }
   }, [id]);
 
   const fetchPatientDetails = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
         .from('patients')
         .select(`
           *,
@@ -93,11 +97,18 @@ const PatientDetail: React.FC = () => {
         .eq('id', id)
         .single();
 
-      if (error) throw error;
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      if (!data) {
+        throw new Error('Patient not found');
+      }
+
       setPatient(data);
     } catch (err) {
-      console.error('Error fetching patient:', err);
-      setError('Failed to load patient details');
+      console.error('Error fetching patient details:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load patient details');
     } finally {
       setIsLoading(false);
     }
@@ -214,6 +225,10 @@ const PatientDetail: React.FC = () => {
                       <p className="text-gray-900">{patient.medical_aid_details.relationship_to_main}</p>
                     </div>
                   )}
+                  <Button variant="outline" size="sm" className="mt-2">
+                    <Edit3 size={14} className="mr-2" />
+                    Update Medical Aid
+                  </Button>
                 </div>
               ) : (
                 <div className="text-center py-4">
