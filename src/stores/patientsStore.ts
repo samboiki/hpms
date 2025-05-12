@@ -35,8 +35,10 @@ export interface Appointment {
   time: string;
   duration: number;
   type: 'check-up' | 'follow-up' | 'consultation' | 'emergency';
-  status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled';
+  status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled';
   notes?: string;
+  checkInTime?: string;
+  estimatedWaitTime?: number;
 }
 
 interface PatientsState {
