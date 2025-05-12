@@ -9,13 +9,13 @@
 
 @layer base {
   html {
-    font-family: theme('fontFamily.body');
+    font-family: 'Montserrat', sans-serif;
     background: theme('colors.gray.50');
     color: theme('colors.gray.900');
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: theme('fontFamily.heading');
+    font-family: 'Rubik', sans-serif;
     font-weight: 500;
     line-height: 1.4;
     letter-spacing: -0.02em;
@@ -23,26 +23,42 @@
 }
 
 @layer components {
-  .glass-card {
-    @apply bg-gradient-to-r from-white/40 to-white/10 backdrop-blur-[20px] border border-white/20 shadow-glass;
+  .layout-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }
 
-  .btn-gradient {
-    @apply bg-gradient-to-r from-brand-primary to-brand-primary hover:opacity-90 transition-all duration-300;
+  .responsive-grid {
+    @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
   }
 
-  .medical-icon {
-    @apply transition-all duration-300 hover:scale-110;
+  .responsive-flex {
+    @apply flex flex-col sm:flex-row items-start sm:items-center;
   }
 }
 
 @layer utilities {
-  .text-shadow-glow {
-    text-shadow: 0 0 20px rgba(1, 184, 216, 0.5);
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }
 
-/* Custom Scrollbar */
+/* Responsive breakpoint indicators (only visible in development) */
+@media (min-width: 640px) { /* sm */ }
+@media (min-width: 768px) { /* md */ }
+@media (min-width: 1024px) { /* lg */ }
+@media (min-width: 1280px) { /* xl */ }
+@media (min-width: 1536px) { /* 2xl */ }
+
+/* Custom scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -54,50 +70,35 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #01b8d8;
+  background: #888;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #0198b3;
+  background: #555;
 }
 
-/* Animations */
-.animate-float {
-  animation: float 3s ease-in-out infinite;
+/* Ensure proper full-screen layout */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-.animate-scale {
-  transition: transform 0.2s ease-out;
+/* Responsive spacing utilities */
+.responsive-spacing {
+  @apply p-4 sm:p-6 lg:p-8;
 }
 
-.animate-scale:hover {
-  transform: scale(1.05);
+.responsive-gap {
+  @apply gap-4 sm:gap-6 lg:gap-8;
 }
 
-/* Modal Animations */
-.ReactModal__Overlay {
-  opacity: 0;
-  transition: opacity 200ms ease-in-out;
+/* Responsive typography */
+.responsive-text {
+  @apply text-sm sm:text-base lg:text-lg;
 }
 
-.ReactModal__Overlay--after-open {
-  opacity: 1;
-}
-
-.ReactModal__Overlay--before-close {
-  opacity: 0;
-}
-
-.ReactModal__Content {
-  transform: scale(0.95);
-  transition: transform 200ms ease-in-out;
-}
-
-.ReactModal__Content--after-open {
-  transform: scale(1);
-}
-
-.ReactModal__Content--before-close {
-  transform: scale(0.95);
+.responsive-heading {
+  @apply text-xl sm:text-2xl lg:text-3xl;
 }

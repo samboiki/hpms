@@ -8,19 +8,19 @@ const Layout: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 overflow-hidden">
       <Sidebar 
         collapsed={sidebarCollapsed} 
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} 
       />
       
       <div className={cn(
-        "flex-1 transition-all duration-300",
+        "flex-1 flex flex-col transition-all duration-300",
         sidebarCollapsed ? "ml-[72px]" : "ml-[240px]"
       )}>
         <Header />
-        <main className="p-6">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50">
+          <div className="layout-container py-6">
             <Outlet />
           </div>
         </main>
