@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Calendar, 
@@ -11,28 +11,99 @@ import {
   PlusCircle,
   Clock,
   FileSymlink,
-  User
+  User,
+  Loader2
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { usePatientsStore } from '../stores/patientsStore';
 import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
 import AddMedicalRecordForm from '../components/forms/AddMedicalRecordForm';
+import { supabase } from '../lib/supabase';
+
+interface Patient {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  cell_number: string;
+  date_of_birth: string;
+  gender: string;
+  marital_status: string;
+  occupation: string;
+  home_language: string;
+  home_address: string;
+  postal_address: string;
+  postal_code: string;
+  medical_aid_details?: {
+    provider: string;
+    membership_number: string;
+  };
+  next_of_kin?: {
+    name: string;
+    relationship: string;
+    phone: string;
+    address: string;
+  };
+}
 
 const PatientDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getPatientById } = usePatientsStore();
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'appointments'>('overview');
   const [isAddRecordModalOpen, setIsAddRecordModalOpen] = useState(false);
-  
-  const patient = getPatientById(id || '');
 
-  if (!patient) {
+  useEffect(() => {
+    fetchPatientDetails();
+  }, [id]);
+
+  const fetchPatientDetails = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('patients')
+        .select(`
+          *,
+          medical_aid_details (
+            provider,
+            membership_number
+          ),
+          next_of_kin (
+            name,
+            relationship,
+            phone,
+            address
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+      setPatient(data);
+    } catch (err) {
+      console.error('Error fetching patient:', err);
+      setError('Failed to load patient details');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 size={24} className="animate-spin text-primary-600" />
+        <span className="ml-2 text-gray-600">Loading patient details...</span>
+      </div>
+    );
+  }
+
+  if (error || !patient) {
     return (
       <div className="text-center py-10">
-        <h2 className="text-xl font-medium">Patient not found</h2>
+        <h2 className="text-xl font-medium text-error-600">{error || 'Patient not found'}</h2>
         <Button 
           variant="outline" 
           className="mt-4"
@@ -66,27 +137,19 @@ const PatientDetail: React.FC = () => {
           <Card>
             <CardContent className="p-6">
               <div className="flex flex-col items-center text-center">
-                {patient.avatar ? (
-                  <img 
-                    src={patient.avatar} 
-                    alt={`${patient.firstName} ${patient.lastName}`}
-                    className="w-24 h-24 rounded-full object-cover mb-4"
-                  />
-                ) : (
-                  <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-                    <User size={40} className="text-gray-400" />
-                  </div>
-                )}
+                <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-4">
+                  <User size={40} className="text-gray-400" />
+                </div>
                 <h2 className="text-xl font-bold text-gray-900">
-                  {patient.firstName} {patient.lastName}
+                  {patient.first_name} {patient.last_name}
                 </h2>
                 <p className="text-gray-500 capitalize">
-                  {patient.gender} • {new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()} years
+                  {patient.gender} • {new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear()} years
                 </p>
                 <div className="mt-4 w-full">
                   <div className="flex items-center py-2">
                     <Phone size={16} className="text-gray-400 mr-3" />
-                    <span className="text-gray-700">{patient.phone}</span>
+                    <span className="text-gray-700">{patient.cell_number}</span>
                   </div>
                   <div className="flex items-center py-2">
                     <Mail size={16} className="text-gray-400 mr-3" />
@@ -94,7 +157,7 @@ const PatientDetail: React.FC = () => {
                   </div>
                   <div className="flex items-center py-2">
                     <MapPin size={16} className="text-gray-400 mr-3" />
-                    <span className="text-gray-700">{patient.address}</span>
+                    <span className="text-gray-700">{patient.home_address}</span>
                   </div>
                 </div>
                 <Button variant="outline" className="mt-4 w-full">
@@ -110,15 +173,15 @@ const PatientDetail: React.FC = () => {
               <CardTitle>Insurance Information</CardTitle>
             </CardHeader>
             <CardContent>
-              {patient.insuranceProvider ? (
+              {patient.medical_aid_details ? (
                 <div>
                   <div className="mb-4">
                     <h4 className="text-sm font-medium text-gray-500">Provider</h4>
-                    <p className="text-gray-900">{patient.insuranceProvider}</p>
+                    <p className="text-gray-900">{patient.medical_aid_details.provider}</p>
                   </div>
                   <div>
                     <h4 className="text-sm font-medium text-gray-500">Policy Number</h4>
-                    <p className="text-gray-900">{patient.insuranceNumber}</p>
+                    <p className="text-gray-900">{patient.medical_aid_details.membership_number}</p>
                   </div>
                 </div>
               ) : (
@@ -131,6 +194,36 @@ const PatientDetail: React.FC = () => {
               )}
             </CardContent>
           </Card>
+
+          {patient.next_of_kin && (
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Next of Kin</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500">Name</h4>
+                    <p className="text-gray-900">{patient.next_of_kin.name}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500">Relationship</h4>
+                    <p className="text-gray-900">{patient.next_of_kin.relationship}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500">Phone</h4>
+                    <p className="text-gray-900">{patient.next_of_kin.phone}</p>
+                  </div>
+                  {patient.next_of_kin.address && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500">Address</h4>
+                      <p className="text-gray-900">{patient.next_of_kin.address}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="lg:col-span-2">
@@ -195,140 +288,13 @@ const PatientDetail: React.FC = () => {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="px-6 py-4">
-                  <div className="flex justify-between items-center">
-                    <CardTitle>Upcoming Appointments</CardTitle>
-                    <Button variant="ghost" size="sm">
-                      View All
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {patient.upcomingAppointments.length > 0 ? (
-                    <div className="space-y-4">
-                      {patient.upcomingAppointments.map((appointment) => (
-                        <div 
-                          key={appointment.id}
-                          className="flex items-center justify-between p-3 border rounded-md hover:bg-gray-50"
-                        >
-                          <div className="flex items-center">
-                            <div className="p-2 bg-primary-50 rounded-md text-primary-600 mr-4">
-                              <Calendar size={20} />
-                            </div>
-                            <div>
-                              <h4 className="text-sm font-medium text-gray-900">
-                                {appointment.date} at {appointment.time}
-                              </h4>
-                              <p className="text-xs text-gray-500">
-                                {appointment.doctorName} • {appointment.type}
-                              </p>
-                            </div>
-                          </div>
-                          <Badge
-                            variant={
-                              appointment.status === 'confirmed' ? 'success' :
-                              appointment.status === 'scheduled' ? 'warning' : 'gray'
-                            }
-                            size="sm"
-                          >
-                            {appointment.status}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6">
-                      <Calendar size={40} className="mx-auto text-gray-300" />
-                      <p className="mt-2 text-gray-500">No upcoming appointments</p>
-                      <Button size="sm" className="mt-3">
-                        Schedule Appointment
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="px-6 py-4">
-                  <div className="flex justify-between items-center">
-                    <CardTitle>Recent Medical Records</CardTitle>
-                    <Button variant="ghost" size="sm">
-                      View All
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {patient.medicalHistory.length > 0 ? (
-                    <div className="space-y-4">
-                      {patient.medicalHistory.map((record) => (
-                        <div 
-                          key={record.id}
-                          className="p-4 border rounded-md hover:bg-gray-50"
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <h4 className="text-sm font-medium text-gray-900">
-                              {record.title}
-                            </h4>
-                            <Badge
-                              variant={
-                                record.type === 'diagnosis' ? 'primary' :
-                                record.type === 'prescription' ? 'secondary' :
-                                record.type === 'lab' ? 'warning' : 'gray'
-                              }
-                              size="sm"
-                            >
-                              {record.type}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-gray-500 mb-2">
-                            {record.date} • {record.doctor}
-                          </p>
-                          <p className="text-sm text-gray-700 mb-3">
-                            {record.description}
-                          </p>
-                          {record.attachments && record.attachments.length > 0 && (
-                            <div className="mt-2">
-                              <p className="text-xs font-medium text-gray-500 mb-1">Attachments:</p>
-                              <div className="flex flex-wrap gap-2">
-                                {record.attachments.map((attachment, idx) => (
-                                  <a 
-                                    key={idx}
-                                    href={attachment.url}
-                                    className="text-xs text-primary-600 flex items-center hover:underline"
-                                  >
-                                    <FileText size={12} className="mr-1" />
-                                    {attachment.name}
-                                  </a>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6">
-                      <FileText size={40} className="mx-auto text-gray-300" />
-                      <p className="mt-2 text-gray-500">No medical records found</p>
-                      <Button 
-                        size="sm" 
-                        className="mt-3"
-                        onClick={() => setIsAddRecordModalOpen(true)}
-                      >
-                        <PlusCircle size={14} className="mr-2" />
-                        Add Record
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              {/* Additional overview content */}
             </div>
           )}
           
           {activeTab === 'history' && (
             <Card>
-              <CardHeader className="px-6 py-4">
+              <CardHeader>
                 <div className="flex justify-between items-center">
                   <CardTitle>Medical History</CardTitle>
                   <Button 
@@ -341,74 +307,25 @@ const PatientDetail: React.FC = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                {patient.medicalHistory.length > 0 ? (
-                  <div className="space-y-6">
-                    {patient.medicalHistory.map((record) => (
-                      <div 
-                        key={record.id}
-                        className="p-4 border rounded-md hover:shadow-sm transition-shadow"
-                      >
-                        <div className="flex justify-between items-start mb-3">
-                          <h4 className="text-base font-medium text-gray-900">
-                            {record.title}
-                          </h4>
-                          <Badge
-                            variant={
-                              record.type === 'diagnosis' ? 'primary' :
-                              record.type === 'prescription' ? 'secondary' :
-                              record.type === 'lab' ? 'warning' : 'gray'
-                            }
-                          >
-                            {record.type}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-gray-500 mb-3">
-                          {record.date} • {record.doctor}
-                        </p>
-                        <p className="text-sm text-gray-700 mb-4">
-                          {record.description}
-                        </p>
-                        {record.attachments && record.attachments.length > 0 && (
-                          <div className="mt-2">
-                            <p className="text-sm font-medium text-gray-500 mb-2">Attachments:</p>
-                            <div className="flex flex-wrap gap-2">
-                              {record.attachments.map((attachment, idx) => (
-                                <a 
-                                  key={idx}
-                                  href={attachment.url}
-                                  className="text-sm text-primary-600 flex items-center p-1 hover:bg-gray-50 rounded"
-                                >
-                                  <FileText size={14} className="mr-1" />
-                                  {attachment.name}
-                                </a>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-10">
-                    <FileText size={40} className="mx-auto text-gray-300" />
-                    <p className="mt-2 text-gray-500">No medical records found</p>
-                    <Button 
-                      size="sm" 
-                      className="mt-3"
-                      onClick={() => setIsAddRecordModalOpen(true)}
-                    >
-                      <PlusCircle size={14} className="mr-2" />
-                      Add First Record
-                    </Button>
-                  </div>
-                )}
+                <div className="text-center py-10">
+                  <FileText size={40} className="mx-auto text-gray-300" />
+                  <p className="mt-2 text-gray-500">No medical records found</p>
+                  <Button 
+                    size="sm" 
+                    className="mt-3"
+                    onClick={() => setIsAddRecordModalOpen(true)}
+                  >
+                    <PlusCircle size={14} className="mr-2" />
+                    Add First Record
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
           
           {activeTab === 'appointments' && (
             <Card>
-              <CardHeader className="px-6 py-4">
+              <CardHeader>
                 <div className="flex justify-between items-center">
                   <CardTitle>Appointments</CardTitle>
                   <Button size="sm">
@@ -418,53 +335,14 @@ const PatientDetail: React.FC = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                {patient.upcomingAppointments.length > 0 ? (
-                  <div className="space-y-4">
-                    {patient.upcomingAppointments.map((appointment) => (
-                      <div 
-                        key={appointment.id}
-                        className="flex items-center justify-between p-4 border rounded-md hover:bg-gray-50"
-                      >
-                        <div className="flex items-center">
-                          <div className="p-3 bg-primary-50 rounded-md text-primary-600 mr-4">
-                            <Calendar size={20} />
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-900">
-                              {appointment.date} at {appointment.time}
-                            </h4>
-                            <p className="text-xs text-gray-500">
-                              {appointment.doctorName} • {appointment.type} • {appointment.duration} minutes
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center">
-                          <Badge
-                            variant={
-                              appointment.status === 'confirmed' ? 'success' :
-                              appointment.status === 'scheduled' ? 'warning' : 'gray'
-                            }
-                            className="mr-3"
-                          >
-                            {appointment.status}
-                          </Badge>
-                          <Button variant="outline" size="sm">
-                            Details
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-10">
-                    <Calendar size={40} className="mx-auto text-gray-300" />
-                    <p className="mt-2 text-gray-500">No appointments found</p>
-                    <Button size="sm" className="mt-3">
-                      <PlusCircle size={14} className="mr-2" />
-                      Schedule Appointment
-                    </Button>
-                  </div>
-                )}
+                <div className="text-center py-10">
+                  <Calendar size={40} className="mx-auto text-gray-300" />
+                  <p className="mt-2 text-gray-500">No appointments found</p>
+                  <Button size="sm" className="mt-3">
+                    <PlusCircle size={14} className="mr-2" />
+                    Schedule Appointment
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
