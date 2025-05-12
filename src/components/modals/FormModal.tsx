@@ -43,7 +43,7 @@ const FormModal: React.FC<FormModalProps> = ({ isOpen, onClose, title, children 
     >
       <div 
         className="
-          bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[80vh] 
+          bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[90vh] 
           pointer-events-auto flex flex-col relative animate-scale-in
         "
       >
