@@ -1,0 +1,103 @@
+@import '@fontsource/rubik/400.css';
+@import '@fontsource/rubik/500.css';
+@import '@fontsource/montserrat/400.css';
+@import '@fontsource/montserrat/600.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: theme('fontFamily.body');
+    background: theme('colors.gray.50');
+    color: theme('colors.gray.900');
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: theme('fontFamily.heading');
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-gradient-to-r from-white/40 to-white/10 backdrop-blur-[20px] border border-white/20 shadow-glass;
+  }
+
+  .btn-gradient {
+    @apply bg-gradient-to-r from-brand-primary to-brand-primary hover:opacity-90 transition-all duration-300;
+  }
+
+  .medical-icon {
+    @apply transition-all duration-300 hover:scale-110;
+  }
+}
+
+@layer utilities {
+  .text-shadow-glow {
+    text-shadow: 0 0 20px rgba(1, 184, 216, 0.5);
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #01b8d8;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #0198b3;
+}
+
+/* Animations */
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-scale {
+  transition: transform 0.2s ease-out;
+}
+
+.animate-scale:hover {
+  transform: scale(1.05);
+}
+
+/* Modal Animations */
+.ReactModal__Overlay {
+  opacity: 0;
+  transition: opacity 200ms ease-in-out;
+}
+
+.ReactModal__Overlay--after-open {
+  opacity: 1;
+}
+
+.ReactModal__Overlay--before-close {
+  opacity: 0;
+}
+
+.ReactModal__Content {
+  transform: scale(0.95);
+  transition: transform 200ms ease-in-out;
+}
+
+.ReactModal__Content--after-open {
+  transform: scale(1);
+}
+
+.ReactModal__Content--before-close {
+  transform: scale(0.95);
+}

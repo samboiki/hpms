@@ -1,0 +1,1 @@
+// Content from src/components/patients/LabResults.tsx
