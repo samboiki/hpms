@@ -20,6 +20,7 @@ import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
 import AddMedicalRecordForm from '../components/forms/AddMedicalRecordForm';
 import { supabase } from '../lib/supabase';
+import { logDatabaseError } from '../lib/supabase';
 
 interface Patient {
   id: string;
@@ -35,7 +36,7 @@ interface Patient {
   home_address: string;
   postal_address: string;
   postal_code: string;
-  medical_aid_details: {
+  medical_aid_details: Array<{
     id: string;
     provider: string;
     scheme: string;
@@ -44,13 +45,14 @@ interface Patient {
     main_member_name: string;
     main_member_id_number: string;
     relationship_to_main: string;
-  } | null;
-  next_of_kin: {
+  }>;
+  next_of_kin: Array<{
+    id: string;
     name: string;
     relationship: string;
     phone: string;
     address: string;
-  } | null;
+  }>;
 }
 
 const PatientDetail: React.FC = () => {
@@ -73,8 +75,9 @@ const PatientDetail: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      // Fetch patient details with medical aid and next of kin in a single query
-      const { data: patientData, error: patientError } = await supabase
+      console.log('Fetching details for patient ID:', id);
+
+      const { data, error } = await supabase
         .from('patients')
         .select(`
           *,
@@ -84,13 +87,16 @@ const PatientDetail: React.FC = () => {
         .eq('id', id)
         .single();
 
-      if (patientError) throw patientError;
+      if (error) {
+        throw error;
+      }
 
-      console.log('Fetched patient data:', patientData);
-      setPatient(patientData);
+      console.log('Fetched patient data:', data);
+      setPatient(data);
     } catch (err) {
-      console.error('Error in fetchPatientDetails:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load patient details');
+      console.error('Error fetching patient details:', err);
+      logDatabaseError(err, 'fetchPatientDetails');
+      setError('Failed to load patient details');
     } finally {
       setIsLoading(false);
     }
@@ -127,33 +133,33 @@ const PatientDetail: React.FC = () => {
         <CardTitle>Medical Aid Information</CardTitle>
       </CardHeader>
       <CardContent>
-        {patient?.medical_aid_details ? (
+        {patient.medical_aid_details && patient.medical_aid_details[0] ? (
           <div className="space-y-4">
             <div>
               <h4 className="text-sm font-medium text-gray-500">Provider</h4>
-              <p className="text-gray-900">{patient.medical_aid_details.provider}</p>
+              <p className="text-gray-900">{patient.medical_aid_details[0].provider}</p>
             </div>
             <div>
               <h4 className="text-sm font-medium text-gray-500">Scheme</h4>
-              <p className="text-gray-900">{patient.medical_aid_details.scheme}</p>
+              <p className="text-gray-900">{patient.medical_aid_details[0].scheme}</p>
             </div>
             <div>
               <h4 className="text-sm font-medium text-gray-500">Membership Number</h4>
-              <p className="text-gray-900">{patient.medical_aid_details.membership_number}</p>
+              <p className="text-gray-900">{patient.medical_aid_details[0].membership_number}</p>
             </div>
             <div>
               <h4 className="text-sm font-medium text-gray-500">Plan Type</h4>
-              <p className="text-gray-900">{patient.medical_aid_details.plan_type}</p>
+              <p className="text-gray-900">{patient.medical_aid_details[0].plan_type}</p>
             </div>
             <div>
               <h4 className="text-sm font-medium text-gray-500">Main Member</h4>
-              <p className="text-gray-900">{patient.medical_aid_details.main_member_name}</p>
-              <p className="text-sm text-gray-500">ID: {patient.medical_aid_details.main_member_id_number}</p>
+              <p className="text-gray-900">{patient.medical_aid_details[0].main_member_name}</p>
+              <p className="text-sm text-gray-500">ID: {patient.medical_aid_details[0].main_member_id_number}</p>
             </div>
-            {patient.medical_aid_details.relationship_to_main !== 'Self' && (
+            {patient.medical_aid_details[0].relationship_to_main !== 'Self' && (
               <div>
                 <h4 className="text-sm font-medium text-gray-500">Relationship to Main Member</h4>
-                <p className="text-gray-900">{patient.medical_aid_details.relationship_to_main}</p>
+                <p className="text-gray-900">{patient.medical_aid_details[0].relationship_to_main}</p>
               </div>
             )}
             <Button variant="outline" size="sm" className="mt-2">
@@ -232,24 +238,24 @@ const PatientDetail: React.FC = () => {
               <CardTitle>Next of Kin</CardTitle>
             </CardHeader>
             <CardContent>
-              {patient.next_of_kin ? (
+              {patient.next_of_kin && patient.next_of_kin[0] ? (
                 <div className="space-y-3">
                   <div>
                     <h4 className="text-sm font-medium text-gray-500">Name</h4>
-                    <p className="text-gray-900">{patient.next_of_kin.name}</p>
+                    <p className="text-gray-900">{patient.next_of_kin[0].name}</p>
                   </div>
                   <div>
                     <h4 className="text-sm font-medium text-gray-500">Relationship</h4>
-                    <p className="text-gray-900">{patient.next_of_kin.relationship}</p>
+                    <p className="text-gray-900">{patient.next_of_kin[0].relationship}</p>
                   </div>
                   <div>
                     <h4 className="text-sm font-medium text-gray-500">Phone</h4>
-                    <p className="text-gray-900">{patient.next_of_kin.phone}</p>
+                    <p className="text-gray-900">{patient.next_of_kin[0].phone}</p>
                   </div>
-                  {patient.next_of_kin.address && (
+                  {patient.next_of_kin[0].address && (
                     <div>
                       <h4 className="text-sm font-medium text-gray-500">Address</h4>
-                      <p className="text-gray-900">{patient.next_of_kin.address}</p>
+                      <p className="text-gray-900">{patient.next_of_kin[0].address}</p>
                     </div>
                   )}
                   <Button variant="outline" size="sm" className="mt-2">
