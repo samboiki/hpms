@@ -36,8 +36,14 @@ interface Patient {
   postal_address: string;
   postal_code: string;
   medical_aid_details?: {
+    id: string;
     provider: string;
+    scheme: string;
     membership_number: string;
+    plan_type: string;
+    main_member_name: string;
+    main_member_id_number: string;
+    relationship_to_main: string;
   };
   next_of_kin?: {
     name: string;
@@ -68,8 +74,14 @@ const PatientDetail: React.FC = () => {
         .select(`
           *,
           medical_aid_details (
+            id,
             provider,
-            membership_number
+            scheme,
+            membership_number,
+            plan_type,
+            main_member_name,
+            main_member_id_number,
+            relationship_to_main
           ),
           next_of_kin (
             name,
@@ -170,25 +182,44 @@ const PatientDetail: React.FC = () => {
 
           <Card className="mt-6">
             <CardHeader>
-              <CardTitle>Insurance Information</CardTitle>
+              <CardTitle>Medical Aid Information</CardTitle>
             </CardHeader>
             <CardContent>
               {patient.medical_aid_details ? (
-                <div>
-                  <div className="mb-4">
+                <div className="space-y-4">
+                  <div>
                     <h4 className="text-sm font-medium text-gray-500">Provider</h4>
                     <p className="text-gray-900">{patient.medical_aid_details.provider}</p>
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium text-gray-500">Policy Number</h4>
+                    <h4 className="text-sm font-medium text-gray-500">Scheme</h4>
+                    <p className="text-gray-900">{patient.medical_aid_details.scheme}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500">Membership Number</h4>
                     <p className="text-gray-900">{patient.medical_aid_details.membership_number}</p>
                   </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500">Plan Type</h4>
+                    <p className="text-gray-900">{patient.medical_aid_details.plan_type}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500">Main Member</h4>
+                    <p className="text-gray-900">{patient.medical_aid_details.main_member_name}</p>
+                    <p className="text-sm text-gray-500">ID: {patient.medical_aid_details.main_member_id_number}</p>
+                  </div>
+                  {patient.medical_aid_details.relationship_to_main !== 'Self' && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500">Relationship to Main Member</h4>
+                      <p className="text-gray-900">{patient.medical_aid_details.relationship_to_main}</p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-4">
-                  <p className="text-gray-500">No insurance information</p>
+                  <p className="text-gray-500">No medical aid information</p>
                   <Button variant="outline" size="sm" className="mt-2">
-                    Add Insurance
+                    Add Medical Aid
                   </Button>
                 </div>
               )}
