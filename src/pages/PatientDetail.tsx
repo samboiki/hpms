@@ -72,6 +72,7 @@ const PatientDetail: React.FC = () => {
     try {
       setIsLoading(true);
       setError(null);
+      console.log('Fetching details for patient ID:', id);
 
       const { data, error: fetchError } = await supabase
         .from('patients')
@@ -98,6 +99,11 @@ const PatientDetail: React.FC = () => {
         .single();
 
       if (fetchError) {
+        console.error('Error fetching patient details:', {
+          message: fetchError.message,
+          details: fetchError.details,
+          hint: fetchError.hint
+        });
         throw fetchError;
       }
 
@@ -105,9 +111,15 @@ const PatientDetail: React.FC = () => {
         throw new Error('Patient not found');
       }
 
+      console.log('Fetched patient data:', {
+        patientId: data.id,
+        hasMedicalAid: !!data.medical_aid_details,
+        medicalAidDetails: data.medical_aid_details
+      });
+
       setPatient(data);
     } catch (err) {
-      console.error('Error fetching patient details:', err);
+      console.error('Error in fetchPatientDetails:', err);
       setError(err instanceof Error ? err.message : 'Failed to load patient details');
     } finally {
       setIsLoading(false);
@@ -138,6 +150,70 @@ const PatientDetail: React.FC = () => {
       </div>
     );
   }
+
+  const renderMedicalAidCard = () => (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle>Medical Aid Information</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-4">
+            <Loader2 size={20} className="animate-spin text-gray-400 mr-2" />
+            <span className="text-gray-500">Loading medical aid details...</span>
+          </div>
+        ) : error ? (
+          <div className="text-center py-4">
+            <p className="text-error-600">{error}</p>
+            <Button variant="outline" size="sm" className="mt-2" onClick={fetchPatientDetails}>
+              Retry
+            </Button>
+          </div>
+        ) : patient?.medical_aid_details ? (
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-medium text-gray-500">Provider</h4>
+              <p className="text-gray-900">{patient.medical_aid_details.provider}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-gray-500">Scheme</h4>
+              <p className="text-gray-900">{patient.medical_aid_details.scheme}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-gray-500">Membership Number</h4>
+              <p className="text-gray-900">{patient.medical_aid_details.membership_number}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-gray-500">Plan Type</h4>
+              <p className="text-gray-900">{patient.medical_aid_details.plan_type}</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-gray-500">Main Member</h4>
+              <p className="text-gray-900">{patient.medical_aid_details.main_member_name}</p>
+              <p className="text-sm text-gray-500">ID: {patient.medical_aid_details.main_member_id_number}</p>
+            </div>
+            {patient.medical_aid_details.relationship_to_main !== 'Self' && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-500">Relationship to Main Member</h4>
+                <p className="text-gray-900">{patient.medical_aid_details.relationship_to_main}</p>
+              </div>
+            )}
+            <Button variant="outline" size="sm" className="mt-2">
+              <Edit3 size={14} className="mr-2" />
+              Update Medical Aid
+            </Button>
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-gray-500">No medical aid information</p>
+            <Button variant="outline" size="sm" className="mt-2">
+              Add Medical Aid
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="animate-fade-in">
@@ -191,55 +267,7 @@ const PatientDetail: React.FC = () => {
             </CardContent>
           </Card>
 
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Medical Aid Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {patient.medical_aid_details ? (
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Provider</h4>
-                    <p className="text-gray-900">{patient.medical_aid_details.provider}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Scheme</h4>
-                    <p className="text-gray-900">{patient.medical_aid_details.scheme}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Membership Number</h4>
-                    <p className="text-gray-900">{patient.medical_aid_details.membership_number}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Plan Type</h4>
-                    <p className="text-gray-900">{patient.medical_aid_details.plan_type}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Main Member</h4>
-                    <p className="text-gray-900">{patient.medical_aid_details.main_member_name}</p>
-                    <p className="text-sm text-gray-500">ID: {patient.medical_aid_details.main_member_id_number}</p>
-                  </div>
-                  {patient.medical_aid_details.relationship_to_main !== 'Self' && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-500">Relationship to Main Member</h4>
-                      <p className="text-gray-900">{patient.medical_aid_details.relationship_to_main}</p>
-                    </div>
-                  )}
-                  <Button variant="outline" size="sm" className="mt-2">
-                    <Edit3 size={14} className="mr-2" />
-                    Update Medical Aid
-                  </Button>
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-gray-500">No medical aid information</p>
-                  <Button variant="outline" size="sm" className="mt-2">
-                    Add Medical Aid
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {renderMedicalAidCard()}
 
           {patient.next_of_kin && (
             <Card className="mt-6">
