@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   Search, 
@@ -6,29 +6,79 @@ import {
   Filter, 
   User,
   ChevronRight,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { usePatientsStore } from '../stores/patientsStore';
 import { useNavigate } from 'react-router-dom';
 import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
 import AddPatientForm from '../components/forms/AddPatientForm';
+import { supabase } from '../lib/supabase';
+
+interface Patient {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  cell_number: string;
+  date_of_birth: string;
+  gender: string;
+  medical_aid_details?: {
+    provider: string;
+    membership_number: string;
+  };
+}
 
 const Patients: React.FC = () => {
-  const { patients } = usePatientsStore();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddPatientModalOpen, setIsAddPatientModalOpen] = useState(false);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
+  useEffect(() => {
+    fetchPatients();
+  }, []);
+
+  const fetchPatients = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('patients')
+        .select(`
+          *,
+          medical_aid_details (
+            provider,
+            membership_number
+          )
+        `);
+
+      if (error) throw error;
+      setPatients(data || []);
+    } catch (err) {
+      console.error('Error fetching patients:', err);
+      setError('Failed to load patients');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Filter patients based on search term
   const filteredPatients = patients.filter(patient => {
-    const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase();
-    return fullName.includes(searchTerm.toLowerCase()) || 
-      patient.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.phone.includes(searchTerm);
+    const fullName = `${patient.first_name} ${patient.last_name}`.toLowerCase();
+    const searchLower = searchTerm.toLowerCase();
+    return fullName.includes(searchLower) || 
+      (patient.email && patient.email.toLowerCase().includes(searchLower)) ||
+      (patient.cell_number && patient.cell_number.includes(searchTerm));
   });
+
+  const handlePatientAdded = () => {
+    setIsAddPatientModalOpen(false);
+    fetchPatients(); // Refresh the list
+  };
 
   return (
     <div className="animate-fade-in">
@@ -52,7 +102,6 @@ const Patients: React.FC = () => {
         </div>
       </div>
 
-      {/* Search and filter */}
       <Card className="mb-6">
         <CardContent className="p-4">
           <div className="flex flex-col md:flex-row gap-3">
@@ -79,90 +128,84 @@ const Patients: React.FC = () => {
           <CardTitle>Patient Directory</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-                <tr>
-                  <th className="px-6 py-3 text-left">Patient</th>
-                  <th className="px-6 py-3 text-left">Contact</th>
-                  <th className="px-6 py-3 text-left">Date of Birth</th>
-                  <th className="px-6 py-3 text-left">Insurance</th>
-                  <th className="px-6 py-3 text-left">Medical Records</th>
-                  <th className="px-6 py-3 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredPatients.map((patient) => (
-                  <tr 
-                    key={patient.id}
-                    className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/patients/${patient.id}`)}
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-3">
-                        {patient.avatar ? (
-                          <img 
-                            src={patient.avatar} 
-                            alt={`${patient.firstName} ${patient.lastName}`}
-                            className="w-8 h-8 rounded-full object-cover"
-                          />
-                        ) : (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 size={24} className="animate-spin text-primary-600" />
+              <span className="ml-2 text-gray-600">Loading patients...</span>
+            </div>
+          ) : error ? (
+            <div className="text-center py-8 text-error-600">
+              {error}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                  <tr>
+                    <th className="px-6 py-3 text-left">Patient</th>
+                    <th className="px-6 py-3 text-left">Contact</th>
+                    <th className="px-6 py-3 text-left">Date of Birth</th>
+                    <th className="px-6 py-3 text-left">Insurance</th>
+                    <th className="px-6 py-3 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {filteredPatients.map((patient) => (
+                    <tr 
+                      key={patient.id}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => navigate(`/patients/${patient.id}`)}
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center space-x-3">
                           <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
                             <User size={14} className="text-gray-500" />
                           </div>
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              {patient.first_name} {patient.last_name}
+                            </div>
+                            <div className="text-xs text-gray-500 capitalize">
+                              {patient.gender}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm text-gray-900">{patient.email}</div>
+                        <div className="text-xs text-gray-500">{patient.cell_number}</div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {patient.date_of_birth}
+                      </td>
+                      <td className="px-6 py-4">
+                        {patient.medical_aid_details ? (
+                          <div>
+                            <div className="text-sm text-gray-900">{patient.medical_aid_details.provider}</div>
+                            <div className="text-xs text-gray-500">#{patient.medical_aid_details.membership_number}</div>
+                          </div>
+                        ) : (
+                          <Badge variant="gray" size="sm">No Insurance</Badge>
                         )}
-                        <div>
-                          <div className="font-medium text-gray-900">
-                            {patient.firstName} {patient.lastName}
-                          </div>
-                          <div className="text-xs text-gray-500 capitalize">
-                            {patient.gender}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">{patient.email}</div>
-                      <div className="text-xs text-gray-500">{patient.phone}</div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {patient.dateOfBirth}
-                    </td>
-                    <td className="px-6 py-4">
-                      {patient.insuranceProvider ? (
-                        <div>
-                          <div className="text-sm text-gray-900">{patient.insuranceProvider}</div>
-                          <div className="text-xs text-gray-500">#{patient.insuranceNumber}</div>
-                        </div>
-                      ) : (
-                        <Badge variant="gray" size="sm">No Insurance</Badge>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <FileText size={16} className="text-gray-400 mr-2" />
-                        <span className="text-sm text-gray-900">
-                          {patient.medicalHistory.length} records
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <Button variant="ghost" size="sm">
-                        <ChevronRight size={16} />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            
-            {filteredPatients.length === 0 && (
-              <div className="text-center py-10">
-                <Users size={40} className="mx-auto text-gray-300" />
-                <p className="mt-2 text-gray-500">No patients found</p>
-              </div>
-            )}
-          </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <Button variant="ghost" size="sm">
+                          <ChevronRight size={16} />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              
+              {filteredPatients.length === 0 && !isLoading && (
+                <div className="text-center py-10">
+                  <Users size={40} className="mx-auto text-gray-300" />
+                  <p className="mt-2 text-gray-500">No patients found</p>
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -172,7 +215,7 @@ const Patients: React.FC = () => {
         title="Add New Patient"
       >
         <AddPatientForm
-          onSuccess={() => setIsAddPatientModalOpen(false)}
+          onSuccess={handlePatientAdded}
         />
       </FormModal>
     </div>
