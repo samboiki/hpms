@@ -41,9 +41,13 @@ const Patients: React.FC = () => {
           </div>
         </div>
         <div className="mt-4 md:mt-0">
-          <Button onClick={() => setIsAddPatientModalOpen(true)}>
+          <Button 
+            size="sm"
+            onClick={() => setIsAddPatientModalOpen(true)}
+            className="bg-gradient-to-r from-[#01b8d8] to-[#01b8d8]"
+          >
             <PlusCircle size={16} className="mr-2" />
-            Add New Patient
+            Add Patient
           </Button>
         </div>
       </div>
@@ -70,7 +74,6 @@ const Patients: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Patient List */}
       <Card>
         <CardHeader className="px-6 py-4">
           <CardTitle>Patient Directory</CardTitle>
