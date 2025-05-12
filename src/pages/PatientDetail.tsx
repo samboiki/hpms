@@ -73,46 +73,21 @@ const PatientDetail: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      // First fetch the patient details
+      // Fetch patient details with medical aid and next of kin in a single query
       const { data: patientData, error: patientError } = await supabase
         .from('patients')
-        .select('*')
+        .select(`
+          *,
+          medical_aid_details (*),
+          next_of_kin (*)
+        `)
         .eq('id', id)
         .single();
 
       if (patientError) throw patientError;
 
-      // Then fetch medical aid details
-      const { data: medicalAidData, error: medicalAidError } = await supabase
-        .from('medical_aid_details')
-        .select('*')
-        .eq('patient_id', id)
-        .maybeSingle();
-
-      if (medicalAidError) {
-        throw medicalAidError;
-      }
-
-      // Fetch next of kin details
-      const { data: nextOfKinData, error: nextOfKinError } = await supabase
-        .from('next_of_kin')
-        .select('*')
-        .eq('patient_id', id)
-        .maybeSingle();
-
-      if (nextOfKinError) {
-        throw nextOfKinError;
-      }
-
-      // Combine all data
-      const fullPatientData: Patient = {
-        ...patientData,
-        medical_aid_details: medicalAidData || null,
-        next_of_kin: nextOfKinData || null
-      };
-
-      console.log('Fetched patient data:', fullPatientData);
-      setPatient(fullPatientData);
+      console.log('Fetched patient data:', patientData);
+      setPatient(patientData);
     } catch (err) {
       console.error('Error in fetchPatientDetails:', err);
       setError(err instanceof Error ? err.message : 'Failed to load patient details');
@@ -152,7 +127,7 @@ const PatientDetail: React.FC = () => {
         <CardTitle>Medical Aid Information</CardTitle>
       </CardHeader>
       <CardContent>
-        {patient.medical_aid_details ? (
+        {patient?.medical_aid_details ? (
           <div className="space-y-4">
             <div>
               <h4 className="text-sm font-medium text-gray-500">Provider</h4>
