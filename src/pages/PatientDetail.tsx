@@ -87,9 +87,9 @@ const PatientDetail: React.FC = () => {
         .from('medical_aid_details')
         .select('*')
         .eq('patient_id', id)
-        .single();
+        .maybeSingle();
 
-      if (medicalAidError && medicalAidError.code !== 'PGRST116') { // Ignore not found error
+      if (medicalAidError) {
         throw medicalAidError;
       }
 
@@ -98,9 +98,9 @@ const PatientDetail: React.FC = () => {
         .from('next_of_kin')
         .select('*')
         .eq('patient_id', id)
-        .single();
+        .maybeSingle();
 
-      if (nextOfKinError && nextOfKinError.code !== 'PGRST116') { // Ignore not found error
+      if (nextOfKinError) {
         throw nextOfKinError;
       }
 
@@ -252,12 +252,12 @@ const PatientDetail: React.FC = () => {
 
           {renderMedicalAidCard()}
 
-          {patient.next_of_kin && (
-            <Card className="mt-6">
-              <CardHeader>
-                <CardTitle>Next of Kin</CardTitle>
-              </CardHeader>
-              <CardContent>
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Next of Kin</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {patient.next_of_kin ? (
                 <div className="space-y-3">
                   <div>
                     <h4 className="text-sm font-medium text-gray-500">Name</h4>
@@ -277,10 +277,21 @@ const PatientDetail: React.FC = () => {
                       <p className="text-gray-900">{patient.next_of_kin.address}</p>
                     </div>
                   )}
+                  <Button variant="outline" size="sm" className="mt-2">
+                    <Edit3 size={14} className="mr-2" />
+                    Update Next of Kin
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-gray-500">No next of kin information</p>
+                  <Button variant="outline" size="sm" className="mt-2">
+                    Add Next of Kin
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <div className="lg:col-span-2">
