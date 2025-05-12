@@ -11,7 +11,7 @@ import {
   ChevronRight,
   ChevronLeft,
   X,
-  DollarSign
+  Wallet
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -34,7 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Users, label: 'Patients', path: '/patients' },
     { icon: Calendar, label: 'Schedule', path: '/appointments' },
-    { icon: DollarSign, label: 'Finance', path: '/finance' },
+    { icon: Wallet, label: 'Finance', path: '/finance' },
     { icon: FileText, label: 'Records', path: '/records' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];
@@ -102,7 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           onClick={logout}
           className={cn(
             "flex items-center w-full px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors min-h-[44px]",
-            collapsed && !isMobile && "justify-center"
+            collapsed && !iMobile && "justify-center"
           )}
         >
           <LogOut size={20} strokeWidth={1.5} />
