@@ -5,25 +5,64 @@ export interface Patient {
   firstName: string;
   lastName: string;
   dateOfBirth: string;
+  idNumber: string; // National ID number
   gender: 'male' | 'female' | 'other';
   email: string;
   phone: string;
   address: string;
-  insuranceProvider?: string;
-  insuranceNumber?: string;
+  emergencyContact: {
+    name: string;
+    relationship: string;
+    phone: string;
+  };
+  medicalAidDetails?: {
+    provider: string;
+    scheme: string;
+    membershipNumber: string;
+    planType: string;
+    mainMember: {
+      name: string;
+      idNumber: string;
+      relationship: string;
+    };
+    dependentCode?: string;
+  };
   medicalHistory: MedicalRecord[];
   upcomingAppointments: Appointment[];
+  chronicConditions: string[];
+  allergies: string[];
+  bloodType?: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
+  occupation?: string;
+  employer?: string;
+  referralSource?: string;
+  preferredLanguage: 'English' | 'Afrikaans' | 'Oshiwambo' | 'Other';
   avatar?: string;
 }
 
 export interface MedicalRecord {
   id: string;
   date: string;
-  type: 'visit' | 'diagnosis' | 'prescription' | 'lab' | 'immunization';
+  type: 'consultation' | 'procedure' | 'prescription' | 'lab' | 'referral' | 'sick-note';
   title: string;
   description: string;
   doctor: string;
+  icd10Code?: string;
+  nappi?: string;
   attachments?: { name: string; url: string }[];
+  vitals?: {
+    bloodPressure?: string;
+    temperature?: number;
+    pulseRate?: number;
+    weight?: number;
+    height?: number;
+    bmi?: number;
+  };
+  billingCode?: string;
+  followUp?: {
+    required: boolean;
+    date?: string;
+    notes?: string;
+  };
 }
 
 export interface Appointment {
@@ -34,11 +73,19 @@ export interface Appointment {
   date: string;
   time: string;
   duration: number;
-  type: 'check-up' | 'follow-up' | 'consultation' | 'emergency';
+  type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
   status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled';
   notes?: string;
   checkInTime?: string;
   estimatedWaitTime?: number;
+  paymentStatus?: 'medical-aid' | 'cash' | 'pending' | 'completed';
+  referralRequired?: boolean;
+  referralDetails?: {
+    referringDoctor: string;
+    practice: string;
+    referralDate: string;
+    referralNumber: string;
+  };
 }
 
 interface PatientsState {
@@ -55,111 +102,93 @@ interface PatientsState {
 const mockPatients: Patient[] = [
   {
     id: '1',
-    firstName: 'John',
-    lastName: 'Doe',
+    firstName: 'Johannes',
+    lastName: 'van der Merwe',
     dateOfBirth: '1980-05-15',
+    idNumber: '8005155012087',
     gender: 'male',
-    email: 'john.doe@example.com',
-    phone: '(555) 123-4567',
-    address: '123 Main St, Anytown, CA 94321',
-    insuranceProvider: 'Blue Cross',
-    insuranceNumber: 'BC123456789',
+    email: 'johannes.vdm@example.com',
+    phone: '081 123 4567',
+    address: '123 Mandume Ndemufayo Street, Windhoek, Namibia',
+    emergencyContact: {
+      name: 'Maria van der Merwe',
+      relationship: 'Spouse',
+      phone: '081 765 4321'
+    },
+    medicalAidDetails: {
+      provider: 'Namibia Medical Care',
+      scheme: 'Diamond',
+      membershipNumber: 'NMC123456',
+      planType: 'Comprehensive',
+      mainMember: {
+        name: 'Johannes van der Merwe',
+        idNumber: '8005155012087',
+        relationship: 'Self'
+      }
+    },
     medicalHistory: [
       {
         id: 'm1',
         date: '2023-02-10',
-        type: 'visit',
-        title: 'Annual Physical',
-        description: 'Patient is in good health. BP: 120/80, HR: 72, Temp: 98.6F',
-        doctor: 'Dr. Jane Smith',
-      },
-      {
-        id: 'm2',
-        date: '2023-05-22',
-        type: 'lab',
-        title: 'Blood Work',
-        description: 'CBC, CMP, Lipid Panel - All within normal ranges',
-        doctor: 'Dr. Jane Smith',
-        attachments: [
-          { name: 'Blood Work Results.pdf', url: '#' },
-        ],
-      },
+        type: 'consultation',
+        title: 'Annual Check-up',
+        description: 'Patient is in good health. BP: 120/80, HR: 72, Temp: 36.6°C',
+        doctor: 'Dr. Sarah Nkosi',
+        icd10Code: 'Z00.00',
+        vitals: {
+          bloodPressure: '120/80',
+          temperature: 36.6,
+          pulseRate: 72,
+          weight: 82,
+          height: 178,
+          bmi: 25.9
+        }
+      }
     ],
-    upcomingAppointments: [
-      {
-        id: 'a1',
-        patientId: '1',
-        doctorId: 'd1',
-        doctorName: 'Dr. Jane Smith',
-        date: '2023-11-15',
-        time: '10:30',
-        duration: 30,
-        type: 'follow-up',
-        status: 'scheduled',
-      },
-    ],
-    avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200',
+    upcomingAppointments: [],
+    chronicConditions: ['Hypertension'],
+    allergies: ['Penicillin'],
+    bloodType: 'O+',
+    occupation: 'Teacher',
+    employer: 'Ministry of Education',
+    preferredLanguage: 'Afrikaans',
+    avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200'
   },
   {
     id: '2',
-    firstName: 'Sarah',
-    lastName: 'Johnson',
+    firstName: 'Precious',
+    lastName: 'Namupala',
     dateOfBirth: '1992-08-21',
+    idNumber: '9208210123456',
     gender: 'female',
-    email: 'sarah.johnson@example.com',
-    phone: '(555) 987-6543',
-    address: '456 Oak Ave, Othertown, NY 10001',
-    insuranceProvider: 'Aetna',
-    insuranceNumber: 'AE987654321',
-    medicalHistory: [
-      {
-        id: 'm3',
-        date: '2023-03-05',
-        type: 'diagnosis',
-        title: 'Migraine',
-        description: 'Patient reports frequent migraines. Prescribed sumatriptan 50mg.',
-        doctor: 'Dr. Michael Chen',
-      },
-    ],
+    email: 'precious.n@example.com',
+    phone: '081 234 5678',
+    address: '456 Independence Avenue, Windhoek, Namibia',
+    emergencyContact: {
+      name: 'Thomas Namupala',
+      relationship: 'Father',
+      phone: '081 876 5432'
+    },
+    medicalAidDetails: {
+      provider: 'Discovery Health',
+      scheme: 'Coastal Core',
+      membershipNumber: 'DH789012',
+      planType: 'Standard',
+      mainMember: {
+        name: 'Precious Namupala',
+        idNumber: '9208210123456',
+        relationship: 'Self'
+      }
+    },
+    medicalHistory: [],
     upcomingAppointments: [],
-    avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=200',
-  },
-  {
-    id: '3',
-    firstName: 'Robert',
-    lastName: 'Williams',
-    dateOfBirth: '1975-11-30',
-    gender: 'male',
-    email: 'robert.williams@example.com',
-    phone: '(555) 456-7890',
-    address: '789 Pine Dr, Somewhere, TX 75001',
-    insuranceProvider: 'UnitedHealthcare',
-    insuranceNumber: 'UH543216789',
-    medicalHistory: [
-      {
-        id: 'm4',
-        date: '2023-01-18',
-        type: 'prescription',
-        title: 'Hypertension Medication',
-        description: 'Prescribed lisinopril 10mg daily for hypertension management.',
-        doctor: 'Dr. Jane Smith',
-      },
-    ],
-    upcomingAppointments: [
-      {
-        id: 'a2',
-        patientId: '3',
-        doctorId: 'd1',
-        doctorName: 'Dr. Jane Smith',
-        date: '2023-11-17',
-        time: '14:15',
-        duration: 45,
-        type: 'check-up',
-        status: 'confirmed',
-      },
-    ],
-    avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=200',
-  },
+    chronicConditions: [],
+    allergies: [],
+    occupation: 'Software Developer',
+    employer: 'Tech Solutions Namibia',
+    preferredLanguage: 'English',
+    avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=200'
+  }
 ];
 
 export const usePatientsStore = create<PatientsState>((set, get) => ({
@@ -169,8 +198,6 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
   fetchPatients: async () => {
     set({ isLoading: true, error: null });
     try {
-      // In a real app, this would be an API call
-      // For demo purposes, we're just using the mock data
       set({ patients: mockPatients, isLoading: false });
     } catch (error) {
       set({ error: 'Failed to fetch patients', isLoading: false });
@@ -182,7 +209,6 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
   addPatient: async (patient) => {
     set({ isLoading: true, error: null });
     try {
-      // In a real app, this would be an API call
       const newPatient = {
         ...patient,
         id: Math.random().toString(36).substring(2, 11),
@@ -198,7 +224,6 @@ export const usePatientsStore = create<PatientsState>((set, get) => ({
   updatePatient: async (id, updates) => {
     set({ isLoading: true, error: null });
     try {
-      // In a real app, this would be an API call
       set(state => ({
         patients: state.patients.map(patient =>
           patient.id === id ? { ...patient, ...updates } : patient
