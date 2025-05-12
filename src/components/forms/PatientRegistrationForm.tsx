@@ -1,76 +1,50 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import Button from '../ui/Button';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 interface PatientRegistrationFormData {
   // Personal Details
-  surname: string;
   firstName: string;
+  lastName: string;
   idNumber: string;
   dateOfBirth: string;
-  age: string;
+  gender: string;
   maritalStatus: string;
   occupation: string;
   cellNo: string;
   homeLanguage: string;
-  numberOfDependents: string;
+  email: string;
 
   // Contact Details
   homeAddress: string;
   postalAddress: string;
   postalCode: string;
-  emailAddress: string;
-  telephone: string;
-
-  // Person Responsible for Account
-  accountPerson: {
-    fullName: string;
-    idNumber: string;
-    cellNo: string;
-    homeAddress: string;
-    postalCode: string;
-    telephone: string;
-  };
-
-  // Employer Details
-  employer: {
-    name: string;
-    address: string;
-  };
 
   // Medical Aid
   medicalAid: {
-    fund: string;
-    number: string;
-    optionPlan: string;
+    provider: string;
+    scheme: string;
+    membershipNumber: string;
     mainMemberName: string;
+    mainMemberIdNumber: string;
+    relationship: string;
   };
 
   // Next of Kin
   nextOfKin: {
     name: string;
     relationship: string;
+    phone: string;
     address: string;
-    telephone: string;
   };
-
-  // Referral
-  referredBy: {
-    name: string;
-    address: string;
-    telephone: string;
-  };
-
-  // Family Members
-  familyMembers: Array<{
-    name: string;
-    dateOfBirth: string;
-    allergies: string;
-    comments: string;
-  }>;
 }
 
-// Update the Props interface to include onSuccess
 interface Props {
   onSuccess?: () => void;
 }
@@ -78,9 +52,68 @@ interface Props {
 const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
   const { register, handleSubmit, formState: { errors } } = useForm<PatientRegistrationFormData>();
 
-  const onSubmit = (data: PatientRegistrationFormData) => {
-    console.log(data);
-    onSuccess?.();
+  const onSubmit = async (data: PatientRegistrationFormData) => {
+    try {
+      // Insert patient data
+      const { data: patientData, error: patientError } = await supabase
+        .from('patients')
+        .insert([{
+          first_name: data.firstName,
+          last_name: data.lastName,
+          id_number: data.idNumber,
+          date_of_birth: data.dateOfBirth,
+          gender: data.gender,
+          marital_status: data.maritalStatus,
+          occupation: data.occupation,
+          cell_number: data.cellNo,
+          home_language: data.homeLanguage,
+          email: data.email,
+          home_address: data.homeAddress,
+          postal_address: data.postalAddress,
+          postal_code: data.postalCode
+        }])
+        .select()
+        .single();
+
+      if (patientError) throw patientError;
+
+      // Insert medical aid details
+      if (data.medicalAid.provider) {
+        const { error: medicalAidError } = await supabase
+          .from('medical_aid_details')
+          .insert([{
+            patient_id: patientData.id,
+            provider: data.medicalAid.provider,
+            scheme: data.medicalAid.scheme,
+            membership_number: data.medicalAid.membershipNumber,
+            main_member_name: data.medicalAid.mainMemberName,
+            main_member_id_number: data.medicalAid.mainMemberIdNumber,
+            relationship_to_main: data.medicalAid.relationship
+          }]);
+
+        if (medicalAidError) throw medicalAidError;
+      }
+
+      // Insert next of kin
+      if (data.nextOfKin.name) {
+        const { error: nextOfKinError } = await supabase
+          .from('next_of_kin')
+          .insert([{
+            patient_id: patientData.id,
+            name: data.nextOfKin.name,
+            relationship: data.nextOfKin.relationship,
+            phone: data.nextOfKin.phone,
+            address: data.nextOfKin.address
+          }]);
+
+        if (nextOfKinError) throw nextOfKinError;
+      }
+
+      onSuccess?.();
+    } catch (error) {
+      console.error('Error registering patient:', error);
+      // Handle error (show error message to user)
+    }
   };
 
   return (
@@ -90,24 +123,27 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
         <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">Personal Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Surname</label>
-            <input
-              type="text"
-              {...register('surname', { required: 'Surname is required' })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
-            />
-            {errors.surname && (
-              <p className="mt-1 text-sm text-red-600">{errors.surname.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">First Names</label>
+            <label className="block text-sm font-medium text-gray-700">First Name</label>
             <input
               type="text"
               {...register('firstName', { required: 'First name is required' })}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
             />
+            {errors.firstName && (
+              <p className="mt-1 text-sm text-red-600">{errors.firstName.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Last Name</label>
+            <input
+              type="text"
+              {...register('lastName', { required: 'Last name is required' })}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            />
+            {errors.lastName && (
+              <p className="mt-1 text-sm text-red-600">{errors.lastName.message}</p>
+            )}
           </div>
 
           <div>
@@ -117,15 +153,37 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
               {...register('idNumber', { required: 'ID number is required' })}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
             />
+            {errors.idNumber && (
+              <p className="mt-1 text-sm text-red-600">{errors.idNumber.message}</p>
+            )}
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
             <input
               type="date"
-              {...register('dateOfBirth')}
+              {...register('dateOfBirth', { required: 'Date of birth is required' })}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
             />
+            {errors.dateOfBirth && (
+              <p className="mt-1 text-sm text-red-600">{errors.dateOfBirth.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Gender</label>
+            <select
+              {...register('gender', { required: 'Gender is required' })}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            >
+              <option value="">Select gender</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+            {errors.gender && (
+              <p className="mt-1 text-sm text-red-600">{errors.gender.message}</p>
+            )}
           </div>
 
           <div>
@@ -149,10 +207,10 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
             >
               <option value="">Select language</option>
-              <option value="english">English</option>
-              <option value="afrikaans">Afrikaans</option>
-              <option value="oshiwambo">Oshiwambo</option>
-              <option value="other">Other</option>
+              <option value="English">English</option>
+              <option value="Afrikaans">Afrikaans</option>
+              <option value="Oshiwambo">Oshiwambo</option>
+              <option value="Other">Other</option>
             </select>
           </div>
 
@@ -164,6 +222,57 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
             />
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <input
+              type="email"
+              {...register('email')}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Occupation</label>
+            <input
+              type="text"
+              {...register('occupation')}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Contact Details */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">Contact Details</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700">Home Address</label>
+            <textarea
+              {...register('homeAddress')}
+              rows={2}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700">Postal Address</label>
+            <textarea
+              {...register('postalAddress')}
+              rows={2}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Postal Code</label>
+            <input
+              type="text"
+              {...register('postalCode')}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            />
+          </div>
         </div>
       </div>
 
@@ -172,28 +281,28 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
         <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">Medical Aid</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Fund</label>
+            <label className="block text-sm font-medium text-gray-700">Provider</label>
             <input
               type="text"
-              {...register('medicalAid.fund')}
+              {...register('medicalAid.provider')}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Number</label>
+            <label className="block text-sm font-medium text-gray-700">Scheme</label>
             <input
               type="text"
-              {...register('medicalAid.number')}
+              {...register('medicalAid.scheme')}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Option/Plan</label>
+            <label className="block text-sm font-medium text-gray-700">Membership Number</label>
             <input
               type="text"
-              {...register('medicalAid.optionPlan')}
+              {...register('medicalAid.membershipNumber')}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
             />
           </div>
@@ -203,6 +312,24 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
             <input
               type="text"
               {...register('medicalAid.mainMemberName')}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Main Member's ID Number</label>
+            <input
+              type="text"
+              {...register('medicalAid.mainMemberIdNumber')}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Relationship to Main Member</label>
+            <input
+              type="text"
+              {...register('medicalAid.relationship')}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
             />
           </div>
@@ -231,6 +358,15 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Phone</label>
+            <input
+              type="tel"
+              {...register('nextOfKin.phone')}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            />
+          </div>
+
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700">Address</label>
             <textarea
@@ -239,66 +375,6 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Telephone</label>
-            <input
-              type="tel"
-              {...register('nextOfKin.telephone')}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Family Members */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-gray-900 border-b pb-2">Family Members</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date of Birth</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Allergies</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comments</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {[0, 1, 2].map((index) => (
-                <tr key={index}>
-                  <td className="px-6 py-4">
-                    <input
-                      type="text"
-                      {...register(`familyMembers.${index}.name`)}
-                      className="block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
-                    />
-                  </td>
-                  <td className="px-6 py-4">
-                    <input
-                      type="date"
-                      {...register(`familyMembers.${index}.dateOfBirth`)}
-                      className="block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
-                    />
-                  </td>
-                  <td className="px-6 py-4">
-                    <input
-                      type="text"
-                      {...register(`familyMembers.${index}.allergies`)}
-                      className="block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
-                    />
-                  </td>
-                  <td className="px-6 py-4">
-                    <input
-                      type="text"
-                      {...register(`familyMembers.${index}.comments`)}
-                      className="block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </div>
 

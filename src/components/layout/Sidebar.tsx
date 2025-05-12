@@ -5,7 +5,6 @@ import {
   LayoutDashboard, 
   Users, 
   Calendar, 
-  FileText, 
   Settings,
   LogOut,
   ChevronRight,
@@ -35,7 +34,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: Users, label: 'Patients', path: '/patients' },
     { icon: Calendar, label: 'Schedule', path: '/appointments' },
     { icon: Wallet, label: 'Finance', path: '/finance' },
-    { icon: FileText, label: 'Records', path: '/records' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];
 
