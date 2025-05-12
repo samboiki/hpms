@@ -13,7 +13,11 @@ import {
   AlertCircle,
   Stethoscope,
   Heart,
-  Brain
+  Brain,
+  Timer,
+  ArrowRight,
+  UserCheck,
+  UserX
 } from 'lucide-react';
 import { useAppointmentsStore } from '../stores/appointmentsStore';
 import { usePatientsStore } from '../stores/patientsStore';
@@ -60,9 +64,35 @@ const Dashboard: React.FC = () => {
     'Follow-up appointments have a 95% attendance rate',
   ];
 
+  // Sort appointments by time
+  const sortedAppointments = [...todayAppointments].sort((a, b) => {
+    const timeA = new Date(`${a.date} ${a.time}`).getTime();
+    const timeB = new Date(`${b.date} ${b.time}`).getTime();
+    return timeA - timeB;
+  });
+
+  // Calculate wait times
+  const calculateWaitTime = (appointment: any) => {
+    const now = new Date();
+    const appointmentTime = new Date(`${appointment.date} ${appointment.time}`);
+    const diffInMinutes = Math.round((now.getTime() - appointmentTime.getTime()) / (1000 * 60));
+    return diffInMinutes > 0 ? `${diffInMinutes} mins` : '0 mins';
+  };
+
+  // Group appointments by status
+  const queuedAppointments = sortedAppointments.filter(app => 
+    app.status === 'scheduled' || app.status === 'confirmed'
+  );
+  const inProgressAppointments = sortedAppointments.filter(app => 
+    app.status === 'in-progress'
+  );
+  const completedTodayAppointments = sortedAppointments.filter(app => 
+    app.status === 'completed'
+  );
+
   return (
     <div className="animate-fade-in space-y-6">
-      {/* Header */}
+      {/* Header section remains the same */}
       <div className="flex flex-col md:flex-row items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
@@ -85,11 +115,11 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Emergency Slots Alert */}
-      <Card className="bg-brand-light border-l-4 border-l-brand-teal">
+      <Card className="bg-brand-light border-l-4 border-l-brand-primary">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <AlertCircle className="text-brand-teal mr-3" size={24} />
+              <AlertCircle className="text-brand-primary mr-3" size={24} />
               <div>
                 <h3 className="font-medium text-gray-900">Emergency Slots Available</h3>
                 <p className="text-sm text-gray-600">
@@ -104,8 +134,9 @@ const Dashboard: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Key Metrics */}
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Stats cards remain the same */}
         <Card className="hover:shadow-md transition-shadow">
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -167,81 +198,185 @@ const Dashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* Patient Queue and Analytics */}
+      {/* Enhanced Patient Queue and Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Patient Queue */}
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle>Patient Queue</CardTitle>
-              <Badge variant="azure" size="sm">
-                Avg. Wait: {analyticsData.avgWaitTime}
-              </Badge>
+              <div className="flex items-center space-x-2">
+                <Badge variant="azure" size="sm">
+                  <Timer size={12} className="mr-1" />
+                  Avg. Wait: {analyticsData.avgWaitTime}
+                </Badge>
+                <Button variant="outline" size="sm">
+                  Manage Queue
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
-            {todayAppointments.length > 0 ? (
-              <div className="space-y-4">
-                {todayAppointments.map((appointment, index) => {
-                  const patient = patients.find(p => p.id === appointment.patientId);
-                  
-                  return (
-                    <div 
-                      key={appointment.id}
-                      className="flex items-center p-3 hover:bg-gray-50 rounded-md"
-                    >
-                      <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-brand-light rounded-full text-brand-teal font-medium">
-                        {index + 1}
-                      </div>
-                      
-                      <div className="ml-4 flex-1">
-                        <div className="flex items-center">
-                          {patient?.avatar ? (
-                            <img 
-                              src={patient.avatar} 
-                              alt={`${patient.firstName} ${patient.lastName}`}
-                              className="w-8 h-8 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                              <User size={14} className="text-gray-500" />
+            <div className="space-y-6">
+              {/* Waiting */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Waiting</h3>
+                <div className="space-y-2">
+                  {queuedAppointments.map((appointment, index) => {
+                    const patient = patients.find(p => p.id === appointment.patientId);
+                    const waitTime = calculateWaitTime(appointment);
+                    
+                    return (
+                      <div 
+                        key={appointment.id}
+                        className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-brand-light rounded-full text-brand-primary font-medium">
+                          {index + 1}
+                        </div>
+                        
+                        <div className="ml-4 flex-1">
+                          <div className="flex items-center">
+                            {patient?.avatar ? (
+                              <img 
+                                src={patient.avatar} 
+                                alt={`${patient.firstName} ${patient.lastName}`}
+                                className="w-8 h-8 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                                <User size={14} className="text-gray-500" />
+                              </div>
+                            )}
+                            
+                            <div className="ml-3">
+                              <h4 className="text-sm font-medium text-gray-900">
+                                {patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown Patient'}
+                              </h4>
+                              <p className="text-xs text-gray-500">
+                                {appointment.time} • {appointment.type}
+                              </p>
                             </div>
-                          )}
-                          
-                          <div className="ml-3">
-                            <h4 className="text-sm font-medium text-gray-900">
-                              {patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown Patient'}
-                            </h4>
-                            <p className="text-xs text-gray-500">
-                              {appointment.time} • {appointment.type}
-                            </p>
                           </div>
                         </div>
+                        
+                        <div className="flex items-center space-x-3">
+                          <Badge
+                            variant={waitTime === '0 mins' ? 'success' : 'warning'}
+                            size="sm"
+                          >
+                            {waitTime === '0 mins' ? 'On Time' : `Wait: ${waitTime}`}
+                          </Badge>
+                          <Button variant="ghost" size="sm">
+                            <ArrowRight size={14} />
+                          </Button>
+                        </div>
                       </div>
-                      
-                      <Badge
-                        variant={
-                          appointment.status === 'confirmed' ? 'success' :
-                          appointment.status === 'scheduled' ? 'warning' : 
-                          appointment.status === 'cancelled' ? 'error' : 'gray'
-                        }
-                        size="sm"
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* In Progress */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">In Progress</h3>
+                <div className="space-y-2">
+                  {inProgressAppointments.map((appointment) => {
+                    const patient = patients.find(p => p.id === appointment.patientId);
+                    
+                    return (
+                      <div 
+                        key={appointment.id}
+                        className="flex items-center p-3 bg-brand-light rounded-lg"
                       >
-                        {appointment.status}
-                      </Badge>
-                    </div>
-                  );
-                })}
+                        <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-brand-primary rounded-full text-white">
+                          <UserCheck size={14} />
+                        </div>
+                        
+                        <div className="ml-4 flex-1">
+                          <div className="flex items-center">
+                            {patient?.avatar ? (
+                              <img 
+                                src={patient.avatar} 
+                                alt={`${patient.firstName} ${patient.lastName}`}
+                                className="w-8 h-8 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                                <User size={14} className="text-gray-500" />
+                              </div>
+                            )}
+                            
+                            <div className="ml-3">
+                              <h4 className="text-sm font-medium text-gray-900">
+                                {patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown Patient'}
+                              </h4>
+                              <p className="text-xs text-gray-500">
+                                With Dr. {appointment.doctorName}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <Badge variant="azure" size="sm">
+                          In Progress
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            ) : (
-              <div className="text-center py-6">
-                <Calendar size={40} className="mx-auto text-gray-300" />
-                <p className="mt-2 text-gray-500">No appointments scheduled for today</p>
-                <Button variant="outline" size="sm" className="mt-3">
-                  Schedule Appointment
-                </Button>
+
+              {/* Completed Today */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">Completed Today</h3>
+                <div className="space-y-2">
+                  {completedTodayAppointments.map((appointment) => {
+                    const patient = patients.find(p => p.id === appointment.patientId);
+                    
+                    return (
+                      <div 
+                        key={appointment.id}
+                        className="flex items-center p-3 bg-gray-50 rounded-lg opacity-75"
+                      >
+                        <div className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-success-100 rounded-full text-success-600">
+                          <UserCheck size={14} />
+                        </div>
+                        
+                        <div className="ml-4 flex-1">
+                          <div className="flex items-center">
+                            {patient?.avatar ? (
+                              <img 
+                                src={patient.avatar} 
+                                alt={`${patient.firstName} ${patient.lastName}`}
+                                className="w-8 h-8 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                                <User size={14} className="text-gray-500" />
+                              </div>
+                            )}
+                            
+                            <div className="ml-3">
+                              <h4 className="text-sm font-medium text-gray-900">
+                                {patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown Patient'}
+                              </h4>
+                              <p className="text-xs text-gray-500">
+                                Completed at {appointment.time}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <Badge variant="success" size="sm">
+                          Completed
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
 
@@ -256,7 +391,7 @@ const Dashboard: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center mb-2">
-                    <Stethoscope size={18} className="text-brand-teal mr-2" />
+                    <Stethoscope size={18} className="text-brand-primary mr-2" />
                     <h4 className="text-sm font-medium text-gray-700">Patient Load</h4>
                   </div>
                   <p className="text-2xl font-bold text-gray-900">{todayAppointments.length}</p>
@@ -265,7 +400,7 @@ const Dashboard: React.FC = () => {
                 
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center mb-2">
-                    <Heart size={18} className="text-brand-teal mr-2" />
+                    <Heart size={18} className="text-brand-primary mr-2" />
                     <h4 className="text-sm font-medium text-gray-700">Success Rate</h4>
                   </div>
                   <p className="text-2xl font-bold text-gray-900">98%</p>
@@ -274,7 +409,7 @@ const Dashboard: React.FC = () => {
                 
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center mb-2">
-                    <Clock size={18} className="text-brand-teal mr-2" />
+                    <Clock size={18} className="text-brand-primary mr-2" />
                     <h4 className="text-sm font-medium text-gray-700">Wait Time</h4>
                   </div>
                   <p className="text-2xl font-bold text-gray-900">{analyticsData.avgWaitTime}</p>
@@ -283,7 +418,7 @@ const Dashboard: React.FC = () => {
                 
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center mb-2">
-                    <Brain size={18} className="text-brand-teal mr-2" />
+                    <Brain size={18} className="text-brand-primary mr-2" />
                     <h4 className="text-sm font-medium text-gray-700">AI Accuracy</h4>
                   </div>
                   <p className="text-2xl font-bold text-gray-900">96%</p>
@@ -302,7 +437,7 @@ const Dashboard: React.FC = () => {
               <div className="space-y-4">
                 {aiInsights.map((insight, index) => (
                   <div key={index} className="flex items-start p-3 bg-gray-50 rounded-lg">
-                    <Brain size={16} className="text-brand-teal mt-1 mr-3" />
+                    <Brain size={16} className="text-brand-primary mt-1 mr-3" />
                     <p className="text-sm text-gray-700">{insight}</p>
                   </div>
                 ))}
