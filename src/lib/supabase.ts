@@ -15,3 +15,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true
   }
 });
+
+// Helper function to log database errors
+export const logDatabaseError = (error: any, context: string) => {
+  console.error(`Database Error in ${context}:`, {
+    message: error.message,
+    details: error.details,
+    hint: error.hint,
+    code: error.code
+  });
+};
