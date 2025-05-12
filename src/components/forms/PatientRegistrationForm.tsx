@@ -70,11 +70,17 @@ interface PatientRegistrationFormData {
   }>;
 }
 
-const PatientRegistrationForm: React.FC = () => {
+// Update the Props interface to include onSuccess
+interface Props {
+  onSuccess?: () => void;
+}
+
+const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
   const { register, handleSubmit, formState: { errors } } = useForm<PatientRegistrationFormData>();
 
   const onSubmit = (data: PatientRegistrationFormData) => {
     console.log(data);
+    onSuccess?.();
   };
 
   return (
