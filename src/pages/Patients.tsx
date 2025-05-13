@@ -12,7 +12,11 @@ import {
   Phone,
   Mail,
   Clock,
-  AlertCircle
+  AlertCircle,
+  LayoutGrid,
+  List,
+  ArrowUpDown,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -21,6 +25,7 @@ import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
 import AddPatientForm from '../components/forms/AddPatientForm';
 import { supabase } from '../lib/supabase';
+import { format } from 'date-fns';
 
 interface Patient {
   id: string;
@@ -45,6 +50,8 @@ const Patients: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<'grid' | 'list'>('list');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [sortBy, setSortBy] = useState<'name' | 'date'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   
   useEffect(() => {
     fetchPatients();
@@ -73,13 +80,22 @@ const Patients: React.FC = () => {
     }
   };
 
-  // Filter patients based on search term
   const filteredPatients = patients.filter(patient => {
     const fullName = `${patient.first_name} ${patient.last_name}`.toLowerCase();
     const searchLower = searchTerm.toLowerCase();
     return fullName.includes(searchLower) || 
       (patient.email && patient.email.toLowerCase().includes(searchLower)) ||
       (patient.cell_number && patient.cell_number.includes(searchTerm));
+  }).sort((a, b) => {
+    if (sortBy === 'name') {
+      const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
+      const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+      return sortOrder === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+    } else {
+      const dateA = new Date(a.date_of_birth).getTime();
+      const dateB = new Date(b.date_of_birth).getTime();
+      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+    }
   });
 
   const handlePatientAdded = () => {
@@ -98,15 +114,24 @@ const Patients: React.FC = () => {
     return age;
   };
 
+  const toggleSort = (field: 'name' | 'date') => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  };
+
   return (
     <div className="animate-fade-in space-y-6">
       <div className="flex flex-col md:flex-row items-center justify-between mb-6">
         <div className="flex items-center">
-          <div className="p-3 bg-primary-50 rounded-xl">
+          <div className="p-3 bg-gradient-to-br from-primary-100 to-primary-50 rounded-xl shadow-inner">
             <Users size={28} className="text-primary-600" />
           </div>
           <div className="ml-4">
-            <h1 className="text-2xl font-bold text-gray-900">Patients</h1>
+            <h1 className="text-2xl font-heading font-semibold text-gray-900">Patients</h1>
             <p className="text-gray-600">Manage your patient records and information</p>
           </div>
         </div>
@@ -114,11 +139,17 @@ const Patients: React.FC = () => {
           <Button 
             variant="outline"
             onClick={() => setView(view === 'grid' ? 'list' : 'grid')}
+            className="group"
           >
+            {view === 'grid' ? (
+              <List size={16} className="mr-2 group-hover:scale-110 transition-transform" />
+            ) : (
+              <LayoutGrid size={16} className="mr-2 group-hover:scale-110 transition-transform" />
+            )}
             {view === 'grid' ? 'List View' : 'Grid View'}
           </Button>
           <Button 
-            className="bg-gradient-to-r from-[#01b8d8] to-[#01b8d8] text-white shadow-lg hover:shadow-xl transition-shadow"
+            className="bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
             onClick={() => setIsAddPatientModalOpen(true)}
           >
             <PlusCircle size={16} className="mr-2" />
@@ -127,22 +158,22 @@ const Patients: React.FC = () => {
         </div>
       </div>
 
-      <Card className="mb-6 border-0 shadow-lg">
-        <CardContent className="p-4">
+      <Card className="mb-6 border-0 shadow-lg bg-gradient-to-b from-white to-gray-50">
+        <CardContent className="p-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
                 placeholder="Search patients by name, email, or phone..."
-                className="pl-12 pr-4 py-3 w-full rounded-xl border border-gray-200 focus:ring-primary-500 focus:border-primary-500 bg-gray-50"
+                className="pl-12 pr-4 py-3 w-full rounded-xl border border-gray-200 focus:ring-primary-500 focus:border-primary-500 bg-white shadow-inner transition-shadow duration-200 hover:shadow-md"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             <div className="flex gap-3">
               <select
-                className="px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:ring-primary-500 focus:border-primary-500"
+                className="px-4 py-3 rounded-xl border border-gray-200 bg-white shadow-sm focus:ring-primary-500 focus:border-primary-500 transition-shadow duration-200 hover:shadow-md"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
               >
@@ -150,7 +181,10 @@ const Patients: React.FC = () => {
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
-              <Button variant="outline" className="px-6">
+              <Button 
+                variant="outline" 
+                className="px-6 hover:bg-gray-50 transition-colors duration-200"
+              >
                 <Filter size={16} className="mr-2" />
                 More Filters
               </Button>
@@ -161,13 +195,24 @@ const Patients: React.FC = () => {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 size={24} className="animate-spin text-primary-600 mr-2" />
-          <span className="text-gray-600">Loading patients...</span>
+          <div className="bg-white p-8 rounded-xl shadow-lg text-center">
+            <Loader2 size={32} className="animate-spin text-primary-600 mx-auto mb-4" />
+            <p className="text-gray-600 font-medium">Loading patients...</p>
+          </div>
         </div>
       ) : error ? (
         <div className="text-center py-12">
-          <AlertCircle size={40} className="mx-auto text-error-500 mb-2" />
-          <p className="text-error-600 font-medium">{error}</p>
+          <div className="bg-white p-8 rounded-xl shadow-lg">
+            <AlertCircle size={40} className="mx-auto text-error-500 mb-4" />
+            <p className="text-error-600 font-medium">{error}</p>
+            <Button 
+              variant="outline" 
+              className="mt-4"
+              onClick={() => fetchPatients()}
+            >
+              Try Again
+            </Button>
+          </div>
         </div>
       ) : (
         <>
@@ -176,15 +221,15 @@ const Patients: React.FC = () => {
               {filteredPatients.map((patient) => (
                 <Card
                   key={patient.id}
-                  className="hover:shadow-xl transition-shadow cursor-pointer"
+                  className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer bg-gradient-to-b from-white to-gray-50"
                   onClick={() => navigate(`/patients/${patient.id}`)}
                 >
                   <CardContent className="p-6">
                     <div className="flex flex-col items-center text-center">
-                      <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                        <User size={32} className="text-gray-400" />
+                      <div className="w-20 h-20 bg-gradient-to-br from-primary-100 to-primary-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-105 transition-transform duration-300">
+                        <User size={32} className="text-primary-600" />
                       </div>
-                      <h3 className="text-lg font-semibold text-gray-900">
+                      <h3 className="text-lg font-heading font-semibold text-gray-900">
                         {patient.first_name} {patient.last_name}
                       </h3>
                       <p className="text-sm text-gray-500 mt-1">
@@ -193,34 +238,62 @@ const Patients: React.FC = () => {
                       
                       <div className="w-full mt-4 space-y-2">
                         <div className="flex items-center justify-center text-sm text-gray-600">
-                          <Mail size={14} className="mr-2" />
+                          <Mail size={14} className="mr-2 text-primary-500" />
                           {patient.email || 'No email'}
                         </div>
                         <div className="flex items-center justify-center text-sm text-gray-600">
-                          <Phone size={14} className="mr-2" />
+                          <Phone size={14} className="mr-2 text-primary-500" />
                           {patient.cell_number || 'No phone'}
                         </div>
                       </div>
 
                       {patient.medical_aid_details && (
-                        <Badge variant="azure" size="sm" className="mt-4">
-                          {patient.medical_aid_details.provider}
-                        </Badge>
+                        <div className="mt-4 flex items-center space-x-2">
+                          <Badge variant="azure" size="sm">
+                            {patient.medical_aid_details.provider}
+                          </Badge>
+                          <Badge variant="glass" size="sm">
+                            Active
+                          </Badge>
+                        </div>
                       )}
+
+                      <div className="mt-4 pt-4 border-t border-gray-100 w-full">
+                        <div className="flex items-center justify-center text-sm text-gray-500">
+                          <CalendarIcon size={14} className="mr-2 text-primary-500" />
+                          Last visit: {format(new Date(), 'MMM d, yyyy')}
+                        </div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
           ) : (
-            <Card className="border-0 shadow-lg overflow-hidden">
+            <Card className="border-0 shadow-lg overflow-hidden bg-white">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Patient</th>
+                      <th 
+                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => toggleSort('name')}
+                      >
+                        <div className="flex items-center">
+                          Patient
+                          <ArrowUpDown size={14} className="ml-1" />
+                        </div>
+                      </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Contact</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Age</th>
+                      <th 
+                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => toggleSort('date')}
+                      >
+                        <div className="flex items-center">
+                          Age
+                          <ArrowUpDown size={14} className="ml-1" />
+                        </div>
+                      </th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Medical Aid</th>
                       <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Last Visit</th>
                       <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
@@ -230,13 +303,13 @@ const Patients: React.FC = () => {
                     {filteredPatients.map((patient) => (
                       <tr 
                         key={patient.id}
-                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                        className="hover:bg-gray-50 transition-colors cursor-pointer group"
                         onClick={() => navigate(`/patients/${patient.id}`)}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center">
-                              <User size={20} className="text-gray-400" />
+                            <div className="h-10 w-10 bg-gradient-to-br from-primary-100 to-primary-50 rounded-full flex items-center justify-center group-hover:scale-105 transition-transform">
+                              <User size={20} className="text-primary-600" />
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">
@@ -257,7 +330,7 @@ const Patients: React.FC = () => {
                             {calculateAge(patient.date_of_birth)} years
                           </div>
                           <div className="text-sm text-gray-500">
-                            {patient.date_of_birth}
+                            {format(new Date(patient.date_of_birth), 'MMM d, yyyy')}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -276,12 +349,16 @@ const Patients: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center text-sm text-gray-500">
-                            <Clock size={14} className="mr-2" />
+                            <Clock size={14} className="mr-2 text-primary-500" />
                             2 weeks ago
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
                             <ChevronRight size={16} />
                           </Button>
                         </td>
