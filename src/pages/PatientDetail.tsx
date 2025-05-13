@@ -12,7 +12,8 @@ import {
   Clock,
   FileSymlink,
   User,
-  Loader2
+  Loader2,
+  Heart
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -173,6 +174,66 @@ const PatientDetail: React.FC = () => {
     </Card>
   );
 
+  const renderNextOfKinCard = () => (
+    <Card className="mt-6">
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <CardTitle>Next of Kin</CardTitle>
+          {patient.next_of_kin && patient.next_of_kin[0] && (
+            <Button variant="ghost" size="sm">
+              <Edit3 size={16} />
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {patient.next_of_kin && patient.next_of_kin[0] ? (
+          <div className="space-y-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-rose-100 rounded-full">
+                <Heart size={20} className="text-rose-600" />
+              </div>
+              <div>
+                <h3 className="font-medium text-gray-900">{patient.next_of_kin[0].name}</h3>
+                <p className="text-sm text-gray-500">{patient.next_of_kin[0].relationship}</p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-center text-gray-600">
+                <Phone size={16} className="mr-2" />
+                <span>{patient.next_of_kin[0].phone}</span>
+              </div>
+              
+              {patient.next_of_kin[0].address && (
+                <div className="flex items-start text-gray-600">
+                  <MapPin size={16} className="mr-2 mt-1" />
+                  <span>{patient.next_of_kin[0].address}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-4">
+              <Button variant="outline" size="sm" className="w-full">
+                <Edit3 size={14} className="mr-2" />
+                Update Information
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-6">
+            <Heart size={32} className="mx-auto text-gray-300 mb-2" />
+            <p className="text-gray-500 mb-4">No next of kin information</p>
+            <Button variant="outline" size="sm">
+              <PlusCircle size={14} className="mr-2" />
+              Add Next of Kin
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="animate-fade-in">
       <div className="flex items-center mb-6">
@@ -226,47 +287,7 @@ const PatientDetail: React.FC = () => {
           </Card>
 
           {renderMedicalAidCard()}
-
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle>Next of Kin</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {patient.next_of_kin && patient.next_of_kin[0] ? (
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Name</h4>
-                    <p className="text-gray-900">{patient.next_of_kin[0].name}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Relationship</h4>
-                    <p className="text-gray-900">{patient.next_of_kin[0].relationship}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500">Phone</h4>
-                    <p className="text-gray-900">{patient.next_of_kin[0].phone}</p>
-                  </div>
-                  {patient.next_of_kin[0].address && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-500">Address</h4>
-                      <p className="text-gray-900">{patient.next_of_kin[0].address}</p>
-                    </div>
-                  )}
-                  <Button variant="outline" size="sm" className="mt-2">
-                    <Edit3 size={14} className="mr-2" />
-                    Update Next of Kin
-                  </Button>
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <p className="text-gray-500">No next of kin information</p>
-                  <Button variant="outline" size="sm" className="mt-2">
-                    Add Next of Kin
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {renderNextOfKinCard()}
         </div>
 
         <div className="lg:col-span-2">
