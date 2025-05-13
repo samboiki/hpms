@@ -286,7 +286,7 @@ const Patients: React.FC = () => {
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="h-10 w-10 bg-gradient-to-br from-[#01b9d4] to-[#e6f9fc] rounded-full flex items-center justify-center group-hover:scale-105 transition-transform">
+                            <div className="h-10 w-10 rounded-full flex items-center justify-center group-hover:scale-105 transition-transform">
                               <User size={20} className="text-[#01b9d4]" />
                             </div>
                             <div className="ml-4">
