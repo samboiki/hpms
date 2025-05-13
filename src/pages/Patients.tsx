@@ -127,7 +127,7 @@ const Patients: React.FC = () => {
         <div className="flex items-center">
           <Users size={28} className="text-brand-primary mr-3" />
           <div>
-            <h1 className="text-2xl font-heading font-semibold text-gray-900">Patients</h1>
+            <h1 className="text-[30px] font-heading text-[#494c61]">Patients</h1>
             <p className="text-gray-600">Manage your patient records and information</p>
           </div>
         </div>
