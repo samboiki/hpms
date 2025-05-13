@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
 import AddMedicalRecordForm from '../components/forms/AddMedicalRecordForm';
+import NextOfKinForm from '../components/forms/NextOfKinForm';
 import { supabase } from '../lib/supabase';
 import { logDatabaseError } from '../lib/supabase';
 
@@ -64,6 +65,9 @@ const PatientDetail: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'appointments'>('overview');
   const [isAddRecordModalOpen, setIsAddRecordModalOpen] = useState(false);
+  const [isNextOfKinModalOpen, setIsNextOfKinModalOpen] = useState(false);
+  const [isEditPatientModalOpen, setIsEditPatientModalOpen] = useState(false);
+  const [isMedicalAidModalOpen, setIsMedicalAidModalOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -97,6 +101,11 @@ const PatientDetail: React.FC = () => {
     }
   };
 
+  const handleNextOfKinSubmit = async () => {
+    await fetchPatientDetails();
+    setIsNextOfKinModalOpen(false);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -125,7 +134,14 @@ const PatientDetail: React.FC = () => {
   const renderMedicalAidCard = () => (
     <Card className="mt-6">
       <CardHeader>
-        <CardTitle>Medical Aid Information</CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle>Medical Aid Information</CardTitle>
+          {patient.medical_aid_details && patient.medical_aid_details[0] && (
+            <Button variant="ghost" size="sm" onClick={() => setIsMedicalAidModalOpen(true)}>
+              <Edit3 size={16} />
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {patient.medical_aid_details && patient.medical_aid_details[0] ? (
@@ -157,7 +173,12 @@ const PatientDetail: React.FC = () => {
                 <p className="text-gray-900">{patient.medical_aid_details[0].relationship_to_main}</p>
               </div>
             )}
-            <Button variant="outline" size="sm" className="mt-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mt-2"
+              onClick={() => setIsMedicalAidModalOpen(true)}
+            >
               <Edit3 size={14} className="mr-2" />
               Update Medical Aid
             </Button>
@@ -165,7 +186,12 @@ const PatientDetail: React.FC = () => {
         ) : (
           <div className="text-center py-4">
             <p className="text-gray-500">No medical aid information</p>
-            <Button variant="outline" size="sm" className="mt-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mt-2"
+              onClick={() => setIsMedicalAidModalOpen(true)}
+            >
               Add Medical Aid
             </Button>
           </div>
@@ -180,7 +206,11 @@ const PatientDetail: React.FC = () => {
         <div className="flex justify-between items-center">
           <CardTitle>Next of Kin</CardTitle>
           {patient.next_of_kin && patient.next_of_kin[0] && (
-            <Button variant="ghost" size="sm">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setIsNextOfKinModalOpen(true)}
+            >
               <Edit3 size={16} />
             </Button>
           )}
@@ -214,7 +244,12 @@ const PatientDetail: React.FC = () => {
             </div>
 
             <div className="pt-4">
-              <Button variant="outline" size="sm" className="w-full">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full"
+                onClick={() => setIsNextOfKinModalOpen(true)}
+              >
                 <Edit3 size={14} className="mr-2" />
                 Update Information
               </Button>
@@ -224,7 +259,11 @@ const PatientDetail: React.FC = () => {
           <div className="text-center py-6">
             <Heart size={32} className="mx-auto text-gray-300 mb-2" />
             <p className="text-gray-500 mb-4">No next of kin information</p>
-            <Button variant="outline" size="sm">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setIsNextOfKinModalOpen(true)}
+            >
               <PlusCircle size={14} className="mr-2" />
               Add Next of Kin
             </Button>
@@ -278,7 +317,11 @@ const PatientDetail: React.FC = () => {
                     <span className="text-gray-700">{patient.home_address}</span>
                   </div>
                 </div>
-                <Button variant="outline" className="mt-4 w-full">
+                <Button 
+                  variant="outline" 
+                  className="mt-4 w-full"
+                  onClick={() => setIsEditPatientModalOpen(true)}
+                >
                   <Edit3 size={16} className="mr-2" />
                   Edit Patient
                 </Button>
@@ -421,6 +464,18 @@ const PatientDetail: React.FC = () => {
         <AddMedicalRecordForm
           patientId={id || ''}
           onSuccess={() => setIsAddRecordModalOpen(false)}
+        />
+      </FormModal>
+
+      <FormModal
+        isOpen={isNextOfKinModalOpen}
+        onClose={() => setIsNextOfKinModalOpen(false)}
+        title={patient.next_of_kin && patient.next_of_kin[0] ? "Update Next of Kin" : "Add Next of Kin"}
+      >
+        <NextOfKinForm
+          patientId={id || ''}
+          initialData={patient.next_of_kin && patient.next_of_kin[0]}
+          onSuccess={handleNextOfKinSubmit}
         />
       </FormModal>
     </div>
