@@ -133,7 +133,7 @@ const Patients: React.FC = () => {
         <div className="mt-4 md:mt-0">
           <Button 
             size="sm"
-            className="bg-gradient-to-r from-[#01b8d8] to-[#01b8d8]"
+            className="bg-gradient-to-r from-[#01b9d4] to-[#01b9d4]"
             onClick={() => setIsAddPatientModalOpen(true)}
           >
             <PlusCircle size={16} className="mr-2" />
@@ -176,7 +176,7 @@ const Patients: React.FC = () => {
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <div className="bg-white p-8 rounded-xl shadow-lg text-center">
-            <Loader2 size={32} className="animate-spin text-primary-600 mx-auto mb-4" />
+            <Loader2 size={32} className="animate-spin text-[#01b9d4] mx-auto mb-4" />
             <p className="text-gray-600 font-medium">Loading patients...</p>
           </div>
         </div>
@@ -206,10 +206,10 @@ const Patients: React.FC = () => {
                 >
                   <CardContent className="p-6">
                     <div className="flex flex-col items-center text-center">
-                      <div className="w-20 h-20 bg-gradient-to-br from-primary-100 to-primary-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-105 transition-transform duration-300">
-                        <User size={32} className="text-primary-600" />
+                      <div className="w-20 h-20 bg-gradient-to-br from-[#01b9d4] to-[#e6f9fc] rounded-full flex items-center justify-center mb-4 group-hover:scale-105 transition-transform duration-300">
+                        <User size={32} className="text-[#01b9d4]" />
                       </div>
-                      <h3 className="text-lg font-heading font-semibold text-gray-900">
+                      <h3 className="text-lg font-heading font-bold text-gray-900">
                         {patient.first_name} {patient.last_name}
                       </h3>
                       <p className="text-sm text-gray-500 mt-1">
@@ -218,11 +218,11 @@ const Patients: React.FC = () => {
                       
                       <div className="w-full mt-4 space-y-2">
                         <div className="flex items-center justify-center text-sm text-gray-600">
-                          <Mail size={14} className="mr-2 text-primary-500" />
+                          <Mail size={14} className="mr-2 text-[#01b9d4]" />
                           {patient.email || 'No email'}
                         </div>
                         <div className="flex items-center justify-center text-sm text-gray-600">
-                          <Phone size={14} className="mr-2 text-primary-500" />
+                          <Phone size={14} className="mr-2 text-[#01b9d4]" />
                           {patient.cell_number || 'No phone'}
                         </div>
                       </div>
@@ -240,7 +240,7 @@ const Patients: React.FC = () => {
 
                       <div className="mt-4 pt-4 border-t border-gray-100 w-full">
                         <div className="flex items-center justify-center text-sm text-gray-500">
-                          <CalendarIcon size={14} className="mr-2 text-primary-500" />
+                          <Clock size={14} className="mr-2 text-[#01b9d4]" />
                           Last visit: {format(new Date(), 'MMM d, yyyy')}
                         </div>
                       </div>
@@ -288,11 +288,11 @@ const Patients: React.FC = () => {
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="h-10 w-10 bg-gradient-to-br from-primary-100 to-primary-50 rounded-full flex items-center justify-center group-hover:scale-105 transition-transform">
-                              <User size={20} className="text-primary-600" />
+                            <div className="h-10 w-10 bg-gradient-to-br from-[#01b9d4] to-[#e6f9fc] rounded-full flex items-center justify-center group-hover:scale-105 transition-transform">
+                              <User size={20} className="text-[#01b9d4]" />
                             </div>
                             <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
+                              <div className="text-sm font-bold text-gray-900">
                                 {patient.first_name} {patient.last_name}
                               </div>
                               <div className="text-sm text-gray-500 capitalize">
@@ -329,7 +329,7 @@ const Patients: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center text-sm text-gray-500">
-                            <Clock size={14} className="mr-2 text-primary-500" />
+                            <Clock size={14} className="mr-2 text-[#01b9d4]" />
                             2 weeks ago
                           </div>
                         </td>
@@ -339,7 +339,7 @@ const Patients: React.FC = () => {
                             size="sm"
                             className="opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                            <ChevronRight size={16} />
+                            <ChevronRight size={16} className="text-[#01b9d4]" />
                           </Button>
                         </td>
                       </tr>
