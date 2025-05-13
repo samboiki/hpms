@@ -125,7 +125,6 @@ const Patients: React.FC = () => {
     <div className="animate-fade-in space-y-6">
       <div className="flex flex-col md:flex-row items-center justify-between mb-6">
         <div className="flex items-center">
-          <Users size={28} className="text-brand-primary mr-3" />
           <div>
             <h1 className="text-[30px] font-bold font-heading text-[#494c61]">Patients</h1>
             <p className="text-gray-600">Manage your patient records and information</p>
