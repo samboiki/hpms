@@ -207,7 +207,7 @@ const Patients: React.FC = () => {
                   <CardContent className="p-6">
                     <div className="flex flex-col items-center text-center">
                       <div className="w-20 h-20  rounded-full flex items-center justify-center mb-4 group-hover:scale-105 transition-transform duration-300">
-                        <User size={32} className="text-[#01b9d4]" />
+                        <User size={32}  />
                       </div>
                       <h3 className="text-lg font-heading font-bold text-gray-900">
                         {patient.first_name} {patient.last_name}
