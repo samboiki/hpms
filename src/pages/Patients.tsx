@@ -206,7 +206,7 @@ const Patients: React.FC = () => {
                 >
                   <CardContent className="p-6">
                     <div className="flex flex-col items-center text-center">
-                      <div className="w-20 h-20 bg-gradient-to-br from-[#01b9d4] to-[#e6f9fc] rounded-full flex items-center justify-center mb-4 group-hover:scale-105 transition-transform duration-300">
+                      <div className="w-20 h-20  rounded-full flex items-center justify-center mb-4 group-hover:scale-105 transition-transform duration-300">
                         <User size={32} className="text-[#01b9d4]" />
                       </div>
                       <h3 className="text-lg font-heading font-bold text-gray-900">
