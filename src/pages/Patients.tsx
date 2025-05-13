@@ -3,7 +3,6 @@ import {
   Users, 
   Search, 
   PlusCircle, 
-  Filter, 
   User,
   ChevronRight,
   FileText,
@@ -19,7 +18,7 @@ import {
   Calendar as CalendarIcon
 } from 'lucide-react';
 import Button from '../components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { Card, CardContent } from '../components/ui/Card';
 import { useNavigate } from 'react-router-dom';
 import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
@@ -49,7 +48,6 @@ const Patients: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<'grid' | 'list'>('list');
-  const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState<'name' | 'date'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   
@@ -135,58 +133,42 @@ const Patients: React.FC = () => {
             <p className="text-gray-600">Manage your patient records and information</p>
           </div>
         </div>
-        <div className="mt-4 md:mt-0 flex items-center space-x-3">
-          <Button 
-            variant="outline"
-            onClick={() => setView(view === 'grid' ? 'list' : 'grid')}
-            className="group"
-          >
-            {view === 'grid' ? (
-              <List size={16} className="mr-2 group-hover:scale-110 transition-transform" />
-            ) : (
-              <LayoutGrid size={16} className="mr-2 group-hover:scale-110 transition-transform" />
-            )}
-            {view === 'grid' ? 'List View' : 'Grid View'}
-          </Button>
-          <Button 
-            className="bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-            onClick={() => setIsAddPatientModalOpen(true)}
-          >
-            <PlusCircle size={16} className="mr-2" />
-            Add Patient
-          </Button>
-        </div>
       </div>
 
       <Card className="mb-6 border-0 shadow-lg bg-gradient-to-b from-white to-gray-50">
         <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col md:flex-row gap-4 items-center">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
                 placeholder="Search patients by name, email, or phone..."
-                className="pl-12 pr-4 py-3 w-full rounded-xl border border-gray-200 focus:ring-primary-500 focus:border-primary-500 bg-white shadow-inner transition-shadow duration-200 hover:shadow-md"
+                className="pl-12 pr-4 py-2 w-full rounded-xl border border-gray-200 focus:ring-primary-500 focus:border-primary-500 bg-white shadow-inner transition-shadow duration-200 hover:shadow-md"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             <div className="flex gap-3">
-              <select
-                className="px-4 py-3 rounded-xl border border-gray-200 bg-white shadow-sm focus:ring-primary-500 focus:border-primary-500 transition-shadow duration-200 hover:shadow-md"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
-                <option value="all">All Patients</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
               <Button 
-                variant="outline" 
-                className="px-6 hover:bg-gray-50 transition-colors duration-200"
+                size="sm"
+                variant="outline"
+                onClick={() => setView(view === 'grid' ? 'list' : 'grid')}
+                className="group"
               >
-                <Filter size={16} className="mr-2" />
-                More Filters
+                {view === 'grid' ? (
+                  <List size={16} className="mr-2 group-hover:scale-110 transition-transform" />
+                ) : (
+                  <LayoutGrid size={16} className="mr-2 group-hover:scale-110 transition-transform" />
+                )}
+                {view === 'grid' ? 'List View' : 'Grid View'}
+              </Button>
+              <Button 
+                size="sm"
+                className="bg-[#01b9d4] hover:bg-[#01a7c0] text-white shadow-lg hover:shadow-xl transition-all duration-300"
+                onClick={() => setIsAddPatientModalOpen(true)}
+              >
+                <PlusCircle size={16} className="mr-2" />
+                Add Patient
               </Button>
             </div>
           </div>
