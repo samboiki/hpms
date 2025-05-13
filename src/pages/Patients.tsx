@@ -381,3 +381,5 @@ const Patients: React.FC = () => {
 };
 
 export default Patients;
+
+export default Patients
