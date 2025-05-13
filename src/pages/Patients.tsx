@@ -278,10 +278,12 @@ const Patients: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {filteredPatients.map((patient) => (
+                    {filteredPatients.map((patient, index) => (
                       <tr 
                         key={patient.id}
-                        className="hover:bg-gray-50 transition-colors cursor-pointer group"
+                        className={`hover:bg-gray-50 transition-colors cursor-pointer group ${
+                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                        }`}
                         onClick={() => navigate(`/patients/${patient.id}`)}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
