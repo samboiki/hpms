@@ -21,6 +21,7 @@ import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
 import AddMedicalRecordForm from '../components/forms/AddMedicalRecordForm';
 import NextOfKinForm from '../components/forms/NextOfKinForm';
+import EditPatientForm from '../components/forms/EditPatientForm';
 import { supabase } from '../lib/supabase';
 import { logDatabaseError } from '../lib/supabase';
 
@@ -104,6 +105,11 @@ const PatientDetail: React.FC = () => {
   const handleNextOfKinSubmit = async () => {
     await fetchPatientDetails();
     setIsNextOfKinModalOpen(false);
+  };
+
+  const handleEditPatientSubmit = async () => {
+    await fetchPatientDetails();
+    setIsEditPatientModalOpen(false);
   };
 
   if (isLoading) {
@@ -476,6 +482,18 @@ const PatientDetail: React.FC = () => {
           patientId={id || ''}
           initialData={patient.next_of_kin && patient.next_of_kin[0]}
           onSuccess={handleNextOfKinSubmit}
+        />
+      </FormModal>
+
+      <FormModal
+        isOpen={isEditPatientModalOpen}
+        onClose={() => setIsEditPatientModalOpen(false)}
+        title="Edit Patient Details"
+      >
+        <EditPatientForm
+          patientId={id || ''}
+          initialData={patient}
+          onSuccess={handleEditPatientSubmit}
         />
       </FormModal>
     </div>
