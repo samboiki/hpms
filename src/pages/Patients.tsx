@@ -125,50 +125,49 @@ const Patients: React.FC = () => {
     <div className="animate-fade-in space-y-6">
       <div className="flex flex-col md:flex-row items-center justify-between mb-6">
         <div className="flex items-center">
-          <div className="p-3 bg-gradient-to-br from-primary-100 to-primary-50 rounded-xl shadow-inner">
-            <Users size={28} className="text-primary-600" />
-          </div>
-          <div className="ml-4">
+          <Users size={28} className="text-brand-primary mr-3" />
+          <div>
             <h1 className="text-2xl font-heading font-semibold text-gray-900">Patients</h1>
             <p className="text-gray-600">Manage your patient records and information</p>
           </div>
         </div>
+        <div className="mt-4 md:mt-0">
+          <Button 
+            size="sm"
+            className="bg-gradient-to-r from-[#01b8d8] to-[#01b8d8]"
+            onClick={() => setIsAddPatientModalOpen(true)}
+          >
+            <PlusCircle size={16} className="mr-2" />
+            Add Patient
+          </Button>
+        </div>
       </div>
 
-      <Card className="mb-6 border-0 shadow-lg bg-gradient-to-b from-white to-gray-50">
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row gap-4 items-center">
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
-                placeholder="Search patients by name, email, or phone..."
-                className="pl-12 pr-4 py-2 w-full rounded-xl border border-gray-200 focus:ring-primary-500 focus:border-primary-500 bg-white shadow-inner transition-shadow duration-200 hover:shadow-md"
+                placeholder="Search patients by name, email, or phone"
+                className="pl-10 pr-4 py-2 w-full rounded-md border border-gray-300 focus:ring-brand-primary focus:border-brand-primary"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             <div className="flex gap-3">
               <Button 
+                variant="outline" 
                 size="sm"
-                variant="outline"
                 onClick={() => setView(view === 'grid' ? 'list' : 'grid')}
-                className="group"
               >
                 {view === 'grid' ? (
-                  <List size={16} className="mr-2 group-hover:scale-110 transition-transform" />
+                  <List size={16} className="mr-2" />
                 ) : (
-                  <LayoutGrid size={16} className="mr-2 group-hover:scale-110 transition-transform" />
+                  <LayoutGrid size={16} className="mr-2" />
                 )}
                 {view === 'grid' ? 'List View' : 'Grid View'}
-              </Button>
-              <Button 
-                size="sm"
-                className="bg-[#01b9d4] hover:bg-[#01a7c0] text-white shadow-lg hover:shadow-xl transition-all duration-300"
-                onClick={() => setIsAddPatientModalOpen(true)}
-              >
-                <PlusCircle size={16} className="mr-2" />
-                Add Patient
               </Button>
             </div>
           </div>
