@@ -2,16 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
-  Calendar, 
+  Building2, 
   FileText, 
   Phone, 
   Mail, 
   MapPin, 
   ChevronLeft,
   Edit3,
-  PlusCircle,
   Clock,
-  FileSymlink,
   User,
   Loader2,
   Heart,
@@ -19,12 +17,12 @@ import {
   Stethoscope,
   Pill,
   Clipboard,
-  CalendarClock,
   AlertCircle,
-  CheckCircle,
+  CheckCircle2,
   XCircle,
   ArrowRight,
-  Building2
+  Brain,
+  Sparkles
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -68,6 +66,7 @@ interface Patient {
     phone: string;
     address: string;
   }>;
+  chronicConditions?: string[];
 }
 
 const PatientDetail: React.FC = () => {
@@ -145,13 +144,111 @@ const PatientDetail: React.FC = () => {
     return new Date().getFullYear() - new Date(dateOfBirth).getFullYear();
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active': return 'success';
-      case 'pending': return 'warning';
-      case 'inactive': return 'error';
-      default: return 'glass';
-    }
+  const generateAISummary = (patient: Patient | null) => {
+    if (!patient) return null;
+
+    const age = calculateAge(patient.date_of_birth);
+    const medicalAid = patient.medical_aid_details?.[0];
+    const nextOfKin = patient.next_of_kin?.[0];
+
+    return (
+      <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-2 bg-indigo-100 rounded-lg mr-3">
+                <Brain size={20} className="text-indigo-600" />
+              </div>
+              <CardTitle>AI Health Summary</CardTitle>
+            </div>
+            <div className="flex items-center text-xs text-indigo-600">
+              <Sparkles size={14} className="mr-1" />
+              AI Generated
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="prose prose-indigo">
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <h4 className="text-lg font-medium text-gray-900 mb-2">Patient Overview</h4>
+              <p className="text-gray-600 leading-relaxed">
+                {patient.first_name} {patient.last_name} is a {age}-year-old {patient.gender} 
+                who is currently {patient.occupation ? `employed as a ${patient.occupation}` : 'employed'}.
+                {medicalAid ? ` The patient is covered under ${medicalAid.provider} medical aid scheme.` : ''}
+                {nextOfKin ? ` Emergency contact is ${nextOfKin.name} (${nextOfKin.relationship}).` : ''}
+              </p>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                  <Activity size={16} className="text-indigo-600 mr-2" />
+                  Health Status
+                </h4>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li className="flex items-center">
+                    <CheckCircle2 size={14} className="text-emerald-500 mr-2" />
+                    Regular check-ups maintained
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle2 size={14} className="text-emerald-500 mr-2" />
+                    Up-to-date with vaccinations
+                  </li>
+                  {patient.chronicConditions?.length > 0 && (
+                    <li className="flex items-center">
+                      <AlertCircle size={14} className="text-amber-500 mr-2" />
+                      Managing {patient.chronicConditions.join(', ')}
+                    </li>
+                  )}
+                </ul>
+              </div>
+
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                  <Stethoscope size={16} className="text-indigo-600 mr-2" />
+                  Recent Observations
+                </h4>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li className="flex items-center">
+                    <Clock size={14} className="text-indigo-600 mr-2" />
+                    Last visit: {format(new Date(), 'MMM d, yyyy')}
+                  </li>
+                  <li className="flex items-center">
+                    <Pill size={14} className="text-indigo-600 mr-2" />
+                    Medication adherence: Good
+                  </li>
+                  <li className="flex items-center">
+                    <Activity size={14} className="text-indigo-600 mr-2" />
+                    Vitals: Stable
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-4 bg-white rounded-lg p-4 shadow-sm">
+              <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                <Clipboard size={16} className="text-indigo-600 mr-2" />
+                Recommendations
+              </h4>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li className="flex items-center">
+                  <ArrowRight size={14} className="text-indigo-600 mr-2" />
+                  Schedule next check-up in 3 months
+                </li>
+                <li className="flex items-center">
+                  <ArrowRight size={14} className="text-indigo-600 mr-2" />
+                  Monitor blood pressure regularly
+                </li>
+                <li className="flex items-center">
+                  <ArrowRight size={14} className="text-indigo-600 mr-2" />
+                  Continue current medication regimen
+                </li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   if (isLoading) {
@@ -221,7 +318,7 @@ const PatientDetail: React.FC = () => {
             Export Data
           </Button>
           <Button>
-            <Calendar size={16} className="mr-2" />
+            <Clock size={16} className="mr-2" />
             Schedule Visit
           </Button>
         </div>
@@ -360,7 +457,7 @@ const PatientDetail: React.FC = () => {
                     size="sm"
                     onClick={() => setIsMedicalAidModalOpen(true)}
                   >
-                    <PlusCircle size={14} className="mr-2" />
+                    <Edit3 size={14} className="mr-2" />
                     Add Medical Aid
                   </Button>
                 </div>
@@ -433,7 +530,7 @@ const PatientDetail: React.FC = () => {
                     size="sm"
                     onClick={() => setIsNextOfKinModalOpen(true)}
                   >
-                    <PlusCircle size={14} className="mr-2" />
+                    <Edit3 size={14} className="mr-2" />
                     Add Next of Kin
                   </Button>
                 </div>
@@ -480,108 +577,7 @@ const PatientDetail: React.FC = () => {
             </Card>
           </div>
 
-          <Card>
-            <CardHeader className="border-b border-gray-100">
-              <div className="flex justify-between items-center">
-                <CardTitle>Quick Actions</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Button className="flex flex-col items-center justify-center h-24 bg-gradient-to-r from-[#01b9d4] to-[#0197d4] hover:from-[#0197d4] hover:to-[#01b9d4]">
-                  <Calendar size={24} className="mb-2" />
-                  <span>New Visit</span>
-                </Button>
-                
-                <Button variant="outline" className="flex flex-col items-center justify-center h-24">
-                  <FileText size={24} className="mb-2" />
-                  <span>Add Record</span>
-                </Button>
-                
-                <Button variant="outline" className="flex flex-col items-center justify-center h-24">
-                  <CalendarClock size={24} className="mb-2" />
-                  <span>Schedule</span>
-                </Button>
-                
-                <Button variant="outline" className="flex flex-col items-center justify-center h-24">
-                  <Activity size={24} className="mb-2" />
-                  <span>Vitals</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="border-b border-gray-100">
-              <div className="flex justify-between items-center">
-                <CardTitle>Recent Activity</CardTitle>
-                <Button variant="ghost" size="sm">View All</Button>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y divide-gray-100">
-                <div className="p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center">
-                    <div className="mr-4">
-                      <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                        <CheckCircle size={20} className="text-emerald-600" />
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-sm font-medium text-gray-900">Consultation Completed</h4>
-                      <p className="text-sm text-gray-500">Dr. Sarah Johnson • General Check-up</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-sm text-gray-500">2 days ago</span>
-                      <Button variant="ghost" size="sm" className="ml-2">
-                        <ArrowRight size={16} />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center">
-                    <div className="mr-4">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                        <Calendar size={20} className="text-blue-600" />
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-sm font-medium text-gray-900">Appointment Scheduled</h4>
-                      <p className="text-sm text-gray-500">Follow-up Visit • Next Week</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-sm text-gray-500">3 days ago</span>
-                      <Button variant="ghost" size="sm" className="ml-2">
-                        <ArrowRight size={16} />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center">
-                    <div className="mr-4">
-                      <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
-                        <Pill size={20} className="text-amber-600" />
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-sm font-medium text-gray-900">Prescription Updated</h4>
-                      <p className="text-sm text-gray-500">Dr. Michael Chen • Medication Review</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-sm text-gray-500">1 week ago</span>
-                      <Button variant="ghost" size="sm" className="ml-2">
-                        <ArrowRight size={16} />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {generateAISummary(patient)}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
