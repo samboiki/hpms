@@ -6,7 +6,7 @@ interface User {
   email: string;
   name: string;
   role: 'admin' | 'doctor' | 'nurse' | 'receptionist';
-  avatar?: string;
+  avatar?: string | null;
 }
 
 interface AuthState {
@@ -59,7 +59,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         email: userData.email,
         name: userData.full_name,
         role: userData.role,
-        avatar: userData.avatar
+        avatar: userData.avatar || null
       };
 
       // Update last login timestamp
