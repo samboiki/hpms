@@ -8,11 +8,15 @@ import {
   Filter,
   ArrowUpDown,
   User,
-  Calendar
+  Calendar,
+  Plus
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import FormModal from '../modals/FormModal';
+import AddLabRequestForm from '../forms/AddLabRequestForm';
+import AddMediaRequestForm from '../forms/AddMediaRequestForm';
 import { supabase } from '../../lib/supabase';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -40,6 +44,8 @@ const RequestsOverview: React.FC = () => {
   const [filterPriority, setFilterPriority] = useState<'all' | 'routine' | 'urgent' | 'stat'>('all');
   const [sortBy, setSortBy] = useState<'date' | 'priority'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [isLabModalOpen, setIsLabModalOpen] = useState(false);
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
 
   useEffect(() => {
     fetchRequests();
@@ -108,6 +114,20 @@ const RequestsOverview: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Action Buttons */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex gap-3">
+          <Button onClick={() => setIsLabModalOpen(true)}>
+            <Microscope size={16} className="mr-2" />
+            New Lab Request
+          </Button>
+          <Button onClick={() => setIsMediaModalOpen(true)}>
+            <ImageIcon size={16} className="mr-2" />
+            New Media Request
+          </Button>
+        </div>
+      </div>
+
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
@@ -326,6 +346,37 @@ const RequestsOverview: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modals */}
+      <FormModal
+        isOpen={isLabModalOpen}
+        onClose={() => setIsLabModalOpen(false)}
+        title="New Lab Request"
+      >
+        <AddLabRequestForm
+          visitId="visit_id" // You'll need to pass the actual visit ID
+          doctorId="doctor_id" // You'll need to pass the actual doctor ID
+          onSuccess={() => {
+            setIsLabModalOpen(false);
+            fetchRequests();
+          }}
+        />
+      </FormModal>
+
+      <FormModal
+        isOpen={isMediaModalOpen}
+        onClose={() => setIsMediaModalOpen(false)}
+        title="New Media Request"
+      >
+        <AddMediaRequestForm
+          visitId="visit_id" // You'll need to pass the actual visit ID
+          doctorId="doctor_id" // You'll need to pass the actual doctor ID
+          onSuccess={() => {
+            setIsMediaModalOpen(false);
+            fetchRequests();
+          }}
+        />
+      </FormModal>
     </div>
   );
 };
