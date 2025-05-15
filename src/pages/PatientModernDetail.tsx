@@ -21,7 +21,8 @@ import {
   Edit3,
   ImageIcon,
   Microscope,
-  ChevronRight
+  ChevronRight,
+  Clock
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
@@ -153,6 +154,59 @@ const PatientModernDetail = () => {
     }
   };
 
+  const HealthSummaryModal = () => (
+    <div className="bg-gradient-to-r from-[#a855f7] to-[#00B4D8] p-6 rounded-xl text-white">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <Brain size={24} className="mr-3" />
+          <h2 className="text-2xl font-bold">AI Health Summary</h2>
+        </div>
+        <Button variant="ghost" className="text-white hover:bg-white/10" onClick={() => setShowHealthSummary(false)}>
+          <ChevronRight size={20} />
+        </Button>
+      </div>
+      
+      <div className="space-y-6">
+        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-2">Patient Overview</h3>
+          <p className="text-white/90">
+            {patient?.first_name} {patient?.last_name} is a {calculateAge(patient?.date_of_birth || '')} year old patient with a history of regular check-ups.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-2">Recent Activity</h3>
+            <ul className="space-y-2">
+              <li className="flex items-center">
+                <CheckCircle2 size={16} className="mr-2" />
+                Last visit: {format(new Date(), 'MMM d, yyyy')}
+              </li>
+              <li className="flex items-center">
+                <CheckCircle2 size={16} className="mr-2" />
+                Vitals: Normal range
+              </li>
+            </ul>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-2">Recommendations</h3>
+            <ul className="space-y-2">
+              <li className="flex items-center">
+                <ArrowRight size={16} className="mr-2" />
+                Schedule follow-up in 3 months
+              </li>
+              <li className="flex items-center">
+                <ArrowRight size={16} className="mr-2" />
+                Continue current treatment plan
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -164,9 +218,9 @@ const PatientModernDetail = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-[1600px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+      <div className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm rounded-b-xl">
+        <div className="max-w-[1600px] mx-auto px-4 md:px-6 py-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => navigate('/patients')}
@@ -175,26 +229,39 @@ const PatientModernDetail = () => {
                 <ChevronLeft size={20} />
               </button>
               {patient && (
-                <div>
-                  <h1 className="text-[30px] font-bold text-[#494c61] flex items-center">
-                    {patient.first_name} {patient.last_name}
-                    <div className="flex items-center ml-4 space-x-2">
-                      <Badge variant="success">Active</Badge>
-                      <Badge variant="azure">Insured</Badge>
-                    </div>
-                  </h1>
-                  <div className="flex items-center space-x-6 text-sm text-gray-500 mt-1">
-                    <div className="flex items-center">
-                      <Phone size={14} className="mr-2" />
-                      {patient.cell_number}
-                    </div>
-                    <div className="flex items-center">
-                      <Mail size={14} className="mr-2" />
-                      {patient.email}
-                    </div>
-                    <div className="flex items-center">
-                      <MapPin size={14} className="mr-2" />
-                      123 Main Street, Anytown
+                <div className="flex items-center space-x-4">
+                  <div className="h-12 w-12 rounded-full bg-gradient-to-r from-[#01b9d4] to-[#0197d4] flex items-center justify-center">
+                    {patient.avatar ? (
+                      <img 
+                        src={patient.avatar}
+                        alt={`${patient.first_name} ${patient.last_name}`}
+                        className="h-full w-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <User size={24} className="text-white" />
+                    )}
+                  </div>
+                  <div>
+                    <h1 className="text-[30px] font-bold text-[#494c61] flex items-center">
+                      {patient.first_name} {patient.last_name}
+                      <div className="flex items-center ml-4 space-x-2">
+                        <Badge variant="success">Active</Badge>
+                        <Badge variant="azure">Insured</Badge>
+                      </div>
+                    </h1>
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mt-1">
+                      <div className="flex items-center">
+                        <Phone size={14} className="mr-2" />
+                        {patient.cell_number}
+                      </div>
+                      <div className="flex items-center">
+                        <Mail size={14} className="mr-2" />
+                        {patient.email}
+                      </div>
+                      <div className="flex items-center">
+                        <MapPin size={14} className="mr-2" />
+                        123 Main Street, Anytown
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -213,19 +280,19 @@ const PatientModernDetail = () => {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-[1600px] mx-auto px-6 py-8">
-        <div className="grid grid-cols-12 gap-6">
+      <div className="max-w-[1600px] mx-auto px-4 md:px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column - Patient Info */}
-          <div className="col-span-3 space-y-6">
+          <div className="lg:col-span-3 space-y-6">
             {/* Medical Aid Card */}
-            <Card className="overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white">
+            <Card className="overflow-hidden border-[#01b9d4] border">
+              <CardHeader>
                 <div className="flex justify-between items-center">
-                  <CardTitle className="text-white flex items-center">
-                    <Building2 size={20} className="mr-2" />
+                  <CardTitle className="flex items-center">
+                    <Building2 size={20} className="mr-2 text-[#01b9d4]" />
                     Medical Aid
                   </CardTitle>
-                  <Button variant="ghost" size="sm" className="text-white">
+                  <Button variant="ghost" size="sm">
                     <Edit3 size={16} />
                   </Button>
                 </div>
@@ -260,19 +327,14 @@ const PatientModernDetail = () => {
             </Card>
 
             {/* Next of Kin Card */}
-            <Card className="overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-rose-500 to-pink-500 text-white">
+            <Card className="overflow-hidden border-[#0197d4] border">
+              <CardHeader>
                 <div className="flex justify-between items-center">
-                  <CardTitle className="text-white flex items-center">
-                    <Heart size={20} className="mr-2" />
+                  <CardTitle className="flex items-center">
+                    <Heart size={20} className="mr-2 text-[#0197d4]" />
                     Next of Kin
                   </CardTitle>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="text-white"
-                    onClick={() => setIsNextOfKinModalOpen(true)}
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => setIsNextOfKinModalOpen(true)}>
                     <Edit3 size={16} />
                   </Button>
                 </div>
@@ -303,6 +365,36 @@ const PatientModernDetail = () => {
               </CardContent>
             </Card>
 
+            {/* Vitals Overview */}
+            <Card className="overflow-hidden">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Activity size={20} className="mr-2 text-[#01b9d4]" />
+                  Latest Vitals
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-sm text-gray-500">Blood Pressure</div>
+                    <div className="text-lg font-semibold">120/80</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-sm text-gray-500">Temperature</div>
+                    <div className="text-lg font-semibold">36.5°C</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-sm text-gray-500">Heart Rate</div>
+                    <div className="text-lg font-semibold">72 bpm</div>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="text-sm text-gray-500">BMI</div>
+                    <div className="text-lg font-semibold">24.5</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Health Summary Button */}
             <Button
               className="w-full bg-gradient-to-r from-[#a855f7] to-[#00B4D8] text-white"
@@ -314,7 +406,7 @@ const PatientModernDetail = () => {
           </div>
 
           {/* Middle Column - Visits Timeline */}
-          <div className="col-span-9 space-y-6">
+          <div className="lg:col-span-9 space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-900">Visit History</h2>
               <div className="flex items-center space-x-3">
@@ -446,6 +538,14 @@ const PatientModernDetail = () => {
       </div>
 
       {/* Modals */}
+      <FormModal
+        isOpen={showHealthSummary}
+        onClose={() => setShowHealthSummary(false)}
+        title="Health Summary"
+      >
+        <HealthSummaryModal />
+      </FormModal>
+
       <FormModal
         isOpen={isNextOfKinModalOpen}
         onClose={() => setIsNextOfKinModalOpen(false)}
