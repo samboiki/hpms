@@ -7,27 +7,30 @@ import {
   Phone,
   Mail,
   MapPin,
-  Calendar,
-  Clock,
-  FileText,
+  Building2,
   Heart,
   Activity,
   Brain,
   Stethoscope,
-  Pill,
   Plus,
   Search,
   Filter,
   ArrowRight,
   CheckCircle2,
   AlertCircle,
-  Sparkles
+  Edit3,
+  ImageIcon,
+  Microscope,
+  ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
+import FormModal from '../components/modals/FormModal';
+import NextOfKinForm from '../components/forms/NextOfKinForm';
+import AddVisitForm from '../components/forms/AddVisitForm';
 
 interface Patient {
   id: string;
@@ -66,6 +69,9 @@ const PatientModernDetail = () => {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isNextOfKinModalOpen, setIsNextOfKinModalOpen] = useState(false);
+  const [isAddVisitModalOpen, setIsAddVisitModalOpen] = useState(false);
+  const [showHealthSummary, setShowHealthSummary] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -121,6 +127,32 @@ const PatientModernDetail = () => {
     }
   };
 
+  const handleVisitClick = (visitId: string) => {
+    console.log('Visit clicked:', visitId);
+  };
+
+  const handleVisitStatusChange = async (visitId: string, status: string) => {
+    try {
+      const { error } = await supabase
+        .from('visits')
+        .update({ status })
+        .eq('id', visitId);
+
+      if (error) throw error;
+
+      // Refresh visits
+      const { data: updatedVisits } = await supabase
+        .from('visit_details_view')
+        .select('*')
+        .eq('patient_id', id)
+        .order('visit_date', { ascending: false });
+
+      setVisits(updatedVisits || []);
+    } catch (error) {
+      console.error('Error updating visit status:', error);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -169,7 +201,7 @@ const PatientModernDetail = () => {
               )}
             </div>
             <Button
-              onClick={() => {}}
+              onClick={() => setIsAddVisitModalOpen(true)}
               style={{ backgroundColor: '#01b9d4' }}
               className="text-white hover:bg-opacity-90"
             >
@@ -184,72 +216,105 @@ const PatientModernDetail = () => {
       <div className="max-w-[1600px] mx-auto px-6 py-8">
         <div className="grid grid-cols-12 gap-6">
           {/* Left Column - Patient Info */}
-          <div className="col-span-3">
-            <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-indigo-100 rounded-lg mr-3">
-                      <Brain size={20} className="text-indigo-600" />
-                    </div>
-                    <CardTitle>AI Health Summary</CardTitle>
-                  </div>
-                  <div className="flex items-center text-xs text-indigo-600">
-                    <Sparkles size={14} className="mr-1" />
-                    AI Generated
-                  </div>
+          <div className="col-span-3 space-y-6">
+            {/* Medical Aid Card */}
+            <Card className="overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-white flex items-center">
+                    <Building2 size={20} className="mr-2" />
+                    Medical Aid
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" className="text-white">
+                    <Edit3 size={16} />
+                  </Button>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Patient Overview</h4>
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    {patient?.first_name} {patient?.last_name} is a {calculateAge(patient?.date_of_birth || '')} year old {patient?.gender}.
-                    Regular check-ups are maintained and vitals are stable. Last visit was on {format(new Date(), 'MMMM d, yyyy')}.
-                  </p>
-                </div>
-
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Health Status</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center text-sm">
-                      <CheckCircle2 size={14} className="text-emerald-500 mr-2" />
-                      <span className="text-gray-600">Regular check-ups maintained</span>
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500">Provider</h4>
+                      <p className="text-lg font-semibold text-gray-900">Discovery Health</p>
                     </div>
-                    <div className="flex items-center text-sm">
-                      <CheckCircle2 size={14} className="text-emerald-500 mr-2" />
-                      <span className="text-gray-600">Up-to-date with vaccinations</span>
-                    </div>
-                    <div className="flex items-center text-sm">
-                      <Activity size={14} className="text-indigo-600 mr-2" />
-                      <span className="text-gray-600">Vitals within normal range</span>
-                    </div>
+                    <Badge variant="success">Active</Badge>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500">Scheme</h4>
+                    <p className="text-gray-900">Executive Plan</p>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500">Membership Number</h4>
+                    <p className="text-gray-900 font-mono">DH123456789</p>
+                  </div>
+                  
+                  <div className="pt-4 border-t border-gray-100">
+                    <h4 className="text-sm font-medium text-gray-500">Main Member</h4>
+                    <p className="text-gray-900 font-medium">John Smith</p>
+                    <p className="text-sm text-gray-500">ID: 8001015012087</p>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
 
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <h4 className="text-sm font-medium text-gray-900 mb-2">Recommendations</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center text-sm">
-                      <ArrowRight size={14} className="text-indigo-600 mr-2" />
-                      <span className="text-gray-600">Schedule next check-up in 3 months</span>
+            {/* Next of Kin Card */}
+            <Card className="overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-rose-500 to-pink-500 text-white">
+                <div className="flex justify-between items-center">
+                  <CardTitle className="text-white flex items-center">
+                    <Heart size={20} className="mr-2" />
+                    Next of Kin
+                  </CardTitle>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-white"
+                    onClick={() => setIsNextOfKinModalOpen(true)}
+                  >
+                    <Edit3 size={16} />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="p-2 bg-rose-100 rounded-full">
+                      <Heart size={20} className="text-rose-600" />
                     </div>
-                    <div className="flex items-center text-sm">
-                      <ArrowRight size={14} className="text-indigo-600 mr-2" />
-                      <span className="text-gray-600">Monitor blood pressure regularly</span>
+                    <div>
+                      <h3 className="font-medium text-gray-900">Sarah Smith</h3>
+                      <p className="text-sm text-gray-500">Spouse</p>
                     </div>
-                    <div className="flex items-center text-sm">
-                      <ArrowRight size={14} className="text-indigo-600 mr-2" />
-                      <span className="text-gray-600">Continue current medication regimen</span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center text-gray-600">
+                      <Phone size={16} className="mr-2" />
+                      <span>+1 234 567 8900</span>
+                    </div>
+                    <div className="flex items-start text-gray-600">
+                      <MapPin size={16} className="mr-2 mt-1" />
+                      <span>123 Main Street, Anytown, ST 12345</span>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Health Summary Button */}
+            <Button
+              className="w-full bg-gradient-to-r from-[#a855f7] to-[#00B4D8] text-white"
+              onClick={() => setShowHealthSummary(true)}
+            >
+              <Brain size={16} className="mr-2" />
+              View Health Summary
+            </Button>
           </div>
 
           {/* Middle Column - Visits Timeline */}
-          <div className="col-span-6 space-y-6">
+          <div className="col-span-9 space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-900">Visit History</h2>
               <div className="flex items-center space-x-3">
@@ -274,7 +339,8 @@ const PatientModernDetail = () => {
                   key={visit.id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                  className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => handleVisitClick(visit.id)}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-4">
@@ -295,9 +361,24 @@ const PatientModernDetail = () => {
                         )}
                       </div>
                     </div>
-                    <Badge variant={getStatusColor(visit.status)}>
-                      {visit.status}
-                    </Badge>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant={getStatusColor(visit.status)}>
+                        {visit.status}
+                      </Badge>
+                      <ChevronRight size={16} className="text-gray-400" />
+                    </div>
+                  </div>
+
+                  {/* Lab Results and Media */}
+                  <div className="mt-4 flex items-center space-x-4">
+                    <div className="flex items-center text-gray-500">
+                      <Microscope size={16} className="mr-1" />
+                      <span className="text-sm">2 Lab Results</span>
+                    </div>
+                    <div className="flex items-center text-gray-500">
+                      <ImageIcon size={16} className="mr-1" />
+                      <span className="text-sm">3 Media Files</span>
+                    </div>
                   </div>
 
                   {visit.vitals && (
@@ -331,111 +412,75 @@ const PatientModernDetail = () => {
                     </div>
                   )}
 
-                  <div className="mt-4 flex justify-end">
-                    <Button variant="outline" size="sm">
-                      View Details
-                      <ArrowRight size={16} className="ml-2" />
+                  <div className="mt-4 flex justify-end space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleVisitStatusChange(visit.id, 'completed');
+                      }}
+                      className={visit.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : ''}
+                    >
+                      <CheckCircle2 size={16} className="mr-2" />
+                      Complete
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleVisitStatusChange(visit.id, 'in-progress');
+                      }}
+                      className={visit.status === 'in-progress' ? 'bg-amber-50 text-amber-600' : ''}
+                    >
+                      <Activity size={16} className="mr-2" />
+                      In Progress
                     </Button>
                   </div>
                 </motion.div>
               ))}
             </div>
           </div>
-
-          {/* Right Column - Vitals & Stats */}
-          <div className="col-span-3 space-y-6">
-            {/* Latest Vitals */}
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                  <Heart size={16} className="mr-2 text-rose-500" />
-                  Latest Vitals
-                </h3>
-                
-                <div className="space-y-3">
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-sm text-gray-500">Blood Pressure</div>
-                    <div className="text-lg font-semibold">120/80</div>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-sm text-gray-500">Temperature</div>
-                    <div className="text-lg font-semibold">37.2°C</div>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-sm text-gray-500">Heart Rate</div>
-                    <div className="text-lg font-semibold">72 bpm</div>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-sm text-gray-500">Weight</div>
-                    <div className="text-lg font-semibold">75 kg</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Health Indicators */}
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                  <Activity size={16} className="mr-2 text-emerald-500" />
-                  Health Indicators
-                </h3>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <CheckCircle2 size={16} className="text-emerald-500 mr-2" />
-                      <span className="text-sm text-gray-600">Vaccinations</span>
-                    </div>
-                    <Badge variant="success">Up to date</Badge>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <AlertCircle size={16} className="text-amber-500 mr-2" />
-                      <span className="text-sm text-gray-600">Allergies</span>
-                    </div>
-                    <Badge variant="warning">2 Known</Badge>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <Brain size={16} className="text-purple-500 mr-2" />
-                      <span className="text-sm text-gray-600">Mental Health</span>
-                    </div>
-                    <Badge variant="glass">Good</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Upcoming Appointments */}
-            <Card>
-              <CardContent className="p-6">
-                <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                  <Calendar size={16} className="mr-2 text-blue-500" />
-                  Upcoming Appointments
-                </h3>
-                
-                <div className="space-y-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-900">Follow-up Visit</span>
-                      <Badge variant="azure">Confirmed</Badge>
-                    </div>
-                    <p className="text-sm text-gray-500">Tomorrow at 10:30 AM</p>
-                    <p className="text-sm text-gray-500">Dr. Sarah Johnson</p>
-                  </div>
-                  
-                  <Button variant="outline" className="w-full">
-                    View All Appointments
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <FormModal
+        isOpen={isNextOfKinModalOpen}
+        onClose={() => setIsNextOfKinModalOpen(false)}
+        title="Update Next of Kin"
+      >
+        <NextOfKinForm
+          patientId={id || ''}
+          onSuccess={() => setIsNextOfKinModalOpen(false)}
+        />
+      </FormModal>
+
+      <FormModal
+        isOpen={isAddVisitModalOpen}
+        onClose={() => setIsAddVisitModalOpen(false)}
+        title="Record New Visit"
+      >
+        <AddVisitForm
+          patientId={id || ''}
+          onSuccess={() => {
+            setIsAddVisitModalOpen(false);
+            // Refresh visits
+            if (id) {
+              const fetchVisits = async () => {
+                const { data } = await supabase
+                  .from('visit_details_view')
+                  .select('*')
+                  .eq('patient_id', id)
+                  .order('visit_date', { ascending: false });
+                setVisits(data || []);
+              };
+              fetchVisits();
+            }
+          }}
+        />
+      </FormModal>
     </div>
   );
 };
