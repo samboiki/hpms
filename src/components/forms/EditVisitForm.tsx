@@ -1,4 +1,3 @@
-```typescript
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import Button from '../ui/Button';
@@ -181,4 +180,3 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
 };
 
 export default EditVisitForm;
-```
