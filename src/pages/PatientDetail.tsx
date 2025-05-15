@@ -29,24 +29,61 @@ import MedicalAidForm from '../components/forms/MedicalAidForm';
 import { supabase, logDatabaseError } from '../lib/supabase';
 import VisitsTimeline from '../components/visits/VisitsTimeline';
 
-interface MedicalAidDetail { provider: string; scheme: string; membershipNumber: string; planType: string; mainMemberName: string; mainMemberIdNumber: string; relationship: string; }
-interface NextOfKinDetail { id: string; name: string; relationship: string; phone: string; address?: string; }
-interface Patient { id: string; first_name: string; last_name: string; email: string; cell_number: string; date_of_birth: string; gender: string; occupation?: string; home_address: string; medical_aid_details?: MedicalAidDetail[]; next_of_kin?: NextOfKinDetail[]; chronicConditions?: string[]; totalVisits?: number; totalReports?: number; }
+interface MedicalAidDetail {
+  provider: string;
+  scheme: string;
+  membershipNumber: string;
+  planType: string;
+  mainMemberName: string;
+  mainMemberIdNumber: string;
+  relationship: string;
+}
 
-const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.07 } } };
-const itemVariants      = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100, damping: 12 } } };
+interface NextOfKinDetail {
+  id: string;
+  name: string;
+  relationship: string;
+  phone: string;
+  address?: string;
+}
+
+interface Patient {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  cell_number: string;
+  date_of_birth: string;
+  gender: string;
+  occupation?: string;
+  home_address: string;
+  medical_aid_details?: MedicalAidDetail[];
+  next_of_kin?: NextOfKinDetail[];
+  chronicConditions?: string[];
+  totalVisits?: number;
+  totalReports?: number;
+}
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.07 } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100, damping: 12 } },
+};
 
 const PatientDetail: React.FC = () => {
-  const { id }    = useParams<{ id: string }>();
-  const navigate  = useNavigate();
-  const qc        = useQueryClient();
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
 
-  const [addOpen,   setAddOpen]   = useState(false);
-  const [kinOpen,   setKinOpen]   = useState(false);
-  const [aidOpen,   setAidOpen]   = useState(false);
-  const [editOpen,  setEditOpen]  = useState(false);
+  const [openNextOfKin, setOpenNextOfKin] = useState(false);
+  const [openEditPatient, setOpenEditPatient] = useState(false);
+  const [openMedicalAid, setOpenMedicalAid] = useState(false);
+  const [openAddVisit, setOpenAddVisit] = useState(false);
 
-  // Fetch patient
   const { data: patient, isLoading, error } = useQuery({
     queryKey: ['patient', id],
     queryFn: async () => {
@@ -57,12 +94,12 @@ const PatientDetail: React.FC = () => {
         .eq('id', id)
         .single();
       if (error) {
-        logDatabaseError(error, `PatientDetail:${id}`);
+        logDatabaseError(error, `PatientDetail ID:${id}`);
         throw error;
       }
       return data as Patient;
     },
-    enabled: !!id
+    enabled: !!id,
   });
 
   const age = useMemo(() =>
@@ -126,21 +163,21 @@ const PatientDetail: React.FC = () => {
             <Button
               variant="gradient"
               className="w-full flex items-center justify-center space-x-2"
-              onClick={() => setAddOpen(true)}
+              onClick={() => setOpenAddVisit(true)}
             >
               <FilePlus /><span>Record Visit</span>
             </Button>
             <Button
               variant="outline"
               className="w-full flex items-center justify-center space-x-2"
-              onClick={() => setKinOpen(true)}
+              onClick={() => setOpenNextOfKin(true)}
             >
               <Users /><span>Next of Kin</span>
             </Button>
             <Button
               variant="outline"
               className="w-full flex items-center justify-center space-x-2"
-              onClick={() => setAidOpen(true)}
+              onClick={() => setOpenMedicalAid(true)}
             >
               <ShieldCheck /><span>Medical Aid</span>
             </Button>
@@ -194,9 +231,3 @@ const PatientDetail: React.FC = () => {
           initialData={patient.medical_aid_details?.[0]}
           onSuccess={() => { qc.invalidateQueries({ queryKey:['patient', id] }); setOpenMedicalAid(false); }}
         />
-      </FormModal>
-    </motion.div>
-);
-
-export default PatientDetail;
-
