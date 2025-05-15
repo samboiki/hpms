@@ -550,6 +550,3 @@ const PatientModernDetail = () => {
 
 export default PatientModernDetail;
 
-
-
-make the sidebar this color #01b9d4. gradient please ,
