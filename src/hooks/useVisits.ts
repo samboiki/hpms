@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+
 import { supabase } from '../lib/supabase';
 
 export function useVisits(patientId: string) {
