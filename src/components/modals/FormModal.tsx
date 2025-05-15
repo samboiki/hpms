@@ -1,4 +1,3 @@
-```tsx
 import React, { useEffect } from 'react';
 import Modal from 'react-modal';
 import { X } from 'lucide-react';
@@ -73,4 +72,3 @@ const FormModal: React.FC<FormModalProps> = ({
 };
 
 export default FormModal;
-```
