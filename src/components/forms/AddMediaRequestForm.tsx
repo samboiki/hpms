@@ -1,9 +1,18 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
+import { User } from 'lucide-react';
+
+interface Patient {
+  id: string;
+  first_name: string;
+  last_name: string;
+}
 
 interface MediaRequestFormData {
+  patient_id: string;
+  visit_id: string;
   type: 'xray' | 'ct' | 'mri' | 'ultrasound';
   body_part: string;
   priority: 'routine' | 'urgent' | 'stat';
@@ -12,20 +21,62 @@ interface MediaRequestFormData {
 }
 
 interface Props {
-  visitId: string;
   doctorId: string;
   onSuccess: () => void;
 }
 
-const AddMediaRequestForm: React.FC<Props> = ({ visitId, doctorId, onSuccess }) => {
-  const { register, handleSubmit, formState: { errors } } = useForm<MediaRequestFormData>();
+const AddMediaRequestForm: React.FC<Props> = ({ doctorId, onSuccess }) => {
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [visits, setVisits] = useState<any[]>([]);
+  const { register, handleSubmit, formState: { errors }, watch } = useForm<MediaRequestFormData>();
+  
+  const patientId = watch('patient_id');
+
+  useEffect(() => {
+    fetchPatients();
+  }, []);
+
+  useEffect(() => {
+    if (patientId) {
+      fetchPatientVisits(patientId);
+    }
+  }, [patientId]);
+
+  const fetchPatients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('patients')
+        .select('id, first_name, last_name')
+        .order('last_name', { ascending: true });
+
+      if (error) throw error;
+      setPatients(data || []);
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+    }
+  };
+
+  const fetchPatientVisits = async (patientId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('visits')
+        .select('id, visit_date, visit_time, visit_type')
+        .eq('patient_id', patientId)
+        .order('visit_date', { ascending: false });
+
+      if (error) throw error;
+      setVisits(data || []);
+    } catch (error) {
+      console.error('Error fetching visits:', error);
+    }
+  };
 
   const onSubmit = async (data: MediaRequestFormData) => {
     try {
       const { error } = await supabase
         .from('media_requests')
         .insert([{
-          visit_id: visitId,
+          visit_id: data.visit_id,
           requesting_doctor_id: doctorId,
           type: data.type,
           body_part: data.body_part,
@@ -44,6 +95,44 @@ const AddMediaRequestForm: React.FC<Props> = ({ visitId, doctorId, onSuccess }) 
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Patient</label>
+        <select
+          {...register('patient_id', { required: 'Patient is required' })}
+          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+        >
+          <option value="">Select patient</option>
+          {patients.map((patient) => (
+            <option key={patient.id} value={patient.id}>
+              {patient.last_name}, {patient.first_name}
+            </option>
+          ))}
+        </select>
+        {errors.patient_id && (
+          <p className="mt-1 text-sm text-red-600">{errors.patient_id.message}</p>
+        )}
+      </div>
+
+      {patientId && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Visit</label>
+          <select
+            {...register('visit_id', { required: 'Visit is required' })}
+            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+          >
+            <option value="">Select visit</option>
+            {visits.map((visit) => (
+              <option key={visit.id} value={visit.id}>
+                {new Date(visit.visit_date).toLocaleDateString()} - {visit.visit_type}
+              </option>
+            ))}
+          </select>
+          {errors.visit_id && (
+            <p className="mt-1 text-sm text-red-600">{errors.visit_id.message}</p>
+          )}
+        </div>
+      )}
+
       <div>
         <label className="block text-sm font-medium text-gray-700">Type</label>
         <select
