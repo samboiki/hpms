@@ -1,9 +1,10 @@
 import { create } from 'zustand';
+import { supabase } from '../lib/supabase';
 
 interface User {
   id: string;
-  name: string;
   email: string;
+  name: string;
   role: 'admin' | 'doctor' | 'nurse' | 'receptionist';
   avatar?: string;
 }
@@ -12,31 +13,58 @@ interface AuthState {
   isAuthenticated: boolean;
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
-// For demo purposes, we're using a mock user
-const mockUser: User = {
-  id: '1',
-  name: 'Dr. Jane Smith',
-  email: 'jane.smith@example.com',
-  role: 'doctor',
-  avatar: 'https://images.pexels.com/photos/5452293/pexels-photo-5452293.jpeg?auto=compress&cs=tinysrgb&w=200',
-};
-
 export const useAuthStore = create<AuthState>((set) => ({
-  // For demo purposes, we're setting isAuthenticated to true by default
-  isAuthenticated: true,
-  user: mockUser,
+  isAuthenticated: false,
+  user: null,
   login: async (email: string, password: string) => {
-    // Simulating a login API call
-    if (email && password) {
-      set({ isAuthenticated: true, user: mockUser });
-      return true;
+    try {
+      // Sign in with Supabase auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Get user profile from public.users table
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+
+        if (userError) throw userError;
+
+        const user: User = {
+          id: userData.id,
+          email: userData.email,
+          name: userData.full_name,
+          role: userData.role,
+          avatar: userData.avatar
+        };
+
+        set({ isAuthenticated: true, user });
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      set({ isAuthenticated: false, user: null });
+      return false;
     }
-    return false;
   },
-  logout: () => {
-    set({ isAuthenticated: false, user: null });
-  },
+  logout: async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      set({ isAuthenticated: false, user: null });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  }
 }));

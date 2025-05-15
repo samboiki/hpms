@@ -27,7 +27,8 @@ const Login: React.FC = () => {
         setError('Invalid email or password');
       }
     } catch (err) {
-      setError('An error occurred during login');
+      console.error('Login error:', err);
+      setError('An error occurred during login. Please try again.');
     } finally {
       setIsLoading(false);
     }
