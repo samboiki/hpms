@@ -22,22 +22,24 @@ const FormModal: React.FC<FormModalProps> = ({
   className,
   hideHeader = false
 }) => {
+  // Handle modal open/close effects
   useEffect(() => {
     if (isOpen) {
+      // Hide scrollbar and prevent body scroll
       document.body.style.overflow = 'hidden';
-      // Hide header and sidebar
-      const header = document.querySelector('header');
-      const sidebar = document.querySelector('nav');
-      if (header) header.style.display = 'none';
-      if (sidebar) sidebar.style.display = 'none';
+      
+      // Add modal-open class to body for styling
+      document.body.classList.add('modal-open');
     } else {
+      // Restore scrolling and remove modal-open class
       document.body.style.overflow = '';
-      // Show header and sidebar
-      const header = document.querySelector('header');
-      const sidebar = document.querySelector('nav');
-      if (header) header.style.display = '';
-      if (sidebar) sidebar.style.display = '';
+      document.body.classList.remove('modal-open');
     }
+
+    return () => {
+      document.body.style.overflow = '';
+      document.body.classList.remove('modal-open');
+    };
   }, [isOpen]);
 
   return (
@@ -48,8 +50,16 @@ const FormModal: React.FC<FormModalProps> = ({
         "fixed inset-0 flex items-center justify-center p-4 pointer-events-none",
         className
       )}
-      overlayClassName="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+      overlayClassName={cn(
+        "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4",
+        "backdrop-blur-sm"
+      )}
       contentLabel={title}
+      style={{
+        overlay: {
+          zIndex: 1000,
+        }
+      }}
     >
       <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[90vh] pointer-events-auto flex flex-col relative animate-scale-in">
         {!hideHeader && (
