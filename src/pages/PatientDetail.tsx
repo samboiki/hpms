@@ -34,6 +34,69 @@ import EditPatientForm from '../components/forms/EditPatientForm';
 import { supabase } from '../lib/supabase';
 import { logDatabaseError } from '../lib/supabase';
 import { format } from 'date-fns';
+import VisitsTimeline from '../components/visits/VisitsTimeline';
+
+// Mock visits data
+const mockVisits = [
+  {
+    id: 'v1',
+    date: '2024-03-15',
+    time: '09:30',
+    type: 'new',
+    doctor: {
+      name: 'Dr. Sarah Johnson',
+      specialty: 'General Practitioner'
+    },
+    chiefComplaint: 'Persistent headache and fatigue',
+    diagnosis: 'Tension headache with possible migraine components',
+    notes: 'Patient reports experiencing headaches for the past 2 weeks, particularly in the afternoon. Associated symptoms include mild photophobia and occasional nausea.',
+    prescription: 'Prescribed Sumatriptan 50mg PRN for acute episodes\nRecommended lifestyle modifications including stress management and regular sleep schedule',
+    labResults: [
+      {
+        id: 'l1',
+        name: 'Complete Blood Count',
+        value: '14.2',
+        unit: 'g/dL',
+        referenceRange: '12.0-15.5',
+        status: 'normal',
+        date: '2024-03-15'
+      }
+    ],
+    media: [
+      {
+        id: 'm1',
+        type: 'xray',
+        url: 'https://images.pexels.com/photos/4226881/pexels-photo-4226881.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+        description: 'Chest X-ray',
+        date: '2024-03-15'
+      }
+    ],
+    followUpDate: '2024-03-29'
+  },
+  {
+    id: 'v2',
+    date: '2024-03-01',
+    time: '14:15',
+    type: 'follow-up',
+    doctor: {
+      name: 'Dr. Michael Chen',
+      specialty: 'Neurologist'
+    },
+    chiefComplaint: 'Follow-up for migraine management',
+    diagnosis: 'Chronic migraine, improving with current treatment',
+    notes: 'Patient reports significant improvement in migraine frequency and intensity with current medication regimen.',
+    labResults: [],
+    media: [
+      {
+        id: 'm2',
+        type: 'mri',
+        url: 'https://images.pexels.com/photos/4226769/pexels-photo-4226769.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
+        description: 'Brain MRI',
+        date: '2024-03-01'
+      }
+    ]
+  }
+];
 
 interface Patient {
   id: string;
@@ -579,69 +642,7 @@ const PatientDetail: React.FC = () => {
 
           {generateAISummary(patient)}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader className="border-b border-gray-100">
-                <CardTitle>Upcoming Appointments</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-4">
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant="azure">Follow-up</Badge>
-                      <span className="text-sm text-gray-500">Tomorrow, 10:00 AM</span>
-                    </div>
-                    <h4 className="font-medium">Dr. Sarah Johnson</h4>
-                    <p className="text-sm text-gray-500">General Medicine</p>
-                  </div>
-                  
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant="warning">Lab Test</Badge>
-                      <span className="text-sm text-gray-500">Next Week</span>
-                    </div>
-                    <h4 className="font-medium">Blood Work</h4>
-                    <p className="text-sm text-gray-500">Routine Check</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="border-b border-gray-100">
-                <CardTitle>Latest Vitals</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-500">Blood Pressure</p>
-                      <h4 className="text-lg font-medium">120/80</h4>
-                      <Badge variant="success" size="sm">Normal</Badge>
-                    </div>
-                    
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-500">Heart Rate</p>
-                      <h4 className="text-lg font-medium">72 bpm</h4>
-                      <Badge variant="success" size="sm">Normal</Badge>
-                    </div>
-                    
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-500">Temperature</p>
-                      <h4 className="text-lg font-medium">36.6°C</h4>
-                      <Badge variant="success" size="sm">Normal</Badge>
-                    </div>
-                    
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-500">Weight</p>
-                      <h4 className="text-lg font-medium">75 kg</h4>
-                      <Badge variant="success" size="sm">Normal</Badge>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <VisitsTimeline visits={mockVisits} />
         </motion.div>
       </div>
 
