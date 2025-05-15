@@ -1,43 +1,35 @@
 import React, { useState } from 'react';
+import { format } from 'date-fns';
 import { 
-  Search,
   Filter,
+  Search,
   Calendar,
-  SortAsc,
-  SortDesc
+  ArrowDownUp
 } from 'lucide-react';
-import VisitCard from './VisitCard';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import Button from '../ui/Button';
-import { Card, CardContent } from '../ui/Card';
+import VisitCard from './VisitCard';
 
 interface Visit {
   id: string;
   date: string;
+  time: string;
   type: 'new' | 'follow-up';
   doctor: {
     name: string;
     specialty: string;
-    avatar?: string;
   };
   chiefComplaint: string;
   diagnosis: string;
   notes: string;
-  prescription?: {
-    medications: Array<{
-      name: string;
-      dosage: string;
-      frequency: string;
-      duration: string;
-    }>;
-    instructions: string;
-  };
+  prescription?: string;
   labResults: Array<{
     id: string;
     name: string;
     value: string;
     unit: string;
     referenceRange: string;
-    status: 'normal' | 'abnormal' | 'critical';
+    status: 'normal' | 'high' | 'low' | 'critical';
     date: string;
   }>;
   media: Array<{
@@ -47,68 +39,57 @@ interface Visit {
     description: string;
     date: string;
   }>;
-  vitals: {
-    bloodPressure: string;
-    temperature: number;
-    heartRate: number;
-    respiratoryRate: number;
-    oxygenSaturation: number;
-  };
   followUpDate?: string;
 }
 
-interface VisitsTimelineProps {
+interface Props {
   visits: Visit[];
 }
 
-const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ visits }) => {
+const VisitsTimeline: React.FC<Props> = ({ visits }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [selectedType, setSelectedType] = useState<'all' | 'new' | 'follow-up'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'new' | 'follow-up'>('all');
 
-  const filteredVisits = visits
+  const filteredAndSortedVisits = visits
     .filter(visit => {
-      const matchesSearch = 
-        visit.chiefComplaint.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        visit.diagnosis.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        visit.doctor.name.toLowerCase().includes(searchTerm.toLowerCase());
+      if (filterType !== 'all' && visit.type !== filterType) return false;
       
-      const matchesType = 
-        selectedType === 'all' || 
-        visit.type === selectedType;
-      
-      return matchesSearch && matchesType;
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        visit.chiefComplaint.toLowerCase().includes(searchLower) ||
+        visit.diagnosis.toLowerCase().includes(searchLower) ||
+        visit.doctor.name.toLowerCase().includes(searchLower)
+      );
     })
     .sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      const dateA = new Date(`${a.date} ${a.time}`).getTime();
+      const dateB = new Date(`${b.date} ${b.time}`).getTime();
+      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
     });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search 
-                size={18} 
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" 
-              />
-              <input
-                type="text"
-                placeholder="Search by complaint, diagnosis, or doctor..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-brand-primary focus:border-brand-primary"
-              />
-            </div>
-            
-            <div className="flex gap-2">
+        <CardHeader>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <CardTitle>Visit History</CardTitle>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Search visits..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 w-full rounded-md border border-gray-300 focus:ring-brand-primary focus:border-brand-primary"
+                />
+              </div>
+              
               <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value as 'all' | 'new' | 'follow-up')}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-brand-primary focus:border-brand-primary"
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value as 'all' | 'new' | 'follow-up')}
+                className="px-4 py-2 rounded-md border border-gray-300 focus:ring-brand-primary focus:border-brand-primary"
               >
                 <option value="all">All Visits</option>
                 <option value="new">New Visits</option>
@@ -117,32 +98,29 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ visits }) => {
               
               <Button
                 variant="outline"
-                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                onClick={() => setSortOrder(order => order === 'desc' ? 'asc' : 'desc')}
               >
-                {sortOrder === 'asc' ? (
-                  <SortAsc size={16} className="mr-2" />
-                ) : (
-                  <SortDesc size={16} className="mr-2" />
-                )}
-                Date
+                <Calendar size={16} className="mr-2" />
+                {sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}
               </Button>
             </div>
           </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            {filteredAndSortedVisits.map((visit) => (
+              <VisitCard key={visit.id} visit={visit} />
+            ))}
+            
+            {filteredAndSortedVisits.length === 0 && (
+              <div className="text-center py-12">
+                <Calendar size={40} className="mx-auto text-gray-300 mb-3" />
+                <p className="text-gray-500">No visits found</p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
-
-      <div className="space-y-4">
-        {filteredVisits.map((visit) => (
-          <VisitCard key={visit.id} visit={visit} />
-        ))}
-
-        {filteredVisits.length === 0 && (
-          <div className="text-center py-12">
-            <Calendar size={40} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-gray-500">No visits found</p>
-          </div>
-        )}
-      </div>
     </div>
   );
 };
