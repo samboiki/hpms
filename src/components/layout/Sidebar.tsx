@@ -10,7 +10,8 @@ import {
   ChevronRight,
   ChevronLeft,
   X,
-  Wallet
+  Wallet,
+  Microscope
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -33,6 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Users, label: 'Patients', path: '/patients' },
     { icon: Calendar, label: 'Schedule', path: '/appointments' },
+    { icon: Microscope, label: 'Requests', path: '/requests' },
     { icon: Wallet, label: 'Finance', path: '/finance' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];

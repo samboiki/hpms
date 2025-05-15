@@ -11,6 +11,7 @@ import Login from './pages/auth/Login';
 import { useAuthStore } from './stores/authStore';
 import NotFound from './pages/NotFound';
 import PracticeProfile from './pages/PracticeProfile';
+import Requests from './pages/Requests';
 
 function App() {
   const { isAuthenticated } = useAuthStore();
@@ -27,6 +28,7 @@ function App() {
         <Route path="patients" element={<Patients />} />
         <Route path="patients/:id" element={<PatientDetail />} />
         <Route path="appointments" element={<Appointments />} />
+        <Route path="requests" element={<Requests />} />
         <Route path="finance" element={<Finance />} />
         <Route path="practice-profile" element={<PracticeProfile />} />
         <Route path="settings" element={<Settings />} />
