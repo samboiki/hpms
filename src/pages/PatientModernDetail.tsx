@@ -23,7 +23,9 @@ import {
   Microscope,
   ChevronRight,
   Clock,
-  Calendar
+  Calendar,
+  FileText,
+  Pill
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
@@ -34,6 +36,7 @@ import FormModal from '../components/modals/FormModal';
 import NextOfKinForm from '../components/forms/NextOfKinForm';
 import AddVisitForm from '../components/forms/AddVisitForm';
 import VitalsDisplay from '../components/patients/VitalsDisplay';
+import EditVisitForm from '../components/forms/EditVisitForm';
 
 interface Patient {
   id: string;
@@ -55,6 +58,7 @@ interface Visit {
   doctor_name: string;
   chief_complaint: string;
   diagnosis: string;
+  prescription?: string;
   vitals: {
     blood_pressure?: string;
     temperature?: number;
@@ -66,7 +70,6 @@ interface Visit {
   };
 }
 
-// UUID validation regex
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const PatientModernDetail = () => {
@@ -79,6 +82,9 @@ const PatientModernDetail = () => {
   const [isNextOfKinModalOpen, setIsNextOfKinModalOpen] = useState(false);
   const [isAddVisitModalOpen, setIsAddVisitModalOpen] = useState(false);
   const [showHealthSummary, setShowHealthSummary] = useState(false);
+  const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
+  const [isVisitDetailModalOpen, setIsVisitDetailModalOpen] = useState(false);
+  const [isEditVisitModalOpen, setIsEditVisitModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -86,12 +92,10 @@ const PatientModernDetail = () => {
         setIsLoading(true);
         setError(null);
 
-        // Validate UUID format
         if (!id || !UUID_REGEX.test(id)) {
           throw new Error('Invalid patient ID format. Please use a valid UUID.');
         }
         
-        // Fetch patient details
         const { data: patientData, error: patientError } = await supabase
           .from('patients')
           .select('*')
@@ -103,7 +107,6 @@ const PatientModernDetail = () => {
         
         setPatient(patientData);
 
-        // Fetch visits with vitals
         const { data: visitsData, error: visitsError } = await supabase
           .from('visit_details_view')
           .select('*')
@@ -116,7 +119,6 @@ const PatientModernDetail = () => {
       } catch (error) {
         console.error('Error fetching data:', error);
         setError(error instanceof Error ? error.message : 'An error occurred while fetching patient data');
-        // Navigate back to patients list if the ID is invalid
         if (error instanceof Error && error.message.includes('Invalid patient ID format')) {
           navigate('/patients');
         }
@@ -147,8 +149,20 @@ const PatientModernDetail = () => {
     }
   };
 
-  const handleVisitClick = (visitId: string) => {
-    console.log('Visit clicked:', visitId);
+  const handleVisitClick = async (visitId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('visit_details_view')
+        .select('*')
+        .eq('id', visitId)
+        .single();
+
+      if (error) throw error;
+      setSelectedVisit(data);
+      setIsVisitDetailModalOpen(true);
+    } catch (error) {
+      console.error('Error fetching visit details:', error);
+    }
   };
 
   const handleVisitStatusChange = async (visitId: string, status: string) => {
@@ -160,7 +174,6 @@ const PatientModernDetail = () => {
 
       if (error) throw error;
 
-      // Refresh visits
       const { data: updatedVisits } = await supabase
         .from('visit_details_view')
         .select('*')
@@ -204,7 +217,6 @@ const PatientModernDetail = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Sticky Header */}
       <div className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm rounded-xl">
         <div className="max-w-[1600px] mx-auto px-4 md:px-6 py-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -271,12 +283,9 @@ const PatientModernDetail = () => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="max-w-[1600px] mx-auto px-4 md:px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column - Patient Info */}
           <div className="lg:col-span-3 space-y-6">
-            {/* Medical Aid Card */}
             <Card className="overflow-hidden border-l-4 border-l-[#01b9d4]">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-center">
@@ -313,7 +322,6 @@ const PatientModernDetail = () => {
               </CardContent>
             </Card>
 
-            {/* Next of Kin Card */}
             <Card className="overflow-hidden border-l-4 border-l-[#0197d4]">
               <CardHeader className="pb-2">
                 <div className="flex justify-between items-center">
@@ -353,7 +361,6 @@ const PatientModernDetail = () => {
             </Card>
           </div>
 
-          {/* Middle Column - Visits Timeline */}
           <div className="lg:col-span-6 space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-medium text-gray-900">Visit History</h2>
@@ -374,7 +381,6 @@ const PatientModernDetail = () => {
             </div>
 
             <div className="relative space-y-4">
-              {/* Timeline line */}
               <div className="absolute left-6 top-0 bottom-0 w-px bg-gray-200"></div>
 
               {visits.map((visit, index) => (
@@ -390,7 +396,6 @@ const PatientModernDetail = () => {
                   } p-4 hover:shadow-md transition-shadow cursor-pointer ml-10`}
                   onClick={() => handleVisitClick(visit.id)}
                 >
-                  {/* Timeline node */}
                   <div className={`absolute -left-10 top-6 w-4 h-4 rounded-full border-2 ${
                     visit.status === 'completed' ? 'bg-emerald-500 border-emerald-200' :
                     visit.status === 'in-progress' ? 'bg-amber-500 border-amber-200' :
@@ -420,7 +425,6 @@ const PatientModernDetail = () => {
                     <ChevronRight size={16} className="text-gray-400" />
                   </div>
 
-                  {/* Lab Results and Media */}
                   <div className="mt-3 flex items-center space-x-4">
                     <div className="flex items-center text-gray-500">
                       <Microscope size={14} className="mr-1" />
@@ -463,14 +467,146 @@ const PatientModernDetail = () => {
             </div>
           </div>
 
-          {/* Right Column - Vitals */}
           <div className="lg:col-span-3 space-y-6">
             <VitalsDisplay vitals={visits[0]?.vitals || {}} />
           </div>
         </div>
       </div>
 
-      {/* Modals */}
+      <FormModal
+        isOpen={isVisitDetailModalOpen}
+        onClose={() => {
+          setIsVisitDetailModalOpen(false);
+          setSelectedVisit(null);
+        }}
+        title="Visit Details"
+      >
+        {selectedVisit && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-medium text-gray-900">
+                  {selectedVisit.visit_type} with {selectedVisit.doctor_name}
+                </h3>
+                <div className="flex items-center mt-1 text-sm text-gray-500">
+                  <Calendar size={14} className="mr-2" />
+                  {format(new Date(selectedVisit.visit_date), 'MMMM d, yyyy')} at {selectedVisit.visit_time}
+                </div>
+              </div>
+              <Badge variant={getStatusColor(selectedVisit.status)} size="sm">
+                {selectedVisit.status}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center">
+                    <Stethoscope size={16} className="mr-2" />
+                    Clinical Information
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700">Chief Complaint</h4>
+                    <p className="mt-1 text-sm text-gray-600">{selectedVisit.chief_complaint}</p>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700">Diagnosis</h4>
+                    <p className="mt-1 text-sm text-gray-600">{selectedVisit.diagnosis}</p>
+                  </div>
+
+                  {selectedVisit.prescription && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 flex items-center">
+                        <Pill size={14} className="mr-2" />
+                        Prescription
+                      </h4>
+                      <p className="mt-1 text-sm text-gray-600">{selectedVisit.prescription}</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center">
+                    <Activity size={16} className="mr-2" />
+                    Vitals
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <VitalsDisplay vitals={selectedVisit.vitals} />
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="flex justify-between pt-4 border-t border-gray-100">
+              <div className="space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleVisitStatusChange(selectedVisit.id, 'completed')}
+                  disabled={selectedVisit.status === 'completed'}
+                >
+                  <CheckCircle2 size={14} className="mr-2" />
+                  Complete
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleVisitStatusChange(selectedVisit.id, 'in-progress')}
+                  disabled={selectedVisit.status === 'in-progress'}
+                >
+                  <Clock size={14} className="mr-2" />
+                  In Progress
+                </Button>
+              </div>
+              <Button
+                onClick={() => {
+                  setIsVisitDetailModalOpen(false);
+                  setIsEditVisitModalOpen(true);
+                }}
+              >
+                <Edit3 size={14} className="mr-2" />
+                Edit Visit
+              </Button>
+            </div>
+          </div>
+        )}
+      </FormModal>
+
+      <FormModal
+        isOpen={isEditVisitModalOpen}
+        onClose={() => {
+          setIsEditVisitModalOpen(false);
+          setSelectedVisit(null);
+        }}
+        title="Edit Visit"
+      >
+        {selectedVisit && (
+          <EditVisitForm
+            visitId={selectedVisit.id}
+            initialData={selectedVisit}
+            onSuccess={() => {
+              setIsEditVisitModalOpen(false);
+              if (id) {
+                const fetchVisits = async () => {
+                  const { data } = await supabase
+                    .from('visit_details_view')
+                    .select('*')
+                    .eq('patient_id', id)
+                    .order('visit_date', { ascending: false });
+                  setVisits(data || []);
+                };
+                fetchVisits();
+              }
+            }}
+          />
+        )}
+      </FormModal>
+
       <FormModal
         isOpen={showHealthSummary}
         onClose={() => setShowHealthSummary(false)}
@@ -478,7 +614,6 @@ const PatientModernDetail = () => {
         className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center"
       >
         <div className="bg-gradient-to-r from-[#a855f7] to-[#00B4D8] p-6 rounded-xl text-white">
-          {/* Health Summary Content */}
           <div className="space-y-6">
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
               <h3 className="text-lg font-semibold mb-2">Patient Overview</h3>
@@ -540,7 +675,6 @@ const PatientModernDetail = () => {
           patientId={id || ''}
           onSuccess={() => {
             setIsAddVisitModalOpen(false);
-            // Refresh visits
             if (id) {
               const fetchVisits = async () => {
                 const { data } = await supabase
