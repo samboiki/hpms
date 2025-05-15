@@ -19,28 +19,17 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    checkUser();
-  }, []);
-
-  const checkUser = async () => {
-    try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Session check error:', error);
-        setIsLoading(false);
-        return;
-      }
-
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
-        await login(session.user.email!, ''); // Password not needed for session auth
+        login(session.user.email!, '');
       }
-    } catch (error) {
-      console.error('Error checking auth status:', error);
-    } finally {
       setIsLoading(false);
-    }
-  };
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [login]);
 
   if (isLoading) {
     return (
@@ -50,7 +39,6 @@ function App() {
     );
   }
 
-  // If not authenticated, show login page
   if (!isAuthenticated) {
     return <Login />;
   }
