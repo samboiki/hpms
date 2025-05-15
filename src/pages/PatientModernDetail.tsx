@@ -66,12 +66,16 @@ interface Visit {
   };
 }
 
+// UUID validation regex
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const PatientModernDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isNextOfKinModalOpen, setIsNextOfKinModalOpen] = useState(false);
   const [isAddVisitModalOpen, setIsAddVisitModalOpen] = useState(false);
   const [showHealthSummary, setShowHealthSummary] = useState(false);
@@ -80,6 +84,12 @@ const PatientModernDetail = () => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
+        setError(null);
+
+        // Validate UUID format
+        if (!id || !UUID_REGEX.test(id)) {
+          throw new Error('Invalid patient ID format. Please use a valid UUID.');
+        }
         
         // Fetch patient details
         const { data: patientData, error: patientError } = await supabase
@@ -89,6 +99,8 @@ const PatientModernDetail = () => {
           .single();
 
         if (patientError) throw patientError;
+        if (!patientData) throw new Error('Patient not found');
+        
         setPatient(patientData);
 
         // Fetch visits with vitals
@@ -103,6 +115,11 @@ const PatientModernDetail = () => {
 
       } catch (error) {
         console.error('Error fetching data:', error);
+        setError(error instanceof Error ? error.message : 'An error occurred while fetching patient data');
+        // Navigate back to patients list if the ID is invalid
+        if (error instanceof Error && error.message.includes('Invalid patient ID format')) {
+          navigate('/patients');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -111,7 +128,7 @@ const PatientModernDetail = () => {
     if (id) {
       fetchData();
     }
-  }, [id]);
+  }, [id, navigate]);
 
   const calculateAge = (dateOfBirth: string) => {
     return new Date().getFullYear() - new Date(dateOfBirth).getFullYear();
@@ -160,6 +177,27 @@ const PatientModernDetail = () => {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center">
+            <AlertCircle className="text-red-500 mr-2" size={20} />
+            <p className="text-red-700">{error}</p>
+          </div>
+        </div>
+        <Button
+          onClick={() => navigate('/patients')}
+          variant="outline"
+          className="mt-4"
+        >
+          <ChevronLeft size={16} className="mr-2" />
+          Back to Patients
+        </Button>
       </div>
     );
   }
