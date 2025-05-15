@@ -128,10 +128,7 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
     }
   };
 
-  const fetchVisitDetails = async (visitId: string, e: React.MouseEvent) => {
-    // Stop event propagation to prevent menu highlighting
-    e.stopPropagation();
-    
+  const fetchVisitDetails = async (visitId: string) => {
     try {
       const { data, error } = await supabase
         .from('visit_details_view')
@@ -166,9 +163,7 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
     }
   };
 
-  const handleEdit = (visit: Visit, e: React.MouseEvent) => {
-    // Stop event propagation to prevent menu highlighting
-    e.stopPropagation();
+  const handleEdit = (visit: Visit) => {
     setSelectedVisit(visit);
     setIsEditModalOpen(true);
   };
@@ -244,6 +239,8 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
               className="relative pl-8 pb-8 last:pb-0"
+              onClick={() => fetchVisitDetails(visit.id)}
+              style={{ cursor: 'pointer' }}
             >
               {/* Timeline connector */}
               {index < visits.length - 1 && (
@@ -380,7 +377,10 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={(e) => handleEdit(visit, e)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(visit);
+                        }}
                       >
                         <Edit3 size={14} className="mr-2" />
                         Edit
@@ -388,7 +388,10 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={(e) => fetchVisitDetails(visit.id, e)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fetchVisitDetails(visit.id);
+                        }}
                       >
                         <ChevronRight size={14} />
                       </Button>
@@ -421,7 +424,6 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
             onEdit={() => {
               setIsDetailsModalOpen(false);
               setSelectedVisit(visitDetails);
-              setIsEditModalOpen(true);
             }}
           />
         )}
