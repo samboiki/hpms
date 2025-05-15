@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import FormModal from '../modals/FormModal';
 import AddLabRequestForm from '../forms/AddLabRequestForm';
 import AddMediaRequestForm from '../forms/AddMediaRequestForm';
-import { useAuth } from '../../stores/authStore';
+import { useAuthStore } from '../../stores/authStore';
 
 const RequestsOverview: React.FC = () => {
   const [isLabModalOpen, setIsLabModalOpen] = useState(false);
   const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
-  const { user } = useAuth();
+  const { user } = useAuthStore();
 
   const fetchRequests = () => {
     // Implement request fetching logic
