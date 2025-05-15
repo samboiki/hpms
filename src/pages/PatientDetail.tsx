@@ -1,5 +1,3 @@
-// src/pages/PatientDetail.tsx
-
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -17,12 +15,12 @@ import {
   MapPin,
   AlertCircle,
   Brain,
-  Sparkles
+  Sparkles,
+  Briefcase
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
 import NextOfKinForm from '../components/forms/NextOfKinForm';
 import EditPatientForm from '../components/forms/EditPatientForm';
@@ -31,60 +29,22 @@ import MedicalAidForm from '../components/forms/MedicalAidForm';
 import { supabase, logDatabaseError } from '../lib/supabase';
 import VisitsTimeline from '../components/visits/VisitsTimeline';
 
-interface MedicalAidDetail {
-  provider: string;
-  scheme: string;
-  membershipNumber: string;
-  planType: string;
-  mainMemberName: string;
-  mainMemberIdNumber: string;
-  relationship: string;
-}
+interface MedicalAidDetail { provider: string; scheme: string; membershipNumber: string; planType: string; mainMemberName: string; mainMemberIdNumber: string; relationship: string; }
+interface NextOfKinDetail { id: string; name: string; relationship: string; phone: string; address?: string; }
+interface Patient { id: string; first_name: string; last_name: string; email: string; cell_number: string; date_of_birth: string; gender: string; occupation?: string; home_address: string; medical_aid_details?: MedicalAidDetail[]; next_of_kin?: NextOfKinDetail[]; chronicConditions?: string[]; totalVisits?: number; totalReports?: number; }
 
-interface NextOfKinDetail {
-  id: string;
-  name: string;
-  relationship: string;
-  phone: string;
-  address?: string;
-}
-
-interface Patient {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  cell_number: string;
-  date_of_birth: string;
-  gender: string;
-  occupation?: string;
-  home_address: string;
-  medical_aid_details?: MedicalAidDetail[];
-  next_of_kin?: NextOfKinDetail[];
-  chronicConditions?: string[];
-  totalVisits?: number;
-  totalReports?: number;
-}
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.07 } },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100, damping: 12 } },
-};
+const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.07 } } };
+const itemVariants      = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100, damping: 12 } } };
 
 const PatientDetail: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const qc = useQueryClient();
+  const { id }    = useParams<{ id: string }>();
+  const navigate  = useNavigate();
+  const qc        = useQueryClient();
 
-  const [openNextOfKin, setOpenNextOfKin] = useState(false);
-  const [openEditPatient, setOpenEditPatient] = useState(false);
-  const [openMedicalAid, setOpenMedicalAid] = useState(false);
-  const [openAddVisit, setOpenAddVisit] = useState(false);
+  const [addOpen,   setAddOpen]   = useState(false);
+  const [kinOpen,   setKinOpen]   = useState(false);
+  const [aidOpen,   setAidOpen]   = useState(false);
+  const [editOpen,  setEditOpen]  = useState(false);
 
   // Fetch patient
   const { data: patient, isLoading, error } = useQuery({
@@ -97,7 +57,7 @@ const PatientDetail: React.FC = () => {
         .eq('id', id)
         .single();
       if (error) {
-        logDatabaseError(error, `PatientDetail ID:${id}`);
+        logDatabaseError(error, `PatientDetail:${id}`);
         throw error;
       }
       return data as Patient;
@@ -106,7 +66,9 @@ const PatientDetail: React.FC = () => {
   });
 
   const age = useMemo(() =>
-    patient?.date_of_birth ? differenceInYears(new Date(), new Date(patient.date_of_birth)) : null,
+    patient?.date_of_birth
+      ? differenceInYears(new Date(), new Date(patient.date_of_birth))
+      : null,
   [patient]);
 
   if (isLoading) return (
@@ -150,11 +112,11 @@ const PatientDetail: React.FC = () => {
         <aside className="space-y-8 sticky top-24">
           <Card className="shadow-lg rounded-2xl">
             <CardContent className="space-y-2">
-              <p><User className="inline-block mr-2 text-indigo-500"/> <span className="font-semibold">Email:</span> {patient.email}</p>
-              <p><Phone className="inline-block mr-2 text-indigo-500"/> <span className="font-semibold">Phone:</span> {patient.cell_number}</p>
-              <p><MapPin className="inline-block mr-2 text-indigo-500"/> <span className="font-semibold">Address:</span> {patient.home_address}</p>
+              <p><User className="inline-block mr-2 text-indigo-500"/><span className="font-semibold">Email:</span> {patient.email}</p>
+              <p><Phone className="inline-block mr-2 text-indigo-500"/><span className="font-semibold">Phone:</span> {patient.cell_number}</p>
+              <p><MapPin className="inline-block mr-2 text-indigo-500"/><span className="font-semibold">Address:</span> {patient.home_address}</p>
               {patient.occupation && (
-                <p><Briefcase className="inline-block mr-2 text-indigo-500"/> <span className="font-semibold">Occupation:</span> {patient.occupation}</p>
+                <p><Briefcase className="inline-block mr-2 text-indigo-500"/><span className="font-semibold">Occupation:</span> {patient.occupation}</p>
               )}
             </CardContent>
           </Card>
@@ -164,23 +126,23 @@ const PatientDetail: React.FC = () => {
             <Button
               variant="gradient"
               className="w-full flex items-center justify-center space-x-2"
-              onClick={() => setOpenAddVisit(true)}
+              onClick={() => setAddOpen(true)}
             >
-              <FilePlus /> <span>Record Visit</span>
+              <FilePlus /><span>Record Visit</span>
             </Button>
             <Button
               variant="outline"
               className="w-full flex items-center justify-center space-x-2"
-              onClick={() => setOpenNextOfKin(true)}
+              onClick={() => setKinOpen(true)}
             >
-              <Users /> <span>Next of Kin</span>
+              <Users /><span>Next of Kin</span>
             </Button>
             <Button
               variant="outline"
               className="w-full flex items-center justify-center space-x-2"
-              onClick={() => setOpenMedicalAid(true)}
+              onClick={() => setAidOpen(true)}
             >
-              <ShieldCheck /> <span>Medical Aid</span>
+              <ShieldCheck /><span>Medical Aid</span>
             </Button>
           </div>
         </aside>
@@ -188,6 +150,25 @@ const PatientDetail: React.FC = () => {
         {/* Main */}
         <motion.div variants={itemVariants} className="space-y-8">
           <VisitsTimeline patientId={id!} />
+
+          {/* AI Summary */}
+          <motion.div variants={itemVariants}>
+            <Card className="bg-gradient-to-br from-gray-800 to-gray-900 text-white shadow-lg rounded-2xl">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Brain size={22} className="text-cyan-400" />
+                    <CardTitle className="text-xl">AI Insights</CardTitle>
+                  </div>
+                  <Sparkles size={16} className="text-cyan-200" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p>{patient.first_name} {patient.last_name} is a {age}-year-old {patient.gender}.</p>
+                <p>Recommended next visit in 3 months. Continue current care plan.</p>
+              </CardContent>
+            </Card>
+          </motion.div>
         </motion.div>
       </div>
 
@@ -215,7 +196,7 @@ const PatientDetail: React.FC = () => {
         />
       </FormModal>
     </motion.div>
-  );
-};
+);
 
 export default PatientDetail;
+
