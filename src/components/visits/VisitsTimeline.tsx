@@ -87,15 +87,52 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   useEffect(() => {
-    fetchVisits();
-    subscribeToVisits();
+    let subscription: ReturnType<typeof supabase.channel> | null = null;
 
+    const initializeVisits = async () => {
+      if (!patientId) {
+        setError('Patient ID is required');
+        setIsLoading(false);
+        return;
+      }
+
+      await fetchVisits();
+      
+      // Set up real-time subscription
+      subscription = supabase
+        .channel('visit_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'visits',
+            filter: `patient_id=eq.${patientId}`
+          },
+          () => {
+            fetchVisits();
+          }
+        )
+        .subscribe();
+    };
+
+    initializeVisits();
+
+    // Cleanup subscription on unmount
     return () => {
-      supabase.removeAllSubscriptions();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, [patientId]);
 
   const fetchVisits = async () => {
+    if (!patientId) {
+      setError('Patient ID is required');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
@@ -114,28 +151,6 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const subscribeToVisits = () => {
-    const subscription = supabase
-      .channel('visit_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'visits',
-          filter: `patient_id=eq.${patientId}`
-        },
-        () => {
-          fetchVisits();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
   };
 
   const fetchVisitDetails = async (visitId: string) => {
