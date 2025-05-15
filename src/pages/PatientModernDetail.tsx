@@ -549,4 +549,3 @@ const PatientModernDetail = () => {
 };
 
 export default PatientModernDetail;
-
