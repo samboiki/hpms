@@ -1,4 +1,3 @@
-```tsx
 import React from 'react';
 import { Activity } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../ui/Card';
@@ -99,4 +98,3 @@ const VitalsDisplay: React.FC<VitalsDisplayProps> = ({ vitals }) => {
 };
 
 export default VitalsDisplay;
-```
