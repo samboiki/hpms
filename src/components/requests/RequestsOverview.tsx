@@ -1,5 +1,4 @@
-// Update the FormModal sections at the bottom of the file:
-
+<>
       <FormModal
         isOpen={isLabModalOpen}
         onClose={() => setIsLabModalOpen(false)}
@@ -27,3 +26,4 @@
           }}
         />
       </FormModal>
+</>
