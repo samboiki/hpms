@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Building2,
-  FileText,
+  FileText, 
   Phone,
   Mail,
   MapPin,
