@@ -12,7 +12,7 @@ interface EditVisitFormData {
   follow_up_required: boolean;
   follow_up_date?: string;
   notes?: string;
-  status: 'in-progress' | 'completed';
+  status: 'in-progress' | 'completed' | 'cancelled';
 }
 
 interface Props {
@@ -41,7 +41,8 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
           follow_up_required: data.follow_up_required,
           follow_up_date: data.follow_up_required ? data.follow_up_date : null,
           notes: data.notes,
-          status: data.status
+          status: data.status,
+          updated_at: new Date().toISOString()
         })
         .eq('id', visitId);
 
@@ -151,6 +152,7 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
         >
           <option value="in-progress">In Progress</option>
           <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
         </select>
         {errors.status && (
           <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
