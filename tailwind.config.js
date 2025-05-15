@@ -6,79 +6,51 @@ export default {
   ],
   theme: {
     extend: {
-      fontFamily: {
-        heading: ['Rubik', 'sans-serif'],
-        body: ['Montserrat', 'sans-serif'],
-      },
       colors: {
-        'brand': {
-          50: '#e0f7ff',
-          100: '#b3e7ff',
-          200: '#80d5ff',
-          300: '#4dc3ff',
-          400: '#26b5ff',
-          500: '#01b9d4',
-          600: '#0197d4',
-          700: '#0077a3',
-          800: '#005c80',
-          900: '#003d54',
+        primary: {
+          50: '#f0f9ff',
+          100: '#e0f2fe',
+          200: '#bae6fd',
+          300: '#7dd3fc',
+          400: '#38bdf8',
+          500: '#0ea5e9',
+          600: '#0284c7',
+          700: '#0369a1',
+          800: '#075985',
+          900: '#0c4a6e',
         },
-        'accent': {
-          coral: '#ff6b6b',
-          lavender: '#9b6bff',
-          azure: '#01b9d4',
+        secondary: {
+          50: '#fdf4ff',
+          100: '#fae8ff',
+          200: '#f5d0fe',
+          300: '#f0abfc',
+          400: '#e879f9',
+          500: '#d946ef',
+          600: '#c026d3',
+          700: '#a21caf',
+          800: '#86198f',
+          900: '#701a75',
         },
-        'success': {
-          50: '#f0fdf4',
-          500: '#22c55e',
-          600: '#16a34a',
-        },
-        'warning': {
-          50: '#fefce8',
-          500: '#eab308',
-          600: '#ca8a04',
-        },
-        'error': {
-          50: '#fef2f2',
-          500: '#ef4444',
-          600: '#dc2626',
-        },
+        accent: {
+          50: '#fff1f2',
+          100: '#ffe4e6',
+          200: '#fecdd3',
+          300: '#fda4af',
+          400: '#fb7185',
+          500: '#f43f5e',
+          600: '#e11d48',
+          700: '#be123c',
+          800: '#9f1239',
+          900: '#881337',
+        }
       },
-      screens: {
-        'xs': '475px',
-        'sm': '640px',
-        'md': '768px',
-        'lg': '1024px',
-        'xl': '1280px',
-        '2xl': '1536px',
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+        heading: ['Rubik', 'sans-serif'],
       },
-      spacing: {
-        '18': '4.5rem',
-        '112': '28rem',
-        '128': '32rem',
-      },
-      maxWidth: {
-        '8xl': '88rem',
-        '9xl': '96rem',
-      },
-      minHeight: {
-        'screen-75': '75vh',
-        'screen-85': '85vh',
-      },
-      animation: {
-        'scale-in': 'scaleIn 0.2s ease-out',
-        'fade-in': 'fadeIn 0.3s ease-out',
-      },
-      keyframes: {
-        scaleIn: {
-          '0%': { transform: 'scale(0.95)', opacity: 0 },
-          '100%': { transform: 'scale(1)', opacity: 1 },
-        },
-        fadeIn: {
-          '0%': { opacity: 0 },
-          '100%': { opacity: 1 },
-        },
-      },
+      boxShadow: {
+        'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
+      }
     },
   },
   plugins: [],
