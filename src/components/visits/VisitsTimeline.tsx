@@ -24,6 +24,7 @@ import Badge from '../ui/Badge';
 import FormModal from '../modals/FormModal';
 import VisitCard from './VisitCard';
 import VisitModal from './VisitModal';
+import EditVisitForm from '../forms/EditVisitForm';
 
 interface Visit {
   id: string;
@@ -51,7 +52,7 @@ interface VisitsTimelineProps {
 
 const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
   const [visits, setVisits] = useState<Visit[]>([]);
-  const [selectedVisit, setSelectedVisit] = useState<string | null>(null);
+  const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [visitDetails, setVisitDetails] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -160,6 +161,11 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
     } catch (err) {
       console.error('Error updating visit status:', err);
     }
+  };
+
+  const handleEdit = (visit: Visit) => {
+    setSelectedVisit(visit);
+    setIsEditModalOpen(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -373,7 +379,7 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedVisit(visit.id);
+                          handleEdit(visit);
                         }}
                       >
                         <Edit3 size={14} className="mr-2" />
@@ -417,11 +423,28 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
             onStatusChange={(status) => updateVisitStatus(visitDetails.id, status)}
             onEdit={() => {
               setIsDetailsModalOpen(false);
-              setSelectedVisit(visitDetails.id);
+              setSelectedVisit(visitDetails);
             }}
           />
         )}
       </FormModal>
+
+      {selectedVisit && (
+        <FormModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          title="Edit Visit"
+        >
+          <EditVisitForm
+            visitId={selectedVisit.id}
+            initialData={selectedVisit}
+            onSuccess={() => {
+              setIsEditModalOpen(false);
+              fetchVisits();
+            }}
+          />
+        </FormModal>
+      )}
     </Card>
   );
 };
