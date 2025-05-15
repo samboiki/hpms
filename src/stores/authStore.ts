@@ -27,31 +27,49 @@ export const useAuthStore = create<AuthState>((set) => ({
         password
       });
 
-      if (authError) throw authError;
-
-      if (authData.user) {
-        // Get user profile from public.users table
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single();
-
-        if (userError) throw userError;
-
-        const user: User = {
-          id: userData.id,
-          email: userData.email,
-          name: userData.full_name,
-          role: userData.role,
-          avatar: userData.avatar
-        };
-
-        set({ isAuthenticated: true, user });
-        return true;
+      if (authError) {
+        console.error('Auth error:', authError.message);
+        throw authError;
       }
 
-      return false;
+      if (!authData.user) {
+        console.error('No user data returned');
+        return false;
+      }
+
+      // Get user profile from public.users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (userError) {
+        console.error('User data error:', userError.message);
+        throw userError;
+      }
+
+      if (!userData) {
+        console.error('No user profile found');
+        return false;
+      }
+
+      const user: User = {
+        id: userData.id,
+        email: userData.email,
+        name: userData.full_name,
+        role: userData.role,
+        avatar: userData.avatar
+      };
+
+      // Update last login timestamp
+      await supabase
+        .from('users')
+        .update({ last_login: new Date().toISOString() })
+        .eq('id', user.id);
+
+      set({ isAuthenticated: true, user });
+      return true;
     } catch (error) {
       console.error('Login error:', error);
       set({ isAuthenticated: false, user: null });
@@ -65,6 +83,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isAuthenticated: false, user: null });
     } catch (error) {
       console.error('Logout error:', error);
+      throw error;
     }
   }
 }));
