@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
+import { Image as ImageIcon, X, Upload, Plus } from 'lucide-react';
 
 interface AddVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
@@ -21,6 +22,20 @@ interface AddVisitFormData {
     height?: number;
     bmi?: number;
   };
+  lab_results: Array<{
+    name: string;
+    value: string;
+    unit: string;
+    reference_range: string;
+    status: 'normal' | 'high' | 'low' | 'critical';
+    date: string;
+  }>;
+  media: Array<{
+    type: 'xray' | 'ct' | 'mri' | 'ultrasound' | 'photo';
+    url: string;
+    description: string;
+    date: string;
+  }>;
 }
 
 interface Props {
@@ -29,10 +44,17 @@ interface Props {
 }
 
 const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<AddVisitFormData>();
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<AddVisitFormData>({
+    defaultValues: {
+      lab_results: [],
+      media: []
+    }
+  });
   const followUpRequired = watch('follow_up_required');
   const weight = watch('vitals.weight');
   const height = watch('vitals.height');
+  const labResults = watch('lab_results');
+  const media = watch('media');
 
   // Calculate BMI when weight or height changes
   React.useEffect(() => {
@@ -42,6 +64,40 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
       setValue('vitals.bmi', Math.round(bmi * 10) / 10);
     }
   }, [weight, height, setValue]);
+
+  const addLabResult = () => {
+    setValue('lab_results', [
+      ...labResults,
+      {
+        name: '',
+        value: '',
+        unit: '',
+        reference_range: '',
+        status: 'normal',
+        date: new Date().toISOString().split('T')[0]
+      }
+    ]);
+  };
+
+  const removeLabResult = (index: number) => {
+    setValue('lab_results', labResults.filter((_, i) => i !== index));
+  };
+
+  const addMedia = () => {
+    setValue('media', [
+      ...media,
+      {
+        type: 'photo',
+        url: '',
+        description: '',
+        date: new Date().toISOString().split('T')[0]
+      }
+    ]);
+  };
+
+  const removeMedia = (index: number) => {
+    setValue('media', media.filter((_, i) => i !== index));
+  };
 
   const onSubmit = async (data: AddVisitFormData) => {
     try {
@@ -67,8 +123,8 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
 
       if (visitError) throw visitError;
 
-      // Then insert the vitals
       if (visitData) {
+        // Insert vitals
         const { error: vitalsError } = await supabase
           .from('vitals')
           .insert([{
@@ -83,6 +139,34 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
           }]);
 
         if (vitalsError) throw vitalsError;
+
+        // Insert lab results
+        if (data.lab_results.length > 0) {
+          const { error: labError } = await supabase
+            .from('lab_results')
+            .insert(
+              data.lab_results.map(result => ({
+                visit_id: visitData.id,
+                ...result
+              }))
+            );
+
+          if (labError) throw labError;
+        }
+
+        // Insert media
+        if (data.media.length > 0) {
+          const { error: mediaError } = await supabase
+            .from('visit_media')
+            .insert(
+              data.media.map(item => ({
+                visit_id: visitData.id,
+                ...item
+              }))
+            );
+
+          if (mediaError) throw mediaError;
+        }
       }
 
       onSuccess();
@@ -201,6 +285,162 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             />
           </div>
         </div>
+      </div>
+
+      {/* Lab Results Section */}
+      <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium text-gray-900">Lab Results</h3>
+          <Button type="button" variant="outline" size="sm" onClick={addLabResult}>
+            <Plus size={16} className="mr-2" />
+            Add Result
+          </Button>
+        </div>
+
+        {labResults.map((_, index) => (
+          <div key={index} className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="flex justify-between items-start mb-4">
+              <h4 className="text-sm font-medium text-gray-900">Result #{index + 1}</h4>
+              <button
+                type="button"
+                onClick={() => removeLabResult(index)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Test Name</label>
+                <input
+                  type="text"
+                  {...register(`lab_results.${index}.name` as const, { required: true })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Value</label>
+                <input
+                  type="text"
+                  {...register(`lab_results.${index}.value` as const, { required: true })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Unit</label>
+                <input
+                  type="text"
+                  {...register(`lab_results.${index}.unit` as const)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Reference Range</label>
+                <input
+                  type="text"
+                  {...register(`lab_results.${index}.reference_range` as const)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Status</label>
+                <select
+                  {...register(`lab_results.${index}.status` as const)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                  <option value="low">Low</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Date</label>
+                <input
+                  type="date"
+                  {...register(`lab_results.${index}.date` as const)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Media Section */}
+      <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium text-gray-900">Media</h3>
+          <Button type="button" variant="outline" size="sm" onClick={addMedia}>
+            <ImageIcon size={16} className="mr-2" />
+            Add Media
+          </Button>
+        </div>
+
+        {media.map((_, index) => (
+          <div key={index} className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className="flex justify-between items-start mb-4">
+              <h4 className="text-sm font-medium text-gray-900">Media #{index + 1}</h4>
+              <button
+                type="button"
+                onClick={() => removeMedia(index)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Type</label>
+                <select
+                  {...register(`media.${index}.type` as const)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                >
+                  <option value="photo">Photo</option>
+                  <option value="xray">X-Ray</option>
+                  <option value="ct">CT Scan</option>
+                  <option value="mri">MRI</option>
+                  <option value="ultrasound">Ultrasound</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">URL</label>
+                <input
+                  type="url"
+                  {...register(`media.${index}.url` as const, { required: true })}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                  placeholder="https://"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <input
+                  type="text"
+                  {...register(`media.${index}.description` as const)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Date</label>
+                <input
+                  type="date"
+                  {...register(`media.${index}.date` as const)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       <div>
