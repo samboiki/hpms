@@ -338,4 +338,4 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
   );
 };
 
-export default MediaUpload
+export default MediaUpload;
