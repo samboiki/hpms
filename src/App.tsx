@@ -3,7 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
 import Appointments from './pages/Appointments';
-import PatientDetail from './pages/PatientDetail';
+import PatientModernDetail from './pages/PatientModernDetail';
 import Finance from './pages/Finance';
 import Settings from './pages/Settings';
 import Layout from './components/layout/Layout';
@@ -50,7 +50,7 @@ function App() {
       <Route path="/" element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="patients" element={<Patients />} />
-        <Route path="patients/:id" element={<PatientDetail />} />
+        <Route path="patients/:id" element={<PatientModernDetail />} />
         <Route path="appointments" element={<Appointments />} />
         <Route path="requests" element={<Requests />} />
         <Route path="finance" element={<Finance />} />
