@@ -33,6 +33,7 @@ import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
 import NextOfKinForm from '../components/forms/NextOfKinForm';
 import AddVisitForm from '../components/forms/AddVisitForm';
+import VitalsDisplay from '../components/patients/VitalsDisplay';
 
 interface Patient {
   id: string;
@@ -166,7 +167,7 @@ const PatientModernDetail = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm rounded-b-xl">
+      <div className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm rounded-xl">
         <div className="max-w-[1600px] mx-auto px-4 md:px-6 py-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center space-x-4">
@@ -426,36 +427,7 @@ const PatientModernDetail = () => {
 
           {/* Right Column - Vitals */}
           <div className="lg:col-span-3 space-y-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center text-sm font-medium text-gray-700">
-                  <Activity size={16} className="mr-2 text-[#01b9d4]" />
-                  Latest Vitals
-                </div>
-              </CardHeader>
-              <CardContent className="pt-2">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-xs text-gray-500">Blood Pressure</div>
-                    <div className="text-base font-semibold text-gray-900">120/80</div>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-xs text-gray-500">Temperature</div>
-                    <div className="text-base font-semibold text-gray-900">36.5°C</div>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-xs text-gray-500">Heart Rate</div>
-                    <div className="text-base font-semibold text-gray-900">72 bpm</div>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <div className="text-xs text-gray-500">BMI</div>
-                    <div className="text-base font-semibold text-gray-900">24.5</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Additional vitals or quick actions can go here */}
+            <VitalsDisplay vitals={visits[0]?.vitals || {}} />
           </div>
         </div>
       </div>
@@ -465,6 +437,7 @@ const PatientModernDetail = () => {
         isOpen={showHealthSummary}
         onClose={() => setShowHealthSummary(false)}
         title="Health Summary"
+        className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center"
       >
         <div className="bg-gradient-to-r from-[#a855f7] to-[#00B4D8] p-6 rounded-xl text-white">
           {/* Health Summary Content */}
