@@ -19,6 +19,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         login(session.user.email!, '');
@@ -26,6 +27,7 @@ function App() {
       setIsLoading(false);
     });
 
+    // Cleanup subscription
     return () => {
       subscription.unsubscribe();
     };
