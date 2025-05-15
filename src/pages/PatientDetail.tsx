@@ -31,6 +31,7 @@ import FormModal from '../components/modals/FormModal';
 import AddMedicalRecordForm from '../components/forms/AddMedicalRecordForm';
 import NextOfKinForm from '../components/forms/NextOfKinForm';
 import EditPatientForm from '../components/forms/EditPatientForm';
+import AddVisitForm from '../components/forms/AddVisitForm';
 import { supabase } from '../lib/supabase';
 import { logDatabaseError } from '../lib/supabase';
 import { format } from 'date-fns';
@@ -143,6 +144,7 @@ const PatientDetail: React.FC = () => {
   const [isNextOfKinModalOpen, setIsNextOfKinModalOpen] = useState(false);
   const [isEditPatientModalOpen, setIsEditPatientModalOpen] = useState(false);
   const [isMedicalAidModalOpen, setIsMedicalAidModalOpen] = useState(false);
+  const [isAddVisitModalOpen, setIsAddVisitModalOpen] = useState(false);
 
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -380,9 +382,9 @@ const PatientDetail: React.FC = () => {
             <FileText size={16} className="mr-2" />
             Export Data
           </Button>
-          <Button>
+          <Button onClick={() => setIsAddVisitModalOpen(true)}>
             <Clock size={16} className="mr-2" />
-            Schedule Visit
+            Record Visit
           </Button>
         </div>
       </div>
@@ -678,6 +680,20 @@ const PatientDetail: React.FC = () => {
           patientId={id || ''}
           initialData={patient}
           onSuccess={handleEditPatientSubmit}
+        />
+      </FormModal>
+
+      <FormModal
+        isOpen={isAddVisitModalOpen}
+        onClose={() => setIsAddVisitModalOpen(false)}
+        title="Record New Visit"
+      >
+        <AddVisitForm
+          patientId={id || ''}
+          onSuccess={() => {
+            setIsAddVisitModalOpen(false);
+            fetchPatientDetails();
+          }}
         />
       </FormModal>
     </motion.div>
