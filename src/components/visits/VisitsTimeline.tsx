@@ -233,6 +233,8 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
               className="relative pl-8 pb-8 last:pb-0"
+              onClick={() => fetchVisitDetails(visit.id)}
+              style={{ cursor: 'pointer' }}
             >
               {/* Timeline connector */}
               {index < visits.length - 1 && (
@@ -343,7 +345,10 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => updateVisitStatus(visit.id, 'completed')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateVisitStatus(visit.id, 'completed');
+                        }}
                         disabled={visit.status === 'completed'}
                       >
                         <CheckCircle size={14} className="mr-2" />
@@ -352,7 +357,10 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => updateVisitStatus(visit.id, 'in-progress')}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateVisitStatus(visit.id, 'in-progress');
+                        }}
                         disabled={visit.status === 'in-progress'}
                       >
                         <Clock size={14} className="mr-2" />
@@ -363,7 +371,10 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setSelectedVisit(visit.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedVisit(visit.id);
+                        }}
                       >
                         <Edit3 size={14} className="mr-2" />
                         Edit
@@ -371,7 +382,10 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => fetchVisitDetails(visit.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fetchVisitDetails(visit.id);
+                        }}
                       >
                         <ChevronRight size={14} />
                       </Button>
