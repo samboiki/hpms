@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import Button from '../../components/ui/Button';
-import { Building2, Lock, Mail } from 'lucide-react';
+import { Building2, Lock, Mail, AlertCircle } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -33,41 +34,47 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 animate-fade-in">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="flex justify-center">
-            <div className="bg-primary-500 text-white p-3 rounded-lg">
-              <Building2 size={32} />
-            </div>
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to HealthCare
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Manage your practice, patients, and appointments
-          </p>
-        </div>
-        
-        <div className="mt-8 bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          {error && (
-            <div className="mb-4 rounded-md bg-error-50 p-4">
-              <div className="flex">
-                <div className="text-sm text-error-700">
-                  {error}
-                </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="bg-white rounded-2xl shadow-xl p-8"
+        >
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-r from-[#01b9d4] to-[#0197d4] rounded-2xl flex items-center justify-center shadow-lg">
+                <Building2 size={32} className="text-white" />
               </div>
             </div>
+            <h2 className="text-[30px] font-bold font-heading text-[#494c61]">
+              Welcome Back
+            </h2>
+            <p className="mt-2 text-gray-600">
+              Sign in to access your account
+            </p>
+          </div>
+          
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 bg-red-50 text-red-700 p-4 rounded-lg flex items-center"
+            >
+              <AlertCircle size={20} className="mr-2 flex-shrink-0" />
+              <p className="text-sm">{error}</p>
+            </motion.div>
           )}
           
-          <form className="space-y-6" onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email address
               </label>
-              <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail size={16} className="text-gray-400" />
+                  <Mail size={20} className="text-gray-400" />
                 </div>
                 <input
                   id="email"
@@ -77,8 +84,8 @@ const Login: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
-                  placeholder="you@example.com"
+                  className="pl-10 appearance-none block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
+                  placeholder="Enter your email"
                 />
               </div>
             </div>
@@ -87,9 +94,9 @@ const Login: React.FC = () => {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
                 Password
               </label>
-              <div className="mt-1 relative rounded-md shadow-sm">
+              <div className="mt-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock size={16} className="text-gray-400" />
+                  <Lock size={20} className="text-gray-400" />
                 </div>
                 <input
                   id="password"
@@ -99,7 +106,8 @@ const Login: React.FC = () => {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                  className="pl-10 appearance-none block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
+                  placeholder="Enter your password"
                 />
               </div>
             </div>
@@ -110,63 +118,83 @@ const Login: React.FC = () => {
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300 rounded"
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
                   Remember me
                 </label>
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-medium text-primary-600 hover:text-primary-500">
-                  Forgot your password?
+                <a href="#" className="font-medium text-brand-primary hover:text-brand-dark">
+                  Forgot password?
                 </a>
               </div>
             </div>
 
-            <div>
-              <Button
-                type="submit"
-                className="w-full"
-                isLoading={isLoading}
-              >
-                Sign in
-              </Button>
-            </div>
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-[#01b9d4] to-[#0197d4] hover:from-[#0197d4] hover:to-[#01b9d4] transition-all duration-300"
+              isLoading={isLoading}
+            >
+              Sign in
+            </Button>
           </form>
-          
-          <div className="mt-6">
+
+          <div className="mt-8">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
+                <div className="w-full border-t border-gray-200" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">Demo Credentials</span>
+                <span className="px-2 bg-white text-gray-500">Demo Accounts</span>
               </div>
             </div>
 
             <div className="mt-6 grid grid-cols-2 gap-3">
-              <div
-                className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+              <button
+                type="button"
                 onClick={() => {
                   setEmail('admin@example.com');
                   setPassword('password123');
                 }}
+                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Admin Login
-              </div>
-              <div
-                className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   setEmail('doctor@example.com');
                   setPassword('password123');
                 }}
+                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 Doctor Login
-              </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('nurse@example.com');
+                  setPassword('password123');
+                }}
+                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Nurse Login
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('receptionist@example.com');
+                  setPassword('password123');
+                }}
+                className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Receptionist Login
+              </button>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );
