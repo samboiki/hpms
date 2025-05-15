@@ -23,6 +23,7 @@ import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import FormModal from '../modals/FormModal';
 import VisitCard from './VisitCard';
+import VisitModal from './VisitModal';
 
 interface Visit {
   id: string;
@@ -44,51 +45,6 @@ interface Visit {
   updated_at: string;
 }
 
-interface VisitDetails {
-  vitals: {
-    blood_pressure: string;
-    temperature: number;
-    pulse_rate: number;
-    respiratory_rate: number;
-    weight: number;
-    height: number;
-    bmi: number;
-  };
-  lab_results: Array<{
-    id: string;
-    name: string;
-    value: string;
-    unit: string;
-    reference_range: string;
-    status: string;
-    date: string;
-  }>;
-  media: Array<{
-    id: string;
-    type: string;
-    url: string;
-    description: string;
-    date: string;
-  }>;
-  pending_requests: {
-    lab_requests: Array<{
-      id: string;
-      test_name: string;
-      priority: string;
-      status: string;
-      expected_completion_date: string;
-    }>;
-    media_requests: Array<{
-      id: string;
-      type: string;
-      body_part: string;
-      priority: string;
-      status: string;
-      expected_completion_date: string;
-    }>;
-  };
-}
-
 interface VisitsTimelineProps {
   patientId: string;
 }
@@ -96,10 +52,11 @@ interface VisitsTimelineProps {
 const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [selectedVisit, setSelectedVisit] = useState<string | null>(null);
-  const [visitDetails, setVisitDetails] = useState<VisitDetails | null>(null);
+  const [visitDetails, setVisitDetails] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   useEffect(() => {
     let subscription: { unsubscribe: () => void } | null = null;
@@ -195,6 +152,11 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
 
       if (error) throw error;
       fetchVisits();
+      
+      // Also update the details view if open
+      if (visitDetails?.id === visitId) {
+        setVisitDetails({ ...visitDetails, status });
+      }
     } catch (err) {
       console.error('Error updating visit status:', err);
     }
@@ -204,8 +166,6 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
     switch (status) {
       case 'completed':
         return 'bg-emerald-500';
-      case 'cancelled':
-        return 'bg-red-500';
       case 'in-progress':
         return 'bg-amber-500';
       default:
@@ -217,8 +177,6 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
     switch (status) {
       case 'completed':
         return <CheckCircle size={16} className="text-emerald-500" />;
-      case 'cancelled':
-        return <XCircle size={16} className="text-red-500" />;
       case 'in-progress':
         return <Clock size={16} className="text-amber-500" />;
       default:
@@ -322,7 +280,7 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
                         variant={
                           visit.status === 'completed' ? 'success' :
                           visit.status === 'in-progress' ? 'warning' :
-                          visit.status === 'cancelled' ? 'error' : 'glass'
+                          'error'
                         }
                         size="sm"
                       >
@@ -394,11 +352,11 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => updateVisitStatus(visit.id, 'cancelled')}
-                        disabled={visit.status === 'cancelled'}
+                        onClick={() => updateVisitStatus(visit.id, 'in-progress')}
+                        disabled={visit.status === 'in-progress'}
                       >
-                        <XCircle size={14} className="mr-2" />
-                        Cancel
+                        <Clock size={14} className="mr-2" />
+                        In Progress
                       </Button>
                     </div>
                     <div className="space-x-2">
@@ -439,97 +397,15 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
         title="Visit Details"
       >
         {visitDetails && (
-          <div className="space-y-6">
-            {/* Vitals */}
-            {visitDetails.vitals && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Vitals</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-500">Blood Pressure</p>
-                    <p className="text-lg font-medium">{visitDetails.vitals.blood_pressure}</p>
-                  </div>
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-500">Temperature</p>
-                    <p className="text-lg font-medium">{visitDetails.vitals.temperature}°C</p>
-                  </div>
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-500">Pulse Rate</p>
-                    <p className="text-lg font-medium">{visitDetails.vitals.pulse_rate} bpm</p>
-                  </div>
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <p className="text-sm text-gray-500">BMI</p>
-                    <p className="text-lg font-medium">{visitDetails.vitals.bmi}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Lab Results */}
-            {visitDetails.lab_results && visitDetails.lab_results.length > 0 && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Lab Results</h3>
-                <div className="space-y-4">
-                  {visitDetails.lab_results.map(result => (
-                    <div key={result.id} className="p-4 bg-gray-50 rounded-lg">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-medium text-gray-900">{result.name}</h4>
-                          <p className="text-sm text-gray-500">{format(new Date(result.date), 'MMM d, yyyy')}</p>
-                        </div>
-                        <Badge
-                          variant={
-                            result.status === 'normal' ? 'success' :
-                            result.status === 'high' ? 'warning' :
-                            result.status === 'low' ? 'azure' :
-                            'error'
-                          }
-                          size="sm"
-                        >
-                          {result.status}
-                        </Badge>
-                      </div>
-                      <div className="mt-2">
-                        <p className="text-sm">
-                          <span className="font-medium">{result.value}</span> {result.unit}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Reference Range: {result.reference_range}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Media */}
-            {visitDetails.media && visitDetails.media.length > 0 && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Media</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {visitDetails.media.map(item => (
-                    <div key={item.id} className="relative">
-                      <img
-                        src={item.url}
-                        alt={item.description}
-                        className="w-full h-48 object-cover rounded-lg"
-                      />
-                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-2 rounded-b-lg">
-                        <p className="text-sm font-medium">{item.description}</p>
-                        <p className="text-xs">{format(new Date(item.date), 'MMM d, yyyy')}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Pending Requests */}
-            {visitDetails.pending_requests && (
-              <VisitCard visit={visitDetails} />
-            )}
-          </div>
+          <VisitModal
+            visit={visitDetails}
+            onClose={() => setIsDetailsModalOpen(false)}
+            onStatusChange={(status) => updateVisitStatus(visitDetails.id, status)}
+            onEdit={() => {
+              setIsDetailsModalOpen(false);
+              setSelectedVisit(visitDetails.id);
+            }}
+          />
         )}
       </FormModal>
     </Card>
