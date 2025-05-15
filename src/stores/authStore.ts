@@ -21,7 +21,37 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   login: async (email: string, password: string) => {
     try {
-      // First authenticate with Supabase auth
+      // If no password provided, assume we're restoring a session
+      if (!password) {
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('id, email, full_name, role, avatar')
+          .eq('email', email)
+          .single();
+
+        if (userError) {
+          console.error('Error fetching user data:', userError.message);
+          return false;
+        }
+
+        if (!userData) {
+          console.error('No user profile found');
+          return false;
+        }
+
+        const user: User = {
+          id: userData.id,
+          email: userData.email,
+          name: userData.full_name,
+          role: userData.role,
+          avatar: userData.avatar || null
+        };
+
+        set({ isAuthenticated: true, user });
+        return true;
+      }
+
+      // Otherwise, perform password authentication
       const { data: { user: authUser }, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -37,7 +67,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         return false;
       }
 
-      // Then fetch the user profile data
+      // Fetch the user profile data
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, email, full_name, role, avatar')
