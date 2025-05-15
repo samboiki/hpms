@@ -1,41 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Building2,
-  FileText, 
-  Phone,
-  Mail,
-  MapPin,
-  ChevronLeft,
-  Edit3,
-  Clock,
-  User,
-  Loader2,
-  Heart,
-  Activity,
-  Stethoscope,
-  Pill,
-  Clipboard,
-  AlertCircle,
-  CheckCircle2,
-  ArrowRight,
-  Brain,
-  Sparkles,
-  CalendarDays,
-  Briefcase,
-  Home,
-  Users,
-  ShieldCheck,
-  FilePlus,
-  Download,
-  RefreshCw,
+  Building2, FileText, Phone, Mail, MapPin, ChevronLeft,
+  Edit3, Clock, User, Loader2, Heart, Activity,
+  Stethoscope, Pill, Clipboard, AlertCircle, CheckCircle2,
+  ArrowRight, Brain, Sparkles, CalendarDays, Briefcase,
+  Home, Users, ShieldCheck, FilePlus, Download, RefreshCw,
+  TrendingUp, TrendingDown, ChevronRight
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
-import AddMedicalRecordForm from '../components/forms/AddMedicalRecordForm';
 import NextOfKinForm from '../components/forms/NextOfKinForm';
 import EditPatientForm from '../components/forms/EditPatientForm';
 import AddVisitForm from '../components/forms/AddVisitForm';
@@ -52,7 +29,7 @@ interface MedicalAidDetail {
   planType: string;
   mainMemberName: string;
   mainMemberIdNumber: string;
-  relationshipToMain: string;
+  relationship: string;
 }
 
 interface NextOfKinDetail {
