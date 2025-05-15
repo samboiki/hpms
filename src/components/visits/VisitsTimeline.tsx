@@ -87,7 +87,7 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   useEffect(() => {
-    let subscription: ReturnType<typeof supabase.channel> | null = null;
+    let subscription: { unsubscribe: () => void } | null = null;
 
     const initializeVisits = async () => {
       if (!patientId) {
@@ -99,7 +99,7 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
       await fetchVisits();
       
       // Set up real-time subscription
-      subscription = supabase
+      const channel = supabase
         .channel('visit_changes')
         .on(
           'postgres_changes',
@@ -114,6 +114,8 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
           }
         )
         .subscribe();
+
+      subscription = channel;
     };
 
     initializeVisits();
