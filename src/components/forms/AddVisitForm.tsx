@@ -99,6 +99,19 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
     setValue('media', media.filter((_, i) => i !== index));
   };
 
+  // Helper function to convert empty strings to null for numeric fields
+  const sanitizeVitals = (vitals: AddVisitFormData['vitals']) => {
+    return {
+      blood_pressure: vitals.blood_pressure?.trim() || null,
+      temperature: vitals.temperature || null,
+      pulse_rate: vitals.pulse_rate || null,
+      respiratory_rate: vitals.respiratory_rate || null,
+      weight: vitals.weight || null,
+      height: vitals.height || null,
+      bmi: vitals.bmi || null
+    };
+  };
+
   const onSubmit = async (data: AddVisitFormData) => {
     try {
       // First insert the visit
@@ -124,18 +137,13 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
       if (visitError) throw visitError;
 
       if (visitData) {
-        // Insert vitals
+        // Insert vitals with sanitized values
+        const sanitizedVitals = sanitizeVitals(data.vitals);
         const { error: vitalsError } = await supabase
           .from('vitals')
           .insert([{
             medical_record_id: visitData.id,
-            blood_pressure: data.vitals.blood_pressure,
-            temperature: data.vitals.temperature,
-            pulse_rate: data.vitals.pulse_rate,
-            respiratory_rate: data.vitals.respiratory_rate,
-            weight: data.vitals.weight,
-            height: data.vitals.height,
-            bmi: data.vitals.bmi
+            ...sanitizedVitals
           }]);
 
         if (vitalsError) throw vitalsError;
@@ -172,6 +180,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
       onSuccess();
     } catch (error) {
       console.error('Error adding visit:', error);
+      throw error;
     }
   };
 
