@@ -450,5 +450,3 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
 };
 
 export default VisitsTimeline;
-
-export default VisitsTimeline
