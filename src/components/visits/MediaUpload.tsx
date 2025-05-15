@@ -1,126 +1,127 @@
-import React, { useState, useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { Camera, Upload, X } from 'lucide-react';
-import Button from '../ui/Button';
-import Webcam from 'react-webcam';
+import React, { useState } from 'react';
+import { Upload, X, Image as ImageIcon, FileText, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import Button from '../ui/Button';
 
 interface MediaUploadProps {
-  onUpload: (url: string) => void;
-  type: 'xray' | 'ct' | 'mri' | 'ultrasound' | 'photo';
+  visitId: string;
+  onUploadComplete: (url: string) => void;
 }
 
-const MediaUpload: React.FC<MediaUploadProps> = ({ onUpload, type }) => {
-  const [isUploading, setIsUploading] = useState(false);
-  const [showCamera, setShowCamera] = useState(false);
-  const webcamRef = React.useRef<Webcam>(null);
+const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) => {
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (selectedFile) {
+      // Validate file type
+      if (!selectedFile.type.startsWith('image/')) {
+        setError('Please select an image file');
+        return;
+      }
+      // Validate file size (5MB limit)
+      if (selectedFile.size > 5 * 1024 * 1024) {
+        setError('File size must be less than 5MB');
+        return;
+      }
+      setFile(selectedFile);
+      setError(null);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) return;
+
     try {
-      setIsUploading(true);
-      const file = acceptedFiles[0];
-      
-      // Create a unique file path
+      setUploading(true);
+      setError(null);
+
+      // Create a unique file name
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}${Date.now()}.${fileExt}`;
-      const filePath = `${type}/${fileName}`;
+      const filePath = `photo/${fileName}`;
 
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
+      // Upload file to Supabase Storage
+      const { error: uploadError, data } = await supabase.storage
         .from('media')
         .upload(filePath, file);
 
-      if (error) throw error;
+      if (uploadError) {
+        throw uploadError;
+      }
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('media')
         .getPublicUrl(filePath);
 
-      onUpload(publicUrl);
-    } catch (error) {
-      console.error('Error uploading file:', error);
+      onUploadComplete(publicUrl);
+      setFile(null);
+    } catch (err) {
+      console.error('Error uploading file:', err);
+      setError('Failed to upload file. Please try again.');
     } finally {
-      setIsUploading(false);
+      setUploading(false);
     }
-  }, [type, onUpload]);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif']
-    },
-    maxFiles: 1
-  });
-
-  const capturePhoto = React.useCallback(() => {
-    if (webcamRef.current) {
-      const imageSrc = webcamRef.current.getScreenshot();
-      if (imageSrc) {
-        // Convert base64 to blob
-        fetch(imageSrc)
-          .then(res => res.blob())
-          .then(blob => {
-            const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-            onDrop([file]);
-          });
-      }
-    }
-  }, [onDrop]);
-
-  if (showCamera) {
-    return (
-      <div className="relative">
-        <Webcam
-          ref={webcamRef}
-          screenshotFormat="image/jpeg"
-          className="w-full rounded-lg"
-        />
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 space-x-4">
-          <Button onClick={capturePhoto}>
-            <Camera size={16} className="mr-2" />
-            Capture
-          </Button>
-          <Button variant="outline" onClick={() => setShowCamera(false)}>
-            <X size={16} className="mr-2" />
-            Cancel
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  };
 
   return (
     <div className="space-y-4">
-      <div
-        {...getRootProps()}
-        className={`
-          border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-          ${isDragActive ? 'border-brand-primary bg-brand-primary/5' : 'border-gray-300 hover:border-brand-primary'}
-        `}
-      >
-        <input {...getInputProps()} />
-        <Upload
-          size={24}
-          className={`mx-auto mb-4 ${isDragActive ? 'text-brand-primary' : 'text-gray-400'}`}
+      {/* File Input Area */}
+      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          className="hidden"
+          id="file-upload"
         />
-        <p className="text-sm text-gray-600">
-          {isDragActive
-            ? 'Drop the file here'
-            : 'Drag and drop a file here, or click to select a file'
-        }
-        </p>
+        
+        {!file ? (
+          <label 
+            htmlFor="file-upload" 
+            className="cursor-pointer flex flex-col items-center"
+          >
+            <Upload size={24} className="text-gray-400 mb-2" />
+            <span className="text-sm font-medium text-gray-900">Click to upload</span>
+            <span className="text-xs text-gray-500">or drag and drop</span>
+            <span className="text-xs text-gray-500 mt-1">PNG, JPG up to 5MB</span>
+          </label>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex items-center justify-center space-x-2">
+              {file.type.startsWith('image/') ? (
+                <ImageIcon size={20} className="text-brand-primary" />
+              ) : (
+                <FileText size={20} className="text-brand-primary" />
+              )}
+              <span className="text-sm font-medium text-gray-900">{file.name}</span>
+              <button
+                onClick={() => setFile(null)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <Button
+              onClick={handleUpload}
+              disabled={uploading}
+              isLoading={uploading}
+            >
+              {uploading ? 'Uploading...' : 'Upload File'}
+            </Button>
+          </div>
+        )}
       </div>
 
-      {type === 'photo' && (
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={() => setShowCamera(true)}
-        >
-          <Camera size={16} className="mr-2" />
-          Take Photo
-        </Button>
+      {/* Error Message */}
+      {error && (
+        <div className="flex items-center text-error-600 text-sm">
+          <AlertCircle size={16} className="mr-2" />
+          {error}
+        </div>
       )}
     </div>
   );
