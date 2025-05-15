@@ -12,6 +12,7 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -28,6 +29,13 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
       }
       setFile(selectedFile);
       setError(null);
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result as string);
+      };
+      reader.readAsDataURL(selectedFile);
     }
   };
 
@@ -41,16 +49,17 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
       // Create a unique file name
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}${Date.now()}.${fileExt}`;
-      const filePath = `photo/${fileName}`;
+      const filePath = `${visitId}/${fileName}`;
 
       // Upload file to Supabase Storage
       const { error: uploadError, data } = await supabase.storage
         .from('media')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      if (uploadError) {
-        throw uploadError;
-      }
+      if (uploadError) throw uploadError;
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
@@ -59,6 +68,7 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
 
       onUploadComplete(publicUrl);
       setFile(null);
+      setPreview(null);
     } catch (err) {
       console.error('Error uploading file:', err);
       setError('Failed to upload file. Please try again.');
@@ -90,25 +100,33 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
             <span className="text-xs text-gray-500 mt-1">PNG, JPG up to 5MB</span>
           </label>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {preview && (
+              <div className="relative w-48 h-48 mx-auto">
+                <img 
+                  src={preview} 
+                  alt="Preview" 
+                  className="w-full h-full object-cover rounded-lg"
+                />
+                <button
+                  onClick={() => {
+                    setFile(null);
+                    setPreview(null);
+                  }}
+                  className="absolute -top-2 -right-2 p-1 bg-white rounded-full shadow-md text-gray-400 hover:text-gray-600"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
             <div className="flex items-center justify-center space-x-2">
-              {file.type.startsWith('image/') ? (
-                <ImageIcon size={20} className="text-brand-primary" />
-              ) : (
-                <FileText size={20} className="text-brand-primary" />
-              )}
               <span className="text-sm font-medium text-gray-900">{file.name}</span>
-              <button
-                onClick={() => setFile(null)}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                <X size={16} />
-              </button>
             </div>
             <Button
               onClick={handleUpload}
               disabled={uploading}
               isLoading={uploading}
+              className="w-full"
             >
               {uploading ? 'Uploading...' : 'Upload File'}
             </Button>
