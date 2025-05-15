@@ -22,7 +22,8 @@ import {
   XCircle,
   ArrowRight,
   Brain,
-  Sparkles
+  Sparkles,
+  Calendar
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -500,7 +501,13 @@ const PatientDetail: React.FC = () => {
                   <CardTitle>Upcoming Appointments</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {/* Appointments content */}
+                  <div className="text-center py-12">
+                    <Calendar size={40} className="mx-auto text-gray-300 mb-3" />
+                    <p className="text-gray-500">No upcoming appointments</p>
+                    <Button variant="outline" size="sm" className="mt-4">
+                      Schedule Appointment
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
