@@ -13,6 +13,7 @@
     "@fontsource/inter": "^5.0.17",
     "@fontsource/montserrat": "^5.0.17",
     "@fontsource/rubik": "^5.0.17",
+    "@google-cloud/vision": "^4.0.2",
     "@supabase/supabase-js": "^2.39.8",
     "clsx": "^2.1.0",
     "date-fns": "^2.30.0",
@@ -20,16 +21,15 @@
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-dropzone": "^14.2.3",
     "react-hook-form": "^7.51.0",
     "react-modal": "^3.16.1",
     "react-router-dom": "^6.22.3",
     "react-viewer": "^3.2.2",
+    "react-webcam": "^7.2.0",
     "recharts": "^2.12.2",
     "tailwind-merge": "^2.2.1",
-    "zustand": "^4.5.2",
-    "@google-cloud/vision": "^4.0.2",
-    "react-webcam": "^7.2.0",
-    "react-dropzone": "^14.2.3"
+    "zustand": "^4.5.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
