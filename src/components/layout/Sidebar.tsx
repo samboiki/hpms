@@ -6,7 +6,6 @@ import {
   Users, 
   Calendar, 
   Settings,
-  LogOut,
   ChevronRight,
   ChevronLeft,
   X,
@@ -84,30 +83,21 @@ const Sidebar: React.FC<SidebarProps> = ({
         ))}
       </nav>
 
-      {!isMobile && (
-        <button
-          onClick={onToggle}
-          className="absolute -right-3 top-20 bg-white border border-gray-200 rounded-full p-1 shadow-md hover:shadow-lg transition-shadow"
-        >
-          {collapsed ? (
-            <ChevronRight size={16} className="text-gray-600" />
-          ) : (
-            <ChevronLeft size={16} className="text-gray-600" />
-          )}
-        </button>
-      )}
-
       <div className="absolute bottom-4 left-0 right-0 px-2">
         <button
-          onClick={logout}
+          onClick={onToggle}
           className={cn(
             "flex items-center w-full px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors min-h-[44px]",
             collapsed && !isMobile && "justify-center"
           )}
         >
-          <LogOut size={20} strokeWidth={1.5} />
-          {(!collapsed || isMobile) && (
-            <span className="ml-3 text-sm font-medium">Logout</span>
+          {collapsed ? (
+            <ChevronRight size={20} strokeWidth={1.5} />
+          ) : (
+            <>
+              <ChevronLeft size={20} strokeWidth={1.5} />
+              <span className="ml-3 text-sm font-medium">Collapse</span>
+            </>
           )}
         </button>
       </div>
