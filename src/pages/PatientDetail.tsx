@@ -1,4 +1,4 @@
-// pages/PatientDetail.tsx
+// src/pages/PatientDetail.tsx
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -11,7 +11,8 @@ import {
   Search,
   Filter,
   TrendingUp,
-  TrendingDown
+  TrendingDown,
+  RefreshCw
 } from 'lucide-react';
 import {
   LineChart,
@@ -31,9 +32,27 @@ import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/Card'
 import VisitsTimeline from '../components/visits/VisitsTimeline';
 import FormModal from '../components/modals/FormModal';
 import AddVisitForm from '../components/forms/AddVisitForm';
-import AddLabResultForm from '../components/forms/AddLabResultForm';
 
 type TabKey = 'overview' | 'history' | 'labs' | 'appointments';
+
+const tabs: { key: TabKey; label: string }[] = [
+  { key: 'overview',   label: 'Overview' },
+  { key: 'history',    label: 'History' },
+  { key: 'labs',       label: 'Lab Results' },
+  { key: 'appointments', label: 'Appointments' },
+];
+
+interface Patient {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  cell_number: string;
+  date_of_birth: string;
+  gender: string;
+  home_address: string;
+  occupation?: string;
+}
 
 interface Vital {
   id: string;
@@ -53,38 +72,18 @@ interface LabResult {
   timestamp: string;
 }
 
-interface Patient {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  cell_number: string;
-  date_of_birth: string;
-  gender: string;
-  home_address: string;
-  occupation?: string;
-  totalVisits?: number;
-  totalReports?: number;
-}
-
-const tabs: { key: TabKey; label: string }[] = [
-  { key: 'overview',   label: 'Overview' },
-  { key: 'history',    label: 'History' },
-  { key: 'labs',       label: 'Lab Results' },
-  { key: 'appointments', label: 'Appointments' },
-];
-
 export default function PatientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
+
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [search, setSearch]         = useState('');
   const [filter, setFilter]         = useState<'all' | 'recent'>('all');
   const [visitModal, setVisitModal] = useState(false);
   const [labModal, setLabModal]     = useState(false);
 
-  /** fetch patient */
+  // — fetch patient
   const {
     data: patient,
     isLoading: patientLoading,
@@ -99,7 +98,7 @@ export default function PatientDetail() {
     return data as Patient;
   }, { enabled: !!id });
 
-  /** fetch vitals */
+  // — vitals
   const {
     data: vitals = [],
     isLoading: vitalsLoading,
@@ -113,7 +112,7 @@ export default function PatientDetail() {
     return data;
   }, { enabled: !!id });
 
-  /** fetch lab results */
+  // — labs
   const {
     data: labs = [],
     isLoading: labsLoading,
@@ -123,37 +122,33 @@ export default function PatientDetail() {
       .select('*')
       .eq('patient_id', id)
       .order('timestamp', { descending: true })
-      .limit(10);
+      .limit(20);
     if (error) throw error;
     return data;
   }, { enabled: !!id });
 
-  /** age calculation */
-  const age = useMemo(
-    () => patient?.date_of_birth
-      ? differenceInYears(new Date(), new Date(patient.date_of_birth))
-      : null,
-    [patient]
-  );
+  // — age
+  const age = useMemo(() => {
+    if (!patient?.date_of_birth) return null;
+    return differenceInYears(new Date(), new Date(patient.date_of_birth));
+  }, [patient]);
 
-  /** transform vitals for chart */
-  const vitalChartData = useMemo(() => 
+  // — chart data
+  const vitalChartData = useMemo(() =>
     vitals.map(v => ({
       time: format(new Date(v.timestamp), 'MMM d'),
       Systolic: v.systolic,
       Diastolic: v.diastolic,
       'Heart Rate': v.heart_rate
-    })),
-  [vitals]);
-
-  /** filtered history (VisitsTimeline supports `search` & `filter`) */
+    }))
+  , [vitals]);
 
   if (patientLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="p-6 bg-white rounded-xl shadow-lg text-center">
           <Clock className="mx-auto mb-4 text-cyan-500 animate-spin" size={40} />
-          <p className="text-gray-700 font-medium">Loading patient...</p>
+          <p className="text-gray-700 font-medium">Loading patient…</p>
         </div>
       </div>
     );
@@ -165,8 +160,7 @@ export default function PatientDetail() {
           <Edit3 className="mx-auto mb-4 text-red-500" size={40} />
           <p className="text-gray-700 font-semibold mb-2">Patient not found</p>
           <Button onClick={() => navigate('/patients')} variant="secondary">
-            <ChevronLeft className="mr-2" size={16} />
-            Back to list
+            <ChevronLeft className="mr-2" size={16} /> Back
           </Button>
         </div>
       </div>
@@ -175,15 +169,10 @@ export default function PatientDetail() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 md:p-8">
-      {/* Header */}
+      {/* header */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div className="flex items-center space-x-4">
-          <Button
-            variant="ghost"
-            className="p-2"
-            onClick={() => navigate('/patients')}
-            aria-label="Back"
-          >
+          <Button variant="ghost" onClick={() => navigate('/patients')} aria-label="Back">
             <ChevronLeft size={24} />
           </Button>
           <h1 className="text-[30px] font-bold text-[#494c61]">
@@ -191,37 +180,24 @@ export default function PatientDetail() {
           </h1>
         </div>
         <div className="mt-4 md:mt-0 flex flex-wrap gap-3">
-          <Button
-            variant="primary"
-            onClick={() => setVisitModal(true)}
-          >
+          <Button variant="primary" onClick={() => setVisitModal(true)}>
             <FilePlus className="mr-2" /> Record Visit
           </Button>
-          <Button
-            variant="primary"
-            onClick={() => setLabModal(true)}
-          >
+          <Button variant="primary" onClick={() => setLabModal(true)}>
             <FilePlus className="mr-2" /> Add Lab Result
           </Button>
-          <Button
-            variant="secondary"
-            onClick={() => queryClient.invalidateQueries(['patient', id])}
-          >
+          <Button variant="secondary" onClick={() => qc.invalidateQueries(['patient', id])}>
             <RefreshCw className="mr-2" /> Refresh
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() => {}}
-            aria-label="Edit Profile"
-          >
+          <Button variant="ghost" aria-label="Edit">
             <Edit3 size={20} />
           </Button>
         </div>
       </header>
 
-      {/* Layout */}
+      {/* layout */}
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8">
-        {/* Sidebar */}
+        {/* sidebar */}
         <aside className="space-y-6 sticky top-24">
           <Card className="shadow-md">
             <CardHeader>
@@ -240,9 +216,9 @@ export default function PatientDetail() {
           </Card>
         </aside>
 
-        {/* Main */}
+        {/* main content */}
         <main className="space-y-6">
-          {/* Tabs */}
+          {/* tabs */}
           <nav className="flex space-x-4 border-b border-gray-300">
             {tabs.map(t => (
               <button
@@ -253,7 +229,6 @@ export default function PatientDetail() {
                     ? 'border-b-2 border-cyan-500 text-cyan-600'
                     : 'text-gray-600 hover:text-gray-800'
                 }`}
-                style={{ fontSize: '16px' }}
                 aria-current={activeTab === t.key ? 'page' : undefined}
               >
                 {t.label}
@@ -261,7 +236,7 @@ export default function PatientDetail() {
             ))}
           </nav>
 
-          {/* Search & Filter */}
+          {/* search/filter */}
           {(activeTab === 'history' || activeTab === 'labs') && (
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div className="flex items-center bg-white border border-gray-300 rounded-lg px-3 py-1 w-full md:w-1/2">
@@ -269,10 +244,9 @@ export default function PatientDetail() {
                 <input
                   type="text"
                   className="w-full outline-none"
-                  placeholder="Search records..."
+                  placeholder="Search…"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  aria-label="Search records"
                 />
               </div>
               <div className="flex items-center space-x-2">
@@ -281,7 +255,6 @@ export default function PatientDetail() {
                   className="bg-white border border-gray-300 rounded-lg px-3 py-1"
                   value={filter}
                   onChange={e => setFilter(e.target.value as any)}
-                  aria-label="Filter records"
                 >
                   <option value="all">All</option>
                   <option value="recent">Recent</option>
@@ -290,10 +263,10 @@ export default function PatientDetail() {
             </div>
           )}
 
-          {/* Tab Content */}
+          {/* tab panels */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              {/* Vital Signs Chart */}
+              {/* vitals */}
               <Card className="shadow-md">
                 <CardHeader>
                   <CardTitle className="text-lg font-semibold text-gray-700">
@@ -319,7 +292,7 @@ export default function PatientDetail() {
                 </CardContent>
               </Card>
 
-              {/* Lab Results Chart */}
+              {/* labs */}
               <Card className="shadow-md">
                 <CardHeader>
                   <CardTitle className="text-lg font-semibold text-gray-700">
@@ -331,10 +304,7 @@ export default function PatientDetail() {
                     <p>Loading chart…</p>
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={labs.map(l => ({
-                        name: l.test_name,
-                        value: l.value
-                      }))}>
+                      <BarChart data={labs.map(l => ({ name: l.test_name, value: l.value }))}>
                         <XAxis dataKey="name" />
                         <YAxis />
                         <Tooltip />
@@ -362,16 +332,14 @@ export default function PatientDetail() {
                   <div>
                     <p className="font-medium text-gray-800">{l.test_name}</p>
                     <p className="text-sm text-gray-600">
-                      {l.value} {l.unit} &bull; {format(new Date(l.timestamp), 'MMM d, yyyy')}
+                      {l.value} {l.unit} • {format(new Date(l.timestamp), 'MMM d, yyyy')}
                     </p>
                   </div>
-                  <div className="flex items-center space-x-1">
-                    {l.value >= 0 ? (
-                      <TrendingUp className="text-green-500" />
-                    ) : (
-                      <TrendingDown className="text-red-500" />
-                    )}
-                  </div>
+                  {l.value >= 0 ? (
+                    <TrendingUp className="text-green-500" />
+                  ) : (
+                    <TrendingDown className="text-red-500" />
+                  )}
                 </Card>
               ))}
             </div>
@@ -385,7 +353,7 @@ export default function PatientDetail() {
         </main>
       </div>
 
-      {/* Modals */}
+      {/* add visit modal */}
       <FormModal
         isOpen={visitModal}
         onClose={() => setVisitModal(false)}
@@ -394,12 +362,13 @@ export default function PatientDetail() {
         <AddVisitForm
           patientId={id!}
           onSuccess={() => {
-            queryClient.invalidateQueries(['patient', id]);
+            qc.invalidateQueries(['patient', id]);
             setVisitModal(false);
           }}
         />
       </FormModal>
 
+      {/* add lab-result modal */}
       <FormModal
         isOpen={labModal}
         onClose={() => setLabModal(false)}
@@ -408,11 +377,98 @@ export default function PatientDetail() {
         <AddLabResultForm
           patientId={id!}
           onSuccess={() => {
-            queryClient.invalidateQueries(['labs', id]);
+            qc.invalidateQueries(['labs', id]);
             setLabModal(false);
           }}
         />
       </FormModal>
     </div>
+  );
+}
+
+/** Inline AddLabResultForm so no external import needed */
+function AddLabResultForm({
+  patientId,
+  onSuccess
+}: {
+  patientId: string;
+  onSuccess: () => void;
+}) {
+  const [testName, setTestName] = useState('');
+  const [value, setValue] = useState('');
+  const [unit, setUnit] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    const { error: dbErr } = await supabase
+      .from('lab_results')
+      .insert([{
+        patient_id: patientId,
+        test_name: testName,
+        value: parseFloat(value),
+        unit,
+        timestamp: new Date().toISOString()
+      }]);
+
+    if (dbErr) {
+      setError(dbErr.message);
+    } else {
+      onSuccess();
+    }
+    setLoading(false);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && <p className="text-red-500">{error}</p>}
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Test Name</label>
+        <input
+          type="text"
+          className="mt-1 w-full border rounded px-3 py-2"
+          value={testName}
+          onChange={e => setTestName(e.target.value)}
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Value</label>
+        <input
+          type="number"
+          step="any"
+          className="mt-1 w-full border rounded px-3 py-2"
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700">Unit</label>
+        <input
+          type="text"
+          className="mt-1 w-full border rounded px-3 py-2"
+          value={unit}
+          onChange={e => setUnit(e.target.value)}
+          required
+        />
+      </div>
+
+      <div className="flex justify-end space-x-2">
+        <Button variant="outline" onClick={onSuccess} disabled={loading}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={loading}>
+          {loading ? 'Saving…' : 'Save'}
+        </Button>
+      </div>
+    </form>
   );
 }
