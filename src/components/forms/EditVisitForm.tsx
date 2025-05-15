@@ -18,12 +18,12 @@ interface EditVisitFormData {
   status: 'in-progress' | 'completed' | 'cancelled';
   vitals: {
     blood_pressure?: string;
-    temperature?: number;
-    pulse_rate?: number;
-    respiratory_rate?: number;
-    weight?: number;
-    height?: number;
-    bmi?: number;
+    temperature?: number | null;
+    pulse_rate?: number | null;
+    respiratory_rate?: number | null;
+    weight?: number | null;
+    height?: number | null;
+    bmi?: number | null;
   };
   lab_results: Array<{
     name: string;
@@ -47,6 +47,23 @@ interface Props {
   onSuccess: () => void;
 }
 
+const sanitizeVitals = (vitals: EditVisitFormData['vitals']) => {
+  const sanitized: EditVisitFormData['vitals'] = {};
+
+  // Only include non-empty values
+  if (vitals.blood_pressure) sanitized.blood_pressure = vitals.blood_pressure;
+  
+  // Convert empty strings to null for numeric fields
+  sanitized.temperature = vitals.temperature || null;
+  sanitized.pulse_rate = vitals.pulse_rate || null;
+  sanitized.respiratory_rate = vitals.respiratory_rate || null;
+  sanitized.weight = vitals.weight || null;
+  sanitized.height = vitals.height || null;
+  sanitized.bmi = vitals.bmi || null;
+
+  return sanitized;
+};
+
 const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => {
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<EditVisitFormData>({
     defaultValues: {
@@ -69,6 +86,8 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
       const heightInMeters = height / 100;
       const bmi = weight / (heightInMeters * heightInMeters);
       setValue('vitals.bmi', Math.round(bmi * 10) / 10);
+    } else {
+      setValue('vitals.bmi', null);
     }
   }, [weight, height, setValue]);
 
@@ -116,26 +135,29 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
           chief_complaint: data.chief_complaint,
           diagnosis: data.diagnosis,
           treatment_plan: data.treatment_plan,
-          prescription: data.prescription,
+          prescription: data.prescription || null,
           follow_up_required: data.follow_up_required,
           follow_up_date: data.follow_up_required ? data.follow_up_date : null,
-          notes: data.notes,
+          notes: data.notes || null,
           status: data.status
         })
         .eq('id', visitId);
 
       if (visitError) throw visitError;
 
-      // Update vitals
+      // Update vitals with sanitized data
       if (data.vitals) {
-        const { error: vitalsError } = await supabase
-          .from('vitals')
-          .upsert({
-            visit_id: visitId,
-            ...data.vitals
-          });
+        const sanitizedVitals = sanitizeVitals(data.vitals);
+        if (Object.keys(sanitizedVitals).length > 0) {
+          const { error: vitalsError } = await supabase
+            .from('vitals')
+            .upsert({
+              visit_id: visitId,
+              ...sanitizedVitals
+            });
 
-        if (vitalsError) throw vitalsError;
+          if (vitalsError) throw vitalsError;
+        }
       }
 
       // Update lab results
@@ -169,6 +191,7 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
       onSuccess();
     } catch (error) {
       console.error('Error updating visit:', error);
+      throw error;
     }
   };
 
@@ -271,7 +294,8 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
               step="0.1"
               {...register('vitals.temperature', {
                 min: { value: 35, message: 'Temperature too low' },
-                max: { value: 42, message: 'Temperature too high' }
+                max: { value: 42, message: 'Temperature too high' },
+                setValueAs: v => v === "" ? null : parseFloat(v)
               })}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
             />
@@ -286,7 +310,8 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
               type="number"
               {...register('vitals.pulse_rate', {
                 min: { value: 40, message: 'Pulse rate too low' },
-                max: { value: 200, message: 'Pulse rate too high' }
+                max: { value: 200, message: 'Pulse rate too high' },
+                setValueAs: v => v === "" ? null : parseInt(v)
               })}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
             />
@@ -301,7 +326,8 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
               type="number"
               {...register('vitals.respiratory_rate', {
                 min: { value: 8, message: 'Respiratory rate too low' },
-                max: { value: 40, message: 'Respiratory rate too high' }
+                max: { value: 40, message: 'Respiratory rate too high' },
+                setValueAs: v => v === "" ? null : parseInt(v)
               })}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
             />
@@ -316,7 +342,8 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
               type="number"
               step="0.1"
               {...register('vitals.weight', {
-                min: { value: 0, message: 'Weight must be positive' }
+                min: { value: 0, message: 'Weight must be positive' },
+                setValueAs: v => v === "" ? null : parseFloat(v)
               })}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
             />
@@ -330,7 +357,8 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
             <input
               type="number"
               {...register('vitals.height', {
-                min: { value: 0, message: 'Height must be positive' }
+                min: { value: 0, message: 'Height must be positive' },
+                setValueAs: v => v === "" ? null : parseFloat(v)
               })}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
             />
