@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -43,6 +43,7 @@ import { supabase } from '../lib/supabase';
 import { logDatabaseError } from '../lib/supabase';
 import { format, differenceInYears } from 'date-fns';
 import VisitsTimeline from '../components/visits/VisitsTimeline';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 interface MedicalAidDetail {
   provider: string;
@@ -64,20 +65,20 @@ interface NextOfKinDetail {
 
 interface Patient {
   id: string;
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   email: string;
-  cellNumber: string;
-  dateOfBirth: string;
+  cell_number: string;
+  date_of_birth: string;
   gender: string;
-  maritalStatus?: string;
+  marital_status?: string;
   occupation?: string;
-  homeLanguage?: string;
-  homeAddress: string;
-  postalAddress?: string;
-  postalCode?: string;
-  medicalAidDetails?: MedicalAidDetail[];
-  nextOfKin?: NextOfKinDetail[];
+  home_language?: string;
+  home_address: string;
+  postal_address?: string;
+  postal_code?: string;
+  medical_aid_details?: MedicalAidDetail[];
+  next_of_kin?: NextOfKinDetail[];
   chronicConditions?: string[];
   totalVisits?: number;
   totalReports?: number;
@@ -109,61 +110,60 @@ const premiumItemVariants = {
 const PatientDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-
-  const [patient, setPatient] = useState<Patient | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const [isNextOfKinModalOpen, setIsNextOfKinModalOpen] = useState(false);
   const [isEditPatientModalOpen, setIsEditPatientModalOpen] = useState(false);
   const [isMedicalAidModalOpen, setIsMedicalAidModalOpen] = useState(false);
   const [isAddVisitModalOpen, setIsAddVisitModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      fetchPatientDetails();
-    } else {
-      navigate('/patients');
-    }
-  }, [id, navigate]);
-
-  const fetchPatientDetails = async (showLoading = true) => {
-    if (!id) return;
-    try {
-      if (showLoading) setIsLoading(true);
-      setError(null);
+  const { data: patient, isLoading, error } = useQuery({
+    queryKey: ['patient', id],
+    queryFn: async () => {
+      if (!id) throw new Error('Patient ID is required');
+      
       const { data, error: dbError } = await supabase
         .from('patient_details_view')
         .select('*')
         .eq('id', id)
         .single();
 
-      if (dbError) throw dbError;
-      if (data) setPatient(data);
-      else setError('Patient not found.');
+      if (dbError) {
+        logDatabaseError(dbError, `PatientDetail - Patient ID: ${id}`);
+        throw dbError;
+      }
 
-    } catch (err: any) {
-      console.error('Error fetching patient details:', err);
-      logDatabaseError(err, `WorkspacePatientDetails - Patient ID: ${id}`);
-      setError('An error occurred while loading patient details. Please try again.');
-    } finally {
-      if (showLoading) setIsLoading(false);
+      return data as Patient;
+    },
+    enabled: !!id
+  });
+
+  const updatePatientMutation = useMutation({
+    mutationFn: async (updates: Partial<Patient>) => {
+      const { error } = await supabase
+        .from('patients')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patient', id] });
     }
-  };
+  });
 
   const handleModalSuccess = (modalSetter: React.Dispatch<React.SetStateAction<boolean>>) => {
-    fetchPatientDetails(false);
+    queryClient.invalidateQueries({ queryKey: ['patient', id] });
     modalSetter(false);
   };
   
-  const patientAge = useMemo(() => {
-    if (!patient?.dateOfBirth) return '';
-    return differenceInYears(new Date(), new Date(patient.dateOfBirth));
-  }, [patient?.dateOfBirth]);
+  const patientAge = patient?.date_of_birth ? 
+    differenceInYears(new Date(), new Date(patient.date_of_birth)) : 
+    null;
 
   const AISummaryCard: React.FC<{ patient: Patient }> = ({ patient }) => {
-    const medicalAid = patient.medicalAidDetails?.[0];
-    const nextOfKin = patient.nextOfKin?.[0];
+    const medicalAid = patient.medical_aid_details?.[0];
+    const nextOfKin = patient.next_of_kin?.[0];
 
     return (
       <motion.div variants={premiumItemVariants}>
@@ -186,7 +186,7 @@ const PatientDetail: React.FC = () => {
             <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
               <h4 className="text-lg font-medium text-sky-300 mb-2">Patient Snapshot</h4>
               <p className="text-slate-300 leading-relaxed text-sm">
-                {patient.firstName} {patient.lastName} is a {patientAge}-year-old {patient.gender?.toLowerCase()}.
+                {patient.first_name} {patient.last_name} is a {patientAge}-year-old {patient.gender?.toLowerCase()}.
                 {patient.occupation ? ` Currently working as a ${patient.occupation}.` : ''}
                 {medicalAid ? ` Insured under ${medicalAid.provider} (${medicalAid.scheme}).` : ' No active medical aid on record.'}
                 {nextOfKin ? ` Emergency contact: ${nextOfKin.name} (${nextOfKin.relationship}).` : ''}
@@ -265,7 +265,7 @@ const PatientDetail: React.FC = () => {
         >
           <AlertCircle size={48} className="text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-slate-800 mb-2">Access Denied or Patient Not Found</h2>
-          <p className="text-slate-600 mb-6">{error || 'The requested patient record could not be found or you do not have permission to view it.'}</p>
+          <p className="text-slate-600 mb-6">The requested patient record could not be found or you do not have permission to view it.</p>
           <Button
             variant="primary"
             onClick={() => navigate('/patients')}
@@ -299,12 +299,12 @@ const PatientDetail: React.FC = () => {
               Back to Patients
             </Button>
             <h1 className="text-[30px] font-bold text-[#494c61]">
-              {patient.firstName} {patient.lastName}
+              {patient.first_name} {patient.last_name}
             </h1>
             <p className="text-slate-600">Patient ID: {patient.id}</p>
           </div>
           <div className="flex items-center gap-2 md:gap-3 flex-wrap">
-            <Button variant="secondary" size="sm" onClick={() => fetchPatientDetails(false)}>
+            <Button variant="secondary" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ['patient', id] })}>
               <RefreshCw size={16} className="mr-2"/>
               Refresh Data
             </Button>
@@ -341,22 +341,22 @@ const PatientDetail: React.FC = () => {
                 </div>
               </div>
               <h2 className="text-2xl font-bold text-slate-800 mt-2">
-                {patient.firstName} {patient.lastName}
+                {patient.first_name} {patient.last_name}
               </h2>
               <p className="text-slate-500 mt-1">
                 {patientAge} years old • {patient.gender}
               </p>
               <div className="flex justify-center mt-3 space-x-2">
                 <Badge variant="success">Active Patient</Badge>
-                {patient.medicalAidDetails && patient.medicalAidDetails.length > 0 && (
+                {patient.medical_aid_details && patient.medical_aid_details.length > 0 && (
                   <Badge variant="info">Insured</Badge>
                 )}
               </div>
 
               <div className="mt-6 space-y-3 text-sm text-slate-600 px-4">
                 <InfoItem icon={<Mail size={16} className="text-sky-600"/>} label="Email" value={patient.email || 'N/A'} />
-                <InfoItem icon={<Phone size={16} className="text-sky-600"/>} label="Phone" value={patient.cellNumber || 'N/A'} />
-                <InfoItem icon={<Home size={16} className="text-sky-600"/>} label="Address" value={patient.homeAddress || 'N/A'} />
+                <InfoItem icon={<Phone size={16} className="text-sky-600"/>} label="Phone" value={patient.cell_number || 'N/A'} />
+                <InfoItem icon={<Home size={16} className="text-sky-600"/>} label="Address" value={patient.home_address || 'N/A'} />
                 {patient.occupation && <InfoItem icon={<Briefcase size={16} className="text-sky-600"/>} label="Occupation" value={patient.occupation} />}
               </div>
               
@@ -381,15 +381,15 @@ const PatientDetail: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent className="p-6">
-              {patient.medicalAidDetails && patient.medicalAidDetails[0] ? (
+              {patient.medical_aid_details && patient.medical_aid_details[0] ? (
                 <div className="space-y-4 text-sm">
-                  <DetailItem label="Provider" value={patient.medicalAidDetails[0].provider} />
-                  <DetailItem label="Scheme" value={patient.medicalAidDetails[0].scheme} />
-                  <DetailItem label="Membership No." value={patient.medicalAidDetails[0].membershipNumber} mono />
-                  <DetailItem label="Plan Type" value={patient.medicalAidDetails[0].planType || 'N/A'} />
+                  <DetailItem label="Provider" value={patient.medical_aid_details[0].provider} />
+                  <DetailItem label="Scheme" value={patient.medical_aid_details[0].scheme} />
+                  <DetailItem label="Membership No." value={patient.medical_aid_details[0].membershipNumber} mono />
+                  <DetailItem label="Plan Type" value={patient.medical_aid_details[0].planType || 'N/A'} />
                   <div className="pt-3 mt-3 border-t border-slate-200">
-                    <DetailItem label="Main Member" value={patient.medicalAidDetails[0].mainMemberName} boldValue />
-                    <DetailItem label="Main Member ID" value={patient.medicalAidDetails[0].mainMemberIdNumber || 'N/A'} />
+                    <DetailItem label="Main Member" value={patient.medical_aid_details[0].mainMemberName} boldValue />
+                    <DetailItem label="Main Member ID" value={patient.medical_aid_details[0].mainMemberIdNumber || 'N/A'} />
                   </div>
                 </div>
               ) : (
@@ -417,20 +417,20 @@ const PatientDetail: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent className="p-6">
-              {patient.nextOfKin && patient.nextOfKin[0] ? (
+              {patient.next_of_kin && patient.next_of_kin[0] ? (
                 <div className="space-y-3 text-sm">
                   <div className="flex items-center space-x-3 mb-3">
                     <div className="p-2.5 bg-red-50 rounded-full">
                       <Users size={20} className="text-red-500" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-slate-800 text-md">{patient.nextOfKin[0].name}</h3>
-                      <p className="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-sm inline-block">{patient.nextOfKin[0].relationship}</p>
+                      <h3 className="font-semibold text-slate-800 text-md">{patient.next_of_kin[0].name}</h3>
+                      <p className="text-xs text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-sm inline-block">{patient.next_of_kin[0].relationship}</p>
                     </div>
                   </div>
-                  <DetailItem icon={<Phone size={15} className="text-slate-500"/>} label="Phone" value={patient.nextOfKin[0].phone} />
-                  {patient.nextOfKin[0].address && (
-                    <DetailItem icon={<MapPin size={15} className="text-slate-500"/>} label="Address" value={patient.nextOfKin[0].address} />
+                  <DetailItem icon={<Phone size={15} className="text-slate-500"/>} label="Phone" value={patient.next_of_kin[0].phone} />
+                  {patient.next_of_kin[0].address && (
+                    <DetailItem icon={<MapPin size={15} className="text-slate-500"/>} label="Address" value={patient.next_of_kin[0].address} />
                   )}
                 </div>
               ) : (
@@ -455,11 +455,11 @@ const PatientDetail: React.FC = () => {
       <FormModal
         isOpen={isNextOfKinModalOpen}
         onClose={() => setIsNextOfKinModalOpen(false)}
-        title={patient.nextOfKin && patient.nextOfKin[0] ? "Update Next of Kin" : "Add Next of Kin"}
+        title={patient.next_of_kin && patient.next_of_kin[0] ? "Update Next of Kin" : "Add Next of Kin"}
       >
         <NextOfKinForm
           patientId={id || ''}
-          initialData={patient.nextOfKin && patient.nextOfKin[0]}
+          initialData={patient.next_of_kin && patient.next_of_kin[0]}
           onSuccess={() => handleModalSuccess(setIsNextOfKinModalOpen)}
         />
       </FormModal>
@@ -479,12 +479,12 @@ const PatientDetail: React.FC = () => {
       <FormModal
         isOpen={isMedicalAidModalOpen}
         onClose={() => setIsMedicalAidModalOpen(false)}
-        title={patient.medicalAidDetails && patient.medicalAidDetails[0] ? "Update Medical Aid" : "Add Medical Aid"}
+        title={patient.medical_aid_details && patient.medical_aid_details[0] ? "Update Medical Aid" : "Add Medical Aid"}
       >
         <div className="p-4">
           <p className="text-slate-600">Medical Aid form to be implemented here.</p>
           <p className="text-sm text-slate-500 mt-1">Patient ID: {id}</p>
-          <p className="text-sm text-slate-500">Initial Data: {JSON.stringify(patient.medicalAidDetails?.[0])}</p>
+          <p className="text-sm text-slate-500">Initial Data: {JSON.stringify(patient.medical_aid_details?.[0])}</p>
           <Button onClick={() => handleModalSuccess(setIsMedicalAidModalOpen)} className="mt-4">Save (Placeholder)</Button>
         </div>
       </FormModal>
