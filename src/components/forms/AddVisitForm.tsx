@@ -137,12 +137,12 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
       if (visitError) throw visitError;
 
       if (visitData) {
-        // Insert vitals with sanitized values
+        // Insert vitals with sanitized values and link to visit
         const sanitizedVitals = sanitizeVitals(data.vitals);
         const { error: vitalsError } = await supabase
           .from('vitals')
           .insert([{
-            medical_record_id: visitData.id,
+            visit_id: visitData.id,
             ...sanitizedVitals
           }]);
 
