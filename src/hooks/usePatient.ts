@@ -10,16 +10,29 @@ export interface Patient {
   cell_number: string;
   date_of_birth: string;
   gender: string;
-  medical_aid_details?: {
+  marital_status: string;
+  occupation: string;
+  home_language: string;
+  home_address: string;
+  postal_address: string;
+  postal_code: string;
+  medical_aid_details: Array<{
     provider: string;
+    scheme: string;
     membership_number: string;
-  };
-  next_of_kin?: {
+    plan_type: string;
+    main_member_name: string;
+    main_member_id_number: string;
+    relationship_to_main: string;
+  }>;
+  next_of_kin: Array<{
+    id: string;
     name: string;
     relationship: string;
     phone: string;
     address: string;
-  };
+  }>;
+  chronicConditions?: string[];
 }
 
 export function calculateAge(dateOfBirth: string) {
