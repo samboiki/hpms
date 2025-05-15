@@ -25,6 +25,12 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchMediaFiles = async () => {
+    // Skip fetching if visitId is not valid
+    if (!visitId) {
+      console.warn('MediaUpload: No valid visitId provided');
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('media_files')
@@ -36,11 +42,15 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
       setMediaFiles(data || []);
     } catch (err) {
       console.error('Error fetching media files:', err);
+      setError('Failed to fetch media files. Please try again.');
     }
   };
 
   React.useEffect(() => {
-    fetchMediaFiles();
+    // Only fetch media files if we have a valid visitId
+    if (visitId) {
+      fetchMediaFiles();
+    }
   }, [visitId]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -70,6 +80,11 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
   };
 
   const handleUpload = async () => {
+    if (!visitId) {
+      setError('Cannot upload files: No visit ID provided');
+      return;
+    }
+
     if (files.length === 0) return;
 
     setUploading(true);
@@ -125,6 +140,11 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
   };
 
   const handleDelete = async (fileId: string, url: string) => {
+    if (!visitId) {
+      setError('Cannot delete file: No visit ID provided');
+      return;
+    }
+
     try {
       // Extract file path from URL
       const filePath = url.split('/').slice(-2).join('/');
@@ -151,6 +171,16 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
       setError('Failed to delete file. Please try again.');
     }
   };
+
+  // If no visitId is provided, show a message instead of the upload interface
+  if (!visitId) {
+    return (
+      <div className="text-center py-12 bg-gray-50 rounded-lg">
+        <ImageIcon size={48} className="mx-auto text-gray-400 mb-3" />
+        <p className="text-gray-500">Media upload is not available</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
