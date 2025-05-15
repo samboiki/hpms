@@ -103,12 +103,7 @@ const RequestsOverview: React.FC = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-amber-100 text-amber-600">
-                <Clock size={24} />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <h3 className="text-2xl font-bold text-gray-900">
+              <div className="p-3 rounded-full bg+old text-gray-900">
                   {requests.filter(r => r.status === 'pending').length}
                 </h3>
               </div>
