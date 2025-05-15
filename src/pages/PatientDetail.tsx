@@ -114,7 +114,6 @@ interface Patient {
   postal_address: string;
   postal_code: string;
   medical_aid_details: Array<{
-    id: string;
     provider: string;
     scheme: string;
     membership_number: string;
@@ -608,40 +607,6 @@ const PatientDetail: React.FC = () => {
           variants={itemVariants}
           className="lg:col-span-2 space-y-6"
         >
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
-              <CardContent className="p-6">
-                <Activity size={24} className="mb-4" />
-                <h3 className="text-2xl font-bold">12</h3>
-                <p className="text-sm opacity-90">Total Visits</p>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
-              <CardContent className="p-6">
-                <Stethoscope size={24} className="mb-4" />
-                <h3 className="text-2xl font-bold">4</h3>
-                <p className="text-sm opacity-90">Consultations</p>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-gradient-to-br from-amber-500 to-orange-600 text-white">
-              <CardContent className="p-6">
-                <Pill size={24} className="mb-4" />
-                <h3 className="text-2xl font-bold">8</h3>
-                <p className="text-sm opacity-90">Prescriptions</p>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-gradient-to-br from-rose-500 to-pink-600 text-white">
-              <CardContent className="p-6">
-                <Clipboard size={24} className="mb-4" />
-                <h3 className="text-2xl font-bold">3</h3>
-                <p className="text-sm opacity-90">Reports</p>
-              </CardContent>
-            </Card>
-          </div>
-
           {generateAISummary(patient)}
 
           <VisitsTimeline visits={mockVisits} />
