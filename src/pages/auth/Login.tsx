@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import Button from '../components/ui/Button';
+import Button from '../../components/ui/Button';
 import { Building2, Lock, Mail, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
