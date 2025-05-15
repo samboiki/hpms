@@ -38,546 +38,585 @@ import { format } from 'date-fns';
 import VisitsTimeline from '../components/visits/VisitsTimeline';
 
 interface Patient {
-id: string;
-first\_name: string;
-last\_name: string;
-email: string;
-cell\_number: string;
-date\_of\_birth: string;
-gender: string;
-marital\_status: string;
-occupation: string;
-home\_language: string;
-home\_address: string;
-postal\_address: string;
-postal\_code: string;
-medical\_aid\_details: Array<{
-provider: string;
-scheme: string;
-membership\_number: string;
-plan\_type: string;
-main\_member\_name: string;
-main\_member\_id\_number: string;
-relationship\_to\_main: string;
-}>;
-next\_of\_kin: Array<{
-id: string;
-name: string;
-relationship: string;
-phone: string;
-address: string;
-}>;
-chronicConditions?: string\[];
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  cellNumber: string;
+  dateOfBirth: string;
+  gender: string;
+  maritalStatus: string;
+  occupation: string;
+  homeLanguage: string;
+  homeAddress: string;
+  postalAddress: string;
+  postalCode: string;
+  medicalAidDetails: Array<{
+    provider: string;
+    scheme: string;
+    membershipNumber: string;
+    planType: string;
+    mainMemberName: string;
+    mainMemberIdNumber: string;
+    relationshipToMain: string;
+  }>;
+  nextOfKin: Array<{
+    id: string;
+    name: string;
+    relationship: string;
+    phone: string;
+    address: string;
+  }>;
+  chronicConditions?: string[];
 }
 
 const PatientDetail: React.FC = () => {
-const { id } = useParams<{ id: string }>();
-const navigate = useNavigate();
-const \[patient, setPatient] = useState\<Patient | null>(null);
-const \[isLoading, setIsLoading] = useState(true);
-const \[error, setError] = useState\<string | null>(null);
-const \[activeTab, setActiveTab] = useState<'overview' | 'history' | 'appointments'>('overview');
-const \[isAddRecordModalOpen, setIsAddRecordModalOpen] = useState(false);
-const \[isNextOfKinModalOpen, setIsNextOfKinModalOpen] = useState(false);
-const \[isEditPatientModalOpen, setIsEditPatientModalOpen] = useState(false);
-const \[isMedicalAidModalOpen, setIsMedicalAidModalOpen] = useState(false);
-const \[isAddVisitModalOpen, setIsAddVisitModalOpen] = useState(false);
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'appointments'>('overview');
+  const [isAddRecordModalOpen, setIsAddRecordModalOpen] = useState(false);
+  const [isNextOfKinModalOpen, setIsNextOfKinModalOpen] = useState(false);
+  const [isEditPatientModalOpen, setIsEditPatientModalOpen] = useState(false);
+  const [isMedicalAidModalOpen, setIsMedicalAidModalOpen] = useState(false);
+  const [isAddVisitModalOpen, setIsAddVisitModalOpen] = useState(false);
 
-const containerVariants = {
-hidden: { opacity: 0, y: 20 },
-visible: {
-opacity: 1,
-y: 0,
-transition: {
-duration: 0.4,
-staggerChildren: 0.1
-}
-}
-};
+  const containerVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.4,
+        staggerChildren: 0.1
+      }
+    }
+  };
 
-const itemVariants = {
-hidden: { opacity: 0, y: 10 },
-visible: { opacity: 1, y: 0 }
-};
+  const itemVariants = {
+    hidden: { opacity: 0, y: 10 },
+    visible: { opacity: 1, y: 0 }
+  };
 
-useEffect(() => {
-if (id) {
-fetchPatientDetails();
-}
-}, \[id]);
+  useEffect(() => {
+    if (id) {
+      fetchPatientDetails();
+    }
+  }, [id]);
 
-const fetchPatientDetails = async () => {
-try {
-setIsLoading(true);
-setError(null);
+  const fetchPatientDetails = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-```
-  const { data, error } = await supabase
-    .from('patient_details_view')
-    .select('*')
-    .eq('id', id)
-    .single();
+      const { data, error } = await supabase
+        .from('patient_details_view')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-  if (error) {
-    throw error;
+      if (error) {
+        throw error;
+      }
+
+      // Transform the snake_case data from the database to camelCase for the interface
+      const transformedData = {
+        ...data,
+        firstName: data.first_name,
+        lastName: data.last_name,
+        cellNumber: data.cell_number,
+        dateOfBirth: data.date_of_birth,
+        maritalStatus: data.marital_status,
+        homeLanguage: data.home_language,
+        homeAddress: data.home_address,
+        postalAddress: data.postal_address,
+        postalCode: data.postal_code,
+        medicalAidDetails: data.medical_aid_details,
+        nextOfKin: data.next_of_kin,
+        chronicConditions: data.chronic_conditions
+      };
+
+      console.log('Fetched patient data:', transformedData);
+      setPatient(transformedData);
+    } catch (err) {
+      console.error('Error fetching patient details:', err);
+      logDatabaseError(err, 'fetchPatientDetails');
+      setError('Failed to load patient details');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleNextOfKinSubmit = async () => {
+    await fetchPatientDetails();
+    setIsNextOfKinModalOpen(false);
+  };
+
+  const handleEditPatientSubmit = async () => {
+    await fetchPatientDetails();
+    setIsEditPatientModalOpen(false);
+  };
+
+  const calculateAge = (dateOfBirth: string) => {
+    return new Date().getFullYear() - new Date(dateOfBirth).getFullYear();
+  };
+
+  const generateAISummary = (patient: Patient | null) => {
+    if (!patient) return null;
+    const age = calculateAge(patient.dateOfBirth);
+    const medicalAid = patient.medicalAidDetails?.[0];
+    const nextOfKin = patient.nextOfKin?.[0];
+
+    return (
+      <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-2 bg-indigo-100 rounded-lg mr-3">
+                <Brain size={20} className="text-indigo-600" />
+              </div>
+              <CardTitle>AI Health Summary</CardTitle>
+            </div>
+            <div className="flex items-center text-xs text-indigo-600">
+              <Sparkles size={14} className="mr-1" />
+              AI Generated
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="prose prose-indigo">
+            <div className="bg-white rounded-lg p-4 shadow-sm">
+              <h4 className="text-lg font-medium text-gray-900 mb-2">Patient Overview</h4>
+              <p className="text-gray-600 leading-relaxed">
+                {patient.firstName} {patient.lastName} is a {age}-year-old {patient.gender} 
+                who is currently {patient.occupation ? `employed as a ${patient.occupation}` : 'employed'}.
+                {medicalAid ? ` The patient is covered under ${medicalAid.provider} medical aid scheme.` : ''}
+                {nextOfKin ? ` Emergency contact is ${nextOfKin.name} (${nextOfKin.relationship}).` : ''}
+              </p>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                  <Activity size={16} className="text-indigo-600 mr-2" />
+                  Health Status
+                </h4>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li className="flex items-center">
+                    <CheckCircle2 size={14} className="text-emerald-500 mr-2" />
+                    Regular check-ups maintained
+                  </li>
+                  <li className="flex items-center">
+                    <CheckCircle2 size={14} className="text-emerald-500 mr-2" />
+                    Up-to-date with vaccinations
+                  </li>
+                  {patient.chronicConditions?.length > 0 && (
+                    <li className="flex items-center">
+                      <AlertCircle size={14} className="text-amber-500 mr-2" />
+                      Managing {patient.chronicConditions.join(', ')}
+                    </li>
+                  )}
+                </ul>
+              </div>
+
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                  <Stethoscope size={16} className="text-indigo-600 mr-2" />
+                  Recent Observations
+                </h4>
+                <ul className="space-y-2 text-sm text-gray-600">
+                  <li className="flex items-center">
+                    <Clock size={14} className="text-indigo-600 mr-2" />
+                    Last visit: {format(new Date(), 'MMM d, yyyy')}
+                  </li>
+                  <li className="flex items-center">
+                    <Pill size={14} className="text-indigo-600 mr-2" />
+                    Medication adherence: Good
+                  </li>
+                  <li className="flex items-center">
+                    <Activity size={14} className="text-indigo-600 mr-2" />
+                    Vitals: Stable
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-4 bg-white rounded-lg p-4 shadow-sm">
+              <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                <Clipboard size={16} className="text-indigo-600 mr-2" />
+                Recommendations
+              </h4>
+              <ul className="space-y-2 text-sm text-gray-600">
+                <li className="flex items-center">
+                  <ArrowRight size={14} className="text-indigo-600 mr-2" />
+                  Schedule next check-up in 3 months
+                </li>
+                <li className="flex items-center">
+                  <ArrowRight size={14} className="text-indigo-600 mr-2" />
+                  Monitor blood pressure regularly
+                </li>
+                <li className="flex items-center">
+                  <ArrowRight size={14} className="text-indigo-600 mr-2" />
+                  Continue current medication regimen
+                </li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white p-8 rounded-xl shadow-lg text-center"
+        >
+          <Loader2 size={32} className="animate-spin text-[#01b9d4] mx-auto mb-4" />
+          <p className="text-gray-600 font-medium">Loading patient details...</p>
+        </motion.div>
+      </div>
+    );
   }
 
-  console.log('Fetched patient data:', data);
-  setPatient(data);
-} catch (err) {
-  console.error('Error fetching patient details:', err);
-  logDatabaseError(err, 'fetchPatientDetails');
-  setError('Failed to load patient details');
-} finally {
-  setIsLoading(false);
-}
-```
-
-};
-
-const handleNextOfKinSubmit = async () => {
-await fetchPatientDetails();
-setIsNextOfKinModalOpen(false);
-};
-
-const handleEditPatientSubmit = async () => {
-await fetchPatientDetails();
-setIsEditPatientModalOpen(false);
-};
-
-const calculateAge = (dateOfBirth: string) => {
-return new Date().getFullYear() - new Date(dateOfBirth).getFullYear();
-};
-
-const generateAISummary = (patient: Patient | null) => {
-if (!patient) return null;
-const age = calculateAge(patient.date_of_birth);
-const medicalAid = patient.medical_aid_details?.[0];
-const nextOfKin = patient.next_of_kin?.[0];
-
-return (
-  <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100">
-    <CardHeader>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <div className="p-2 bg-indigo-100 rounded-lg mr-3">
-            <Brain size={20} className="text-indigo-600" />
-          </div>
-          <CardTitle>AI Health Summary</CardTitle>
-        </div>
-        <div className="flex items-center text-xs text-indigo-600">
-          <Sparkles size={14} className="mr-1" />
-          AI Generated
-        </div>
+  if (error || !patient) {
+    return (
+      <div className="text-center py-10">
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-white p-8 rounded-xl shadow-lg inline-block"
+        >
+          <AlertCircle size={48} className="text-error-500 mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-error-600 mb-4">{error || 'Patient not found'}</h2>
+          <Button
+            variant="outline"
+            onClick={() => navigate('/patients')}
+          >
+            <ChevronLeft size={16} className="mr-2" />
+            Back to Patients
+          </Button>
+        </motion.div>
       </div>
-    </CardHeader>
-    <CardContent className="space-y-4">
-      <div className="prose prose-indigo">
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <h4 className="text-lg font-medium text-gray-900 mb-2">Patient Overview</h4>
-          <p className="text-gray-600 leading-relaxed">
-            {patient.first_name} {patient.last_name} is a {age}-year-old {patient.gender} 
-            who is currently {patient.occupation ? `employed as a ${patient.occupation}` : 'employed'}.
-            {medicalAid ? ` The patient is covered under ${medicalAid.provider} medical aid scheme.` : ''}
-            {nextOfKin ? ` Emergency contact is ${nextOfKin.name} (${nextOfKin.relationship}).` : ''}
-          </p>
-        </div>
+    );
+  }
 
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
-              <Activity size={16} className="text-indigo-600 mr-2" />
-              Health Status
-            </h4>
-            <ul className="space-y-2 text-sm text-gray-600">
-              <li className="flex items-center">
-                <CheckCircle2 size={14} className="text-emerald-500 mr-2" />
-                Regular check-ups maintained
-              </li>
-              <li className="flex items-center">
-                <CheckCircle2 size={14} className="text-emerald-500 mr-2" />
-                Up-to-date with vaccinations
-              </li>
-              {patient.chronicConditions?.length > 0 && (
-                <li className="flex items-center">
-                  <AlertCircle size={14} className="text-amber-500 mr-2" />
-                  Managing {patient.chronicConditions.join(', ')}
-                </li>
-              )}
-            </ul>
-          </div>
-
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
-              <Stethoscope size={16} className="text-indigo-600 mr-2" />
-              Recent Observations
-            </h4>
-            <ul className="space-y-2 text-sm text-gray-600">
-              <li className="flex items-center">
-                <Clock size={14} className="text-indigo-600 mr-2" />
-                Last visit: {format(new Date(), 'MMM d, yyyy')}
-              </li>
-              <li className="flex items-center">
-                <Pill size={14} className="text-indigo-600 mr-2" />
-                Medication adherence: Good
-              </li>
-              <li className="flex items-center">
-                <Activity size={14} className="text-indigo-600 mr-2" />
-                Vitals: Stable
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="mt-4 bg-white rounded-lg p-4 shadow-sm">
-          <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
-            <Clipboard size={16} className="text-indigo-600 mr-2" />
-            Recommendations
-          </h4>
-          <ul className="space-y-2 text-sm text-gray-600">
-            <li className="flex items-center">
-              <ArrowRight size={14} className="text-indigo-600 mr-2" />
-              Schedule next check-up in 3 months
-            </li>
-            <li className="flex items-center">
-              <ArrowRight size={14} className="text-indigo-600 mr-2" />
-              Monitor blood pressure regularly
-            </li>
-            <li className="flex items-center">
-              <ArrowRight size={14} className="text-indigo-600 mr-2" />
-              Continue current medication regimen
-            </li>
-          </ul>
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-);
-
-};
-
-if (isLoading) {
-return ( <div className="flex items-center justify-center min-h-screen">
-\<motion.div
-initial={{ scale: 0.9, opacity: 0 }}
-animate={{ scale: 1, opacity: 1 }}
-className="bg-white p-8 rounded-xl shadow-lg text-center"
-\> <Loader2 size={32} className="animate-spin text-[#01b9d4] mx-auto mb-4" /> <p className="text-gray-600 font-medium">Loading patient details...</p>
-\</motion.div> </div>
-);
-}
-
-if (error || !patient) {
-return ( <div className="text-center py-10">
-\<motion.div
-initial={{ scale: 0.9, opacity: 0 }}
-animate={{ scale: 1, opacity: 1 }}
-className="bg-white p-8 rounded-xl shadow-lg inline-block"
-\> <AlertCircle size={48} className="text-error-500 mx-auto mb-4" /> <h2 className="text-xl font-medium text-error-600 mb-4">{error || 'Patient not found'}</h2>
-\<Button
-variant="outline"
-onClick={() => navigate('/patients')}
-\> <ChevronLeft size={16} className="mr-2" />
-Back to Patients </Button>
-\</motion.div> </div>
-);
-}
-
-return (
-\<motion.div
-variants={containerVariants}
-initial="hidden"
-animate="visible"
-className="space-y-6"
-\> <div className="flex items-center justify-between mb-6"> <div className="flex items-center">
-\<Button
-variant="ghost"
-size="sm"
-onClick={() => navigate('/patients')}
-className="mr-4"
-\> <ChevronLeft size={16} /> </Button> <div> <h1 className="text-[30px] font-bold font-heading text-[#494c61]">
-Patient Details </h1> <p className="text-gray-600">View and manage patient information</p> </div> </div> <div className="flex space-x-3"> <Button variant="outline"> <FileText size={16} className="mr-2" />
-Export Data </Button>
-\<Button onClick={() => setIsAddVisitModalOpen(true)}> <Clock size={16} className="mr-2" />
-Record Visit </Button> </div> </div>
-
-  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <motion.div 
-      variants={itemVariants}
-      className="lg:col-span-1 space-y-6"
+  return (
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-6"
     >
-      <Card className="overflow-hidden">
-        <div className="h-32 bg-gradient-to-r from-[#01b9d4] to-[#0197d4]" />
-        <CardContent className="relative pt-16 pb-6">
-          <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
-            <div className="w-24 h-24 bg-white rounded-full p-1 shadow-lg">
-              <div className="w-full h-full bg-gradient-to-r from-[#01b9d4] to-[#0197d4] rounded-full flex items-center justify-center">
-                <User size={40} className="text-white" />
-              </div>
-            </div>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/patients')}
+            className="mr-4"
+          >
+            <ChevronLeft size={16} />
+          </Button>
+          <div>
+            <h1 className="text-[30px] font-bold font-heading text-[#494c61]">
+              Patient Details
+            </h1>
+            <p className="text-gray-600">View and manage patient information</p>
           </div>
+        </div>
+        <div className="flex space-x-3">
+          <Button variant="outline">
+            <FileText size={16} className="mr-2" />
+            Export Data
+          </Button>
+          <Button onClick={() => setIsAddVisitModalOpen(true)}>
+            <Clock size={16} className="mr-2" />
+            Record Visit
+          </Button>
+        </div>
+      </div>
 
-          <div className="text-center">
-            <h2 className="text-2xl font-bold text-gray-900">
-              {patient.first_name} {patient.last_name}
-            </h2>
-            <p className="text-gray-500 mt-1">
-              {calculateAge(patient.date_of_birth)} years • {patient.gender}
-            </p>
-            
-            <div className="flex justify-center mt-3 space-x-2">
-              <Badge variant="success">Active Patient</Badge>
-              {patient.medical_aid_details && (
-                <Badge variant="azure">Insured</Badge>
-              )}
-            </div>
-
-            <div className="mt-6 space-y-3">
-              <div className="flex items-center justify-center text-gray-600">
-                <Phone size={16} className="text-[#01b9d4] mr-3" />
-                <span>{patient.cell_number || 'No phone number'}</span>
-              </div>
-              <div className="flex items-center justify-center text-gray-600">
-                <Mail size={16} className="text-[#01b9d4] mr-3" />
-                <span>{patient.email || 'No email'}</span>
-              </div>
-              <div className="flex items-center justify-center text-gray-600">
-                <MapPin size={16} className="text-[#01b9d4] mr-3" />
-                <span>{patient.home_address || 'No address'}</span>
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-3 gap-4 border-t border-gray-100 pt-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-[#01b9d4]">12</div>
-                <div className="text-xs text-gray-500">Visits</div>
-              </div>
-              <div className="text-center border-x border-gray-100">
-                <div className="text-2xl font-bold text-[#01b9d4]">4</div>
-                <div className="text-xs text-gray-500">Reports</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-[#01b9d4]">2</div>
-                <div className="text-xs text-gray-500">Referrals</div>
-              </div>
-            </div>
-
-            <Button 
-              variant="outline" 
-              className="mt-6 w-full"
-              onClick={() => setIsEditPatientModalOpen(true)}
-            >
-              <Edit3 size={16} className="mr-2" />
-              Edit Profile
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white">
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-white flex items-center">
-              <Building2 size={20} className="mr-2" />
-              Medical Aid
-            </CardTitle>
-            {patient.medical_aid_details && (
-              <Button variant="ghost" size="sm" className="text-white" onClick={() => setIsMedicalAidModalOpen(true)}>
-                <Edit3 size={16} />
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="p-6">
-          {patient.medical_aid_details && patient.medical_aid_details[0] ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">Provider</h4>
-                  <p className="text-lg font-semibold text-gray-900">{patient.medical_aid_details[0].provider}</p>
-                </div>
-                <Badge variant="success">Active</Badge>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Scheme</h4>
-                <p className="text-gray-900">{patient.medical_aid_details[0].scheme}</p>
-              </div>
-              
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Membership Number</h4>
-                <p className="text-gray-900 font-mono">{patient.medical_aid_details[0].membership_number}</p>
-              </div>
-              
-              <div className="pt-4 border-t border-gray-100">
-                <h4 className="text-sm font-medium text-gray-500">Main Member</h4>
-                <p className="text-gray-900 font-medium">{patient.medical_aid_details[0].main_member_name}</p>
-                <p className="text-sm text-gray-500">ID: {patient.medical_aid_details[0].main_member_id_number}</p>
-              </div>
-              
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full mt-4"
-                onClick={() => setIsMedicalAidModalOpen(true)}
-              >
-                <Edit3 size={14} className="mr-2" />
-                Update Details
-              </Button>
-            </div>
-          ) : (
-            <div className="text-center py-6">
-              <Building2 size={40} className="mx-auto text-gray-300 mb-3" />
-              <p className="text-gray-500 mb-4">No medical aid information</p>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setIsMedicalAidModalOpen(true)}
-              >
-                <Edit3 size={14} className="mr-2" />
-                Add Medical Aid
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-rose-500 to-pink-500 text-white">
-          <div className="flex justify-between items-center">
-            <CardTitle className="text-white flex items-center">
-              <Heart size={20} className="mr-2" />
-              Next of Kin
-            </CardTitle>
-            {patient.next_of_kin && patient.next_of_kin[0] && (
-              <Button 
-                variant="ghost" 
-                size="sm"
-                className="text-white"
-                onClick={() => setIsNextOfKinModalOpen(true)}
-              >
-                <Edit3 size={16} />
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="p-6">
-          {patient.next_of_kin && patient.next_of_kin[0] ? (
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="p-2 bg-rose-100 rounded-full">
-                  <Heart size={20} className="text-rose-600" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900">{patient.next_of_kin[0].name}</h3>
-                  <p className="text-sm text-gray-500">{patient.next_of_kin[0].relationship}</p>
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="flex items-center text-gray-600">
-                  <Phone size={16} className="mr-2" />
-                  <span>{patient.next_of_kin[0].phone}</span>
-                </div>
-                
-                {patient.next_of_kin[0].address && (
-                  <div className="flex items-start text-gray-600">
-                    <MapPin size={16} className="mr-2 mt-1" />
-                    <span>{patient.next_of_kin[0].address}</span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <motion.div 
+          variants={itemVariants}
+          className="lg:col-span-1 space-y-6"
+        >
+          <Card className="overflow-hidden">
+            <div className="h-32 bg-gradient-to-r from-[#01b9d4] to-[#0197d4]" />
+            <CardContent className="relative pt-16 pb-6">
+              <div className="absolute -top-12 left-1/2 transform -translate-x-1/2">
+                <div className="w-24 h-24 bg-white rounded-full p-1 shadow-lg">
+                  <div className="w-full h-full bg-gradient-to-r from-[#01b9d4] to-[#0197d4] rounded-full flex items-center justify-center">
+                    <User size={40} className="text-white" />
                   </div>
+                </div>
+              </div>
+
+              <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {patient.firstName} {patient.lastName}
+                </h2>
+                <p className="text-gray-500 mt-1">
+                  {calculateAge(patient.dateOfBirth)} years • {patient.gender}
+                </p>
+                
+                <div className="flex justify-center mt-3 space-x-2">
+                  <Badge variant="success">Active Patient</Badge>
+                  {patient.medicalAidDetails && (
+                    <Badge variant="azure">Insured</Badge>
+                  )}
+                </div>
+
+                <div className="mt-6 space-y-3">
+                  <div className="flex items-center justify-center text-gray-600">
+                    <Phone size={16} className="text-[#01b9d4] mr-3" />
+                    <span>{patient.cellNumber || 'No phone number'}</span>
+                  </div>
+                  <div className="flex items-center justify-center text-gray-600">
+                    <Mail size={16} className="text-[#01b9d4] mr-3" />
+                    <span>{patient.email || 'No email'}</span>
+                  </div>
+                  <div className="flex items-center justify-center text-gray-600">
+                    <MapPin size={16} className="text-[#01b9d4] mr-3" />
+                    <span>{patient.homeAddress || 'No address'}</span>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid grid-cols-3 gap-4 border-t border-gray-100 pt-6">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-[#01b9d4]">12</div>
+                    <div className="text-xs text-gray-500">Visits</div>
+                  </div>
+                  <div className="text-center border-x border-gray-100">
+                    <div className="text-2xl font-bold text-[#01b9d4]">4</div>
+                    <div className="text-xs text-gray-500">Reports</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-[#01b9d4]">2</div>
+                    <div className="text-xs text-gray-500">Referrals</div>
+                  </div>
+                </div>
+
+                <Button 
+                  variant="outline" 
+                  className="mt-6 w-full"
+                  onClick={() => setIsEditPatientModalOpen(true)}
+                >
+                  <Edit3 size={16} className="mr-2" />
+                  Edit Profile
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white">
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-white flex items-center">
+                  <Building2 size={20} className="mr-2" />
+                  Medical Aid
+                </CardTitle>
+                {patient.medicalAidDetails && (
+                  <Button variant="ghost" size="sm" className="text-white" onClick={() => setIsMedicalAidModalOpen(true)}>
+                    <Edit3 size={16} />
+                  </Button>
                 )}
               </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              {patient.medicalAidDetails && patient.medicalAidDetails[0] ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500">Provider</h4>
+                      <p className="text-lg font-semibold text-gray-900">{patient.medicalAidDetails[0].provider}</p>
+                    </div>
+                    <Badge variant="success">Active</Badge>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500">Scheme</h4>
+                    <p className="text-gray-900">{patient.medicalAidDetails[0].scheme}</p>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-500">Membership Number</h4>
+                    <p className="text-gray-900 font-mono">{patient.medicalAidDetails[0].membershipNumber}</p>
+                  </div>
+                  
+                  <div className="pt-4 border-t border-gray-100">
+                    <h4 className="text-sm font-medium text-gray-500">Main Member</h4>
+                    <p className="text-gray-900 font-medium">{patient.medicalAidDetails[0].mainMemberName}</p>
+                    <p className="text-sm text-gray-500">ID: {patient.medicalAidDetails[0].mainMemberIdNumber}</p>
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full mt-4"
+                    onClick={() => setIsMedicalAidModalOpen(true)}
+                  >
+                    <Edit3 size={14} className="mr-2" />
+                    Update Details
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <Building2 size={40} className="mx-auto text-gray-300 mb-3" />
+                  <p className="text-gray-500 mb-4">No medical aid information</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setIsMedicalAidModalOpen(true)}
+                  >
+                    <Edit3 size={14} className="mr-2" />
+                    Add Medical Aid
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full mt-4"
-                onClick={() => setIsNextOfKinModalOpen(true)}
-              >
-                <Edit3 size={14} className="mr-2" />
-                Update Information
-              </Button>
-            </div>
-          ) : (
-            <div className="text-center py-6">
-              <Heart size={40} className="mx-auto text-gray-300 mb-3" />
-              <p className="text-gray-500 mb-4">No next of kin information</p>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setIsNextOfKinModalOpen(true)}
-              >
-                <Edit3 size={14} className="mr-2" />
-                Add Next of Kin
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <Card className="overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-rose-500 to-pink-500 text-white">
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-white flex items-center">
+                  <Heart size={20} className="mr-2" />
+                  Next of Kin
+                </CardTitle>
+                {patient.nextOfKin && patient.nextOfKin[0] && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-white"
+                    onClick={() => setIsNextOfKinModalOpen(true)}
+                  >
+                    <Edit3 size={16} />
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              {patient.nextOfKin && patient.nextOfKin[0] ? (
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="p-2 bg-rose-100 rounded-full">
+                      <Heart size={20} className="text-rose-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900">{patient.nextOfKin[0].name}</h3>
+                      <p className="text-sm text-gray-500">{patient.nextOfKin[0].relationship}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-center text-gray-600">
+                      <Phone size={16} className="mr-2" />
+                      <span>{patient.nextOfKin[0].phone}</span>
+                    </div>
+                    
+                    {patient.nextOfKin[0].address && (
+                      <div className="flex items-start text-gray-600">
+                        <MapPin size={16} className="mr-2 mt-1" />
+                        <span>{patient.nextOfKin[0].address}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full mt-4"
+                    onClick={() => setIsNextOfKinModalOpen(true)}
+                  >
+                    <Edit3 size={14} className="mr-2" />
+                    Update Information
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <Heart size={40} className="mx-auto text-gray-300 mb-3" />
+                  <p className="text-gray-500 mb-4">No next of kin information</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setIsNextOfKinModalOpen(true)}
+                  >
+                    <Edit3 size={14} className="mr-2" />
+                    Add Next of Kin
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div 
+          variants={itemVariants}
+          className="lg:col-span-2 space-y-6"
+        >
+          {generateAISummary(patient)}
+
+          <VisitsTimeline patientId={id || ''} />
+        </motion.div>
+      </div>
+
+      <FormModal
+        isOpen={isAddRecordModalOpen}
+        onClose={() => setIsAddRecordModalOpen(false)}
+        title="Add Medical Record"
+      >
+        <AddMedicalRecordForm
+          patientId={id || ''}
+          onSuccess={() => setIsAddRecordModalOpen(false)}
+        />
+      </FormModal>
+
+      <FormModal
+        isOpen={isNextOfKinModalOpen}
+        onClose={() => setIsNextOfKinModalOpen(false)}
+        title={patient.nextOfKin && patient.nextOfKin[0] ? "Update Next of Kin" : "Add Next of Kin"}
+      >
+        <NextOfKinForm
+          patientId={id || ''}
+          initialData={patient.nextOfKin && patient.nextOfKin[0]}
+          onSuccess={handleNextOfKinSubmit}
+        />
+      </FormModal>
+
+      <FormModal
+        isOpen={isEditPatientModalOpen}
+        onClose={() => setIsEditPatientModalOpen(false)}
+        title="Edit Patient Details"
+      >
+        <EditPatientForm
+          patientId={id || ''}
+          initialData={patient}
+          onSuccess={handleEditPatientSubmit}
+        />
+      </FormModal>
+
+      <FormModal
+        isOpen={isAddVisitModalOpen}
+        onClose={() => setIsAddVisitModalOpen(false)}
+        title="Record New Visit"
+      >
+        <AddVisitForm
+          patientId={id || ''}
+          onSuccess={() => {
+            setIsAddVisitModalOpen(false);
+            fetchPatientDetails();
+          }}
+        />
+      </FormModal>
     </motion.div>
-
-    <motion.div 
-      variants={itemVariants}
-      className="lg:col-span-2 space-y-6"
-    >
-      {generateAISummary(patient)}
-
-      <VisitsTimeline patientId={id || ''} />
-    </motion.div>
-  </div>
-
-  <FormModal
-    isOpen={isAddRecordModalOpen}
-    onClose={() => setIsAddRecordModalOpen(false)}
-    title="Add Medical Record"
-  >
-    <AddMedicalRecordForm
-      patientId={id || ''}
-      onSuccess={() => setIsAddRecordModalOpen(false)}
-    />
-  </FormModal>
-
-  <FormModal
-    isOpen={isNextOfKinModalOpen}
-    onClose={() => setIsNextOfKinModalOpen(false)}
-    title={patient.next_of_kin && patient.next_of_kin[0] ? "Update Next of Kin" : "Add Next of Kin"}
-  >
-    <NextOfKinForm
-      patientId={id || ''}
-      initialData={patient.next_of_kin && patient.next_of_kin[0]}
-      onSuccess={handleNextOfKinSubmit}
-    />
-  </FormModal>
-
-  <FormModal
-    isOpen={isEditPatientModalOpen}
-    onClose={() => setIsEditPatientModalOpen(false)}
-    title="Edit Patient Details"
-  >
-    <EditPatientForm
-      patientId={id || ''}
-      initialData={patient}
-      onSuccess={handleEditPatientSubmit}
-    />
-  </FormModal>
-
-  <FormModal
-    isOpen={isAddVisitModalOpen}
-    onClose={() => setIsAddVisitModalOpen(false)}
-    title="Record New Visit"
-  >
-    <AddVisitForm
-      patientId={id || ''}
-      onSuccess={() => {
-        setIsAddVisitModalOpen(false);
-        fetchPatientDetails();
-      }}
-    />
-  </FormModal>
-</motion.div>
-
-
-);
+  );
 };
 
 export default PatientDetail;
