@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, Image as ImageIcon, FileText } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import Button from '../ui/Button';
@@ -25,12 +25,6 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchMediaFiles = async () => {
-    // Skip fetching if visitId is not valid
-    if (!visitId) {
-      console.warn('MediaUpload: No valid visitId provided');
-      return;
-    }
-
     try {
       const { data, error } = await supabase
         .from('media_files')
@@ -46,8 +40,7 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
     }
   };
 
-  React.useEffect(() => {
-    // Only fetch media files if we have a valid visitId
+  useEffect(() => {
     if (visitId) {
       fetchMediaFiles();
     }
@@ -115,7 +108,8 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
             filename: file.name,
             url: publicUrl,
             description: descriptions[file.name],
-            visit_id: visitId
+            visit_id: visitId,
+            type: file.type.startsWith('image/') ? 'photo' : 'document'
           });
 
         if (dbError) throw dbError;
@@ -140,11 +134,6 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
   };
 
   const handleDelete = async (fileId: string, url: string) => {
-    if (!visitId) {
-      setError('Cannot delete file: No visit ID provided');
-      return;
-    }
-
     try {
       // Extract file path from URL
       const filePath = url.split('/').slice(-2).join('/');
@@ -172,7 +161,7 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
     }
   };
 
-  // If no visitId is provided, show a message instead of the upload interface
+  // If no visitId is provided, show a message
   if (!visitId) {
     return (
       <div className="text-center py-12 bg-gray-50 rounded-lg">
@@ -348,5 +337,3 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ visitId, onUploadComplete }) 
     </div>
   );
 };
-
-export default MediaUpload;
