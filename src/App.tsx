@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
@@ -11,10 +11,41 @@ import Login from './pages/auth/Login';
 import { useAuthStore } from './stores/authStore';
 import NotFound from './pages/NotFound';
 import PracticeProfile from './pages/PracticeProfile';
+import { supabase } from './lib/supabase';
 import Requests from './pages/Requests';
 
 function App() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, login } = useAuthStore();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    checkUser();
+  }, []);
+
+  const checkUser = async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) throw error;
+
+      if (session?.user) {
+        // Re-authenticate with the session
+        await login(session.user.email!, ''); // Password not needed for session auth
+      }
+    } catch (error) {
+      console.error('Error checking auth status:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
 
   // If not authenticated, show login page
   if (!isAuthenticated) {
