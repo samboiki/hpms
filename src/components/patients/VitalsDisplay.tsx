@@ -32,6 +32,15 @@ const VitalsDisplay: React.FC<VitalsDisplayProps> = ({ vitals }) => {
     }
   };
 
+  const getVitalStyles = (isAbnormal: boolean) => {
+    return cn(
+      "bg-white p-3 rounded-lg transition-all duration-500 border-2",
+      isAbnormal 
+        ? "border-red-300 shadow-[0_0_15px_rgba(239,68,68,0.2)] animate-pulse" 
+        : "border-gray-100"
+    );
+  };
+
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -41,54 +50,42 @@ const VitalsDisplay: React.FC<VitalsDisplayProps> = ({ vitals }) => {
         </div>
       </CardHeader>
       <CardContent className="pt-2">
-        <div className="grid grid-cols-2 gap-3">
-          <div className={cn(
-            "bg-gray-50 p-3 rounded-lg transition-colors",
-            vitals.blood_pressure?.split('/')[0] && parseInt(vitals.blood_pressure.split('/')[0]) > 140 && 'animate-pulse bg-red-50'
-          )}>
-            <div className="text-xs text-gray-500">Blood Pressure</div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className={getVitalStyles(vitals.blood_pressure?.split('/')[0] && parseInt(vitals.blood_pressure.split('/')[0]) > 140)}>
+            <div className="text-xs text-gray-500 mb-1">Blood Pressure</div>
             <div className="text-base font-semibold text-gray-900">{vitals.blood_pressure || '--/--'} mmHg</div>
           </div>
 
-          <div className={cn(
-            "bg-gray-50 p-3 rounded-lg transition-colors",
-            isAbnormal(vitals.temperature, 'temperature') && 'animate-pulse bg-red-50'
-          )}>
-            <div className="text-xs text-gray-500">Temperature</div>
+          <div className={getVitalStyles(isAbnormal(vitals.temperature, 'temperature'))}>
+            <div className="text-xs text-gray-500 mb-1">Temperature</div>
             <div className="text-base font-semibold text-gray-900">{vitals.temperature?.toFixed(1) || '--'}°C</div>
           </div>
 
-          <div className={cn(
-            "bg-gray-50 p-3 rounded-lg transition-colors",
-            isAbnormal(vitals.pulse_rate, 'pulse_rate') && 'animate-pulse bg-red-50'
-          )}>
-            <div className="text-xs text-gray-500">Pulse Rate</div>
+          <div className={getVitalStyles(isAbnormal(vitals.pulse_rate, 'pulse_rate'))}>
+            <div className="text-xs text-gray-500 mb-1">Pulse Rate</div>
             <div className="text-base font-semibold text-gray-900">{vitals.pulse_rate || '--'} bpm</div>
           </div>
 
-          <div className={cn(
-            "bg-gray-50 p-3 rounded-lg transition-colors",
-            isAbnormal(vitals.respiratory_rate, 'respiratory_rate') && 'animate-pulse bg-red-50'
-          )}>
-            <div className="text-xs text-gray-500">Respiratory Rate</div>
+          <div className={getVitalStyles(isAbnormal(vitals.respiratory_rate, 'respiratory_rate'))}>
+            <div className="text-xs text-gray-500 mb-1">Respiratory Rate</div>
             <div className="text-base font-semibold text-gray-900">{vitals.respiratory_rate || '--'} /min</div>
           </div>
 
-          <div className="bg-gray-50 p-3 rounded-lg">
-            <div className="text-xs text-gray-500">Weight</div>
+          <div className={getVitalStyles(false)}>
+            <div className="text-xs text-gray-500 mb-1">Weight</div>
             <div className="text-base font-semibold text-gray-900">{vitals.weight?.toFixed(1) || '--'} kg</div>
           </div>
 
-          <div className="bg-gray-50 p-3 rounded-lg">
-            <div className="text-xs text-gray-500">Height</div>
+          <div className={getVitalStyles(false)}>
+            <div className="text-xs text-gray-500 mb-1">Height</div>
             <div className="text-base font-semibold text-gray-900">{vitals.height?.toFixed(1) || '--'} cm</div>
           </div>
 
           <div className={cn(
-            "bg-gray-50 p-3 rounded-lg col-span-2 transition-colors",
-            isAbnormal(vitals.bmi, 'bmi') && 'animate-pulse bg-red-50'
+            getVitalStyles(isAbnormal(vitals.bmi, 'bmi')),
+            "col-span-2"
           )}>
-            <div className="text-xs text-gray-500">BMI</div>
+            <div className="text-xs text-gray-500 mb-1">BMI</div>
             <div className="text-base font-semibold text-gray-900">{vitals.bmi?.toFixed(1) || '--'} kg/m²</div>
           </div>
         </div>
