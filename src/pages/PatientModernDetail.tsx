@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Brain,
   Building2,
+  Calendar,
   ChevronLeft,
   ChevronRight,
   Clock,
