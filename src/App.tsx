@@ -26,10 +26,13 @@ function App() {
     try {
       const { data: { session }, error } = await supabase.auth.getSession();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Session check error:', error);
+        setIsLoading(false);
+        return;
+      }
 
       if (session?.user) {
-        // Re-authenticate with the session
         await login(session.user.email!, ''); // Password not needed for session auth
       }
     } catch (error) {
