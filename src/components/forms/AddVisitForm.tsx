@@ -12,6 +12,15 @@ interface AddVisitFormData {
   follow_up_required: boolean;
   follow_up_date?: string;
   notes?: string;
+  vitals: {
+    blood_pressure?: string;
+    temperature?: number;
+    pulse_rate?: number;
+    respiratory_rate?: number;
+    weight?: number;
+    height?: number;
+    bmi?: number;
+  };
 }
 
 interface Props {
@@ -20,12 +29,24 @@ interface Props {
 }
 
 const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<AddVisitFormData>();
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<AddVisitFormData>();
   const followUpRequired = watch('follow_up_required');
+  const weight = watch('vitals.weight');
+  const height = watch('vitals.height');
+
+  // Calculate BMI when weight or height changes
+  React.useEffect(() => {
+    if (weight && height) {
+      const heightInMeters = height / 100;
+      const bmi = weight / (heightInMeters * heightInMeters);
+      setValue('vitals.bmi', Math.round(bmi * 10) / 10);
+    }
+  }, [weight, height, setValue]);
 
   const onSubmit = async (data: AddVisitFormData) => {
     try {
-      const { error } = await supabase
+      // First insert the visit
+      const { data: visitData, error: visitError } = await supabase
         .from('visits')
         .insert([{
           patient_id: patientId,
@@ -40,9 +61,30 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
           follow_up_date: data.follow_up_date,
           notes: data.notes,
           status: 'in-progress'
-        }]);
+        }])
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (visitError) throw visitError;
+
+      // Then insert the vitals
+      if (visitData) {
+        const { error: vitalsError } = await supabase
+          .from('vitals')
+          .insert([{
+            medical_record_id: visitData.id,
+            blood_pressure: data.vitals.blood_pressure,
+            temperature: data.vitals.temperature,
+            pulse_rate: data.vitals.pulse_rate,
+            respiratory_rate: data.vitals.respiratory_rate,
+            weight: data.vitals.weight,
+            height: data.vitals.height,
+            bmi: data.vitals.bmi
+          }]);
+
+        if (vitalsError) throw vitalsError;
+      }
+
       onSuccess();
     } catch (error) {
       console.error('Error adding visit:', error);
@@ -51,6 +93,116 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {/* Vitals Section */}
+      <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 space-y-4">
+        <h3 className="text-lg font-medium text-gray-900">Vitals</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Blood Pressure (mmHg)</label>
+            <input
+              type="text"
+              placeholder="120/80"
+              {...register('vitals.blood_pressure', {
+                pattern: {
+                  value: /^\d{2,3}\/\d{2,3}$/,
+                  message: 'Invalid format. Use systolic/diastolic (e.g., 120/80)'
+                }
+              })}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            />
+            {errors.vitals?.blood_pressure && (
+              <p className="mt-1 text-sm text-red-600">{errors.vitals.blood_pressure.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Temperature (°C)</label>
+            <input
+              type="number"
+              step="0.1"
+              {...register('vitals.temperature', {
+                min: { value: 35, message: 'Temperature too low' },
+                max: { value: 42, message: 'Temperature too high' }
+              })}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            />
+            {errors.vitals?.temperature && (
+              <p className="mt-1 text-sm text-red-600">{errors.vitals.temperature.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Pulse Rate (bpm)</label>
+            <input
+              type="number"
+              {...register('vitals.pulse_rate', {
+                min: { value: 40, message: 'Pulse rate too low' },
+                max: { value: 200, message: 'Pulse rate too high' }
+              })}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            />
+            {errors.vitals?.pulse_rate && (
+              <p className="mt-1 text-sm text-red-600">{errors.vitals.pulse_rate.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Respiratory Rate (breaths/min)</label>
+            <input
+              type="number"
+              {...register('vitals.respiratory_rate', {
+                min: { value: 8, message: 'Respiratory rate too low' },
+                max: { value: 40, message: 'Respiratory rate too high' }
+              })}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            />
+            {errors.vitals?.respiratory_rate && (
+              <p className="mt-1 text-sm text-red-600">{errors.vitals.respiratory_rate.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Weight (kg)</label>
+            <input
+              type="number"
+              step="0.1"
+              {...register('vitals.weight', {
+                min: { value: 0, message: 'Weight must be positive' }
+              })}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            />
+            {errors.vitals?.weight && (
+              <p className="mt-1 text-sm text-red-600">{errors.vitals.weight.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Height (cm)</label>
+            <input
+              type="number"
+              {...register('vitals.height', {
+                min: { value: 0, message: 'Height must be positive' }
+              })}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            />
+            {errors.vitals?.height && (
+              <p className="mt-1 text-sm text-red-600">{errors.vitals.height.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">BMI</label>
+            <input
+              type="number"
+              step="0.1"
+              {...register('vitals.bmi')}
+              readOnly
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 bg-gray-50"
+            />
+          </div>
+        </div>
+      </div>
+
       <div>
         <label className="block text-sm font-medium text-gray-700">Visit Type</label>
         <select
