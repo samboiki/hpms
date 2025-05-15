@@ -1,38 +1,118 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, FileText, User, ChevronRight, Microscope, ImageIcon } from 'lucide-react';
-import Badge from '../ui/Badge';
+import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
-import Button from '../ui/Button';
-import FormModal from '../modals/FormModal';
-import EditVisitForm from '../forms/EditVisitForm';
-import VisitModal from './VisitModal';
-import { supabase } from '../../lib/supabase';
+import { 
+  Clock, 
+  Activity, 
+  FileText, 
+  Image, 
+  CheckCircle, 
+  XCircle, 
+  AlertCircle,
+  ChevronRight,
+  Microscope,
+  Stethoscope,
+  Pill,
+  Calendar,
+  User,
+  Edit3
+} from 'lucide-react';
 import { format } from 'date-fns';
+import { supabase } from '../../lib/supabase';
+import Button from '../ui/Button';
+import Badge from '../ui/Badge';
+import FormModal from '../modals/FormModal';
+import VisitCard from './VisitCard';
+import VisitModal from './VisitModal';
+
+interface Visit {
+  id: string;
+  visit_date: string;
+  visit_time: string;
+  visit_type: string;
+  chief_complaint: string;
+  diagnosis: string;
+  treatment_plan: string;
+  prescription: string;
+  status: string;
+  doctor_name: string;
+  doctor_id: string;
+  lab_results_count: number;
+  media_count: number;
+  pending_lab_requests_count: number;
+  pending_media_requests_count: number;
+  created_at: string;
+  updated_at: string;
+}
 
 interface VisitsTimelineProps {
   patientId: string;
 }
 
 const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
-  const [visits, setVisits] = useState<any[]>([]);
+  const [visits, setVisits] = useState<Visit[]>([]);
+  const [selectedVisit, setSelectedVisit] = useState<string | null>(null);
+  const [visitDetails, setVisitDetails] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedVisit, setSelectedVisit] = useState<string | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [currentVisit, setCurrentVisit] = useState<any>(null);
 
   useEffect(() => {
-    fetchVisits();
+    let subscription: { unsubscribe: () => void } | null = null;
+
+    const initializeVisits = async () => {
+      if (!patientId) {
+        setError('Patient ID is required');
+        setIsLoading(false);
+        return;
+      }
+
+      await fetchVisits();
+      
+      // Set up real-time subscription
+      const channel = supabase
+        .channel('visit_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'visits',
+            filter: `patient_id=eq.${patientId}`
+          },
+          () => {
+            fetchVisits();
+          }
+        )
+        .subscribe();
+
+      subscription = channel;
+    };
+
+    initializeVisits();
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   }, [patientId]);
 
   const fetchVisits = async () => {
+    if (!patientId) {
+      setError('Patient ID is required');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
 
       const { data, error } = await supabase
-        .from('visit_details_view')
+        .from('visit_timeline_view')
         .select('*')
         .eq('patient_id', patientId)
         .order('visit_date', { ascending: false });
@@ -47,7 +127,23 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
     }
   };
 
-  const handleStatusChange = async (visitId: string, status: 'completed' | 'in-progress') => {
+  const fetchVisitDetails = async (visitId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('visit_details_view')
+        .select('*')
+        .eq('id', visitId)
+        .single();
+
+      if (error) throw error;
+      setVisitDetails(data);
+      setIsDetailsModalOpen(true);
+    } catch (err) {
+      console.error('Error fetching visit details:', err);
+    }
+  };
+
+  const updateVisitStatus = async (visitId: string, status: string) => {
     try {
       const { error } = await supabase
         .from('visits')
@@ -55,20 +151,52 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
         .eq('id', visitId);
 
       if (error) throw error;
-      await fetchVisits();
+      fetchVisits();
+      
+      // Also update the details view if open
+      if (visitDetails?.id === visitId) {
+        setVisitDetails({ ...visitDetails, status });
+      }
     } catch (err) {
       console.error('Error updating visit status:', err);
     }
   };
 
-  const handleViewVisit = (visit: any) => {
-    setCurrentVisit(visit);
-    setIsViewModalOpen(true);
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-emerald-500';
+      case 'in-progress':
+        return 'bg-amber-500';
+      default:
+        return 'bg-gray-500';
+    }
   };
 
-  const handleEditVisit = (visitId: string) => {
-    setSelectedVisit(visitId);
-    setIsEditModalOpen(true);
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle size={16} className="text-emerald-500" />;
+      case 'in-progress':
+        return <Clock size={16} className="text-amber-500" />;
+      default:
+        return <AlertCircle size={16} className="text-gray-500" />;
+    }
+  };
+
+  const getVisitTypeIcon = (type: string) => {
+    switch (type) {
+      case 'consultation':
+        return <Stethoscope size={16} className="text-brand-primary" />;
+      case 'follow-up':
+        return <Calendar size={16} className="text-purple-500" />;
+      case 'procedure':
+        return <Activity size={16} className="text-blue-500" />;
+      case 'emergency':
+        return <AlertCircle size={16} className="text-red-500" />;
+      default:
+        return <FileText size={16} className="text-gray-500" />;
+    }
   };
 
   if (isLoading) {
@@ -81,9 +209,9 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
 
   if (error) {
     return (
-      <div className="text-center p-8">
-        <FileText size={40} className="mx-auto text-gray-300 mb-3" />
-        <p className="text-gray-500">{error}</p>
+      <div className="text-center py-8">
+        <AlertCircle size={40} className="mx-auto text-error-500 mb-2" />
+        <p className="text-error-600">{error}</p>
       </div>
     );
   }
@@ -91,152 +219,205 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Visit History</CardTitle>
+        <CardTitle className="flex items-center">
+          <Activity size={20} className="mr-2" />
+          Visit History
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-6">
-          {visits.map((visit) => (
-            <div
+        <div className="space-y-8">
+          {visits.map((visit, index) => (
+            <motion.div
               key={visit.id}
-              className="relative pl-8 pb-8 last:pb-0 border-l-2 border-brand-light ml-4 cursor-pointer hover:bg-gray-50 p-4 rounded-lg transition-colors"
-              onClick={() => handleViewVisit(visit)}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className="relative pl-8 pb-8 last:pb-0"
+              onClick={() => fetchVisitDetails(visit.id)}
+              style={{ cursor: 'pointer' }}
             >
-              {/* Timeline Node */}
-              <div className="absolute -left-4 p-2 bg-white rounded-full border-2 border-brand-primary">
-                <Calendar size={16} className="text-brand-primary" />
+              {/* Timeline connector */}
+              {index < visits.length - 1 && (
+                <div className="absolute left-[11px] top-6 bottom-0 w-0.5 bg-gradient-to-b from-brand-primary/50 to-transparent" />
+              )}
+              
+              {/* Timeline node */}
+              <div className={`
+                absolute left-0 top-1.5 w-6 h-6 rounded-full 
+                ${getStatusColor(visit.status)} 
+                shadow-lg shadow-brand-primary/20
+                flex items-center justify-center
+                border-2 border-white
+              `}>
+                {getStatusIcon(visit.status)}
               </div>
 
               {/* Visit Card */}
-              <div className="bg-white rounded-lg shadow-soft hover:shadow-md transition-shadow p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="text-lg font-medium text-gray-900">
-                      {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)}
-                    </h4>
-                    <div className="flex items-center mt-1 space-x-4">
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Clock size={14} className="mr-1" />
-                        {format(new Date(visit.visit_date), 'MMM d, yyyy')} at {visit.visit_time}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                {/* Header */}
+                <div className="p-4 border-b border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-lg bg-brand-light">
+                        {getVisitTypeIcon(visit.visit_type)}
                       </div>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <User size={14} className="mr-1" />
-                        {visit.doctor_name}
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                          {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)} Visit
+                          <ChevronRight size={16} className="ml-2 text-gray-400" />
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {format(new Date(visit.visit_date), 'MMMM d, yyyy')} at {visit.visit_time}
+                        </p>
                       </div>
+                    </div>
+                    <div className="text-right">
+                      {visit.doctor_name && (
+                        <div className="flex items-center text-sm text-gray-600 mb-2">
+                          <User size={14} className="mr-1" />
+                          {visit.doctor_name}
+                        </div>
+                      )}
+                      <Badge
+                        variant={
+                          visit.status === 'completed' ? 'success' :
+                          visit.status === 'in-progress' ? 'warning' :
+                          'error'
+                        }
+                        size="sm"
+                      >
+                        {visit.status}
+                      </Badge>
                     </div>
                   </div>
-                  <Badge
-                    variant={
-                      visit.status === 'completed' ? 'success' :
-                      visit.status === 'in-progress' ? 'warning' :
-                      'error'
-                    }
-                    size="sm"
-                  >
-                    {visit.status}
-                  </Badge>
                 </div>
 
-                <p className="mt-3 text-sm text-gray-600 line-clamp-2">
-                  {visit.chief_complaint}
-                </p>
-
-                {/* Lab Results and Media Indicators */}
-                <div className="mt-4 flex items-center space-x-4 text-xs text-gray-500">
-                  {visit.lab_results?.length > 0 && (
-                    <div className="flex items-center">
-                      <Microscope size={14} className="mr-1" />
-                      {visit.lab_results.length} lab result{visit.lab_results.length !== 1 ? 's' : ''}
+                {/* Content */}
+                <div className="p-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-1">Chief Complaint</h4>
+                      <p className="text-gray-600">{visit.chief_complaint}</p>
                     </div>
-                  )}
-                  {visit.media?.length > 0 && (
-                    <div className="flex items-center">
-                      <ImageIcon size={14} className="mr-1" />
-                      {visit.media.length} image{visit.media.length !== 1 ? 's' : ''}
-                    </div>
-                  )}
-                </div>
 
-                {/* Pending Requests */}
-                {((visit.pending_requests?.lab_requests?.length > 0) || 
-                  (visit.pending_requests?.media_requests?.length > 0)) && (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <h5 className="text-xs font-medium text-gray-700 mb-2">Pending Requests</h5>
-                    <div className="flex flex-wrap gap-2">
-                      {visit.pending_requests.lab_requests?.map((request: any) => (
-                        <Badge key={request.id} variant="warning" size="sm">
-                          {request.test_name}
-                        </Badge>
-                      ))}
-                      {visit.pending_requests.media_requests?.map((request: any) => (
-                        <Badge key={request.id} variant="azure" size="sm">
-                          {request.type} - {request.body_part}
-                        </Badge>
-                      ))}
+                    {visit.diagnosis && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900 mb-1">Diagnosis</h4>
+                        <p className="text-gray-600">{visit.diagnosis}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <FileText size={14} className="mr-2" />
+                        Lab Results
+                      </div>
+                      <p className="text-lg font-semibold mt-1">{visit.lab_results_count}</p>
+                    </div>
+
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Image size={14} className="mr-2" />
+                        Media
+                      </div>
+                      <p className="text-lg font-semibold mt-1">{visit.media_count}</p>
+                    </div>
+
+                    {(visit.pending_lab_requests_count > 0 || visit.pending_media_requests_count > 0) && (
+                      <div className="p-3 bg-amber-50 rounded-lg">
+                        <div className="flex items-center text-sm text-amber-600">
+                          <Clock size={14} className="mr-2" />
+                          Pending
+                        </div>
+                        <p className="text-lg font-semibold mt-1">
+                          {visit.pending_lab_requests_count + visit.pending_media_requests_count}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <div className="space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateVisitStatus(visit.id, 'completed');
+                        }}
+                        disabled={visit.status === 'completed'}
+                      >
+                        <CheckCircle size={14} className="mr-2" />
+                        Complete
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateVisitStatus(visit.id, 'in-progress');
+                        }}
+                        disabled={visit.status === 'in-progress'}
+                      >
+                        <Clock size={14} className="mr-2" />
+                        In Progress
+                      </Button>
+                    </div>
+                    <div className="space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedVisit(visit.id);
+                        }}
+                      >
+                        <Edit3 size={14} className="mr-2" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fetchVisitDetails(visit.id);
+                        }}
+                      >
+                        <ChevronRight size={14} />
+                      </Button>
                     </div>
                   </div>
-                )}
-
-                <div className="mt-4 flex justify-end">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleEditVisit(visit.id);
-                    }}
-                  >
-                    Edit Visit
-                  </Button>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
 
           {visits.length === 0 && (
             <div className="text-center py-8">
-              <Calendar size={40} className="mx-auto text-gray-300" />
+              <Activity size={40} className="mx-auto text-gray-300" />
               <p className="mt-2 text-gray-500">No visit history available</p>
             </div>
           )}
         </div>
       </CardContent>
 
-      {/* Edit Visit Modal */}
       <FormModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        title="Edit Visit"
-      >
-        {selectedVisit && (
-          <EditVisitForm
-            visitId={selectedVisit}
-            initialData={visits.find(v => v.id === selectedVisit)}
-            onSuccess={() => {
-              setIsEditModalOpen(false);
-              setSelectedVisit(null);
-              fetchVisits();
-            }}
-          />
-        )}
-      </FormModal>
-
-      {/* View Visit Modal */}
-      <FormModal
-        isOpen={isViewModalOpen}
-        onClose={() => setIsViewModalOpen(false)}
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
         title="Visit Details"
       >
-        {currentVisit && (
+        {visitDetails && (
           <VisitModal
-            visit={currentVisit}
-            onClose={() => setIsViewModalOpen(false)}
-            onStatusChange={(status) => {
-              handleStatusChange(currentVisit.id, status);
-              setIsViewModalOpen(false);
-            }}
+            visit={visitDetails}
+            onClose={() => setIsDetailsModalOpen(false)}
+            onStatusChange={(status) => updateVisitStatus(visitDetails.id, status)}
             onEdit={() => {
-              setIsViewModalOpen(false);
-              handleEditVisit(currentVisit.id);
+              setIsDetailsModalOpen(false);
+              setSelectedVisit(visitDetails.id);
             }}
           />
         )}
