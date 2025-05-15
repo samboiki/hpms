@@ -151,8 +151,6 @@ return new Date().getFullYear() - new Date(dateOfBirth).getFullYear();
 
 const generateAISummary = (patient: Patient | null) => {
 if (!patient) return null;
-
-```
 const age = calculateAge(patient.date_of_birth);
 const medicalAid = patient.medical_aid_details?.[0];
 const nextOfKin = patient.next_of_kin?.[0];
@@ -255,7 +253,6 @@ return (
     </CardContent>
   </Card>
 );
-```
 
 };
 
@@ -304,7 +301,6 @@ Export Data </Button>
 \<Button onClick={() => setIsAddVisitModalOpen(true)}> <Clock size={16} className="mr-2" />
 Record Visit </Button> </div> </div>
 
-```
   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <motion.div 
       variants={itemVariants}
@@ -579,7 +575,7 @@ Record Visit </Button> </div> </div>
     />
   </FormModal>
 </motion.div>
-```
+
 
 );
 };
