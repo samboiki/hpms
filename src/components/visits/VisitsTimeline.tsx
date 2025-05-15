@@ -1,7 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
-import { Clock, Activity, FileText, Image, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { 
+  Clock, 
+  Activity, 
+  FileText, 
+  Image, 
+  CheckCircle, 
+  XCircle, 
+  AlertCircle,
+  ChevronRight,
+  Microscope,
+  Stethoscope,
+  Pill,
+  Calendar,
+  User,
+  Edit3
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import Button from '../ui/Button';
@@ -185,16 +200,44 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-emerald-500';
+      case 'cancelled':
+        return 'bg-red-500';
+      case 'in-progress':
+        return 'bg-amber-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle size={16} className="text-success-500" />;
+        return <CheckCircle size={16} className="text-emerald-500" />;
       case 'cancelled':
-        return <XCircle size={16} className="text-error-500" />;
+        return <XCircle size={16} className="text-red-500" />;
       case 'in-progress':
-        return <Clock size={16} className="text-warning-500" />;
+        return <Clock size={16} className="text-amber-500" />;
       default:
         return <AlertCircle size={16} className="text-gray-500" />;
+    }
+  };
+
+  const getVisitTypeIcon = (type: string) => {
+    switch (type) {
+      case 'consultation':
+        return <Stethoscope size={16} className="text-brand-primary" />;
+      case 'follow-up':
+        return <Calendar size={16} className="text-purple-500" />;
+      case 'procedure':
+        return <Activity size={16} className="text-blue-500" />;
+      case 'emergency':
+        return <AlertCircle size={16} className="text-red-500" />;
+      default:
+        return <FileText size={16} className="text-gray-500" />;
     }
   };
 
@@ -233,70 +276,111 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
               transition={{ delay: index * 0.1 }}
               className="relative pl-8 pb-8 last:pb-0"
             >
+              {/* Timeline connector */}
               {index < visits.length - 1 && (
-                <div className="absolute left-[11px] top-6 bottom-0 w-0.5 bg-gray-200" />
+                <div className="absolute left-[11px] top-6 bottom-0 w-0.5 bg-gradient-to-b from-brand-primary/50 to-transparent" />
               )}
               
-              <div className="absolute left-0 top-1.5 w-6 h-6 rounded-full bg-[#01b9d4] flex items-center justify-center">
+              {/* Timeline node */}
+              <div className={`
+                absolute left-0 top-1.5 w-6 h-6 rounded-full 
+                ${getStatusColor(visit.status)} 
+                shadow-lg shadow-brand-primary/20
+                flex items-center justify-center
+                border-2 border-white
+              `}>
                 {getStatusIcon(visit.status)}
               </div>
 
-              <div className="bg-white rounded-lg border border-gray-100 p-4 shadow-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)} Visit
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      {format(new Date(visit.visit_date), 'MMMM d, yyyy')} at {visit.visit_time}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">{visit.doctor_name}</p>
-                    <Badge
-                      variant={
-                        visit.status === 'completed' ? 'success' :
-                        visit.status === 'in-progress' ? 'warning' :
-                        visit.status === 'cancelled' ? 'error' : 'glass'
-                      }
-                      size="sm"
-                    >
-                      {visit.status}
-                    </Badge>
+              {/* Visit Card */}
+              <div className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                {/* Header */}
+                <div className="p-4 border-b border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 rounded-lg bg-brand-light">
+                        {getVisitTypeIcon(visit.visit_type)}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                          {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)} Visit
+                          <ChevronRight size={16} className="ml-2 text-gray-400" />
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          {format(new Date(visit.visit_date), 'MMMM d, yyyy')} at {visit.visit_time}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {visit.doctor_name && (
+                        <div className="flex items-center text-sm text-gray-600 mb-2">
+                          <User size={14} className="mr-1" />
+                          {visit.doctor_name}
+                        </div>
+                      )}
+                      <Badge
+                        variant={
+                          visit.status === 'completed' ? 'success' :
+                          visit.status === 'in-progress' ? 'warning' :
+                          visit.status === 'cancelled' ? 'error' : 'glass'
+                        }
+                        size="sm"
+                      >
+                        {visit.status}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-900">Chief Complaint</h4>
-                    <p className="text-gray-600">{visit.chief_complaint}</p>
-                  </div>
-
-                  {visit.diagnosis && (
+                {/* Content */}
+                <div className="p-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <h4 className="text-sm font-medium text-gray-900">Diagnosis</h4>
-                      <p className="text-gray-600">{visit.diagnosis}</p>
+                      <h4 className="text-sm font-medium text-gray-900 mb-1">Chief Complaint</h4>
+                      <p className="text-gray-600">{visit.chief_complaint}</p>
                     </div>
-                  )}
 
-                  <div className="flex items-center space-x-4 pt-4 border-t border-gray-100">
-                    <div className="flex items-center text-sm text-gray-500">
-                      <FileText size={16} className="mr-1" />
-                      {visit.lab_results_count} Lab Results
-                    </div>
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Image size={16} className="mr-1" />
-                      {visit.media_count} Media
-                    </div>
-                    {(visit.pending_lab_requests_count > 0 || visit.pending_media_requests_count > 0) && (
-                      <div className="flex items-center text-sm text-warning-600">
-                        <Clock size={16} className="mr-1" />
-                        {visit.pending_lab_requests_count + visit.pending_media_requests_count} Pending Requests
+                    {visit.diagnosis && (
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-900 mb-1">Diagnosis</h4>
+                        <p className="text-gray-600">{visit.diagnosis}</p>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between pt-4">
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <FileText size={14} className="mr-2" />
+                        Lab Results
+                      </div>
+                      <p className="text-lg font-semibold mt-1">{visit.lab_results_count}</p>
+                    </div>
+
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Image size={14} className="mr-2" />
+                        Media
+                      </div>
+                      <p className="text-lg font-semibold mt-1">{visit.media_count}</p>
+                    </div>
+
+                    {(visit.pending_lab_requests_count > 0 || visit.pending_media_requests_count > 0) && (
+                      <div className="p-3 bg-amber-50 rounded-lg">
+                        <div className="flex items-center text-sm text-amber-600">
+                          <Clock size={14} className="mr-2" />
+                          Pending
+                        </div>
+                        <p className="text-lg font-semibold mt-1">
+                          {visit.pending_lab_requests_count + visit.pending_media_requests_count}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                     <div className="space-x-2">
                       <Button
                         variant="outline"
@@ -317,13 +401,23 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
                         Cancel
                       </Button>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fetchVisitDetails(visit.id)}
-                    >
-                      View Details
-                    </Button>
+                    <div className="space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedVisit(visit.id)}
+                      >
+                        <Edit3 size={14} className="mr-2" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fetchVisitDetails(visit.id)}
+                      >
+                        <ChevronRight size={14} />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
