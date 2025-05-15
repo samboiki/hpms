@@ -2,45 +2,68 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { format, differenceInYears } from 'date-fns';
 import {
+  Building2,
+  FileText,
+  Phone,
+  Mail,
+  MapPin,
   ChevronLeft,
-  Clock,
-  FilePlus,
   Edit3,
-  Search,
-  Filter,
+  Clock,
+  User,
+  Loader2,
+  Heart,
+  Activity,
+  Stethoscope,
+  Pill,
+  Clipboard,
+  AlertCircle,
+  CheckCircle2,
+  ArrowRight,
+  Brain,
+  Sparkles,
+  CalendarDays,
+  Briefcase,
+  Home,
+  Users,
+  ShieldCheck,
+  FilePlus,
+  Download,
+  RefreshCw,
   TrendingUp,
-  TrendingDown,
-  RefreshCw
+  TrendingDown
 } from 'lucide-react';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  Legend
-} from 'recharts';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase, logDatabaseError } from '../lib/supabase';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Button from '../components/ui/Button';
-import { Card, CardHeader, CardContent, CardTitle } from '../components/ui/Card';
-import VisitsTimeline from '../components/visits/VisitsTimeline';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
+import NextOfKinForm from '../components/forms/NextOfKinForm';
+import EditPatientForm from '../components/forms/EditPatientForm';
 import AddVisitForm from '../components/forms/AddVisitForm';
+import { supabase, logDatabaseError } from '../lib/supabase';
+import VisitsTimeline from '../components/visits/VisitsTimeline';
 
-type TabKey = 'overview' | 'history' | 'labs' | 'appointments';
+interface MedicalAidDetail {
+  provider: string;
+  scheme: string;
+  membershipNumber: string;
+  planType: string;
+  mainMemberName: string;
+  mainMemberIdNumber: string;
+  relationship: string;
+}
 
-const tabs: { key: TabKey; label: string }[] = [
-  { key: 'overview',   label: 'Overview' },
-  { key: 'history',    label: 'History' },
-  { key: 'labs',       label: 'Lab Results' },
-  { key: 'appointments', label: 'Appointments' },
-];
+interface NextOfKinDetail {
+  id: string;
+  name: string;
+  relationship: string;
+  phone: string;
+  address?: string;
+}
 
 interface Patient {
   id: string;
@@ -50,425 +73,289 @@ interface Patient {
   cell_number: string;
   date_of_birth: string;
   gender: string;
-  home_address: string;
   occupation?: string;
+  home_address: string;
+  medical_aid_details?: MedicalAidDetail[];
+  next_of_kin?: NextOfKinDetail[];
+  chronicConditions?: string[];
+  totalVisits?: number;
+  totalReports?: number;
 }
 
-interface Vital {
-  id: string;
-  patient_id: string;
-  timestamp: string;
-  systolic: number;
-  diastolic: number;
-  heart_rate: number;
-}
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.07 } },
+};
 
-interface LabResult {
-  id: string;
-  patient_id: string;
-  test_name: string;
-  value: number;
-  unit: string;
-  timestamp: string;
-}
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100, damping: 12 } },
+};
 
-export default function PatientDetail() {
+const PatientDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<TabKey>('overview');
-  const [search, setSearch]         = useState('');
-  const [filter, setFilter]         = useState<'all' | 'recent'>('all');
-  const [visitModal, setVisitModal] = useState(false);
-  const [labModal, setLabModal]     = useState(false);
+  const [nextOfKinOpen, setNextOfKinOpen] = useState(false);
+  const [editPatientOpen, setEditPatientOpen] = useState(false);
+  const [medicalAidOpen, setMedicalAidOpen] = useState(false);
+  const [addVisitOpen, setAddVisitOpen] = useState(false);
 
   // — fetch patient
   const {
     data: patient,
-    isLoading: patientLoading,
-    error: patientError,
-  } = useQuery(['patient', id], async () => {
-    const { data, error } = await supabase
-      .from('patient_details_view')
-      .select('*')
-      .eq('id', id)
-      .single();
-    if (error) throw error;
-    return data as Patient;
-  }, { enabled: !!id });
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ['patient', id],
+    queryFn: async () => {
+      if (!id) throw new Error('Patient ID required');
+      const { data, error } = await supabase
+        .from('patient_details_view')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) {
+        logDatabaseError(error, `PatientDetail ID:${id}`);
+        throw error;
+      }
+      return data as Patient;
+    },
+    enabled: !!id
+  });
 
-  // — vitals
-  const {
-    data: vitals = [],
-    isLoading: vitalsLoading,
-  } = useQuery(['vitals', id], async () => {
-    const { data, error } = await supabase
-      .from<Vital>('vitals')
-      .select('*')
-      .eq('patient_id', id)
-      .order('timestamp', { ascending: true });
-    if (error) throw error;
-    return data;
-  }, { enabled: !!id });
+  // — mutation example (not shown in UI here)
+  const updatePatient = useMutation({
+    mutationFn: async (updates: Partial<Patient>) => {
+      const { error } = await supabase
+        .from('patients')
+        .update(updates)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['patient', id] });
+    }
+  });
 
-  // — labs
-  const {
-    data: labs = [],
-    isLoading: labsLoading,
-  } = useQuery(['labs', id], async () => {
-    const { data, error } = await supabase
-      .from<LabResult>('lab_results')
-      .select('*')
-      .eq('patient_id', id)
-      .order('timestamp', { descending: true })
-      .limit(20);
-    if (error) throw error;
-    return data;
-  }, { enabled: !!id });
+  const handleSuccess = (close: React.Dispatch<React.SetStateAction<boolean>>) => {
+    qc.invalidateQueries({ queryKey: ['patient', id] });
+    close(false);
+  };
 
-  // — age
-  const age = useMemo(() => {
-    if (!patient?.date_of_birth) return null;
-    return differenceInYears(new Date(), new Date(patient.date_of_birth));
-  }, [patient]);
+  const age = useMemo(() =>
+    patient?.date_of_birth
+      ? differenceInYears(new Date(), new Date(patient.date_of_birth))
+      : null,
+  [patient]);
 
-  // — chart data
-  const vitalChartData = useMemo(() =>
-    vitals.map(v => ({
-      time: format(new Date(v.timestamp), 'MMM d'),
-      Systolic: v.systolic,
-      Diastolic: v.diastolic,
-      'Heart Rate': v.heart_rate
-    }))
-  , [vitals]);
-
-  if (patientLoading) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="p-6 bg-white rounded-xl shadow-lg text-center">
-          <Clock className="mx-auto mb-4 text-cyan-500 animate-spin" size={40} />
-          <p className="text-gray-700 font-medium">Loading patient…</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="p-8 bg-white rounded-xl shadow-lg text-center"
+        >
+          <Loader2 className="animate-spin text-sky-500 mb-4 mx-auto" size={48} />
+          <p className="text-lg font-medium text-gray-700">Loading patient...</p>
+        </motion.div>
       </div>
     );
   }
-  if (patientError || !patient) {
+
+  if (error || !patient) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="p-6 bg-white rounded-xl shadow-lg text-center max-w-sm">
-          <Edit3 className="mx-auto mb-4 text-red-500" size={40} />
-          <p className="text-gray-700 font-semibold mb-2">Patient not found</p>
-          <Button onClick={() => navigate('/patients')} variant="secondary">
-            <ChevronLeft className="mr-2" size={16} /> Back
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-8 bg-white rounded-xl shadow-lg text-center max-w-md"
+        >
+          <AlertCircle className="text-red-500 mb-4 mx-auto" size={48} />
+          <p className="text-xl font-semibold text-gray-700 mb-2">Record not found</p>
+          <Button variant="outline" onClick={() => navigate('/patients')}>
+            <ChevronLeft className="mr-2" /> Back
           </Button>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 md:p-8">
-      {/* header */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="min-h-screen bg-slate-100 p-6 lg:p-8"
+    >
+      <motion.header variants={itemVariants} className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
         <div className="flex items-center space-x-4">
           <Button variant="ghost" onClick={() => navigate('/patients')} aria-label="Back">
             <ChevronLeft size={24} />
           </Button>
-          <h1 className="text-[30px] font-bold text-[#494c61]">
-            {patient.first_name} {patient.last_name}
-          </h1>
+          <div>
+            <h1 className="text-[30px] font-bold text-[#494c61]">
+              {patient.first_name} {patient.last_name}
+            </h1>
+            <p className="text-gray-500">Patient ID: {patient.id}</p>
+          </div>
         </div>
         <div className="mt-4 md:mt-0 flex flex-wrap gap-3">
-          <Button variant="primary" onClick={() => setVisitModal(true)}>
+          <Button onClick={() => setAddVisitOpen(true)}>
             <FilePlus className="mr-2" /> Record Visit
           </Button>
-          <Button variant="primary" onClick={() => setLabModal(true)}>
-            <FilePlus className="mr-2" /> Add Lab Result
+          <Button onClick={() => setNextOfKinOpen(true)}>
+            <Users className="mr-2" /> Next of Kin
           </Button>
-          <Button variant="secondary" onClick={() => qc.invalidateQueries(['patient', id])}>
+          <Button onClick={() => setMedicalAidOpen(true)}>
+            <ShieldCheck className="mr-2" /> Medical Aid
+          </Button>
+          <Button variant="secondary" onClick={() => qc.invalidateQueries({ queryKey: ['patient', id] })}>
             <RefreshCw className="mr-2" /> Refresh
           </Button>
           <Button variant="ghost" aria-label="Edit">
             <Edit3 size={20} />
           </Button>
         </div>
-      </header>
+      </motion.header>
 
-      {/* layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-8">
-        {/* sidebar */}
-        <aside className="space-y-6 sticky top-24">
-          <Card className="shadow-md">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-700">
-                Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p><strong>Age:</strong> {age} yrs</p>
-              <p><strong>Gender:</strong> {patient.gender}</p>
-              <p><strong>Email:</strong> {patient.email}</p>
-              <p><strong>Phone:</strong> {patient.cell_number}</p>
-              <p><strong>Address:</strong> {patient.home_address}</p>
-              {patient.occupation && <p><strong>Occupation:</strong> {patient.occupation}</p>}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <motion.div variants={itemVariants} className="space-y-6">
+          {/* Profile Card */}
+          <Card className="shadow-lg">
+            <div className="h-28 bg-gradient-to-r from-cyan-400 to-blue-500" />
+            <CardContent className="relative -mt-14 pt-16 text-center">
+              <div className="absolute left-1/2 -translate-x-1/2 -top-12 bg-white rounded-full p-1 shadow-md">
+                <User className="text-blue-500" size={48} />
+              </div>
+              <h2 className="text-2xl font-semibold text-gray-800">
+                {patient.first_name} {patient.last_name}
+              </h2>
+              <p className="text-gray-500">{age} yrs • {patient.gender}</p>
+              <div className="mt-4 flex justify-center space-x-2">
+                <Badge variant="success">Active</Badge>
+                {patient.occupation && <Badge variant="info">{patient.occupation}</Badge>}
+              </div>
+              <div className="mt-6 space-y-2 text-sm text-gray-600">
+                <div className="flex items-center justify-center space-x-2">
+                  <Mail className="text-blue-500" /><span>{patient.email}</span>
+                </div>
+                <div className="flex items-center justify-center space-x-2">
+                  <Phone className="text-blue-500" /><span>{patient.cell_number}</span>
+                </div>
+                <div className="flex items-center justify-center space-x-2">
+                  <MapPin className="text-blue-500" /><span>{patient.home_address}</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
-        </aside>
 
-        {/* main content */}
-        <main className="space-y-6">
-          {/* tabs */}
-          <nav className="flex space-x-4 border-b border-gray-300">
-            {tabs.map(t => (
-              <button
-                key={t.key}
-                onClick={() => setActiveTab(t.key)}
-                className={`pb-2 ${
-                  activeTab === t.key
-                    ? 'border-b-2 border-cyan-500 text-cyan-600'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-                aria-current={activeTab === t.key ? 'page' : undefined}
-              >
-                {t.label}
-              </button>
-            ))}
-          </nav>
+          {/* Medical Aid Card */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-gray-700">
+                <ShieldCheck size={20} className="text-green-600" /> Medical Aid
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {patient.medical_aid_details?.[0] ? (
+                <>
+                  <p><strong>Provider:</strong> {patient.medical_aid_details[0].provider}</p>
+                  <p><strong>Scheme:</strong> {patient.medical_aid_details[0].scheme}</p>
+                  <p><strong>Member #:</strong> {patient.medical_aid_details[0].membershipNumber}</p>
+                </>
+              ) : (
+                <p className="text-gray-500">No info on file.</p>
+              )}
+            </CardContent>
+          </Card>
 
-          {/* search/filter */}
-          {(activeTab === 'history' || activeTab === 'labs') && (
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div className="flex items-center bg-white border border-gray-300 rounded-lg px-3 py-1 w-full md:w-1/2">
-                <Search className="text-gray-500 mr-2" />
-                <input
-                  type="text"
-                  className="w-full outline-none"
-                  placeholder="Search…"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Filter className="text-gray-600" />
-                <select
-                  className="bg-white border border-gray-300 rounded-lg px-3 py-1"
-                  value={filter}
-                  onChange={e => setFilter(e.target.value as any)}
-                >
-                  <option value="all">All</option>
-                  <option value="recent">Recent</option>
-                </select>
-              </div>
-            </div>
-          )}
+          {/* Next of Kin Card */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-gray-700">
+                <Users size={20} className="text-red-500" /> Next of Kin
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {patient.next_of_kin?.[0] ? (
+                <>
+                  <p><strong>Name:</strong> {patient.next_of_kin[0].name}</p>
+                  <p><strong>Relation:</strong> {patient.next_of_kin[0].relationship}</p>
+                  <p><strong>Phone:</strong> {patient.next_of_kin[0].phone}</p>
+                </>
+              ) : (
+                <p className="text-gray-500">No info on file.</p>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
 
-          {/* tab panels */}
-          {activeTab === 'overview' && (
-            <div className="space-y-6">
-              {/* vitals */}
-              <Card className="shadow-md">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-gray-700">
-                    Vital Signs
-                  </CardTitle>
-                </CardHeader>
-                <CardContent style={{ height: 250 }}>
-                  {vitalsLoading ? (
-                    <p>Loading chart…</p>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={vitalChartData}>
-                        <XAxis dataKey="time" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Line type="monotone" dataKey="Systolic" stroke="#06B6D4" />
-                        <Line type="monotone" dataKey="Diastolic" stroke="#8B5CF6" />
-                        <Line type="monotone" dataKey="Heart Rate" stroke="#F97316" />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  )}
-                </CardContent>
-              </Card>
+        <motion.div variants={itemVariants} className="lg:col-span-2 space-y-6">
+          {/* Timeline */}
+          <VisitsTimeline patientId={id!} />
 
-              {/* labs */}
-              <Card className="shadow-md">
-                <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-gray-700">
-                    Recent Lab Results
-                  </CardTitle>
-                </CardHeader>
-                <CardContent style={{ height: 200 }}>
-                  {labsLoading ? (
-                    <p>Loading chart…</p>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={labs.map(l => ({ name: l.test_name, value: l.value }))}>
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar dataKey="value" fill="#06B6D4" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {activeTab === 'history' && (
-            <VisitsTimeline
-              patientId={id!}
-              search={search}
-              filter={filter}
-            />
-          )}
-
-          {activeTab === 'labs' && (
-            <div className="space-y-4">
-              {labs.map(l => (
-                <Card key={l.id} className="flex justify-between items-center shadow-sm">
-                  <div>
-                    <p className="font-medium text-gray-800">{l.test_name}</p>
-                    <p className="text-sm text-gray-600">
-                      {l.value} {l.unit} • {format(new Date(l.timestamp), 'MMM d, yyyy')}
-                    </p>
+          {/* AI Summary */}
+          <motion.div variants={itemVariants}>
+            <Card className="bg-gradient-to-br from-gray-800 to-gray-900 text-white shadow-lg">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Brain size={22} className="text-cyan-400" />
+                    <CardTitle className="text-xl">AI Insights</CardTitle>
                   </div>
-                  {l.value >= 0 ? (
-                    <TrendingUp className="text-green-500" />
-                  ) : (
-                    <TrendingDown className="text-red-500" />
-                  )}
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {activeTab === 'appointments' && (
-            <div className="p-4 bg-white rounded-lg shadow-sm text-center text-gray-600">
-              No appointments scheduled.
-            </div>
-          )}
-        </main>
+                  <Sparkles size={16} className="text-cyan-200" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p>
+                  {patient.first_name} {patient.last_name} is a {age}-year-old {patient.gender}.
+                </p>
+                <p>
+                  Next visit scheduled in 3 months. Continue current care plan.
+                </p>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </motion.div>
       </div>
 
-      {/* add visit modal */}
-      <FormModal
-        isOpen={visitModal}
-        onClose={() => setVisitModal(false)}
-        title="Record New Visit"
-      >
+      {/* Modals */}
+      <FormModal isOpen={addVisitOpen} onClose={() => setAddVisitOpen(false)} title="Record Visit">
         <AddVisitForm
           patientId={id!}
-          onSuccess={() => {
-            qc.invalidateQueries(['patient', id]);
-            setVisitModal(false);
-          }}
+          onSuccess={() => handleSuccess(setAddVisitOpen)}
         />
       </FormModal>
 
-      {/* add lab-result modal */}
-      <FormModal
-        isOpen={labModal}
-        onClose={() => setLabModal(false)}
-        title="Add Lab Result"
-      >
-        <AddLabResultForm
+      <FormModal isOpen={nextOfKinOpen} onClose={() => setNextOfKinOpen(false)} title="Next of Kin">
+        <NextOfKinForm
           patientId={id!}
-          onSuccess={() => {
-            qc.invalidateQueries(['labs', id]);
-            setLabModal(false);
-          }}
+          initialData={patient.next_of_kin?.[0]}
+          onSuccess={() => handleSuccess(setNextOfKinOpen)}
         />
       </FormModal>
-    </div>
+
+      <FormModal isOpen={medicalAidOpen} onClose={() => setMedicalAidOpen(false)} title="Medical Aid">
+        {/* You can reuse EditPatientForm or create a dedicated MedicalAidForm here */}
+        <EditPatientForm
+          patientId={id!}
+          initialData={patient}
+          onSuccess={() => handleSuccess(setMedicalAidOpen)}
+        />
+      </FormModal>
+
+      <FormModal isOpen={editPatientOpen} onClose={() => setEditPatientOpen(false)} title="Edit Patient">
+        <EditPatientForm
+          patientId={id!}
+          initialData={patient}
+          onSuccess={() => handleSuccess(setEditPatientOpen)}
+        />
+      </FormModal>
+    </motion.div>
   );
-}
+};
 
-/** Inline AddLabResultForm so no external import needed */
-function AddLabResultForm({
-  patientId,
-  onSuccess
-}: {
-  patientId: string;
-  onSuccess: () => void;
-}) {
-  const [testName, setTestName] = useState('');
-  const [value, setValue] = useState('');
-  const [unit, setUnit] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const { error: dbErr } = await supabase
-      .from('lab_results')
-      .insert([{
-        patient_id: patientId,
-        test_name: testName,
-        value: parseFloat(value),
-        unit,
-        timestamp: new Date().toISOString()
-      }]);
-
-    if (dbErr) {
-      setError(dbErr.message);
-    } else {
-      onSuccess();
-    }
-    setLoading(false);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <p className="text-red-500">{error}</p>}
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Test Name</label>
-        <input
-          type="text"
-          className="mt-1 w-full border rounded px-3 py-2"
-          value={testName}
-          onChange={e => setTestName(e.target.value)}
-          required
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Value</label>
-        <input
-          type="number"
-          step="any"
-          className="mt-1 w-full border rounded px-3 py-2"
-          value={value}
-          onChange={e => setValue(e.target.value)}
-          required
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Unit</label>
-        <input
-          type="text"
-          className="mt-1 w-full border rounded px-3 py-2"
-          value={unit}
-          onChange={e => setUnit(e.target.value)}
-          required
-        />
-      </div>
-
-      <div className="flex justify-end space-x-2">
-        <Button variant="outline" onClick={onSuccess} disabled={loading}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={loading}>
-          {loading ? 'Saving…' : 'Save'}
-        </Button>
-      </div>
-    </form>
-  );
-}
+export default PatientDetail;
