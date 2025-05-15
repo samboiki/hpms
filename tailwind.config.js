@@ -12,9 +12,16 @@ export default {
       },
       colors: {
         'brand': {
-          primary: '#01b9d4',
-          light: '#e6f9fc',
-          dark: '#018ba0',
+          50: '#e0f7ff',
+          100: '#b3e7ff',
+          200: '#80d5ff',
+          300: '#4dc3ff',
+          400: '#26b5ff',
+          500: '#01b9d4',
+          600: '#0197d4',
+          700: '#0077a3',
+          800: '#005c80',
+          900: '#003d54',
         },
         'accent': {
           coral: '#ff6b6b',
