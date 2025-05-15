@@ -1,46 +1,103 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
-import { Clock, Activity, FileText, Image } from 'lucide-react';
+import { Clock, Activity, FileText, Image, AlertCircle, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { supabase } from '../../lib/supabase';
+import Badge from '../ui/Badge';
+import VisitCard from './VisitCard';
 
 interface Visit {
   id: string;
-  date: string;
-  time: string;
-  type: string;
-  doctor: {
-    name: string;
-    specialty: string;
-  };
-  chiefComplaint: string;
-  diagnosis?: string;
-  notes?: string;
-  prescription?: string;
-  labResults?: Array<{
-    id: string;
-    name: string;
-    value: string;
-    unit: string;
-    referenceRange: string;
-    status: string;
-    date: string;
-  }>;
-  media?: Array<{
-    id: string;
-    type: string;
-    url: string;
-    description: string;
-    date: string;
-  }>;
-  followUpDate?: string;
+  visit_date: string;
+  visit_time: string;
+  visit_type: string;
+  chief_complaint: string;
+  diagnosis: string;
+  treatment_plan: string;
+  prescription: string;
+  doctor_name: string;
+  status: string;
+  lab_results_count: number;
+  media_count: number;
+  pending_lab_requests_count: number;
+  pending_media_requests_count: number;
 }
 
 interface VisitsTimelineProps {
-  visits: Visit[];
+  patientId: string;
 }
 
-const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ visits }) => {
+const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
+  const [visits, setVisits] = useState<Visit[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedVisit, setSelectedVisit] = useState<string | null>(null);
+  const [visitDetails, setVisitDetails] = useState<any | null>(null);
+
+  useEffect(() => {
+    fetchVisits();
+  }, [patientId]);
+
+  const fetchVisits = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const { data, error } = await supabase
+        .from('visit_timeline_view')
+        .select('*')
+        .eq('patient_id', patientId)
+        .order('visit_date', { ascending: false })
+        .order('visit_time', { ascending: false });
+
+      if (error) throw error;
+      setVisits(data || []);
+    } catch (err) {
+      console.error('Error fetching visits:', err);
+      setError('Failed to load visit history');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchVisitDetails = async (visitId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('visit_details_view')
+        .select('*')
+        .eq('id', visitId)
+        .single();
+
+      if (error) throw error;
+      setVisitDetails(data);
+    } catch (err) {
+      console.error('Error fetching visit details:', err);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center">
+          <Loader2 size={32} className="animate-spin text-brand-primary mx-auto mb-2" />
+          <p className="text-gray-500">Loading visit history...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-6 text-center">
+          <AlertCircle size={32} className="text-error-500 mx-auto mb-2" />
+          <p className="text-error-600">{error}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -73,23 +130,34 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ visits }) => {
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {visit.type.charAt(0).toUpperCase() + visit.type.slice(1)} Visit
+                      {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)} Visit
                     </h3>
                     <p className="text-sm text-gray-500">
-                      {format(new Date(visit.date), 'MMMM d, yyyy')} at {visit.time}
+                      {format(new Date(visit.visit_date), 'MMMM d, yyyy')} at {visit.visit_time}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">{visit.doctor.name}</p>
-                    <p className="text-xs text-gray-500">{visit.doctor.specialty}</p>
+                    <p className="text-sm font-medium text-gray-900">{visit.doctor_name}</p>
+                    <Badge
+                      variant={
+                        visit.status === 'completed' ? 'success' :
+                        visit.status === 'in-progress' ? 'warning' :
+                        'error'
+                      }
+                      size="sm"
+                    >
+                      {visit.status}
+                    </Badge>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-900">Chief Complaint</h4>
-                    <p className="text-gray-600">{visit.chiefComplaint}</p>
-                  </div>
+                  {visit.chief_complaint && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900">Chief Complaint</h4>
+                      <p className="text-gray-600">{visit.chief_complaint}</p>
+                    </div>
+                  )}
 
                   {visit.diagnosis && (
                     <div>
@@ -98,10 +166,10 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ visits }) => {
                     </div>
                   )}
 
-                  {visit.notes && (
+                  {visit.treatment_plan && (
                     <div>
-                      <h4 className="text-sm font-medium text-gray-900">Notes</h4>
-                      <p className="text-gray-600 whitespace-pre-line">{visit.notes}</p>
+                      <h4 className="text-sm font-medium text-gray-900">Treatment Plan</h4>
+                      <p className="text-gray-600">{visit.treatment_plan}</p>
                     </div>
                   )}
 
@@ -112,64 +180,49 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ visits }) => {
                     </div>
                   )}
 
-                  {visit.labResults && visit.labResults.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-900 mb-2">Lab Results</h4>
-                      <div className="space-y-2">
-                        {visit.labResults.map(result => (
-                          <div key={result.id} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{result.name}</p>
-                              <p className="text-xs text-gray-500">
-                                {format(new Date(result.date), 'MMM d, yyyy')}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm font-medium text-gray-900">
-                                {result.value} {result.unit}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                Range: {result.referenceRange}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-gray-100">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-brand-primary">
+                        {visit.lab_results_count}
                       </div>
+                      <div className="text-xs text-gray-500">Lab Results</div>
                     </div>
-                  )}
-
-                  {visit.media && visit.media.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-900 mb-2">Media</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        {visit.media.map(item => (
-                          <div key={item.id} className="relative">
-                            <img
-                              src={item.url}
-                              alt={item.description}
-                              className="w-full h-48 object-cover rounded-lg"
-                            />
-                            <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-2 rounded-b-lg">
-                              <p className="text-sm font-medium">{item.description}</p>
-                              <p className="text-xs">{format(new Date(item.date), 'MMM d, yyyy')}</p>
-                            </div>
-                          </div>
-                        ))}
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-brand-primary">
+                        {visit.media_count}
                       </div>
+                      <div className="text-xs text-gray-500">Media Items</div>
                     </div>
-                  )}
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-warning-500">
+                        {visit.pending_lab_requests_count}
+                      </div>
+                      <div className="text-xs text-gray-500">Pending Labs</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-warning-500">
+                        {visit.pending_media_requests_count}
+                      </div>
+                      <div className="text-xs text-gray-500">Pending Media</div>
+                    </div>
+                  </div>
 
-                  {visit.followUpDate && (
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                      <p className="text-sm text-gray-600">
-                        Follow-up scheduled for {format(new Date(visit.followUpDate), 'MMMM d, yyyy')}
-                      </p>
-                    </div>
+                  {/* Load and show visit details when expanded */}
+                  {selectedVisit === visit.id && visitDetails && (
+                    <VisitCard visit={visitDetails} />
                   )}
                 </div>
               </div>
             </motion.div>
           ))}
+
+          {visits.length === 0 && (
+            <div className="text-center py-8">
+              <Activity size={40} className="mx-auto text-gray-300 mb-3" />
+              <p className="text-gray-500">No visit history available</p>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
