@@ -480,7 +480,7 @@ const PatientModernDetail = () => {
           setIsVisitDetailModalOpen(false);
           setSelectedVisit(null);
         }}
-        title="Visit Details"
+        title="Visit Detailss"
         hideHeader
       >
         {selectedVisit && (
