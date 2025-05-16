@@ -156,7 +156,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
         <div className="col-span-8">
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl font-bold text-[#01b9d4] flex items-center">
+              <CardTitle className="text-2xl font-bold text-[#494c61] flex items-center">
                 <Stethoscope size={24} className="mr-3" />
                 Clinical Information
               </CardTitle>
