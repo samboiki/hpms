@@ -139,7 +139,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
           }`}
         >
           <div className="text-sm text-gray-500">{label}</div>
-          <div className="text-sm font-semibold">
+          <div className="text-sm font-bold">
             {value}
             {unit}
           </div>
