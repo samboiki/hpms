@@ -81,30 +81,26 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
       {/* Vitals Row */}
       {visit.vitals && (
         <div className="flex divide-x divide-gray-200 bg-gray-50 p-4 rounded-lg">
-          {visit.vitals.blood_pressure && (
+       
             <div className="flex-1 px-4 text-center">
               <div className="text-xs text-gray-500">Blood Pressure</div>
               <div className="text-lg font-semibold">{visit.vitals.blood_pressure} mmHg</div>
             </div>
-          )}
-          {visit.vitals.temperature && (
+    
             <div className="flex-1 px-4 text-center">
               <div className="text-xs text-gray-500">Temperature</div>
               <div className="text-lg font-semibold">{visit.vitals.temperature}°C</div>
             </div>
-          )}
-          {visit.vitals.pulse_rate && (
+          
             <div className="flex-1 px-4 text-center">
               <div className="text-xs text-gray-500">Pulse Rate</div>
               <div className="text-lg font-semibold">{visit.vitals.pulse_rate} bpm</div>
             </div>
-          )}
-          {visit.vitals.respiratory_rate && (
+   
             <div className="flex-1 px-4 text-center">
               <div className="text-xs text-gray-500">Respiratory Rate</div>
               <div className="text-lg font-semibold">{visit.vitals.respiratory_rate} /min</div>
             </div>
-          )}
           
             <div className="flex-1 px-4 text-center">
               <div className="text-xs text-gray-500">Weight</div>
