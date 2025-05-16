@@ -618,3 +618,5 @@ const PatientModernDetail = () => {
 };
 
 export default PatientModernDetail;
+
+export default PatientModernDetail
