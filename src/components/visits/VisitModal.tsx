@@ -9,16 +9,22 @@ import {
   Thermometer,
   Stethoscope,
   Pill,
-  CheckCircle,
+  CheckCircle2,
   XCircle,
   AlertCircle,
   Edit3,
   ImageIcon,
-  Microscope
+  Microscope,
+  Calendar,
+  ArrowRight,
+  ChevronRight,
+  Clipboard,
+  Brain
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
+import VitalsDisplay from '../patients/VitalsDisplay';
 
 interface VisitModalProps {
   visit: any;
@@ -41,168 +47,136 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)} Visit
-          </h2>
-          <p className="text-gray-500">
-            {format(new Date(visit.visit_date), 'MMMM d, yyyy')} at {visit.visit_time}
-          </p>
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-[#01b9d4] to-[#0197d4] -mx-6 -mt-6 p-6 text-white rounded-t-xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-2xl font-bold">
+              {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)} Visit
+            </h3>
+            <div className="flex items-center mt-2 space-x-4 text-white/80">
+              <div className="flex items-center">
+                <Calendar size={16} className="mr-2" />
+                {format(new Date(visit.visit_date), 'MMMM d, yyyy')}
+              </div>
+              <div className="flex items-center">
+                <Clock size={16} className="mr-2" />
+                {visit.visit_time}
+              </div>
+              <div className="flex items-center">
+                <User size={16} className="mr-2" />
+                {visit.doctor_name}
+              </div>
+            </div>
+          </div>
+          <Badge
+            variant={getStatusColor(visit.status)}
+            size="sm"
+            className="uppercase tracking-wider"
+          >
+            {visit.status}
+          </Badge>
         </div>
-        <Badge variant={getStatusColor(visit.status)} size="sm">
-          {visit.status}
-        </Badge>
       </div>
 
-      {/* Actions */}
-      <div className="flex justify-between items-center">
-        <div className="space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onStatusChange('completed')}
-            disabled={visit.status === 'completed'}
-          >
-            <CheckCircle size={14} className="mr-2" />
-            Complete
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onStatusChange('in-progress')}
-            disabled={visit.status === 'in-progress'}
-          >
-            <Clock size={14} className="mr-2" />
-            In Progress
-          </Button>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onEdit}
-        >
-          <Edit3 size={14} className="mr-2" />
-          Edit Visit
-        </Button>
-      </div>
-
-      {/* Visit Details */}
+      {/* Main Content */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Main Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Stethoscope size={18} className="mr-2" />
-              Clinical Details
+        {/* Clinical Information */}
+        <Card className="bg-white/[0.75] backdrop-blur-md shadow-xl">
+          <CardHeader className="border-b border-gray-100">
+            <CardTitle className="flex items-center text-lg">
+              <Stethoscope size={18} className="mr-2 text-[#01b9d4]" />
+              Clinical Information
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h4 className="text-sm font-medium text-gray-700">Chief Complaint</h4>
-              <p className="mt-1 text-gray-900">{visit.chief_complaint}</p>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-gray-700">Diagnosis</h4>
-              <p className="mt-1 text-gray-900">{visit.diagnosis}</p>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-gray-700">Treatment Plan</h4>
-              <p className="mt-1 text-gray-900">{visit.treatment_plan}</p>
+          <CardContent className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-gray-700 flex items-center">
+                <Clipboard size={14} className="mr-2 text-[#01b9d4]" />
+                Chief Complaint
+              </h4>
+              <p className="text-gray-600 bg-gray-50 p-3 rounded-lg">
+                {visit.chief_complaint}
+              </p>
             </div>
 
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-gray-700 flex items-center">
+                <Brain size={14} className="mr-2 text-[#01b9d4]" />
+                Diagnosis
+              </h4>
+              <p className="text-gray-600 bg-gray-50 p-3 rounded-lg">
+                {visit.diagnosis}
+              </p>
+            </div>
+
+            {visit.treatment_plan && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-gray-700 flex items-center">
+                  <Activity size={14} className="mr-2 text-[#01b9d4]" />
+                  Treatment Plan
+                </h4>
+                <p className="text-gray-600 bg-gray-50 p-3 rounded-lg">
+                  {visit.treatment_plan}
+                </p>
+              </div>
+            )}
+
             {visit.prescription && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Prescription</h4>
-                <p className="mt-1 text-gray-900">{visit.prescription}</p>
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-gray-700 flex items-center">
+                  <Pill size={14} className="mr-2 text-[#01b9d4]" />
+                  Prescription
+                </h4>
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <pre className="text-gray-600 whitespace-pre-wrap font-sans">
+                    {visit.prescription}
+                  </pre>
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
 
         {/* Vitals */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Heart size={18} className="mr-2" />
-              Vitals
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              {visit.vitals?.blood_pressure && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Blood Pressure</p>
-                  <p className="text-lg font-medium">{visit.vitals.blood_pressure}</p>
-                </div>
-              )}
-              
-              {visit.vitals?.temperature && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Temperature</p>
-                  <p className="text-lg font-medium">{visit.vitals.temperature}°C</p>
-                </div>
-              )}
-              
-              {visit.vitals?.pulse_rate && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Pulse Rate</p>
-                  <p className="text-lg font-medium">{visit.vitals.pulse_rate} bpm</p>
-                </div>
-              )}
-              
-              {visit.vitals?.respiratory_rate && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Respiratory Rate</p>
-                  <p className="text-lg font-medium">{visit.vitals.respiratory_rate} /min</p>
-                </div>
-              )}
-              
-              {visit.vitals?.weight && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Weight</p>
-                  <p className="text-lg font-medium">{visit.vitals.weight} kg</p>
-                </div>
-              )}
-              
-              {visit.vitals?.height && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Height</p>
-                  <p className="text-lg font-medium">{visit.vitals.height} cm</p>
-                </div>
-              )}
-              
-              {visit.vitals?.bmi && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">BMI</p>
-                  <p className="text-lg font-medium">{visit.vitals.bmi}</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Lab Results */}
-        {visit.lab_results && visit.lab_results.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Microscope size={18} className="mr-2" />
-                Lab Results
+        <div className="space-y-6">
+          <Card className="bg-white/[0.75] backdrop-blur-md shadow-xl">
+            <CardHeader className="border-b border-gray-100">
+              <CardTitle className="flex items-center text-lg">
+                <Heart size={18} className="mr-2 text-[#01b9d4]" />
+                Vitals
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {visit.lab_results.map((result: any) => (
-                  <div key={result.id} className="p-4 bg-gray-50 rounded-lg">
-                    <div className="flex justify-between items-start">
+            <CardContent className="pt-4">
+              <VitalsDisplay vitals={visit.vitals} />
+            </CardContent>
+          </Card>
+
+          {/* Lab Results Summary */}
+          {visit.lab_results?.length > 0 && (
+            <Card className="bg-white/[0.75] backdrop-blur-md shadow-xl">
+              <CardHeader className="border-b border-gray-100">
+                <CardTitle className="flex items-center text-lg">
+                  <Microscope size={18} className="mr-2 text-[#01b9d4]" />
+                  Lab Results
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="space-y-3">
+                  {visit.lab_results.map((result: any, index: number) => (
+                    <div 
+                      key={index}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    >
                       <div>
-                        <h4 className="font-medium text-gray-900">{result.name}</h4>
+                        <p className="font-medium text-gray-900">{result.name}</p>
                         <p className="text-sm text-gray-500">
-                          {format(new Date(result.date), 'MMM d, yyyy')}
+                          {result.value} {result.unit}
+                          {result.reference_range && (
+                            <span className="ml-2 text-gray-400">
+                              (Ref: {result.reference_range})
+                            </span>
+                          )}
                         </p>
                       </div>
                       <Badge
@@ -217,55 +191,76 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
                         {result.status}
                       </Badge>
                     </div>
-                    <div className="mt-2">
-                      <p className="text-sm">
-                        <span className="font-medium">{result.value}</span> {result.unit}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Reference Range: {result.reference_range}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-        {/* Media */}
-        {visit.media && visit.media.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <ImageIcon size={18} className="mr-2" />
-                Media
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                {visit.media.map((item: any) => (
-                  <div key={item.id} className="relative">
-                    <img
-                      src={item.url}
-                      alt={item.description}
-                      className="w-full h-48 object-cover rounded-lg"
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-2 rounded-b-lg">
-                      <p className="text-sm font-medium">{item.description}</p>
-                      <p className="text-xs">{format(new Date(item.date), 'MMM d, yyyy')}</p>
+          {/* Media Gallery */}
+          {visit.media?.length > 0 && (
+            <Card className="bg-white/[0.75] backdrop-blur-md shadow-xl">
+              <CardHeader className="border-b border-gray-100">
+                <CardTitle className="flex items-center text-lg">
+                  <ImageIcon size={18} className="mr-2 text-[#01b9d4]" />
+                  Media
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  {visit.media.map((item: any, index: number) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={item.url}
+                        alt={item.description}
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                        <p className="text-white text-sm text-center p-2">
+                          {item.description}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
 
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={onClose}>
-          Close
-        </Button>
+      {/* Footer Actions */}
+      <div className="flex justify-between items-center pt-6 mt-6 border-t border-gray-200">
+        <div className="space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onStatusChange('completed')}
+            disabled={visit.status === 'completed'}
+          >
+            <CheckCircle2 size={16} className="mr-2" />
+            Complete
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onStatusChange('in-progress')}
+            disabled={visit.status === 'in-progress'}
+          >
+            <Clock size={16} className="mr-2" />
+            In Progress
+          </Button>
+        </div>
+        <div className="space-x-2">
+          <Button variant="outline" size="sm" onClick={onClose}>
+            <XCircle size={16} className="mr-2" />
+            Close
+          </Button>
+          <Button onClick={onEdit}>
+            <Edit3 size={16} className="mr-2" />
+            Edit Visit
+          </Button>
+        </div>
       </div>
     </div>
   );
