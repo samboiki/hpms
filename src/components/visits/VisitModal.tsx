@@ -153,53 +153,73 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
       {/* Main Content Grid */}
       <div className="grid grid-cols-12 gap-6">
         {/* Clinical Information */}
-        <div className="col-span-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold text-[#494c61] flex items-center">
-                <Stethoscope size={24} className="mr-3" />
-                Clinical Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <h4 className="text mb-2">Chief Complaint</h4>
-                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-                  {visit.chief_complaint}
-                </p>
-              </div>
+<div className="col-span-8">
+  <Card>
+    <CardHeader>
+      <CardTitle className="text-2xl font-bold text-[#494c61] flex items-center">
+        <Stethoscope size={24} className="mr-3 text-[#01b9d4]" />
+        Clinical Information
+      </CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-6">
+      {/* Chief Complaint */}
+      <div>
+        <h4 className="flex items-center text-sm font-semibold mb-2 text-[#01b9d4]">
+          <Clipboard size={18} className="mr-2 text-[#01b9d4]" />
+          Chief Complaint
+        </h4>
+        <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+          {visit.chief_complaint}
+        </p>
+      </div>
 
-              <div>
-                <h4 className=" mb-2">Diagnosis</h4>
-                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-                  {visit.diagnosis}
-                </p>
-              </div>
+      {/* Diagnosis */}
+      <div>
+        <h4 className="flex items-center text-sm font-semibold mb-2 text-[#01b9d4]">
+          <Brain size={18} className="mr-2 text-[#01b9d4]" />
+          Diagnosis
+        </h4>
+        <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+          {visit.diagnosis}
+        </p>
+      </div>
 
-              <div>
-                <h4 className=" mb-2">Treatment Plan</h4>
-                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-                  {visit.treatment_plan}
-                </p>
-              </div>
+      {/* Treatment Plan */}
+      <div>
+        <h4 className="flex items-center text-sm font-semibold mb-2 text-[#01b9d4]">
+          <Activity size={18} className="mr-2 text-[#01b9d4]" />
+          Treatment Plan
+        </h4>
+        <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+          {visit.treatment_plan}
+        </p>
+      </div>
 
-              <div>
-                <h4 className="mb-2">Prescription</h4>
-                <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">
-                  {visit.prescription}
-                </p>
-              </div>
+      {/* Prescription */}
+      <div>
+        <h4 className="flex items-center text-sm font-semibold mb-2 text-[#01b9d4]">
+          <Pill size={18} className="mr-2 text-[#01b9d4]" />
+          Prescription
+        </h4>
+        <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">
+          {visit.prescription}
+        </p>
+      </div>
 
-              <div>
-                <h4 className="mb-2">Additional Notes</h4>
-                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-                  {visit.notes}
-                </p>
-              </div>
+      {/* Additional Notes */}
+      <div>
+        <h4 className="flex items-center text-sm font-semibold mb-2 text-[#01b9d4]">
+          <FileText size={18} className="mr-2 text-[#01b9d4]" />
+          Additional Notes
+        </h4>
+        <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+          {visit.notes}
+        </p>
+      </div>
+    </CardContent>
+  </Card>
+</div>
 
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Lab Results and Media */}
         <div className="col-span-4 space-y-6">
