@@ -170,28 +170,28 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
               </div>
 
               <div>
-                <h4 className="text-lg mb-2">Diagnosis</h4>
+                <h4 className=" mb-2">Diagnosis</h4>
                 <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
                   {visit.diagnosis}
                 </p>
               </div>
 
               <div>
-                <h4 className="text-lg mb-2">Treatment Plan</h4>
+                <h4 className=" mb-2">Treatment Plan</h4>
                 <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
                   {visit.treatment_plan}
                 </p>
               </div>
 
               <div>
-                <h4 className="text-lg mb-2">Prescription</h4>
-                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                <h4 className="mb-2">Prescription</h4>
+                <p className="text-xs text-gray-700 bg-gray-50 p-4 rounded-lg">
                   {visit.prescription}
                 </p>
               </div>
 
               <div>
-                <h4 className="text-lg mb-2">Additional Notes</h4>
+                <h4 className="mb-2">Additional Notes</h4>
                 <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
                   {visit.notes}
                 </p>
