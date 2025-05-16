@@ -75,4 +75,50 @@ const VitalsDisplay: React.FC<VitalsDisplayProps> = ({ vitals }) => {
         <div className="grid grid-cols-2 gap-4">
           <div className={getVitalStyles(isHighBP)}>
             <div className="text-xs text-gray-500 mb-1">Blood Pressure</div>
-            <div className="text-base font-semibold text-gray-
+            <div className="text-base font-semibold text-gray-700">
+              {vitals.blood_pressure || 'N/A'}
+            </div>
+          </div>
+          <div className={getVitalStyles(isAbnormal(vitals.temperature, 'temperature'))}>
+            <div className="text-xs text-gray-500 mb-1">Temperature</div>
+            <div className="text-base font-semibold text-gray-700">
+              {vitals.temperature ? `${vitals.temperature}°C` : 'N/A'}
+            </div>
+          </div>
+          <div className={getVitalStyles(isAbnormal(vitals.pulse_rate, 'pulse_rate'))}>
+            <div className="text-xs text-gray-500 mb-1">Pulse Rate</div>
+            <div className="text-base font-semibold text-gray-700">
+              {vitals.pulse_rate ? `${vitals.pulse_rate} bpm` : 'N/A'}
+            </div>
+          </div>
+          <div className={getVitalStyles(isAbnormal(vitals.respiratory_rate, 'respiratory_rate'))}>
+            <div className="text-xs text-gray-500 mb-1">Respiratory Rate</div>
+            <div className="text-base font-semibold text-gray-700">
+              {vitals.respiratory_rate ? `${vitals.respiratory_rate} /min` : 'N/A'}
+            </div>
+          </div>
+          <div className={getVitalStyles(false)}>
+            <div className="text-xs text-gray-500 mb-1">Weight</div>
+            <div className="text-base font-semibold text-gray-700">
+              {vitals.weight ? `${vitals.weight} kg` : 'N/A'}
+            </div>
+          </div>
+          <div className={getVitalStyles(false)}>
+            <div className="text-xs text-gray-500 mb-1">Height</div>
+            <div className="text-base font-semibold text-gray-700">
+              {vitals.height ? `${vitals.height} cm` : 'N/A'}
+            </div>
+          </div>
+          <div className={getVitalStyles(isAbnormal(vitals.bmi, 'bmi'))}>
+            <div className="text-xs text-gray-500 mb-1">BMI</div>
+            <div className="text-base font-semibold text-gray-700">
+              {vitals.bmi?.toFixed(1) || 'N/A'}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default VitalsDisplay;
