@@ -79,41 +79,47 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
       </div>
 
       {/* Vitals Row */}
-      <div className="flex space-x-4 bg-gray-50 p-4 rounded-lg">
+      <div className="flex divide-x divide-gray-200 bg-gray-50 p-4 rounded-lg">
         {visit.vitals?.blood_pressure && (
-          <div className="flex-1 text-center">
+          <div className="flex-1 px-4 text-center">
             <div className="text-xs text-gray-500">Blood Pressure</div>
             <div className="text-lg font-semibold">{visit.vitals.blood_pressure} mmHg</div>
           </div>
         )}
         {visit.vitals?.temperature && (
-          <div className="flex-1 text-center border-l border-gray-200">
+          <div className="flex-1 px-4 text-center">
             <div className="text-xs text-gray-500">Temperature</div>
             <div className="text-lg font-semibold">{visit.vitals.temperature}°C</div>
           </div>
         )}
         {visit.vitals?.pulse_rate && (
-          <div className="flex-1 text-center border-l border-gray-200">
+          <div className="flex-1 px-4 text-center">
             <div className="text-xs text-gray-500">Pulse Rate</div>
             <div className="text-lg font-semibold">{visit.vitals.pulse_rate} bpm</div>
           </div>
         )}
         {visit.vitals?.respiratory_rate && (
-          <div className="flex-1 text-center border-l border-gray-200">
+          <div className="flex-1 px-4 text-center">
             <div className="text-xs text-gray-500">Respiratory Rate</div>
             <div className="text-lg font-semibold">{visit.vitals.respiratory_rate} /min</div>
           </div>
         )}
         {visit.vitals?.weight && (
-          <div className="flex-1 text-center border-l border-gray-200">
+          <div className="flex-1 px-4 text-center">
             <div className="text-xs text-gray-500">Weight</div>
             <div className="text-lg font-semibold">{visit.vitals.weight} kg</div>
           </div>
         )}
         {visit.vitals?.height && (
-          <div className="flex-1 text-center border-l border-gray-200">
+          <div className="flex-1 px-4 text-center">
             <div className="text-xs text-gray-500">Height</div>
             <div className="text-lg font-semibold">{visit.vitals.height} cm</div>
+          </div>
+        )}
+        {visit.vitals?.bmi && (
+          <div className="flex-1 px-4 text-center">
+            <div className="text-xs text-gray-500">BMI</div>
+            <div className="text-lg font-semibold">{visit.vitals.bmi}</div>
           </div>
         )}
       </div>
