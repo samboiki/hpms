@@ -108,13 +108,6 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
         isGood: (val: number) => val >= 60 && val <= 100,
       },
       {
-        key: 'respiratory_rate',
-        label: 'Respiratory Rate',
-        value: visit.vitals.respiratory_rate,
-        unit: '/min',
-        isGood: (val: number) => val >= 12 && val <= 20,
-      },
-      {
         key: 'weight',
         label: 'Weight',
         value: visit.vitals.weight,
