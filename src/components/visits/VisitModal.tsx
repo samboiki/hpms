@@ -135,7 +135,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
           className={`flex-1 px-4 text-center ${
             isGood(value)
               ? 'text-emerald-600'
-              : 'text-rose-600'
+              : 'text-rose-900'
           }`}
         >
           <div className="text-xs text-gray-500">{label}</div>
