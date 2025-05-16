@@ -163,7 +163,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <h4 className="text-lg font-semibold text-[#494c61] mb-2">Chief Complaint</h4>
+                <h4 className="text-lg font-semibold text-[#01b9d4] mb-2">Chief Complaint</h4>
                 <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
                   {visit.chief_complaint}
                 </p>
