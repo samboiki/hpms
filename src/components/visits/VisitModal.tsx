@@ -105,12 +105,12 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
               <div className="text-lg font-semibold">{visit.vitals.respiratory_rate} /min</div>
             </div>
           )}
-          {visit.vitals.weight && (
+          
             <div className="flex-1 px-4 text-center">
               <div className="text-xs text-gray-500">Weight</div>
               <div className="text-lg font-semibold">{visit.vitals.weight} kg</div>
             </div>
-          )}
+          
           {visit.vitals.height && (
             <div className="flex-1 px-4 text-center">
               <div className="text-xs text-gray-500">Height</div>
