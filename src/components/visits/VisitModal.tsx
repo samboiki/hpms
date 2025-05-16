@@ -166,23 +166,13 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
                 </p>
               </div>
 
-              {visit.prescription && (
-                <div>
-                  <h4 className="text-lg font-semibold mb-2">Prescription</h4>
-                  <div className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-                    <pre className="whitespace-pre-wrap font-sans">{visit.prescription}</pre>
-                  </div>
-                </div>
-              )}
+              <div>
+                <h4 className="text-lg font-semibold mb-2">Additional Notes</h4>
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.notes}
+                </p>
+              </div>
 
-              {visit.notes && (
-                <div>
-                  <h4 className="text-lg font-semibold mb-2">Additional Notes</h4>
-                  <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-                    {visit.notes}
-                  </p>
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>
