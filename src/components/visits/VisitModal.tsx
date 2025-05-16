@@ -157,15 +157,15 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
   <Card>
     <CardHeader>
       <CardTitle className="text-2xl font-bold text-[#494c61] flex items-center">
-        <Stethoscope size={24} className="mr-3 text-[#01b9d4]" />
+        <Stethoscope size={24} className="mr-3" />
         Clinical Information
       </CardTitle>
     </CardHeader>
     <CardContent className="space-y-6">
       {/* Chief Complaint */}
       <div>
-        <h4 className="flex items-center text-sm font-semibold mb-2 text-[#01b9d4]">
-          <Clipboard size={18} className="mr-2 text-[#01b9d4]" />
+        <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+          <Clipboard size={18} className="mr-2 text-teal-500" />
           Chief Complaint
         </h4>
         <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
@@ -175,8 +175,8 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
 
       {/* Diagnosis */}
       <div>
-        <h4 className="flex items-center text-sm font-semibold mb-2 text-[#01b9d4]">
-          <Brain size={18} className="mr-2 text-[#01b9d4]" />
+        <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+          <Brain size={18} className="mr-2 text-indigo-500" />
           Diagnosis
         </h4>
         <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
@@ -186,8 +186,8 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
 
       {/* Treatment Plan */}
       <div>
-        <h4 className="flex items-center text-sm font-semibold mb-2 text-[#01b9d4]">
-          <Activity size={18} className="mr-2 text-[#01b9d4]" />
+        <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+          <Activity size={18} className="mr-2 text-amber-500" />
           Treatment Plan
         </h4>
         <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
@@ -197,8 +197,8 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
 
       {/* Prescription */}
       <div>
-        <h4 className="flex items-center text-sm font-semibold mb-2 text-[#01b9d4]">
-          <Pill size={18} className="mr-2 text-[#01b9d4]" />
+        <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+          <Pill size={18} className="mr-2 text-red-500" />
           Prescription
         </h4>
         <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">
@@ -208,8 +208,8 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
 
       {/* Additional Notes */}
       <div>
-        <h4 className="flex items-center text-sm font-semibold mb-2 text-[#01b9d4]">
-          <FileText size={18} className="mr-2 text-[#01b9d4]" />
+        <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+          <FileText size={18} className="mr-2 text-blue-500" />
           Additional Notes
         </h4>
         <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
