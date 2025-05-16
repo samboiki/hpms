@@ -75,45 +75,4 @@ const VitalsDisplay: React.FC<VitalsDisplayProps> = ({ vitals }) => {
         <div className="grid grid-cols-2 gap-4">
           <div className={getVitalStyles(isHighBP)}>
             <div className="text-xs text-gray-500 mb-1">Blood Pressure</div>
-            <div className="text-base font-semibold text-gray-900">{vitals.blood_pressure || '--/--'} mmHg</div>
-          </div>
-
-          <div className={getVitalStyles(isAbnormal(vitals.temperature, 'temperature'))}>
-            <div className="text-xs text-gray-500 mb-1">Temperature</div>
-            <div className="text-base font-semibold text-gray-900">{vitals.temperature?.toFixed(1) || '--'}°C</div>
-          </div>
-
-          <div className={getVitalStyles(isAbnormal(vitals.pulse_rate, 'pulse_rate'))}>
-            <div className="text-xs text-gray-500 mb-1">Pulse Rate</div>
-            <div className="text-base font-semibold text-gray-900">{vitals.pulse_rate || '--'} bpm</div>
-          </div>
-
-          <div className={getVitalStyles(isAbnormal(vitals.respiratory_rate, 'respiratory_rate'))}>
-            <div className="text-xs text-gray-500 mb-1">Respiratory Rate</div>
-            <div className="text-base font-semibold text-gray-900">{vitals.respiratory_rate || '--'} /min</div>
-          </div>
-
-          <div className={getVitalStyles(false)}>
-            <div className="text-xs text-gray-500 mb-1">Weight</div>
-            <div className="text-base font-semibold text-gray-900">{vitals.weight?.toFixed(1) || '--'} kg</div>
-          </div>
-
-          <div className={getVitalStyles(false)}>
-            <div className="text-xs text-gray-500 mb-1">Height</div>
-            <div className="text-base font-semibold text-gray-900">{vitals.height?.toFixed(1) || '--'} cm</div>
-          </div>
-
-          <div className={cn(
-            getVitalStyles(isAbnormal(vitals.bmi, 'bmi')),
-            "col-span-2"
-          )}>
-            <div className="text-xs text-gray-500 mb-1">BMI</div>
-            <div className="text-base font-semibold text-gray-900">{vitals.bmi?.toFixed(1) || '--'} kg/m²</div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-export default VitalsDisplay;
+            <div className="text-base font-semibold text-gray-
