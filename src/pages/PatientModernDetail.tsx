@@ -37,6 +37,7 @@ import NextOfKinForm from '../components/forms/NextOfKinForm';
 import AddVisitForm from '../components/forms/AddVisitForm';
 import VitalsDisplay from '../components/patients/VitalsDisplay';
 import EditVisitForm from '../components/forms/EditVisitForm';
+import VisitModal from '../components/visits/VisitModal';
 
 interface Patient {
   id: string;
@@ -480,100 +481,23 @@ const PatientModernDetail = () => {
           setSelectedVisit(null);
         }}
         title="Visit Details"
+        hideHeader
       >
         {selectedVisit && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-medium text-gray-900">
-                  {selectedVisit.visit_type} with {selectedVisit.doctor_name}
-                </h3>
-                <div className="flex items-center mt-1 text-sm text-gray-500">
-                  <Calendar size={14} className="mr-2" />
-                  {format(new Date(selectedVisit.visit_date), 'MMMM d, yyyy')} at {selectedVisit.visit_time}
-                </div>
-              </div>
-              <Badge variant={getStatusColor(selectedVisit.status)} size="sm">
-                {selectedVisit.status}
-              </Badge>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center">
-                    <Stethoscope size={16} className="mr-2" />
-                    Clinical Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700">Chief Complaint</h4>
-                    <p className="mt-1 text-sm text-gray-600">{selectedVisit.chief_complaint}</p>
-                  </div>
-                  
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700">Diagnosis</h4>
-                    <p className="mt-1 text-sm text-gray-600">{selectedVisit.diagnosis}</p>
-                  </div>
-
-                  {selectedVisit.prescription && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 flex items-center">
-                        <Pill size={14} className="mr-2" />
-                        Prescription
-                      </h4>
-                      <p className="mt-1 text-sm text-gray-600">{selectedVisit.prescription}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base flex items-center">
-                    <Activity size={16} className="mr-2" />
-                    Vitals
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <VitalsDisplay vitals={selectedVisit.vitals} />
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="flex justify-between pt-4 border-t border-gray-100">
-              <div className="space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleVisitStatusChange(selectedVisit.id, 'completed')}
-                  disabled={selectedVisit.status === 'completed'}
-                >
-                  <CheckCircle2 size={14} className="mr-2" />
-                  Complete
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleVisitStatusChange(selectedVisit.id, 'in-progress')}
-                  disabled={selectedVisit.status === 'in-progress'}
-                >
-                  <Clock size={14} className="mr-2" />
-                  In Progress
-                </Button>
-              </div>
-              <Button
-                onClick={() => {
-                  setIsVisitDetailModalOpen(false);
-                  setIsEditVisitModalOpen(true);
-                }}
-              >
-                <Edit3 size={14} className="mr-2" />
-                Edit Visit
-              </Button>
-            </div>
-          </div>
+          <VisitModal
+            visit={selectedVisit}
+            onClose={() => {
+              setIsVisitDetailModalOpen(false);
+              setSelectedVisit(null);
+            }}
+            onStatusChange={(status) => {
+              handleVisitStatusChange(selectedVisit.id, status);
+            }}
+            onEdit={() => {
+              setIsVisitDetailModalOpen(false);
+              setIsEditVisitModalOpen(true);
+            }}
+          />
         )}
       </FormModal>
 
