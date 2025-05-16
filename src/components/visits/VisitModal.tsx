@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { 
   Activity,
@@ -19,20 +19,26 @@ import {
   ArrowRight,
   ChevronRight,
   Clipboard,
-  Brain
+  Brain,
+  Trash2
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
+import { supabase } from '../../lib/supabase';
 
 interface VisitModalProps {
   visit: any;
   onClose: () => void;
   onStatusChange: (status: 'completed' | 'in-progress') => void;
   onEdit: () => void;
+  onDelete?: () => void;
 }
 
 const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange, onEdit }) => {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
@@ -41,6 +47,69 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
         return 'warning';
       default:
         return 'error';
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true);
+
+      // Delete vitals
+      const { error: vitalsError } = await supabase
+        .from('vitals')
+        .delete()
+        .eq('visit_id', visit.id);
+
+      if (vitalsError) throw vitalsError;
+
+      // Delete lab results
+      const { error: labResultsError } = await supabase
+        .from('lab_results')
+        .delete()
+        .eq('visit_id', visit.id);
+
+      if (labResultsError) throw labResultsError;
+
+      // Delete lab requests
+      const { error: labRequestsError } = await supabase
+        .from('lab_requests')
+        .delete()
+        .eq('visit_id', visit.id);
+
+      if (labRequestsError) throw labRequestsError;
+
+      // Delete media
+      const { error: mediaError } = await supabase
+        .from('visit_media')
+        .delete()
+        .eq('visit_id', visit.id);
+
+      if (mediaError) throw mediaError;
+
+      // Delete media requests
+      const { error: mediaRequestsError } = await supabase
+        .from('media_requests')
+        .delete()
+        .eq('visit_id', visit.id);
+
+      if (mediaRequestsError) throw mediaRequestsError;
+
+      // Finally, delete the visit
+      const { error: visitError } = await supabase
+        .from('visits')
+        .delete()
+        .eq('id', visit.id);
+
+      if (visitError) throw visitError;
+
+      onClose();
+      window.location.reload(); // Refresh to update the visits list
+    } catch (error) {
+      console.error('Error deleting visit:', error);
+      alert('Failed to delete visit. Please try again.');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -79,147 +148,145 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
       </div>
 
       {/* Vitals Row */}
-{visit.vitals && (
-  <div className="flex divide-x divide-gray-200 bg-gray-50 p-4 rounded-lg">
-    {[
-      {
-        key: 'blood_pressure',
-        label: 'Blood Pressure',
-        value: visit.vitals.blood_pressure,
-        unit: 'mmHg',
-        isGood: (val: string) => {
-          // parse “120/80”
-          const [systolic, diastolic] = val?.split('/').map(Number) ?? [];
-          return systolic < 120 && diastolic < 80;
-        },
-      },
-      {
-        key: 'temperature',
-        label: 'Temperature',
-        value: visit.vitals.temperature,
-        unit: '°C',
-        isGood: (val: number) => val >= 36.5 && val <= 37.5,
-      },
-      {
-        key: 'pulse_rate',
-        label: 'Pulse Rate',
-        value: visit.vitals.pulse_rate,
-        unit: 'bpm',
-        isGood: (val: number) => val >= 60 && val <= 100,
-      },
-      {
-        key: 'weight',
-        label: 'Weight',
-        value: visit.vitals.weight,
-        unit: 'kg',
-        isGood: () => true,   // no “bad” weight coloring here
-      },
-      {
-        key: 'height',
-        label: 'Height',
-        value: visit.vitals.height,
-        unit: 'cm',
-        isGood: () => true,
-      },
-      {
-        key: 'bmi',
-        label: 'BMI',
-        value: visit.vitals.bmi,
-        unit: '',
-        isGood: (val: number) => val >= 18.5 && val <= 24.9,
-      },
-    ].map(({ key, label, value, unit, isGood }) =>
-      value != null ? (
-        <div
-          key={key}
-          className={`flex-1 px-4 text-center ${
-            isGood(value)
-              ? 'text-emerald-600'
-              : 'text-rose-400'
-          }`}
-        >
-          <div className="text-sm text-gray-500">{label}</div>
-          <div className="text-xs font-bold">
-            {value}
-            {unit}
-          </div>
+      {visit.vitals && (
+        <div className="flex divide-x divide-gray-200 bg-gray-50 p-4 rounded-lg">
+          {[
+            {
+              key: 'blood_pressure',
+              label: 'Blood Pressure',
+              value: visit.vitals.blood_pressure,
+              unit: 'mmHg',
+              isGood: (val: string) => {
+                // parse "120/80"
+                const [systolic, diastolic] = val?.split('/').map(Number) ?? [];
+                return systolic < 120 && diastolic < 80;
+              },
+            },
+            {
+              key: 'temperature',
+              label: 'Temperature',
+              value: visit.vitals.temperature,
+              unit: '°C',
+              isGood: (val: number) => val >= 36.5 && val <= 37.5,
+            },
+            {
+              key: 'pulse_rate',
+              label: 'Pulse Rate',
+              value: visit.vitals.pulse_rate,
+              unit: 'bpm',
+              isGood: (val: number) => val >= 60 && val <= 100,
+            },
+            {
+              key: 'weight',
+              label: 'Weight',
+              value: visit.vitals.weight,
+              unit: 'kg',
+              isGood: () => true,   // no "bad" weight coloring here
+            },
+            {
+              key: 'height',
+              label: 'Height',
+              value: visit.vitals.height,
+              unit: 'cm',
+              isGood: () => true,
+            },
+            {
+              key: 'bmi',
+              label: 'BMI',
+              value: visit.vitals.bmi,
+              unit: '',
+              isGood: (val: number) => val >= 18.5 && val <= 24.9,
+            },
+          ].map(({ key, label, value, unit, isGood }) =>
+            value != null ? (
+              <div
+                key={key}
+                className={`flex-1 px-4 text-center ${
+                  isGood(value)
+                    ? 'text-emerald-600'
+                    : 'text-rose-400'
+                }`}
+              >
+                <div className="text-sm text-gray-500">{label}</div>
+                <div className="text-xs font-bold">
+                  {value}
+                  {unit}
+                </div>
+              </div>
+            ) : null
+          )}
         </div>
-      ) : null
-    )}
-  </div>
-)}
-
+      )}
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-12 gap-6">
         {/* Clinical Information */}
-<div className="col-span-8">
-  <Card>
-    <CardHeader>
-      <CardTitle className="text-2xl font-bold text-[#494c61] flex items-center">
-        <Stethoscope size={24} className="mr-3" />
-        Clinical Information
-      </CardTitle>
-    </CardHeader>
-    <CardContent className="space-y-6">
-      {/* Chief Complaint */}
-      <div>
-        <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
-          <Clipboard size={18} className="mr-2 text-teal-500" />
-          Chief Complaint
-        </h4>
-        <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-          {visit.chief_complaint}
-        </p>
-      </div>
+        <div className="col-span-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold text-[#494c61] flex items-center">
+                <Stethoscope size={24} className="mr-3" />
+                Clinical Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Chief Complaint */}
+              <div>
+                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                  <Clipboard size={18} className="mr-2 text-teal-500" />
+                  Chief Complaint
+                </h4>
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.chief_complaint}
+                </p>
+              </div>
 
-      {/* Diagnosis */}
-      <div>
-        <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
-          <Brain size={18} className="mr-2 text-indigo-500" />
-          Diagnosis
-        </h4>
-        <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-          {visit.diagnosis}
-        </p>
-      </div>
+              {/* Diagnosis */}
+              <div>
+                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                  <Brain size={18} className="mr-2 text-indigo-500" />
+                  Diagnosis
+                </h4>
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.diagnosis}
+                </p>
+              </div>
 
-      {/* Treatment Plan */}
-      <div>
-        <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
-          <Activity size={18} className="mr-2 text-amber-500" />
-          Treatment Plan
-        </h4>
-        <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-          {visit.treatment_plan}
-        </p>
-      </div>
+              {/* Treatment Plan */}
+              <div>
+                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                  <Activity size={18} className="mr-2 text-amber-500" />
+                  Treatment Plan
+                </h4>
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.treatment_plan}
+                </p>
+              </div>
 
-      {/* Prescription */}
-      <div>
-        <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
-          <Pill size={18} className="mr-2 text-red-500" />
-          Prescription
-        </h4>
-        <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">
-          {visit.prescription}
-        </p>
-      </div>
+              {/* Prescription */}
+              <div>
+                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                  <Pill size={18} className="mr-2 text-red-500" />
+                  Prescription
+                </h4>
+                <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.prescription}
+                </p>
+              </div>
 
-      {/* Additional Notes */}
-      <div>
-        <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
-          <FileText size={18} className="mr-2 text-blue-500" />
-          Additional Notes
-        </h4>
-        <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-          {visit.notes}
-        </p>
-      </div>
-    </CardContent>
-  </Card>
-</div>
-
+              {/* Additional Notes */}
+              <div>
+                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                  <FileText size={18} className="mr-2 text-blue-500" />
+                  Additional Notes
+                </h4>
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.notes}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Lab Results and Media */}
         <div className="col-span-4 space-y-6">
@@ -319,7 +386,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
             variant="outline"
             size="sm"
             onClick={() => onStatusChange('completed')}
-            disabled={visit.status === 'completed'}
+            disabled={visit.status === 'completed' || isDeleting}
           >
             <CheckCircle2 size={16} className="mr-2" />
             Complete
@@ -328,21 +395,55 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
             variant="outline"
             size="sm"
             onClick={() => onStatusChange('in-progress')}
-            disabled={visit.status === 'in-progress'}
+            disabled={visit.status === 'in-progress' || isDeleting}
           >
             <Clock size={16} className="mr-2" />
             In Progress
           </Button>
         </div>
         <div className="space-x-2">
-          <Button variant="outline" size="sm" onClick={onClose}>
-            <XCircle size={16} className="mr-2" />
-            Close
-          </Button>
-          <Button onClick={onEdit}>
-            <Edit3 size={16} className="mr-2" />
-            Edit Visit
-          </Button>
+          {showDeleteConfirm ? (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="bg-red-50 text-red-600 hover:bg-red-100"
+                onClick={handleDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="text-red-600 hover:bg-red-50"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={isDeleting}
+              >
+                <Trash2 size={16} className="mr-2" />
+                Delete Visit
+              </Button>
+              <Button variant="outline" size="sm" onClick={onClose} disabled={isDeleting}>
+                <XCircle size={16} className="mr-2" />
+                Close
+              </Button>
+              <Button onClick={onEdit} disabled={isDeleting}>
+                <Edit3 size={16} className="mr-2" />
+                Edit Visit
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>
