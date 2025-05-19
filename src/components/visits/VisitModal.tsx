@@ -164,6 +164,79 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
         </div>
       </div>
 
+
+      
+      {/* Vitals Row */}
+      {visit.vitals && (
+        <div className="flex divide-x divide-gray-200 bg-gray-50 p-4 rounded-lg">
+          {[
+            {
+              key: 'blood_pressure',
+              label: 'Blood Pressure',
+              value: visit.vitals.blood_pressure,
+              unit: 'mmHg',
+              isGood: (val: string) => {
+                // parse "120/80"
+                const [systolic, diastolic] = val?.split('/').map(Number) ?? [];
+                return systolic < 120 && diastolic < 80;
+              },
+            },
+            {
+              key: 'temperature',
+              label: 'Temperature',
+              value: visit.vitals.temperature,
+              unit: '°C',
+              isGood: (val: number) => val >= 36.5 && val <= 37.5,
+            },
+            {
+              key: 'pulse_rate',
+              label: 'Pulse Rate',
+              value: visit.vitals.pulse_rate,
+              unit: 'bpm',
+              isGood: (val: number) => val >= 60 && val <= 100,
+            },
+            {
+              key: 'weight',
+              label: 'Weight',
+              value: visit.vitals.weight,
+              unit: 'kg',
+              isGood: () => true,   // no "bad" weight coloring here
+            },
+            {
+              key: 'height',
+              label: 'Height',
+              value: visit.vitals.height,
+              unit: 'cm',
+              isGood: () => true,
+            },
+            {
+              key: 'bmi',
+              label: 'BMI',
+              value: visit.vitals.bmi,
+              unit: '',
+              isGood: (val: number) => val >= 18.5 && val <= 24.9,
+            },
+          ].map(({ key, label, value, unit, isGood }) =>
+            value != null ? (
+              <div
+                key={key}
+                className={`flex-1 px-4 text-center ${
+                  isGood(value)
+                    ? 'text-emerald-600'
+                    : 'text-rose-400'
+                }`}
+              >
+                <div className="text-sm text-gray-500">{label}</div>
+                <div className="text-xs font-bold">
+                  {value}
+                  {unit}
+                </div>
+              </div>
+            ) : null
+          )}
+        </div>
+      )}
+      
       {/* Clinical Information */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
