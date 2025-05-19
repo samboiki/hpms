@@ -19,17 +19,30 @@ Deno.serve(async (req) => {
       throw new Error('Method not allowed');
     }
 
+    // Verify Content-Type
+    const contentType = req.headers.get('content-type');
+    if (!contentType?.includes('application/json')) {
+      throw new Error('Content-Type must be application/json');
+    }
+
     // Parse request body with error handling
     let imageUrl: string;
     try {
       const body = await req.json();
       imageUrl = body.imageUrl;
-    } catch (e) {
-      throw new Error('Invalid request body');
-    }
+      
+      if (!imageUrl) {
+        throw new Error('No image URL provided');
+      }
 
-    if (!imageUrl) {
-      throw new Error('No image URL provided');
+      // Basic URL validation
+      try {
+        new URL(imageUrl);
+      } catch {
+        throw new Error('Invalid image URL');
+      }
+    } catch (e) {
+      throw new Error(`Invalid request body: ${e.message}`);
     }
 
     // Verify environment variables
@@ -37,6 +50,10 @@ Deno.serve(async (req) => {
     const privateKey = Deno.env.get('GOOGLE_PRIVATE_KEY');
 
     if (!clientEmail || !privateKey) {
+      console.error('Missing credentials:', { 
+        hasClientEmail: !!clientEmail, 
+        hasPrivateKey: !!privateKey 
+      });
       throw new Error('Missing Google Cloud credentials');
     }
 
@@ -50,15 +67,24 @@ Deno.serve(async (req) => {
         },
       });
     } catch (e) {
-      console.error('Failed to initialize Vision client:', e);
+      console.error('Vision client initialization error:', e);
       throw new Error('Failed to initialize image processing');
     }
 
-    // Perform text detection
-    const [result] = await client.textDetection(imageUrl);
+    console.log('Processing image:', imageUrl);
+
+    // Perform text detection with timeout
+    const [result] = await Promise.race([
+      client.textDetection(imageUrl),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Image processing timeout')), 30000)
+      )
+    ]);
+
     const detections = result.textAnnotations;
 
     if (!detections || detections.length === 0) {
+      console.log('No text detected in image');
       return new Response(
         JSON.stringify({
           testName: 'Unknown Test',
@@ -80,6 +106,8 @@ Deno.serve(async (req) => {
     const fullText = detections[0].description;
     const lines = fullText.split('\n');
     
+    console.log('Detected text:', fullText);
+
     const labData = {
       testName: 'Unknown Test',
       value: '',
@@ -129,6 +157,8 @@ Deno.serve(async (req) => {
       }
     }
 
+    console.log('Extracted lab data:', labData);
+
     return new Response(
       JSON.stringify(labData),
       { 
@@ -152,7 +182,7 @@ Deno.serve(async (req) => {
         status: 'normal'
       }),
       { 
-        status: error.message === 'Method not allowed' ? 405 : 500,
+        status: error.message.includes('Method not allowed') ? 405 : 500,
         headers: { 
           ...corsHeaders, 
           'Content-Type': 'application/json' 

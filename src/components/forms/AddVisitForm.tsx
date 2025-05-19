@@ -114,60 +114,89 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
       input.accept = 'image/*';
       
       input.onchange = async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (!file) return;
-
-        // Upload to storage
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-        const filePath = `lab-results/${fileName}`;
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('media')
-          .upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('media')
-          .getPublicUrl(filePath);
-
-        // Process with AI
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ imageUrl: publicUrl })
-        });
-
-        if (!response.ok) throw new Error('Failed to process image');
-
-        const result = await response.json();
-
-        // Add new lab result with AI-extracted data
-        setValue('lab_results', [
-          ...labResults,
-          {
-            id: crypto.randomUUID(),
-            name: result.testName || 'Unknown Test',
-            value: result.value || '',
-            unit: result.unit || '',
-            reference_range: result.referenceRange || '',
-            status: result.status || 'normal',
-            date: new Date().toISOString().split('T')[0]
+        try {
+          const file = (e.target as HTMLInputElement).files?.[0];
+          if (!file) {
+            throw new Error('No file selected');
           }
-        ]);
+
+          // Upload to storage
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+          const filePath = `lab-results/${fileName}`;
+
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('media')
+            .upload(filePath, file);
+
+          if (uploadError) {
+            console.error('Storage upload error:', uploadError);
+            throw new Error('Failed to upload image');
+          }
+
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('media')
+            .getPublicUrl(filePath);
+
+          // Process with AI
+          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ imageUrl: publicUrl })
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('Edge function error:', errorData);
+            throw new Error(`Failed to process image: ${errorData.error || response.statusText}`);
+          }
+
+          const result = await response.json();
+
+          // Add new lab result with AI-extracted data
+          setValue('lab_results', [
+            ...labResults,
+            {
+              id: crypto.randomUUID(),
+              name: result.testName || 'Unknown Test',
+              value: result.value || '',
+              unit: result.unit || '',
+              reference_range: result.referenceRange || '',
+              status: result.status || 'normal',
+              date: new Date().toISOString().split('T')[0]
+            }
+          ]);
+        } catch (error) {
+          console.error('Error in image processing:', error);
+          alert(error.message || 'Failed to process image. Please try again or enter values manually.');
+          
+          // Add a blank lab result if processing fails
+          setValue('lab_results', [
+            ...labResults,
+            {
+              id: crypto.randomUUID(),
+              name: 'Unknown Test',
+              value: '',
+              unit: '',
+              reference_range: '',
+              status: 'normal',
+              date: new Date().toISOString().split('T')[0]
+            }
+          ]);
+        } finally {
+          setIsProcessingImage(false);
+        }
       };
 
       input.click();
     } catch (error) {
-      console.error('Error processing lab image:', error);
-      alert('Failed to process image. Please try again or enter values manually.');
-    } finally {
+      console.error('Error initiating image processing:', error);
       setIsProcessingImage(false);
+      alert('Failed to initiate image processing. Please try again.');
     }
   };
 
