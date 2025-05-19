@@ -6,10 +6,11 @@ import { supabase } from '../../lib/supabase';
 
 interface LabResultUploadProps {
   onUpload: (data: {
+    id?: string;
     name: string;
     value: string;
     unit: string;
-    referenceRange: string;
+    reference_range: string;
     status: 'normal' | 'high' | 'low' | 'critical';
   }) => void;
 }
@@ -32,7 +33,10 @@ const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
         .from('media')
         .upload(filePath, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw new Error('Failed to upload image');
+      }
 
       // Get the public URL
       const { data: { publicUrl } } = supabase.storage
@@ -50,25 +54,36 @@ const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
       });
 
       if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Processing error:', errorData);
         throw new Error('Failed to process image');
       }
 
       const result = await response.json();
 
-      // Process the extracted text to identify lab values
-      // This is a simplified example - in a real app you'd need more sophisticated parsing
+      // If no data was extracted, provide default values
       const labData = {
+        id: crypto.randomUUID(), // Generate a new ID for the lab result
         name: result.testName || 'Unknown Test',
         value: result.value || '',
         unit: result.unit || '',
-        referenceRange: result.referenceRange || '',
+        reference_range: result.referenceRange || '',
         status: result.status || 'normal'
       };
 
       onUpload(labData);
     } catch (err) {
       console.error('Error processing lab result:', err);
-      setError('Failed to process the image. Please try again or enter the values manually.');
+      // Provide default data even when processing fails
+      onUpload({
+        id: crypto.randomUUID(),
+        name: 'Unknown Test',
+        value: '',
+        unit: '',
+        reference_range: '',
+        status: 'normal'
+      });
+      setError('Failed to process the image. Default values have been provided for manual entry.');
     } finally {
       setIsProcessing(false);
     }

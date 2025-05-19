@@ -26,6 +26,7 @@ interface EditVisitFormData {
     bmi?: number | null;
   };
   lab_results: Array<{
+    id?: string;
     name: string;
     value: string;
     unit: string;
@@ -68,7 +69,10 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<EditVisitFormData>({
     defaultValues: {
       ...initialData,
-      lab_results: initialData.lab_results || [],
+      lab_results: initialData.lab_results?.map(result => ({
+        ...result,
+        id: result.id || crypto.randomUUID()
+      })) || [],
       media: initialData.media || [],
       vitals: initialData.vitals || {}
     }
@@ -80,7 +84,6 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
   const labResults = watch('lab_results');
   const media = watch('media');
 
-  // Calculate BMI when weight or height changes
   React.useEffect(() => {
     if (weight && height) {
       const heightInMeters = height / 100;
@@ -95,6 +98,7 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
     setValue('lab_results', [
       ...labResults,
       {
+        id: crypto.randomUUID(),
         name: '',
         value: '',
         unit: '',
@@ -127,7 +131,6 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
 
   const onSubmit = async (data: EditVisitFormData) => {
     try {
-      // Update visit details
       const { error: visitError } = await supabase
         .from('visits')
         .update({
@@ -145,7 +148,6 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
 
       if (visitError) throw visitError;
 
-      // Update vitals with sanitized data
       if (data.vitals) {
         const sanitizedVitals = sanitizeVitals(data.vitals);
         if (Object.keys(sanitizedVitals).length > 0) {
@@ -160,21 +162,20 @@ const EditVisitForm: React.FC<Props> = ({ visitId, initialData, onSuccess }) => 
         }
       }
 
-      // Update lab results
       if (data.lab_results?.length > 0) {
+        const labResultsWithIds = data.lab_results.map(result => ({
+          id: result.id || crypto.randomUUID(),
+          visit_id: visitId,
+          ...result
+        }));
+
         const { error: labError } = await supabase
           .from('lab_results')
-          .upsert(
-            data.lab_results.map(result => ({
-              visit_id: visitId,
-              ...result
-            }))
-          );
+          .upsert(labResultsWithIds);
 
         if (labError) throw labError;
       }
 
-      // Update media
       if (data.media?.length > 0) {
         const { error: mediaError } = await supabase
           .from('visit_media')
