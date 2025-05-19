@@ -1,54 +1,44 @@
 import React, { useState } from 'react';
-import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Activity,
   FileText, 
-  Clock,
+  Clock, 
   User,
   Heart,
-  Thermometer,
+  Activity,
   Stethoscope,
   Pill,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  Edit3,
-  ImageIcon,
-  Microscope,
-  Calendar,
-  ArrowRight,
-  ChevronRight,
   Clipboard,
   Brain,
-  Trash2
+  Edit3,
+  Trash2,
+  XCircle,
+  X,
+  Download,
+  ZoomIn,
+  ChevronLeft,
+  ChevronRight,
+  Image as ImageIcon,
+  File
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { supabase } from '../../lib/supabase';
+import { format } from 'date-fns';
 
 interface VisitModalProps {
   visit: any;
   onClose: () => void;
   onStatusChange: (status: 'completed' | 'in-progress') => void;
   onEdit: () => void;
-  onDelete?: () => void;
 }
 
 const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange, onEdit }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'success';
-      case 'in-progress':
-        return 'warning';
-      default:
-        return 'error';
-    }
-  };
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [isDeletingMedia, setIsDeletingMedia] = useState<string | null>(null);
 
   const handleDelete = async () => {
     try {
@@ -113,6 +103,33 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
     }
   };
 
+  const handleDeleteMedia = async (mediaId: string) => {
+    try {
+      setIsDeletingMedia(mediaId);
+      
+      // Delete from visit_media table
+      const { error: deleteError } = await supabase
+        .from('visit_media')
+        .delete()
+        .eq('id', mediaId);
+
+      if (deleteError) throw deleteError;
+
+      // Refresh the page to update the media list
+      window.location.reload();
+    } catch (error) {
+      console.error('Error deleting media:', error);
+      alert('Failed to delete media. Please try again.');
+    } finally {
+      setIsDeletingMedia(null);
+    }
+  };
+
+  const formatFileSize = (url: string): string => {
+    // This is a placeholder. In a real app, you'd get the actual file size
+    return '2.4 MB';
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Section */}
@@ -124,12 +141,8 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
             </h3>
             <div className="flex items-center mt-2 space-x-4 text-white/80">
               <div className="flex items-center">
-                <Calendar size={16} className="mr-2" />
-                {format(new Date(visit.visit_date), 'MMMM d, yyyy')}
-              </div>
-              <div className="flex items-center">
                 <Clock size={16} className="mr-2" />
-                {visit.visit_time}
+                {format(new Date(visit.visit_date), 'MMMM d, yyyy')} at {visit.visit_time}
               </div>
               <div className="flex items-center">
                 <User size={16} className="mr-2" />
@@ -138,7 +151,11 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
             </div>
           </div>
           <Badge
-            variant={getStatusColor(visit.status)}
+            variant={
+              visit.status === 'completed' ? 'success' :
+              visit.status === 'in-progress' ? 'warning' :
+              'error'
+            }
             size="sm"
             className="uppercase tracking-wider"
           >
@@ -147,231 +164,152 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
         </div>
       </div>
 
-      {/* Vitals Row */}
-      {visit.vitals && (
-        <div className="flex divide-x divide-gray-200 bg-gray-50 p-4 rounded-lg">
-          {[
-            {
-              key: 'blood_pressure',
-              label: 'Blood Pressure',
-              value: visit.vitals.blood_pressure,
-              unit: 'mmHg',
-              isGood: (val: string) => {
-                // parse "120/80"
-                const [systolic, diastolic] = val?.split('/').map(Number) ?? [];
-                return systolic < 120 && diastolic < 80;
-              },
-            },
-            {
-              key: 'temperature',
-              label: 'Temperature',
-              value: visit.vitals.temperature,
-              unit: '°C',
-              isGood: (val: number) => val >= 36.5 && val <= 37.5,
-            },
-            {
-              key: 'pulse_rate',
-              label: 'Pulse Rate',
-              value: visit.vitals.pulse_rate,
-              unit: 'bpm',
-              isGood: (val: number) => val >= 60 && val <= 100,
-            },
-            {
-              key: 'weight',
-              label: 'Weight',
-              value: visit.vitals.weight,
-              unit: 'kg',
-              isGood: () => true,   // no "bad" weight coloring here
-            },
-            {
-              key: 'height',
-              label: 'Height',
-              value: visit.vitals.height,
-              unit: 'cm',
-              isGood: () => true,
-            },
-            {
-              key: 'bmi',
-              label: 'BMI',
-              value: visit.vitals.bmi,
-              unit: '',
-              isGood: (val: number) => val >= 18.5 && val <= 24.9,
-            },
-          ].map(({ key, label, value, unit, isGood }) =>
-            value != null ? (
-              <div
-                key={key}
-                className={`flex-1 px-4 text-center ${
-                  isGood(value)
-                    ? 'text-emerald-600'
-                    : 'text-rose-400'
-                }`}
-              >
-                <div className="text-sm text-gray-500">{label}</div>
-                <div className="text-xs font-bold">
-                  {value}
-                  {unit}
-                </div>
-              </div>
-            ) : null
+      {/* Clinical Information */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
+          <div>
+            <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+              <Clipboard size={18} className="mr-2 text-teal-500" />
+              Chief Complaint
+            </h4>
+            <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+              {visit.chief_complaint}
+            </p>
+          </div>
+
+          <div>
+            <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+              <Brain size={18} className="mr-2 text-indigo-500" />
+              Diagnosis
+            </h4>
+            <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+              {visit.diagnosis}
+            </p>
+          </div>
+
+          <div>
+            <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+              <Activity size={18} className="mr-2 text-amber-500" />
+              Treatment Plan
+            </h4>
+            <p className="text-gray-700 bg-gray-50 p-4 rounded-lg whitespace-pre-line">
+              {visit.treatment_plan}
+            </p>
+          </div>
+
+          {visit.prescription && (
+            <div>
+              <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                <Pill size={18} className="mr-2 text-red-500" />
+                Prescription
+              </h4>
+              <p className="text-gray-700 bg-gray-50 p-4 rounded-lg whitespace-pre-line">
+                {visit.prescription}
+              </p>
+            </div>
+          )}
+
+          {visit.notes && (
+            <div>
+              <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                <FileText size={18} className="mr-2 text-blue-500" />
+                Additional Notes
+              </h4>
+              <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                {visit.notes}
+              </p>
+            </div>
           )}
         </div>
-      )}
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-12 gap-6">
-        {/* Clinical Information */}
-        <div className="col-span-8">
+        {/* Media Gallery */}
+        <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl font-bold text-[#494c61] flex items-center">
-                <Stethoscope size={24} className="mr-3" />
-                Clinical Information
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Chief Complaint */}
-              <div>
-                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
-                  <Clipboard size={18} className="mr-2 text-teal-500" />
-                  Chief Complaint
-                </h4>
-                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-                  {visit.chief_complaint}
-                </p>
-              </div>
-
-              {/* Diagnosis */}
-              <div>
-                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
-                  <Brain size={18} className="mr-2 text-indigo-500" />
-                  Diagnosis
-                </h4>
-                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-                  {visit.diagnosis}
-                </p>
-              </div>
-
-              {/* Treatment Plan */}
-              <div>
-                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
-                  <Activity size={18} className="mr-2 text-amber-500" />
-                  Treatment Plan
-                </h4>
-                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-                  {visit.treatment_plan}
-                </p>
-              </div>
-
-              {/* Prescription */}
-              <div>
-                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
-                  <Pill size={18} className="mr-2 text-red-500" />
-                  Prescription
-                </h4>
-                <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">
-                  {visit.prescription}
-                </p>
-              </div>
-
-              {/* Additional Notes */}
-              <div>
-                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
-                  <FileText size={18} className="mr-2 text-blue-500" />
-                  Additional Notes
-                </h4>
-                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-                  {visit.notes}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Lab Results and Media */}
-        <div className="col-span-4 space-y-6">
-          {/* Lab Results */}
-          <Card className="bg-gray-50">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold flex items-center">
-                <Microscope size={24} className="mr-3 text-[#01b9d4]" />
-                Lab Results
+              <CardTitle className="flex items-center text-lg">
+                <ImageIcon size={18} className="mr-2 text-[#01b9d4]" />
+                Media & Documents
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {visit.lab_results?.length > 0 ? (
-                <div className="space-y-3">
-                  {visit.lab_results.map((result: any, index: number) => (
-                    <div 
-                      key={index}
-                      className="bg-white rounded-lg p-4 shadow-sm"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-gray-900">{result.name}</p>
-                          <p className="text-sm text-gray-500">
-                            {result.value} {result.unit}
-                            {result.reference_range && (
-                              <span className="ml-2 text-gray-400">
-                                (Ref: {result.reference_range})
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <Badge
-                          variant={
-                            result.status === 'normal' ? 'success' :
-                            result.status === 'high' ? 'warning' :
-                            result.status === 'low' ? 'azure' :
-                            'error'
-                          }
-                          size="sm"
+              {visit.media && visit.media.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {visit.media.map((item: any, index: number) => (
+                      <div
+                        key={item.id}
+                        className="relative group bg-gray-50 rounded-lg overflow-hidden"
+                      >
+                        {/* Preview */}
+                        <div
+                          className="aspect-square cursor-pointer"
+                          onClick={() => setSelectedImageIndex(index)}
                         >
-                          {result.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-gray-500">
-                  <Microscope size={32} className="mx-auto mb-2 text-gray-400" />
-                  No lab results available
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                          {item.url ? (
+                            <img
+                              src={item.url}
+                              alt={item.description || `Media ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                              <File size={24} className="text-gray-400" />
+                            </div>
+                          )}
+                        </div>
 
-          {/* Media Gallery */}
-          <Card className="bg-gray-50">
-            <CardHeader>
-              <CardTitle className="text-2xl font-bold flex items-center">
-                <ImageIcon size={24} className="mr-3 text-[#01b9d4]" />
-                Imaging
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {visit.media?.length > 0 ? (
-                <div className="grid grid-cols-2 gap-4">
-                  {visit.media.map((item: any, index: number) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={item.url || 'https://via.placeholder.com/150'}
-                        alt={item.description || 'Medical image'}
-                        className="w-full h-32 object-cover rounded-lg shadow-sm"
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                        <p className="text-white text-sm text-center p-2">
-                          {item.description || item.type}
-                        </p>
+                        {/* Overlay with actions */}
+                        <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <div className="space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="bg-white/90 hover:bg-white"
+                              onClick={() => setSelectedImageIndex(index)}
+                            >
+                              <ZoomIn size={14} className="mr-1" />
+                              View
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="bg-white/90 hover:bg-white text-red-600 hover:text-red-700"
+                              onClick={() => handleDeleteMedia(item.id)}
+                              disabled={isDeletingMedia === item.id}
+                            >
+                              {isDeletingMedia === item.id ? (
+                                <span className="flex items-center">
+                                  <Clock size={14} className="animate-spin mr-1" />
+                                  Deleting...
+                                </span>
+                              ) : (
+                                <span className="flex items-center">
+                                  <Trash2 size={14} className="mr-1" />
+                                  Delete
+                                </span>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Info overlay */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white p-2 text-xs">
+                          <div className="flex justify-between items-center">
+                            <span>{item.type}</span>
+                            <span>{format(new Date(item.date), 'MMM d, yyyy')}</span>
+                          </div>
+                          {item.description && (
+                            <p className="mt-1 truncate">{item.description}</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               ) : (
-                <div className="text-center py-6 text-gray-500">
-                  <ImageIcon size={32} className="mx-auto mb-2 text-gray-400" />
-                  No images available
+                <div className="text-center py-6">
+                  <ImageIcon size={32} className="mx-auto text-gray-300 mb-2" />
+                  <p className="text-gray-500">No media files available</p>
                 </div>
               )}
             </CardContent>
@@ -388,7 +326,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
             onClick={() => onStatusChange('completed')}
             disabled={visit.status === 'completed' || isDeleting}
           >
-            <CheckCircle2 size={16} className="mr-2" />
+            <Activity size={16} className="mr-2" />
             Complete
           </Button>
           <Button
@@ -439,20 +377,84 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
                 Close
               </Button>
               <Button
-  onClick={onEdit}
-  disabled={isDeleting}
-  style={{ backgroundColor: '#01b9d4' }}     
-  className="text-white hover:bg-opacity-90"  // keep your hover opacity trick
-  size="sm"
->
-  <Edit3 size={16} className="mr-2" />
-  Edit Visit
-</Button>
-
+                onClick={onEdit}
+                disabled={isDeleting}
+                style={{ backgroundColor: '#01b9d4' }}     
+                className="text-white hover:bg-opacity-90"
+                size="sm"
+              >
+                <Edit3 size={16} className="mr-2" />
+                Edit Visit
+              </Button>
             </>
           )}
         </div>
       </div>
+
+      {/* Full-screen Image Modal */}
+      <AnimatePresence>
+        {selectedImageIndex !== null && visit.media && visit.media[selectedImageIndex] && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center"
+            onClick={() => setSelectedImageIndex(null)}
+          >
+            <div className="relative w-full h-full flex items-center justify-center">
+              {/* Navigation */}
+              {selectedImageIndex > 0 && (
+                <button
+                  className="absolute left-4 p-2 text-white hover:bg-white/10 rounded-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedImageIndex(selectedImageIndex - 1);
+                  }}
+                >
+                  <ChevronLeft size={24} />
+                </button>
+              )}
+              {selectedImageIndex < visit.media.length - 1 && (
+                <button
+                  className="absolute right-4 p-2 text-white hover:bg-white/10 rounded-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedImageIndex(selectedImageIndex + 1);
+                  }}
+                >
+                  <ChevronRight size={24} />
+                </button>
+              )}
+
+              {/* Close button */}
+              <button
+                className="absolute top-4 right-4 p-2 text-white hover:bg-white/10 rounded-full"
+                onClick={() => setSelectedImageIndex(null)}
+              >
+                <X size={24} />
+              </button>
+
+              {/* Image */}
+              <img
+                src={visit.media[selectedImageIndex].url}
+                alt={visit.media[selectedImageIndex].description || 'Image'}
+                className="max-h-[90vh] max-w-[90vw] object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+
+              {/* Image info */}
+              <div className="absolute bottom-4 left-4 right-4 bg-black/50 text-white p-4 rounded-lg">
+                <p className="font-medium">
+                  {visit.media[selectedImageIndex].description || `Image ${selectedImageIndex + 1}`}
+                </p>
+                <p className="text-sm text-white/80">
+                  {format(new Date(visit.media[selectedImageIndex].date), 'MMMM d, yyyy')}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
