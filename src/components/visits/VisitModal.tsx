@@ -1,54 +1,43 @@
 import React, { useState } from 'react';
-import { format } from 'date-fns';
+import { motion } from 'framer-motion';
 import { 
-  Activity,
   FileText, 
   Clock,
   User,
   Heart,
-  Thermometer,
+  Activity,
+  Brain,
   Stethoscope,
   Pill,
-  CheckCircle2,
-  XCircle,
+  Clipboard,
   AlertCircle,
   Edit3,
   ImageIcon,
   Microscope,
-  Calendar,
-  ArrowRight,
   ChevronRight,
-  Clipboard,
-  Brain,
-  Trash2
+  Trash2,
+  XCircle,
+  CheckCircle2,
+  ArrowRight,
+  ExternalLink,
+  X
 } from 'lucide-react';
 import Button from '../ui/Button';
-import Badge from '../ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { supabase } from '../../lib/supabase';
+import Badge from '../ui/Badge';
 
 interface VisitModalProps {
   visit: any;
   onClose: () => void;
   onStatusChange: (status: 'completed' | 'in-progress') => void;
   onEdit: () => void;
-  onDelete?: () => void;
 }
 
 const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange, onEdit }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'success';
-      case 'in-progress':
-        return 'warning';
-      default:
-        return 'error';
-    }
-  };
+  const [expandedImage, setExpandedImage] = useState<string | null>(null);
 
   const handleDelete = async () => {
     try {
@@ -124,12 +113,8 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
             </h3>
             <div className="flex items-center mt-2 space-x-4 text-white/80">
               <div className="flex items-center">
-                <Calendar size={16} className="mr-2" />
-                {format(new Date(visit.visit_date), 'MMMM d, yyyy')}
-              </div>
-              <div className="flex items-center">
                 <Clock size={16} className="mr-2" />
-                {visit.visit_time}
+                {visit.visit_date} at {visit.visit_time}
               </div>
               <div className="flex items-center">
                 <User size={16} className="mr-2" />
@@ -138,7 +123,11 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
             </div>
           </div>
           <Badge
-            variant={getStatusColor(visit.status)}
+            variant={
+              visit.status === 'completed' ? 'success' :
+              visit.status === 'in-progress' ? 'warning' :
+              'error'
+            }
             size="sm"
             className="uppercase tracking-wider"
           >
@@ -146,77 +135,6 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
           </Badge>
         </div>
       </div>
-
-      {/* Vitals Row */}
-      {visit.vitals && (
-        <div className="flex divide-x divide-gray-200 bg-gray-50 p-4 rounded-lg">
-          {[
-            {
-              key: 'blood_pressure',
-              label: 'Blood Pressure',
-              value: visit.vitals.blood_pressure,
-              unit: 'mmHg',
-              isGood: (val: string) => {
-                // parse "120/80"
-                const [systolic, diastolic] = val?.split('/').map(Number) ?? [];
-                return systolic < 120 && diastolic < 80;
-              },
-            },
-            {
-              key: 'temperature',
-              label: 'Temperature',
-              value: visit.vitals.temperature,
-              unit: '°C',
-              isGood: (val: number) => val >= 36.5 && val <= 37.5,
-            },
-            {
-              key: 'pulse_rate',
-              label: 'Pulse Rate',
-              value: visit.vitals.pulse_rate,
-              unit: 'bpm',
-              isGood: (val: number) => val >= 60 && val <= 100,
-            },
-            {
-              key: 'weight',
-              label: 'Weight',
-              value: visit.vitals.weight,
-              unit: 'kg',
-              isGood: () => true,   // no "bad" weight coloring here
-            },
-            {
-              key: 'height',
-              label: 'Height',
-              value: visit.vitals.height,
-              unit: 'cm',
-              isGood: () => true,
-            },
-            {
-              key: 'bmi',
-              label: 'BMI',
-              value: visit.vitals.bmi,
-              unit: '',
-              isGood: (val: number) => val >= 18.5 && val <= 24.9,
-            },
-          ].map(({ key, label, value, unit, isGood }) =>
-            value != null ? (
-              <div
-                key={key}
-                className={`flex-1 px-4 text-center ${
-                  isGood(value)
-                    ? 'text-emerald-600'
-                    : 'text-rose-400'
-                }`}
-              >
-                <div className="text-sm text-gray-500">{label}</div>
-                <div className="text-xs font-bold">
-                  {value}
-                  {unit}
-                </div>
-              </div>
-            ) : null
-          )}
-        </div>
-      )}
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-12 gap-6">
@@ -258,7 +176,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
                   <Activity size={18} className="mr-2 text-amber-500" />
                   Treatment Plan
                 </h4>
-                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg whitespace-pre-line">
                   {visit.treatment_plan}
                 </p>
               </div>
@@ -269,7 +187,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
                   <Pill size={18} className="mr-2 text-red-500" />
                   Prescription
                 </h4>
-                <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-lg whitespace-pre-line">
                   {visit.prescription}
                 </p>
               </div>
@@ -308,7 +226,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-gray-900">{result.name}</p>
+                          <p className="font-medium text-gray-900">#{index + 1}. {result.name}</p>
                           <p className="text-sm text-gray-500">
                             {result.value} {result.unit}
                             {result.reference_range && (
@@ -347,31 +265,51 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
             <CardHeader>
               <CardTitle className="text-2xl font-bold flex items-center">
                 <ImageIcon size={24} className="mr-3 text-[#01b9d4]" />
-                Imaging
+                Media Files
               </CardTitle>
             </CardHeader>
             <CardContent>
               {visit.media?.length > 0 ? (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-4">
                   {visit.media.map((item: any, index: number) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={item.url || 'https://via.placeholder.com/150'}
-                        alt={item.description || 'Medical image'}
-                        className="w-full h-32 object-cover rounded-lg shadow-sm"
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                        <p className="text-white text-sm text-center p-2">
-                          {item.description || item.type}
-                        </p>
+                    <div key={index} className="bg-white rounded-lg p-4 shadow-sm">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-medium text-gray-900">#{index + 1}. {item.type.toUpperCase()}</h4>
+                          {item.description && (
+                            <p className="text-sm text-gray-500">{item.description}</p>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setExpandedImage(item.url)}
+                          className="text-brand-primary"
+                        >
+                          <ExternalLink size={14} className="mr-1" />
+                          View
+                        </Button>
                       </div>
+                      {item.url && (
+                        <div className="relative group">
+                          <img
+                            src={item.url}
+                            alt={item.description || `Media ${index + 1}`}
+                            className="w-full h-32 object-cover rounded-lg cursor-pointer"
+                            onClick={() => setExpandedImage(item.url)}
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity rounded-lg flex items-center justify-center">
+                            <ExternalLink size={20} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="text-center py-6 text-gray-500">
                   <ImageIcon size={32} className="mx-auto mb-2 text-gray-400" />
-                  No images available
+                  No media files available
                 </div>
               )}
             </CardContent>
@@ -439,20 +377,39 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
                 Close
               </Button>
               <Button
-  onClick={onEdit}
-  disabled={isDeleting}
-  style={{ backgroundColor: '#01b9d4' }}     
-  className="text-white hover:bg-opacity-90"  // keep your hover opacity trick
-  size="sm"
->
-  <Edit3 size={16} className="mr-2" />
-  Edit Visit
-</Button>
-
+                onClick={onEdit}
+                disabled={isDeleting}
+                style={{ backgroundColor: '#01b9d4' }}
+                className="text-white hover:bg-opacity-90"
+              >
+                <Edit3 size={16} className="mr-2" />
+                Edit Visit
+              </Button>
             </>
           )}
         </div>
       </div>
+
+      {/* Image Modal */}
+      {expandedImage && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-4">
+          <div className="relative max-w-4xl w-full">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setExpandedImage(null)}
+              className="absolute top-2 right-2 text-white bg-black bg-opacity-50 hover:bg-opacity-75"
+            >
+              <X size={20} />
+            </Button>
+            <img
+              src={expandedImage}
+              alt="Expanded view"
+              className="w-full h-auto rounded-lg"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
