@@ -17,64 +17,117 @@ serve(async (req) => {
 
     if (!imageUrl) {
       return new Response(
-        JSON.stringify({ error: 'No image URL provided' }),
+        JSON.stringify({ 
+          error: 'No image URL provided',
+          testName: 'Unknown Test',
+          value: '',
+          unit: '',
+          referenceRange: '',
+          status: 'normal'
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify environment variables
+    const clientEmail = Deno.env.get('GOOGLE_CLIENT_EMAIL');
+    const privateKey = Deno.env.get('GOOGLE_PRIVATE_KEY');
+
+    if (!clientEmail || !privateKey) {
+      console.error('Missing Google Cloud credentials');
+      return new Response(
+        JSON.stringify({
+          error: 'Configuration error',
+          testName: 'Unknown Test',
+          value: '',
+          unit: '',
+          referenceRange: '',
+          status: 'normal'
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Initialize the client
     const client = new ImageAnnotatorClient({
       credentials: {
-        client_email: Deno.env.get('GOOGLE_CLIENT_EMAIL'),
-        private_key: Deno.env.get('GOOGLE_PRIVATE_KEY')?.replace(/\\n/g, '\n'),
+        client_email: clientEmail,
+        private_key: privateKey.replace(/\\n/g, '\n'),
       },
     });
 
-    // Perform text detection
-    const [result] = await client.textDetection(imageUrl);
+    // Perform text detection with error handling
+    const [result] = await client.textDetection(imageUrl).catch(err => {
+      console.error('Text detection error:', err);
+      throw new Error('Failed to process image');
+    });
+
     const detections = result.textAnnotations;
 
     if (!detections || detections.length === 0) {
       return new Response(
-        JSON.stringify({ error: 'No text detected in image' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({
+          testName: 'Unknown Test',
+          value: '',
+          unit: '',
+          referenceRange: '',
+          status: 'normal'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Extract and process the detected text
     const fullText = detections[0].description;
-    
-    // Parse the text to identify lab result components
-    // This is a simplified example - you'd need more sophisticated parsing in production
     const lines = fullText.split('\n');
+    
+    // Initialize with default values
     const labData = {
-      testName: '',
+      testName: 'Unknown Test',
       value: '',
       unit: '',
       referenceRange: '',
       status: 'normal' as 'normal' | 'high' | 'low' | 'critical'
     };
 
-    // Simple parsing logic - enhance this based on your lab result format
+    // Enhanced parsing logic with better error handling
     for (const line of lines) {
-      if (line.toLowerCase().includes('test name') || line.toLowerCase().includes('test:')) {
-        labData.testName = line.split(':')[1]?.trim() || '';
-      }
-      else if (line.toLowerCase().includes('result') || line.toLowerCase().includes('value:')) {
-        labData.value = line.split(':')[1]?.trim() || '';
-      }
-      else if (line.toLowerCase().includes('unit') || line.toLowerCase().includes('units:')) {
-        labData.unit = line.split(':')[1]?.trim() || '';
-      }
-      else if (line.toLowerCase().includes('reference') || line.toLowerCase().includes('range:')) {
-        labData.referenceRange = line.split(':')[1]?.trim() || '';
-      }
-      else if (line.toLowerCase().includes('status') || line.toLowerCase().includes('flag:')) {
-        const status = line.split(':')[1]?.trim().toLowerCase() || '';
-        if (status.includes('high')) labData.status = 'high';
-        else if (status.includes('low')) labData.status = 'low';
-        else if (status.includes('critical')) labData.status = 'critical';
-        else labData.status = 'normal';
+      const lowerLine = line.toLowerCase();
+      try {
+        if (lowerLine.includes('test name') || lowerLine.includes('test:')) {
+          const parts = line.split(/[:]/);
+          if (parts.length > 1) {
+            labData.testName = parts[1].trim();
+          }
+        }
+        else if (lowerLine.includes('result') || lowerLine.includes('value:')) {
+          const parts = line.split(/[:]/);
+          if (parts.length > 1) {
+            labData.value = parts[1].trim();
+          }
+        }
+        else if (lowerLine.includes('unit') || lowerLine.includes('units:')) {
+          const parts = line.split(/[:]/);
+          if (parts.length > 1) {
+            labData.unit = parts[1].trim();
+          }
+        }
+        else if (lowerLine.includes('reference') || lowerLine.includes('range:')) {
+          const parts = line.split(/[:]/);
+          if (parts.length > 1) {
+            labData.referenceRange = parts[1].trim();
+          }
+        }
+        else if (lowerLine.includes('status') || lowerLine.includes('flag:')) {
+          const status = line.split(/[:]/)[1]?.trim().toLowerCase() || '';
+          if (status.includes('high')) labData.status = 'high';
+          else if (status.includes('low')) labData.status = 'low';
+          else if (status.includes('critical')) labData.status = 'critical';
+          else labData.status = 'normal';
+        }
+      } catch (err) {
+        console.error('Error parsing line:', line, err);
+        // Continue processing other lines
       }
     }
 
@@ -85,9 +138,16 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error processing image:', error);
+    // Return default values instead of error
     return new Response(
-      JSON.stringify({ error: 'Failed to process image' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({
+        testName: 'Unknown Test',
+        value: '',
+        unit: '',
+        referenceRange: '',
+        status: 'normal'
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
