@@ -1,32 +1,35 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { ImageAnnotatorClient } from 'npm:@google-cloud/vision@4.0.2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Max-Age': '86400',
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { imageUrl } = await req.json();
+    // Verify request method
+    if (req.method !== 'POST') {
+      throw new Error('Method not allowed');
+    }
+
+    // Parse request body with error handling
+    let imageUrl: string;
+    try {
+      const body = await req.json();
+      imageUrl = body.imageUrl;
+    } catch (e) {
+      throw new Error('Invalid request body');
+    }
 
     if (!imageUrl) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'No image URL provided',
-          testName: 'Unknown Test',
-          value: '',
-          unit: '',
-          referenceRange: '',
-          status: 'normal'
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw new Error('No image URL provided');
     }
 
     // Verify environment variables
@@ -34,34 +37,25 @@ serve(async (req) => {
     const privateKey = Deno.env.get('GOOGLE_PRIVATE_KEY');
 
     if (!clientEmail || !privateKey) {
-      console.error('Missing Google Cloud credentials');
-      return new Response(
-        JSON.stringify({
-          error: 'Configuration error',
-          testName: 'Unknown Test',
-          value: '',
-          unit: '',
-          referenceRange: '',
-          status: 'normal'
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw new Error('Missing Google Cloud credentials');
     }
 
-    // Initialize the client
-    const client = new ImageAnnotatorClient({
-      credentials: {
-        client_email: clientEmail,
-        private_key: privateKey.replace(/\\n/g, '\n'),
-      },
-    });
+    // Initialize the client with proper error handling
+    let client: ImageAnnotatorClient;
+    try {
+      client = new ImageAnnotatorClient({
+        credentials: {
+          client_email: clientEmail,
+          private_key: privateKey.replace(/\\n/g, '\n'),
+        },
+      });
+    } catch (e) {
+      console.error('Failed to initialize Vision client:', e);
+      throw new Error('Failed to initialize image processing');
+    }
 
-    // Perform text detection with error handling
-    const [result] = await client.textDetection(imageUrl).catch(err => {
-      console.error('Text detection error:', err);
-      throw new Error('Failed to process image');
-    });
-
+    // Perform text detection
+    const [result] = await client.textDetection(imageUrl);
     const detections = result.textAnnotations;
 
     if (!detections || detections.length === 0) {
@@ -73,7 +67,12 @@ serve(async (req) => {
           referenceRange: '',
           status: 'normal'
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
       );
     }
 
@@ -81,7 +80,6 @@ serve(async (req) => {
     const fullText = detections[0].description;
     const lines = fullText.split('\n');
     
-    // Initialize with default values
     const labData = {
       testName: 'Unknown Test',
       value: '',
@@ -133,21 +131,33 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify(labData),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
+      }
     );
 
   } catch (error) {
-    console.error('Error processing image:', error);
-    // Return default values instead of error
+    console.error('Error processing request:', error);
+    
     return new Response(
       JSON.stringify({
+        error: error.message || 'Internal server error',
         testName: 'Unknown Test',
         value: '',
         unit: '',
         referenceRange: '',
         status: 'normal'
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        status: error.message === 'Method not allowed' ? 405 : 500,
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
+      }
     );
   }
 });
