@@ -438,10 +438,17 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
                 <XCircle size={16} className="mr-2" />
                 Close
               </Button>
-              <Button onClick={onEdit} disabled={isDeleting}>
-                <Edit3 size={16} className="mr-2" />
-                Edit Visit
-              </Button>
+              <Button
+  onClick={onEdit}
+  disabled={isDeleting}
+  style={{ backgroundColor: '#10B981' }}      // emerald-500
+  className="text-white hover:bg-opacity-90"  // keep your hover opacity trick
+  size="sm"
+>
+  <Edit3 size={16} className="mr-2" />
+  Edit Visit
+</Button>
+
             </>
           )}
         </div>
