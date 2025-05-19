@@ -19,7 +19,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Image as ImageIcon,
-  File
+  File,
+  Microscope
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
@@ -125,11 +126,6 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
     }
   };
 
-  const formatFileSize = (url: string): string => {
-    // This is a placeholder. In a real app, you'd get the actual file size
-    return '2.4 MB';
-  };
-
   return (
     <div className="space-y-6">
       {/* Header Section */}
@@ -164,8 +160,6 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
         </div>
       </div>
 
-
-      
       {/* Vitals Row */}
       {visit.vitals && (
         <div className="flex divide-x divide-gray-200 bg-gray-50 p-4 rounded-lg">
@@ -236,148 +230,225 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
           )}
         </div>
       )}
-      
-      {/* Clinical Information */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="space-y-6">
-          <div>
-            <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
-              <Clipboard size={18} className="mr-2 text-teal-500" />
-              Chief Complaint
-            </h4>
-            <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-              {visit.chief_complaint}
-            </p>
-          </div>
 
-          <div>
-            <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
-              <Brain size={18} className="mr-2 text-indigo-500" />
-              Diagnosis
-            </h4>
-            <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-              {visit.diagnosis}
-            </p>
-          </div>
-
-          <div>
-            <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
-              <Activity size={18} className="mr-2 text-amber-500" />
-              Treatment Plan
-            </h4>
-            <p className="text-gray-700 bg-gray-50 p-4 rounded-lg whitespace-pre-line">
-              {visit.treatment_plan}
-            </p>
-          </div>
-
-          {visit.prescription && (
-            <div>
-              <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
-                <Pill size={18} className="mr-2 text-red-500" />
-                Prescription
-              </h4>
-              <p className="text-gray-700 bg-gray-50 p-4 rounded-lg whitespace-pre-line">
-                {visit.prescription}
-              </p>
-            </div>
-          )}
-
-          {visit.notes && (
-            <div>
-              <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
-                <FileText size={18} className="mr-2 text-blue-500" />
-                Additional Notes
-              </h4>
-              <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
-                {visit.notes}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Media Gallery */}
-        <div className="space-y-6">
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-12 gap-6">
+        {/* Clinical Information */}
+        <div className="col-span-8">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center text-lg">
-                <ImageIcon size={18} className="mr-2 text-[#01b9d4]" />
-                Media & Documents
+              <CardTitle className="text-2xl font-bold text-[#494c61] flex items-center">
+                <Stethoscope size={24} className="mr-3" />
+                Clinical Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Chief Complaint */}
+              <div>
+                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                  <Clipboard size={18} className="mr-2 text-teal-500" />
+                  Chief Complaint
+                </h4>
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.chief_complaint}
+                </p>
+              </div>
+
+              {/* Diagnosis */}
+              <div>
+                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                  <Brain size={18} className="mr-2 text-indigo-500" />
+                  Diagnosis
+                </h4>
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.diagnosis}
+                </p>
+              </div>
+
+              {/* Treatment Plan */}
+              <div>
+                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                  <Activity size={18} className="mr-2 text-amber-500" />
+                  Treatment Plan
+                </h4>
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.treatment_plan}
+                </p>
+              </div>
+
+              {/* Prescription */}
+              <div>
+                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                  <Pill size={18} className="mr-2 text-red-500" />
+                  Prescription
+                </h4>
+                <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.prescription}
+                </p>
+              </div>
+
+              {/* Additional Notes */}
+              <div>
+                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                  <FileText size={18} className="mr-2 text-blue-500" />
+                  Additional Notes
+                </h4>
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.notes}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Lab Results and Media */}
+        <div className="col-span-4 space-y-6">
+          {/* Lab Results */}
+          <Card className="bg-gray-50">
+            <CardHeader>
+              <CardTitle className="text-lg font-medium flex items-center">
+                <Microscope size={20} className="mr-2 text-[#01b9d4]" />
+                Lab Results
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {visit.lab_results?.length > 0 ? (
+                <div className="space-y-3">
+                  {visit.lab_results.map((result: any, index: number) => (
+                    <div 
+                      key={index}
+                      className="bg-white rounded-lg p-4 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-gray-900">{result.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {result.value} {result.unit}
+                            {result.reference_range && (
+                              <span className="ml-2 text-gray-400">
+                                (Ref: {result.reference_range})
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={
+                            result.status === 'normal' ? 'success' :
+                            result.status === 'high' ? 'warning' :
+                            result.status === 'low' ? 'azure' :
+                            'error'
+                          }
+                          size="sm"
+                        >
+                          {result.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-gray-500">
+                  <Microscope size={32} className="mx-auto mb-2 text-gray-400" />
+                  No lab results available
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Media Gallery */}
+          <Card className="bg-gray-50">
+            <CardHeader>
+              <CardTitle className="text-lg font-medium flex items-center">
+                <ImageIcon size={20} className="mr-2 text-[#01b9d4]" />
+                Media Files
               </CardTitle>
             </CardHeader>
             <CardContent>
               {visit.media && visit.media.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    {visit.media.map((item: any, index: number) => (
+                <div className="grid grid-cols-2 gap-4">
+                  {visit.media.map((item: any, index: number) => (
+                    <div
+                      key={item.id}
+                      className="relative group bg-white rounded-lg overflow-hidden shadow-sm"
+                    >
+                      {/* Preview */}
                       <div
-                        key={item.id}
-                        className="relative group bg-gray-50 rounded-lg overflow-hidden"
+                        className="aspect-square cursor-pointer"
+                        onClick={() => setSelectedImageIndex(index)}
                       >
-                        {/* Preview */}
-                        <div
-                          className="aspect-square cursor-pointer"
-                          onClick={() => setSelectedImageIndex(index)}
-                        >
-                          {item.url ? (
-                            <img
-                              src={item.url}
-                              alt={item.description || `Media ${index + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                              <File size={24} className="text-gray-400" />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Overlay with actions */}
-                        <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <div className="space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="bg-white/90 hover:bg-white"
-                              onClick={() => setSelectedImageIndex(index)}
-                            >
-                              <ZoomIn size={14} className="mr-1" />
-                              View
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="bg-white/90 hover:bg-white text-red-600 hover:text-red-700"
-                              onClick={() => handleDeleteMedia(item.id)}
-                              disabled={isDeletingMedia === item.id}
-                            >
-                              {isDeletingMedia === item.id ? (
-                                <span className="flex items-center">
-                                  <Clock size={14} className="animate-spin mr-1" />
-                                  Deleting...
-                                </span>
-                              ) : (
-                                <span className="flex items-center">
-                                  <Trash2 size={14} className="mr-1" />
-                                  Delete
-                                </span>
-                              )}
-                            </Button>
+                        {item.url ? (
+                          <img
+                            src={item.url}
+                            alt={item.description || `Media ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                            <File size={24} className="text-gray-400" />
                           </div>
-                        </div>
+                        )}
+                      </div>
 
-                        {/* Info overlay */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white p-2 text-xs">
-                          <div className="flex justify-between items-center">
-                            <span>{item.type}</span>
-                            <span>{format(new Date(item.date), 'MMM d, yyyy')}</span>
-                          </div>
-                          {item.description && (
-                            <p className="mt-1 truncate">{item.description}</p>
-                          )}
+                      {/* Overlay with actions */}
+                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <div className="space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-white/90 hover:bg-white"
+                            onClick={() => setSelectedImageIndex(index)}
+                          >
+                            <ZoomIn size={14} className="mr-1" />
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-white/90 hover:bg-white text-red-600 hover:text-red-700"
+                            onClick={() => handleDeleteMedia(item.id)}
+                            disabled={isDeletingMedia === item.id}
+                          >
+                            {isDeletingMedia === item.id ? (
+                              <span className="flex items-center">
+                                <Clock size={14} className="animate-spin mr-1" />
+                                Deleting...
+                              </span>
+                            ) : (
+                              <span className="flex items-center">
+                                <Trash2 size={14} className="mr-1" />
+                                Delete
+                              </span>
+                            )}
+                          </Button>
                         </div>
                       </div>
-                    ))}
-                  </div>
+
+                      {/* Type badge */}
+                      <div className="absolute top-2 right-2">
+                        <Badge
+                          variant={
+                            item.type === 'xray' ? 'azure' :
+                            item.type === 'ct' ? 'coral' :
+                            item.type === 'mri' ? 'lavender' :
+                            'glass'
+                          }
+                          size="sm"
+                        >
+                          {item.type}
+                        </Badge>
+                      </div>
+
+                      {/* Info overlay */}
+                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white p-2 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span>{format(new Date(item.date), 'MMM d, yyyy')}</span>
+                        </div>
+                        {item.description && (
+                          <p className="mt-1 truncate">{item.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="text-center py-6">
