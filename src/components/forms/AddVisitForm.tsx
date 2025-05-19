@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
-import { Image as ImageIcon, X, Upload, Plus } from 'lucide-react';
+import { Image as ImageIcon, X, Upload, Plus, Wand2 } from 'lucide-react';
+import LabResultUpload from '../visits/LabResultUpload';
+import MediaUpload from '../visits/MediaUpload';
 
 interface AddVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
@@ -23,6 +25,7 @@ interface AddVisitFormData {
     bmi?: number;
   };
   lab_results: Array<{
+    id?: string;
     name: string;
     value: string;
     unit: string;
@@ -55,6 +58,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
   const height = watch('vitals.height');
   const labResults = watch('lab_results');
   const media = watch('media');
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
 
   // Calculate BMI when weight or height changes
   React.useEffect(() => {
@@ -69,6 +73,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
     setValue('lab_results', [
       ...labResults,
       {
+        id: crypto.randomUUID(),
         name: '',
         value: '',
         unit: '',
@@ -97,6 +102,73 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
 
   const removeMedia = (index: number) => {
     setValue('media', media.filter((_, i) => i !== index));
+  };
+
+  const processLabImage = async () => {
+    try {
+      setIsProcessingImage(true);
+      
+      // Create file input and trigger click
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+
+        // Upload to storage
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const filePath = `lab-results/${fileName}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('media')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('media')
+          .getPublicUrl(filePath);
+
+        // Process with AI
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ imageUrl: publicUrl })
+        });
+
+        if (!response.ok) throw new Error('Failed to process image');
+
+        const result = await response.json();
+
+        // Add new lab result with AI-extracted data
+        setValue('lab_results', [
+          ...labResults,
+          {
+            id: crypto.randomUUID(),
+            name: result.testName || 'Unknown Test',
+            value: result.value || '',
+            unit: result.unit || '',
+            reference_range: result.referenceRange || '',
+            status: result.status || 'normal',
+            date: new Date().toISOString().split('T')[0]
+          }
+        ]);
+      };
+
+      input.click();
+    } catch (error) {
+      console.error('Error processing lab image:', error);
+      alert('Failed to process image. Please try again or enter values manually.');
+    } finally {
+      setIsProcessingImage(false);
+    }
   };
 
   // Helper function to convert empty strings to null for numeric fields
@@ -300,10 +372,22 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
       <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 space-y-4">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-medium text-gray-900">Lab Results</h3>
-          <Button type="button" variant="outline" size="sm" onClick={addLabResult}>
-            <Plus size={16} className="mr-2" />
-            Add Result
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={processLabImage}
+              disabled={isProcessingImage}
+            >
+              <Wand2 size={16} className="mr-2" />
+              {isProcessingImage ? 'Processing...' : 'Process Lab Image'}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={addLabResult}>
+              <Plus size={16} className="mr-2" />
+              Add Result
+            </Button>
+          </div>
         </div>
 
         {labResults.map((_, index) => (
@@ -378,6 +462,17 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
                 />
               </div>
             </div>
+
+            <div className="mt-4">
+              <LabResultUpload
+                onUpload={(data) => {
+                  setValue(`lab_results.${index}`, {
+                    ...data,
+                    date: new Date().toISOString().split('T')[0]
+                  });
+                }}
+              />
+            </div>
           </div>
         ))}
       </div>
@@ -421,16 +516,6 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">URL</label>
-                <input
-                  type="url"
-                  {...register(`media.${index}.url` as const, { required: true })}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                  placeholder="https://"
-                />
-              </div>
-
-              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700">Description</label>
                 <input
                   type="text"
@@ -447,6 +532,15 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                 />
               </div>
+            </div>
+
+            <div className="mt-4">
+              <MediaUpload
+                type={watch(`media.${index}.type`)}
+                onUpload={(url) => {
+                  setValue(`media.${index}.url`, url);
+                }}
+              />
             </div>
           </div>
         ))}
