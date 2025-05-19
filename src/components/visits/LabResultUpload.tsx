@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, Loader2 } from 'lucide-react';
-import Button from '../ui/Button';
+import { Upload, Loader2, Wand2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import Button from '../ui/Button';
 
 interface LabResultUploadProps {
   onUpload: (data: {
@@ -18,8 +18,9 @@ interface LabResultUploadProps {
 const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
 
-  const processImage = async (file: File) => {
+  const processWithAI = async (file: File) => {
     try {
       setIsProcessing(true);
       setError(null);
@@ -61,9 +62,9 @@ const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
 
       const result = await response.json();
 
-      // If no data was extracted, provide default values
+      // Process the extracted data
       const labData = {
-        id: crypto.randomUUID(), // Generate a new ID for the lab result
+        id: crypto.randomUUID(),
         name: result.testName || 'Unknown Test',
         value: result.value || '',
         unit: result.unit || '',
@@ -72,6 +73,7 @@ const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
       };
 
       onUpload(labData);
+      setPreview(publicUrl);
     } catch (err) {
       console.error('Error processing lab result:', err);
       // Provide default data even when processing fails
@@ -92,9 +94,16 @@ const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (file) {
-      processImage(file);
+      // Show preview immediately
+      const previewUrl = URL.createObjectURL(file);
+      setPreview(previewUrl);
+      
+      // Store the file for AI processing
+      setUploadedFile(file);
     }
   }, []);
+
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -142,6 +151,30 @@ const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
 
       {error && (
         <p className="text-sm text-red-600 mt-2">{error}</p>
+      )}
+
+      {preview && !isProcessing && uploadedFile && (
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-sm font-medium text-gray-900">Preview</h4>
+            <Button
+              size="sm"
+              onClick={() => processWithAI(uploadedFile)}
+              disabled={isProcessing}
+            >
+              <Wand2 size={16} className="mr-2" />
+              Process with AI
+            </Button>
+          </div>
+          <img
+            src={preview}
+            alt="Lab result preview"
+            className="w-full h-48 object-contain rounded-lg border border-gray-200"
+          />
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            Click "Process with AI" to extract data or enter values manually
+          </p>
+        </div>
       )}
     </div>
   );
