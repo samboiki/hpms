@@ -441,7 +441,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
               <Button
   onClick={onEdit}
   disabled={isDeleting}
-  style={{ backgroundColor: '#10B981' }}      // emerald-500
+  style={{ backgroundColor: '#01b9d4' }}     
   className="text-white hover:bg-opacity-90"  // keep your hover opacity trick
   size="sm"
 >
