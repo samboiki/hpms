@@ -21,7 +21,10 @@ import {
   Trash2,
   ExternalLink,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ChevronLeft,
+  Filter,
+  Building2
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
@@ -47,6 +50,8 @@ interface Patient {
   };
 }
 
+const ITEMS_PER_PAGE = 10;
+
 const Patients: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -57,6 +62,7 @@ const Patients: React.FC = () => {
   const [view, setView] = useState<'grid' | 'list'>('list');
   const [sortBy, setSortBy] = useState<'name' | 'date'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   
   useEffect(() => {
@@ -104,6 +110,13 @@ const Patients: React.FC = () => {
     }
   });
 
+  // Pagination
+  const totalPages = Math.ceil(filteredPatients.length / ITEMS_PER_PAGE);
+  const paginatedPatients = filteredPatients.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   const handlePatientAdded = () => {
     setIsAddPatientModalOpen(false);
     fetchPatients();
@@ -129,8 +142,8 @@ const Patients: React.FC = () => {
     }
   };
 
-  const toggleRow = (patientId: string) => {
-    setExpandedRow(expandedRow === patientId ? null : patientId);
+  const handleRowClick = (patientId: string) => {
+    navigate(`/patients/${patientId}`);
   };
 
   return (
@@ -164,10 +177,17 @@ const Patients: React.FC = () => {
                 placeholder="Search patients by name, email, or phone"
                 className="pl-10 pr-4 py-2 w-full rounded-md border border-gray-300 focus:ring-brand-primary focus:border-brand-primary"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
               />
             </div>
             <div className="flex gap-3">
+              <Button variant="outline" size="sm">
+                <Filter size={16} className="mr-2" />
+                Filter
+              </Button>
               <Button 
                 variant="outline" 
                 size="sm"
@@ -207,122 +227,180 @@ const Patients: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredPatients.map((patient, index) => (
-            <motion.div
-              key={patient.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="bg-white rounded-xl shadow-float hover:shadow-lg transition-all duration-300"
-            >
-              {/* Main Row */}
-              <div 
-                className="p-4 flex items-center justify-between cursor-pointer"
-                onClick={() => toggleRow(patient.id)}
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="h-12 w-12 bg-[#01b9d4] rounded-full flex items-center justify-center text-white">
-                    <User size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
+        <>
+          {view === 'grid' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {paginatedPatients.map((patient, index) => (
+                <motion.div
+                  key={patient.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="bg-white rounded-xl shadow-float hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:scale-[1.02]"
+                  onClick={() => handleRowClick(patient.id)}
+                >
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="h-12 w-12 bg-[#01b9d4] rounded-full flex items-center justify-center text-white">
+                        <User size={24} />
+                      </div>
+                      {patient.medical_aid_details && (
+                        <Badge variant="azure" size="sm">
+                          {patient.medical_aid_details.provider}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <h3 className="text-lg text-gray-900">
                       {patient.first_name} {patient.last_name}
                     </h3>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
-                      <span>{calculateAge(patient.date_of_birth)} years</span>
-                      <span>•</span>
-                      <span>{patient.gender}</span>
+                    
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Calendar size={14} className="mr-2 text-[#01b9d4]" />
+                        {calculateAge(patient.date_of_birth)} years • {patient.gender}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Mail size={14} className="mr-2 text-[#01b9d4]" />
+                        {patient.email || 'No email'}
+                      </div>
+                      <div className="flex items-center text-sm text-gray-600">
+                        <Phone size={14} className="mr-2 text-[#01b9d4]" />
+                        {patient.cell_number || 'No phone'}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
+                      <div className="flex items-center text-sm text-gray-500">
+                        <Building2 size={14} className="mr-2" />
+                        Active Patient
+                      </div>
+                      <Button variant="outline" size="sm">
+                        <ChevronRight size={16} />
+                      </Button>
                     </div>
                   </div>
-                </div>
-
-                <div className="flex items-center space-x-4">
-                  {patient.medical_aid_details && (
-                    <Badge variant="azure" size="sm">
-                      {patient.medical_aid_details.provider}
-                    </Badge>
-                  )}
-                  <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                    {expandedRow === patient.id ? (
-                      <ChevronUp size={20} className="text-gray-500" />
-                    ) : (
-                      <ChevronDown size={20} className="text-gray-500" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Expanded Content */}
-              <AnimatePresence>
-                {expandedRow === patient.id && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="p-4 border-t border-gray-100">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <div className="flex items-center text-gray-600">
-                            <Mail size={16} className="mr-2 text-[#01b9d4]" />
-                            {patient.email || 'No email provided'}
-                          </div>
-                          <div className="flex items-center text-gray-600">
-                            <Phone size={16} className="mr-2 text-[#01b9d4]" />
-                            {patient.cell_number || 'No phone number'}
-                          </div>
-                          <div className="flex items-center text-gray-600">
-                            <Calendar size={16} className="mr-2 text-[#01b9d4]" />
-                            Born {format(new Date(patient.date_of_birth), 'MMMM d, yyyy')}
-                          </div>
-                        </div>
-
-                        <div className="flex justify-end space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/patients/${patient.id}`);
-                            }}
-                          >
-                            <ExternalLink size={14} className="mr-2" />
-                            View Details
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Handle edit
-                            }}
-                          >
-                            <Edit size={14} className="mr-2" />
-                            Edit
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-red-600 hover:bg-red-50"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Handle delete
-                            }}
-                          >
-                            <Trash2 size={14} className="mr-2" />
-                            Delete
-                          </Button>
+                </motion.div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {paginatedPatients.map((patient, index) => (
+                <motion.div
+                  key={patient.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="bg-white rounded-xl shadow-float hover:shadow-lg transition-all duration-300 cursor-pointer"
+                  onClick={() => handleRowClick(patient.id)}
+                >
+                  <div className="p-4 flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="h-12 w-12 bg-[#01b9d4] rounded-full flex items-center justify-center text-white">
+                        <User size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg text-gray-900">
+                          {patient.first_name} {patient.last_name}
+                        </h3>
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          <span>{calculateAge(patient.date_of_birth)} years</span>
+                          <span>•</span>
+                          <span>{patient.gender}</span>
+                          <span>•</span>
+                          <span>{patient.email}</span>
                         </div>
                       </div>
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          ))}
+
+                    <div className="flex items-center space-x-4">
+                      {patient.medical_aid_details && (
+                        <Badge variant="azure" size="sm">
+                          {patient.medical_aid_details.provider}
+                        </Badge>
+                      )}
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/patients/${patient.id}`);
+                          }}
+                        >
+                          <ExternalLink size={14} className="mr-2" />
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Handle edit
+                          }}
+                        >
+                          <Edit size={14} className="mr-2" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 hover:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Handle delete
+                          }}
+                        >
+                          <Trash2 size={14} className="mr-2" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-between">
+              <div className="text-sm text-gray-500">
+                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredPatients.length)} of {filteredPatients.length} patients
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft size={16} className="mr-2" />
+                  Previous
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => setCurrentPage(page)}
+                    className={currentPage === page ? 'bg-[#01b9d4]' : ''}
+                  >
+                    {page}
+                  </Button>
+                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                  <ChevronRight size={16} className="ml-2" />
+                </Button>
+              </div>
+            </div>
+          )}
 
           {filteredPatients.length === 0 && (
             <div className="text-center py-12">
@@ -330,7 +408,7 @@ const Patients: React.FC = () => {
               <p className="text-gray-500">No patients found</p>
             </div>
           )}
-        </div>
+        </>
       )}
 
       <FormModal
