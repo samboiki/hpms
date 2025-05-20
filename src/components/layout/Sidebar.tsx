@@ -1,4 +1,3 @@
-```typescript
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../../utils/cn';
@@ -107,4 +106,3 @@ const Sidebar: React.FC<SidebarProps> = ({
 };
 
 export default Sidebar;
-```
