@@ -15,7 +15,11 @@ import {
   LayoutGrid,
   List,
   ArrowUpDown,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  MoreVertical,
+  Edit,
+  Trash2,
+  ExternalLink
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
@@ -25,6 +29,7 @@ import FormModal from '../components/modals/FormModal';
 import AddPatientForm from '../components/forms/AddPatientForm';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
+import { motion } from 'framer-motion';
 
 interface Patient {
   id: string;
@@ -34,6 +39,7 @@ interface Patient {
   cell_number: string;
   date_of_birth: string;
   gender: string;
+  avatar?: string;
   medical_aid_details?: {
     provider: string;
     membership_number: string;
@@ -199,52 +205,56 @@ const Patients: React.FC = () => {
           {view === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredPatients.map((patient) => (
-                <Card
+                <motion.div
                   key={patient.id}
-                  className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer bg-gradient-to-b from-white to-gray-50"
-                  onClick={() => navigate(`/patients/${patient.id}`)}
+                  whileHover={{ y: -5 }}
+                  className="transform transition-all duration-300"
                 >
-                  <CardContent className="p-6">
-                    <div className="flex flex-col items-center text-center">
-                      
-                      <h3 className="text-lg font-heading font-bold text-gray-900">
-                        {patient.first_name} {patient.last_name}
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {calculateAge(patient.date_of_birth)} years • {patient.gender}
-                      </p>
-                      
-                      <div className="w-full mt-4 space-y-2">
-                        <div className="flex items-center justify-center text-sm text-gray-600">
-                          <Mail size={14} className="mr-2 text-[#01b9d4]" />
-                          {patient.email || 'No email'}
+                  <Card
+                    className="group hover:shadow-float bg-white cursor-pointer"
+                    onClick={() => navigate(`/patients/${patient.id}`)}
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex flex-col items-center text-center">
+                        <h3 className="text-lg font-heading font-bold text-gray-900">
+                          {patient.first_name} {patient.last_name}
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {calculateAge(patient.date_of_birth)} years • {patient.gender}
+                        </p>
+                        
+                        <div className="w-full mt-4 space-y-2">
+                          <div className="flex items-center justify-center text-sm text-gray-600">
+                            <Mail size={14} className="mr-2 text-[#01b9d4]" />
+                            {patient.email || 'No email'}
+                          </div>
+                          <div className="flex items-center justify-center text-sm text-gray-600">
+                            <Phone size={14} className="mr-2 text-[#01b9d4]" />
+                            {patient.cell_number || 'No phone'}
+                          </div>
                         </div>
-                        <div className="flex items-center justify-center text-sm text-gray-600">
-                          <Phone size={14} className="mr-2 text-[#01b9d4]" />
-                          {patient.cell_number || 'No phone'}
+
+                        {patient.medical_aid_details && (
+                          <div className="mt-4 flex items-center space-x-2">
+                            <Badge variant="azure" size="sm">
+                              {patient.medical_aid_details.provider}
+                            </Badge>
+                            <Badge variant="glass" size="sm">
+                              Active
+                            </Badge>
+                          </div>
+                        )}
+
+                        <div className="mt-4 pt-4 border-t border-gray-100 w-full">
+                          <div className="flex items-center justify-center text-sm text-gray-500">
+                            <Clock size={14} className="mr-2 text-[#01b9d4]" />
+                            Last visit: {format(new Date(), 'MMM d, yyyy')}
+                          </div>
                         </div>
                       </div>
-
-                      {patient.medical_aid_details && (
-                        <div className="mt-4 flex items-center space-x-2">
-                          <Badge variant="azure" size="sm">
-                            {patient.medical_aid_details.provider}
-                          </Badge>
-                          <Badge variant="glass" size="sm">
-                            Active
-                          </Badge>
-                        </div>
-                      )}
-
-                      <div className="mt-4 pt-4 border-t border-gray-100 w-full">
-                        <div className="flex items-center justify-center text-sm text-gray-500">
-                          <Clock size={14} className="mr-2 text-[#01b9d4]" />
-                          Last visit: {format(new Date(), 'MMM d, yyyy')}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </motion.div>
               ))}
             </div>
           ) : (
@@ -279,17 +289,27 @@ const Patients: React.FC = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
                     {filteredPatients.map((patient, index) => (
-                      <tr 
+                      <motion.tr 
                         key={patient.id}
-                        className={`hover:bg-gray-50 transition-colors cursor-pointer group ${
-                          index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                        }`}
-                        onClick={() => navigate(`/patients/${patient.id}`)}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="group hover:bg-gray-50 hover:shadow-md transition-all duration-300 cursor-pointer relative"
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="h-10 w-10 rounded-full flex items-center justify-center group-hover:scale-105 transition-transform">
-                              <User size={20} className="text-[#01b9d4]" />
+                              {patient.avatar ? (
+                                <img
+                                  src={patient.avatar}
+                                  alt={`${patient.first_name} ${patient.last_name}`}
+                                  className="h-full w-full rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="h-full w-full bg-[#01b9d4] rounded-full flex items-center justify-center text-white">
+                                  <User size={20} />
+                                </div>
+                              )}
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-bold text-gray-900">
@@ -334,15 +354,53 @@ const Patients: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <ChevronRight size={16} className="text-[#01b9d4]" />
-                          </Button>
+                          <div className="relative group">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Toggle dropdown
+                              }}
+                            >
+                              <MoreVertical size={16} className="text-gray-500" />
+                            </Button>
+                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 hidden group-hover:block">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/patients/${patient.id}`);
+                                }}
+                                className="w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 flex items-center"
+                              >
+                                <ExternalLink size={14} className="mr-2" />
+                                View Details
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Handle edit
+                                }}
+                                className="w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 flex items-center"
+                              >
+                                <Edit size={14} className="mr-2" />
+                                Edit Patient
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Handle delete
+                                }}
+                                className="w-full px-4 py-2 text-sm text-left text-red-600 hover:bg-red-50 flex items-center"
+                              >
+                                <Trash2 size={14} className="mr-2" />
+                                Delete Patient
+                              </button>
+                            </div>
+                          </div>
                         </td>
-                      </tr>
+                      </motion.tr>
                     ))}
                   </tbody>
                 </table>
