@@ -251,9 +251,9 @@ const Patients: React.FC = () => {
                       )}
                     </div>
 
-                    <h5 className="text-sm text-gray-900">
+                    <div className="text-sm text-gray-900">
                       {patient.first_name} {patient.last_name}
-                    </h5>
+                    </div>
                     
                     <div className="mt-2 space-y-2">
                       <div className="flex items-center text-sm text-gray-600">
