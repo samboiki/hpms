@@ -41,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div 
       className={cn(
-        "fixed left-4 top-4 h-[calc(100vh-32px)] bg-brand-sidebar rounded-xl transition-all duration-300 z-30",
+        "fixed left-4 top-4 h-[calc(100vh-32px)] bg-[#01b9d4] rounded-xl transition-all duration-300 z-30",
         "shadow-[0_8px_30px_rgb(0,0,0,0.08)]",
         collapsed && !isMobile ? "w-[72px]" : "w-[240px]"
       )}
