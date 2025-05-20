@@ -19,7 +19,9 @@ import {
   MoreVertical,
   Edit,
   Trash2,
-  ExternalLink
+  ExternalLink,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
@@ -29,7 +31,7 @@ import FormModal from '../components/modals/FormModal';
 import AddPatientForm from '../components/forms/AddPatientForm';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Patient {
   id: string;
@@ -39,7 +41,6 @@ interface Patient {
   cell_number: string;
   date_of_birth: string;
   gender: string;
-  avatar?: string;
   medical_aid_details?: {
     provider: string;
     membership_number: string;
@@ -56,6 +57,7 @@ const Patients: React.FC = () => {
   const [view, setView] = useState<'grid' | 'list'>('list');
   const [sortBy, setSortBy] = useState<'name' | 'date'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
   
   useEffect(() => {
     fetchPatients();
@@ -125,6 +127,10 @@ const Patients: React.FC = () => {
       setSortBy(field);
       setSortOrder('asc');
     }
+  };
+
+  const toggleRow = (patientId: string) => {
+    setExpandedRow(expandedRow === patientId ? null : patientId);
   };
 
   return (
@@ -201,230 +207,130 @@ const Patients: React.FC = () => {
           </div>
         </div>
       ) : (
-        <>
-          {view === 'grid' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredPatients.map((patient) => (
-                <motion.div
-                  key={patient.id}
-                  whileHover={{ y: -5 }}
-                  className="transform transition-all duration-300"
-                >
-                  <Card
-                    className="group hover:shadow-float bg-white cursor-pointer"
-                    onClick={() => navigate(`/patients/${patient.id}`)}
+        <div className="space-y-4">
+          {filteredPatients.map((patient, index) => (
+            <motion.div
+              key={patient.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className="bg-white rounded-xl shadow-float hover:shadow-lg transition-all duration-300"
+            >
+              {/* Main Row */}
+              <div 
+                className="p-4 flex items-center justify-between cursor-pointer"
+                onClick={() => toggleRow(patient.id)}
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="h-12 w-12 bg-[#01b9d4] rounded-full flex items-center justify-center text-white">
+                    <User size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {patient.first_name} {patient.last_name}
+                    </h3>
+                    <div className="flex items-center space-x-4 text-sm text-gray-500">
+                      <span>{calculateAge(patient.date_of_birth)} years</span>
+                      <span>•</span>
+                      <span>{patient.gender}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-4">
+                  {patient.medical_aid_details && (
+                    <Badge variant="azure" size="sm">
+                      {patient.medical_aid_details.provider}
+                    </Badge>
+                  )}
+                  <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                    {expandedRow === patient.id ? (
+                      <ChevronUp size={20} className="text-gray-500" />
+                    ) : (
+                      <ChevronDown size={20} className="text-gray-500" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Expanded Content */}
+              <AnimatePresence>
+                {expandedRow === patient.id && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden"
                   >
-                    <CardContent className="p-6">
-                      <div className="flex flex-col items-center text-center">
-                        <h3 className="text-lg font-heading font-bold text-gray-900">
-                          {patient.first_name} {patient.last_name}
-                        </h3>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {calculateAge(patient.date_of_birth)} years • {patient.gender}
-                        </p>
-                        
-                        <div className="w-full mt-4 space-y-2">
-                          <div className="flex items-center justify-center text-sm text-gray-600">
-                            <Mail size={14} className="mr-2 text-[#01b9d4]" />
-                            {patient.email || 'No email'}
+                    <div className="p-4 border-t border-gray-100">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center text-gray-600">
+                            <Mail size={16} className="mr-2 text-[#01b9d4]" />
+                            {patient.email || 'No email provided'}
                           </div>
-                          <div className="flex items-center justify-center text-sm text-gray-600">
-                            <Phone size={14} className="mr-2 text-[#01b9d4]" />
-                            {patient.cell_number || 'No phone'}
+                          <div className="flex items-center text-gray-600">
+                            <Phone size={16} className="mr-2 text-[#01b9d4]" />
+                            {patient.cell_number || 'No phone number'}
+                          </div>
+                          <div className="flex items-center text-gray-600">
+                            <Calendar size={16} className="mr-2 text-[#01b9d4]" />
+                            Born {format(new Date(patient.date_of_birth), 'MMMM d, yyyy')}
                           </div>
                         </div>
 
-                        {patient.medical_aid_details && (
-                          <div className="mt-4 flex items-center space-x-2">
-                            <Badge variant="azure" size="sm">
-                              {patient.medical_aid_details.provider}
-                            </Badge>
-                            <Badge variant="glass" size="sm">
-                              Active
-                            </Badge>
-                          </div>
-                        )}
-
-                        <div className="mt-4 pt-4 border-t border-gray-100 w-full">
-                          <div className="flex items-center justify-center text-sm text-gray-500">
-                            <Clock size={14} className="mr-2 text-[#01b9d4]" />
-                            Last visit: {format(new Date(), 'MMM d, yyyy')}
-                          </div>
+                        <div className="flex justify-end space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/patients/${patient.id}`);
+                            }}
+                          >
+                            <ExternalLink size={14} className="mr-2" />
+                            View Details
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Handle edit
+                            }}
+                          >
+                            <Edit size={14} className="mr-2" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:bg-red-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Handle delete
+                            }}
+                          >
+                            <Trash2 size={14} className="mr-2" />
+                            Delete
+                          </Button>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <Card className="border-0 shadow-lg overflow-hidden bg-white">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th 
-                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => toggleSort('name')}
-                      >
-                        <div className="flex items-center">
-                          Patient
-                          <ArrowUpDown size={14} className="ml-1" />
-                        </div>
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Contact</th>
-                      <th 
-                        className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => toggleSort('date')}
-                      >
-                        <div className="flex items-center">
-                          Age
-                          <ArrowUpDown size={14} className="ml-1" />
-                        </div>
-                      </th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Medical Aid</th>
-                      <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Last Visit</th>
-                      <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-100">
-                    {filteredPatients.map((patient, index) => (
-                      <motion.tr 
-                        key={patient.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="group hover:bg-gray-50 hover:shadow-md transition-all duration-300 cursor-pointer relative"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="h-10 w-10 rounded-full flex items-center justify-center group-hover:scale-105 transition-transform">
-                              {patient.avatar ? (
-                                <img
-                                  src={patient.avatar}
-                                  alt={`${patient.first_name} ${patient.last_name}`}
-                                  className="h-full w-full rounded-full object-cover"
-                                />
-                              ) : (
-                                <div className="h-full w-full bg-[#01b9d4] rounded-full flex items-center justify-center text-white">
-                                  <User size={20} />
-                                </div>
-                              )}
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-bold text-gray-900">
-                                {patient.first_name} {patient.last_name}
-                              </div>
-                              <div className="text-sm text-gray-500 capitalize">
-                                {patient.gender}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{patient.email}</div>
-                          <div className="text-sm text-gray-500">{patient.cell_number}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {calculateAge(patient.date_of_birth)} years
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {format(new Date(patient.date_of_birth), 'MMM d, yyyy')}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {patient.medical_aid_details ? (
-                            <div>
-                              <Badge variant="azure" size="sm">
-                                {patient.medical_aid_details.provider}
-                              </Badge>
-                              <div className="text-xs text-gray-500 mt-1">
-                                #{patient.medical_aid_details.membership_number}
-                              </div>
-                            </div>
-                          ) : (
-                            <Badge variant="glass" size="sm">No Insurance</Badge>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center text-sm text-gray-500">
-                            <Clock size={14} className="mr-2 text-[#01b9d4]" />
-                            2 weeks ago
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <div className="relative group">
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // Toggle dropdown
-                              }}
-                            >
-                              <MoreVertical size={16} className="text-gray-500" />
-                            </Button>
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 hidden group-hover:block">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/patients/${patient.id}`);
-                                }}
-                                className="w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 flex items-center"
-                              >
-                                <ExternalLink size={14} className="mr-2" />
-                                View Details
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  // Handle edit
-                                }}
-                                className="w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 flex items-center"
-                              >
-                                <Edit size={14} className="mr-2" />
-                                Edit Patient
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  // Handle delete
-                                }}
-                                className="w-full px-4 py-2 text-sm text-left text-red-600 hover:bg-red-50 flex items-center"
-                              >
-                                <Trash2 size={14} className="mr-2" />
-                                Delete Patient
-                              </button>
-                            </div>
-                          </div>
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
-
-                {filteredPatients.length === 0 && (
-                  <div className="text-center py-12">
-                    <FileText size={40} className="mx-auto text-gray-300 mb-3" />
-                    <p className="text-gray-500">No patients found</p>
-                  </div>
+                    </div>
+                  </motion.div>
                 )}
-              </div>
-            </Card>
-          )}
+              </AnimatePresence>
+            </motion.div>
+          ))}
 
-          <div className="mt-6 flex items-center justify-between text-sm text-gray-500">
-            <div>
-              Showing {filteredPatients.length} of {patients.length} patients
+          {filteredPatients.length === 0 && (
+            <div className="text-center py-12">
+              <FileText size={40} className="mx-auto text-gray-300 mb-3" />
+              <p className="text-gray-500">No patients found</p>
             </div>
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm" disabled>Previous</Button>
-              <Button variant="outline" size="sm">Next</Button>
-            </div>
-          </div>
-        </>
+          )}
+        </div>
       )}
 
       <FormModal
