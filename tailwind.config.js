@@ -1,3 +1,4 @@
+```javascript
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -18,6 +19,7 @@ export default {
           700: '#0f766e',
           800: '#115e59',
           900: '#134e4a',
+          'sidebar': '#01b9d4',
         },
         'accent': {
           coral: '#ff6b6b',
@@ -49,11 +51,20 @@ export default {
       boxShadow: {
         'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
         'glow': '0 0 15px rgba(94, 234, 212, 0.3)',
+        'float': '0 10px 30px -5px rgba(1, 185, 212, 0.1)',
       },
       animation: {
         'pulse-subtle': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'float': 'float 3s ease-in-out infinite',
+      },
+      keyframes: {
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-5px)' },
+        }
       }
     },
   },
   plugins: [],
 }
+```

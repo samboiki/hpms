@@ -1,3 +1,4 @@
+```typescript
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../../utils/cn';
@@ -41,22 +42,22 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div 
       className={cn(
-        "fixed left-4 top-4 h-[calc(100vh-32px)] bg-white rounded-xl transition-all duration-300 z-30",
+        "fixed left-4 top-4 h-[calc(100vh-32px)] bg-brand-sidebar rounded-xl transition-all duration-300 z-30",
         "shadow-[0_8px_30px_rgb(0,0,0,0.08)]",
         collapsed && !isMobile ? "w-[72px]" : "w-[240px]"
       )}
     >
-      <div className="flex items-center h-16 px-4 border-b border-gray-100">
+      <div className="flex items-center h-16 px-4 border-b border-white/10">
         {isMobile && (
           <button
             onClick={onMobileClose}
-            className="absolute right-4 top-4 p-2 rounded-md text-gray-400 hover:text-gray-600 md:hidden"
+            className="absolute right-4 top-4 p-2 rounded-md text-white/80 hover:text-white md:hidden"
           >
             <X size={20} />
           </button>
         )}
         {!collapsed && (
-          <div className="font-semibold text-lg text-brand-blue">
+          <div className="font-semibold text-lg text-white">
             REMEDICA
           </div>
         )}
@@ -69,8 +70,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             to={item.path}
             className={({ isActive }) => cn(
               "flex items-center px-3 py-2 rounded-lg mb-1 transition-colors min-h-[44px]",
-              "hover:bg-gray-50",
-              isActive ? "text-brand-blue bg-blue-50" : "text-gray-600",
+              "hover:bg-white/10",
+              isActive ? "text-white bg-white/20" : "text-white/80",
               collapsed && !isMobile && "justify-center"
             )}
             onClick={isMobile ? onMobileClose : undefined}
@@ -87,7 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <button
           onClick={onToggle}
           className={cn(
-            "flex items-center w-full px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors min-h-[44px]",
+            "flex items-center w-full px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 transition-colors min-h-[44px]",
             collapsed && !isMobile && "justify-center"
           )}
         >
@@ -106,3 +107,4 @@ const Sidebar: React.FC<SidebarProps> = ({
 };
 
 export default Sidebar;
+```
