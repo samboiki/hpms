@@ -152,6 +152,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
     }
 
     setProcessingError(null);
+    let uploadedFilePath: string | null = null;
     
     try {
       setIsProcessingImage(true);
@@ -168,6 +169,12 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             throw new Error('No file selected');
           }
 
+          console.log('Processing file:', {
+            name: file.name,
+            type: file.type,
+            size: file.size
+          });
+
           // Validate file
           const validationError = validateFile(file);
           if (validationError) {
@@ -178,6 +185,9 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
           const fileExt = file.name.split('.').pop();
           const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
           const filePath = `lab-results/${fileName}`;
+          uploadedFilePath = filePath;
+
+          console.log('Uploading file to storage:', filePath);
 
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('media')
@@ -185,13 +195,17 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
 
           if (uploadError) {
             console.error('Storage upload error:', uploadError);
-            throw new Error('Failed to upload image. Please try again.');
+            throw new Error(`Failed to upload image: ${uploadError.message}`);
           }
+
+          console.log('File uploaded successfully:', uploadData);
 
           // Get public URL
           const { data: { publicUrl } } = supabase.storage
             .from('media')
             .getPublicUrl(filePath);
+
+          console.log('Processing image with AI:', publicUrl);
 
           // Process with AI
           const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
@@ -203,34 +217,53 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             body: JSON.stringify({ imageUrl: publicUrl })
           });
 
-          if (!response.ok) {
-            // Delete uploaded file if processing failed
-            await supabase.storage
-              .from('media')
-              .remove([filePath]);
+          const responseData = await response.json();
 
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to process image');
+          if (!response.ok) {
+            throw new Error(responseData.error || `AI processing failed: ${response.statusText}`);
           }
 
-          const result = await response.json();
+          if (responseData.error) {
+            throw new Error(`AI processing error: ${responseData.error}`);
+          }
+
+          console.log('AI processing successful:', responseData);
+
+          if (!responseData.testName && !responseData.value) {
+            throw new Error('AI processing could not extract required data from the image');
+          }
 
           // Add new lab result with AI-extracted data
           setValue('lab_results', [
             ...labResults,
             {
               id: crypto.randomUUID(),
-              name: result.testName || 'Unknown Test',
-              value: result.value || '',
-              unit: result.unit || '',
-              reference_range: result.referenceRange || '',
-              status: result.status || 'normal',
+              name: responseData.testName || 'Unknown Test',
+              value: responseData.value || '',
+              unit: responseData.unit || '',
+              reference_range: responseData.referenceRange || '',
+              status: responseData.status || 'normal',
               date: new Date().toISOString().split('T')[0]
             }
           ]);
+
+          setProcessingError(null);
         } catch (error) {
           console.error('Error in image processing:', error);
-          setProcessingError(error instanceof Error ? error.message : 'An unknown error occurred');
+
+          // Clean up uploaded file if it exists and processing failed
+          if (uploadedFilePath) {
+            try {
+              await supabase.storage
+                .from('media')
+                .remove([uploadedFilePath]);
+              console.log('Cleaned up uploaded file:', uploadedFilePath);
+            } catch (cleanupError) {
+              console.error('Error cleaning up uploaded file:', cleanupError);
+            }
+          }
+
+          setProcessingError(error instanceof Error ? error.message : 'An unknown error occurred while processing the image');
           
           // Add a blank lab result if processing fails
           setValue('lab_results', [
@@ -757,6 +790,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
         </Button>
       </div>
     </form>
+  
   );
 };
 
