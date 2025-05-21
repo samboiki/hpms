@@ -1,48 +1,84 @@
 import React, { useState } from 'react';
-import { Button } from '../ui/Button';
-import { supabase } from '../../lib/supabase';
+import { Upload, Loader2 } from 'lucide-react';
+import Button from '../ui/Button';
 
 interface LabResultUploadProps {
-  visitId: string;
-  onUploadComplete?: () => void;
+  onUpload: (data: {
+    name: string;
+    value: string;
+    unit: string;
+    reference_range: string;
+    status: 'normal' | 'high' | 'low' | 'critical';
+  }) => void;
 }
 
-const LabResultUpload: React.FC<LabResultUploadProps> = ({ visitId, onUploadComplete }) => {
-  const [uploading, setUploading] = useState(false);
+const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
+  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    setError(null);
-
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `lab-results/${visitId}/${fileName}`;
+      setIsUploading(true);
+      setError(null);
 
-      const { error: uploadError } = await supabase.storage
-        .from('medical-files')
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Please upload an image file');
+      }
+
+      // Generate unique file name
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+      const filePath = `lab-results/${fileName}`;
+
+      // Upload to storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('media')
         .upload(filePath, file);
 
       if (uploadError) {
         throw uploadError;
       }
 
+      // Get public URL
       const { data: { publicUrl } } = supabase.storage
-        .from('medical-files')
+        .from('media')
         .getPublicUrl(filePath);
 
-      // Here you would typically save the lab result details to your database
-      // including the file URL and other metadata
+      // Process with AI
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ imageUrl: publicUrl })
+      });
 
-      onUploadComplete?.();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred during upload');
+      if (!response.ok) {
+        throw new Error('Failed to process image');
+      }
+
+      const result = await response.json();
+      
+      onUpload({
+        name: result.testName || 'Unknown Test',
+        value: result.value || '',
+        unit: result.unit || '',
+        reference_range: result.referenceRange || '',
+        status: result.status || 'normal'
+      });
+
+    } catch (error) {
+      console.error('Error uploading lab result:', error);
+      setError(error instanceof Error ? error.message : 'An unknown error occurred');
     } finally {
-      setUploading(false);
+      setIsUploading(false);
+      // Reset file input
+      event.target.value = '';
     }
   };
 
@@ -50,22 +86,33 @@ const LabResultUpload: React.FC<LabResultUploadProps> = ({ visitId, onUploadComp
     <div className="space-y-4">
       <input
         type="file"
-        accept=".pdf,.jpg,.jpeg,.png"
+        accept="image/*"
         onChange={handleFileUpload}
         className="hidden"
         id="lab-result-upload"
       />
       <label htmlFor="lab-result-upload">
         <Button
-          as="span"
-          disabled={uploading}
-          className="cursor-pointer"
+          type="button"
+          variant="outline"
+          className="w-full"
+          disabled={isUploading}
         >
-          {uploading ? 'Uploading...' : 'Upload Lab Result'}
+          {isUploading ? (
+            <>
+              <Loader2 size={16} className="mr-2 animate-spin" />
+              Processing...
+            </>
+          ) : (
+            <>
+              <Upload size={16} className="mr-2" />
+              Upload & Process
+            </>
+          )}
         </Button>
       </label>
       {error && (
-        <p className="text-red-500 text-sm">{error}</p>
+        <p className="text-sm text-red-600">{error}</p>
       )}
     </div>
   );
