@@ -1,5 +1,4 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { ImageAnnotatorClient } from 'npm:@google-cloud/vision@4.0.2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +7,8 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
   'Access-Control-Expose-Headers': '*'
 };
+
+const OPENAI_API_KEY = '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';
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -48,7 +49,7 @@ serve(async (req) => {
       );
     }
 
-    // Validate image URL
+    // Validate and fetch image
     try {
       const imageResponse = await fetch(imageUrl);
       if (!imageResponse.ok) {
@@ -79,61 +80,53 @@ serve(async (req) => {
         );
       }
 
+      // Convert image to base64
       const imageBuffer = await imageResponse.arrayBuffer();
+      const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
 
-      // Check if Google Cloud credentials are configured
-      const clientEmail = Supabase.env.get('GOOGLE_CLIENT_EMAIL');
-      const privateKey = Supabase.env.get('GOOGLE_PRIVATE_KEY');
-
-      if (!clientEmail || !privateKey) {
-        console.error('Missing Google Cloud credentials');
-        return new Response(
-          JSON.stringify({ error: 'Server configuration error' }),
-          { 
-            status: 500, 
-            headers: { 
-              ...corsHeaders, 
-              'Content-Type': 'application/json' 
-            } 
-          }
-        );
-      }
-
-      // Initialize the client
-      const client = new ImageAnnotatorClient({
-        credentials: {
-          client_email: clientEmail,
-          private_key: privateKey.replace(/\\n/g, '\n'),
+      // Call OpenAI Vision API
+      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
         },
+        body: JSON.stringify({
+          model: 'gpt-4-vision-preview',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a medical lab results analyzer. Extract test name, value, unit, reference range, and status from lab result images. Return only the extracted data in a consistent format.'
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Please analyze this lab result image and extract the test name, value, unit, reference range, and determine if the result is normal, high, low, or critical.'
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:${contentType};base64,${base64Image}`
+                  }
+                }
+              ]
+            }
+          ],
+          max_tokens: 300
+        })
       });
 
-      // Perform text detection
-      const [result] = await client.textDetection({
-        image: {
-          content: new Uint8Array(imageBuffer)
-        }
-      });
-
-      const detections = result.textAnnotations;
-
-      if (!detections || detections.length === 0) {
-        return new Response(
-          JSON.stringify({ error: 'No text detected in image' }),
-          { 
-            status: 400, 
-            headers: { 
-              ...corsHeaders, 
-              'Content-Type': 'application/json' 
-            } 
-          }
-        );
+      if (!openaiResponse.ok) {
+        const error = await openaiResponse.json();
+        throw new Error(`OpenAI API error: ${error.error?.message || 'Unknown error'}`);
       }
 
-      // Extract and process the detected text
-      const fullText = detections[0].description;
-      
-      // Parse the text to identify lab result components
-      const lines = fullText.split('\n');
+      const openaiData = await openaiResponse.json();
+      const analysis = openaiData.choices[0].message.content;
+
+      // Parse OpenAI's response to extract structured data
       const labData = {
         testName: '',
         value: '',
@@ -142,7 +135,8 @@ serve(async (req) => {
         status: 'normal' as 'normal' | 'high' | 'low' | 'critical'
       };
 
-      // Simple parsing logic - enhance this based on your lab result format
+      // Extract data from OpenAI's response
+      const lines = analysis.split('\n');
       for (const line of lines) {
         const lowerLine = line.toLowerCase();
         
@@ -158,67 +152,12 @@ serve(async (req) => {
         else if (lowerLine.includes('reference') || lowerLine.includes('range:')) {
           labData.referenceRange = line.split(':')[1]?.trim() || '';
         }
-        else if (lowerLine.includes('status') || lowerLine.includes('flag:')) {
+        else if (lowerLine.includes('status') || lowerLine.includes('assessment:')) {
           const status = line.split(':')[1]?.trim().toLowerCase() || '';
           if (status.includes('high')) labData.status = 'high';
           else if (status.includes('low')) labData.status = 'low';
           else if (status.includes('critical')) labData.status = 'critical';
           else labData.status = 'normal';
-        }
-      }
-
-      // If test name wasn't found in explicit format, try to extract it from context
-      if (!labData.testName) {
-        // Look for common lab test patterns
-        const testPatterns = [
-          /\b(CBC|Complete Blood Count)\b/i,
-          /\b(HbA1c|Hemoglobin A1c)\b/i,
-          /\b(TSH|Thyroid Stimulating Hormone)\b/i,
-          /\b(LDL|HDL|Cholesterol)\b/i,
-          /\bGlucose\b/i,
-          /\bCreatinine\b/i,
-        ];
-
-        for (const line of lines) {
-          for (const pattern of testPatterns) {
-            const match = line.match(pattern);
-            if (match) {
-              labData.testName = match[0];
-              break;
-            }
-          }
-          if (labData.testName) break;
-        }
-      }
-
-      // If value wasn't found in explicit format, try to extract it
-      if (!labData.value) {
-        // Look for numeric values with optional decimal points
-        const valuePattern = /\b\d+\.?\d*\b/;
-        for (const line of lines) {
-          const match = line.match(valuePattern);
-          if (match) {
-            labData.value = match[0];
-            
-            // Try to extract unit from the same line
-            const unitPattern = /[a-zA-Z]+\/[a-zA-Z]+|[a-zA-Z]+/;
-            const unitMatch = line.substring(match.index! + match[0].length).match(unitPattern);
-            if (unitMatch && !labData.unit) {
-              labData.unit = unitMatch[0];
-            }
-            break;
-          }
-        }
-      }
-
-      // Determine status if not explicitly stated
-      if (labData.value && labData.referenceRange && labData.status === 'normal') {
-        const value = parseFloat(labData.value);
-        const range = labData.referenceRange.match(/\d+\.?\d*/g);
-        if (range && range.length >= 2) {
-          const [min, max] = range.map(Number);
-          if (value < min) labData.status = 'low';
-          else if (value > max) labData.status = 'high';
         }
       }
 
@@ -247,9 +186,9 @@ serve(async (req) => {
       );
 
     } catch (fetchError) {
-      console.error('Error fetching or processing image:', fetchError);
+      console.error('Error processing image:', fetchError);
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch or process image' }),
+        JSON.stringify({ error: 'Failed to process image' }),
         { 
           status: 500, 
           headers: { 
