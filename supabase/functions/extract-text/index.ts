@@ -19,9 +19,10 @@ serve(async (req) => {
 
   try {
     // Get OpenAI API key from environment variable
-    const OPENAI_API_KEY = Deno.env.get('VITE_OPENAI_API_KEY');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     
     if (!OPENAI_API_KEY) {
+      console.error('OpenAI API key not found in environment variables');
       return new Response(
         JSON.stringify({ error: 'OpenAI API key not configured' }),
         { 
@@ -134,6 +135,7 @@ serve(async (req) => {
 
       if (!openaiResponse.ok) {
         const error = await openaiResponse.json();
+        console.error('OpenAI API error:', error);
         throw new Error(`OpenAI API error: ${error.error?.message || 'Unknown error'}`);
       }
 
