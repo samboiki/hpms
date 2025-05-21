@@ -46,6 +46,9 @@ interface Props {
   onSuccess: () => void;
 }
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
 const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<AddVisitFormData>({
     defaultValues: {
@@ -59,6 +62,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
   const labResults = watch('lab_results');
   const media = watch('media');
   const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [processingError, setProcessingError] = useState<string | null>(null);
 
   // Calculate BMI when weight or height changes
   React.useEffect(() => {
@@ -68,6 +72,16 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
       setValue('vitals.bmi', Math.round(bmi * 10) / 10);
     }
   }, [weight, height, setValue]);
+
+  const validateFile = (file: File): string | null => {
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      return 'Invalid file type. Please upload a JPEG, PNG, or WebP image.';
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return 'File is too large. Maximum size is 5MB.';
+    }
+    return null;
+  };
 
   const addLabResult = () => {
     setValue('lab_results', [
@@ -105,19 +119,27 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
   };
 
   const processLabImage = async () => {
+    setProcessingError(null);
+    
     try {
       setIsProcessingImage(true);
       
       // Create file input and trigger click
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = 'image/*';
+      input.accept = 'image/jpeg,image/png,image/webp';
       
       input.onchange = async (e) => {
         try {
           const file = (e.target as HTMLInputElement).files?.[0];
           if (!file) {
             throw new Error('No file selected');
+          }
+
+          // Validate file
+          const validationError = validateFile(file);
+          if (validationError) {
+            throw new Error(validationError);
           }
 
           // Upload to storage
@@ -131,7 +153,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
 
           if (uploadError) {
             console.error('Storage upload error:', uploadError);
-            throw new Error('Failed to upload image');
+            throw new Error('Failed to upload image. Please try again.');
           }
 
           // Get public URL
@@ -149,13 +171,16 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             body: JSON.stringify({ imageUrl: publicUrl })
           });
 
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            console.error('Edge function error:', errorData);
-            throw new Error(`Failed to process image: ${errorData.error || response.statusText}`);
-          }
-
           const result = await response.json();
+
+          if (!response.ok) {
+            // Delete uploaded file if processing failed
+            await supabase.storage
+              .from('media')
+              .remove([filePath]);
+
+            throw new Error(result.error || 'Failed to process image');
+          }
 
           // Add new lab result with AI-extracted data
           setValue('lab_results', [
@@ -172,7 +197,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
           ]);
         } catch (error) {
           console.error('Error in image processing:', error);
-          alert(error.message || 'Failed to process image. Please try again or enter values manually.');
+          setProcessingError(error instanceof Error ? error.message : 'An unknown error occurred');
           
           // Add a blank lab result if processing fails
           setValue('lab_results', [
@@ -196,7 +221,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
     } catch (error) {
       console.error('Error initiating image processing:', error);
       setIsProcessingImage(false);
-      alert('Failed to initiate image processing. Please try again.');
+      setProcessingError('Failed to initiate image processing. Please try again.');
     }
   };
 
@@ -418,6 +443,12 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             </Button>
           </div>
         </div>
+
+        {processingError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative">
+            <span className="block sm:inline">{processingError}</span>
+          </div>
+        )}
 
         {labResults.map((_, index) => (
           <div key={index} className="bg-white p-4 rounded-lg border border-gray-200">
