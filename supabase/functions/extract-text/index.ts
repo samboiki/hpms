@@ -8,8 +8,6 @@ const corsHeaders = {
   'Access-Control-Expose-Headers': '*'
 };
 
-const OPENAI_API_KEY = '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';
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -20,6 +18,22 @@ serve(async (req) => {
   }
 
   try {
+    // Get OpenAI API key from environment variable
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    
+    if (!OPENAI_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: 'OpenAI API key not configured' }),
+        { 
+          status: 500, 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
+      );
+    }
+
     // For non-POST requests (like the availability check), return success
     if (req.method !== 'POST') {
       return new Response(
