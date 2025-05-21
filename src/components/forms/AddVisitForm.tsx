@@ -76,13 +76,35 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
           },
         });
         
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        // Log response details for debugging
+        console.log('AI processing check response:', {
+          status: response.status,
+          ok: response.ok
+        });
+
+        let responseData;
+        try {
+          responseData = await response.json();
+          console.log('AI processing check response data:', responseData);
+        } catch (parseError) {
+          console.error('Error parsing AI processing check response:', parseError);
+          setIsAiProcessingEnabled(false);
+          return;
         }
-        
-        const data = await response.json();
-        setIsAiProcessingEnabled(data.status === 'available');
+
+        // If we get a response but it's not OK, disable AI processing but don't throw
+        if (!response.ok) {
+          console.warn('AI processing check failed:', {
+            status: response.status,
+            data: responseData
+          });
+          setIsAiProcessingEnabled(false);
+          return;
+        }
+
+        setIsAiProcessingEnabled(responseData.status === 'available');
       } catch (error) {
+        // Log the error but don't throw
         console.error('Error checking AI processing availability:', error);
         setIsAiProcessingEnabled(false);
       }
@@ -147,7 +169,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
 
   const processLabImage = async () => {
     if (!isAiProcessingEnabled) {
-      setProcessingError('AI processing is not available. Please configure Google Cloud credentials in your Supabase project.');
+      setProcessingError('AI processing is not available. Please try again later.');
       return;
     }
 
@@ -217,7 +239,13 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             body: JSON.stringify({ imageUrl: publicUrl })
           });
 
-          const responseData = await response.json();
+          let responseData;
+          try {
+            responseData = await response.json();
+          } catch (parseError) {
+            console.error('Error parsing AI processing response:', parseError);
+            throw new Error('Failed to parse AI processing response');
+          }
 
           if (!response.ok) {
             throw new Error(responseData.error || `AI processing failed: ${response.statusText}`);
@@ -520,7 +548,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
         {!isAiProcessingEnabled && (
           <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded relative">
             <span className="block sm:inline">
-              AI processing is currently disabled. Please configure Google Cloud credentials in your Supabase project to enable this feature.
+              AI processing is currently unavailable. Please try again later.
             </span>
           </div>
         )}
@@ -790,7 +818,6 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
         </Button>
       </div>
     </form>
-  
   );
 };
 
