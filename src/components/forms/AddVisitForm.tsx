@@ -76,35 +76,23 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
           },
         });
         
-        // Log response details for debugging
         console.log('AI processing check response:', {
           status: response.status,
           ok: response.ok
         });
 
-        let responseData;
-        try {
-          responseData = await response.json();
-          console.log('AI processing check response data:', responseData);
-        } catch (parseError) {
-          console.error('Error parsing AI processing check response:', parseError);
-          setIsAiProcessingEnabled(false);
-          return;
-        }
-
-        // If we get a response but it's not OK, disable AI processing but don't throw
         if (!response.ok) {
           console.warn('AI processing check failed:', {
-            status: response.status,
-            data: responseData
+            status: response.status
           });
           setIsAiProcessingEnabled(false);
           return;
         }
 
+        const responseData = await response.json();
+        console.log('AI processing check response data:', responseData);
         setIsAiProcessingEnabled(responseData.status === 'available');
       } catch (error) {
-        // Log the error but don't throw
         console.error('Error checking AI processing availability:', error);
         setIsAiProcessingEnabled(false);
       }
@@ -179,7 +167,6 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
     try {
       setIsProcessingImage(true);
       
-      // Create file input and trigger click
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/jpeg,image/png,image/webp';
@@ -197,13 +184,11 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             size: file.size
           });
 
-          // Validate file
           const validationError = validateFile(file);
           if (validationError) {
             throw new Error(validationError);
           }
 
-          // Upload to storage
           const fileExt = file.name.split('.').pop();
           const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
           const filePath = `lab-results/${fileName}`;
@@ -222,14 +207,12 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
 
           console.log('File uploaded successfully:', uploadData);
 
-          // Get public URL
           const { data: { publicUrl } } = supabase.storage
             .from('media')
             .getPublicUrl(filePath);
 
           console.log('Processing image with AI:', publicUrl);
 
-          // Process with AI
           const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
             method: 'POST',
             headers: {
@@ -239,29 +222,27 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             body: JSON.stringify({ imageUrl: publicUrl })
           });
 
-          let responseData;
-          try {
-            responseData = await response.json();
-          } catch (parseError) {
-            console.error('Error parsing AI processing response:', parseError);
-            throw new Error('Failed to parse AI processing response');
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('AI processing failed:', {
+              status: response.status,
+              statusText: response.statusText,
+              error: errorText
+            });
+            throw new Error(`AI processing failed: ${response.statusText}`);
           }
 
-          if (!response.ok) {
-            throw new Error(responseData.error || `AI processing failed: ${response.statusText}`);
-          }
+          const responseData = await response.json();
+          console.log('AI processing response:', responseData);
 
           if (responseData.error) {
             throw new Error(`AI processing error: ${responseData.error}`);
           }
 
-          console.log('AI processing successful:', responseData);
-
           if (!responseData.testName && !responseData.value) {
             throw new Error('AI processing could not extract required data from the image');
           }
 
-          // Add new lab result with AI-extracted data
           setValue('lab_results', [
             ...labResults,
             {
@@ -279,7 +260,6 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
         } catch (error) {
           console.error('Error in image processing:', error);
 
-          // Clean up uploaded file if it exists and processing failed
           if (uploadedFilePath) {
             try {
               await supabase.storage
@@ -291,9 +271,10 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             }
           }
 
-          setProcessingError(error instanceof Error ? error.message : 'An unknown error occurred while processing the image');
+          const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred while processing the image';
+          setProcessingError(errorMessage);
           
-          // Add a blank lab result if processing fails
+          // Add a blank lab result even if processing fails
           setValue('lab_results', [
             ...labResults,
             {
