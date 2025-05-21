@@ -3,13 +3,17 @@ import { ImageAnnotatorClient } from 'npm:@google-cloud/vision@4.0.2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { 
+      status: 204, 
+      headers: corsHeaders 
+    });
   }
 
   try {
@@ -18,7 +22,13 @@ serve(async (req) => {
     if (!imageUrl) {
       return new Response(
         JSON.stringify({ error: 'No image URL provided' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { 
+          status: 400, 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
       );
     }
 
@@ -28,7 +38,13 @@ serve(async (req) => {
       if (!imageResponse.ok) {
         return new Response(
           JSON.stringify({ error: 'Failed to fetch image from provided URL' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { 
+            status: 400, 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json' 
+            } 
+          }
         );
       }
 
@@ -37,7 +53,13 @@ serve(async (req) => {
       if (!contentType?.startsWith('image/')) {
         return new Response(
           JSON.stringify({ error: 'Invalid file type. Only images are supported.' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { 
+            status: 400, 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json' 
+            } 
+          }
         );
       }
 
@@ -51,7 +73,13 @@ serve(async (req) => {
         console.error('Missing Google Cloud credentials');
         return new Response(
           JSON.stringify({ error: 'Server configuration error' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { 
+            status: 500, 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json' 
+            } 
+          }
         );
       }
 
@@ -75,7 +103,13 @@ serve(async (req) => {
       if (!detections || detections.length === 0) {
         return new Response(
           JSON.stringify({ error: 'No text detected in image' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { 
+            status: 400, 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json' 
+            } 
+          }
         );
       }
 
@@ -176,20 +210,37 @@ serve(async (req) => {
       if (!labData.testName && !labData.value) {
         return new Response(
           JSON.stringify({ error: 'Could not extract meaningful lab data from image' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { 
+            status: 400, 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json' 
+            } 
+          }
         );
       }
 
       return new Response(
         JSON.stringify(labData),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
       );
 
     } catch (fetchError) {
       console.error('Error fetching or processing image:', fetchError);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch or process image' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { 
+          status: 500, 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
       );
     }
 
@@ -200,7 +251,13 @@ serve(async (req) => {
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error'
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        status: 500, 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
+      }
     );
   }
 });
