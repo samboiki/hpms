@@ -1,1 +1,161 @@
-// Content shown above
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { ImageAnnotatorClient } from 'npm:@google-cloud/vision@4.0.2';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const { imageUrl } = await req.json();
+
+    if (!imageUrl) {
+      return new Response(
+        JSON.stringify({ error: 'No image URL provided' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Initialize the client
+    const client = new ImageAnnotatorClient({
+      credentials: {
+        client_email: Deno.env.get('GOOGLE_CLIENT_EMAIL'),
+        private_key: Deno.env.get('GOOGLE_PRIVATE_KEY')?.replace(/\\n/g, '\n'),
+      },
+    });
+
+    // Fetch the image
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) {
+      throw new Error('Failed to fetch image');
+    }
+    const imageBuffer = await imageResponse.arrayBuffer();
+
+    // Perform text detection
+    const [result] = await client.textDetection({
+      image: {
+        content: new Uint8Array(imageBuffer)
+      }
+    });
+
+    const detections = result.textAnnotations;
+
+    if (!detections || detections.length === 0) {
+      return new Response(
+        JSON.stringify({ error: 'No text detected in image' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Extract and process the detected text
+    const fullText = detections[0].description;
+    
+    // Parse the text to identify lab result components
+    const lines = fullText.split('\n');
+    const labData = {
+      testName: '',
+      value: '',
+      unit: '',
+      referenceRange: '',
+      status: 'normal' as 'normal' | 'high' | 'low' | 'critical'
+    };
+
+    // Simple parsing logic - enhance this based on your lab result format
+    for (const line of lines) {
+      const lowerLine = line.toLowerCase();
+      
+      if (lowerLine.includes('test name') || lowerLine.includes('test:')) {
+        labData.testName = line.split(':')[1]?.trim() || '';
+      }
+      else if (lowerLine.includes('result') || lowerLine.includes('value:')) {
+        labData.value = line.split(':')[1]?.trim() || '';
+      }
+      else if (lowerLine.includes('unit') || lowerLine.includes('units:')) {
+        labData.unit = line.split(':')[1]?.trim() || '';
+      }
+      else if (lowerLine.includes('reference') || lowerLine.includes('range:')) {
+        labData.referenceRange = line.split(':')[1]?.trim() || '';
+      }
+      else if (lowerLine.includes('status') || lowerLine.includes('flag:')) {
+        const status = line.split(':')[1]?.trim().toLowerCase() || '';
+        if (status.includes('high')) labData.status = 'high';
+        else if (status.includes('low')) labData.status = 'low';
+        else if (status.includes('critical')) labData.status = 'critical';
+        else labData.status = 'normal';
+      }
+    }
+
+    // If test name wasn't found in explicit format, try to extract it from context
+    if (!labData.testName) {
+      // Look for common lab test patterns
+      const testPatterns = [
+        /\b(CBC|Complete Blood Count)\b/i,
+        /\b(HbA1c|Hemoglobin A1c)\b/i,
+        /\b(TSH|Thyroid Stimulating Hormone)\b/i,
+        /\b(LDL|HDL|Cholesterol)\b/i,
+        /\bGlucose\b/i,
+        /\bCreatinine\b/i,
+      ];
+
+      for (const line of lines) {
+        for (const pattern of testPatterns) {
+          const match = line.match(pattern);
+          if (match) {
+            labData.testName = match[0];
+            break;
+          }
+        }
+        if (labData.testName) break;
+      }
+    }
+
+    // If value wasn't found in explicit format, try to extract it
+    if (!labData.value) {
+      // Look for numeric values with optional decimal points
+      const valuePattern = /\b\d+\.?\d*\b/;
+      for (const line of lines) {
+        const match = line.match(valuePattern);
+        if (match) {
+          labData.value = match[0];
+          
+          // Try to extract unit from the same line
+          const unitPattern = /[a-zA-Z]+\/[a-zA-Z]+|[a-zA-Z]+/;
+          const unitMatch = line.substring(match.index! + match[0].length).match(unitPattern);
+          if (unitMatch && !labData.unit) {
+            labData.unit = unitMatch[0];
+          }
+          break;
+        }
+      }
+    }
+
+    // Determine status if not explicitly stated
+    if (labData.value && labData.referenceRange && labData.status === 'normal') {
+      const value = parseFloat(labData.value);
+      const range = labData.referenceRange.match(/\d+\.?\d*/g);
+      if (range && range.length >= 2) {
+        const [min, max] = range.map(Number);
+        if (value < min) labData.status = 'low';
+        else if (value > max) labData.status = 'high';
+      }
+    }
+
+    return new Response(
+      JSON.stringify(labData),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('Error processing image:', error);
+    return new Response(
+      JSON.stringify({ error: 'Failed to process image' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});
