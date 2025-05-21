@@ -44,8 +44,8 @@ serve(async (req) => {
       const imageBuffer = await imageResponse.arrayBuffer();
 
       // Check if Google Cloud credentials are configured
-      const clientEmail = Deno.env.get('GOOGLE_CLIENT_EMAIL');
-      const privateKey = Deno.env.get('GOOGLE_PRIVATE_KEY');
+      const clientEmail = Supabase.env.get('GOOGLE_CLIENT_EMAIL');
+      const privateKey = Supabase.env.get('GOOGLE_PRIVATE_KEY');
 
       if (!clientEmail || !privateKey) {
         console.error('Missing Google Cloud credentials');
