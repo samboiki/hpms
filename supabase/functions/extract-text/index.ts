@@ -19,7 +19,7 @@ serve(async (req) => {
 
   try {
     // Get OpenAI API key from environment variable
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const OPENAI_API_KEY = Deno.env.get('VITE_OPENAI_API_KEY');
     
     if (!OPENAI_API_KEY) {
       return new Response(
