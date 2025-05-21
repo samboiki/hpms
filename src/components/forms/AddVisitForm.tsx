@@ -70,14 +70,18 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
     const checkAiProcessing = async () => {
       try {
         const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
-          method: 'OPTIONS',
+          method: 'GET',
           headers: {
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
         });
         
-        // If we get a 500 response, the function is not properly configured
-        setIsAiProcessingEnabled(response.status !== 500);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        setIsAiProcessingEnabled(data.status === 'available');
       } catch (error) {
         console.error('Error checking AI processing availability:', error);
         setIsAiProcessingEnabled(false);

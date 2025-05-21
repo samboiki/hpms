@@ -3,8 +3,10 @@ import { ImageAnnotatorClient } from 'npm:@google-cloud/vision@4.0.2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': '*',
+  'Access-Control-Max-Age': '86400',
+  'Access-Control-Expose-Headers': '*'
 };
 
 serve(async (req) => {
@@ -17,6 +19,20 @@ serve(async (req) => {
   }
 
   try {
+    // For non-POST requests (like the availability check), return success
+    if (req.method !== 'POST') {
+      return new Response(
+        JSON.stringify({ status: 'available' }),
+        { 
+          status: 200, 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
+      );
+    }
+
     const { imageUrl } = await req.json();
 
     if (!imageUrl) {
