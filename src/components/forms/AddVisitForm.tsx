@@ -63,6 +63,29 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
   const media = watch('media');
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [processingError, setProcessingError] = useState<string | null>(null);
+  const [isAiProcessingEnabled, setIsAiProcessingEnabled] = useState<boolean>(true);
+
+  // Check if AI processing is available when component mounts
+  React.useEffect(() => {
+    const checkAiProcessing = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
+          method: 'OPTIONS',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+        });
+        
+        // If we get a 500 response, the function is not properly configured
+        setIsAiProcessingEnabled(response.status !== 500);
+      } catch (error) {
+        console.error('Error checking AI processing availability:', error);
+        setIsAiProcessingEnabled(false);
+      }
+    };
+
+    checkAiProcessing();
+  }, []);
 
   // Calculate BMI when weight or height changes
   React.useEffect(() => {
@@ -119,6 +142,11 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
   };
 
   const processLabImage = async () => {
+    if (!isAiProcessingEnabled) {
+      setProcessingError('AI processing is not available. Please configure Google Cloud credentials in your Supabase project.');
+      return;
+    }
+
     setProcessingError(null);
     
     try {
@@ -171,16 +199,17 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             body: JSON.stringify({ imageUrl: publicUrl })
           });
 
-          const result = await response.json();
-
           if (!response.ok) {
             // Delete uploaded file if processing failed
             await supabase.storage
               .from('media')
               .remove([filePath]);
 
-            throw new Error(result.error || 'Failed to process image');
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to process image');
           }
+
+          const result = await response.json();
 
           // Add new lab result with AI-extracted data
           setValue('lab_results', [
@@ -432,7 +461,8 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
               variant="outline"
               size="sm"
               onClick={processLabImage}
-              disabled={isProcessingImage}
+              disabled={isProcessingImage || !isAiProcessingEnabled}
+              title={!isAiProcessingEnabled ? 'AI processing is not available' : undefined}
             >
               <Wand2 size={16} className="mr-2" />
               {isProcessingImage ? 'Processing...' : 'Process Lab Image'}
@@ -447,6 +477,14 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
         {processingError && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative">
             <span className="block sm:inline">{processingError}</span>
+          </div>
+        )}
+
+        {!isAiProcessingEnabled && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded relative">
+            <span className="block sm:inline">
+              AI processing is currently disabled. Please configure Google Cloud credentials in your Supabase project to enable this feature.
+            </span>
           </div>
         )}
 
