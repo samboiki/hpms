@@ -239,16 +239,13 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             throw new Error(`AI processing error: ${responseData.error}`);
           }
 
-          if (!responseData.testName && !responseData.value) {
-            throw new Error('AI processing could not extract required data from the image');
-          }
-
+          // Add the lab result with extracted or default values
           setValue('lab_results', [
             ...labResults,
             {
               id: crypto.randomUUID(),
-              name: responseData.testName || 'Unknown Test',
-              value: responseData.value || '',
+              name: responseData.testName || 'Untitled Test',
+              value: responseData.value || 'Pending',
               unit: responseData.unit || '',
               reference_range: responseData.referenceRange || '',
               status: responseData.status || 'normal',
@@ -279,8 +276,8 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             ...labResults,
             {
               id: crypto.randomUUID(),
-              name: 'Unknown Test',
-              value: '',
+              name: 'Untitled Test',
+              value: 'Pending',
               unit: '',
               reference_range: '',
               status: 'normal',
@@ -793,6 +790,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
       <div className="flex justify-end space-x-3">
         <Button type="button" variant="outline" onClick={() => onSuccess()}>
           Cancel
+        
         </Button>
         <Button type="submit">
           Record Visit
