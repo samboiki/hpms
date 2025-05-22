@@ -10,7 +10,7 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
-  MoreVertical, // For a subtle action trigger on card
+  MoreVertical,
 } from 'lucide-react';
 import {
   format,
@@ -51,7 +51,7 @@ export interface Appointment {
   status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
   patient: AppointmentPatient;
   doctor?: AppointmentDoctor;
-  notes?: string; // Kept for modal/detail view
+  notes?: string;
 }
 
 interface AppointmentTimelineProps {
@@ -68,7 +68,7 @@ interface AppointmentTimelineProps {
 
 // --- Constants ---
 const START_HOUR = 8;
-const END_HOUR = 20; // Timeline visually ends around 8 PM
+const END_HOUR = 20;
 const SLOT_DURATION_MINUTES = 30;
 const TOTAL_HOURS_DISPLAYED = END_HOUR - START_HOUR;
 const TOTAL_GRID_ROWS = TOTAL_HOURS_DISPLAYED * (60 / SLOT_DURATION_MINUTES);
@@ -165,15 +165,32 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
           <Button size="icon" variant="ghost" className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full" onClick={() => onDateChange(subDays(date, 1))} aria-label="Previous day">
             <ChevronLeft size={20} />
           </Button>
-          <div className="relative">
+          <div className="relative"> {/* This div wraps the button and the popover */}
             <Button size="sm" variant="ghost" onClick={() => setIsCalendarOpen(v => !v)} className="flex items-center px-2 sm:px-3 py-1.5 text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-md">
               <CalendarIcon size={16} className="mr-1.5 sm:mr-2 text-blue-500" />
-              <span className="font-medium text-xs xxs:text-sm md:text-[15px] whitespace-nowrap"> {/* xxs is a custom breakpoint if you have it */}
+              <span className="font-medium text-xs xxs:text-sm md:text-[15px] whitespace-nowrap">
                 {format(date, 'EEEE, dd MMM')}
               </span>
             </Button>
-            {isCalendarOpen && ( /* Calendar Popover - unchanged */ )}
-          </div>
+            {/* Correct conditional rendering for the Calendar Popover */}
+            {isCalendarOpen && (
+              <motion.div 
+                initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                className="absolute top-full left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 mt-1.5 bg-white border border-gray-300 rounded-lg shadow-xl p-1 z-[60]"
+              >
+                <DayPicker
+                  mode="single" selected={date} onSelect={d => { if (d) { onDateChange(d); setIsCalendarOpen(false); }}}
+                  showOutsideDays fixedWeeks className="text-sm"
+                  classNames={{
+                    day_selected: "bg-blue-600 text-white hover:bg-blue-700 focus:bg-blue-700 rounded-md",
+                    day_today: "font-bold text-blue-600 rounded-md border border-blue-300",
+                    button: "hover:bg-blue-50 rounded-md"
+                  }}
+                />
+              </motion.div>
+            )}
+          </div> {/* End of relative div */}
           <Button size="icon" variant="ghost" className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full" onClick={() => onDateChange(addDays(date, 1))} aria-label="Next day">
             <ChevronRight size={20} />
           </Button>
@@ -185,31 +202,27 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
 
       {/* Timeline Body */}
       <div className="flex-1 relative overflow-y-auto min-h-0" id="timeline-scroll-container">
-        {/* Overlay States */}
         {isLoading && ( <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-50 backdrop-blur-sm"><Loader2 size={40} className="text-blue-600 animate-spin mb-3" /><p className="text-gray-600 font-medium">Loading...</p></div> )}
         {error && !isLoading && ( <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 z-40"><AlertCircle size={48} className="text-red-500 mb-3" /><p className="font-semibold text-red-700">Error</p><p className="text-sm text-gray-600 mt-1">{error}</p><Button variant="outline" size="sm" onClick={() => window.location.reload()} className="mt-4">Retry</Button></div> )}
         {!isLoading && !error && filteredAppointments.length === 0 && ( <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6 text-center z-10"><CalendarIcon size={48} className="mb-3 opacity-70" /><p className="font-semibold text-gray-500">No Appointments</p>{onCreateAppointment && <p className="text-sm text-gray-400 mt-1">Click a time slot to create one.</p>}</div> )}
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          {/* Grid for rows, appointments will be absolutely positioned within this context */}
-          <div className="relative px-2 sm:px-3 md:px-4 py-4 min-h-full"> {/* Padding for the whole timeline content area */}
-            {/* Grid Lines & Time Labels (Droppable Areas) */}
+          <div className="relative px-2 sm:px-3 md:px-4 py-4 min-h-full">
             {timeSlots.map((timeStr, i) => (
               <div
                 key={`timeslot-${timeStr}`}
-                id={timeStr} // Droppable ID
+                id={timeStr}
                 className="relative border-t border-gray-200/80 group"
                 style={{ height: `${SLOT_BASE_HEIGHT_REM}rem` }}
                 onClickCapture={(e) => { if (e.target === e.currentTarget && onCreateAppointment) { handleSlotClick(timeStr); }}}
               >
-                <span className="absolute -top-[9px] left-0 sm:left-1 bg-slate-50 px-1.5 text-[10px] text-gray-400 z-10 rounded"> {/* Match timeline body bg */}
+                <span className="absolute -top-[9px] left-0 sm:left-1 bg-slate-50 px-1.5 text-[10px] text-gray-400 z-10 rounded">
                   {format(parseISO(`2000-01-01T${timeStr}:00`), 'h:mm a')}
                 </span>
                 {onCreateAppointment && <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-blue-500 text-xs cursor-pointer bg-blue-50/30 rounded hover:bg-blue-100/50"> Add </div>}
               </div>
             ))}
 
-            {/* "Now" Indicator */}
             {isToday(date) && (() => {
               const nowTotalMinutes = getHours(currentTime) * 60 + getMinutes(currentTime);
               const startTotalMinutes = START_HOUR * 60;
@@ -229,7 +242,6 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
               return null;
              })()}
 
-            {/* Appointments Rendering */}
             <AnimatePresence>
               {filteredAppointments.map(appt => {
                 const [h, m] = appt.time.split(':').map(Number);
@@ -238,12 +250,12 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
 
                 if (minutesFromTimelineStart < 0 || minutesFromTimelineStart >= TOTAL_HOURS_DISPLAYED * 60) return null;
 
-                const startPixelOffset = (minutesFromTimelineStart / SLOT_DURATION_MINUTES) * SLOT_BASE_HEIGHT_REM * 16; // Convert rem to pixels (assuming 1rem=16px)
+                const startPixelOffset = (minutesFromTimelineStart / SLOT_DURATION_MINUTES) * SLOT_BASE_HEIGHT_REM * 16;
                 const durationSlots = Math.max(1, Math.ceil(appt.duration / SLOT_DURATION_MINUTES));
                 
                 const currentStyles = statusConfig[appt.status] || statusConfig.scheduled;
                 const StatusIcon = currentStyles.icon;
-                const cardHeight = `calc(${durationSlots * SLOT_BASE_HEIGHT_REM}rem - 6px)`; // 6px for top/bottom margin within slot
+                const cardHeight = `calc(${durationSlots * SLOT_BASE_HEIGHT_REM}rem - 6px)`;
 
                 return (
                   <motion.div
@@ -259,9 +271,9 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
                       ${currentStyles.cardClasses} ${currentStyles.borderClass}
                     `}
                     style={{
-                      top: `calc(${startPixelOffset}px + 3px)`, // 3px for top margin
+                      top: `calc(${startPixelOffset}px + 3px)`,
                       height: cardHeight,
-                      zIndex: 20 + Math.floor(minutesFromTimelineStart / SLOT_DURATION_MINUTES), // Basic overlap management
+                      zIndex: 20 + Math.floor(minutesFromTimelineStart / SLOT_DURATION_MINUTES),
                     }}
                     onClick={() => openActionModal(appt)}
                   >
@@ -276,7 +288,6 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
                             </Button>
                         </div>
 
-                        {/* Details flex container */}
                         <div className="flex-grow space-y-1 text-[11px] xxs:text-xs sm:text-xs min-h-0 leading-snug">
                             <div className={`flex items-center ${currentStyles.textClass} opacity-90`}>
                                 <Clock size={13} className="mr-1.5 flex-shrink-0" />
@@ -310,7 +321,22 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
         </DndContext>
       </div>
 
-      {selectedAppointment && ( /* Action Modal - Unchanged, assuming it's fine */ )}
+      {selectedAppointment && (
+        <AppointmentActionModal
+          isOpen={isActionModalOpen}
+          appointment={selectedAppointment}
+          onClose={() => { setIsActionModalOpen(false); setSelectedAppointment(null); }}
+          onStatusChange={async (newStatus) => {
+            if (!selectedAppointment) return;
+            try {
+              await onUpdateAppointment(selectedAppointment.id, { status: newStatus });
+              setIsActionModalOpen(false); setSelectedAppointment(null);
+            } catch (err) { console.error(err); }
+          }}
+          onEdit={() => { onView(selectedAppointment); setIsActionModalOpen(false); setSelectedAppointment(null); }}
+          onMessage={() => { if (onMessagePatient) { onMessagePatient(selectedAppointment); } }}
+        />
+      )}
     </div>
   );
 };
