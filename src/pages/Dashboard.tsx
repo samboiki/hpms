@@ -23,7 +23,7 @@ import { useNavigate } from 'react-router-dom';
 import { format, addDays, startOfToday, setHours, setMinutes } from 'date-fns';
 import FormModal from '../components/modals/FormModal';
 import AddAppointmentForm from '../components/forms/AddAppointmentForm';
-import { AppointmentTimeline } from '../components/DashboardAppointments';
+import { AppointmentTimeline } from '../components/AppointmentTimeline';
 
 interface Appointment {
   id: string;
