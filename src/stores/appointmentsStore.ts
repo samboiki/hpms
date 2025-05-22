@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { format } from 'date-fns';
 
 export interface Appointment {
   id: string;

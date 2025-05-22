@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import Header from './Header';
 import { cn } from '../../utils/cn';
 
 const Layout: React.FC = () => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50">
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white shadow-md">
         <div className="flex items-center justify-between h-16 px-4">
@@ -80,6 +81,9 @@ const Layout: React.FC = () => {
           }
         )}
       >
+        <div className="hidden md:block">
+          <Header />
+        </div>
         <main className="p-4 md:p-6">
           <div className="max-w-7xl mx-auto">
             <Outlet />

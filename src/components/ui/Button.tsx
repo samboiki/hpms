@@ -6,7 +6,6 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
   children: React.ReactNode;
-  asChild?: boolean;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -16,13 +15,10 @@ export const Button: React.FC<ButtonProps> = ({
   className,
   children,
   disabled,
-  asChild = false,
   ...props
 }) => {
-  const Comp = asChild ? 'span' : 'button';
-  
   return (
-    <Comp
+    <button
       className={cn(
         'inline-flex items-center justify-center rounded-lg font-medium transition-all duration-300',
         'focus:outline-none focus:ring-2 focus:ring-offset-2',
@@ -65,8 +61,8 @@ export const Button: React.FC<ButtonProps> = ({
         </svg>
       )}
       {children}
-    </Comp>
+    </button>
   );
 };
 
-export default Button;
+export default Button
