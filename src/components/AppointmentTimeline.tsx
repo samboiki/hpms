@@ -8,6 +8,7 @@ import {
   Briefcase,
   AlertCircle,
   CheckCircle,
+  Plus,
   XCircle,
   Loader2,
   MoreVertical,
