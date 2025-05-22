@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Calendar as CalendarIcon,
   User,
-  Clock,
   CheckCircle,
   XCircle,
   AlertCircle,
