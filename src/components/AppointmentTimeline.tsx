@@ -1,20 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Clock, 
   CheckCircle2, 
   XCircle, 
-  User, 
   ChevronLeft,
   ChevronRight,
-  Calendar,
+  Calendar as CalendarIcon,
   Edit3
 } from 'lucide-react';
-import { format, addDays, subDays, setHours, setMinutes } from 'date-fns';
+import { format, addDays, subDays, setHours, setMinutes, parse, isToday } from 'date-fns';
 import Button from './ui/Button';
 import Badge from './ui/Badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
+import { DayPicker } from 'react-day-picker';
+import 'react-day-picker/dist/style.css';
 
 interface Appointment {
   id: string;
@@ -58,12 +59,30 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
   onDateChange,
   onUpdateAppointment
 }) => {
-  const hours = Array.from({ length: 12 }, (_, i) => i + 8); // 08 → 19
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Generate time slots for every 30 minutes from 8 AM to 7 PM
+  const timeSlots = Array.from({ length: 24 }, (_, i) => {
+    const hour = Math.floor(i / 2) + 8;
+    const minutes = (i % 2) * 30;
+    return setMinutes(setHours(date, hour), minutes);
+  });
+
   const sensors = useSensors(useSensor(PointerSensor, {
     activationConstraint: {
       distance: 8,
     },
   }));
+
+  // Update current time every minute
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -72,8 +91,8 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
     const appointment = appointments.find(a => a.id === active.id);
     if (!appointment) return;
 
-    const hour = parseInt(over.id.toString());
-    const newTime = `${hour.toString().padStart(2, '0')}:00`;
+    const timeSlot = parse(over.id.toString(), 'HH:mm', new Date());
+    const newTime = format(timeSlot, 'HH:mm');
 
     onUpdateAppointment(appointment.id, {
       time: newTime
@@ -97,32 +116,64 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
     }
   };
 
+  const getEndTime = (startTime: string, duration: number) => {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes);
+    date.setMinutes(date.getMinutes() + duration);
+    return format(date, 'HH:mm');
+  };
+
   return (
     <div className="flex-1 bg-white rounded-xl shadow-lg overflow-hidden">
       {/* Date Navigation */}
       <div className="p-4 border-b border-gray-100">
         <div className="flex items-center justify-between">
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => onDateChange(subDays(date, 1))}
-          >
-            <ChevronLeft size={16} className="mr-1" />
-            Previous
-          </Button>
-          <h2 className="font-rubik font-semibold text-lg flex items-center">
-            <Calendar size={18} className="mr-2 text-[#01b9d4]" />
-            {format(date, 'EEEE, dd MMM yyyy')}
-          </h2>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => onDateChange(addDays(date, 1))}
-          >
-            Next
-            <ChevronRight size={16} className="ml-1" />
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => onDateChange(subDays(date, 1))}
+            >
+              <ChevronLeft size={14} />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setIsCalendarOpen(!isCalendarOpen)}
+            >
+              <CalendarIcon size={14} className="mr-2 text-[#01b9d4]" />
+              {format(date, 'EEEE, dd MMM yyyy')}
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => onDateChange(addDays(date, 1))}
+            >
+              <ChevronRight size={14} />
+            </Button>
+          </div>
         </div>
+
+        {/* Calendar Popover */}
+        {isCalendarOpen && (
+          <div className="absolute z-50 mt-2 bg-white rounded-lg shadow-lg border border-gray-200 p-4">
+            <DayPicker
+              mode="single"
+              selected={date}
+              onSelect={(day) => {
+                if (day) {
+                  onDateChange(day);
+                  setIsCalendarOpen(false);
+                }
+              }}
+              className="custom-day-picker"
+            />
+          </div>
+        )}
       </div>
 
       {/* Timeline Content */}
@@ -141,127 +192,136 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
             modifiers={[restrictToVerticalAxis]}
             onDragEnd={handleDragEnd}
           >
-            {hours.map((h) => {
-              const bucket = appointments.filter(
-                a => a.date === format(date, 'yyyy-MM-dd') &&
-                    parseInt(a.time.split(':')[0]) === h
-              );
+            <div className="relative">
+              {/* Current Time Indicator */}
+              {isToday(date) && (
+                <div 
+                  className="absolute left-0 right-0 border-t-2 border-red-500 z-10"
+                  style={{
+                    top: `${((currentTime.getHours() - 8) * 60 + currentTime.getMinutes()) * (100 / (11 * 60))}%`
+                  }}
+                >
+                  <div className="absolute -left-1 -top-2 w-4 h-4 rounded-full bg-red-500" />
+                </div>
+              )}
 
-              return (
-                <div key={h} className="mb-6" id={h.toString()}>
-                  <div className="text-xs text-gray-400 mb-2 flex items-center">
-                    <div className="w-12 text-right">
-                      {format(setMinutes(setHours(date, h), 0), 'h:00 a')}
+              {timeSlots.map((timeSlot, i) => {
+                const currentSlotTime = format(timeSlot, 'HH:mm');
+                const slotAppointments = appointments.filter(
+                  a => a.date === format(date, 'yyyy-MM-dd') &&
+                      a.time === currentSlotTime
+                );
+
+                return (
+                  <div key={i} className="mb-4" id={currentSlotTime}>
+                    <div className="text-xs text-gray-400 mb-2 flex items-center">
+                      <div className="w-16 text-right">
+                        {format(timeSlot, 'h:mm a')}
+                      </div>
+                      <div className="flex-1 ml-2 border-t border-gray-100 border-dashed"></div>
                     </div>
-                    <div className="flex-1 ml-2 border-t border-gray-100 border-dashed"></div>
-                  </div>
 
-                  <div className="pl-12">
-                    <AnimatePresence>
-                      {bucket.map(appt => (
-                        <motion.div
-                          key={appt.id}
-                          layout
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          whileHover={{ scale: 1.02 }}
-                          className={`
-                            flex items-center justify-between p-4 mb-2 rounded-lg shadow-sm
-                            cursor-pointer transition-all duration-200
-                            ${appt.status === 'scheduled' ? 'bg-blue-50 border-l-4 border-blue-500' : 
-                              appt.status === 'confirmed' ? 'bg-green-50 border-l-4 border-green-500' :
-                              appt.status === 'in-progress' ? 'bg-amber-50 border-l-4 border-amber-500' :
-                              appt.status === 'cancelled' ? 'bg-red-50 border-l-4 border-red-500' :
-                              appt.status === 'no-show' ? 'bg-purple-50 border-l-4 border-purple-500' :
-                              'bg-gray-50 border-l-4 border-gray-500'}
-                          `}
-                          onClick={() => onView(appt)}
-                        >
-                          <div className="flex items-center space-x-4">
-                            <div className="flex-shrink-0">
-                              <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center">
-                                <User size={20} className={`
-                                  ${appt.status === 'scheduled' ? 'text-blue-500' : 
-                                    appt.status === 'confirmed' ? 'text-green-500' :
-                                    appt.status === 'in-progress' ? 'text-amber-500' :
-                                    appt.status === 'cancelled' ? 'text-red-500' :
-                                    'text-gray-500'}
-                                `} />
-                              </div>
-                            </div>
+                    <div className="pl-16">
+                      <AnimatePresence>
+                        {slotAppointments.map(appt => (
+                          <motion.div
+                            key={appt.id}
+                            layout
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            whileHover={{ scale: 1.02 }}
+                            className={`
+                              flex items-center justify-between p-4 mb-2 rounded-lg shadow-sm
+                              cursor-pointer transition-all duration-200
+                              ${appt.status === 'scheduled' ? 'bg-blue-50 border-l-4 border-blue-500' : 
+                                appt.status === 'confirmed' ? 'bg-green-50 border-l-4 border-green-500' :
+                                appt.status === 'in-progress' ? 'bg-amber-50 border-l-4 border-amber-500' :
+                                appt.status === 'cancelled' ? 'bg-red-50 border-l-4 border-red-500' :
+                                appt.status === 'no-show' ? 'bg-purple-50 border-l-4 border-purple-500' :
+                                'bg-gray-50 border-l-4 border-gray-500'}
+                            `}
+                            onClick={() => onView(appt)}
+                          >
                             <div>
                               <h3 className="font-medium text-gray-900">
                                 {appt.patient.first_name} {appt.patient.last_name}
                               </h3>
                               <div className="flex items-center text-sm text-gray-500">
                                 <Clock size={14} className="mr-1" />
-                                {appt.time} • {appt.type} • {appt.doctor?.full_name || 'No doctor assigned'}
+                                {appt.time} - {getEndTime(appt.time, appt.duration)} • {appt.type}
+                                {appt.doctor?.full_name && (
+                                  <>
+                                    <span className="mx-1">•</span>
+                                    Dr. {appt.doctor.full_name}
+                                  </>
+                                )}
                               </div>
                             </div>
-                          </div>
-                          
-                          <div className="flex items-center space-x-2">
-                            <Badge
-                              variant={getStatusColor(appt.status)}
-                              size="sm"
-                            >
-                              {appt.status}
-                            </Badge>
                             
-                            {appt.status === 'scheduled' && (
-                              <>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  className="bg-white"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onCheckIn(appt.id);
-                                  }}
-                                >
-                                  <CheckCircle2 size={14} className="mr-1" />
-                                  Check-in
-                                </Button>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  className="bg-white text-red-600 hover:bg-red-50"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onCancel(appt.id);
-                                  }}
-                                >
-                                  <XCircle size={14} className="mr-1" />
-                                  Cancel
-                                </Button>
-                              </>
-                            )}
-                            
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="bg-white"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onView(appt);
-                              }}
-                            >
-                              <Edit3 size={14} className="mr-1" />
-                              Edit
-                            </Button>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
+                            <div className="flex items-center space-x-2">
+                              <Badge
+                                variant={getStatusColor(appt.status)}
+                                size="sm"
+                                className="capitalize"
+                              >
+                                {appt.status}
+                              </Badge>
+                              
+                              {appt.status === 'scheduled' && (
+                                <>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="bg-white"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onCheckIn(appt.id);
+                                    }}
+                                  >
+                                    <CheckCircle2 size={14} className="mr-1" />
+                                    Check-in
+                                  </Button>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="bg-white text-red-600 hover:bg-red-50"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onCancel(appt.id);
+                                    }}
+                                  >
+                                    <XCircle size={14} className="mr-1" />
+                                    Cancel
+                                  </Button>
+                                </>
+                              )}
+                              
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="bg-white"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onView(appt);
+                                }}
+                              >
+                                <Edit3 size={14} className="mr-1" />
+                                Edit
+                              </Button>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
 
-                    {bucket.length === 0 && (
-                      <div className="h-4" />
-                    )}
+                      {slotAppointments.length === 0 && (
+                        <div className="h-2" />
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </DndContext>
         )}
 

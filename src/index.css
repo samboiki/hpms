@@ -28,6 +28,32 @@
     pointer-events: none;
     transition: opacity 0.2s ease-in-out;
   }
+
+  /* Custom styles for react-day-picker */
+  .custom-day-picker {
+    --rdp-cell-size: 40px;
+    --rdp-accent-color: #01b9d4;
+    --rdp-background-color: #e6f7ff;
+    font-family: 'Montserrat', sans-serif;
+  }
+
+  .custom-day-picker .rdp-day_selected:not([disabled]) {
+    background-color: var(--rdp-accent-color);
+    color: white;
+  }
+
+  .custom-day-picker .rdp-day_selected:hover:not([disabled]) {
+    background-color: #0197d4;
+  }
+
+  .custom-day-picker .rdp-day:hover:not([disabled]) {
+    background-color: var(--rdp-background-color);
+  }
+
+  .custom-day-picker .rdp-head_cell {
+    font-weight: 600;
+    color: #4b5563;
+  }
 }
 
 @layer components {
