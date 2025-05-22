@@ -361,6 +361,7 @@ const Dashboard: React.FC = () => {
       <div className="col-span-12 xl:col-span-4 h-full flex flex-col">
         <AppointmentTimeline
           date={selectedDate}
+          onDateChange={setSelectedDate}
           onCheckIn={handleCheckIn}
           onCancel={handleCancel}
           onView={handleView}
