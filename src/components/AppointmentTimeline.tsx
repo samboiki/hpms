@@ -16,6 +16,7 @@ import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
+import AppointmentActionModal from './modals/AppointmentActionModal';
 
 interface Appointment {
   id: string;
@@ -46,6 +47,7 @@ interface AppointmentTimelineProps {
   onView: (appointment: Appointment) => void;
   onDateChange: (date: Date) => void;
   onUpdateAppointment: (id: string, updates: Partial<Appointment>) => void;
+  onMessagePatient?: (appointment: Appointment) => void;
 }
 
 export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
@@ -57,10 +59,13 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
   onCancel, 
   onView,
   onDateChange,
-  onUpdateAppointment
+  onUpdateAppointment,
+  onMessagePatient
 }) => {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   
   // Generate time slots for every 30 minutes from 8 AM to 7 PM
   const timeSlots = Array.from({ length: 24 }, (_, i) => {
@@ -84,7 +89,7 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) return;
 
@@ -94,9 +99,14 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
     const timeSlot = parse(over.id.toString(), 'HH:mm', new Date());
     const newTime = format(timeSlot, 'HH:mm');
 
-    onUpdateAppointment(appointment.id, {
-      time: newTime
-    });
+    try {
+      await onUpdateAppointment(appointment.id, {
+        time: newTime
+      });
+    } catch (error) {
+      console.error('Failed to update appointment time:', error);
+      // You could add error handling UI here
+    }
   };
 
   const getStatusColor = (status: Appointment['status']) => {
@@ -124,11 +134,29 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
     return format(date, 'HH:mm');
   };
 
+  const handleAppointmentClick = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setIsActionModalOpen(true);
+  };
+
+  const handleStatusChange = async (status: string) => {
+    if (!selectedAppointment) return;
+
+    try {
+      await onUpdateAppointment(selectedAppointment.id, { status: status as Appointment['status'] });
+      setIsActionModalOpen(false);
+      setSelectedAppointment(null);
+    } catch (error) {
+      console.error('Failed to update appointment status:', error);
+      // You could add error handling UI here
+    }
+  };
+
   return (
     <div className="flex-1 bg-white rounded-xl shadow-lg overflow-hidden">
       {/* Date Navigation */}
       <div className="p-4 border-b border-gray-100">
-        <div className="flex items-center justify-between">
+        <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
             <Button 
               variant="outline" 
@@ -241,7 +269,7 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
                                 appt.status === 'no-show' ? 'bg-purple-50 border-l-4 border-purple-500' :
                                 'bg-gray-50 border-l-4 border-gray-500'}
                             `}
-                            onClick={() => onView(appt)}
+                            onClick={() => handleAppointmentClick(appt)}
                           >
                             <div>
                               <h3 className="font-medium text-gray-900">
@@ -267,48 +295,6 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
                               >
                                 {appt.status}
                               </Badge>
-                              
-                              {appt.status === 'scheduled' && (
-                                <>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    className="bg-white"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onCheckIn(appt.id);
-                                    }}
-                                  >
-                                    <CheckCircle2 size={14} className="mr-1" />
-                                    Check-in
-                                  </Button>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    className="bg-white text-red-600 hover:bg-red-50"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onCancel(appt.id);
-                                    }}
-                                  >
-                                    <XCircle size={14} className="mr-1" />
-                                    Cancel
-                                  </Button>
-                                </>
-                              )}
-                              
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="bg-white"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onView(appt);
-                                }}
-                              >
-                                <Edit3 size={14} className="mr-1" />
-                                Edit
-                              </Button>
                             </div>
                           </motion.div>
                         ))}
@@ -332,6 +318,28 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
           </div>
         )}
       </div>
+
+      {/* Appointment Action Modal */}
+      {selectedAppointment && (
+        <AppointmentActionModal
+          isOpen={isActionModalOpen}
+          onClose={() => {
+            setIsActionModalOpen(false);
+            setSelectedAppointment(null);
+          }}
+          appointment={selectedAppointment}
+          onStatusChange={handleStatusChange}
+          onEdit={() => {
+            setIsActionModalOpen(false);
+            onView(selectedAppointment);
+          }}
+          onMessage={() => {
+            if (onMessagePatient) {
+              onMessagePatient(selectedAppointment);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };
