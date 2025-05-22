@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Clock, 
-  CheckCircle2, 
-  XCircle, 
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
-  Edit3
+  Edit3,
+  Plus,
+  Search,
+  Filter,
+  CheckCircle2,
+  XCircle,
+  AlertCircle
 } from 'lucide-react';
 import { format, addDays, subDays, setHours, setMinutes, parse, isToday, parseISO, isSameDay } from 'date-fns';
 import Button from './ui/Button';
@@ -89,6 +93,16 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
     return () => clearInterval(timer);
   }, []);
 
+  // Debug logging to help diagnose appointment matching issues
+  console.log(
+    'Appointments data:',
+    appointments.map(a => ({
+      rawDate: a.date,
+      parsedDate: parseISO(a.date).toString(),
+      rawTime: a.time
+    }))
+  );
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) return;
@@ -105,11 +119,10 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
       });
     } catch (error) {
       console.error('Failed to update appointment time:', error);
-      // You could add error handling UI here
     }
   };
 
-  const getStatusColor = (status: Appointment['status']) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case 'scheduled':
         return 'azure';
@@ -148,7 +161,6 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
       setSelectedAppointment(null);
     } catch (error) {
       console.error('Failed to update appointment status:', error);
-      // You could add error handling UI here
     }
   };
 
@@ -235,9 +247,16 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
 
               {timeSlots.map((timeSlot, i) => {
                 const currentSlotTime = format(timeSlot, 'HH:mm');
+                // Normalize dates and times for comparison
                 const slotAppointments = appointments.filter(a => {
-                  const apptDate = parseISO(a.date);
-                  return isSameDay(apptDate, date) && a.time === currentSlotTime;
+                  // Extract just the YYYY-MM-DD part
+                  const [yyyy, MM, dd] = a.date.split('T')[0].split('-').map(Number);
+                  const apptDate = new Date(yyyy, MM - 1, dd);
+                  
+                  // Normalize time to HH:mm format
+                  const storedTime = a.time.slice(0, 5).padStart(5, '0');
+                  
+                  return isSameDay(apptDate, date) && storedTime === currentSlotTime;
                 });
 
                 return (
@@ -266,7 +285,6 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
                                 appt.status === 'confirmed' ? 'bg-green-50 border-l-4 border-green-500' :
                                 appt.status === 'in-progress' ? 'bg-amber-50 border-l-4 border-amber-500' :
                                 appt.status === 'cancelled' ? 'bg-red-50 border-l-4 border-red-500' :
-                                appt.status === 'no-show' ? 'bg-purple-50 border-l-4 border-purple-500' :
                                 'bg-gray-50 border-l-4 border-gray-500'}
                             `}
                             onClick={() => handleAppointmentClick(appt)}
