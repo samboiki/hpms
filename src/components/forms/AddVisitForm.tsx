@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
-import { Image as ImageIcon, X, Upload, Plus } from 'lucide-react';
+import { Image as ImageIcon, X, Upload, Plus, Wand2 } from 'lucide-react';
+import LabResultUpload from '../visits/LabResultUpload';
+import MediaUpload from '../visits/MediaUpload';
 
 interface AddVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
@@ -23,6 +25,7 @@ interface AddVisitFormData {
     bmi?: number;
   };
   lab_results: Array<{
+    id?: string;
     name: string;
     value: string;
     unit: string;
@@ -43,6 +46,9 @@ interface Props {
   onSuccess: () => void;
 }
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
 const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<AddVisitFormData>({
     defaultValues: {
@@ -55,6 +61,45 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
   const height = watch('vitals.height');
   const labResults = watch('lab_results');
   const media = watch('media');
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [processingError, setProcessingError] = useState<string | null>(null);
+  const [isAiProcessingEnabled, setIsAiProcessingEnabled] = useState<boolean>(true);
+
+  // Check if AI processing is available when component mounts
+  React.useEffect(() => {
+    const checkAiProcessing = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+        });
+        
+        console.log('AI processing check response:', {
+          status: response.status,
+          ok: response.ok
+        });
+
+        if (!response.ok) {
+          console.warn('AI processing check failed:', {
+            status: response.status
+          });
+          setIsAiProcessingEnabled(false);
+          return;
+        }
+
+        const responseData = await response.json();
+        console.log('AI processing check response data:', responseData);
+        setIsAiProcessingEnabled(responseData.status === 'available');
+      } catch (error) {
+        console.error('Error checking AI processing availability:', error);
+        setIsAiProcessingEnabled(false);
+      }
+    };
+
+    checkAiProcessing();
+  }, []);
 
   // Calculate BMI when weight or height changes
   React.useEffect(() => {
@@ -65,10 +110,21 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
     }
   }, [weight, height, setValue]);
 
+  const validateFile = (file: File): string | null => {
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      return 'Invalid file type. Please upload a JPEG, PNG, or WebP image.';
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      return 'File is too large. Maximum size is 5MB.';
+    }
+    return null;
+  };
+
   const addLabResult = () => {
     setValue('lab_results', [
       ...labResults,
       {
+        id: crypto.randomUUID(),
         name: '',
         value: '',
         unit: '',
@@ -99,62 +155,148 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
     setValue('media', media.filter((_, i) => i !== index));
   };
 
-  const processLabImage = async (file: File) => {
+  const processLabImage = async () => {
+    if (!isAiProcessingEnabled) {
+      setProcessingError('AI processing is not available. Please try again later.');
+      return;
+    }
+
+    setProcessingError(null);
+    let uploadedFilePath: string | null = null;
+    
     try {
-      // First upload the file to get a URL
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2)}${Date.now()}.${fileExt}`;
-      const filePath = `lab-results/${fileName}`;
+      setIsProcessingImage(true);
+      
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/jpeg,image/png,image/webp';
+      
+      input.onchange = async (e) => {
+        try {
+          const file = (e.target as HTMLInputElement).files?.[0];
+          if (!file) {
+            throw new Error('No file selected');
+          }
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('media')
-        .upload(filePath, file);
+          console.log('Processing file:', {
+            name: file.name,
+            type: file.type,
+            size: file.size
+          });
 
-      if (uploadError) throw uploadError;
+          const validationError = validateFile(file);
+          if (validationError) {
+            throw new Error(validationError);
+          }
 
-      // Get the public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('media')
-        .getPublicUrl(filePath);
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+          const filePath = `lab-results/${fileName}`;
+          uploadedFilePath = filePath;
 
-      // Call the edge function to process the image
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ imageUrl: publicUrl })
-      });
+          console.log('Uploading file to storage:', filePath);
 
-      if (!response.ok) {
-        throw new Error(`AI processing failed: ${await response.text()}`);
-      }
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('media')
+            .upload(filePath, file);
 
-      const responseData = await response.json();
+          if (uploadError) {
+            console.error('Storage upload error:', uploadError);
+            throw new Error(`Failed to upload image: ${uploadError.message}`);
+          }
 
-      if (!Array.isArray(responseData.results) || responseData.results.length === 0) {
-        throw new Error('AI processing could not extract any lab results from the image');
-      }
+          console.log('File uploaded successfully:', uploadData);
 
-      // Append all extracted results
-      const newLabEntries = responseData.results.map((res: any) => ({
-        name: res.testName || 'Unknown Test',
-        value: res.value || '',
-        unit: res.unit || '',
-        reference_range: res.referenceRange || '',
-        status: res.status || 'normal',
-        date: new Date().toISOString().split('T')[0]
-      }));
+          const { data: { publicUrl } } = supabase.storage
+            .from('media')
+            .getPublicUrl(filePath);
 
-      setValue('lab_results', [
-        ...labResults,
-        ...newLabEntries
-      ]);
+          console.log('Processing image with AI:', publicUrl);
 
+          const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ imageUrl: publicUrl })
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('AI processing failed:', {
+              status: response.status,
+              statusText: response.statusText,
+              error: errorText
+            });
+            throw new Error(`AI processing failed: ${response.statusText}`);
+          }
+
+          const responseData = await response.json();
+          console.log('AI processing response:', responseData);
+
+          if (responseData.error) {
+            throw new Error(`AI processing error: ${responseData.error}`);
+          }
+
+          if (!responseData.testName && !responseData.value) {
+            throw new Error('AI processing could not extract required data from the image');
+          }
+
+          setValue('lab_results', [
+            ...labResults,
+            {
+              id: crypto.randomUUID(),
+              name: responseData.testName || 'Unknown Test',
+              value: responseData.value || '',
+              unit: responseData.unit || '',
+              reference_range: responseData.referenceRange || '',
+              status: responseData.status || 'normal',
+              date: new Date().toISOString().split('T')[0]
+            }
+          ]);
+
+          setProcessingError(null);
+        } catch (error) {
+          console.error('Error in image processing:', error);
+
+          if (uploadedFilePath) {
+            try {
+              await supabase.storage
+                .from('media')
+                .remove([uploadedFilePath]);
+              console.log('Cleaned up uploaded file:', uploadedFilePath);
+            } catch (cleanupError) {
+              console.error('Error cleaning up uploaded file:', cleanupError);
+            }
+          }
+
+          const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred while processing the image';
+          setProcessingError(errorMessage);
+          
+          // Add a blank lab result even if processing fails
+          setValue('lab_results', [
+            ...labResults,
+            {
+              id: crypto.randomUUID(),
+              name: 'Unknown Test',
+              value: '',
+              unit: '',
+              reference_range: '',
+              status: 'normal',
+              date: new Date().toISOString().split('T')[0]
+            }
+          ]);
+        } finally {
+          setIsProcessingImage(false);
+        }
+      };
+
+      input.click();
     } catch (error) {
-      console.error('Error in image processing:', error);
-      throw error;
+      console.error('Error initiating image processing:', error);
+      setIsProcessingImage(false);
+      setProcessingError('Failed to initiate image processing. Please try again.');
     }
   };
 
@@ -359,11 +501,38 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
       <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 space-y-4">
         <div className="flex justify-between items-center">
           <h3 className="text-lg font-medium text-gray-900">Lab Results</h3>
-          <Button type="button" variant="outline" size="sm" onClick={addLabResult}>
-            <Plus size={16} className="mr-2" />
-            Add Result
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={processLabImage}
+              disabled={isProcessingImage || !isAiProcessingEnabled}
+              title={!isAiProcessingEnabled ? 'AI processing is not available' : undefined}
+            >
+              <Wand2 size={16} className="mr-2" />
+              {isProcessingImage ? 'Processing...' : 'Process Lab Image'}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={addLabResult}>
+              <Plus size={16} className="mr-2" />
+              Add Result
+            </Button>
+          </div>
         </div>
+
+        {processingError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative">
+            <span className="block sm:inline">{processingError}</span>
+          </div>
+        )}
+
+        {!isAiProcessingEnabled && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded relative">
+            <span className="block sm:inline">
+              AI processing is currently unavailable. Please try again later.
+            </span>
+          </div>
+        )}
 
         {labResults.map((_, index) => (
           <div key={index} className="bg-white p-4 rounded-lg border border-gray-200">
@@ -439,34 +608,14 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             </div>
 
             <div className="mt-4">
-              <div className="relative">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={async (e) => {
-                    try {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      await processLabImage(file);
-                      e.target.value = ''; // Clear the input
-                    } catch (error) {
-                      console.error('Error processing image:', error);
-                      alert('Failed to process image. Please try again or enter values manually.');
-                    }
-                  }}
-                  className="hidden"
-                  id={`lab-result-upload-${index}`}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => document.getElementById(`lab-result-upload-${index}`)?.click()}
-                >
-                  <Upload size={14} className="mr-2" />
-                  Process Lab Image
-                </Button>
-              </div>
+              <LabResultUpload
+                onUpload={(data) => {
+                  setValue(`lab_results.${index}`, {
+                    ...data,
+                    date: new Date().toISOString().split('T')[0]
+                  });
+                }}
+              />
             </div>
           </div>
         ))}
@@ -511,16 +660,6 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700">URL</label>
-                <input
-                  type="url"
-                  {...register(`media.${index}.url` as const, { required: true })}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
-                  placeholder="https://"
-                />
-              </div>
-
-              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700">Description</label>
                 <input
                   type="text"
@@ -537,6 +676,15 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                 />
               </div>
+            </div>
+
+            <div className="mt-4">
+              <MediaUpload
+                type={watch(`media.${index}.type`)}
+                onUpload={(url) => {
+                  setValue(`media.${index}.url`, url);
+                }}
+              />
             </div>
           </div>
         ))}
