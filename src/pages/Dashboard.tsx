@@ -23,6 +23,7 @@ import { useNavigate } from 'react-router-dom';
 import { format, addDays, startOfToday } from 'date-fns';
 import FormModal from '../components/modals/FormModal';
 import AddAppointmentForm from '../components/forms/AddAppointmentForm';
+import DashboardAppointments from '../components/DashboardAppointments';
 
 interface Appointment {
   id: string;
@@ -50,17 +51,19 @@ const Dashboard: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [isAddAppointmentModalOpen, setIsAddAppointmentModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(startOfToday());
+  const [recentVisits, setRecentVisits] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchAppointments();
+    fetchDashboardData();
   }, [selectedDate]);
 
-  const fetchAppointments = async () => {
+  const fetchDashboardData = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      const { data, error } = await supabase
+      // Fetch today's appointments
+      const { data: appointmentsData, error: appointmentsError } = await supabase
         .from('appointments')
         .select(`
           *,
@@ -77,11 +80,34 @@ const Dashboard: React.FC = () => {
         .eq('date', format(selectedDate, 'yyyy-MM-dd'))
         .order('time');
 
-      if (error) throw error;
-      setAppointments(data || []);
+      if (appointmentsError) throw appointmentsError;
+      setAppointments(appointmentsData || []);
+
+      // Fetch recent visits
+      const { data: visitsData, error: visitsError } = await supabase
+        .from('visits')
+        .select(`
+          id,
+          visit_date,
+          visit_time,
+          visit_type,
+          status,
+          chief_complaint,
+          patient:patient_id (
+            id,
+            first_name,
+            last_name
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (visitsError) throw visitsError;
+      setRecentVisits(visitsData || []);
+
     } catch (err) {
-      console.error('Error fetching appointments:', err);
-      setError('Failed to load appointments');
+      console.error('Error fetching dashboard data:', err);
+      setError('Failed to load dashboard data');
     } finally {
       setIsLoading(false);
     }
@@ -90,13 +116,23 @@ const Dashboard: React.FC = () => {
   const handleCheckIn = async (appointmentId: string) => {
     try {
       // Start a visit for this appointment
+      const { data: appointmentData, error: appointmentFetchError } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('id', appointmentId)
+        .single();
+
+      if (appointmentFetchError) throw appointmentFetchError;
+
       const { data: visitData, error: visitError } = await supabase
         .from('visits')
         .insert([{
           appointment_id: appointmentId,
+          patient_id: appointmentData.patient_id,
+          doctor_id: appointmentData.doctor_id,
           visit_date: format(new Date(), 'yyyy-MM-dd'),
           visit_time: format(new Date(), 'HH:mm:ss'),
-          visit_type: 'consultation',
+          visit_type: appointmentData.type,
           status: 'in-progress'
         }])
         .select()
@@ -113,12 +149,10 @@ const Dashboard: React.FC = () => {
       if (appointmentError) throw appointmentError;
 
       // Refresh appointments
-      fetchAppointments();
+      fetchDashboardData();
 
-      // Navigate to the visit page
-      if (visitData) {
-        navigate(`/visits/${visitData.id}`);
-      }
+      // Navigate to the patient page
+      navigate(`/patients/${appointmentData.patient_id}`);
     } catch (error) {
       console.error('Error checking in appointment:', error);
       alert('Failed to check in appointment');
@@ -133,40 +167,10 @@ const Dashboard: React.FC = () => {
         .eq('id', appointmentId);
 
       if (error) throw error;
-      fetchAppointments();
+      fetchDashboardData();
     } catch (error) {
       console.error('Error cancelling appointment:', error);
       alert('Failed to cancel appointment');
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'scheduled':
-        return 'azure';
-      case 'in-progress':
-        return 'warning';
-      case 'completed':
-        return 'success';
-      case 'cancelled':
-        return 'error';
-      default:
-        return 'glass';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'scheduled':
-        return <Clock size={16} />;
-      case 'in-progress':
-        return <Activity size={16} />;
-      case 'completed':
-        return <CheckCircle2 size={16} />;
-      case 'cancelled':
-        return <XCircle size={16} />;
-      default:
-        return null;
     }
   };
 
@@ -258,228 +262,158 @@ const Dashboard: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Date Navigation */}
-      <div className="flex items-center justify-between">
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => setSelectedDate(prev => addDays(prev, -1))}
-        >
-          <ArrowLeft size={16} className="mr-2" />
-          Previous Day
-        </Button>
-        
-        <h2 className="text-lg font-medium text-gray-900">
-          {format(selectedDate, 'EEEE, MMMM d, yyyy')}
-          {format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd') && (
-            <span className="ml-2 text-sm bg-brand-primary/10 text-brand-primary px-2 py-1 rounded-full">
-              Today
-            </span>
-          )}
-        </h2>
-        
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => setSelectedDate(prev => addDays(prev, 1))}
-        >
-          Next Day
-          <ArrowRight size={16} className="ml-2" />
-        </Button>
-      </div>
-
-      {/* Today's Appointments */}
-      <Card>
-        <CardHeader className="flex justify-between items-center">
-          <CardTitle>Today's Appointments</CardTitle>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => navigate('/appointments')}
-          >
-            View All
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-            </div>
-          ) : error ? (
-            <div className="text-center py-8">
-              <AlertCircle size={40} className="mx-auto text-error-500 mb-2" />
-              <p className="text-error-600">{error}</p>
-            </div>
-          ) : appointments.length > 0 ? (
-            <div className="space-y-4">
-              {appointments.map((appointment) => (
-                <div 
-                  key={appointment.id}
-                  className={`
-                    flex items-center justify-between p-4 rounded-lg
-                    ${appointment.status === 'scheduled' ? 'bg-blue-50 border-l-4 border-blue-500' : 
-                      appointment.status === 'in-progress' ? 'bg-green-50 border-l-4 border-green-500' : 
-                      appointment.status === 'cancelled' ? 'bg-red-50 border-l-4 border-red-500' : 
-                      'bg-gray-50 border-l-4 border-gray-500'}
-                  `}
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="flex-shrink-0">
-                      <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center">
-                        <User size={20} className={`
-                          ${appointment.status === 'scheduled' ? 'text-blue-500' : 
-                            appointment.status === 'in-progress' ? 'text-green-500' : 
-                            appointment.status === 'cancelled' ? 'text-red-500' : 
-                            'text-gray-500'}
-                        `} />
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-gray-900">
-                        {appointment.patient.first_name} {appointment.patient.last_name}
-                      </h3>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <Clock size={14} className="mr-1" />
-                        {appointment.time} • {appointment.type} • {appointment.doctor?.full_name || 'No doctor assigned'}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <Badge
-                      variant={getStatusColor(appointment.status)}
-                      size="sm"
-                      className="flex items-center space-x-1"
-                    >
-                      {getStatusIcon(appointment.status)}
-                      <span className="ml-1">{appointment.status}</span>
-                    </Badge>
-                    
-                    {appointment.status === 'scheduled' && (
-                      <>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="bg-white"
-                          onClick={() => handleCheckIn(appointment.id)}
-                        >
-                          Check-in
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          className="bg-white text-red-600 hover:bg-red-50"
-                          onClick={() => handleCancel(appointment.id)}
-                        >
-                          Cancel
-                        </Button>
-                      </>
-                    )}
-                    
-                    {appointment.status === 'in-progress' && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="bg-white"
-                        onClick={() => navigate(`/patients/${appointment.patient_id}`)}
-                      >
-                        View Patient
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Calendar size={40} className="mx-auto text-gray-300" />
-              <p className="mt-2 text-gray-500">No appointments scheduled for today</p>
-              <Button 
-                variant="outline" 
-                size="sm"
-                className="mt-4"
-                onClick={() => setIsAddAppointmentModalOpen(true)}
-              >
-                <Plus size={16} className="mr-2" />
-                Schedule Appointment
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Activity */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardHeader className="flex justify-between items-center">
+              <CardTitle>Recent Activity</CardTitle>
+              <Button variant="ghost" size="sm">
+                View All
               </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {recentVisits.length > 0 ? (
+                  recentVisits.map((visit) => (
+                    <div 
+                      key={visit.id}
+                      className="flex items-start space-x-4 p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
+                      onClick={() => navigate(`/patients/${visit.patient.id}`)}
+                    >
+                      <div className="flex-shrink-0 mt-1">
+                        <FileText size={16} className="text-gray-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-gray-900">
+                            {visit.patient.first_name} {visit.patient.last_name}
+                          </p>
+                          <span className="text-xs text-gray-500">
+                            {new Date(visit.visit_date).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500 truncate">
+                          {visit.chief_complaint || `${visit.visit_type} visit`}
+                        </p>
+                      </div>
+                      <ChevronRight size={16} className="text-gray-400" />
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-6">
+                    <Activity size={40} className="mx-auto text-gray-300" />
+                    <p className="mt-2 text-gray-500">No recent activity</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader className="flex justify-between items-center">
-          <CardTitle>Recent Activity</CardTitle>
-          <Button variant="ghost" size="sm">
-            View All
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-start space-x-4 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-              <div className="flex-shrink-0 mt-1">
-                <FileText size={16} className="text-gray-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-900">
-                    New patient registered
-                  </p>
-                  <span className="text-xs text-gray-500">
-                    2 hours ago
-                  </span>
-                </div>
-                <p className="text-sm text-gray-500 truncate">
-                  John Doe was registered as a new patient
-                </p>
-              </div>
-              <ChevronRight size={16} className="text-gray-400" />
-            </div>
+          {/* Date Navigation */}
+          <div className="flex items-center justify-between">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setSelectedDate(prev => addDays(prev, -1))}
+            >
+              <ArrowLeft size={16} className="mr-2" />
+              Previous Day
+            </Button>
             
-            <div className="flex items-start space-x-4 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-              <div className="flex-shrink-0 mt-1">
-                <FileText size={16} className="text-gray-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-900">
-                    Lab results uploaded
-                  </p>
-                  <span className="text-xs text-gray-500">
-                    3 hours ago
-                  </span>
-                </div>
-                <p className="text-sm text-gray-500 truncate">
-                  Lab results for Sarah Johnson have been uploaded
-                </p>
-              </div>
-              <ChevronRight size={16} className="text-gray-400" />
-            </div>
+            <h2 className="text-lg font-medium text-gray-900">
+              {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+              {format(selectedDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd') && (
+                <span className="ml-2 text-sm bg-brand-primary/10 text-brand-primary px-2 py-1 rounded-full">
+                  Today
+                </span>
+              )}
+            </h2>
             
-            <div className="flex items-start space-x-4 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-              <div className="flex-shrink-0 mt-1">
-                <FileText size={16} className="text-gray-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium text-gray-900">
-                    Appointment rescheduled
-                  </p>
-                  <span className="text-xs text-gray-500">
-                    5 hours ago
-                  </span>
-                </div>
-                <p className="text-sm text-gray-500 truncate">
-                  Michael Brown's appointment was rescheduled to tomorrow
-                </p>
-              </div>
-              <ChevronRight size={16} className="text-gray-400" />
-            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setSelectedDate(prev => addDays(prev, 1))}
+            >
+              Next Day
+              <ArrowRight size={16} className="ml-2" />
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Time Slots */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Daily Schedule</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-0">
+                {['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map((time) => {
+                  const timeAppointments = appointments.filter(a => 
+                    a.time.startsWith(time.split(':')[0])
+                  );
+                  
+                  return (
+                    <div key={time} className="flex group hover:bg-gray-50">
+                      <div className="w-20 py-4 text-right pr-4 text-gray-500 font-medium border-r border-gray-200 group-hover:text-brand-primary">
+                        {time}
+                      </div>
+                      <div className="flex-1 min-h-[60px] border-b border-gray-100 py-2 px-4 relative">
+                        {timeAppointments.length > 0 ? (
+                          <div className="space-y-2">
+                            {timeAppointments.map((appointment) => (
+                              <div
+                                key={appointment.id}
+                                className={`
+                                  p-2 rounded-lg shadow-sm
+                                  ${appointment.status === 'scheduled' ? 'bg-blue-50 border-l-2 border-blue-500' : 
+                                    appointment.status === 'confirmed' ? 'bg-green-50 border-l-2 border-green-500' :
+                                    appointment.status === 'in-progress' ? 'bg-amber-50 border-l-2 border-amber-500' :
+                                    appointment.status === 'cancelled' ? 'bg-red-50 border-l-2 border-red-500' :
+                                    'bg-gray-50 border-l-2 border-gray-500'}
+                                `}
+                              >
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="font-medium text-sm">
+                                      {appointment.patient?.first_name} {appointment.patient?.last_name}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {appointment.time} • {appointment.type}
+                                    </p>
+                                  </div>
+                                  <div className="flex space-x-1">
+                                    {appointment.status === 'scheduled' && (
+                                      <>
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm"
+                                          className="py-0 h-6 text-xs bg-white"
+                                          onClick={() => handleCheckIn(appointment.id)}
+                                        >
+                                          Check-in
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Today's Appointments */}
+        <div className="lg:col-span-1 h-full">
+          <DashboardAppointments />
+        </div>
+      </div>
 
       {/* Add Appointment Modal */}
       <FormModal
@@ -490,7 +424,7 @@ const Dashboard: React.FC = () => {
         <AddAppointmentForm 
           onSuccess={() => {
             setIsAddAppointmentModalOpen(false);
-            fetchAppointments();
+            fetchDashboardData();
           }}
         />
       </FormModal>

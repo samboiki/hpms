@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { cn } from '../../utils/cn';
 import { 
   LayoutDashboard, 
@@ -10,7 +10,10 @@ import {
   ChevronLeft,
   X,
   Wallet,
-  Microscope
+  Microscope,
+  LogOut,
+  User,
+  Building2
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -27,7 +30,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   isMobile,
   onMobileClose 
 }) => {
-  const { logout } = useAuthStore();
+  const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -35,14 +44,14 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: Calendar, label: 'Schedule', path: '/appointments' },
     { icon: Microscope, label: 'Requests', path: '/requests' },
     { icon: Wallet, label: 'Finance', path: '/finance' },
+    { icon: Building2, label: 'Practice', path: '/practice-profile' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];
 
   return (
     <div 
       className={cn(
-        "fixed left-4 top-4 h-[calc(100vh-32px)] bg-[#01b9d4] rounded-xl transition-all duration-300 z-30",
-        "shadow-[0_8px_30px_rgb(0,0,0,0.08)]",
+        "fixed left-0 top-0 h-full bg-brand-sidebar transition-all duration-300 z-30",
         collapsed && !isMobile ? "w-[72px]" : "w-[240px]"
       )}
     >
@@ -62,7 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
 
-      <nav className="p-2">
+      <nav className="p-2 h-[calc(100vh-64px-80px)] overflow-y-auto">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
@@ -83,11 +92,40 @@ const Sidebar: React.FC<SidebarProps> = ({
         ))}
       </nav>
 
-      <div className="absolute bottom-4 left-0 right-0 px-2">
+      {/* User Profile Section */}
+      <div className="absolute bottom-0 left-0 right-0 border-t border-white/10 p-4">
+        {!collapsed ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">
+                {user?.name?.charAt(0) || <User size={16} />}
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-white">{user?.name || 'User'}</p>
+                <p className="text-xs text-white/70">{user?.role || 'Role'}</p>
+              </div>
+            </div>
+            <button 
+              onClick={handleLogout}
+              className="p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handleLogout}
+            className="w-full flex justify-center p-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10"
+          >
+            <LogOut size={18} />
+          </button>
+        )}
+
+        {/* Collapse Button */}
         <button
           onClick={onToggle}
           className={cn(
-            "flex items-center w-full px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 transition-colors min-h-[44px]",
+            "mt-4 flex items-center w-full px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 transition-colors min-h-[44px]",
             collapsed && !isMobile && "justify-center"
           )}
         >
