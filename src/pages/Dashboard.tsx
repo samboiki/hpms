@@ -2,18 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { 
   Activity, 
   Users, 
-  Calendar, 
-  DollarSign,
+  Calendar,
+  Microscope,
+  AlertCircle,
+  Plus,
+  Stethoscope,
+  FileText,
   Clock,
   User,
-  FileText,
-  ChevronRight,
-  Plus,
+  Heart,
+  ArrowRight,
+  Pill,
+  ImageIcon,
   CheckCircle2,
   XCircle,
-  AlertCircle,
-  ArrowRight,
-  ArrowLeft
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -195,179 +197,159 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="grid grid-cols-12 gap-6 h-full p-6">
-      {/* === MAIN COLUMN (stats, quick actions, whatever) === */}
-      <div className="col-span-12 xl:col-span-8 space-y-6 overflow-y-auto pr-2">
+      {/* Left Column - Quick Stats and Actions */}
+      <div className="col-span-12 xl:col-span-3 space-y-6">
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="hover:shadow-md transition-shadow">
+        <div className="grid grid-cols-2 gap-4">
+          <Card className="col-span-2">
             <CardContent className="p-6">
               <div className="flex items-center">
-                <div className="p-3 rounded-full bg-brand-light text-brand-primary">
-                  <Users size={24} />
+                <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+                  <Clock size={24} />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Patients</p>
-                  <h3 className="text-2xl font-bold text-gray-900">2,420</h3>
-                  <p className="text-xs text-success-600">↑ 20% from last month</p>
+                  <p className="text-sm font-medium text-gray-600">Today's Patients</p>
+                  <h3 className="text-2xl font-bold text-gray-900">
+                    {appointments.filter(a => a.status !== 'cancelled').length}
+                  </h3>
+                  <div className="flex gap-2 mt-1">
+                    <span className="text-xs text-emerald-600">
+                      {appointments.filter(a => a.status === 'completed').length} Seen
+                    </span>
+                    <span className="text-xs text-amber-600">
+                      {appointments.filter(a => a.status === 'in-progress').length} In Progress
+                    </span>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-md transition-shadow">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
                 <div className="p-3 rounded-full bg-purple-100 text-purple-600">
-                  <Calendar size={24} />
+                  <Microscope size={24} />
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Today's Appointments</p>
-                  <h3 className="text-2xl font-bold text-gray-900">{appointments.length}</h3>
-                  <p className="text-xs text-success-600">↑ 12% from yesterday</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="p-3 rounded-full bg-green-100 text-green-600">
-                  <Activity size={24} />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Active Consultations</p>
-                  <h3 className="text-2xl font-bold text-gray-900">
-                    {appointments.filter(a => a.status === 'in-progress').length}
-                  </h3>
-                  <p className="text-xs text-success-600">↑ 5% from average</p>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-600">Lab Results</p>
+                  <h3 className="text-2xl font-bold text-gray-900">12</h3>
+                  <p className="text-xs text-purple-600">4 Pending</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-md transition-shadow">
+          <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
-                <div className="p-3 rounded-full bg-amber-100 text-amber-600">
-                  <DollarSign size={24} />
+                <div className="p-3 rounded-full bg-rose-100 text-rose-600">
+                  <ImageIcon size={24} />
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Revenue (Month)</p>
-                  <h3 className="text-2xl font-bold text-gray-900">$12,500</h3>
-                  <p className="text-xs text-success-600">↑ 18% from last month</p>
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-600">Imaging</p>
+                  <h3 className="text-2xl font-bold text-gray-900">8</h3>
+                  <p className="text-xs text-rose-600">3 Pending</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Quick Add Bar */}
-        <Card className="bg-gradient-to-r from-[#01b9d4] to-[#0197d4] text-white">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <div>
-                <h2 className="text-xl font-bold">Quick Actions</h2>
-                <p className="text-white/80">Schedule appointments and manage patient visits</p>
-              </div>
-              <div className="mt-4 md:mt-0">
-                <Button 
-                  onClick={() => setIsAddAppointmentModalOpen(true)}
-                  className="bg-white text-[#01b9d4] hover:bg-white/90"
-                >
-                  <Plus size={16} className="mr-2" />
-                  New Appointment
-                </Button>
-              </div>
+        {/* Quick Actions */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Quick Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="space-y-2">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={() => setIsAddAppointmentModalOpen(true)}
+              >
+                <Calendar size={16} className="mr-2 text-blue-500" />
+                New Appointment
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={() => navigate('/patients/new')}
+              >
+                <Users size={16} className="mr-2 text-green-500" />
+                Register Patient
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={() => navigate('/requests')}
+              >
+                <Microscope size={16} className="mr-2 text-purple-500" />
+                Lab Orders
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Recent Activity */}
+        {/* Pending Tasks */}
         <Card>
-          <CardHeader className="flex justify-between items-center">
-            <CardTitle>Recent Activity</CardTitle>
-            <Button variant="ghost" size="sm">
-              View All
-            </Button>
+          <CardHeader>
+            <CardTitle className="text-lg">Pending Tasks</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-start space-x-4 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                <div className="flex-shrink-0 mt-1">
-                  <FileText size={16} className="text-gray-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-900">
-                      New patient registered
-                    </p>
-                    <span className="text-xs text-gray-500">
-                      2 hours ago
-                    </span>
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-100">
+                <div className="flex items-center">
+                  <Microscope size={16} className="text-amber-600 mr-2" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Blood Test Results</p>
+                    <p className="text-xs text-gray-500">John Smith</p>
                   </div>
-                  <p className="text-sm text-gray-500 truncate">
-                    John Doe was registered as a new patient
-                  </p>
                 </div>
-                <ChevronRight size={16} className="text-gray-400" />
+                <Badge variant="warning" size="sm">Urgent</Badge>
               </div>
-              
-              <div className="flex items-start space-x-4 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                <div className="flex-shrink-0 mt-1">
-                  <FileText size={16} className="text-gray-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-900">
-                      Lab results uploaded
-                    </p>
-                    <span className="text-xs text-gray-500">
-                      3 hours ago
-                    </span>
+
+              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-100">
+                <div className="flex items-center">
+                  <ImageIcon size={16} className="text-purple-600 mr-2" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">X-Ray Review</p>
+                    <p className="text-xs text-gray-500">Sarah Johnson</p>
                   </div>
-                  <p className="text-sm text-gray-500 truncate">
-                    Lab results for Sarah Johnson have been uploaded
-                  </p>
                 </div>
-                <ChevronRight size={16} className="text-gray-400" />
-              </div>
-              
-              <div className="flex items-start space-x-4 p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                <div className="flex-shrink-0 mt-1">
-                  <FileText size={16} className="text-gray-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-900">
-                      Appointment rescheduled
-                    </p>
-                    <span className="text-xs text-gray-500">
-                      5 hours ago
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-500 truncate">
-                    Michael Brown's appointment was rescheduled to tomorrow
-                  </p>
-                </div>
-                <ChevronRight size={16} className="text-gray-400" />
+                <Badge variant="azure" size="sm">Pending</Badge>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* === TIMELINE COLUMN === */}
-      <div className="col-span-12 xl:col-span-4 h-full flex flex-col">
+      {/* Right Column - Appointment Timeline */}
+      <div className="col-span-12 xl:col-span-9 h-full">
         <AppointmentTimeline
           date={selectedDate}
           onDateChange={setSelectedDate}
-          onCheckIn={handleCheckIn}
-          onCancel={handleCancel}
+          onUpdateAppointment={async (id, updates) => {
+            try {
+              const { error } = await supabase
+                .from('appointments')
+                .update(updates)
+                .eq('id', id);
+              
+              if (error) throw error;
+              fetchAppointments();
+            } catch (err) {
+              console.error('Error updating appointment:', err);
+              throw err;
+            }
+          }}
           onView={handleView}
           isLoading={isLoading}
           error={error}
           appointments={appointments}
+          onCreateAppointment={(date, time) => {
+            setIsAddAppointmentModalOpen(true);
+          }}
         />
       </div>
 
