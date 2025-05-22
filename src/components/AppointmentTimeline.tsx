@@ -7,7 +7,7 @@ import {
   User,
   Briefcase,
   AlertCircle,
-  CheckCircle,
+  CheckCircle2,
   XCircle,
   Loader2,
   MoreVertical,
@@ -15,7 +15,9 @@ import {
 import {
   format,
   addDays,
-  subDays,
+  startOfWeek,
+  addWeeks,
+  subWeeks,
   parseISO,
   isToday,
   isSameDay,
@@ -29,10 +31,9 @@ import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
-import Button from './ui/Button'; // Ensure this path is correct
-import AppointmentActionModal from './modals/AppointmentActionModal'; // Ensure this path is correct
+import Button from './ui/Button';
+import AppointmentActionModal from './modals/AppointmentActionModal';
 
-// --- Interfaces ---
 interface AppointmentPatient {
   first_name: string;
   last_name: string;
@@ -44,9 +45,9 @@ interface AppointmentDoctor {
 
 export interface Appointment {
   id: string;
-  date: string; // "YYYY-MM-DD"
-  time: string; // "HH:mm:ss"
-  duration: number; // in minutes
+  date: string;
+  time: string;
+  duration: number;
   type: string;
   status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
   patient: AppointmentPatient;
@@ -66,25 +67,23 @@ interface AppointmentTimelineProps {
   onCreateAppointment?: (slotDate: Date, slotTime: string) => void;
 }
 
-// --- Constants ---
 const START_HOUR = 8;
 const END_HOUR = 20;
 const SLOT_DURATION_MINUTES = 30;
 const TOTAL_HOURS_DISPLAYED = END_HOUR - START_HOUR;
 const TOTAL_GRID_ROWS = TOTAL_HOURS_DISPLAYED * (60 / SLOT_DURATION_MINUTES);
-const SLOT_BASE_HEIGHT_REM = 4.5; // h-18 (72px) for each 30-min slot - Kept from previous for more space
+const SLOT_BASE_HEIGHT_REM = 4.5;
+const TOTAL_MINUTES = TOTAL_HOURS_DISPLAYED * 60;
 
-// --- Styling Configuration ---
 const statusConfig: Record<Appointment['status'], { cardClasses: string; textClass: string; borderClass: string; iconForBadge: React.ElementType; iconClass: string; badgeClasses: string }> = {
   scheduled:   { cardClasses: 'bg-slate-100 hover:bg-slate-200/80', textClass: 'text-slate-700', borderClass: 'border-slate-400', iconForBadge: Clock, iconClass: 'text-slate-500', badgeClasses: 'bg-slate-200 text-slate-600'},
-  confirmed:   { cardClasses: 'bg-green-50 hover:bg-green-100', textClass: 'text-green-800', borderClass: 'border-green-500', iconForBadge: CheckCircle, iconClass: 'text-green-600', badgeClasses: 'bg-green-100 text-green-700' },
+  confirmed:   { cardClasses: 'bg-green-50 hover:bg-green-100', textClass: 'text-green-800', borderClass: 'border-green-500', iconForBadge: CheckCircle2, iconClass: 'text-green-600', badgeClasses: 'bg-green-100 text-green-700' },
   'in-progress':{ cardClasses: 'bg-purple-50 hover:bg-purple-100', textClass: 'text-purple-800', borderClass: 'border-purple-500', iconForBadge: Loader2, iconClass: 'text-purple-600 animate-spin', badgeClasses: 'bg-purple-100 text-purple-700' },
-  completed:   { cardClasses: 'bg-blue-50 hover:bg-blue-100', textClass: 'text-blue-800', borderClass: 'border-blue-400', iconForBadge: CheckCircle, iconClass: 'text-blue-600', badgeClasses: 'bg-blue-100 text-blue-700' },
+  completed:   { cardClasses: 'bg-blue-50 hover:bg-blue-100', textClass: 'text-blue-800', borderClass: 'border-blue-400', iconForBadge: CheckCircle2, iconClass: 'text-blue-600', badgeClasses: 'bg-blue-100 text-blue-700' },
   cancelled:   { cardClasses: 'bg-red-50 hover:bg-red-100 opacity-75', textClass: 'text-red-700', borderClass: 'border-red-400', iconForBadge: XCircle, iconClass: 'text-red-600', badgeClasses: 'bg-red-100 text-red-700 line-through' },
   'no-show':   { cardClasses: 'bg-fuchsia-50 hover:bg-fuchsia-100 opacity-85', textClass: 'text-fuchsia-700', borderClass: 'border-fuchsia-400', iconForBadge: AlertCircle, iconClass: 'text-fuchsia-600', badgeClasses: 'bg-fuchsia-100 text-fuchsia-700' },
 };
 
-// --- Main Component ---
 export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
   date,
   appointments,
@@ -111,13 +110,15 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || !active.id || active.id === over.id) return;
+    
     const appointmentId = active.id as string;
     const targetSlotTime = over.id as string;
     const appointment = appointments.find(a => a.id === appointmentId);
+    
     if (!appointment) return;
-    const newTimeForStorage = `${targetSlotTime}:00`;
+    
     try {
-      await onUpdateAppointment(appointment.id, { time: newTimeForStorage });
+      await onUpdateAppointment(appointment.id, { time: `${targetSlotTime}:00` });
     } catch (err) {
       console.error("Failed to update appointment time:", err);
     }
@@ -162,7 +163,7 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
       {/* Header Section */}
       <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-gray-200/70 bg-white/90 backdrop-blur-sm sticky top-0 z-40">
         <div className="flex items-center space-x-1 sm:space-x-1.5">
-          <Button size="icon" variant="ghost" className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full" onClick={() => onDateChange(subDays(date, 1))} aria-label="Previous day">
+          <Button size="icon" variant="ghost" className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full" onClick={() => onDateChange(subWeeks(date, 1))} aria-label="Previous day">
             <ChevronLeft size={20} />
           </Button>
           <div className="relative">
@@ -190,7 +191,7 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
               </motion.div>
             )}
           </div>
-          <Button size="icon" variant="ghost" className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full" onClick={() => onDateChange(addDays(date, 1))} aria-label="Next day">
+          <Button size="icon" variant="ghost" className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full" onClick={() => onDateChange(addWeeks(date, 1))} aria-label="Next day">
             <ChevronRight size={20} />
           </Button>
         </div>
@@ -205,7 +206,7 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
         {error && !isLoading && ( <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 z-40"><AlertCircle size={48} className="text-red-500 mb-3" /><p className="font-semibold text-red-700">Error</p><p className="text-sm text-gray-600 mt-1">{error}</p><Button variant="outline" size="sm" onClick={() => window.location.reload()} className="mt-4">Retry</Button></div> )}
         {!isLoading && !error && filteredAppointments.length === 0 && ( <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6 text-center z-10"><CalendarIcon size={48} className="mb-3 opacity-70" /><p className="font-semibold text-gray-500">No Appointments</p>{onCreateAppointment && <p className="text-sm text-gray-400 mt-1">Click a time slot to create one.</p>}</div> )}
 
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
           <div className="relative px-2 sm:px-3 md:px-4 py-4 min-h-full">
             {timeSlots.map((timeStr, i) => (
               <div
@@ -253,8 +254,6 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
                 const durationSlots = Math.max(1, Math.ceil(appt.duration / SLOT_DURATION_MINUTES));
                 
                 const currentStyles = statusConfig[appt.status] || statusConfig.scheduled;
-                // Icon for badge is now used for badge, not next to name
-                // const StatusIconForName = currentStyles.iconForBadge; // Renamed to avoid confusion
                 const cardHeight = `calc(${durationSlots * SLOT_BASE_HEIGHT_REM}rem - 8px)`;
 
                 return (
@@ -277,41 +276,31 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
                     }}
                     onClick={() => openActionModal(appt)}
                   >
-                    {/* Card Content - Revised for clarity */}
-                    <div className="flex items-start justify-between mb-1 sm:mb-1.5">
-                        <h3 className={`text-xs xxs:text-sm sm:text-base font-semibold ${currentStyles.textClass} mr-1 leading-tight truncate`}>
-                            {/* StatusIcon removed from here */}
-                            {appt.patient.first_name} {appt.patient.last_name}
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`text-xs xxs:text-sm sm:text-base font-semibold ${currentStyles.textClass} truncate`}>
+                          {appt.patient.first_name} {appt.patient.last_name}
                         </h3>
-                        <Button variant="ghost" size="icon" className="h-5 w-5 -mr-1 text-gray-400 hover:text-blue-600 flex-shrink-0" onClick={(e) => openActionModal(appt, e)}>
-                            <MoreVertical size={15} />
-                        </Button>
-                    </div>
-
-                    <div className="flex-grow space-y-0.5 text-[10px] xxs:text-[11px] sm:text-xs min-h-0 leading-snug text-opacity-80">
-                        <div className={`flex items-center ${currentStyles.textClass} opacity-90`}>
-                            <Clock size={12} className="mr-1 sm:mr-1.5 flex-shrink-0" />
-                            <span className="truncate">{format(parseISO(`${appt.date}T${appt.time}`), 'HH:mm')} - {getAppointmentEndTime(appt.time, appt.duration)}</span>
+                        <div className={`text-[10px] xxs:text-[11px] sm:text-xs ${currentStyles.textClass} opacity-80`}>
+                          {format(parseISO(`${appt.date}T${appt.time}`), 'HH:mm')} - {getAppointmentEndTime(appt.time, appt.duration)}
+                          {appt.doctor && (
+                            <>
+                              <span className="mx-1">•</span>
+                              <span>Dr. {appt.doctor.full_name}</span>
+                            </>
+                          )}
                         </div>
-                        
-                        <div className={`flex items-center ${currentStyles.textClass} opacity-80`}>
-                            <Briefcase size={12} className="mr-1 sm:mr-1.5 flex-shrink-0" />
-                            <span className="truncate">{appt.type}</span>
-                        </div>
-
-                        {appt.doctor && (
-                            <div className={`flex items-center ${currentStyles.textClass} opacity-80`}>
-                                <User size={12} className="mr-1 sm:mr-1.5 flex-shrink-0" />
-                                <span className="truncate">Dr. {appt.doctor.full_name}</span>
-                            </div>
-                        )}
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-5 w-5 -mr-1 text-gray-400 hover:text-blue-600 flex-shrink-0" onClick={(e) => openActionModal(appt, e)}>
+                        <MoreVertical size={15} />
+                      </Button>
                     </div>
                     
-                    <div className="mt-1.5 sm:mt-2 shrink-0">
-                        <div className={`text-[8px] xxs:text-[9px] sm:text-[10px] font-bold uppercase tracking-wider self-start px-1.5 py-0.5 rounded-full inline-flex items-center ${currentStyles.badgeClasses}`}>
-                           <currentStyles.iconForBadge size={10} className={`${currentStyles.iconClass} mr-1`} />
-                           {appt.status.replace('-', ' ')}
-                        </div>
+                    <div className="mt-auto pt-1.5">
+                      <div className={`text-[8px] xxs:text-[9px] sm:text-[10px] font-bold uppercase tracking-wider self-start px-1.5 py-0.5 rounded-full inline-flex items-center ${currentStyles.badgeClasses}`}>
+                        <currentStyles.iconForBadge size={10} className={`${currentStyles.iconClass} mr-1`} />
+                        {appt.status.replace('-', ' ')}
+                      </div>
                     </div>
                   </motion.div>
                 );
