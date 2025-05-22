@@ -16,6 +16,7 @@ import {
   ImageIcon,
   CheckCircle2,
   ChevronLeft,
+  ChevronRight,
   XCircle,
   Search,
   Filter,
