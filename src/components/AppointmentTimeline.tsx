@@ -72,16 +72,58 @@ const END_HOUR = 20;
 const SLOT_DURATION_MINUTES = 30;
 const TOTAL_HOURS_DISPLAYED = END_HOUR - START_HOUR;
 const TOTAL_GRID_ROWS = TOTAL_HOURS_DISPLAYED * (60 / SLOT_DURATION_MINUTES);
-const SLOT_BASE_HEIGHT_REM = 4.5;
+const SLOT_BASE_HEIGHT_REM = 5; // Increased height for better spacing
 const TOTAL_MINUTES = TOTAL_HOURS_DISPLAYED * 60;
 
 const statusConfig: Record<Appointment['status'], { cardClasses: string; textClass: string; borderClass: string; iconForBadge: React.ElementType; iconClass: string; badgeClasses: string }> = {
-  scheduled:   { cardClasses: 'bg-slate-100 hover:bg-slate-200/80', textClass: 'text-slate-700', borderClass: 'border-slate-400', iconForBadge: Clock, iconClass: 'text-slate-500', badgeClasses: 'bg-slate-200 text-slate-600'},
-  confirmed:   { cardClasses: 'bg-green-50 hover:bg-green-100', textClass: 'text-green-800', borderClass: 'border-green-500', iconForBadge: CheckCircle2, iconClass: 'text-green-600', badgeClasses: 'bg-green-100 text-green-700' },
-  'in-progress':{ cardClasses: 'bg-purple-50 hover:bg-purple-100', textClass: 'text-purple-800', borderClass: 'border-purple-500', iconForBadge: Loader2, iconClass: 'text-purple-600 animate-spin', badgeClasses: 'bg-purple-100 text-purple-700' },
-  completed:   { cardClasses: 'bg-blue-50 hover:bg-blue-100', textClass: 'text-blue-800', borderClass: 'border-blue-400', iconForBadge: CheckCircle2, iconClass: 'text-blue-600', badgeClasses: 'bg-blue-100 text-blue-700' },
-  cancelled:   { cardClasses: 'bg-red-50 hover:bg-red-100 opacity-75', textClass: 'text-red-700', borderClass: 'border-red-400', iconForBadge: XCircle, iconClass: 'text-red-600', badgeClasses: 'bg-red-100 text-red-700 line-through' },
-  'no-show':   { cardClasses: 'bg-fuchsia-50 hover:bg-fuchsia-100 opacity-85', textClass: 'text-fuchsia-700', borderClass: 'border-fuchsia-400', iconForBadge: AlertCircle, iconClass: 'text-fuchsia-600', badgeClasses: 'bg-fuchsia-100 text-fuchsia-700' },
+  scheduled: { 
+    cardClasses: 'bg-gradient-to-br from-slate-50 to-slate-100 hover:from-slate-100 hover:to-slate-200', 
+    textClass: 'text-slate-700', 
+    borderClass: 'border-l-4 border-slate-400', 
+    iconForBadge: Clock, 
+    iconClass: 'text-slate-500', 
+    badgeClasses: 'bg-slate-200 text-slate-600'
+  },
+  confirmed: { 
+    cardClasses: 'bg-gradient-to-br from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100', 
+    textClass: 'text-emerald-800', 
+    borderClass: 'border-l-4 border-emerald-500', 
+    iconForBadge: CheckCircle2, 
+    iconClass: 'text-emerald-600', 
+    badgeClasses: 'bg-emerald-100 text-emerald-700' 
+  },
+  'in-progress': { 
+    cardClasses: 'bg-gradient-to-br from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100', 
+    textClass: 'text-purple-800', 
+    borderClass: 'border-l-4 border-purple-500', 
+    iconForBadge: Loader2, 
+    iconClass: 'text-purple-600 animate-spin', 
+    badgeClasses: 'bg-purple-100 text-purple-700' 
+  },
+  completed: { 
+    cardClasses: 'bg-gradient-to-br from-blue-50 to-sky-50 hover:from-blue-100 hover:to-sky-100', 
+    textClass: 'text-blue-800', 
+    borderClass: 'border-l-4 border-blue-500', 
+    iconForBadge: CheckCircle2, 
+    iconClass: 'text-blue-600', 
+    badgeClasses: 'bg-blue-100 text-blue-700' 
+  },
+  cancelled: { 
+    cardClasses: 'bg-gradient-to-br from-red-50 to-rose-50 hover:from-red-100 hover:to-rose-100 opacity-75', 
+    textClass: 'text-red-700', 
+    borderClass: 'border-l-4 border-red-400', 
+    iconForBadge: XCircle, 
+    iconClass: 'text-red-600', 
+    badgeClasses: 'bg-red-100 text-red-700 line-through' 
+  },
+  'no-show': { 
+    cardClasses: 'bg-gradient-to-br from-fuchsia-50 to-pink-50 hover:from-fuchsia-100 hover:to-pink-100 opacity-85', 
+    textClass: 'text-fuchsia-700', 
+    borderClass: 'border-l-4 border-fuchsia-400', 
+    iconForBadge: AlertCircle, 
+    iconClass: 'text-fuchsia-600', 
+    badgeClasses: 'bg-fuchsia-100 text-fuchsia-700' 
+  },
 };
 
 export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
@@ -159,17 +201,17 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 rounded-xl shadow-lg overflow-hidden border border-gray-200/70">
+    <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 to-gray-50 rounded-xl shadow-lg overflow-hidden border border-gray-200/70">
       {/* Header Section */}
-      <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-gray-200/70 bg-white/90 backdrop-blur-sm sticky top-0 z-40">
-        <div className="flex items-center space-x-1 sm:space-x-1.5">
+      <div className="flex items-center justify-between gap-2 px-4 py-4 border-b border-gray-200/70 bg-white shadow-sm sticky top-0 z-40">
+        <div className="flex items-center space-x-2">
           <Button size="icon" variant="ghost" className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full" onClick={() => onDateChange(subWeeks(date, 1))} aria-label="Previous day">
             <ChevronLeft size={20} />
           </Button>
           <div className="relative">
-            <Button size="sm" variant="ghost" onClick={() => setIsCalendarOpen(v => !v)} className="flex items-center px-2 py-1.5 text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-md">
-              <CalendarIcon size={16} className="mr-1.5 text-blue-500" />
-              <span className="font-medium text-xs xxs:text-sm md:text-[15px] whitespace-nowrap">
+            <Button size="sm" variant="ghost" onClick={() => setIsCalendarOpen(v => !v)} className="flex items-center px-3 py-1.5 text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-md">
+              <CalendarIcon size={16} className="mr-2 text-blue-500" />
+              <span className="font-medium text-sm md:text-[15px] whitespace-nowrap">
                 {format(date, 'MMM dd, EEEE')}
               </span>
             </Button>
@@ -177,11 +219,15 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
               <motion.div 
                 initial={{ opacity: 0, y: -5, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                className="absolute top-full left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 mt-1.5 bg-white border border-gray-300 rounded-lg shadow-xl p-1 z-[60]"
+                className="absolute top-full left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 mt-1.5 bg-white border border-gray-200 rounded-lg shadow-xl p-1 z-[60]"
               >
                 <DayPicker
-                  mode="single" selected={date} onSelect={d => { if (d) { onDateChange(d); setIsCalendarOpen(false); }}}
-                  showOutsideDays fixedWeeks className="text-sm"
+                  mode="single" 
+                  selected={date} 
+                  onSelect={d => { if (d) { onDateChange(d); setIsCalendarOpen(false); }}}
+                  showOutsideDays 
+                  fixedWeeks 
+                  className="text-sm"
                   classNames={{
                     day_selected: "bg-blue-600 text-white hover:bg-blue-700 focus:bg-blue-700 rounded-md",
                     day_today: "font-bold text-blue-600 rounded-md border border-blue-300",
@@ -201,25 +247,58 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
       </div>
 
       {/* Timeline Body */}
-      <div className="flex-1 relative overflow-y-auto min-h-0" id="timeline-scroll-container">
-        {isLoading && ( <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-50 backdrop-blur-sm"><Loader2 size={40} className="text-blue-600 animate-spin mb-3" /><p className="text-gray-600 font-medium">Loading...</p></div> )}
-        {error && !isLoading && ( <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 z-40"><AlertCircle size={48} className="text-red-500 mb-3" /><p className="font-semibold text-red-700">Error</p><p className="text-sm text-gray-600 mt-1">{error}</p><Button variant="outline" size="sm" onClick={() => window.location.reload()} className="mt-4">Retry</Button></div> )}
-        {!isLoading && !error && filteredAppointments.length === 0 && ( <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6 text-center z-10"><CalendarIcon size={48} className="mb-3 opacity-70" /><p className="font-semibold text-gray-500">No Appointments</p>{onCreateAppointment && <p className="text-sm text-gray-400 mt-1">Click a time slot to create one.</p>}</div> )}
+      <div className="flex-1 relative overflow-y-auto min-h-0 custom-scrollbar" id="timeline-scroll-container">
+        {isLoading && ( 
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-50 backdrop-blur-sm">
+            <Loader2 size={40} className="text-blue-600 animate-spin mb-3" />
+            <p className="text-gray-600 font-medium">Loading...</p>
+          </div> 
+        )}
+        
+        {error && !isLoading && ( 
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 z-40">
+            <AlertCircle size={48} className="text-red-500 mb-3" />
+            <p className="font-semibold text-red-700">Error</p>
+            <p className="text-sm text-gray-600 mt-1">{error}</p>
+            <Button variant="outline" size="sm" onClick={() => window.location.reload()} className="mt-4">Retry</Button>
+          </div> 
+        )}
+        
+        {!isLoading && !error && filteredAppointments.length === 0 && ( 
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6 text-center z-10">
+            <CalendarIcon size={48} className="mb-3 opacity-70" />
+            <p className="font-semibold text-gray-500">No Appointments</p>
+            {onCreateAppointment && <p className="text-sm text-gray-400 mt-1">Click a time slot to create one.</p>}
+          </div> 
+        )}
 
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
-          <div className="relative px-2 sm:px-3 md:px-4 py-4 min-h-full">
+        <DndContext 
+          sensors={sensors} 
+          collisionDetection={closestCenter} 
+          onDragEnd={handleDragEnd} 
+          modifiers={[restrictToVerticalAxis]}
+        >
+          <div className="relative px-4 py-4 min-h-full">
             {timeSlots.map((timeStr, i) => (
               <div
                 key={`timeslot-${timeStr}`}
                 id={timeStr}
                 className="relative border-t border-gray-200/60 group"
                 style={{ height: `${SLOT_BASE_HEIGHT_REM}rem` }}
-                onClickCapture={(e) => { if (e.target === e.currentTarget && onCreateAppointment) { handleSlotClick(timeStr); }}}
+                onClickCapture={(e) => { 
+                  if (e.target === e.currentTarget && onCreateAppointment) {
+                    handleSlotClick(timeStr);
+                  }
+                }}
               >
-                <span className="absolute -top-[9px] left-0 sm:left-0.5 bg-slate-50 px-1.5 text-[9px] sm:text-[10px] text-gray-400 z-10 rounded">
+                <span className="absolute -top-[9px] left-0 bg-gradient-to-br from-slate-50 to-gray-50 px-2 text-[10px] font-medium text-gray-400 z-10 rounded">
                   {format(parseISO(`2000-01-01T${timeStr}:00`), 'h:mm a')}
                 </span>
-                {onCreateAppointment && <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-blue-500 text-xs cursor-pointer bg-blue-50/30 rounded hover:bg-blue-100/50"> Add </div>}
+                {onCreateAppointment && (
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-blue-500 text-xs cursor-pointer bg-blue-50/30 rounded hover:bg-blue-100/50">
+                    Add
+                  </div>
+                )}
               </div>
             ))}
 
@@ -240,7 +319,7 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
                 );
               }
               return null;
-             })()}
+            })()}
 
             <AnimatePresence>
               {filteredAppointments.map(appt => {
@@ -258,15 +337,20 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
 
                 return (
                   <motion.div
-                    key={appt.id} id={appt.id.toString()} layout
-                    initial={{ opacity: 0, y: 10, scale:0.98 }} animate={{ opacity: 1, y: 0, scale:1 }} exit={{ opacity: 0, y: -10, scale:0.98 }}
+                    key={appt.id}
+                    id={appt.id.toString()}
+                    layout
+                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -10, scale: 0.98 }}
                     transition={{ type: "spring", stiffness: 300, damping: 25 }}
                     className={`
-                      absolute left-1 right-1 sm:left-1.5 sm:right-1.5 md:left-2 md:right-2 
-                      rounded-lg shadow-lg hover:shadow-xl p-2.5 md:p-3 border-l-4
+                      absolute left-12 right-4
+                      rounded-lg shadow-lg hover:shadow-xl p-3
                       cursor-pointer active:cursor-grabbing 
                       flex flex-col overflow-hidden 
                       transition-all duration-200 ease-out
+                      backdrop-blur-sm
                       ${currentStyles.cardClasses} ${currentStyles.borderClass}
                     `}
                     style={{
