@@ -72,16 +72,16 @@ const END_HOUR = 20;
 const SLOT_DURATION_MINUTES = 30;
 const TOTAL_HOURS_DISPLAYED = END_HOUR - START_HOUR;
 const TOTAL_GRID_ROWS = TOTAL_HOURS_DISPLAYED * (60 / SLOT_DURATION_MINUTES);
-const SLOT_BASE_HEIGHT_REM = 4.5; // h-18 (72px) for each 30-min slot - Increased for more space
+const SLOT_BASE_HEIGHT_REM = 4.5; // h-18 (72px) for each 30-min slot - Kept from previous for more space
 
 // --- Styling Configuration ---
-const statusConfig: Record<Appointment['status'], { cardClasses: string; textClass: string; borderClass: string; icon: React.ElementType; iconClass: string; badgeClasses: string }> = {
-  scheduled:   { cardClasses: 'bg-slate-100 hover:bg-slate-200/80', textClass: 'text-slate-700', borderClass: 'border-slate-400', icon: Clock, iconClass: 'text-slate-500', badgeClasses: 'bg-slate-200 text-slate-600'},
-  confirmed:   { cardClasses: 'bg-green-50 hover:bg-green-100', textClass: 'text-green-800', borderClass: 'border-green-500', icon: CheckCircle, iconClass: 'text-green-600', badgeClasses: 'bg-green-100 text-green-700' },
-  'in-progress':{ cardClasses: 'bg-purple-50 hover:bg-purple-100', textClass: 'text-purple-800', borderClass: 'border-purple-500', icon: Loader2, iconClass: 'text-purple-600 animate-spin', badgeClasses: 'bg-purple-100 text-purple-700' },
-  completed:   { cardClasses: 'bg-blue-50 hover:bg-blue-100', textClass: 'text-blue-800', borderClass: 'border-blue-400', icon: CheckCircle, iconClass: 'text-blue-600', badgeClasses: 'bg-blue-100 text-blue-700' },
-  cancelled:   { cardClasses: 'bg-red-50 hover:bg-red-100 opacity-75', textClass: 'text-red-700', borderClass: 'border-red-400', icon: XCircle, iconClass: 'text-red-600', badgeClasses: 'bg-red-100 text-red-700 line-through' },
-  'no-show':   { cardClasses: 'bg-fuchsia-50 hover:bg-fuchsia-100 opacity-85', textClass: 'text-fuchsia-700', borderClass: 'border-fuchsia-400', icon: AlertCircle, iconClass: 'text-fuchsia-600', badgeClasses: 'bg-fuchsia-100 text-fuchsia-700' },
+const statusConfig: Record<Appointment['status'], { cardClasses: string; textClass: string; borderClass: string; iconForBadge: React.ElementType; iconClass: string; badgeClasses: string }> = {
+  scheduled:   { cardClasses: 'bg-slate-100 hover:bg-slate-200/80', textClass: 'text-slate-700', borderClass: 'border-slate-400', iconForBadge: Clock, iconClass: 'text-slate-500', badgeClasses: 'bg-slate-200 text-slate-600'},
+  confirmed:   { cardClasses: 'bg-green-50 hover:bg-green-100', textClass: 'text-green-800', borderClass: 'border-green-500', iconForBadge: CheckCircle, iconClass: 'text-green-600', badgeClasses: 'bg-green-100 text-green-700' },
+  'in-progress':{ cardClasses: 'bg-purple-50 hover:bg-purple-100', textClass: 'text-purple-800', borderClass: 'border-purple-500', iconForBadge: Loader2, iconClass: 'text-purple-600 animate-spin', badgeClasses: 'bg-purple-100 text-purple-700' },
+  completed:   { cardClasses: 'bg-blue-50 hover:bg-blue-100', textClass: 'text-blue-800', borderClass: 'border-blue-400', iconForBadge: CheckCircle, iconClass: 'text-blue-600', badgeClasses: 'bg-blue-100 text-blue-700' },
+  cancelled:   { cardClasses: 'bg-red-50 hover:bg-red-100 opacity-75', textClass: 'text-red-700', borderClass: 'border-red-400', iconForBadge: XCircle, iconClass: 'text-red-600', badgeClasses: 'bg-red-100 text-red-700 line-through' },
+  'no-show':   { cardClasses: 'bg-fuchsia-50 hover:bg-fuchsia-100 opacity-85', textClass: 'text-fuchsia-700', borderClass: 'border-fuchsia-400', iconForBadge: AlertCircle, iconClass: 'text-fuchsia-600', badgeClasses: 'bg-fuchsia-100 text-fuchsia-700' },
 };
 
 // --- Main Component ---
@@ -159,9 +159,9 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-slate-50 rounded-xl shadow-lg overflow-hidden border border-gray-200/70">
-      {/* Header Section - Justified items */}
+      {/* Header Section */}
       <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-gray-200/70 bg-white/90 backdrop-blur-sm sticky top-0 z-40">
-        <div className="flex items-center space-x-1 sm:space-x-1.5"> {/* Date Toggles Group */}
+        <div className="flex items-center space-x-1 sm:space-x-1.5">
           <Button size="icon" variant="ghost" className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full" onClick={() => onDateChange(subDays(date, 1))} aria-label="Previous day">
             <ChevronLeft size={20} />
           </Button>
@@ -211,11 +211,11 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
               <div
                 key={`timeslot-${timeStr}`}
                 id={timeStr}
-                className="relative border-t border-gray-200/60 group" // Lighter border
-                style={{ height: `${SLOT_BASE_HEIGHT_REM}rem` }} // Increased height here
+                className="relative border-t border-gray-200/60 group"
+                style={{ height: `${SLOT_BASE_HEIGHT_REM}rem` }}
                 onClickCapture={(e) => { if (e.target === e.currentTarget && onCreateAppointment) { handleSlotClick(timeStr); }}}
               >
-                <span className="absolute -top-[9px] left-0 sm:left-0.5 bg-slate-50 px-1.5 text-[9px] sm:text-[10px] text-gray-400 z-10 rounded"> {/* Adjusted bg to match parent */}
+                <span className="absolute -top-[9px] left-0 sm:left-0.5 bg-slate-50 px-1.5 text-[9px] sm:text-[10px] text-gray-400 z-10 rounded">
                   {format(parseISO(`2000-01-01T${timeStr}:00`), 'h:mm a')}
                 </span>
                 {onCreateAppointment && <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-blue-500 text-xs cursor-pointer bg-blue-50/30 rounded hover:bg-blue-100/50"> Add </div>}
@@ -249,13 +249,13 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
 
                 if (minutesFromTimelineStart < 0 || minutesFromTimelineStart >= TOTAL_HOURS_DISPLAYED * 60) return null;
 
-                const startPixelOffset = (minutesFromTimelineStart / SLOT_DURATION_MINUTES) * SLOT_BASE_HEIGHT_REM * 16; // 1rem = 16px
+                const startPixelOffset = (minutesFromTimelineStart / SLOT_DURATION_MINUTES) * SLOT_BASE_HEIGHT_REM * 16;
                 const durationSlots = Math.max(1, Math.ceil(appt.duration / SLOT_DURATION_MINUTES));
                 
                 const currentStyles = statusConfig[appt.status] || statusConfig.scheduled;
-                const StatusIcon = currentStyles.icon;
-                // Adjusted card height calculation for better fit with SLOT_BASE_HEIGHT_REM
-                const cardHeight = `calc(${durationSlots * SLOT_BASE_HEIGHT_REM}rem - 8px)`; // Increased spacing (8px total margin)
+                // Icon for badge is now used for badge, not next to name
+                // const StatusIconForName = currentStyles.iconForBadge; // Renamed to avoid confusion
+                const cardHeight = `calc(${durationSlots * SLOT_BASE_HEIGHT_REM}rem - 8px)`;
 
                 return (
                   <motion.div
@@ -271,17 +271,17 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
                       ${currentStyles.cardClasses} ${currentStyles.borderClass}
                     `}
                     style={{
-                      top: `calc(${startPixelOffset}px + 4px)`, // Increased top margin
+                      top: `calc(${startPixelOffset}px + 4px)`,
                       height: cardHeight,
                       zIndex: 20 + Math.floor(minutesFromTimelineStart / SLOT_DURATION_MINUTES),
                     }}
                     onClick={() => openActionModal(appt)}
                   >
-                    {/* Card Content - More resilient layout */}
+                    {/* Card Content - Revised for clarity */}
                     <div className="flex items-start justify-between mb-1 sm:mb-1.5">
-                        <h3 className={`text-xs xxs:text-sm sm:text-base font-semibold ${currentStyles.textClass} mr-1 leading-tight flex items-center`}>
-                            <StatusIcon size={14} className={`${currentStyles.iconClass} inline mr-1.5 sm:mr-2 flex-shrink-0`} />
-                            <span className="truncate">{appt.patient.first_name} {appt.patient.last_name}</span>
+                        <h3 className={`text-xs xxs:text-sm sm:text-base font-semibold ${currentStyles.textClass} mr-1 leading-tight truncate`}>
+                            {/* StatusIcon removed from here */}
+                            {appt.patient.first_name} {appt.patient.last_name}
                         </h3>
                         <Button variant="ghost" size="icon" className="h-5 w-5 -mr-1 text-gray-400 hover:text-blue-600 flex-shrink-0" onClick={(e) => openActionModal(appt, e)}>
                             <MoreVertical size={15} />
@@ -308,8 +308,9 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
                     </div>
                     
                     <div className="mt-1.5 sm:mt-2 shrink-0">
-                        <div className={`text-[8px] xxs:text-[9px] sm:text-[10px] font-bold uppercase tracking-wider self-start px-1.5 py-0.5 rounded-full inline-block ${currentStyles.badgeClasses}`}>
-                            {appt.status.replace('-', ' ')}
+                        <div className={`text-[8px] xxs:text-[9px] sm:text-[10px] font-bold uppercase tracking-wider self-start px-1.5 py-0.5 rounded-full inline-flex items-center ${currentStyles.badgeClasses}`}>
+                           <currentStyles.iconForBadge size={10} className={`${currentStyles.iconClass} mr-1`} />
+                           {appt.status.replace('-', ' ')}
                         </div>
                     </div>
                   </motion.div>
@@ -320,7 +321,22 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
         </DndContext>
       </div>
 
-      {selectedAppointment && ( /* Action Modal */ )}
+      {selectedAppointment && (
+        <AppointmentActionModal
+          isOpen={isActionModalOpen}
+          appointment={selectedAppointment}
+          onClose={() => { setIsActionModalOpen(false); setSelectedAppointment(null); }}
+          onStatusChange={async (newStatus) => {
+            if (!selectedAppointment) return;
+            try {
+              await onUpdateAppointment(selectedAppointment.id, { status: newStatus });
+              setIsActionModalOpen(false); setSelectedAppointment(null);
+            } catch (err) { console.error(err); }
+          }}
+          onEdit={() => { onView(selectedAppointment); setIsActionModalOpen(false); setSelectedAppointment(null); }}
+          onMessage={() => { if (onMessagePatient) { onMessagePatient(selectedAppointment); } }}
+        />
+      )}
     </div>
   );
 };
