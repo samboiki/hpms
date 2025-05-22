@@ -8,6 +8,8 @@ const corsHeaders = {
   'Access-Control-Expose-Headers': '*'
 };
 
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -109,9 +111,49 @@ serve(async (req) => {
         );
       }
 
-      // Convert image to base64
-      const imageBuffer = await imageResponse.arrayBuffer();
-      const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+      // Check file size
+      const contentLength = parseInt(imageResponse.headers.get('content-length') || '0', 10);
+      if (contentLength > MAX_IMAGE_SIZE) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Image file too large',
+            details: `Maximum file size is 5MB. Received: ${Math.round(contentLength / 1024 / 1024)}MB`
+          }),
+          { 
+            status: 400, 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json' 
+            } 
+          }
+        );
+      }
+
+      // Convert image to base64 using chunks to avoid stack overflow
+      const chunks: Uint8Array[] = [];
+      const reader = imageResponse.body?.getReader();
+      
+      if (!reader) {
+        throw new Error('Failed to read image data');
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+
+      // Combine chunks and convert to base64
+      const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+      const combinedArray = new Uint8Array(totalLength);
+      let position = 0;
+      
+      for (const chunk of chunks) {
+        combinedArray.set(chunk, position);
+        position += chunk.length;
+      }
+
+      const base64Image = btoa(String.fromCharCode(...combinedArray));
       console.log('Successfully converted image to base64');
 
       // Call OpenAI Vision API
@@ -181,28 +223,33 @@ serve(async (req) => {
         status: 'normal' as 'normal' | 'high' | 'low' | 'critical'
       };
 
-      // Extract data from OpenAI's response
+      // Extract data from OpenAI's response using string operations instead of regex
       const lines = analysis.split('\n');
       for (const line of lines) {
         const lowerLine = line.toLowerCase();
+        const colonIndex = line.indexOf(':');
+        
+        if (colonIndex === -1) continue;
+        
+        const value = line.substring(colonIndex + 1).trim();
         
         if (lowerLine.includes('test name') || lowerLine.includes('test:')) {
-          labData.testName = line.split(':')[1]?.trim() || '';
+          labData.testName = value;
         }
         else if (lowerLine.includes('result') || lowerLine.includes('value:')) {
-          labData.value = line.split(':')[1]?.trim() || '';
+          labData.value = value;
         }
         else if (lowerLine.includes('unit') || lowerLine.includes('units:')) {
-          labData.unit = line.split(':')[1]?.trim() || '';
+          labData.unit = value;
         }
         else if (lowerLine.includes('reference') || lowerLine.includes('range:')) {
-          labData.referenceRange = line.split(':')[1]?.trim() || '';
+          labData.referenceRange = value;
         }
         else if (lowerLine.includes('status') || lowerLine.includes('assessment:')) {
-          const status = line.split(':')[1]?.trim().toLowerCase() || '';
-          if (status.includes('high')) labData.status = 'high';
-          else if (status.includes('low')) labData.status = 'low';
-          else if (status.includes('critical')) labData.status = 'critical';
+          const statusValue = value.toLowerCase();
+          if (statusValue.includes('high')) labData.status = 'high';
+          else if (statusValue.includes('low')) labData.status = 'low';
+          else if (statusValue.includes('critical')) labData.status = 'critical';
           else labData.status = 'normal';
         }
       }
