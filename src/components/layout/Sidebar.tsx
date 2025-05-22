@@ -10,7 +10,9 @@ import {
   ChevronLeft,
   X,
   Wallet,
-  Microscope
+  Microscope,
+  UserRound,
+  Cog
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -35,7 +37,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: Calendar, label: 'Schedule', path: '/appointments' },
     { icon: Microscope, label: 'Requests', path: '/requests' },
     { icon: Wallet, label: 'Finance', path: '/finance' },
-    { icon: Settings, label: 'Settings', path: '/settings' },
   ];
 
   return (
@@ -83,20 +84,44 @@ const Sidebar: React.FC<SidebarProps> = ({
         ))}
       </nav>
 
-      <div className="absolute bottom-4 left-0 right-0 px-2">
+      <div className="mt-auto px-2 py-4 border-t border-white/15 space-y-1">
+        <NavLink
+          to="/settings"
+          className={({ isActive }) => cn(
+            "flex items-center px-3 py-2 rounded-lg text-white/80 hover:bg-white/10",
+            isActive ? "bg-white/20" : "",
+            collapsed && !isMobile && "justify-center"
+          )}
+        >
+          <UserRound size={18} />
+          {(!collapsed || isMobile) && <span className="ml-3 text-sm">Profile</span>}
+        </NavLink>
+
+        <NavLink
+          to="/settings"
+          className={({ isActive }) => cn(
+            "flex items-center px-3 py-2 rounded-lg text-white/80 hover:bg-white/10",
+            isActive ? "bg-white/20" : "",
+            collapsed && !isMobile && "justify-center"
+          )}
+        >
+          <Cog size={18} />
+          {(!collapsed || isMobile) && <span className="ml-3 text-sm">Settings</span>}
+        </NavLink>
+
         <button
           onClick={onToggle}
           className={cn(
-            "flex items-center w-full px-3 py-2 rounded-lg text-white/80 hover:bg-white/10 transition-colors min-h-[44px]",
+            "w-full mt-2 flex items-center px-3 py-2 rounded-lg text-white/80 hover:bg-white/10",
             collapsed && !isMobile && "justify-center"
           )}
         >
           {collapsed ? (
-            <ChevronRight size={20} strokeWidth={1.5} />
+            <ChevronRight size={20} />
           ) : (
             <>
-              <ChevronLeft size={20} strokeWidth={1.5} />
-              <span className="ml-3 text-sm font-medium">Collapse</span>
+              <ChevronLeft size={20} />
+              {!collapsed && <span className="ml-3 text-sm">Collapse</span>}
             </>
           )}
         </button>
