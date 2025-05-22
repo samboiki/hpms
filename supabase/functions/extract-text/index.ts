@@ -66,10 +66,19 @@ serve(async (req) => {
 
     // Validate and fetch image
     try {
+      console.log('Fetching image from URL:', imageUrl);
       const imageResponse = await fetch(imageUrl);
+      
       if (!imageResponse.ok) {
+        console.error('Failed to fetch image:', {
+          status: imageResponse.status,
+          statusText: imageResponse.statusText
+        });
         return new Response(
-          JSON.stringify({ error: 'Failed to fetch image from provided URL' }),
+          JSON.stringify({ 
+            error: 'Failed to fetch image from provided URL',
+            details: `HTTP ${imageResponse.status}: ${imageResponse.statusText}`
+          }),
           { 
             status: 400, 
             headers: { 
@@ -82,9 +91,14 @@ serve(async (req) => {
 
       // Check content type
       const contentType = imageResponse.headers.get('content-type');
+      console.log('Image content type:', contentType);
+      
       if (!contentType?.startsWith('image/')) {
         return new Response(
-          JSON.stringify({ error: 'Invalid file type. Only images are supported.' }),
+          JSON.stringify({ 
+            error: 'Invalid file type. Only images are supported.',
+            details: `Received content type: ${contentType}`
+          }),
           { 
             status: 400, 
             headers: { 
@@ -98,8 +112,10 @@ serve(async (req) => {
       // Convert image to base64
       const imageBuffer = await imageResponse.arrayBuffer();
       const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+      console.log('Successfully converted image to base64');
 
       // Call OpenAI Vision API
+      console.log('Calling OpenAI API...');
       const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -107,7 +123,7 @@ serve(async (req) => {
           'Authorization': `Bearer ${OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
-          model: 'gpt-4.1-mini',
+          model: 'gpt-4-vision-preview',
           messages: [
             {
               role: 'system',
@@ -136,10 +152,24 @@ serve(async (req) => {
       if (!openaiResponse.ok) {
         const error = await openaiResponse.json();
         console.error('OpenAI API error:', error);
-        throw new Error(`OpenAI API error: ${error.error?.message || 'Unknown error'}`);
+        return new Response(
+          JSON.stringify({ 
+            error: 'OpenAI API error',
+            details: error.error?.message || 'Unknown error'
+          }),
+          { 
+            status: 500, 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json' 
+            } 
+          }
+        );
       }
 
       const openaiData = await openaiResponse.json();
+      console.log('OpenAI API response:', openaiData);
+      
       const analysis = openaiData.choices[0].message.content;
 
       // Parse OpenAI's response to extract structured data
@@ -177,10 +207,15 @@ serve(async (req) => {
         }
       }
 
+      console.log('Extracted lab data:', labData);
+
       // Validate extracted data
       if (!labData.testName && !labData.value) {
         return new Response(
-          JSON.stringify({ error: 'Could not extract meaningful lab data from image' }),
+          JSON.stringify({ 
+            error: 'Could not extract meaningful lab data from image',
+            details: 'The AI model could not identify test name or value in the image'
+          }),
           { 
             status: 400, 
             headers: { 
@@ -204,7 +239,10 @@ serve(async (req) => {
     } catch (fetchError) {
       console.error('Error processing image:', fetchError);
       return new Response(
-        JSON.stringify({ error: 'Failed to process image' }),
+        JSON.stringify({ 
+          error: 'Failed to process image',
+          details: fetchError instanceof Error ? fetchError.message : 'Unknown error during image processing'
+        }),
         { 
           status: 500, 
           headers: { 
