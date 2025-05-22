@@ -313,7 +313,14 @@ export function AppointmentTimeline({
             </AnimatePresence>
           </div>
         </DndContext>
-      </div>import React, { useState, useEffect, useMemo } from 'react';
+      </div>
+      {selectedAppointment && (
+        <AppointmentActionModal
+          isOpen={isActionModalOpen}
+          appointment={selectedAppointment}
+          onClose={() => { setIsActionModalOpen(false); setSelectedAppointment(null); }}
+          onStatusChange={async (newStatus) => {
+            if (!selecteimport React, { useState, useEffect, useMemo } from 'react';
 import {
   Clock, ChevronLeft, ChevronRight, Calendar as CalendarIcon,
   User, Briefcase, AlertCircle, CheckCircle2, XCircle, Loader2, MoreVertical,
@@ -645,14 +652,7 @@ export function AppointmentTimeline({
       )}
     </div>
   );
-}
-      {selectedAppointment && (
-        <AppointmentActionModal
-          isOpen={isActionModalOpen}
-          appointment={selectedAppointment}
-          onClose={() => { setIsActionModalOpen(false); setSelectedAppointment(null); }}
-          onStatusChange={async (newStatus) => {
-            if (!selectedAppointment) return;
+}dAppointment) return;
             await onUpdateAppointment(selectedAppointment.id, { status: newStatus });
             setIsActionModalOpen(false); setSelectedAppointment(null);
           }}
