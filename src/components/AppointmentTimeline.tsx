@@ -296,12 +296,10 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
                                             </div>
 
                                             {/* Doctor Name Row */}
-                                            {appt.doctor && (
                                                 <div className={`flex items-center text-xs xxs:text-[11px] sm:text-xs ${currentStyles.textClass} opacity-85 mt-1 sm:mt-1.5`}>
                                                     <User size={12} className="mr-1 sm:mr-1.5 flex-shrink-0" />
                                                     <span className="font-medium break-words">Dr. {appt.doctor.full_name}</span>
                                                 </div>
-                                            )}
                                             
                                             {/* Appointment Type Row (Brief) */}
                                             <div className={`flex items-center text-[10px] xxs:text-[11px] sm:text-xs ${currentStyles.textClass} opacity-70 mt-1 sm:mt-1.5`}>
