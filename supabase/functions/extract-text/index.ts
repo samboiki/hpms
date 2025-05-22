@@ -73,7 +73,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: 'gpt-4-vision-preview',
         messages: [
           {
             role: 'system',
@@ -117,7 +117,7 @@ serve(async (req) => {
             ]
           }
         ],
-        max_tokens: 1000
+        max_tokens: 1500 // Increased to handle more results
       })
     });
 
@@ -179,23 +179,7 @@ serve(async (req) => {
       );
     }
 
-    // Validate we have at least one result
-    if (!labResults || labResults.length === 0) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'No lab results found in image',
-          details: 'The AI model could not identify any test results'
-        }),
-        { 
-          status: 400, 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          } 
-        }
-      );
-    }
-
+    // Return all results found
     return new Response(
       JSON.stringify({ results: labResults }),
       { 
