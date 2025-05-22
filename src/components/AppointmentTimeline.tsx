@@ -30,7 +30,7 @@ interface Appointment {
   time: string;
   duration: number;
   type: string;
-  status: 'scheduled' | 'confirmed' | 'cancelled' | 'completed' | 'no-show';
+  status: string;
   notes?: string;
   patient: {
     first_name: string;
@@ -54,13 +54,16 @@ interface AppointmentTimelineProps {
   onMessagePatient?: (appointment: Appointment) => void;
 }
 
+const START_HOUR = 8;
+const TOTAL_MINUTES = 11 * 60; // 8AM → 7PM
+
 export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
-  date, 
-  appointments, 
-  isLoading, 
-  error, 
-  onCheckIn, 
-  onCancel, 
+  date,
+  appointments,
+  isLoading,
+  error,
+  onCheckIn,
+  onCancel,
   onView,
   onDateChange,
   onUpdateAppointment,
@@ -93,16 +96,6 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  // Debug logging to help diagnose appointment matching issues
-  console.log(
-    'Appointments data:',
-    appointments.map(a => ({
-      rawDate: a.date,
-      parsedDate: parseISO(a.date).toString(),
-      rawTime: a.time
-    }))
-  );
-
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) return;
@@ -132,19 +125,9 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
         return 'error';
       case 'completed':
         return 'success';
-      case 'no-show':
-        return 'error';
       default:
         return 'glass';
     }
-  };
-
-  const getEndTime = (startTime: string, duration: number) => {
-    const [hours, minutes] = startTime.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hours, minutes);
-    date.setMinutes(date.getMinutes() + duration);
-    return format(date, 'HH:mm');
   };
 
   const handleAppointmentClick = (appointment: Appointment) => {
@@ -218,119 +201,102 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
 
       {/* Timeline Content */}
       <div className="p-4 overflow-y-auto max-h-[calc(100vh-200px)]">
-        {isLoading ? (
-          <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-          </div>
-        ) : error ? (
-          <div className="text-center py-8">
-            <p className="text-red-600">{error}</p>
-          </div>
-        ) : (
-          <DndContext 
-            sensors={sensors}
-            modifiers={[restrictToVerticalAxis]}
-            onDragEnd={handleDragEnd}
-          >
-            <div className="relative">
-              {/* Current Time Indicator */}
-              {isToday(date) && (
-                <div 
-                  className="absolute left-0 right-0 border-t-2 border-red-500 z-10"
-                  style={{
-                    top: `${((currentTime.getHours() - 8) * 60 + currentTime.getMinutes()) * (100 / (11 * 60))}%`
-                  }}
-                >
-                  <div className="absolute -left-1 -top-2 w-4 h-4 rounded-full bg-red-500" />
+        <DndContext 
+          sensors={sensors}
+          modifiers={[restrictToVerticalAxis]}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="relative" style={{ height: `${TOTAL_MINUTES}px` }}>
+            {/* Time slots */}
+            {timeSlots.map((timeSlot, i) => (
+              <div
+                key={i}
+                className="absolute left-0 right-0"
+                style={{
+                  top: `${((timeSlot.getHours() - START_HOUR) * 60 + timeSlot.getMinutes())}px`
+                }}
+              >
+                <div className="flex items-center text-xs text-gray-400">
+                  <div className="w-16 text-right">
+                    {format(timeSlot, 'h:mm a')}
+                  </div>
+                  <div className="flex-1 ml-2 border-t border-gray-100 border-dashed" />
                 </div>
-              )}
+              </div>
+            ))}
 
-              {timeSlots.map((timeSlot, i) => {
-                const currentSlotTime = format(timeSlot, 'HH:mm');
-                // Normalize dates and times for comparison
-                const slotAppointments = appointments.filter(a => {
-                  // Extract just the YYYY-MM-DD part
-                  const [yyyy, MM, dd] = a.date.split('T')[0].split('-').map(Number);
-                  const apptDate = new Date(yyyy, MM - 1, dd);
-                  
-                  // Normalize time to HH:mm format
-                  const storedTime = a.time.slice(0, 5).padStart(5, '0');
-                  
-                  return isSameDay(apptDate, date) && storedTime === currentSlotTime;
-                });
+            {/* Current time indicator */}
+            {isToday(date) && (
+              <div 
+                className="absolute left-0 right-0 border-t-2 border-red-500 z-10"
+                style={{
+                  top: `${((currentTime.getHours() - START_HOUR) * 60 + currentTime.getMinutes())}px`
+                }}
+              >
+                <div className="absolute -left-1 -top-2 w-4 h-4 rounded-full bg-red-500" />
+              </div>
+            )}
 
+            {/* Appointments */}
+            {appointments
+              .filter(a => isSameDay(parseISO(a.date), date))
+              .map(appt => {
+                const [h, m] = appt.time.split(':').map(Number);
+                const minutesFromStart = (h - START_HOUR) * 60 + m;
+                
                 return (
-                  <div key={i} className="mb-4" id={currentSlotTime}>
-                    <div className="text-xs text-gray-400 mb-2 flex items-center">
-                      <div className="w-16 text-right">
-                        {format(timeSlot, 'h:mm a')}
-                      </div>
-                      <div className="flex-1 ml-2 border-t border-gray-100 border-dashed"></div>
-                    </div>
-
-                    <div className="pl-16">
-                      <AnimatePresence>
-                        {slotAppointments.map(appt => (
-                          <motion.div
-                            key={appt.id}
-                            layout
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            whileHover={{ scale: 1.02 }}
-                            className={`
-                              flex items-center justify-between p-4 mb-2 rounded-lg shadow-sm
-                              cursor-pointer transition-all duration-200
-                              ${appt.status === 'scheduled' ? 'bg-blue-50 border-l-4 border-blue-500' : 
-                                appt.status === 'confirmed' ? 'bg-green-50 border-l-4 border-green-500' :
-                                appt.status === 'in-progress' ? 'bg-amber-50 border-l-4 border-amber-500' :
-                                appt.status === 'cancelled' ? 'bg-red-50 border-l-4 border-red-500' :
-                                'bg-gray-50 border-l-4 border-gray-500'}
-                            `}
-                            onClick={() => handleAppointmentClick(appt)}
-                          >
-                            <div>
-                              <h3 className="font-medium text-gray-900">
-                                {appt.patient.first_name} {appt.patient.last_name}
-                              </h3>
-                              <div className="flex items-center text-sm text-gray-500">
-                                <Clock size={14} className="mr-1" />
-                                {appt.time} - {getEndTime(appt.time, appt.duration)} • {appt.type}
-                                {appt.doctor?.full_name && (
-                                  <>
-                                    <span className="mx-1">•</span>
-                                    Dr. {appt.doctor.full_name}
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center space-x-2">
-                              <Badge
-                                variant={getStatusColor(appt.status)}
-                                size="sm"
-                                className="capitalize"
-                              >
-                                {appt.status}
-                              </Badge>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-
-                      {slotAppointments.length === 0 && (
-                        <div className="h-2" />
+                  <motion.div
+                    key={appt.id}
+                    layout
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    style={{
+                      position: 'absolute',
+                      left: '4rem',
+                      right: '1rem',
+                      top: `${minutesFromStart}px`,
+                      height: `${appt.duration}px`,
+                    }}
+                    className={`
+                      p-2 rounded-lg shadow-sm cursor-pointer transition-all
+                      ${appt.status === 'scheduled' ? 'bg-blue-50 border-l-4 border-blue-500' :
+                        appt.status === 'confirmed' ? 'bg-green-50 border-l-4 border-green-500' :
+                        appt.status === 'in-progress' ? 'bg-amber-50 border-l-4 border-amber-500' :
+                        appt.status === 'cancelled' ? 'bg-red-50 border-l-4 border-red-500' :
+                        'bg-gray-50 border-l-4 border-gray-500'
+                      }
+                    `}
+                    onClick={() => handleAppointmentClick(appt)}
+                  >
+                    <h3 className="text-sm font-medium text-gray-900">
+                      {appt.patient.first_name} {appt.patient.last_name}
+                    </h3>
+                    <div className="flex items-center text-xs text-gray-500">
+                      <Clock size={12} className="mr-1" />
+                      {appt.time} • {appt.type}
+                      {appt.doctor?.full_name && (
+                        <>
+                          <span className="mx-1">•</span>
+                          Dr. {appt.doctor.full_name}
+                        </>
                       )}
                     </div>
-                  </div>
+                    <Badge
+                      variant={getStatusColor(appt.status)}
+                      size="sm"
+                      className="mt-1"
+                    >
+                      {appt.status}
+                    </Badge>
+                  </motion.div>
                 );
               })}
-            </div>
-          </DndContext>
-        )}
+          </div>
+        </DndContext>
 
         {appointments.length === 0 && !isLoading && (
-          <div className="text-center py-12">
+          <div className="text-center py-8">
             <Clock size={40} className="mx-auto text-gray-300 mb-2" />
             <p className="text-gray-500">No appointments scheduled</p>
           </div>
