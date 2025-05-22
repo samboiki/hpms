@@ -23,7 +23,6 @@ import { format, addDays, startOfWeek, addWeeks, subWeeks, parseISO, isSameDay }
 import FormModal from '../components/modals/FormModal';
 import AddAppointmentForm from '../components/forms/AddAppointmentForm';
 import { motion } from 'framer-motion';
-import { supabase } from '../lib/supabase';
 
 const Appointments: React.FC = () => {
   const navigate = useNavigate();
@@ -34,7 +33,6 @@ const Appointments: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterDoctor, setFilterDoctor] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [doctors, setDoctors] = useState<any[]>([]);
   
   // Generate dates for week view
   const startOfCurrentWeek = startOfWeek(currentDate, { weekStartsOn: 1 }); // Start on Monday
@@ -47,22 +45,7 @@ const Appointments: React.FC = () => {
   
   useEffect(() => {
     fetchAppointments();
-    fetchDoctors();
   }, [fetchAppointments]);
-
-  const fetchDoctors = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, full_name, role')
-        .eq('role', 'doctor');
-      
-      if (error) throw error;
-      setDoctors(data || []);
-    } catch (err) {
-      console.error('Error fetching doctors:', err);
-    }
-  };
 
   // Filter appointments for the current week
   const currentWeekAppointments = appointments.filter(appointment => {
@@ -198,9 +181,9 @@ const Appointments: React.FC = () => {
                 className="px-4 py-2 rounded-md border border-gray-300 focus:ring-brand-primary focus:border-brand-primary"
               >
                 <option value="all">All Doctors</option>
-                {doctors.map(doctor => (
-                  <option key={doctor.id} value={doctor.id}>{doctor.full_name}</option>
-                ))}
+                {/* This would be populated from your doctors data */}
+                <option value="doctor1">Dr. Jane Smith</option>
+                <option value="doctor2">Dr. Michael Chen</option>
               </select>
             </div>
           </div>
@@ -384,7 +367,7 @@ const Appointments: React.FC = () => {
                 <p className="text-error-600">{error}</p>
               </div>
             ) : (
-              <div className="space-y-0">
+              <div className="space-y-4">
                 {/* Time slots */}
                 {['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map((time) => {
                   const timeAppointments = appointments.filter(a => 
@@ -393,67 +376,69 @@ const Appointments: React.FC = () => {
                   );
                   
                   return (
-                    <div key={time} className="flex group hover:bg-gray-50">
-                      <div className="w-20 py-4 text-right pr-4 text-gray-500 font-medium border-r border-gray-200 group-hover:text-brand-primary">
+                    <div key={time} className="flex">
+                      <div className="w-20 py-2 text-right pr-4 text-gray-500 font-medium">
                         {time}
                       </div>
-                      <div className="flex-1 min-h-[60px] border-b border-gray-100 py-2 px-4 relative">
+                      <div className="flex-1 min-h-[60px] border-t border-gray-200 pt-2 relative">
                         {timeAppointments.length > 0 ? (
-                          <div className="space-y-2">
-                            {timeAppointments.map((appointment) => (
-                              <motion.div
-                                key={appointment.id}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                className={`
-                                  p-2 rounded-lg shadow-sm
-                                  ${appointment.status === 'confirmed' ? 'bg-green-50 border-l-2 border-green-500' :
-                                    appointment.status === 'scheduled' ? 'bg-blue-50 border-l-2 border-blue-500' :
-                                    appointment.status === 'in-progress' ? 'bg-amber-50 border-l-2 border-amber-500' :
-                                    appointment.status === 'cancelled' ? 'bg-red-50 border-l-2 border-red-500' :
-                                    'bg-gray-50 border-l-2 border-gray-500'}
-                                `}
-                              >
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <p className="font-medium text-sm">
-                                      {appointment.patient?.first_name} {appointment.patient?.last_name}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                      {appointment.time} • {appointment.type}
-                                    </p>
-                                  </div>
-                                  <Badge
-                                    variant={getStatusColor(appointment.status)}
-                                    size="sm"
-                                  >
-                                    {appointment.status}
-                                  </Badge>
+                          timeAppointments.map((appointment) => (
+                            <motion.div
+                              key={appointment.id}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              className={`
+                                absolute left-0 p-2 rounded-r-lg shadow-sm w-[calc(100%-8px)]
+                                ${appointment.status === 'confirmed' ? 'bg-green-50 border-l-2 border-green-500' :
+                                  appointment.status === 'scheduled' ? 'bg-blue-50 border-l-2 border-blue-500' :
+                                  appointment.status === 'in-progress' ? 'bg-amber-50 border-l-2 border-amber-500' :
+                                  appointment.status === 'cancelled' ? 'bg-red-50 border-l-2 border-red-500' :
+                                  'bg-gray-50 border-l-2 border-gray-500'}
+                              `}
+                              style={{
+                                top: `${(parseInt(appointment.time.split(':')[1]) / 60) * 60}px`,
+                                height: `${(appointment.duration / 60) * 60}px`
+                              }}
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium text-sm">
+                                    {appointment.patient?.first_name} {appointment.patient?.last_name}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {appointment.time} • {appointment.type}
+                                  </p>
                                 </div>
-                                
-                                {appointment.status === 'scheduled' && (
-                                  <div className="mt-2 flex space-x-1">
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      className="py-0 h-6 text-xs bg-white"
-                                      onClick={() => handleCheckIn(appointment.id)}
-                                    >
-                                      Check-in
-                                    </Button>
-                                    <Button 
-                                      variant="outline" 
-                                      size="sm"
-                                      className="py-0 h-6 text-xs bg-white text-red-600"
-                                      onClick={() => handleCancel(appointment.id)}
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                )}
-                              </motion.div>
-                            ))}
-                          </div>
+                                <Badge
+                                  variant={getStatusColor(appointment.status)}
+                                  size="sm"
+                                >
+                                  {appointment.status}
+                                </Badge>
+                              </div>
+                              
+                              {appointment.status === 'scheduled' && (
+                                <div className="mt-2 flex space-x-1">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="py-0 h-6 text-xs bg-white"
+                                    onClick={() => handleCheckIn(appointment.id)}
+                                  >
+                                    Check-in
+                                  </Button>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="py-0 h-6 text-xs bg-white text-red-600"
+                                    onClick={() => handleCancel(appointment.id)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                </div>
+                              )}
+                            </motion.div>
+                          ))
                         ) : null}
                       </div>
                     </div>
@@ -477,21 +462,6 @@ const Appointments: React.FC = () => {
                 )}
               </div>
             )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Month view */}
-      {view === 'month' && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>{format(currentDate, 'MMMM yyyy')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-8">
-              <Calendar size={40} className="mx-auto text-gray-300" />
-              <p className="mt-2 text-gray-500">Month view coming soon</p>
-            </div>
           </CardContent>
         </Card>
       )}
