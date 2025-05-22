@@ -269,7 +269,36 @@ const Dashboard: React.FC = () => {
     <div className="p-6 space-y-6">
       {/* Header Section with Welcome and Quick Stats */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-       
+        {/* Welcome Card */}
+        <Card className="lg:col-span-1 bg-gradient-to-r from-[#01b9d4] to-[#0197d4] text-white shadow-lg">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-white/20 rounded-full">
+                <Building2 size={24} className="text-white" />
+              </div> 
+              <div>
+                <h2 className="text-xl font-bold">Welcome Back</h2>
+                <p className="text-white/80">Today is {format(new Date(), 'EEEE, MMMM d')}</p>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button 
+                className="bg-white/20 hover:bg-white/30 text-white border-none"
+                onClick={() => setIsAddAppointmentModalOpen(true)}
+              >
+                <Calendar size={16} className="mr-2" />
+                New Appointment
+              </Button>
+              <Button 
+                className="bg-white/20 hover:bg-white/30 text-white border-none"
+                onClick={() => navigate('/patients')}
+              >
+                <Users size={16} className="mr-2" />
+                View Patients
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stats Cards */}
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -328,36 +357,7 @@ const Dashboard: React.FC = () => {
           </Card>
         </div>
       </div>
- {/* Welcome Card */}
-        <Card className="lg:col-span-1 bg-gradient-to-r from-[#01b9d4] to-[#0197d4] text-white shadow-lg">
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-white/20 rounded-full">
-                <Building2 size={24} className="text-white" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold">Welcome Back</h2>
-                <p className="text-white/80">Today is {format(new Date(), 'EEEE, MMMM d')}</p>
-              </div>
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <Button 
-                className="bg-white/20 hover:bg-white/30 text-white border-none"
-                onClick={() => setIsAddAppointmentModalOpen(true)}
-              >
-                <Calendar size={16} className="mr-2" />
-                New Appointment
-              </Button>
-              <Button 
-                className="bg-white/20 hover:bg-white/30 text-white border-none"
-                onClick={() => navigate('/patients')}
-              >
-                <Users size={16} className="mr-2" />
-                View Patients
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+
       {/* Tabs for switching between Appointments and Finance */}
       <div className="flex border-b border-gray-200 mb-6">
         <button
