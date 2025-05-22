@@ -1,27 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Activity, 
-  Users, 
-  Calendar,
-  Microscope,
-  AlertCircle,
-  Plus,
-  Stethoscope,
-  FileText,
-  Clock,
-  User,
-  ArrowRight,
-  Pill,
-  ImageIcon,
-  Search,
-  Filter,
-  Building2,
-  MoreVertical,
-  ChevronLeft,
-  ChevronRight,
-  subDays,
-  addDays
-} from 'lucide-react';
+import { Activity, Users, Calendar, Microscope, AlertCircle, Plus, Stethoscope, FileText, Clock, User, ArrowRight, Pill, ImageIcon, Search, Filter, Building2, MoreVertical, ChevronLeft, ChevronRight, CalendarDays as subDays, CalendarDays as addDays } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
