@@ -282,20 +282,7 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <Button 
-                className="bg-white/20 hover:bg-white/30 text-white border-none"
-                onClick={() => setIsAddAppointmentModalOpen(true)}
-              >
-                <Calendar size={16} className="mr-2" />
-                New Appointment
-              </Button>
-              <Button 
-                className="bg-white/20 hover:bg-white/30 text-white border-none"
-                onClick={() => navigate('/patients')}
-              >
-                <Users size={16} className="mr-2" />
-                View Patients
-              </Button>
+             
             </div>
           </CardContent>
         </Card>
