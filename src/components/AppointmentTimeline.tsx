@@ -12,8 +12,8 @@ import {
   Loader2,
   MessageSquare,
   Edit,
-  MoreVertical, // For a subtle action trigger on card
-  StickyNote, // For notes
+  MoreVertical,
+  // StickyNote, // Removed as notes are not displayed on card
 } from 'lucide-react';
 import {
   format,
@@ -54,7 +54,7 @@ export interface Appointment {
   status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
   patient: AppointmentPatient;
   doctor?: AppointmentDoctor;
-  notes?: string;
+  notes?: string; // Kept in interface in case modal uses it
 }
 
 interface AppointmentTimelineProps {
@@ -78,14 +78,13 @@ const TOTAL_GRID_ROWS = TOTAL_HOURS_DISPLAYED * (60 / SLOT_DURATION_MINUTES);
 const SLOT_BASE_HEIGHT_REM = 4; // h-16 (64px) for each 30-min slot
 
 // --- Styling Configuration ---
-// Ensures "scheduled" is neutral gray, others are distinct.
 const statusConfig: Record<Appointment['status'], { cardClasses: string; textClass: string; borderClass: string; icon: React.ElementType; iconClass: string; badgeClasses: string }> = {
   scheduled:   { cardClasses: 'bg-slate-50 hover:bg-slate-100', textClass: 'text-slate-700', borderClass: 'border-slate-400', icon: Clock, iconClass: 'text-slate-500', badgeClasses: 'bg-slate-200 text-slate-700'},
   confirmed:   { cardClasses: 'bg-green-50 hover:bg-green-100', textClass: 'text-green-800', borderClass: 'border-green-500', icon: CheckCircle, iconClass: 'text-green-600', badgeClasses: 'bg-green-100 text-green-700' },
-  'in-progress':{ cardClasses: 'bg-amber-50 hover:bg-amber-100', textClass: 'text-amber-800', borderClass: 'border-amber-500', icon: Loader2, iconClass: 'text-amber-600 animate-spin', badgeClasses: 'bg-amber-100 text-amber-700' },
+  'in-progress':{ cardClasses: 'bg-purple-50 hover:bg-purple-100', textClass: 'text-purple-800', borderClass: 'border-purple-500', icon: Loader2, iconClass: 'text-purple-600 animate-spin', badgeClasses: 'bg-purple-100 text-purple-700' }, // Changed to purple
   completed:   { cardClasses: 'bg-blue-50 hover:bg-blue-100', textClass: 'text-blue-800', borderClass: 'border-blue-400', icon: CheckCircle, iconClass: 'text-blue-600', badgeClasses: 'bg-blue-100 text-blue-700' },
   cancelled:   { cardClasses: 'bg-red-50 hover:bg-red-100 opacity-80', textClass: 'text-red-700', borderClass: 'border-red-400', icon: XCircle, iconClass: 'text-red-600', badgeClasses: 'bg-red-100 text-red-700 line-through' },
-  'no-show':   { cardClasses: 'bg-purple-50 hover:bg-purple-100 opacity-90', textClass: 'text-purple-700', borderClass: 'border-purple-400', icon: AlertCircle, iconClass: 'text-purple-600', badgeClasses: 'bg-purple-100 text-purple-700' },
+  'no-show':   { cardClasses: 'bg-fuchsia-50 hover:bg-fuchsia-100 opacity-90', textClass: 'text-fuchsia-700', borderClass: 'border-fuchsia-400', icon: AlertCircle, iconClass: 'text-fuchsia-600', badgeClasses: 'bg-fuchsia-100 text-fuchsia-700' }, // Changed 'no-show' to fuchsia to differentiate from 'in-progress'
 };
 
 // --- Main Component ---
@@ -157,7 +156,7 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
   };
 
   const openActionModal = (appointment: Appointment, e?: React.MouseEvent) => {
-    e?.stopPropagation(); // Prevent card click if clicking on action button
+    e?.stopPropagation();
     setSelectedAppointment(appointment);
     setIsActionModalOpen(true);
   };
@@ -206,16 +205,37 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
 
       {/* Timeline Body */}
       <div className="flex-1 relative overflow-y-auto min-h-0" id="timeline-scroll-container">
-        {isLoading && ( /* Loading State */ )}
-        {error && !isLoading && ( /* Error State */ )}
-        {!isLoading && !error && filteredAppointments.length === 0 && ( /* No Appointments State */ )}
+        {/* Loading State Overlay */}
+        {isLoading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-50 backdrop-blur-sm">
+            <Loader2 size={40} className="text-blue-600 animate-spin mb-3" />
+            <p className="text-gray-600 font-medium">Loading Appointments...</p>
+          </div>
+        )}
+        {/* Error State Overlay */}
+        {error && !isLoading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 z-40">
+            <AlertCircle size={48} className="text-red-500 mb-3" />
+            <p className="font-semibold text-red-700">Error Loading Appointments</p>
+            <p className="text-sm text-gray-600 mt-1">{error}</p>
+            <Button variant="outline" size="sm" onClick={() => window.location.reload()} className="mt-4">Try Again</Button>
+          </div>
+        )}
+        {/* No Appointments State Overlay (only if not loading and no error) */}
+        {!isLoading && !error && filteredAppointments.length === 0 && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6 text-center z-40">
+            <CalendarIcon size={48} className="mb-3 opacity-70" />
+            <p className="font-semibold text-gray-500">No Appointments for {format(date, 'dd MMM')}</p>
+            {onCreateAppointment && <p className="text-sm text-gray-400 mt-1">You can create one by clicking on a time slot.</p>}
+          </div>
+        )}
 
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <div className={`grid grid-cols-[theme(spacing.14)_1fr] sm:grid-cols-[theme(spacing.16)_1fr] md:grid-cols-[theme(spacing.20)_1fr] p-3 sm:p-4 relative min-h-full gap-x-2 sm:gap-x-3`}>
             {/* Time Labels & Grid Lines (Droppable Areas) */}
             {timeSlots.map((timeStr, i) => (
               <React.Fragment key={`timeslot-${timeStr}`}>
-                <div className="row-start-[--row] col-start-1 text-right -translate-y-1/2" style={{ '--row': i + 1 } as React.CSSProperties}>
+                <div className="row-start-[--row] col-start-1 text-right pr-2 sm:pr-3 -translate-y-1/2" style={{ '--row': i + 1 } as React.CSSProperties}>
                   <span className="text-[10px] sm:text-xs text-gray-400 whitespace-nowrap">{format(parseISO(`2000-01-01T${timeStr}:00`), 'h:mm a')}</span>
                 </div>
                 <div
@@ -230,7 +250,24 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
             ))}
 
             {/* "Now" Indicator */}
-            {isToday(date) && (() => { /* ... "Now" indicator logic remains similar ... */ })()}
+            {isToday(date) && (() => {
+              const nowTotalMinutes = getHours(currentTime) * 60 + getMinutes(currentTime);
+              const startTotalMinutes = START_HOUR * 60;
+              const minutesSinceStart = nowTotalMinutes - startTotalMinutes;
+              if (minutesSinceStart >= 0 && minutesSinceStart <= TOTAL_HOURS_DISPLAYED * 60) {
+                const topPercentage = (minutesSinceStart / (TOTAL_HOURS_DISPLAYED * 60)) * 100;
+                return (
+                  <div
+                    className="absolute col-start-1 col-span-full left-0 right-0 h-0.5 bg-red-500 z-30 pointer-events-none shadow-md"
+                    style={{ top: `${topPercentage}%` }}
+                    aria-hidden="true"
+                  >
+                    <div className="absolute -left-[5px] -top-[5px] w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white shadow-xl" />
+                  </div>
+                );
+              }
+              return null;
+             })()}
 
             {/* Appointments Rendering */}
             <AnimatePresence>
@@ -255,60 +292,51 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
                     className={`
                       absolute col-start-2 left-0.5 right-0.5 sm:left-1 sm:right-1
-                      rounded-lg shadow-md hover:shadow-lg p-2 sm:p-2.5 border-l-[5px]
+                      rounded-lg shadow-md hover:shadow-lg p-2.5 sm:p-3 border-l-[5px]
                       cursor-pointer active:cursor-grabbing 
-                      flex flex-col justify-between overflow-hidden
+                      flex flex-col justify-between overflow-hidden 
                       transition-all duration-150 ease-out
                       ${currentStyles.cardClasses} ${currentStyles.borderClass}
                     `}
                     style={{
                       top: `calc(${startRowIndexBased * SLOT_BASE_HEIGHT_REM}rem)`,
                       height: cardHeight,
-                      zIndex: 20 + startRowIndexBased, // Basic overlap management
+                      zIndex: 20 + startRowIndexBased,
                     }}
                     onClick={() => openActionModal(appt)}
                   >
-                    <div className="flex flex-col flex-grow min-h-0 justify-between h-full"> {/* Ensure full height distribution */}
-                        {/* Top part: Name & Action Button */}
+                    <div className="flex flex-col flex-grow min-h-0 justify-between h-full">
                         <div className="flex items-start justify-between mb-1">
-                            <h3 className={`text-xs sm:text-sm font-semibold ${currentStyles.textClass} truncate mr-1`}>
-                                <StatusIcon size={14} className={`${currentStyles.iconClass} inline mr-1.5 mb-px`} />
+                            <h3 className={`text-sm sm:text-[15px] font-semibold ${currentStyles.textClass} truncate mr-1 leading-tight`}>
+                                <StatusIcon size={15} className={`${currentStyles.iconClass} inline mr-1.5 mb-0.5`} />
                                 {appt.patient.first_name} {appt.patient.last_name}
                             </h3>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1 -mt-1 text-gray-400 hover:text-blue-600" onClick={(e) => openActionModal(appt, e)}>
-                                <MoreVertical size={14} />
+                            <Button variant="ghost" size="icon" className="h-6 w-6 -mr-1.5 -mt-1 text-gray-400 hover:text-blue-600 flex-shrink-0" onClick={(e) => openActionModal(appt, e)}>
+                                <MoreVertical size={15} />
                             </Button>
                         </div>
 
-                        {/* Middle part: Details - this needs to be flexible */}
-                        <div className="flex-grow space-y-0.5 text-[11px] sm:text-xs min-h-0 overflow-y-auto pr-0.5 custom-scrollbar-thin">
-                            <div className={`flex items-center ${currentStyles.textClass} opacity-80`}>
-                                <Clock size={12} className="mr-1 flex-shrink-0" />
+                        <div className="flex-grow space-y-1 text-[11px] sm:text-xs min-h-0 pr-0.5 custom-scrollbar-thin"> {/* No overflow-y-auto here, rely on card height */}
+                            <div className={`flex items-center ${currentStyles.textClass} opacity-90`}>
+                                <Clock size={13} className="mr-1.5 flex-shrink-0" />
                                 <span className="truncate">{format(parseISO(`${appt.date}T${appt.time}`), 'HH:mm')} - {getAppointmentEndTime(appt.time, appt.duration)}</span>
                             </div>
                             
-                            <div className={`flex items-center ${currentStyles.textClass} opacity-70`}>
-                                <Briefcase size={12} className="mr-1 flex-shrink-0" />
+                            <div className={`flex items-center ${currentStyles.textClass} opacity-80`}>
+                                <Briefcase size={13} className="mr-1.5 flex-shrink-0" />
                                 <span className="truncate">{appt.type}</span>
                             </div>
 
                             {appt.doctor && (
-                                <div className={`flex items-center ${currentStyles.textClass} opacity-70`}>
-                                    <User size={12} className="mr-1 flex-shrink-0" />
+                                <div className={`flex items-center ${currentStyles.textClass} opacity-80`}>
+                                    <User size={13} className="mr-1.5 flex-shrink-0" />
                                     <span className="truncate">Dr. {appt.doctor.full_name}</span>
-                                </div>
-                            )}
-                            {appt.notes && (
-                                <div className={`flex items-start ${currentStyles.textClass} opacity-60 mt-0.5`}>
-                                    <StickyNote size={12} className="mr-1 mt-px flex-shrink-0" />
-                                    <p className="line-clamp-2 leading-tight">{appt.notes}</p>
                                 </div>
                             )}
                         </div>
                         
-                        {/* Bottom part: Status Badge */}
-                        <div className="mt-1 shrink-0">
-                            <div className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wide self-start px-1.5 py-0.5 rounded-full inline-block ${currentStyles.badgeClasses}`}>
+                        <div className="mt-1.5 shrink-0">
+                            <div className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wider self-start px-2 py-0.5 rounded-full inline-block ${currentStyles.badgeClasses}`}>
                                 {appt.status.replace('-', ' ')}
                             </div>
                         </div>
@@ -321,25 +349,27 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
         </DndContext>
       </div>
 
-      {selectedAppointment && ( /* Action Modal */ )}
+      {selectedAppointment && (
+        <AppointmentActionModal
+          isOpen={isActionModalOpen}
+          appointment={selectedAppointment}
+          onClose={() => { setIsActionModalOpen(false); setSelectedAppointment(null); }}
+          onStatusChange={async (newStatus) => {
+            if (!selectedAppointment) return;
+            try {
+              await onUpdateAppointment(selectedAppointment.id, { status: newStatus });
+              setIsActionModalOpen(false); setSelectedAppointment(null);
+            } catch (err) { console.error(err); /* Add toast */ }
+          }}
+          onEdit={() => { onView(selectedAppointment); setIsActionModalOpen(false); setSelectedAppointment(null); }}
+          onMessage={() => { if (onMessagePatient) { onMessagePatient(selectedAppointment); } }}
+        />
+      )}
     </div>
   );
 };
 
-// Add this to your global CSS or a Tailwind CSS plugin for custom scrollbars if desired:
-/*
-.custom-scrollbar-thin::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-.custom-scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #cbd5e1; // cool-gray-300
-  border-radius: 10px;
-}
-.custom-scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8; // cool-gray-400
-}
-*/
+// Ensure you have CSS for .custom-scrollbar-thin if you re-enable overflow-y-auto on the card details
+// For now, I've removed overflow-y-auto from card details to force content to fit or truncate.
+// If scrolling within tiny cards is desired, add it back to:
+// <div className="flex-grow space-y-1 text-[11px] sm:text-xs min-h-0 pr-0.5 custom-scrollbar-thin overflow-y-auto">
