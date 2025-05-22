@@ -24,13 +24,13 @@ import AppointmentActionModal from './modals/AppointmentActionModal';
 
 interface Appointment {
   id: string;
-  date: string;     // ISO date, e.g. "2025-05-22"
-  time: string;     // "HH:mm:ss"
-  duration: number; // minutes
+  date: string;       // "YYYY-MM-DD"
+  time: string;       // "HH:mm:ss"
+  duration: number;   // in minutes
   type: string;
-  status: string;
-  patient: { first_name: string; last_name: string };
-  doctor?: { full_name: string };
+  status: string;     // scheduled|confirmed|cancelled|completed|in-progress
+  patient: { first_name: string; last_name: string; };
+  doctor?: { full_name: string; };
 }
 
 interface Props {
@@ -45,7 +45,7 @@ interface Props {
 }
 
 const START_HOUR = 8;
-const TOTAL_MINUTES = 11 * 60; // from 8:00→19:00
+const TOTAL_SLOTS = 24;  // 8:00 → 7:00 in 30m increments
 
 export const AppointmentTimeline: React.FC<Props> = ({
   date,
@@ -57,200 +57,204 @@ export const AppointmentTimeline: React.FC<Props> = ({
   onView,
   onMessagePatient,
 }) => {
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [selected, setSelected] = useState<Appointment | null>(null);
+  const [isCalOpen, setIsCalOpen] = useState(false);
+  const [now, setNow] = useState(new Date());
+  const [selected, setSelected] = useState<Appointment|null>(null);
   const [actionOpen, setActionOpen] = useState(false);
 
-  // 24 half-hour slots
-  const timeSlots = Array.from({ length: 24 }, (_, i) => {
-    const h = START_HOUR + Math.floor(i / 2);
-    const m = (i % 2) * 30;
-    const slot = new Date(date);
-    slot.setHours(h, m, 0, 0);
-    return slot;
-  });
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-  );
-
-  // tick current time
+  // tick current time every minute
   useEffect(() => {
-    const tid = setInterval(() => setCurrentTime(new Date()), 60_000);
+    const tid = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(tid);
   }, []);
 
-  // drag handler
-  const onDragEnd = async (e: DragEndEvent) => {
+  // drag/drop
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const handleDragEnd = async (e: DragEndEvent) => {
     const { active, over } = e;
     if (!over) return;
     const appt = appointments.find(a => a.id === active.id);
     if (!appt) return;
     // over.id is "HH:mm"
-    const [h, m] = (over.id as string).split(':').map(Number);
-    const newTime = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-    try {
-      await onUpdateAppointment(appt.id, { time: newTime });
-    } catch (err) {
-      console.error(err);
-    }
+    const [h,m] = (over.id as string).split(':').map(Number);
+    const newTime = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`;
+    try { await onUpdateAppointment(appt.id, { time: newTime }); }
+    catch(err){ console.error(err); }
+  };
+
+  // status → color
+  const statusStyles: Record<string,string> = {
+    scheduled:   'bg-blue-50 border-blue-400',
+    confirmed:   'bg-green-50 border-green-400',
+    'in-progress':'bg-amber-50 border-amber-400',
+    cancelled:   'bg-red-50 border-red-400',
+    completed:   'bg-gray-50 border-gray-300',
   };
 
   return (
-    <div className="flex flex-col flex-1 bg-white rounded-2xl shadow overflow-hidden">
-      {/* ─────── Header ─────── */}
+    <div className="flex flex-col h-full bg-white rounded-2xl shadow-lg overflow-hidden">
+      {/* ─── Header ─── */}
       <div className="flex items-center justify-between px-6 py-4 border-b">
         <div className="flex items-center space-x-2">
-          <Button size="sm" variant="outline" onClick={() => onDateChange(subDays(date, 1))}>
-            <ChevronLeft size={14} />
+          <Button size="sm" variant="outline" onClick={() => onDateChange(subDays(date,1))}>
+            <ChevronLeft size={16}/>
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setIsCalendarOpen(v => !v)}>
-            <CalendarIcon size={16} className="mr-1 text-[#01b9d4]" />
-            <span className="font-medium">{format(date, 'EEEE, dd MMM yyyy')}</span>
+          <Button size="sm" variant="outline" onClick={()=>setIsCalOpen(v=>!v)} className="flex items-center">
+            <CalendarIcon size={16} className="mr-1 text-[#01b9d4]"/>
+            <span className="font-medium">{format(date,'EEEE, dd MMM yyyy')}</span>
           </Button>
-          <Button size="sm" variant="outline" onClick={() => onDateChange(addDays(date, 1))}>
-            <ChevronRight size={14} />
+          <Button size="sm" variant="outline" onClick={() => onDateChange(addDays(date,1))}>
+            <ChevronRight size={16}/>
           </Button>
         </div>
-        {isCalendarOpen && (
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-white border rounded-lg shadow-lg p-4 z-50">
+        {isCalOpen && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-white border rounded-lg shadow p-4 z-50">
             <DayPicker
               mode="single"
               selected={date}
-              onSelect={d => { if (d) { onDateChange(d); setIsCalendarOpen(false); } }}
+              onSelect={d=>d && (onDateChange(d), setIsCalOpen(false))}
             />
           </div>
         )}
       </div>
 
-      {/* ─────── Timeline ─────── */}
+      {/* ─── Timeline ─── */}
       <div className="relative flex-1 overflow-y-auto">
-        {/** Use a percentage-based container so the grid always fills **/}
-        <DndContext sensors={sensors} modifiers={[restrictToVerticalAxis]} onDragEnd={onDragEnd}>
-          <div className="relative w-full h-full" style={{ minHeight: '600px' }}>
-            {/** — Grid lines & labels — **/}
-            {timeSlots.map((slot, i) => {
-              const percent = (i / (timeSlots.length - 1)) * 100;
+        <DndContext sensors={sensors} modifiers={[restrictToVerticalAxis]} onDragEnd={handleDragEnd}>
+          <div
+            className="
+              grid grid-cols-[auto,1fr]
+              grid-rows-[repeat(24,minmax(0,1fr))]
+              h-[80vh] lg:h-[70vh]
+            "
+          >
+            {/* Time labels & grid lines */}
+            {Array.from({length:TOTAL_SLOTS}).map((_,i)=>{
+              const hour = START_HOUR + Math.floor(i/2);
+              const min = (i%2)*30;
+              const label = format(new Date().setHours(hour,min,0,0),'h:mm a');
               return (
-                <div
-                  key={i}
-                  className="absolute left-0 right-0 flex items-center text-gray-300 text-xs select-none"
-                  style={{ top: `${percent}%` }}
-                >
-                  <div className="w-16 text-right pr-4">{format(slot, 'h:mm a')}</div>
-                  <div className="flex-1 border-t border-dashed border-gray-200" />
-                </div>
+                <React.Fragment key={i}>
+                  {/* label */}
+                  <div className="
+                    hidden sm:flex items-center justify-end pr-4
+                    text-xs text-gray-400
+                  "
+                    style={{ gridRow: i+1, gridColumn: 1 }}
+                  >{label}</div>
+                  {/* dashed line */}
+                  <div className="border-t border-dashed border-gray-200 w-full h-0"
+                    style={{ gridRow: i+1, gridColumn: 2 }}
+                  />
+                </React.Fragment>
               );
             })}
 
-            {/** — “Now” indicator — **/}
+            {/* “Now” indicator */}
             {isToday(date) && (() => {
-              const nowMin = (currentTime.getHours() - START_HOUR) * 60 + currentTime.getMinutes();
-              const nowPerc = (nowMin / TOTAL_MINUTES) * 100;
+              const nowMin = (now.getHours() - START_HOUR)*60 + now.getMinutes();
+              const slotF = nowMin / 30;
+              const row = Math.max(1,Math.min(TOTAL_SLOTS, slotF+1));
               return (
                 <div
-                  className="absolute left-0 right-0 border-t-2 border-red-400"
-                  style={{ top: `${nowPerc}%` }}
+                  className="absolute left-0 right-0 border-t-2 border-red-400 z-10"
+                  style={{
+                    top: `calc(${(nowMin/(TOTAL_SLOTS*30))*100}% - 1px)`
+                  }}
                 >
-                  <div className="absolute -left-2 -top-2 w-4 h-4 rounded-full bg-red-400" />
+                  <div className="absolute -left-2 -top-2 w-4 h-4 bg-red-400 rounded-full"/>
                 </div>
               );
             })()}
 
-            {/** — Appointments — **/}
+            {/* Appointments */}
             {appointments
-              .filter(a => isSameDay(parseISO(a.date), date))
-              .map(appt => {
-                // compute percent-position & height
-                const [h, m,s] = appt.time.split(':').map(Number);
-                const startMin = (h - START_HOUR) * 60 + m;
-                const topPerc = (startMin / TOTAL_MINUTES) * 100;
-                const heightPerc = (appt.duration / TOTAL_MINUTES) * 100;
-
-                // pastel background by status
-                const statusBg: Record<string,string> = {
-                  scheduled: 'bg-blue-50 border-blue-400',
-                  confirmed: 'bg-green-50 border-green-400',
-                  cancelled: 'bg-red-50 border-red-400',
-                  completed: 'bg-gray-50 border-gray-300',
-                  'in-progress': 'bg-amber-50 border-amber-400',
-                };
-                const colour = statusBg[appt.status] || 'bg-gray-50 border-gray-300';
+              .filter(a=>isSameDay(parseISO(a.date), date))
+              .map(appt=>{
+                // compute slot and span
+                const [h,m] = appt.time.split(':').map(Number);
+                const startMin = (h-START_HOUR)*60 + m;
+                const startRowFrac = startMin/30 + 1;
+                const spanRows = Math.max(1,Math.ceil(appt.duration/30));
 
                 return (
                   <motion.div
                     key={appt.id}
                     layout
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    className={`absolute left-20 right-6 border-l-4 rounded-lg p-4 shadow hover:shadow-lg cursor-pointer transition ${colour}`}
+                    initial={{ opacity:0, y:5 }}
+                    animate={{ opacity:1, y:0 }}
+                    exit={{ opacity:0, y:-5 }}
+                    className={`
+                      relative col-start-2 col-span-1
+                      rounded-lg shadow-md p-4
+                      border-l-4 overflow-hidden
+                      ${statusStyles[appt.status]||statusStyles.scheduled}
+                    `}
                     style={{
-                      top:    `${topPerc}%`,
-                      height: `${heightPerc}%`,
+                      gridRow: `${startRowFrac} / span ${spanRows}`
                     }}
-                    onClick={() => { setSelected(appt); setActionOpen(true); }}
+                    onClick={()=>{setSelected(appt); setActionOpen(true)}}
                   >
-                    <h3 className="text-sm font-semibold text-gray-900">
+                    <h3 className="
+                      text-sm font-semibold text-gray-900
+                      truncate
+                    ">
                       {appt.patient.first_name} {appt.patient.last_name}
                     </h3>
-                    <div className="flex items-center text-xs text-gray-600 mt-1">
-                      <Clock size={12} className="mr-1" />
-                      <span>{format(parseISO(`${appt.date}T${appt.time}`), 'HH:mm')} • {appt.type}</span>
-                      {appt.doctor && <span className="ml-2">• Dr. {appt.doctor.full_name}</span>}
+                    <div className="mt-1 flex items-center text-xs text-gray-600 space-x-2">
+                      <Clock size={12} />
+                      <span className="truncate">
+                        {format(parseISO(`${appt.date}T${appt.time}`),'HH:mm')} • {appt.type}
+                      </span>
                     </div>
-                    <Badge variant="glass" size="xs" className="mt-2 uppercase tracking-wide">
+                    {appt.doctor && (
+                      <div className="mt-1 text-xs text-gray-600 truncate">
+                        Dr. {appt.doctor.full_name}
+                      </div>
+                    )}
+                    <Badge
+                      size="xs"
+                      variant="glass"
+                      className="mt-2 uppercase tracking-wide truncate"
+                    >
                       {appt.status}
                     </Badge>
                   </motion.div>
                 );
-              })}
+              })
+            }
           </div>
         </DndContext>
 
-        {/** — Empty & Loading States — **/}
-        {!isLoading && appointments.filter(a => isSameDay(parseISO(a.date), date)).length === 0 && (
+        {/* no-data / loading states */}
+        {!isLoading && appointments.filter(a=>isSameDay(parseISO(a.date), date)).length===0 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
-            <Clock size={48} />
+            <Clock size={48}/>
             <p className="mt-2">No appointments scheduled</p>
           </div>
         )}
-
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <svg
-              className="animate-spin h-8 w-8 text-primary-500"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12" cy="12" r="10"
-                stroke="currentColor" strokeWidth="4"
-                fill="none"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v8z"
-              />
+            <svg className="animate-spin h-8 w-8 text-primary-500" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
             </svg>
           </div>
         )}
       </div>
 
-      {/* ─────── Action Modal ─────── */}
+      {/* ─── Action Modal ─── */}
       {selected && (
         <AppointmentActionModal
           isOpen={actionOpen}
           appointment={selected}
-          onClose={() => setActionOpen(false)}
-          onStatusChange={async s => {
+          onClose={()=>setActionOpen(false)}
+          onStatusChange={async s=>{
             await onUpdateAppointment(selected.id, { status: s });
             setActionOpen(false);
           }}
-          onEdit={() => { setActionOpen(false); onView(selected); }}
-          onMessage={() => onMessagePatient && onMessagePatient(selected)}
+          onEdit={()=>{ setActionOpen(false); onView(selected); }}
+          onMessage={()=>selected && onMessagePatient?.(selected)}
         />
       )}
     </div>
