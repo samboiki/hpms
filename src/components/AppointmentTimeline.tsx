@@ -8,7 +8,7 @@ import {
   Calendar as CalendarIcon,
   Edit3
 } from 'lucide-react';
-import { format, addDays, subDays, setHours, setMinutes, parse, isToday } from 'date-fns';
+import { format, addDays, subDays, setHours, setMinutes, parse, isToday, parseISO, isSameDay } from 'date-fns';
 import Button from './ui/Button';
 import Badge from './ui/Badge';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -235,10 +235,10 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
 
               {timeSlots.map((timeSlot, i) => {
                 const currentSlotTime = format(timeSlot, 'HH:mm');
-                const slotAppointments = appointments.filter(
-                  a => a.date === format(date, 'yyyy-MM-dd') &&
-                      a.time === currentSlotTime
-                );
+                const slotAppointments = appointments.filter(a => {
+                  const apptDate = parseISO(a.date);
+                  return isSameDay(apptDate, date) && a.time === currentSlotTime;
+                });
 
                 return (
                   <div key={i} className="mb-4" id={currentSlotTime}>
