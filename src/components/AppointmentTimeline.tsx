@@ -4,47 +4,87 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
-  MoreVertical,
-  Plus,
   User,
-  CheckCircle2,
+  Briefcase,
   AlertCircle,
+  CheckCircle,
+  XCircle,
   Loader2,
+  MoreVertical,
 } from 'lucide-react';
 import {
   format,
   addDays,
   subDays,
   parseISO,
+  isToday,
   isSameDay,
   setHours,
   setMinutes,
   getHours,
   getMinutes,
 } from 'date-fns';
-import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DayPicker } from 'react-day-picker';
-import Button from './ui/Button';
-import AppointmentActionModal from './modals/AppointmentActionModal';
+import 'react-day-picker/dist/style.css';
+import Button from './ui/Button'; // Ensure this path is correct
+import AppointmentActionModal from './modals/AppointmentActionModal'; // Ensure this path is correct
 
-const START_HOUR = 8;
-const END_HOUR = 20;
-const HOUR_HEIGHT = 120; // pixels per hour
+// --- Interfaces ---
+interface AppointmentPatient {
+  first_name: string;
+  last_name: string;
+}
+
+interface AppointmentDoctor {
+  full_name: string;
+}
+
+export interface Appointment {
+  id: string;
+  date: string; // "YYYY-MM-DD"
+  time: string; // "HH:mm:ss"
+  duration: number; // in minutes
+  type: string;
+  status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
+  patient: AppointmentPatient;
+  doctor?: AppointmentDoctor;
+  notes?: string;
+}
 
 interface AppointmentTimelineProps {
   date: Date;
-  appointments: any[];
+  appointments: Appointment[];
   isLoading: boolean;
   error: string | null;
-  onDateChange: (date: Date) => void;
-  onUpdateAppointment: (id: string, updates: any) => Promise<void>;
-  onView: (appointment: any) => void;
-  onMessagePatient?: (appointment: any) => void;
-  onCreateAppointment?: (date: Date, time: string) => void;
+  onDateChange: (newDate: Date) => void;
+  onUpdateAppointment: (id: string, updates: Partial<Appointment>) => Promise<void>;
+  onView: (appointment: Appointment) => void;
+  onMessagePatient?: (appointment: Appointment) => void;
+  onCreateAppointment?: (slotDate: Date, slotTime: string) => void;
 }
 
+// --- Constants ---
+const START_HOUR = 8;
+const END_HOUR = 20;
+const SLOT_DURATION_MINUTES = 30;
+const TOTAL_HOURS_DISPLAYED = END_HOUR - START_HOUR;
+const TOTAL_GRID_ROWS = TOTAL_HOURS_DISPLAYED * (60 / SLOT_DURATION_MINUTES);
+const SLOT_BASE_HEIGHT_REM = 6; // Increased height for better spacing
+
+// --- Styling Configuration ---
+const statusConfig: Record<Appointment['status'], { cardClasses: string; textClass: string; borderClass: string; iconForBadge: React.ElementType; iconClass: string; badgeClasses: string }> = {
+  scheduled:   { cardClasses: 'bg-slate-100/90 hover:bg-slate-200/80', textClass: 'text-slate-700', borderClass: 'border-slate-400', iconForBadge: Clock, iconClass: 'text-slate-500', badgeClasses: 'bg-slate-200 text-slate-600'},
+  confirmed:   { cardClasses: 'bg-green-50/90 hover:bg-green-100/90', textClass: 'text-green-800', borderClass: 'border-green-500', iconForBadge: CheckCircle, iconClass: 'text-green-600', badgeClasses: 'bg-green-100 text-green-700' },
+  'in-progress':{ cardClasses: 'bg-purple-50/90 hover:bg-purple-100/90', textClass: 'text-purple-800', borderClass: 'border-purple-500', iconForBadge: Loader2, iconClass: 'text-purple-600 animate-spin', badgeClasses: 'bg-purple-100 text-purple-700' },
+  completed:   { cardClasses: 'bg-blue-50/90 hover:bg-blue-100/90', textClass: 'text-blue-800', borderClass: 'border-blue-400', iconForBadge: CheckCircle, iconClass: 'text-blue-600', badgeClasses: 'bg-blue-100 text-blue-700' },
+  cancelled:   { cardClasses: 'bg-red-50/90 hover:bg-red-100/90 opacity-75', textClass: 'text-red-700', borderClass: 'border-red-400', iconForBadge: XCircle, iconClass: 'text-red-600', badgeClasses: 'bg-red-100 text-red-700 line-through' },
+  'no-show':   { cardClasses: 'bg-fuchsia-50/90 hover:bg-fuchsia-100/90 opacity-85', textClass: 'text-fuchsia-700', borderClass: 'border-fuchsia-400', iconForBadge: AlertCircle, iconClass: 'text-fuchsia-600', badgeClasses: 'bg-fuchsia-100 text-fuchsia-700' },
+};
+
+// --- Main Component ---
 export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
   date,
   appointments,
@@ -56,262 +96,246 @@ export const AppointmentTimeline: React.FC<AppointmentTimelineProps> = ({
   onMessagePatient,
   onCreateAppointment,
 }) => {
-  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
-  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 10 },
-    })
-  );
-
-  // Generate hours for the day
-  const hours = useMemo(() => {
-    return Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
+  useEffect(() => {
+    const timerId = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timerId);
   }, []);
 
-  // Filter appointments for current date
-  const todaysAppointments = useMemo(() => {
-    return appointments.filter(appt => isSameDay(parseISO(appt.date), date));
-  }, [appointments, date]);
-
-  const getAppointmentStyle = (appointment: any) => {
-    const [hours, minutes] = appointment.time.split(':').map(Number);
-    const startMinutes = (hours - START_HOUR) * 60 + minutes;
-    const top = (startMinutes / 60) * HOUR_HEIGHT;
-    const height = (appointment.duration / 60) * HOUR_HEIGHT;
-
-    const baseStyle = {
-      top: `${top}px`,
-      height: `${height}px`,
-      left: '76px', // Width of time column
-      right: '12px',
-    };
-
-    const statusStyles = {
-      scheduled: {
-        background: 'linear-gradient(to right, #f3f4f6, #f9fafb)',
-        borderLeft: '4px solid #6366f1',
-      },
-      confirmed: {
-        background: 'linear-gradient(to right, #ecfdf5, #f8fafc)',
-        borderLeft: '4px solid #10b981',
-      },
-      'in-progress': {
-        background: 'linear-gradient(to right, #ede9fe, #f5f3ff)',
-        borderLeft: '4px solid #8b5cf6',
-      },
-      completed: {
-        background: 'linear-gradient(to right, #e0f2fe, #f0f9ff)',
-        borderLeft: '4px solid #0ea5e9',
-      },
-      cancelled: {
-        background: 'linear-gradient(to right, #fef2f2, #fff1f2)',
-        borderLeft: '4px solid #ef4444',
-        opacity: 0.75,
-      },
-    };
-
-    return {
-      ...baseStyle,
-      ...statusStyles[appointment.status],
-    };
-  };
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 10 } }));
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, delta } = event;
-    if (!active) return;
-
-    const appointment = appointments.find(a => a.id === active.id);
+    const { active, over } = event;
+    if (!over || !active.id || active.id === over.id) return;
+    const appointmentId = active.id as string;
+    const targetSlotTime = over.id as string;
+    const appointment = appointments.find(a => a.id === appointmentId);
     if (!appointment) return;
-
-    const minutesDelta = Math.round(delta.y / (HOUR_HEIGHT / 60));
-    const [hours, minutes] = appointment.time.split(':').map(Number);
-    const totalMinutes = hours * 60 + minutes + minutesDelta;
-    
-    const newHours = Math.floor(totalMinutes / 60);
-    const newMinutes = totalMinutes % 60;
-    const newTime = `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
-
+    const newTimeForStorage = `${targetSlotTime}:00`;
     try {
-      await onUpdateAppointment(appointment.id, { time: newTime });
-    } catch (error) {
-      console.error('Failed to update appointment time:', error);
+      await onUpdateAppointment(appointment.id, { time: newTimeForStorage });
+    } catch (err) {
+      console.error("Failed to update appointment time:", err);
     }
   };
 
+  const timeSlots = useMemo(() => {
+    return Array.from({ length: TOTAL_GRID_ROWS }).map((_, i) => {
+      const totalMinutes = i * SLOT_DURATION_MINUTES;
+      const hour = START_HOUR + Math.floor(totalMinutes / 60);
+      const minute = totalMinutes % 60;
+      return format(setMinutes(setHours(new Date(0), hour), minute), 'HH:mm');
+    });
+  }, []);
+
+  const filteredAppointments = useMemo(() => {
+    return appointments.filter(a => isSameDay(parseISO(a.date), date));
+  }, [appointments, date]);
+
+  const getAppointmentEndTime = (startTime: string, duration: number): string => {
+    const [h, m] = startTime.split(':').map(Number);
+    const startDate = setMinutes(setHours(new Date(0), h), m);
+    const endDate = new Date(startDate.getTime() + duration * 60000);
+    return format(endDate, 'HH:mm');
+  };
+  
+  const handleSlotClick = (slotTime: string) => {
+    if (onCreateAppointment) {
+      const [h,m] = slotTime.split(':').map(Number);
+      const slotFullDate = setMinutes(setHours(date, h), m);
+      onCreateAppointment(slotFullDate, slotTime);
+    }
+  };
+
+  const openActionModal = (appointment: Appointment, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSelectedAppointment(appointment);
+    setIsActionModalOpen(true);
+  };
+
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => onDateChange(subDays(date, 1))}>
-            <ChevronLeft size={16} />
+    <div className="flex flex-col h-full bg-slate-50 rounded-xl shadow-lg overflow-hidden border border-gray-200/70">
+      {/* Header Section */}
+      <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-3 border-b border-gray-200/70 bg-white/90 backdrop-blur-sm sticky top-0 z-40">
+        <div className="flex items-center space-x-1 sm:space-x-1.5">
+          <Button size="icon" variant="ghost" className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full" onClick={() => onDateChange(subDays(date, 1))} aria-label="Previous day">
+            <ChevronLeft size={20} />
           </Button>
-          
           <div className="relative">
-            <Button 
-              variant="ghost"
-              onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-              className="font-medium"
-            >
-              {format(date, 'EEEE, MMMM d')}
+            <Button size="sm" variant="ghost" onClick={() => setIsCalendarOpen(v => !v)} className="flex items-center px-2 py-1.5 text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-md">
+              <CalendarIcon size={16} className="mr-1.5 text-blue-500" />
+              <span className="font-medium text-xs xxs:text-sm md:text-[15px] whitespace-nowrap">
+                {format(date, 'MMM dd, EEEE')}
+              </span>
             </Button>
-            
             {isCalendarOpen && (
-              <div className="absolute top-full left-0 mt-1 z-50">
+              <motion.div 
+                initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                className="absolute top-full left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 mt-1.5 bg-white border border-gray-300 rounded-lg shadow-xl p-1 z-[60]"
+              >
                 <DayPicker
-                  mode="single"
-                  selected={date}
-                  onSelect={(d) => {
-                    if (d) {
-                      onDateChange(d);
-                      setIsCalendarOpen(false);
-                    }
+                  mode="single" selected={date} onSelect={d => { if (d) { onDateChange(d); setIsCalendarOpen(false); }}}
+                  showOutsideDays fixedWeeks className="text-sm"
+                  classNames={{
+                    day_selected: "bg-blue-600 text-white hover:bg-blue-700 focus:bg-blue-700 rounded-md",
+                    day_today: "font-bold text-blue-600 rounded-md border border-blue-300",
+                    button: "hover:bg-blue-50 rounded-md"
                   }}
-                  className="bg-white rounded-lg shadow-lg border p-2"
                 />
-              </div>
+              </motion.div>
             )}
           </div>
-
-          <Button variant="ghost" size="sm" onClick={() => onDateChange(addDays(date, 1))}>
-            <ChevronRight size={16} />
+          <Button size="icon" variant="ghost" className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full" onClick={() => onDateChange(addDays(date, 1))} aria-label="Next day">
+            <ChevronRight size={20} />
           </Button>
         </div>
-
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => onDateChange(new Date())}
-        >
+        <Button size="sm" variant="outline" onClick={() => onDateChange(new Date())} className="text-xs sm:text-sm px-2.5 py-1 sm:py-1.5 border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-600">
           Today
         </Button>
       </div>
 
-      {/* Timeline */}
-      <div className="flex-1 overflow-y-auto">
-        <DndContext
-          sensors={sensors}
-          onDragEnd={handleDragEnd}
-          modifiers={[restrictToVerticalAxis]}
-        >
-          <div 
-            className="relative" 
-            style={{ height: `${HOUR_HEIGHT * (END_HOUR - START_HOUR)}px` }}
-          >
-            {/* Time markers */}
-            {hours.map(hour => (
+      {/* Timeline Body */}
+      <div className="flex-1 relative overflow-y-auto min-h-0" id="timeline-scroll-container">
+        {isLoading && ( <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-50 backdrop-blur-sm"><Loader2 size={40} className="text-blue-600 animate-spin mb-3" /><p className="text-gray-600 font-medium">Loading...</p></div> )}
+        {error && !isLoading && ( <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 z-40"><AlertCircle size={48} className="text-red-500 mb-3" /><p className="font-semibold text-red-700">Error</p><p className="text-sm text-gray-600 mt-1">{error}</p><Button variant="outline" size="sm" onClick={() => window.location.reload()} className="mt-4">Retry</Button></div> )}
+        {!isLoading && !error && filteredAppointments.length === 0 && ( <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6 text-center z-10"><CalendarIcon size={48} className="mb-3 opacity-70" /><p className="font-semibold text-gray-500">No Appointments</p>{onCreateAppointment && <p className="text-sm text-gray-400 mt-1">Click a time slot to create one.</p>}</div> )}
+
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd} modifiers={[restrictToVerticalAxis]}>
+          <div className="relative px-2 sm:px-3 md:px-4 py-4 min-h-full">
+            {timeSlots.map((timeStr, i) => (
               <div
-                key={hour}
-                className="absolute left-0 w-full border-t border-gray-100"
-                style={{ top: `${(hour - START_HOUR) * HOUR_HEIGHT}px` }}
+                key={`timeslot-${timeStr}`}
+                id={timeStr}
+                className="relative border-t border-gray-200/60 group"
+                style={{ height: `${SLOT_BASE_HEIGHT_REM}rem` }}
+                onClickCapture={(e) => { if (e.target === e.currentTarget && onCreateAppointment) { handleSlotClick(timeStr); }}}
               >
-                <span className="absolute -top-3 left-4 text-xs text-gray-400">
-                  {format(setHours(new Date(), hour), 'h:mm a')}
+                <span className="absolute -top-[9px] left-0 sm:left-0.5 bg-slate-50 px-1.5 text-[9px] sm:text-[10px] text-gray-400 z-10 rounded">
+                  {format(parseISO(`2000-01-01T${timeStr}:00`), 'h:mm a')}
                 </span>
+                {onCreateAppointment && <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-blue-500 text-xs cursor-pointer bg-blue-50/30 rounded hover:bg-blue-100/50"> Add </div>}
               </div>
             ))}
 
-            {/* Current time indicator */}
-            {isSameDay(date, new Date()) && (
-              <div
-                className="absolute left-0 right-0 flex items-center z-20"
-                style={{
-                  top: `${((getHours(new Date()) - START_HOUR) * 60 + getMinutes(new Date())) / 60 * HOUR_HEIGHT}px`,
-                }}
-              >
-                <div className="w-2 h-2 rounded-full bg-red-500 ml-3" />
-                <div className="flex-1 h-px bg-red-500 opacity-50" />
-              </div>
-            )}
+            {isToday(date) && (() => {
+              const nowTotalMinutes = getHours(currentTime) * 60 + getMinutes(currentTime);
+              const startTotalMinutes = START_HOUR * 60;
+              const minutesSinceStart = nowTotalMinutes - startTotalMinutes;
+              if (minutesSinceStart >= 0 && minutesSinceStart <= TOTAL_HOURS_DISPLAYED * 60) {
+                const topPercentage = (minutesSinceStart / (TOTAL_HOURS_DISPLAYED * 60)) * 100;
+                return (
+                  <div
+                    className="absolute left-0 right-0 h-0.5 bg-red-500 z-30 pointer-events-none"
+                    style={{ top: `${topPercentage}%` }}
+                    aria-hidden="true"
+                  >
+                    <div className="absolute left-0 -top-[5px] w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white shadow-md" />
+                  </div>
+                );
+              }
+              return null;
+             })()}
 
-            {/* Appointments */}
             <AnimatePresence>
-              {todaysAppointments.map(appointment => (
-                <motion.div
-                  key={appointment.id}
-                  layoutId={appointment.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="absolute rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                  style={getAppointmentStyle(appointment)}
-                  onClick={() => {
-                    setSelectedAppointment(appointment);
-                    setIsActionModalOpen(true);
-                  }}
-                >
-                  <div className="p-3 h-full">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-900">
-                        {appointment.patient.first_name} {appointment.patient.last_name}
-                      </span>
-                      <Button variant="ghost" size="sm" className="-mr-2 h-6 w-6">
-                        <MoreVertical size={14} />
-                      </Button>
+              {filteredAppointments.map(appt => {
+                const [h, m] = appt.time.split(':').map(Number);
+                const appointmentStartTotalMinutes = (h * 60 + m);
+                const minutesFromTimelineStart = appointmentStartTotalMinutes - (START_HOUR * 60);
+
+                if (minutesFromTimelineStart < 0 || minutesFromTimelineStart >= TOTAL_HOURS_DISPLAYED * 60) return null;
+
+                const startPixelOffset = (minutesFromTimelineStart / SLOT_DURATION_MINUTES) * SLOT_BASE_HEIGHT_REM * 16;
+                const durationSlots = Math.max(1, Math.ceil(appt.duration / SLOT_DURATION_MINUTES));
+                
+                const currentStyles = statusConfig[appt.status] || statusConfig.scheduled;
+                const cardHeight = `calc(${durationSlots * SLOT_BASE_HEIGHT_REM}rem - 8px)`;
+
+                return (
+                  <motion.div
+                    key={appt.id}
+                    id={appt.id.toString()}
+                    layout
+                    initial={{ opacity: 0, y: 10, scale:0.98 }}
+                    animate={{ opacity: 1, y: 0, scale:1 }}
+                    exit={{ opacity: 0, y: -10, scale:0.98 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                    className={`
+                      absolute left-0 right-0
+                      rounded-lg shadow-lg hover:shadow-xl p-2.5 md:p-3 border-l-4
+                      cursor-pointer active:cursor-grabbing 
+                      flex flex-col overflow-hidden 
+                      transition-all duration-200 ease-out
+                      ${currentStyles.cardClasses} ${currentStyles.borderClass}
+                    `}
+                    style={{
+                      top: `calc(${startPixelOffset}px + 4px)`,
+                      height: cardHeight,
+                      zIndex: 20 + Math.floor(minutesFromTimelineStart / SLOT_DURATION_MINUTES),
+                    }}
+                    onClick={() => openActionModal(appt)}
+                  >
+                    {/* Card Content */}
+                    <div className="flex items-start justify-between mb-1 sm:mb-1.5">
+                        <h3 className={`text-xs xxs:text-sm sm:text-base font-semibold ${currentStyles.textClass} mr-1 leading-tight truncate`}>
+                            {appt.patient.first_name} {appt.patient.last_name}
+                        </h3>
+                        <Button variant="ghost" size="icon" className="h-5 w-5 -mr-1 text-gray-400 hover:text-blue-600 flex-shrink-0" onClick={(e) => openActionModal(appt, e)}>
+                            <MoreVertical size={15} />
+                        </Button>
+                    </div>
+
+                    <div className="flex-grow space-y-0.5 text-[10px] xxs:text-[11px] sm:text-xs min-h-0 leading-snug text-opacity-80">
+                        <div className={`flex items-center ${currentStyles.textClass} opacity-90`}>
+                            <Clock size={12} className="mr-1 sm:mr-1.5 flex-shrink-0" />
+                            <span className="truncate">{format(parseISO(`${appt.date}T${appt.time}`), 'HH:mm')} - {getAppointmentEndTime(appt.time, appt.duration)}</span>
+                        </div>
+                        
+                        <div className={`flex items-center ${currentStyles.textClass} opacity-80`}>
+                            <Briefcase size={12} className="mr-1 sm:mr-1.5 flex-shrink-0" />
+                            <span className="truncate">{appt.type}</span>
+                        </div>
+
+                        {appt.doctor && (
+                            <div className={`flex items-center ${currentStyles.textClass} opacity-80`}>
+                                <User size={12} className="mr-1 sm:mr-1.5 flex-shrink-0" />
+                                <span className="truncate">Dr. {appt.doctor.full_name}</span>
+                            </div>
+                        )}
                     </div>
                     
-                    <div className="space-y-1 text-xs text-gray-500">
-                      <div className="flex items-center">
-                        <Clock size={12} className="mr-1" />
-                        {format(parseISO(`2000-01-01T${appointment.time}`), 'h:mm a')}
-                        <span className="mx-1">•</span>
-                        {appointment.type}
-                      </div>
-                      {appointment.doctor && (
-                        <div className="text-gray-600">
-                          Dr. {appointment.doctor.full_name}
+                    <div className="mt-1.5 sm:mt-2 shrink-0">
+                        <div className={`text-[8px] xxs:text-[9px] sm:text-[10px] font-bold uppercase tracking-wider self-start px-1.5 py-0.5 rounded-full inline-flex items-center ${currentStyles.badgeClasses}`}>
+                           <currentStyles.iconForBadge size={10} className={`${currentStyles.iconClass} mr-1`} />
+                           {appt.status.replace('-', ' ')}
                         </div>
-                      )}
                     </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
           </div>
         </DndContext>
       </div>
 
-      {/* Add appointment button */}
-      {onCreateAppointment && (
-        <Button
-          className="absolute bottom-4 right-4 rounded-full shadow-lg"
-          onClick={() => onCreateAppointment(date, '09:00')}
-        >
-          <Plus size={20} />
-        </Button>
-      )}
-
-      {/* Action Modal */}
       {selectedAppointment && (
         <AppointmentActionModal
           isOpen={isActionModalOpen}
           appointment={selectedAppointment}
-          onClose={() => {
-            setIsActionModalOpen(false);
-            setSelectedAppointment(null);
-          }}
-          onStatusChange={async (status) => {
+          onClose={() => { setIsActionModalOpen(false); setSelectedAppointment(null); }}
+          onStatusChange={async (newStatus) => {
+            if (!selectedAppointment) return;
             try {
-              await onUpdateAppointment(selectedAppointment.id, { status });
-              setIsActionModalOpen(false);
-              setSelectedAppointment(null);
-            } catch (error) {
-              console.error('Failed to update status:', error);
-            }
+              await onUpdateAppointment(selectedAppointment.id, { status: newStatus });
+              setIsActionModalOpen(false); setSelectedAppointment(null);
+            } catch (err) { console.error(err); }
           }}
-          onEdit={() => {
-            onView(selectedAppointment);
-            setIsActionModalOpen(false);
-            setSelectedAppointment(null);
-          }}
-          onMessage={() => {
-            if (onMessagePatient) {
-              onMessagePatient(selectedAppointment);
-            }
-          }}
+          onEdit={() => { onView(selectedAppointment); setIsActionModalOpen(false); setSelectedAppointment(null); }}
+          onMessage={() => { if (onMessagePatient) { onMessagePatient(selectedAppointment); } }}
         />
       )}
     </div>
