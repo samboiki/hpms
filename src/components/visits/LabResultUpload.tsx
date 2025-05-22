@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, Loader2 } from 'lucide-react';
 import Button from '../ui/Button';
+import { supabase } from '../../lib/supabase';
 
 interface LabResultUploadProps {
   onUpload: (data: {
@@ -62,15 +63,20 @@ const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
         throw new Error('Failed to process image');
       }
 
-      const result = await response.json();
+      const { results } = await response.json();
       
-      onUpload({
-        name: result.testName || 'Unknown Test',
-        value: result.value || '',
-        unit: result.unit || '',
-        reference_range: result.referenceRange || '',
-        status: result.status || 'normal'
-      });
+      // Add each result found in the image
+      if (Array.isArray(results)) {
+        results.forEach(result => {
+          onUpload({
+            name: result.testName || 'Unknown Test',
+            value: result.value || '',
+            unit: result.unit || '',
+            reference_range: result.referenceRange || '',
+            status: result.status || 'normal'
+          });
+        });
+      }
 
     } catch (error) {
       console.error('Error uploading lab result:', error);

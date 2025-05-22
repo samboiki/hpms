@@ -64,7 +64,7 @@ serve(async (req) => {
       );
     }
 
-    // Call OpenAI Vision API directly with the image URL
+    // Call OpenAI Vision API with updated prompt for multiple results
     console.log('Calling OpenAI API with image URL:', imageUrl);
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -73,18 +73,42 @@ serve(async (req) => {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-mini',
+        model: 'gpt-4-vision-preview',
         messages: [
           {
             role: 'system',
-            content: 'You are a medical lab results analyzer. Extract test name, value, unit, reference range, and status from lab result images. Return only the extracted data in a consistent format.'
+            content: `You are a medical lab results analyzer. Extract ALL test results from lab result images. 
+            For each result, provide:
+            - Test name
+            - Value
+            - Unit
+            - Reference range
+            - Status (normal/high/low/critical)
+            
+            Format each result as a separate JSON object in an array. Example:
+            [
+              {
+                "testName": "Glucose",
+                "value": "95",
+                "unit": "mg/dL",
+                "referenceRange": "70-100",
+                "status": "normal"
+              },
+              {
+                "testName": "Cholesterol",
+                "value": "210",
+                "unit": "mg/dL",
+                "referenceRange": "125-200",
+                "status": "high"
+              }
+            ]`
           },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: 'Please analyze this lab result image and extract the test name, value, unit, reference range, and determine if the result is normal, high, low, or critical.'
+                text: 'Please analyze this lab result image and extract ALL test results. Return them as a JSON array.'
               },
               {
                 type: 'image_url',
@@ -93,7 +117,7 @@ serve(async (req) => {
             ]
           }
         ],
-        max_tokens: 300
+        max_tokens: 1000
       })
     });
 
@@ -120,54 +144,47 @@ serve(async (req) => {
     
     const analysis = openaiData.choices[0].message.content;
 
-    // Parse OpenAI's response to extract structured data
-    const labData = {
-      testName: '',
-      value: '',
-      unit: '',
-      referenceRange: '',
-      status: 'normal' as 'normal' | 'high' | 'low' | 'critical'
-    };
-
-    // Extract data from OpenAI's response
-    const lines = analysis.split('\n');
-    for (const line of lines) {
-      const lowerLine = line.toLowerCase();
-      const colonIndex = line.indexOf(':');
+    // Parse the JSON response
+    let labResults;
+    try {
+      // Find the JSON array in the response
+      const jsonMatch = analysis.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        throw new Error('No JSON array found in response');
+      }
+      labResults = JSON.parse(jsonMatch[0]);
       
-      if (colonIndex === -1) continue;
-      
-      const value = line.substring(colonIndex + 1).trim();
-      
-      if (lowerLine.includes('test name') || lowerLine.includes('test:')) {
-        labData.testName = value;
-      }
-      else if (lowerLine.includes('result') || lowerLine.includes('value:')) {
-        labData.value = value;
-      }
-      else if (lowerLine.includes('unit') || lowerLine.includes('units:')) {
-        labData.unit = value;
-      }
-      else if (lowerLine.includes('reference') || lowerLine.includes('range:')) {
-        labData.referenceRange = value;
-      }
-      else if (lowerLine.includes('status') || lowerLine.includes('assessment:')) {
-        const statusValue = value.toLowerCase();
-        if (statusValue.includes('high')) labData.status = 'high';
-        else if (statusValue.includes('low')) labData.status = 'low';
-        else if (statusValue.includes('critical')) labData.status = 'critical';
-        else labData.status = 'normal';
-      }
-    }
-
-    console.log('Extracted lab data:', labData);
-
-    // Validate extracted data
-    if (!labData.testName && !labData.value) {
+      // Validate the structure of each result
+      labResults = labResults.map(result => ({
+        testName: result.testName || '',
+        value: result.value || '',
+        unit: result.unit || '',
+        referenceRange: result.referenceRange || '',
+        status: result.status || 'normal'
+      }));
+    } catch (error) {
+      console.error('Error parsing lab results:', error);
       return new Response(
         JSON.stringify({ 
-          error: 'Could not extract meaningful lab data from image',
-          details: 'The AI model could not identify test name or value in the image'
+          error: 'Failed to parse lab results',
+          details: error.message
+        }),
+        { 
+          status: 500, 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
+      );
+    }
+
+    // Validate we have at least one result
+    if (!labResults || labResults.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'No lab results found in image',
+          details: 'The AI model could not identify any test results'
         }),
         { 
           status: 400, 
@@ -180,7 +197,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify(labData),
+      JSON.stringify({ results: labResults }),
       { 
         headers: { 
           ...corsHeaders, 
