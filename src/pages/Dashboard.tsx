@@ -38,10 +38,10 @@ interface Appointment {
   patient: {
     first_name: string;
     last_name: string;
-  } | null;
+  };
   doctor: {
     full_name: string;
-  } | null;
+  };
 }
 
 const Dashboard: React.FC = () => {
@@ -279,7 +279,7 @@ const Dashboard: React.FC = () => {
                     <div 
                       key={visit.id}
                       className="flex items-start space-x-4 p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
-                      onClick={() => visit.patient?.id && navigate(`/patients/${visit.patient.id}`)}
+                      onClick={() => navigate(`/patients/${visit.patient.id}`)}
                     >
                       <div className="flex-shrink-0 mt-1">
                         <FileText size={16} className="text-gray-400" />
@@ -287,7 +287,7 @@ const Dashboard: React.FC = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
                           <p className="text-sm font-medium text-gray-900">
-                            {visit.patient?.first_name} {visit.patient?.last_name}
+                            {visit.patient.first_name} {visit.patient.last_name}
                           </p>
                           <span className="text-xs text-gray-500">
                             {new Date(visit.visit_date).toLocaleDateString()}
