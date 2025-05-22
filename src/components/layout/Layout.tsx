@@ -4,7 +4,7 @@ import Sidebar from './Sidebar';
 import { cn } from '../../utils/cn';
 
 const Layout: React.FC = () => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);   // start open
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);   // start open
 
   return (
     <div className="flex h-screen overflow-hidden">
