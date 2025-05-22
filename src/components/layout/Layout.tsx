@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import Header from './Header';
 import { cn } from '../../utils/cn';
 
 const Layout: React.FC = () => {
