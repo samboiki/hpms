@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
-import Appointments from './pages/Appointments';
 import PatientModernDetail from './pages/PatientModernDetail';
 import Finance from './pages/Finance';
 import Settings from './pages/Settings';
@@ -11,8 +10,9 @@ import Login from './pages/auth/Login';
 import { useAuthStore } from './stores/authStore';
 import NotFound from './pages/NotFound';
 import PracticeProfile from './pages/PracticeProfile';
-import { supabase } from './lib/supabase';
 import Requests from './pages/Requests';
+import Inventory from './pages/Inventory';
+import Messages from './pages/Messages';
 
 function App() {
   const { isAuthenticated, login } = useAuthStore();
@@ -51,8 +51,9 @@ function App() {
         <Route index element={<Dashboard />} />
         <Route path="patients" element={<Patients />} />
         <Route path="patients/:id" element={<PatientModernDetail />} />
-        <Route path="appointments" element={<Appointments />} />
         <Route path="requests" element={<Requests />} />
+        <Route path="inventory" element={<Inventory />} />
+        <Route path="messages" element={<Messages />} />
         <Route path="finance" element={<Finance />} />
         <Route path="practice-profile" element={<PracticeProfile />} />
         <Route path="settings" element={<Settings />} />
