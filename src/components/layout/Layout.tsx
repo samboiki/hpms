@@ -13,10 +13,10 @@ import {
   Wallet,
   Package2,
   MessageSquare,
-  Building2
+  Building2,
+  Clock
 } from 'lucide-react';
 import Button from '../ui/Button';
-import AnalogClock from 'react-analog-clock';
 
 const Layout: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
@@ -80,22 +80,8 @@ const Layout: React.FC = () => {
         {/* Welcome Card with Clock */}
         <div className="p-4 border-b border-white/10">
           <div className="flex flex-col items-center">
-            <div className="w-20 h-20 mb-2">
-              <AnalogClock
-                size={80}
-                hourHandWidth={2}
-                minuteHandWidth={2}
-                secondHandWidth={1}
-                hourMarksWidth={2}
-                minuteMarksWidth={1}
-                hourHandColor="#ffffff"
-                minuteHandColor="#ffffff"
-                secondHandColor="#ffffff"
-                hourMarksColor="#ffffff"
-                minuteMarksColor="#ffffff"
-                centerColor="#ffffff"
-                backgroundColor="transparent"
-              />
+            <div className="w-20 h-20 mb-2 flex items-center justify-center">
+              <Clock size={32} className="text-white" />
             </div>
             {!sidebarCollapsed && (
               <div className="text-center text-white">
