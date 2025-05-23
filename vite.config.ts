@@ -7,4 +7,11 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  server: {
+    watch: {
+      // Use polling for better performance in WSL2
+      usePolling: true,
+      interval: 100,
+    },
+  },
 });

@@ -19,8 +19,14 @@ import {
   X,
   Save,
   Phone,
-  Settings
+  Settings,
+  MoreVertical,
+  ArrowRight,
+  Activity
 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import Badge from '../components/ui/Badge';
 
 const Messages = () => {
   const [activeTab, setActiveTab] = useState('all');
@@ -215,281 +221,396 @@ const Messages = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center mb-4">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg">
-              <Bell size={28} className="text-white" />
+    <div className="p-6 space-y-6">
+      {/* Header with Welcome */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Welcome Card */}
+        <Card className="lg:col-span-1 bg-gradient-to-r from-[#01b9d4] to-[#0197d4] text-white shadow-lg">
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-white/20 rounded-full">
+                <Bell size={24} className="text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Messages & Notifications</h2>
+                <p className="text-white/80">Manage patient communications</p>
+              </div>
             </div>
-            <div className="ml-4">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent">
-                Messages & Notifications
-              </h1>
-              <p className="text-gray-600 mt-1">Manage patient communications and automated reminders</p>
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300">
-            <div className="flex items-center">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg">
-                <Send size={24} className="text-white" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Sent</p>
-                <h3 className="text-2xl font-bold text-gray-900">{stats.totalSent}</h3>
-                <p className="text-xs text-green-600 mt-1">+12% from last week</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300">
-            <div className="flex items-center">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg">
-                <CheckCircle2 size={24} className="text-white" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Delivered</p>
-                <h3 className="text-2xl font-bold text-gray-900">{stats.delivered}</h3>
-                <p className="text-xs text-green-600 mt-1">98.5% success rate</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300">
-            <div className="flex items-center">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 shadow-lg">
-                <Clock size={24} className="text-white" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Scheduled</p>
-                <h3 className="text-2xl font-bold text-gray-900">{stats.scheduled}</h3>
-                <p className="text-xs text-blue-600 mt-1">Next in 2 hours</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300">
-            <div className="flex items-center">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-red-500 to-red-600 shadow-lg">
-                <AlertCircle size={24} className="text-white" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Failed</p>
-                <h3 className="text-2xl font-bold text-gray-900">{stats.failed}</h3>
-                <p className="text-xs text-red-600 mt-1">Needs attention</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Tabs */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 mb-8">
-          <div className="flex border-b border-gray-200/50">
-            {[
-              { key: 'all', label: 'All Messages', icon: MessageSquare },
-              { key: 'email', label: 'Email', icon: Mail },
-              { key: 'sms', label: 'SMS', icon: Phone },
-              { key: 'reminders', label: 'Reminders', icon: Clock }
-            ].map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={`flex items-center px-6 py-4 text-sm font-medium transition-all duration-200 ${
-                  activeTab === key
-                    ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50/50'
-                }`}
-              >
-                <Icon size={16} className="mr-2" />
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Search and Actions */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-6 mb-8">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-              <input
-                type="text"
-                placeholder="Search messages, patients, or content..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-3 w-full rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white/50 backdrop-blur-sm transition-all duration-200"
-              />
-            </div>
-            <div className="flex gap-3">
-              <button className="px-4 py-3 bg-white/80 hover:bg-white border border-gray-200 rounded-xl font-medium text-gray-700 hover:text-gray-900 transition-all duration-200 flex items-center shadow-sm">
-                <Filter size={16} className="mr-2" />
-                Filter
-              </button>
-              <button className="px-4 py-3 bg-white/80 hover:bg-white border border-gray-200 rounded-xl font-medium text-gray-700 hover:text-gray-900 transition-all duration-200 flex items-center shadow-sm">
-                <Settings size={16} className="mr-2" />
-                Templates
-              </button>
-              <button 
-                onClick={() => setShowNewMessageModal(true)}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-medium transition-all duration-200 flex items-center shadow-lg hover:shadow-xl"
-              >
-                <Plus size={16} className="mr-2" />
-                New Message
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Message Templates */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          {[
-            { title: 'Appointment Reminders', icon: Calendar, color: 'from-blue-500 to-blue-600', count: templates.filter(t => t.type === 'appointment').length },
-            { title: 'Follow-up Messages', icon: MessageSquare, color: 'from-purple-500 to-purple-600', count: templates.filter(t => t.type === 'followup').length },
-            { title: 'General Templates', icon: Mail, color: 'from-emerald-500 to-emerald-600', count: templates.filter(t => t.type === 'general').length }
-          ].map(({ title, icon: Icon, color, count }) => (
-            <div key={title} className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center">
-                    <div className={`p-3 rounded-xl bg-gradient-to-br ${color} shadow-lg`}>
-                      <Icon size={20} className="text-white" />
-                    </div>
-                    <h3 className="ml-3 text-lg font-semibold text-gray-900">{title}</h3>
-                  </div>
-                  <span className="text-sm text-gray-500">{count} templates</span>
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card className="bg-white shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="p-5">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-blue-100 text-blue-600">
+                  <Send size={20} />
                 </div>
-                
-                <div className="space-y-3">
-                  {templates.slice(0, 2).map((template) => (
-                    <div key={template.id} className="p-4 bg-gray-50/50 rounded-xl border border-gray-100 hover:bg-gray-50 transition-all duration-200">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 mb-1">{template.name}</h4>
-                          <p className="text-sm text-gray-600 line-clamp-2">{template.content.substring(0, 80)}...</p>
-                        </div>
-                        <div className="flex gap-1 ml-3">
-                          <button 
-                            onClick={() => handleEditTemplate(template)}
-                            className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
-                          >
-                            <Edit3 size={14} />
-                          </button>
-                          <button 
-                            onClick={() => handleDeleteTemplate(template.id)}
-                            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Total Sent</p>
+                  <div className="flex items-baseline">
+                    <h3 className="text-2xl font-bold text-gray-900">{stats.totalSent}</h3>
+                    <span className="ml-2 text-xs text-green-600">+12%</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="p-5">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-green-100 text-green-600">
+                  <CheckCircle2 size={20} />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Delivered</p>
+                  <div className="flex items-baseline">
+                    <h3 className="text-2xl font-bold text-gray-900">{stats.delivered}</h3>
+                    <span className="ml-2 text-xs text-green-600">98.5%</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white shadow-md hover:shadow-lg transition-shadow">
+            <CardContent className="p-5">
+              <div className="flex items-center">
+                <div className="p-3 rounded-full bg-amber-100 text-amber-600">
+                  <Clock size={20} />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-500">Scheduled</p>
+                  <div className="flex items-baseline">
+                    <h3 className="text-2xl font-bold text-gray-900">{stats.scheduled}</h3>
+                    <span className="ml-2 text-xs text-amber-600">Pending</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="flex border-b border-gray-200 mb-6">
+        {[
+          { key: 'all', label: 'All Messages', icon: MessageSquare },
+          { key: 'email', label: 'Email', icon: Mail },
+          { key: 'sms', label: 'SMS', icon: Phone },
+          { key: 'reminders', label: 'Reminders', icon: Clock }
+        ].map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className={`pb-3 px-4 text-sm font-medium ${
+              activeTab === key
+                ? 'text-[#01b9d4] border-b-2 border-[#01b9d4]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <div className="flex items-center">
+              <Icon size={16} className="mr-2" />
+              {label}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Left Column - Quick Actions & Templates */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* Quick Actions Card */}
+          <Card className="bg-white shadow-md">
+            <CardHeader className="pb-2 border-b border-gray-100">
+              <CardTitle className="text-lg font-semibold flex items-center">
+                <Activity size={18} className="mr-2 text-[#01b9d4]" />
+                Quick Actions
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="space-y-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
+                  onClick={() => setShowNewMessageModal(true)}
+                >
+                  <Send size={16} className="mr-2 text-blue-500" />
+                  Send Message
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start hover:bg-green-50 hover:text-green-700 hover:border-green-200"
+                  onClick={() => setShowTemplateModal(true)}
+                >
+                  <Mail size={16} className="mr-2 text-green-500" />
+                  Create Template
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200"
+                >
+                  <Users size={16} className="mr-2 text-purple-500" />
+                  Bulk Send
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200"
+                >
+                  <Calendar size={16} className="mr-2 text-amber-500" />
+                  Schedule Reminder
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Message Templates Card */}
+          <Card className="bg-white shadow-md">
+            <CardHeader className="pb-2 border-b border-gray-100">
+              <CardTitle className="text-lg font-semibold flex items-center">
+                <Mail size={18} className="mr-2 text-green-500" />
+                Templates
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="space-y-3">
+                {templates.slice(0, 3).map((template) => (
+                  <div key={template.id} className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">{template.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{template.type}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button 
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => handleEditTemplate(template)}
+                        >
+                          <Edit3 size={14} />
+                        </Button>
                       </div>
                     </div>
-                  ))}
-                </div>
-                
-                <button 
+                  </div>
+                ))}
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
                   onClick={() => setShowTemplateModal(true)}
-                  className="w-full mt-4 py-3 border-2 border-dashed border-gray-300 hover:border-blue-400 text-gray-600 hover:text-blue-600 rounded-xl font-medium transition-all duration-200 flex items-center justify-center"
                 >
-                  <Plus size={16} className="mr-2" />
-                  Add Template
+                  <Plus size={14} className="mr-1" />
+                  New Template
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Recent Activity */}
+          <Card className="bg-white shadow-md">
+            <CardHeader className="pb-2 border-b border-gray-100">
+              <CardTitle className="text-lg font-semibold flex items-center">
+                <Clock size={18} className="mr-2 text-amber-500" />
+                Recent Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="space-y-3">
+                {messages.slice(0, 3).map((message) => (
+                  <div key={message.id} className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                        message.status === 'sent' || message.status === 'delivered' ? 'bg-green-100' : 
+                        message.status === 'scheduled' ? 'bg-amber-100' : 'bg-red-100'
+                      }`}>
+                        {message.type === 'email' ? (
+                          <Mail size={14} className={`${
+                            message.status === 'sent' || message.status === 'delivered' ? 'text-green-600' : 
+                            message.status === 'scheduled' ? 'text-amber-600' : 'text-red-600'
+                          }`} />
+                        ) : (
+                          <MessageSquare size={14} className={`${
+                            message.status === 'sent' || message.status === 'delivered' ? 'text-green-600' : 
+                            message.status === 'scheduled' ? 'text-amber-600' : 'text-red-600'
+                          }`} />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{message.patientName}</p>
+                        <p className="text-xs text-gray-500">{message.subject}</p>
+                      </div>
+                    </div>
+                    <Badge 
+                      variant={message.status === 'sent' || message.status === 'delivered' ? 'success' : 
+                               message.status === 'scheduled' ? 'warning' : 'error'}
+                      size="sm"
+                    >
+                      {message.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column - Message List */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Search & Filter Bar */}
+          <Card className="bg-white shadow-md">
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search messages or patients..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 pr-4 py-2 w-full rounded-md border border-gray-300 focus:ring-[#01b9d4] focus:border-[#01b9d4]"
+                  />
+                </div>
+                <div className="flex gap-3">
+                  <Button 
+                    variant="outline" 
+                    className="flex items-center"
+                  >
+                    <Filter size={16} className="mr-2" />
+                    Filter
+                  </Button>
+                  <Button 
+                    onClick={() => setShowNewMessageModal(true)}
+                    className="bg-[#01b9d4] text-white hover:bg-opacity-90"
+                  >
+                    <Plus size={16} className="mr-2" />
+                    New Message
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Message History */}
+          <Card className="bg-white shadow-md">
+            <CardHeader className="pb-2 border-b border-gray-100">
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-lg font-semibold flex items-center">
+                  <MessageSquare size={18} className="mr-2 text-[#01b9d4]" />
+                  Message History
+                </CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-xs"
+                >
+                  View All
+                  <ArrowRight size={14} className="ml-1" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-xs uppercase text-gray-500 bg-gray-50 border-b border-gray-100">
+                      <th className="px-4 py-3 text-left">Type</th>
+                      <th className="px-4 py-3 text-left">Patient</th>
+                      <th className="px-4 py-3 text-left">Subject</th>
+                      <th className="px-4 py-3 text-left">Status</th>
+                      <th className="px-4 py-3 text-left">Date</th>
+                      <th className="px-4 py-3 text-left">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredMessages.map((message) => (
+                      <tr key={message.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3">
+                          <Badge
+                            variant={message.type === 'email' ? 'azure' : 'purple'}
+                            size="sm"
+                          >
+                            {message.type.toUpperCase()}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-2">
+                              <Users size={14} className="text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{message.patientName}</p>
+                              <p className="text-xs text-gray-500">{message.recipient}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="max-w-xs">
+                            <p className="text-sm font-medium text-gray-900">{message.subject}</p>
+                            <p className="text-xs text-gray-500 truncate">{message.content}</p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            variant={message.status === 'sent' || message.status === 'delivered' ? 'success' : 
+                                     message.status === 'scheduled' ? 'warning' : 'error'}
+                            size="sm"
+                          >
+                            {message.status}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {message.sentAt || message.scheduledFor}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center">
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <Eye size={16} />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <RefreshCw size={16} />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreVertical size={16} />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {filteredMessages.length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="text-center py-8">
+                          <MessageSquare size={32} className="mx-auto text-gray-300 mb-2" />
+                          <p className="text-gray-500">No messages found</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* New Message Modal */}
+      {showNewMessageModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold text-gray-900">Send New Message</h3>
+                <button
+                  onClick={() => setShowNewMessageModal(false)}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <X size={24} />
                 </button>
               </div>
             </div>
-          ))}
-        </div>
-
-        {/* Message History */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20">
-          <div className="p-6 border-b border-gray-200/50">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900">Message History</h3>
-                <p className="text-gray-600 mt-1">Recent communications and their status</p>
-              </div>
-              <button className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-medium hover:from-indigo-600 hover:to-purple-700 transition-all duration-200 flex items-center shadow-lg">
-                <Users size={16} className="mr-2" />
-                Bulk Send
-              </button>
-            </div>
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50/50">
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Patient</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Subject</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredMessages.map((message, index) => (
-                  <tr key={message.id} className="hover:bg-gray-50/50 transition-all duration-200" style={{ animationDelay: `${index * 50}ms` }}>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getTypeColor(message.type)}`}>
-                        {message.type.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="font-medium text-gray-900">{message.patientName}</div>
-                        <div className="text-sm text-gray-500">{message.recipient}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="max-w-sm">
-                        <div className="font-medium text-gray-900">{message.subject}</div>
-                        <div className="text-sm text-gray-500 truncate">{message.content}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(message.status)}`}>
-                        {message.status.charAt(0).toUpperCase() + message.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {message.sentAt || message.scheduledFor}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex space-x-2">
-                        <button className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200">
-                          <Eye size={16} />
-                        </button>
-                        <button className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all duration-200">
-                          <RefreshCw size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* New Message Modal */}
-        {showNewMessageModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-100">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-semibold text-gray-900">Send New Message</h3>
-                  <button
-                    onClick={() => setShowNewMessageModal(false)}
-                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200"
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-              </div>
               
               <form onSubmit={handleSendMessage} className="p-6 space-y-6">
                 <div className="grid grid-cols-2 gap-4">
@@ -526,7 +647,7 @@ const Messages = () => {
                     type={newMessage.type === 'email' ? 'email' : 'tel'}
                     value={newMessage.recipient}
                     onChange={(e) => setNewMessage(prev => ({ ...prev, recipient: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#01b9d4] focus:border-[#01b9d4]"
                     placeholder={newMessage.type === 'email' ? 'patient@example.com' : '+1 (555) 123-4567'}
                     required
                   />
@@ -589,11 +710,11 @@ const Messages = () => {
           </div>
         )}
 
-        {/* Template Modal */}
-        {showTemplateModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-100">
+      {/* Template Modal */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xl font-semibold text-gray-900">
                     {selectedTemplate ? 'Edit Template' : 'Create New Template'}
@@ -610,9 +731,9 @@ const Messages = () => {
                         variables: []
                       });
                     }}
-                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                    className="text-gray-400 hover:text-gray-500"
                   >
-                    <X size={20} />
+                    <X size={24} />
                   </button>
                 </div>
               </div>
@@ -636,7 +757,7 @@ const Messages = () => {
                     <select
                       value={newTemplate.type}
                       onChange={(e) => setNewTemplate(prev => ({ ...prev, type: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#01b9d4] focus:border-[#01b9d4]"
                     >
                       <option value="appointment">Appointment</option>
                       <option value="prescription">Prescription</option>
@@ -712,7 +833,6 @@ const Messages = () => {
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 };
