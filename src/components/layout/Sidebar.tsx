@@ -4,7 +4,6 @@ import { cn } from '../../utils/cn';
 import { 
   LayoutDashboard, 
   Users, 
-  Calendar, 
   Settings,
   ChevronRight,
   ChevronLeft,
@@ -12,7 +11,10 @@ import {
   Wallet,
   Microscope,
   UserRound,
-  Cog
+  Cog,
+  Package2,
+  Bell,
+  LogOut
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -34,8 +36,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Users, label: 'Patients', path: '/patients' },
-    { icon: Calendar, label: 'Schedule', path: '/appointments' },
     { icon: Microscope, label: 'Requests', path: '/requests' },
+    { icon: Package2, label: 'Inventory', path: '/inventory' },
+    { icon: Bell, label: 'Messages', path: '/messages' },
     { icon: Wallet, label: 'Finance', path: '/finance' },
   ];
 
@@ -124,6 +127,17 @@ const Sidebar: React.FC<SidebarProps> = ({
               {!collapsed && <span className="ml-3 text-sm">Collapse</span>}
             </>
           )}
+        </button>
+
+        <button
+          onClick={logout}
+          className={cn(
+            "w-full flex items-center px-3 py-2 rounded-lg text-white/80 hover:bg-white/10",
+            collapsed && !isMobile && "justify-center"
+          )}
+        >
+          <LogOut size={18} />
+          {(!collapsed || isMobile) && <span className="ml-3 text-sm">Logout</span>}
         </button>
       </div>
     </div>
