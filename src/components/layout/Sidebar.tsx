@@ -4,7 +4,6 @@ import { cn } from '../../utils/cn';
 import { 
   LayoutDashboard, 
   Users, 
-  Settings,
   ChevronRight,
   ChevronLeft,
   X,
@@ -45,9 +44,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div 
       className={cn(
-        "fixed left-4 top-4 h-[calc(100vh-32px)] bg-[#01b9d4] rounded-xl transition-all duration-300 z-30",
+        isMobile 
+          ? "fixed left-0 top-0 h-full bg-[#01b9d4] transition-all duration-300 z-50 w-[280px]"
+          : "fixed left-4 top-4 h-[calc(100vh-32px)] bg-[#01b9d4] rounded-xl transition-all duration-300 z-30",
         "shadow-[0_8px_30px_rgb(0,0,0,0.08)]",
-        collapsed && !isMobile ? "w-[72px]" : "w-[240px]"
+        !isMobile && collapsed ? "w-[72px]" : !isMobile && "w-[240px]"
       )}
     >
       <div className="flex items-center h-16 px-4 border-b border-white/10">
