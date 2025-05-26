@@ -54,7 +54,7 @@ export default async function Home() {
                 <strong>Current domain:</strong> {domain}
               </p>
               <p className="text-sm text-gray-600">
-                <strong>Expected practice:</strong> {domain.includes('3000') ? 'City Clinic' : 'Coastal Medical Center'}
+                <strong>Expected practice:</strong> {domain.includes('3000') ? 'City Clinic' : domain.includes('healthpractice') ? 'Dr. Polina Aesthetics' : 'Practice'}
               </p>
             </div>
           </div>
