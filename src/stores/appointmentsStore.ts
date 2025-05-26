@@ -9,7 +9,7 @@ export interface Appointment {
   time: string;
   duration: number;
   type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
-  status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled';
+  status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show' | 'requested';
   notes?: string;
   patient?: {
     id: string;
@@ -46,12 +46,12 @@ export const useAppointmentsStore = create<AppointmentsState>((set, get) => ({
         .from('appointments')
         .select(`
           *,
-          patient:patient_id (
+          patient:patients!patient_id (
             id,
             first_name,
             last_name
           ),
-          doctor:doctor_id (
+          doctor:users!doctor_id (
             id,
             full_name
           )
@@ -80,12 +80,12 @@ export const useAppointmentsStore = create<AppointmentsState>((set, get) => ({
         .from('appointments')
         .select(`
           *,
-          patient:patient_id (
+          patient:patients!patient_id (
             id,
             first_name,
             last_name
           ),
-          doctor:doctor_id (
+          doctor:users!doctor_id (
             id,
             full_name
           )

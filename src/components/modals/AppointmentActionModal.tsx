@@ -1,207 +1,294 @@
-import React from 'react';
-import Modal from 'react-modal';
-import { 
-  CheckCircle2, 
-  XCircle, 
-  AlertTriangle, 
-  MessageCircle, 
-  UserCog,
-  Clock,
-  Calendar,
-  Edit3,
-  X
-} from 'lucide-react';
-import Button from '../ui/Button';
-import Badge from '../ui/Badge';
+import React, { useState } from 'react';
+import { X, Calendar, Clock, User, Phone, Mail, FileText, Check, XCircle, Edit2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
-
-interface Appointment {
-  id: string;
-  patient_id: string;
-  date: string;
-  time: string;
-  duration: number;
-  type: string;
-  status: string;
-  notes?: string;
-  patient?: {
-    first_name: string;
-    last_name: string;
-  };
-  doctor?: {
-    full_name: string;
-  };
-}
+import Button from '../ui/Button';
+import { supabase } from '../../lib/supabase';
 
 interface AppointmentActionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  appointment: Appointment;
-  onStatusChange: (status: string) => void;
-  onEdit: () => void;
-  onMessage: () => void;
+  appointment: any;
+  onUpdate: () => void;
+  currentUserRole: string;
 }
 
-const AppointmentActionModal: React.FC<AppointmentActionModalProps> = ({
+export default function AppointmentActionModal({
   isOpen,
   onClose,
   appointment,
-  onStatusChange,
-  onEdit,
-  onMessage
-}) => {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'scheduled':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
-      case 'confirmed':
-        return 'bg-green-50 text-green-700 border-green-200';
-      case 'cancelled':
-        return 'bg-red-50 text-red-700 border-red-200';
-      case 'completed':
-        return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'no-show':
-        return 'bg-gray-50 text-gray-700 border-gray-200';
-      default:
-        return 'bg-gray-50 text-gray-700 border-gray-200';
+  onUpdate,
+  currentUserRole
+}: AppointmentActionModalProps) {
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [notes, setNotes] = useState(appointment?.notes || '');
+
+  if (!isOpen || !appointment) return null;
+
+  const handleStatusChange = async (newStatus: string) => {
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ 
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointment.id);
+
+      if (error) throw error;
+
+      // If approving, send notification (in real app)
+      if (newStatus === 'confirmed') {
+        console.log('Appointment confirmed, notify patient');
+      }
+
+      onUpdate();
+      onClose();
+    } catch (error) {
+      console.error('Error updating appointment:', error);
+      alert('Failed to update appointment status');
+    } finally {
+      setIsUpdating(false);
     }
   };
 
-  const getEndTime = (startTime: string, duration: number) => {
-    const [hours, minutes] = startTime.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hours, minutes);
-    date.setMinutes(date.getMinutes() + duration);
-    return format(date, 'HH:mm');
+  const handleNotesUpdate = async () => {
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ 
+          notes,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointment.id);
+
+      if (error) throw error;
+      
+      onUpdate();
+      alert('Notes updated successfully');
+    } catch (error) {
+      console.error('Error updating notes:', error);
+      alert('Failed to update notes');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this appointment?')) return;
+    
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('id', appointment.id);
+
+      if (error) throw error;
+      
+      onUpdate();
+      onClose();
+    } catch (error) {
+      console.error('Error deleting appointment:', error);
+      alert('Failed to delete appointment');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case 'confirmed': return 'bg-green-100 text-green-800';
+      case 'scheduled': return 'bg-blue-100 text-blue-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      case 'completed': return 'bg-gray-100 text-gray-800';
+      case 'in-progress': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onRequestClose={onClose}
-      className="fixed inset-0 flex items-center justify-center p-4"
-      overlayClassName="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
-      style={{
-        content: {
-          position: 'relative',
-          border: 'none',
-          background: 'none',
-          overflow: 'visible',
-          borderRadius: '0.75rem',
-          outline: 'none',
-          padding: '0',
-        }
-      }}
-    >
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-[#01b9d4] to-[#0197d4] p-6 text-white">
-          <div className="flex justify-between items-start">
-            <div>
-              <h2 className="text-2xl font-bold">
-                {appointment.patient?.first_name} {appointment.patient?.last_name}
-              </h2>
-              <div className="flex items-center mt-2 space-x-4 text-white/80">
-                <div className="flex items-center">
-                  <Calendar size={16} className="mr-2" />
-                  {format(new Date(appointment.date), 'MMMM d, yyyy')}
-                </div>
-                <div className="flex items-center">
-                  <Clock size={16} className="mr-2" />
-                  {appointment.time} - {getEndTime(appointment.time, appointment.duration)}
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="text-white/80 hover:text-white transition-colors"
-            >
-              <X size={24} />
-            </button>
-          </div>
-          <div className="mt-4">
-            <Badge
-              variant={
-                appointment.status === 'scheduled' ? 'azure' :
-                appointment.status === 'confirmed' ? 'success' :
-                appointment.status === 'cancelled' ? 'error' :
-                appointment.status === 'completed' ? 'success' :
-                'glass'
-              }
-              size="sm"
-              className="uppercase tracking-wider"
-            >
-              {appointment.status}
-            </Badge>
-          </div>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900">Appointment Details</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-500"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Actions */}
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Button
-              variant="outline"
-              className="flex items-center justify-center p-4"
-              onClick={() => onStatusChange('confirmed')}
-              disabled={appointment.status === 'confirmed'}
-            >
-              <CheckCircle2 size={24} className="mb-2 text-green-600" />
-              <span>Check In</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="flex items-center justify-center p-4"
-              onClick={() => onStatusChange('cancelled')}
-              disabled={appointment.status === 'cancelled'}
-            >
-              <XCircle size={24} className="mb-2 text-red-600" />
-              <span>Cancel</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="flex items-center justify-center p-4"
-              onClick={() => onStatusChange('no-show')}
-              disabled={appointment.status === 'no-show'}
-            >
-              <AlertTriangle size={24} className="mb-2 text-orange-600" />
-              <span>Mark No-Show</span>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="flex items-center justify-center p-4"
-              onClick={onMessage}
-            >
-              <MessageCircle size={24} className="mb-2 text-blue-600" />
-              <span>Message Patient</span>
-            </Button>
+        <div className="p-6 space-y-6">
+          {/* Status Badge */}
+          <div className="flex items-center justify-between">
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadgeColor(appointment.status)}`}>
+              {appointment.status}
+            </span>
+            <span className="text-sm text-gray-500">
+              ID: {appointment.id.slice(0, 8)}
+            </span>
           </div>
 
-          <div className="border-t border-gray-100 pt-4 flex justify-between">
-            <Button
-              variant="outline"
-              onClick={onEdit}
-              className="flex items-center"
-            >
-              <Edit3 size={16} className="mr-2" />
-              Edit Appointment
-            </Button>
+          {/* Patient Information */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="font-medium text-gray-900 mb-3 flex items-center">
+              <User className="w-4 h-4 mr-2" />
+              Patient Information
+            </h3>
+            <div className="space-y-2 text-sm">
+              <p>
+                <span className="text-gray-600">Name:</span>{' '}
+                <span className="font-medium">
+                  {appointment.patient?.first_name} {appointment.patient?.last_name}
+                </span>
+              </p>
+              {appointment.patient?.cell_number && (
+                <p className="flex items-center">
+                  <Phone className="w-3 h-3 mr-2 text-gray-400" />
+                  {appointment.patient.cell_number}
+                </p>
+              )}
+              {appointment.patient?.email && (
+                <p className="flex items-center">
+                  <Mail className="w-3 h-3 mr-2 text-gray-400" />
+                  {appointment.patient.email}
+                </p>
+              )}
+            </div>
+          </div>
 
-            <Button
-              onClick={() => onStatusChange('completed')}
-              disabled={appointment.status === 'completed'}
-              className="flex items-center bg-[#01b9d4] text-white hover:bg-opacity-90"
-            >
-              <UserCog size={16} className="mr-2" />
-              Send to Doctor
-            </Button>
+          {/* Appointment Details */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="font-medium text-gray-900 mb-3 flex items-center">
+              <Calendar className="w-4 h-4 mr-2" />
+              Appointment Details
+            </h3>
+            <div className="space-y-2 text-sm">
+              <p>
+                <span className="text-gray-600">Date:</span>{' '}
+                <span className="font-medium">
+                  {format(new Date(appointment.date), 'EEEE, MMMM d, yyyy')}
+                </span>
+              </p>
+              <p>
+                <span className="text-gray-600">Time:</span>{' '}
+                <span className="font-medium">{appointment.time}</span>
+              </p>
+              <p>
+                <span className="text-gray-600">Duration:</span>{' '}
+                <span className="font-medium">{appointment.duration} minutes</span>
+              </p>
+              <p>
+                <span className="text-gray-600">Type:</span>{' '}
+                <span className="font-medium capitalize">{appointment.type}</span>
+              </p>
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <h3 className="font-medium text-gray-900 mb-3 flex items-center">
+              <FileText className="w-4 h-4 mr-2" />
+              Notes
+            </h3>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full p-3 border rounded-lg text-sm"
+              rows={4}
+              placeholder="Add appointment notes..."
+            />
+            {notes !== appointment.notes && (
+              <Button
+                onClick={handleNotesUpdate}
+                disabled={isUpdating}
+                variant="secondary"
+                size="sm"
+                className="mt-2"
+              >
+                <Edit2 className="w-4 h-4 mr-1" />
+                Update Notes
+              </Button>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="border-t pt-6 space-y-3">
+            <h3 className="font-medium text-gray-900 mb-3">Actions</h3>
+            
+            {appointment.status === 'scheduled' && (
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => handleStatusChange('confirmed')}
+                  disabled={isUpdating}
+                  variant="primary"
+                  className="flex-1"
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  Approve Appointment
+                </Button>
+                <Button
+                  onClick={() => handleStatusChange('cancelled')}
+                  disabled={isUpdating}
+                  variant="secondary"
+                  className="flex-1"
+                >
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Decline Appointment
+                </Button>
+              </div>
+            )}
+
+            {appointment.status === 'confirmed' && (
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => handleStatusChange('in-progress')}
+                  disabled={isUpdating}
+                  variant="primary"
+                  className="flex-1"
+                >
+                  Start Appointment
+                </Button>
+                <Button
+                  onClick={() => handleStatusChange('cancelled')}
+                  disabled={isUpdating}
+                  variant="secondary"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
+            )}
+
+            {appointment.status === 'in-progress' && (
+              <Button
+                onClick={() => handleStatusChange('completed')}
+                disabled={isUpdating}
+                variant="primary"
+                className="w-full"
+              >
+                Complete Appointment
+              </Button>
+            )}
+
+            {['admin', 'doctor'].includes(currentUserRole) && (
+              <Button
+                onClick={handleDelete}
+                disabled={isUpdating}
+                variant="secondary"
+                size="sm"
+                className="w-full"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Appointment
+              </Button>
+            )}
           </div>
         </div>
       </div>
-    </Modal>
+    </div>
   );
-};
-
-export default AppointmentActionModal;
+}

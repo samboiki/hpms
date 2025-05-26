@@ -102,10 +102,10 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
                   onClick={() => setSelectedCategory(service as ServiceCategory)}
                 >
                   {/* Service Image */}
-                  {isDrPolina && 'image' in service && (service as ServiceCategory).image && (
+                  {isDrPolina && service.hasOwnProperty('image') && (service as any).image && (
                     <div className="relative h-48 overflow-hidden">
                       <img 
-                        src={(service as ServiceCategory).image} 
+                        src={(service as any).image} 
                         alt={service.name}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       />

@@ -12,9 +12,9 @@ interface Appointment {
   time: string;
   duration: number;
   type: string;
-  status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
+  status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show' | 'requested';
   notes?: string;
-  patient: {
+  patient?: {
     id: string;
     first_name: string;
     last_name: string;
@@ -122,6 +122,7 @@ const ModernWeekView: React.FC<ModernWeekViewProps> = ({
 
   const getAppointmentColor = (status: string) => {
     switch (status) {
+      case 'requested': return 'from-purple-500 to-purple-600 border-purple-700';
       case 'scheduled': return 'from-blue-500 to-blue-600 border-blue-700';
       case 'confirmed': return 'from-emerald-500 to-emerald-600 border-emerald-700';
       case 'in-progress': return 'from-amber-500 to-amber-600 border-amber-700';
@@ -342,6 +343,10 @@ const ModernWeekView: React.FC<ModernWeekViewProps> = ({
       <div className="bg-gray-50 border-t border-gray-200 px-6 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded bg-gradient-to-br from-purple-500 to-purple-600" />
+              <span className="text-gray-600">Requested</span>
+            </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-gradient-to-br from-blue-500 to-blue-600" />
               <span className="text-gray-600">Scheduled</span>

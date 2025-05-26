@@ -23,6 +23,7 @@ import AddAppointmentForm from '../components/forms/AddAppointmentForm';
 import PremiumAppointmentScheduler from '../components/PremiumAppointmentScheduler';
 import AppointmentDetailsModal from '../components/modals/AppointmentDetailsModal';
 import RescheduleAppointmentModal from '../components/modals/RescheduleAppointmentModal';
+import AppointmentActionModal from '../components/modals/AppointmentActionModal';
 import { motion } from 'framer-motion';
 
 interface Appointment {
@@ -83,9 +84,11 @@ function Dashboard() {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<'admin' | 'doctor' | 'nurse' | 'receptionist'>('admin');
   const [currentUserId, setCurrentUserId] = useState('');
-  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
+  const [currentPracticeId, setCurrentPracticeId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
   const navigate = useNavigate();
 
@@ -96,8 +99,18 @@ function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setCurrentUserId(user.id);
-        const role = user.user_metadata?.role || 'admin';
-        setCurrentUserRole(role);
+        
+        // Get user profile with practice_id
+        const { data: userProfile } = await supabase
+          .from('users')
+          .select('role, practice_id')
+          .eq('id', user.id)
+          .single();
+          
+        if (userProfile) {
+          setCurrentUserRole(userProfile.role || 'admin');
+          setCurrentPracticeId(userProfile.practice_id);
+        }
       }
 
       // Fetch appointments with patient data (past week and future)
@@ -105,7 +118,7 @@ function Dashboard() {
       const oneWeekAgo = new Date(today);
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
       
-      const { data: appointmentsData, error: appointmentsError } = await supabase
+      let appointmentsQuery = supabase
         .from('appointments')
         .select(`
           *,
@@ -121,42 +134,81 @@ function Dashboard() {
         .gte('date', format(oneWeekAgo, 'yyyy-MM-dd'))
         .order('date', { ascending: true })
         .order('time', { ascending: true });
+        
+      // Filter by practice if user has a practice_id
+      if (currentPracticeId) {
+        appointmentsQuery = appointmentsQuery.eq('practice_id', currentPracticeId);
+      }
+      
+      const { data: appointmentsData, error: appointmentsError } = await appointmentsQuery;
 
       if (appointmentsError) {
         console.error('Appointments fetch error:', appointmentsError);
         throw appointmentsError;
       }
 
-      // Fetch doctors
-      const { data: doctorsData, error: doctorsError } = await supabase
+      // Fetch doctors from users table (not auth.users)
+      let doctorsQuery = supabase
         .from('users')
-        .select('id, email, user_metadata');
+        .select('id, email, full_name, role');
+        
+      if (currentPracticeId) {
+        doctorsQuery = doctorsQuery.eq('practice_id', currentPracticeId);
+      }
+      
+      const { data: doctorsData, error: doctorsError } = await doctorsQuery;
       
       if (doctorsError) {
+        console.error('Error fetching doctors:', doctorsError);
         setDoctors([]);
       } else {
         const filteredDoctors = (doctorsData || []).filter(user => 
-          user.user_metadata?.role === 'doctor' || user.user_metadata?.role === 'admin'
-        );
+          user.role === 'doctor' || user.role === 'admin'
+        ).map(user => ({
+          id: user.id,
+          email: user.email,
+          user_metadata: {
+            full_name: user.full_name,
+            role: user.role
+          }
+        }));
         setDoctors(filteredDoctors);
       }
 
       // Fetch patient count
-      const { count: patientsCount } = await supabase
+      let patientsQuery = supabase
         .from('patients')
         .select('*', { count: 'exact', head: true });
+        
+      if (currentPracticeId) {
+        patientsQuery = patientsQuery.eq('practice_id', currentPracticeId);
+      }
+      
+      const { count: patientsCount } = await patientsQuery;
 
       // Fetch lab requests
-      const { data: labRequestsData } = await supabase
+      let labRequestsQuery = supabase
         .from('lab_requests')
         .select('*')
         .eq('status', 'pending');
+        
+      if (currentPracticeId) {
+        labRequestsQuery = labRequestsQuery.eq('practice_id', currentPracticeId);
+      }
+      
+      const { data: labRequestsData } = await labRequestsQuery;
 
       // Fetch media requests
-      const { data: mediaRequestsData } = await supabase
+      let mediaRequestsQuery = supabase
         .from('media_requests')
         .select('*')
         .eq('status', 'pending');
+        
+      if (currentPracticeId) {
+        mediaRequestsQuery = mediaRequestsQuery.eq('practice_id', currentPracticeId);
+      }
+      
+      const { data: mediaRequestsData } = await mediaRequestsQuery;
 
       console.log('Dashboard data:', {
         appointments: appointmentsData,
@@ -404,9 +456,13 @@ function Dashboard() {
                   error={error}
                   selectedDate={selectedDate}
                   onDateChange={setSelectedDate}
-                  onAppointmentClick={handleAppointmentClick}
+                  onAppointmentClick={(apt) => {
+                    setSelectedAppointment(apt);
+                    setIsActionModalOpen(true);
+                  }}
                   onEditAppointment={handleEditAppointment}
                   onCreateAppointment={handleCreateAppointment}
+                  viewMode={viewMode}
                   onBlockTime={(doctorId, startTime, endTime, reason) => {
                     console.log('Block time:', { doctorId, startTime, endTime, reason });
                   }}
@@ -414,7 +470,6 @@ function Dashboard() {
                   currentUserRole={currentUserRole}
                   currentUserId={currentUserId}
                   onRefresh={fetchData}
-                  viewMode={viewMode}
                 />
               </div>
             </motion.div>
@@ -618,6 +673,21 @@ function Dashboard() {
               setSelectedAppointment(null);
               fetchData();
             }}
+          />
+
+          <AppointmentActionModal
+            isOpen={isActionModalOpen}
+            onClose={() => {
+              setIsActionModalOpen(false);
+              setSelectedAppointment(null);
+            }}
+            appointment={selectedAppointment}
+            onUpdate={() => {
+              setIsActionModalOpen(false);
+              setSelectedAppointment(null);
+              fetchData();
+            }}
+            currentUserRole={currentUserRole}
           />
         </>
       )}

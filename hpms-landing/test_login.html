@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Supabase Login</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Test Supabase Login</h1>
+    
+    <div id="login-form">
+        <input type="email" id="email" placeholder="Email" value="simple@drpolina.com">
+        <input type="password" id="password" placeholder="Password" value="simple123">
+        <button onclick="testLogin()">Test Login</button>
+    </div>
+    
+    <div id="results"></div>
+    
+    <script>
+        const supabaseUrl = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcwNjE2ODksImV4cCI6MjA2MjYzNzY4OX0.TCNww59ZpJ00QhZgld4QJkYCHz53GAtyjw4F5hptFAM';
+        
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+        
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const results = document.getElementById('results');
+            
+            results.innerHTML = '<p>Testing login...</p>';
+            
+            try {
+                // Step 1: Try to sign in
+                const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+                
+                if (authError) {
+                    results.innerHTML += `<p style="color: red;">Auth Error: ${authError.message}</p>`;
+                    return;
+                }
+                
+                results.innerHTML += `<p style="color: green;">Auth Success! User ID: ${authData.user.id}</p>`;
+                
+                // Step 2: Try to fetch from users table
+                const { data: userData, error: userError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', authData.user.id)
+                    .single();
+                
+                if (userError) {
+                    results.innerHTML += `<p style="color: red;">Users Table Error: ${userError.message}</p>`;
+                    return;
+                }
+                
+                results.innerHTML += `<p style="color: green;">Users Table Success!</p>`;
+                results.innerHTML += `<pre>${JSON.stringify(userData, null, 2)}</pre>`;
+                
+            } catch (error) {
+                results.innerHTML += `<p style="color: red;">Unexpected Error: ${error.message}</p>`;
+            }
+        }
+        
+        // Also check current session
+        supabase.auth.getSession().then(({ data, error }) => {
+            console.log('Current session:', data);
+            if (error) console.error('Session error:', error);
+        });
+    </script>
+</body>
+</html>

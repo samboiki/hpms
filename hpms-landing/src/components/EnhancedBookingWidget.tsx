@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Practice } from '@/lib/tenants';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReCAPTCHA from "react-google-recaptcha";
 import ModernCalendar from './ModernCalendar';
 import { 
   Calendar, 
@@ -51,6 +52,7 @@ export default function EnhancedBookingWidget({
     location: 'windhoek', // Default to Windhoek
     notes: '',
   });
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -94,20 +96,10 @@ export default function EnhancedBookingWidget({
   const checkAvailableSlots = async (date: string) => {
     setIsLoadingSlots(true);
     try {
-      // Get existing appointments for the selected date
-      const { data: appointments, error } = await supabase
-        .from('appointments')
-        .select('appointment_time')
-        .eq('appointment_date', date)
-        .eq('status', 'scheduled');
-
-      if (error) throw error;
-
+      // For now, show all time slots since we can't query appointments without auth
+      // In production, this could be handled by another Edge Function
       const allSlots = generateTimeSlots();
-      const bookedSlots = appointments?.map(apt => apt.appointment_time) || [];
-      const available = allSlots.filter(slot => !bookedSlots.includes(slot));
-      
-      setAvailableSlots(available);
+      setAvailableSlots(allSlots);
     } catch (error) {
       console.error('Error checking slots:', error);
       setAvailableSlots(generateTimeSlots()); // Show all slots on error
@@ -140,53 +132,22 @@ export default function EnhancedBookingWidget({
     setIsSubmitting(true);
 
     try {
-      // Create appointment in database
-      const { data: patient, error: patientError } = await supabase
-        .from('patients')
-        .upsert({
-          first_name: formData.name.split(' ')[0],
-          last_name: formData.name.split(' ').slice(1).join(' ') || '',
-          email: formData.email,
-          cell_number: formData.phone,
-          practice_id: practice.id
-        }, {
-          onConflict: 'email'
-        })
-        .select()
-        .single();
-
-      if (patientError) throw patientError;
-
-      // For now, we'll create a dummy doctor assignment
-      // In production, this should query a proper users/doctors table
-      const doctors = [{
-        id: '00000000-0000-0000-0000-000000000001', // Dummy doctor ID
-        email: 'polina@drpolinaaesthetics.com',
-        raw_user_meta_data: { full_name: 'Dr. Polina' }
-      }];
-      const doctorsError = null;
-
-      if (doctorsError) {
-        console.error('Error fetching doctors:', doctorsError);
+      // Validate CAPTCHA
+      if (!captchaToken) {
+        throw new Error('Please complete the CAPTCHA verification');
       }
 
-      // Assign to first available doctor or fallback to practice admin
-      const assignedDoctor = doctors && doctors.length > 0 ? doctors[0] : null;
+      // Submit booking via secure Edge Function
+      const { data, error } = await supabase.functions.invoke('submit-booking', {
+        body: {
+          formData,
+          practiceSlug: practice.slug,
+          captchaToken
+        }
+      });
 
-      const { error: appointmentError } = await supabase
-        .from('appointments')
-        .insert({
-          patient_id: patient.id,
-          doctor_id: assignedDoctor?.id,
-          appointment_date: formData.date,
-          appointment_time: formData.time,
-          type: formData.categoryId || 'consultation',
-          status: 'scheduled',
-          notes: `Service: ${formData.service}\\nPrice: ${formData.price}\\nDuration: ${formData.duration}\\nLocation: ${formData.location}\\nAdditional Notes: ${formData.notes}`,
-          practice_id: practice.id
-        });
-
-      if (appointmentError) throw appointmentError;
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error);
 
       setIsSuccess(true);
       setCurrentStep(4); // Success step
@@ -580,6 +541,15 @@ export default function EnhancedBookingWidget({
                         </span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* CAPTCHA */}
+                  <div className="mt-6 flex justify-center">
+                    <ReCAPTCHA
+                      sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"} // Test key for development
+                      onChange={setCaptchaToken}
+                      theme="light"
+                    />
                   </div>
 
                   <div className="flex justify-between">
