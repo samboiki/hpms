@@ -17,7 +17,7 @@ export interface ServiceCategory {
   subServices: SubService[];
 }
 
-export const drPolinaServices: ServiceCategory[] = [
+export const medcenterServices: ServiceCategory[] = [
   {
     id: 'consultations',
     name: 'Consultations & Follow-ups',

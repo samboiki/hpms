@@ -1,12 +1,12 @@
 {
-  "name": "hpms-landing",
+  "name": "medcenter-landing",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "dev:cityclinic": "next dev -p 3000",
     "dev:coastalmed": "next dev -p 3001",
-    "dev:drpolina": "next dev -p 3002",
+    "dev:medcenter": "next dev -p 3002",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

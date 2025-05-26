@@ -1,4 +1,4 @@
-# Create Test Users for Dr. Polina Practice
+# Create Test Users for MedCenter Practice
 
 Since direct auth.users insertion is restricted, here are two approaches:
 
@@ -13,54 +13,54 @@ Run this in Supabase SQL Editor:
 ## Option 2: Manual Signup (Recommended)
 
 ### Step 1: Go to HPMS Portal
-Visit: https://onehealth-indol.vercel.app
+Visit: https://healthsys-indol.vercel.app
 
 ### Step 2: Sign Up New Users
 Create these accounts manually using the signup form:
 
-**Dr. Polina (Main Doctor):**
-- Email: polina@drpolinaaesthetics.com
-- Password: drpolina123
-- First Name: Teopolina
-- Last Name: Tileinge
+**Main Doctor:**
+- Email: doctor@medcenter.com
+- Password: medcenter123
+- First Name: Dr.
+- Last Name: Smith
 - Role: Doctor
 
 **Aesthetic Nurse:**
-- Email: nurse.maria@drpolinaaesthetics.com
+- Email: nurse.maria@medcenter.com
 - Password: nurse123
 - First Name: Maria
-- Last Name: Shikongo
+- Last Name: Johnson
 - Role: Nurse
 
 **Receptionist:**
-- Email: reception@drpolinaaesthetics.com
+- Email: reception@medcenter.com
 - Password: reception123
 - First Name: Sarah
-- Last Name: Ndilula
+- Last Name: Williams
 - Role: Receptionist
 
 ### Step 3: Update Users with Practice ID
 
-After creating the accounts, run this SQL to link them to Dr. Polina practice:
+After creating the accounts, run this SQL to link them to MedCenter practice:
 
 ```sql
 DO $$
 DECLARE
     practice_uuid UUID;
 BEGIN
-    -- Get Dr. Polina practice ID
-    SELECT id INTO practice_uuid FROM practices WHERE slug = 'dr-polina-aesthetics';
+    -- Get MedCenter practice ID
+    SELECT id INTO practice_uuid FROM practices WHERE slug = 'medcenter-aesthetics';
     
     -- Update users with practice ID
     UPDATE users 
     SET practice_id = practice_uuid
     WHERE email IN (
-        'polina@drpolinaaesthetics.com',
-        'nurse.maria@drpolinaaesthetics.com',
-        'reception@drpolinaaesthetics.com'
+        'doctor@medcenter.com',
+        'nurse.maria@medcenter.com',
+        'reception@medcenter.com'
     );
     
-    RAISE NOTICE 'Updated users with Dr. Polina practice ID';
+    RAISE NOTICE 'Updated users with MedCenter practice ID';
 END $$;
 ```
 
@@ -70,8 +70,8 @@ For immediate testing, you can use any existing HPMS user account to see if book
 
 ## Testing the Booking System
 
-1. **Make a booking**: https://dr-polina-landing.vercel.app
-2. **Check appointments**: https://onehealth-indol.vercel.app
+1. **Make a booking**: https://medcenter-landing.vercel.app
+2. **Check appointments**: https://healthsys-indol.vercel.app
 3. **Login with any admin account** to see if the appointment appears
 
-The booking system should work regardless of the specific user accounts, as long as there are users in the Dr. Polina practice.
+The booking system should work regardless of the specific user accounts, as long as there are users in the MedCenter practice.

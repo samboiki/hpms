@@ -40,7 +40,7 @@ Your secure booking system is now active with:
 
 ## Test Your Booking System
 
-Visit: https://dr-polina-landing-m62mu51ky-onehealth.vercel.app
+Visit: https://medcenter-landing-m62mu51ky-healthsys.vercel.app
 
 Try booking an appointment - you should see:
 1. CAPTCHA checkbox appears

@@ -4,64 +4,64 @@
 
 **Run these SQL scripts in Supabase Dashboard:**
 
-### 1. First, run the Dr. Polina practice migration:
+### 1. First, run the MedCenter practice migration:
 ```sql
 -- From: supabase/migrations/20250526_add_dr_polina_practice.sql
--- (This creates the Dr. Polina practice record)
+-- (This creates the MedCenter practice record)
 ```
 
 ### 2. Fix the domain:
 ```sql
 -- From: fix_dr_polina_domain.sql
 UPDATE practices 
-SET domain = 'drpolina.vercel.app'
-WHERE slug = 'dr-polina-aesthetics';
+SET domain = 'medcenter.vercel.app'
+WHERE slug = 'medcenter-aesthetics';
 ```
 
 ### 3. Create dummy users:
 ```sql
 -- From: create_dr_polina_users.sql
--- (This creates 4 dummy users for Dr. Polina practice)
+-- (This creates 4 dummy users for MedCenter practice)
 ```
 
 ## Testing the Connection
 
 ### Step 1: Test Booking on Landing Page
-1. Go to: https://dr-polina-landing.vercel.app
+1. Go to: https://medcenter-landing.vercel.app
 2. Click "Book Now" on any service
 3. Fill out the booking form
 4. Submit the appointment
 
 ### Step 2: Verify in HPMS Portal
-1. Go to: https://onehealth-indol.vercel.app
-2. Login with Dr. Polina credentials:
-   - Email: `polina@drpolinaaesthetics.com`
-   - Password: `drpolina123`
+1. Go to: https://healthsys-indol.vercel.app
+2. Login with MedCenter credentials:
+   - Email: `doctor@medcenter.com`
+   - Password: `medcenter123`
 3. Navigate to Appointments page
 4. Look for the appointment you just created
 
 ### Expected Result
 - ✅ Appointment appears in HPMS portal
 - ✅ Shows patient name, service, date/time
-- ✅ Assigned to Dr. Polina or available doctor
+- ✅ Assigned to MedCenter doctor or available doctor
 - ✅ Status shows as "scheduled"
 
 ## Dummy User Credentials
 
-**Dr. Polina (Admin/Doctor):**
-- Email: polina@drpolinaaesthetics.com
-- Password: drpolina123
+**Main Doctor (Admin/Doctor):**
+- Email: doctor@medcenter.com
+- Password: medcenter123
 
 **Aesthetic Nurse:**
-- Email: nurse.maria@drpolinaaesthetics.com  
+- Email: nurse.maria@medcenter.com  
 - Password: nurse123
 
 **Receptionist:**
-- Email: reception@drpolinaaesthetics.com
+- Email: reception@medcenter.com
 - Password: reception123
 
 **Aesthetic Consultant:**
-- Email: consultant@drpolinaaesthetics.com
+- Email: consultant@medcenter.com
 - Password: consultant123
 
 ## Database Schema Updates

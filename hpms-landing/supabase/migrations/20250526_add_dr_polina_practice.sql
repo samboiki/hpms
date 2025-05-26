@@ -1,4 +1,4 @@
--- Add Dr. Polina Aesthetics practice
+-- Add MedCenter Aesthetics practice
 INSERT INTO practices (
   slug,
   name,
@@ -23,9 +23,9 @@ INSERT INTO practices (
   certifications,
   testimonials
 ) VALUES (
-  'dr-polina-aesthetics',
-  'Dr. Polina Aesthetics',
-  'drpolina.vercel.app',
+  'medcenter-aesthetics',
+  'MedCenter Aesthetics',
+  'medcenter.vercel.app',
   '#E91E63', -- Elegant pink/rose color for aesthetics
   '#9C27B0', -- Purple as secondary
   '/images/dr-polina-logo.png',
@@ -130,8 +130,8 @@ INSERT INTO practices (
       'price', 'From N$ 2,200'
     )
   ),
-  'Dr. Polina Aesthetics is Namibia''s premier medical aesthetic center, founded by Dr. Teopolina N. Tileinge, a medical doctor trained in Ukraine with specialized expertise in medical aesthetics and cosmetology. We are committed to delivering high-quality, results-driven treatments using medical-grade skincare products and cutting-edge aesthetic technologies. Our personalized approach ensures each patient receives treatments tailored to their unique needs and beauty goals.',
-  'info@drpolinaaesthetics.com',
+  'MedCenter Aesthetics is Namibia''s premier medical aesthetic center, providing medical-grade treatments and advanced aesthetic technologies. We are committed to delivering high-quality, results-driven treatments using cutting-edge skincare products and equipment. Our personalized approach ensures each patient receives treatments tailored to their unique needs and beauty goals.',
+  'info@medcenter.com',
   '+264 81 435 8844',
   'Feld Street 4, Ausspannplatz',
   'Windhoek',
@@ -147,8 +147,8 @@ INSERT INTO practices (
     'sunday', jsonb_build_object('closed', true)
   ),
   jsonb_build_object(
-    'facebook', 'https://facebook.com/drpolinaaesthetics',
-    'instagram', 'https://instagram.com/drpolinaaesthetics',
+    'facebook', 'https://facebook.com/medcenter',
+    'instagram', 'https://instagram.com/medcenter',
     'whatsapp', '+26481435844'
   ),
   jsonb_build_array(
@@ -169,7 +169,7 @@ INSERT INTO practices (
     jsonb_build_object(
       'author', 'Maria Shikongo',
       'rating', 5,
-      'text', 'Dr. Polina transformed my skin! After struggling with acne for years, her treatment plan gave me the clear, glowing skin I''ve always wanted.',
+      'text', 'MedCenter transformed my skin! After struggling with acne for years, their treatment plan gave me the clear, glowing skin I''ve always wanted.',
       'date', '2024-11-15'
     ),
     jsonb_build_object(
@@ -181,7 +181,7 @@ INSERT INTO practices (
     jsonb_build_object(
       'author', 'Sandra Iipinge',
       'rating', 5,
-      'text', 'I''ve tried many aesthetic clinics, but Dr. Polina Aesthetics stands out. The personalized approach and attention to detail is exceptional.',
+      'text', 'I''ve tried many aesthetic clinics, but MedCenter Aesthetics stands out. The personalized approach and attention to detail is exceptional.',
       'date', '2024-09-30'
     )
   )
@@ -243,4 +243,4 @@ SET metadata = jsonb_build_object(
     )
   )
 )
-WHERE slug = 'dr-polina-aesthetics';
+WHERE slug = 'medcenter-aesthetics';
