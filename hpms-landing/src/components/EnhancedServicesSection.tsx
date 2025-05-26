@@ -83,7 +83,7 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
         {/* Services Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {(Array.isArray(services) ? services : drPolinaServices).map((service, index) => {
-            const Icon = Icons[service.icon as keyof typeof Icons] || Icons.Activity;
+            const IconComponent = (Icons as any)[service.icon] || Icons.Activity;
             const isHovered = hoveredCard === service.id;
             
             return (
@@ -131,7 +131,7 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
                       animate={isHovered ? { rotate: [0, -10, 10, -10, 0] } : {}}
                       transition={{ duration: 0.5 }}
                     >
-                      <Icon className="w-8 h-8 text-white" />
+                      <IconComponent className="w-8 h-8 text-white" />
                     </motion.div>
 
                     <h3 className="text-2xl font-bold text-gray-900 mb-3">
@@ -199,8 +199,8 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
                 
                 <div className="flex items-center gap-4 mb-2">
                   {(() => {
-                    const Icon = Icons[selectedCategory.icon as keyof typeof Icons] || Icons.Activity;
-                    return <Icon className="w-10 h-10" />;
+                    const IconComponent = (Icons as any)[selectedCategory.icon] || Icons.Activity;
+                    return <IconComponent className="w-10 h-10" />;
                   })()}
                   <h3 className="text-3xl font-bold">{selectedCategory.name}</h3>
                 </div>

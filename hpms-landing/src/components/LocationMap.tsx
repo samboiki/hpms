@@ -10,7 +10,15 @@ interface LocationMapProps {
 
 declare global {
   interface Window {
-    google: any;
+    google: {
+      maps: {
+        Map: any;
+        Marker: any;
+        InfoWindow: any;
+        LatLngBounds: any;
+        Size: any;
+      };
+    };
     initMap: () => void;
   }
 }
