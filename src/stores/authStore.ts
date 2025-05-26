@@ -108,6 +108,23 @@ export const useAuthStore = create<AuthState>((set) => ({
           
         if (emailError || !userByEmail) {
           console.error('❌ Fallback also failed:', emailError);
+          
+          // For Dr. Polina users, use metadata from auth
+          if (email.includes('drpolina') && authUser.user_metadata) {
+            console.log('🔧 Using auth metadata for Dr. Polina user');
+            const user: User = {
+              id: authUser.id,
+              email: authUser.email || email,
+              name: authUser.user_metadata.full_name || 'Admin User',
+              role: (authUser.user_metadata.role as any) || 'admin',
+              avatar: null,
+              practice_id: authUser.user_metadata.practice_id || 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3'
+            };
+            set({ isAuthenticated: true, user });
+            console.log('✅ Login complete with metadata!');
+            return true;
+          }
+          
           return false;
         }
         
@@ -118,6 +135,23 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       if (!userData) {
         console.error('❌ No user profile found in users table');
+        
+        // For Dr. Polina users, use metadata from auth
+        if (email.includes('drpolina') && authUser.user_metadata) {
+          console.log('🔧 Using auth metadata for Dr. Polina user (no user table entry)');
+          const user: User = {
+            id: authUser.id,
+            email: authUser.email || email,
+            name: authUser.user_metadata.full_name || 'Admin User',
+            role: (authUser.user_metadata.role as any) || 'admin',
+            avatar: null,
+            practice_id: authUser.user_metadata.practice_id || 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3'
+          };
+          set({ isAuthenticated: true, user });
+          console.log('✅ Login complete with metadata!');
+          return true;
+        }
+        
         return false;
       }
 

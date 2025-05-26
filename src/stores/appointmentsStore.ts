@@ -81,6 +81,13 @@ export const useAppointmentsStore = create<AppointmentsState>((set, get) => ({
         apt.doctor?.practice_id === user.practice_id
       );
       
+      console.log(`Found ${practiceAppointments.length} appointments for practice ${user.practice_id}`);
+      
+      // For Dr. Polina practice with no data, return empty array
+      if (user.practice_id === 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3' && practiceAppointments.length === 0) {
+        console.log('Dr. Polina practice - no appointments yet');
+      }
+      
       set({ appointments: practiceAppointments, isLoading: false });
     } catch (error) {
       console.error('Error fetching appointments:', error);

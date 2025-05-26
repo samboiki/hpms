@@ -151,6 +151,8 @@ function Dashboard() {
       const practiceAppointments = currentPracticeId 
         ? (appointmentsData || []).filter(apt => apt.doctor?.practice_id === currentPracticeId)
         : appointmentsData || [];
+        
+      console.log(`Dashboard: Found ${practiceAppointments.length} appointments for practice ${currentPracticeId}`);
 
       // Fetch doctors from users table (not auth.users)
       let doctorsQuery = supabase
