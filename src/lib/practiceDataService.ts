@@ -98,23 +98,13 @@ class PracticeDataService {
     }
   }
 
-  // Get appointments for practice (filtered by practice doctors)
+  // Get appointments for practice (INCLUDING pending ones without doctors)
   async getPracticeAppointments(practiceId: string, date?: string): Promise<any[]> {
     this.logWithContext(`Fetching appointments for practice: ${practiceId}`, { date });
     
     try {
-      // First get practice doctors
-      const doctors = await this.getPracticeDoctors(practiceId);
-      
-      if (doctors.length === 0) {
-        this.logWithContext(`No doctors found for practice ${practiceId}, returning empty appointments`);
-        return [];
-      }
-
-      const doctorIds = doctors.map(d => d.id);
-      this.logWithContext(`Querying appointments for doctor IDs:`, doctorIds);
-
       // Build query - get ALL appointments for the practice
+      // INCLUDING pending appointments that don't have a doctor assigned yet
       let query = supabase
         .from('appointments')
         .select(`
