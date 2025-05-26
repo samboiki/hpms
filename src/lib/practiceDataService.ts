@@ -114,7 +114,7 @@ class PracticeDataService {
       const doctorIds = doctors.map(d => d.id);
       this.logWithContext(`Querying appointments for doctor IDs:`, doctorIds);
 
-      // Build query
+      // Build query - get ALL appointments for the practice
       let query = supabase
         .from('appointments')
         .select(`
@@ -122,7 +122,7 @@ class PracticeDataService {
           patient:patients(id, first_name, last_name, cell_number, date_of_birth, gender),
           doctor:users!doctor_id(id, full_name, practice_id)
         `)
-        .in('doctor_id', doctorIds)
+        .eq('practice_id', practiceId)
         .order('date', { ascending: true })
         .order('time', { ascending: true });
 
@@ -137,19 +137,8 @@ class PracticeDataService {
         return [];
       }
 
-      // Double-check filtering (belt and suspenders approach)
-      const filteredAppointments = (appointments || []).filter(apt => {
-        const isCorrectPractice = apt.doctor?.practice_id === practiceId;
-        if (!isCorrectPractice) {
-          this.logError(`Found appointment with wrong practice!`, {
-            appointmentId: apt.id,
-            expectedPractice: practiceId,
-            actualPractice: apt.doctor?.practice_id,
-            doctorName: apt.doctor?.full_name
-          });
-        }
-        return isCorrectPractice;
-      });
+      // No need to filter anymore since we're querying by practice_id directly
+      const filteredAppointments = appointments || [];
 
       this.logWithContext(`Found ${filteredAppointments.length} appointments for practice ${practiceId}`, {
         totalFetched: appointments?.length || 0,

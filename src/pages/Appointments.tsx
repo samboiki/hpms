@@ -228,6 +228,7 @@ const Appointments: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'pending': return 'rose';
       case 'requested': return 'lavender';
       case 'scheduled': return 'azure';
       case 'confirmed': return 'emerald';

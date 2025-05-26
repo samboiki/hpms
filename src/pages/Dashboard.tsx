@@ -251,12 +251,31 @@ function Dashboard() {
   const todayAppointments = appointments.filter(apt => 
     apt.date === format(new Date(), 'yyyy-MM-dd')
   );
+  const pendingAppointments = appointments.filter(apt => apt.status === 'pending');
   const pendingRequests = labRequests.length + mediaRequests.length;
   const completedToday = todayAppointments.filter(apt => apt.status === 'completed').length;
   const scheduledToday = todayAppointments.filter(apt => apt.status === 'scheduled' || apt.status === 'confirmed').length;
 
   // Stats data matching the Patients page design
   const stats = [
+    { 
+      label: 'Pending Bookings', 
+      value: pendingAppointments.length.toString(),
+      change: pendingAppointments.length > 0 ? 'Need approval' : 'None pending',
+      trend: pendingAppointments.length > 0 ? 'down' : 'up',
+      icon: AlertCircle,
+      gradient: 'from-red-500 to-rose-600',
+      id: 'pending-bookings'
+    },
+    { 
+      label: "Today's Appointments", 
+      value: todayAppointments.length.toString(),
+      change: scheduledToday > 0 ? `${scheduledToday} scheduled` : 'All clear',
+      trend: scheduledToday > 0 ? 'neutral' : 'up',
+      icon: Calendar,
+      gradient: 'from-emerald-500 to-green-600',
+      id: 'appointments'
+    },
     { 
       label: 'Total Patients', 
       value: patients.length.toString(),
@@ -265,24 +284,6 @@ function Dashboard() {
       icon: Users,
       gradient: 'from-blue-500 to-indigo-600',
       id: 'patients'
-    },
-    { 
-      label: "Today's Appointments", 
-      value: todayAppointments.length.toString(),
-      change: scheduledToday > 0 ? `${scheduledToday} pending` : 'All clear',
-      trend: scheduledToday > 0 ? 'neutral' : 'up',
-      icon: Calendar,
-      gradient: 'from-emerald-500 to-green-600',
-      id: 'appointments'
-    },
-    { 
-      label: 'Pending Tasks', 
-      value: pendingRequests.toString(),
-      change: labRequests.length > 0 ? `${labRequests.length} labs` : 'None',
-      trend: pendingRequests > 0 ? 'down' : 'up',
-      icon: AlertCircle,
-      gradient: 'from-amber-500 to-orange-600',
-      id: 'tasks'
     },
     { 
       label: 'Completed Today', 

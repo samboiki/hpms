@@ -181,7 +181,7 @@ serve(async (req) => {
         date: formData.date,
         time: formData.time,
         type: 'consultation',
-        status: 'scheduled',
+        status: 'pending',
         notes: `Online Booking: ${formData.service}\nRequested by: ${formData.email}${formData.notes ? '\nNotes: ' + formData.notes.substring(0, 500) : ''}`,
         practice_id: practice.id
       })
