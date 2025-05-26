@@ -639,3 +639,5 @@ export const medcenterServices: ServiceCategory[] = [
     ]
   }
 ];
+
+export const drPolinaServices = medcenterServices;
