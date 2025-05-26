@@ -43,9 +43,18 @@ export const useAppointmentsStore = create<AppointmentsState>((set, get) => ({
   fetchAppointments: async (date) => {
     set({ isLoading: true, error: null });
     try {
+      // Check if user is authenticated
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        console.log('No authenticated user, skipping appointment fetch');
+        set({ appointments: [], isLoading: false });
+        return;
+      }
+
       // Get current user's practice_id
       const user = useAuthStore.getState().user;
       if (!user?.practice_id) {
+        console.log('No practice_id found for user, skipping appointment fetch');
         set({ appointments: [], isLoading: false });
         return;
       }
