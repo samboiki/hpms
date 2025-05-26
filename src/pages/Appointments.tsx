@@ -12,78 +12,174 @@ import {
   XCircle,
   AlertCircle,
   Search,
-  ArrowUpDown
+  ArrowUpDown,
+  Users,
+  CalendarDays,
+  Timer,
+  TrendingUp
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { useAppointmentsStore } from '../stores/appointmentsStore';
 import Badge from '../components/ui/Badge';
 import { useNavigate } from 'react-router-dom';
-import { format, addDays, startOfWeek, addWeeks, subWeeks, parseISO, isSameDay } from 'date-fns';
+import { format, addDays, startOfWeek, addWeeks, subWeeks, parseISO, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, isToday, isSameMonth } from 'date-fns';
 import FormModal from '../components/modals/FormModal';
 import AddAppointmentForm from '../components/forms/AddAppointmentForm';
+import RescheduleAppointmentModal from '../components/modals/RescheduleAppointmentModal';
+import ModernWeekView from '../components/appointments/ModernWeekView';
 import { motion } from 'framer-motion';
+import { supabase } from '../lib/supabase';
+
+interface AppointmentStats {
+  todayCount: number;
+  weekCount: number;
+  pendingCheckins: number;
+  completionRate: number;
+}
+
+interface Doctor {
+  id: string;
+  full_name: string;
+}
 
 const Appointments: React.FC = () => {
   const navigate = useNavigate();
   const { appointments, fetchAppointments, checkInAppointment, cancelAppointment, isLoading, error } = useAppointmentsStore();
   const [isAddAppointmentModalOpen, setIsAddAppointmentModalOpen] = useState(false);
+  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+  const [selectedAppointmentForReschedule, setSelectedAppointmentForReschedule] = useState<any>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'day' | 'week' | 'month'>('week');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterDoctor, setFilterDoctor] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [stats, setStats] = useState<AppointmentStats>({
+    todayCount: 0,
+    weekCount: 0,
+    pendingCheckins: 0,
+    completionRate: 0
+  });
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   
   // Generate dates for week view
-  const startOfCurrentWeek = startOfWeek(currentDate, { weekStartsOn: 1 }); // Start on Monday
+  const startOfCurrentWeek = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = [...Array(7)].map((_, i) => addDays(startOfCurrentWeek, i));
+  
+  // Generate dates for month view
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
+  const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
   
   // Navigation functions
   const goToPreviousWeek = () => setCurrentDate(subWeeks(currentDate, 1));
   const goToNextWeek = () => setCurrentDate(addWeeks(currentDate, 1));
+  const goToPreviousMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  const goToNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   const goToToday = () => setCurrentDate(new Date());
   
+  // Fetch doctors from users table
+  const fetchDoctors = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, full_name')
+        .eq('role', 'doctor');
+      
+      if (!error && data) {
+        setDoctors(data);
+      }
+    } catch (err) {
+      console.error('Error fetching doctors:', err);
+    }
+  };
+  
+  // Calculate statistics
+  const calculateStats = () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    const weekEnd = addDays(weekStart, 6);
+    
+    const todayCount = appointments.filter(apt => apt.date === today).length;
+    const weekCount = appointments.filter(apt => {
+      const aptDate = parseISO(apt.date);
+      return aptDate >= weekStart && aptDate <= weekEnd;
+    }).length;
+    const pendingCheckins = appointments.filter(apt => 
+      apt.status === 'scheduled' && apt.date <= today
+    ).length;
+    
+    const completedToday = appointments.filter(apt => 
+      apt.date === today && apt.status === 'completed'
+    ).length;
+    const completionRate = todayCount > 0 ? (completedToday / todayCount) * 100 : 0;
+    
+    setStats({
+      todayCount,
+      weekCount,
+      pendingCheckins,
+      completionRate: Math.round(completionRate)
+    });
+  };
+
   useEffect(() => {
     fetchAppointments();
+    fetchDoctors();
   }, [fetchAppointments]);
+  
+  useEffect(() => {
+    calculateStats();
+  }, [appointments]);
 
-  // Filter appointments for the current week
-  const currentWeekAppointments = appointments.filter(appointment => {
-    const appointmentDate = parseISO(appointment.date);
-    const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-    const weekEnd = addDays(weekStart, 6);
-    return appointmentDate >= weekStart && appointmentDate <= weekEnd;
-  });
+  // Filter appointments for the current period
+  const getFilteredAppointments = () => {
+    if (view === 'week') {
+      return appointments.filter(appointment => {
+        const appointmentDate = parseISO(appointment.date);
+        const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
+        const weekEnd = addDays(weekStart, 6);
+        return appointmentDate >= weekStart && appointmentDate <= weekEnd;
+      });
+    } else if (view === 'month') {
+      return appointments.filter(appointment => {
+        const appointmentDate = parseISO(appointment.date);
+        return isSameMonth(appointmentDate, currentDate);
+      });
+    } else {
+      return appointments.filter(appointment => 
+        appointment.date === format(currentDate, 'yyyy-MM-dd')
+      );
+    }
+  };
 
   // Group appointments by date
   const appointmentsByDate: Record<string, typeof appointments> = {};
-  currentWeekAppointments.forEach(appointment => {
+  getFilteredAppointments().forEach(appointment => {
     if (!appointmentsByDate[appointment.date]) {
       appointmentsByDate[appointment.date] = [];
     }
     appointmentsByDate[appointment.date].push(appointment);
   });
 
-  // Filter appointments based on search and filters
+  // Apply search and filters
   const filteredAppointments = appointments.filter(appointment => {
-    // Status filter
     if (filterStatus !== 'all' && appointment.status !== filterStatus) {
       return false;
     }
     
-    // Doctor filter
     if (filterDoctor !== 'all' && appointment.doctor_id !== filterDoctor) {
       return false;
     }
     
-    // Search term
     if (searchTerm) {
       const patientName = appointment.patient ? 
         `${appointment.patient.first_name} ${appointment.patient.last_name}`.toLowerCase() : '';
       const doctorName = appointment.doctor ? appointment.doctor.full_name.toLowerCase() : '';
       const searchLower = searchTerm.toLowerCase();
       
-      return patientName.includes(searchLower) || doctorName.includes(searchLower);
+      return patientName.includes(searchLower) || 
+             doctorName.includes(searchLower) ||
+             appointment.type.toLowerCase().includes(searchLower);
     }
     
     return true;
@@ -102,25 +198,31 @@ const Appointments: React.FC = () => {
     }
   };
 
+  const handleReschedule = (appointment: any) => {
+    const appointmentWithNames = {
+      ...appointment,
+      patient_name: appointment.patient ? 
+        `${appointment.patient.first_name} ${appointment.patient.last_name}` : 'Unknown',
+      doctor_name: appointment.doctor?.full_name || 'Unknown'
+    };
+    setSelectedAppointmentForReschedule(appointmentWithNames);
+    setIsRescheduleModalOpen(true);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'scheduled':
-        return 'azure';
-      case 'confirmed':
-        return 'success';
-      case 'in-progress':
-        return 'warning';
-      case 'completed':
-        return 'success';
-      case 'cancelled':
-        return 'error';
-      default:
-        return 'glass';
+      case 'scheduled': return 'azure';
+      case 'confirmed': return 'success';
+      case 'in-progress': return 'warning';
+      case 'completed': return 'success';
+      case 'cancelled': return 'error';
+      default: return 'glass';
     }
   };
 
   return (
     <div className="animate-fade-in">
+      {/* Header */}
       <div className="flex flex-col md:flex-row items-center justify-between mb-6">
         <div className="flex items-center">
           <Calendar size={28} className="text-primary-600 mr-3" />
@@ -148,6 +250,65 @@ const Appointments: React.FC = () => {
         </div>
       </div>
 
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Today's Appointments</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.todayCount}</p>
+              </div>
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <CalendarDays size={16} className="text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">This Week</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.weekCount}</p>
+              </div>
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                <Users size={16} className="text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Pending Check-ins</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.pendingCheckins}</p>
+              </div>
+              <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                <Timer size={16} className="text-amber-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Completion Rate</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.completionRate}%</p>
+              </div>
+              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                <TrendingUp size={16} className="text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Search and Filter Bar */}
       <Card className="mb-6">
         <CardContent className="p-4">
@@ -156,7 +317,7 @@ const Appointments: React.FC = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
-                placeholder="Search appointments..."
+                placeholder="Search by patient name, doctor, or appointment type..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-4 py-2 w-full rounded-md border border-gray-300 focus:ring-brand-primary focus:border-brand-primary"
@@ -181,9 +342,12 @@ const Appointments: React.FC = () => {
                 className="px-4 py-2 rounded-md border border-gray-300 focus:ring-brand-primary focus:border-brand-primary"
               >
                 <option value="all">All Doctors</option>
-                {/* This would be populated from your doctors data */}
-                <option value="doctor1">Dr. Jane Smith</option>
-                <option value="doctor2">Dr. Michael Chen</option>
+                {doctors.map(doctor => (
+                  <option key={doctor.id} value={doctor.id}>
+                    {doctor.full_name}
+                  </option>
+                ))}
+                <option value="">Unassigned</option>
               </select>
             </div>
           </div>
@@ -198,49 +362,37 @@ const Appointments: React.FC = () => {
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={goToPreviousWeek}
+                onClick={view === 'month' ? goToPreviousMonth : goToPreviousWeek}
               >
                 <ChevronLeft size={16} />
               </Button>
               <h2 className="text-lg font-medium">
-                {format(startOfCurrentWeek, 'MMMM d')} - {format(addDays(startOfCurrentWeek, 6), 'MMMM d, yyyy')}
+                {view === 'month' 
+                  ? format(currentDate, 'MMMM yyyy')
+                  : `${format(startOfCurrentWeek, 'MMMM d')} - ${format(addDays(startOfCurrentWeek, 6), 'MMMM d, yyyy')}`
+                }
               </h2>
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={goToNextWeek}
+                onClick={view === 'month' ? goToNextMonth : goToNextWeek}
               >
                 <ChevronRight size={16} />
               </Button>
             </div>
             <div className="flex space-x-2">
-              <Button 
-                variant={view === 'day' ? 'primary' : 'outline'}
-                size="sm"
-                onClick={() => setView('day')}
-                style={view === 'day' ? { backgroundColor: '#01b9d4' } : {}}
-                className={view === 'day' ? 'text-white' : ''}
-              >
-                Day
-              </Button>
-              <Button 
-                variant={view === 'week' ? 'primary' : 'outline'}
-                size="sm"
-                onClick={() => setView('week')}
-                style={view === 'week' ? { backgroundColor: '#01b9d4' } : {}}
-                className={view === 'week' ? 'text-white' : ''}
-              >
-                Week
-              </Button>
-              <Button 
-                variant={view === 'month' ? 'primary' : 'outline'}
-                size="sm"
-                onClick={() => setView('month')}
-                style={view === 'month' ? { backgroundColor: '#01b9d4' } : {}}
-                className={view === 'month' ? 'text-white' : ''}
-              >
-                Month
-              </Button>
+              {['day', 'week', 'month'].map((viewType) => (
+                <Button 
+                  key={viewType}
+                  variant={view === viewType ? 'primary' : 'outline'}
+                  size="sm"
+                  onClick={() => setView(viewType as any)}
+                  style={view === viewType ? { backgroundColor: '#01b9d4' } : {}}
+                  className={view === viewType ? 'text-white' : ''}
+                >
+                  {viewType.charAt(0).toUpperCase() + viewType.slice(1)}
+                </Button>
+              ))}
               <Button 
                 variant="outline"
                 size="sm"
@@ -253,101 +405,78 @@ const Appointments: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Week view */}
-      {view === 'week' && (
-        <div className="grid grid-cols-7 gap-4 mb-6">
-          {weekDays.map((day, i) => {
-            const dateStr = format(day, 'yyyy-MM-dd');
-            const isToday = isSameDay(new Date(), day);
-            const dayAppointments = appointmentsByDate[dateStr] || [];
-            
-            return (
-              <Card 
-                key={i}
-                className={`${isToday ? 'ring-2 ring-[#01b9d4]' : ''}`}
-              >
-                <CardHeader className="py-3 px-4 text-center bg-gray-50 rounded-t-lg">
-                  <p className="text-xs text-gray-500 uppercase">
-                    {format(day, 'EEE')}
-                  </p>
-                  <p className={`text-lg font-semibold ${isToday ? 'text-[#01b9d4]' : 'text-gray-800'}`}>
-                    {format(day, 'd')}
-                  </p>
-                </CardHeader>
-                <CardContent className="p-2 min-h-[300px] max-h-[400px] overflow-y-auto">
-                  {dayAppointments.length > 0 ? (
-                    <div className="space-y-2">
-                      {dayAppointments.map((appointment) => (
-                        <motion.div 
-                          key={appointment.id}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className={`p-2 rounded text-sm ${
-                            appointment.status === 'confirmed' ? 'bg-green-50 border-l-2 border-green-500' :
-                            appointment.status === 'scheduled' ? 'bg-blue-50 border-l-2 border-blue-500' :
-                            appointment.status === 'in-progress' ? 'bg-amber-50 border-l-2 border-amber-500' :
-                            appointment.status === 'cancelled' ? 'bg-red-50 border-l-2 border-red-500' :
-                            'bg-gray-50 border-l-2 border-gray-500'
+      {/* Month view */}
+      {view === 'month' && (
+        <Card className="mb-6">
+          <CardContent className="p-4">
+            <div className="grid grid-cols-7 gap-1">
+              {/* Day headers */}
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                <div key={day} className="p-2 text-center text-sm font-medium text-gray-600">
+                  {day}
+                </div>
+              ))}
+              
+              {/* Calendar days */}
+              {monthDays.map((day, i) => {
+                const dateStr = format(day, 'yyyy-MM-dd');
+                const dayAppointments = appointmentsByDate[dateStr] || [];
+                const isCurrentDay = isToday(day);
+                
+                return (
+                  <div 
+                    key={i}
+                    className={`min-h-[80px] p-1 border border-gray-200 cursor-pointer hover:bg-gray-50 ${
+                      isCurrentDay ? 'bg-blue-50 border-blue-300' : ''
+                    }`}
+                    onClick={() => {
+                      setCurrentDate(day);
+                      setView('day');
+                    }}
+                  >
+                    <div className={`text-sm font-medium ${
+                      isCurrentDay ? 'text-blue-600' : 'text-gray-900'
+                    }`}>
+                      {format(day, 'd')}
+                    </div>
+                    <div className="space-y-1">
+                      {dayAppointments.slice(0, 2).map(apt => (
+                        <div 
+                          key={apt.id}
+                          className={`text-xs p-1 rounded truncate ${
+                            apt.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                            apt.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
+                            apt.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
                           }`}
                         >
-                          <div className="flex justify-between items-start">
-                            <p className="font-medium">{appointment.time}</p>
-                            <Badge
-                              variant={getStatusColor(appointment.status)}
-                              size="sm"
-                            >
-                              {appointment.status}
-                            </Badge>
-                          </div>
-                          <p className="mt-1 font-medium text-gray-800">
-                            {appointment.patient?.first_name} {appointment.patient?.last_name}
-                          </p>
-                          <div className="flex items-center mt-1 text-gray-500">
-                            <Clock size={10} className="mr-1" />
-                            <span>{appointment.duration} min</span>
-                            <span className="mx-1">•</span>
-                            <span>{appointment.type}</span>
-                          </div>
-                          
-                          {appointment.status === 'scheduled' && (
-                            <div className="mt-2 flex space-x-1">
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                className="py-0 h-6 text-xs bg-white"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCheckIn(appointment.id);
-                                }}
-                              >
-                                Check-in
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                className="py-0 h-6 text-xs bg-white text-red-600"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCancel(appointment.id);
-                                }}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          )}
-                        </motion.div>
+                          {apt.time.slice(0, 5)} {apt.patient?.first_name}
+                        </div>
                       ))}
+                      {dayAppointments.length > 2 && (
+                        <div className="text-xs text-gray-500">
+                          +{dayAppointments.length - 2} more
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="h-full flex items-center justify-center">
-                      <p className="text-xs text-gray-400">No appointments</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Week view */}
+      {view === 'week' && (
+        <ModernWeekView
+          weekDays={weekDays}
+          appointments={filteredAppointments}
+          onAppointmentClick={(appointment) => navigate(`/patients/${appointment.patient_id}`)}
+          onCheckIn={handleCheckIn}
+          onCancel={handleCancel}
+          onReschedule={handleReschedule}
+        />
       )}
 
       {/* Day view */}
@@ -560,6 +689,17 @@ const Appointments: React.FC = () => {
                           <Button 
                             variant="outline" 
                             size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleReschedule(appointment);
+                            }}
+                          >
+                            <Calendar size={14} className="mr-1" />
+                            Reschedule
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
                             className="text-red-600 hover:bg-red-50"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -610,6 +750,23 @@ const Appointments: React.FC = () => {
           }}
         />
       </FormModal>
+
+      {/* Reschedule Appointment Modal */}
+      {selectedAppointmentForReschedule && (
+        <RescheduleAppointmentModal
+          isOpen={isRescheduleModalOpen}
+          onClose={() => {
+            setIsRescheduleModalOpen(false);
+            setSelectedAppointmentForReschedule(null);
+          }}
+          appointment={selectedAppointmentForReschedule}
+          onReschedule={() => {
+            setIsRescheduleModalOpen(false);
+            setSelectedAppointmentForReschedule(null);
+            fetchAppointments();
+          }}
+        />
+      )}
     </div>
   );
 };

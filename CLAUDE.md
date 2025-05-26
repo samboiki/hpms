@@ -318,3 +318,54 @@ ORDER BY v.visit_date DESC, v.visit_time DESC;
 - Date comparisons: Use proper date functions, not string comparisons
 - Always include ORDER BY for consistent results
 - Use proper indexes on foreign keys and commonly searched fields
+
+## Appointment Management Features
+
+### Available Utilities (src/utils/appointments.ts)
+
+1. **Time Slot Generation**
+   - `generateTimeSlots(date, doctorId, businessHours)`: Creates available appointment slots
+   - Respects business hours and lunch breaks
+   - Marks slots as unavailable if appointments exist
+   - Default: 30-minute slots, 8am-5pm with 12pm-1pm lunch
+
+2. **Conflict Checking**
+   - `checkAppointmentConflict(doctorId, scheduledTime, duration, excludeId)`: Validates time availability
+   - Prevents double-booking
+   - Excludes cancelled appointments
+
+3. **Finding Next Available Slot**
+   - `findNextAvailableSlot(doctorId, startDate, businessHours, maxDays)`: Smart slot finder
+   - Searches up to 30 days ahead
+   - Returns first available future slot
+
+4. **Rescheduling**
+   - `rescheduleAppointment(appointmentId, newTime, reason)`: Safe appointment rescheduling
+   - Validates new time availability
+   - Updates appointment with optional reason
+
+5. **Statistics**
+   - `getAppointmentStats(doctorId?, dateRange?)`: Dashboard metrics
+   - Returns total, completed, pending, cancelled, no-show counts
+   - Calculates completion rate percentage
+
+6. **Bulk Operations**
+   - `bulkUpdateAppointmentStatus(appointmentIds, status)`: Mass status updates
+   - Useful for end-of-day processing
+
+### Appointment Modal Components
+
+1. **RescheduleAppointmentModal**
+   - Quick reschedule options (next day, 3 days, next week)
+   - Calendar date picker with available slots
+   - Conflict prevention
+   - Optional reason for rescheduling
+   - Handles both scheduled_time and date/time formats
+
+### Updated Appointments Page Features
+- Real-time doctor list from users table (no more hardcoded names)
+- Statistics cards showing key metrics
+- Enhanced search by patient, doctor, or appointment type
+- Complete month view implementation
+- Reschedule functionality for scheduled appointments
+- Proper appointment status workflow

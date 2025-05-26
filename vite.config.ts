@@ -1,17 +1,25 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// https://vitejs.dev/config/
+// Simple, bulletproof configuration
 export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
   server: {
+    host: true, // Listen on all addresses
+    port: 5173,
+    open: true, // Auto-open browser
+    cors: true,
+    hmr: true,
     watch: {
-      // Use polling for better performance in WSL2
       usePolling: true,
-      interval: 100,
+      interval: 500,
     },
+  },
+  build: {
+    target: 'esnext',
+    minify: false, // Faster builds
   },
 });

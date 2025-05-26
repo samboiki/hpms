@@ -3,7 +3,8 @@ import { useForm } from 'react-hook-form';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
 import { Search, Calendar, Clock, User, FileText, AlertCircle } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, setHours, setMinutes } from 'date-fns';
+import { checkAppointmentConflict } from '../../utils/appointments';
 
 interface AddAppointmentFormData {
   patient_id: string;
@@ -29,13 +30,15 @@ interface Doctor {
 
 interface Props {
   onSuccess: () => void;
+  initialDate?: Date;
+  initialTime?: string;
 }
 
-const AddAppointmentForm: React.FC<Props> = ({ onSuccess }) => {
+const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTime }) => {
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<AddAppointmentFormData>({
     defaultValues: {
-      date: format(new Date(), 'yyyy-MM-dd'),
-      time: format(new Date(), 'HH:mm'),
+      date: initialDate ? format(initialDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+      time: initialTime || format(new Date(), 'HH:mm'),
       duration: 30,
       type: 'consultation'
     }
@@ -108,17 +111,18 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess }) => {
       setIsLoading(true);
       setError(null);
 
-      // Check for conflicting appointments
-      const { data: conflicts, error: conflictError } = await supabase
-        .from('appointments')
-        .select('id')
-        .eq('date', data.date)
-        .eq('doctor_id', data.doctor_id)
-        .or(`time.gte.${data.time},time.lt.${addMinutesToTime(data.time, data.duration)}`);
+      // Check for conflicting appointments using utility function
+      const [hours, minutes] = data.time.split(':').map(Number);
+      const appointmentDate = new Date(data.date);
+      const appointmentTime = setMinutes(setHours(appointmentDate, hours), minutes);
+      
+      const hasConflict = await checkAppointmentConflict(
+        data.doctor_id,
+        appointmentTime,
+        data.duration
+      );
 
-      if (conflictError) throw conflictError;
-
-      if (conflicts && conflicts.length > 0) {
+      if (hasConflict) {
         setError('This time slot conflicts with an existing appointment');
         return;
       }
@@ -148,14 +152,6 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess }) => {
     }
   };
 
-  // Helper function to add minutes to a time string (HH:MM)
-  const addMinutesToTime = (time: string, minutes: number): string => {
-    const [hours, mins] = time.split(':').map(Number);
-    const date = new Date();
-    date.setHours(hours, mins);
-    date.setMinutes(date.getMinutes() + minutes);
-    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-  };
 
   const handlePatientSelect = (patient: Patient) => {
     setValue('patient_id', patient.id);
