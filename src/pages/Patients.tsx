@@ -40,8 +40,9 @@ import EditPatientForm from '../components/forms/EditPatientForm';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
+import { usePatientsStoreNew, Patient } from '../stores/patientsStoreNew';
 
-interface Patient {
+interface PatientOld {
   id: string;
   first_name: string;
   last_name: string;
@@ -95,13 +96,11 @@ const MaleIcon = ({ className }: { className?: string }) => (
 
 const Patients: React.FC = () => {
   const navigate = useNavigate();
+  const { patients, isLoading, error, fetchPatients: fetchPatientsFromStore, searchPatients } = usePatientsStoreNew();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddPatientModalOpen, setIsAddPatientModalOpen] = useState(false);
   const [isEditPatientModalOpen, setIsEditPatientModalOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'age'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -129,7 +128,7 @@ const Patients: React.FC = () => {
   
   useEffect(() => {
     console.log('🏥 Patients page loaded');
-    fetchPatients();
+    fetchPatientsFromStore();
   }, []);
   
   // Debug effect to log state changes
@@ -137,27 +136,17 @@ const Patients: React.FC = () => {
     console.log('📊 AI Filters state changed:', aiFilters);
   }, [aiFilters]);
 
-
-  const fetchPatients = async () => {
-    try {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('patients')
-        .select(`
-          *,
-          medical_aid_details (*),
-          next_of_kin (*)
-        `);
-
-      if (error) throw error;
-      setPatients(data || []);
-    } catch (err) {
-      console.error('Error fetching patients:', err);
-      setError('Failed to load patients');
-    } finally {
-      setIsLoading(false);
+  // Search effect
+  useEffect(() => {
+    if (searchTerm) {
+      const timeoutId = setTimeout(() => {
+        searchPatients(searchTerm);
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    } else {
+      fetchPatientsFromStore();
     }
-  };
+  }, [searchTerm]);
 
   const filteredPatients = (() => {
     // If AI search results are available, use them

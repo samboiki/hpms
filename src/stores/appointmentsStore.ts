@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from './authStore';
 
 export interface Appointment {
   id: string;
@@ -42,6 +43,13 @@ export const useAppointmentsStore = create<AppointmentsState>((set, get) => ({
   fetchAppointments: async (date) => {
     set({ isLoading: true, error: null });
     try {
+      // Get current user's practice_id
+      const user = useAuthStore.getState().user;
+      if (!user?.practice_id) {
+        set({ appointments: [], isLoading: false });
+        return;
+      }
+
       let query = supabase
         .from('appointments')
         .select(`
@@ -53,7 +61,8 @@ export const useAppointmentsStore = create<AppointmentsState>((set, get) => ({
           ),
           doctor:users!doctor_id (
             id,
-            full_name
+            full_name,
+            practice_id
           )
         `)
         .order('date', { ascending: true })
@@ -66,7 +75,13 @@ export const useAppointmentsStore = create<AppointmentsState>((set, get) => ({
       const { data, error } = await query;
       
       if (error) throw error;
-      set({ appointments: data || [], isLoading: false });
+      
+      // Filter appointments to only include those from the same practice
+      const practiceAppointments = (data || []).filter(apt => 
+        apt.doctor?.practice_id === user.practice_id
+      );
+      
+      set({ appointments: practiceAppointments, isLoading: false });
     } catch (error) {
       console.error('Error fetching appointments:', error);
       set({ error: 'Failed to fetch appointments', isLoading: false });

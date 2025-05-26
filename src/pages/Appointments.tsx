@@ -21,6 +21,7 @@ import {
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { useAppointmentsStore } from '../stores/appointmentsStore';
+import { useAuthStore } from '../stores/authStore';
 import Badge from '../components/ui/Badge';
 import { useNavigate } from 'react-router-dom';
 import { format, addDays, startOfWeek, addWeeks, subWeeks, parseISO, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, isToday, isSameMonth } from 'date-fns';
@@ -37,6 +38,7 @@ interface AppointmentStats {
   weekCount: number;
   pendingCheckins: number;
   completionRate: number;
+  requestedCount: number;
 }
 
 interface Doctor {
@@ -59,7 +61,8 @@ const Appointments: React.FC = () => {
     todayCount: 0,
     weekCount: 0,
     pendingCheckins: 0,
-    completionRate: 0
+    completionRate: 0,
+    requestedCount: 0
   });
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   
@@ -82,10 +85,18 @@ const Appointments: React.FC = () => {
   // Fetch doctors from users table
   const fetchDoctors = async () => {
     try {
+      // Get current user's practice_id from authStore
+      const currentUser = useAuthStore.getState().user;
+      if (!currentUser?.practice_id) {
+        console.log('No practice_id found for current user');
+        return;
+      }
+
       const { data, error } = await supabase
         .from('users')
         .select('id, full_name')
-        .eq('role', 'doctor');
+        .eq('role', 'doctor')
+        .eq('practice_id', currentUser.practice_id);
       
       if (!error && data) {
         setDoctors(data);
@@ -115,11 +126,16 @@ const Appointments: React.FC = () => {
     ).length;
     const completionRate = todayCount > 0 ? (completedToday / todayCount) * 100 : 0;
     
+    const requestedCount = appointments.filter(apt => 
+      apt.status === 'requested'
+    ).length;
+    
     setStats({
       todayCount,
       weekCount,
       pendingCheckins,
-      completionRate: Math.round(completionRate)
+      completionRate: Math.round(completionRate),
+      requestedCount
     });
   };
 
@@ -253,7 +269,7 @@ const Appointments: React.FC = () => {
       </div>
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -305,6 +321,20 @@ const Appointments: React.FC = () => {
               </div>
               <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
                 <TrendingUp size={16} className="text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Appointment Requests</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.requestedCount}</p>
+              </div>
+              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                <AlertCircle size={16} className="text-purple-600" />
               </div>
             </div>
           </CardContent>

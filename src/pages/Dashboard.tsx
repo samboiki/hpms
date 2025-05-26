@@ -129,16 +129,16 @@ function Dashboard() {
             cell_number,
             date_of_birth,
             gender
+          ),
+          doctor:users!doctor_id (
+            id,
+            full_name,
+            practice_id
           )
         `)
         .gte('date', format(oneWeekAgo, 'yyyy-MM-dd'))
         .order('date', { ascending: true })
         .order('time', { ascending: true });
-        
-      // Filter by practice if user has a practice_id
-      if (currentPracticeId) {
-        appointmentsQuery = appointmentsQuery.eq('practice_id', currentPracticeId);
-      }
       
       const { data: appointmentsData, error: appointmentsError } = await appointmentsQuery;
 
@@ -146,6 +146,11 @@ function Dashboard() {
         console.error('Appointments fetch error:', appointmentsError);
         throw appointmentsError;
       }
+      
+      // Filter appointments by practice
+      const practiceAppointments = currentPracticeId 
+        ? (appointmentsData || []).filter(apt => apt.doctor?.practice_id === currentPracticeId)
+        : appointmentsData || [];
 
       // Fetch doctors from users table (not auth.users)
       let doctorsQuery = supabase
@@ -175,49 +180,32 @@ function Dashboard() {
         setDoctors(filteredDoctors);
       }
 
-      // Fetch patient count
-      let patientsQuery = supabase
-        .from('patients')
-        .select('*', { count: 'exact', head: true });
-        
-      if (currentPracticeId) {
-        patientsQuery = patientsQuery.eq('practice_id', currentPracticeId);
-      }
-      
-      const { count: patientsCount } = await patientsQuery;
+      // Fetch patient count - get unique patients who have appointments at this practice
+      const uniquePatientIds = [...new Set(practiceAppointments.map(apt => apt.patient_id))];
+      const patientsCount = uniquePatientIds.length;
 
-      // Fetch lab requests
-      let labRequestsQuery = supabase
+      // Fetch lab requests for patients of this practice
+      const { data: labRequestsData } = await supabase
         .from('lab_requests')
         .select('*')
-        .eq('status', 'pending');
-        
-      if (currentPracticeId) {
-        labRequestsQuery = labRequestsQuery.eq('practice_id', currentPracticeId);
-      }
-      
-      const { data: labRequestsData } = await labRequestsQuery;
+        .eq('status', 'pending')
+        .in('patient_id', uniquePatientIds.length > 0 ? uniquePatientIds : ['']);
 
-      // Fetch media requests
-      let mediaRequestsQuery = supabase
+      // Fetch media requests for patients of this practice
+      const { data: mediaRequestsData } = await supabase
         .from('media_requests')
         .select('*')
-        .eq('status', 'pending');
-        
-      if (currentPracticeId) {
-        mediaRequestsQuery = mediaRequestsQuery.eq('practice_id', currentPracticeId);
-      }
-      
-      const { data: mediaRequestsData } = await mediaRequestsQuery;
+        .eq('status', 'pending')
+        .in('patient_id', uniquePatientIds.length > 0 ? uniquePatientIds : ['']);
 
       console.log('Dashboard data:', {
-        appointments: appointmentsData,
+        appointments: practiceAppointments,
         patientsCount,
         labRequests: labRequestsData,
         mediaRequests: mediaRequestsData
       });
 
-      setAppointments(appointmentsData || []);
+      setAppointments(practiceAppointments);
       setPatients(Array(patientsCount || 0));
       setLabRequests(labRequestsData || []);
       setMediaRequests(mediaRequestsData || []);
@@ -226,7 +214,7 @@ function Dashboard() {
       const activities: ActivityItem[] = [];
       
       // Add recent appointments as activities
-      (appointmentsData || []).slice(0, 3).forEach((apt) => {
+      practiceAppointments.slice(0, 3).forEach((apt) => {
         activities.push({
           id: `apt-${apt.id}`,
           type: 'appointment',
