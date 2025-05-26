@@ -25,7 +25,7 @@ INSERT INTO practices (
 ) VALUES (
   'dr-polina-aesthetics',
   'Dr. Polina Aesthetics',
-  'localhost:3002',
+  'drpolina.vercel.app',
   '#E91E63', -- Elegant pink/rose color for aesthetics
   '#9C27B0', -- Purple as secondary
   '/images/dr-polina-logo.png',

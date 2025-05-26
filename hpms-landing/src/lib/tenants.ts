@@ -52,6 +52,10 @@ export async function getPracticeByDomain(domain: string): Promise<Practice | nu
     const domainMap: Record<string, string> = {
       'localhost:3000': 'cityclinic.vercel.app',
       'localhost:3001': 'coastalmed.vercel.app',
+      'localhost:3002': 'drpolina.vercel.app',
+      'dr-polina-landing.vercel.app': 'drpolina.vercel.app',
+      'dr-polina-landing-onehealth.vercel.app': 'drpolina.vercel.app',
+      'dr-polina-landing-28jdhmv7l-onehealth.vercel.app': 'drpolina.vercel.app',
     };
 
     const mappedDomain = domainMap[domain] || domain;
@@ -76,13 +80,31 @@ export async function getPracticeByDomain(domain: string): Promise<Practice | nu
         console.error('https://app.supabase.com/project/jjxlfunlbyayxwvlpgwt/sql/new');
       }
       
+      // If domain not found, try fallback for Dr. Polina
+      if (error.code === 'PGRST116' && domain.includes('dr-polina')) {
+        console.log('Falling back to Dr. Polina by slug...');
+        return await getPracticeBySlug('dr-polina-aesthetics');
+      }
+      
       return null;
+    }
+
+    if (!data && domain.includes('dr-polina')) {
+      console.log('No practice found for domain, trying fallback for Dr. Polina...');
+      return await getPracticeBySlug('dr-polina-aesthetics');
     }
 
     console.log('Practice found:', data?.name);
     return data;
   } catch (error) {
     console.error('Error in getPracticeByDomain:', error);
+    
+    // Final fallback for Dr. Polina domains
+    if (domain.includes('dr-polina')) {
+      console.log('Exception fallback for Dr. Polina...');
+      return await getPracticeBySlug('dr-polina-aesthetics');
+    }
+    
     return null;
   }
 }
