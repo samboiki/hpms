@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from './authStore';
+import { practiceDataService } from '../lib/practiceDataService';
 
 export interface Patient {
   id: string;
@@ -45,75 +46,26 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
   fetchPatients: async () => {
     set({ isLoading: true, error: null });
     try {
-      // Check if user is authenticated
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        console.log('No authenticated user, skipping patients fetch');
+      console.log('🔄 [PatientsStore] Starting fetchPatients');
+      
+      // Get authenticated user context
+      const authContext = await practiceDataService.getAuthContext();
+      if (!authContext) {
+        console.log('❌ [PatientsStore] No valid auth context, returning empty patients');
         set({ patients: [], isLoading: false });
         return;
       }
 
-      // Get current user's practice_id
-      const user = useAuthStore.getState().user;
-      if (!user?.practice_id) {
-        console.log('No practice_id found for user, skipping patients fetch');
-        set({ patients: [], isLoading: false });
-        return;
-      }
+      console.log('✅ [PatientsStore] Auth context established', authContext);
 
-      // Try to get appointments first to see if this practice has any data
-      console.log(`Fetching patients for practice: ${user.practice_id}`);
-
-      // Get appointments to find patient IDs for this practice
-      const { data: appointments, error: appointmentsError } = await supabase
-        .from('appointments')
-        .select(`
-          patient_id,
-          doctor:users!doctor_id (
-            id,
-            practice_id
-          )
-        `)
-        .not('patient_id', 'is', null);
-
-      if (appointmentsError) {
-        console.log('Appointments query failed, likely due to RLS. Returning empty patients.');
-        set({ patients: [], isLoading: false });
-        return;
-      }
-
-      // Filter appointments by practice
-      const practiceAppointments = (appointments || []).filter(
-        apt => apt.doctor?.practice_id === user.practice_id
-      );
-
-      // Get unique patient IDs
-      const patientIds = [...new Set(practiceAppointments.map(apt => apt.patient_id))];
-
-      if (patientIds.length === 0) {
-        console.log(`No appointments found for practice ${user.practice_id}`);
-        set({ patients: [], isLoading: false });
-        return;
-      }
-
-      // Fetch patients
-      const { data: patients, error: patientsError } = await supabase
-        .from('patients')
-        .select('*')
-        .in('id', patientIds)
-        .order('last_name', { ascending: true })
-        .order('first_name', { ascending: true });
-
-      if (patientsError) {
-        console.log('Patients query failed:', patientsError);
-        set({ patients: [], isLoading: false });
-        return;
-      }
-
-      console.log(`Found ${patients?.length || 0} patients for practice ${user.practice_id}`);
-      set({ patients: patients || [], isLoading: false });
+      // Use the robust practice data service
+      const patients = await practiceDataService.getPracticePatients(authContext.practiceId);
+      
+      console.log(`✅ [PatientsStore] Final result: ${patients.length} patients for practice ${authContext.practiceId}`);
+      
+      set({ patients, isLoading: false });
     } catch (error) {
-      console.error('Error fetching patients:', error);
+      console.error('❌ [PatientsStore] Error fetching patients:', error);
       set({ error: 'Failed to fetch patients', isLoading: false });
     }
   },

@@ -18,6 +18,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { practiceDataService } from '../lib/practiceDataService';
 import FormModal from '../components/modals/FormModal';
 import AddAppointmentForm from '../components/forms/AddAppointmentForm';
 import PremiumAppointmentScheduler from '../components/PremiumAppointmentScheduler';
@@ -95,127 +96,82 @@ function Dashboard() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
+      console.log('🔄 [Dashboard] Starting fetchData');
       
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setCurrentUserId(user.id);
-        
-        // Get user profile with practice_id
-        const { data: userProfile } = await supabase
-          .from('users')
-          .select('role, practice_id')
-          .eq('id', user.id)
-          .single();
-          
-        if (userProfile) {
-          setCurrentUserRole(userProfile.role || 'admin');
-          setCurrentPracticeId(userProfile.practice_id);
-        }
+      // Get authenticated user context
+      const authContext = await practiceDataService.getAuthContext();
+      if (!authContext) {
+        console.log('❌ [Dashboard] No valid auth context');
+        setError(new Error('Authentication failed'));
+        return;
       }
 
-      // Fetch appointments with patient data (past week and future)
-      const today = new Date();
-      const oneWeekAgo = new Date(today);
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      
-      let appointmentsQuery = supabase
-        .from('appointments')
-        .select(`
-          *,
-          patient:patients (
-            id,
-            first_name,
-            last_name,
-            cell_number,
-            date_of_birth,
-            gender
-          ),
-          doctor:users!doctor_id (
-            id,
-            full_name,
-            practice_id
-          )
-        `)
-        .gte('date', format(oneWeekAgo, 'yyyy-MM-dd'))
-        .order('date', { ascending: true })
-        .order('time', { ascending: true });
-      
-      const { data: appointmentsData, error: appointmentsError } = await appointmentsQuery;
+      console.log('✅ [Dashboard] Auth context established', authContext);
+      setCurrentUserId(authContext.userId);
+      setCurrentUserRole(authContext.userRole as any);
+      setCurrentPracticeId(authContext.practiceId);
 
-      if (appointmentsError) {
-        console.error('Appointments fetch error:', appointmentsError);
-        throw appointmentsError;
-      }
-      
-      // Filter appointments by practice
-      const practiceAppointments = currentPracticeId 
-        ? (appointmentsData || []).filter(apt => apt.doctor?.practice_id === currentPracticeId)
-        : appointmentsData || [];
-        
-      console.log(`Dashboard: Found ${practiceAppointments.length} appointments for practice ${currentPracticeId}`);
+      // Debug practice data
+      const debugData = await practiceDataService.debugPracticeData(authContext.practiceId);
+      console.log('🐛 [Dashboard] Debug data:', debugData);
 
-      // Fetch doctors from users table (not auth.users)
-      let doctorsQuery = supabase
-        .from('users')
-        .select('id, email, full_name, role');
-        
-      if (currentPracticeId) {
-        doctorsQuery = doctorsQuery.eq('practice_id', currentPracticeId);
-      }
-      
-      const { data: doctorsData, error: doctorsError } = await doctorsQuery;
-      
-      if (doctorsError) {
-        console.error('Error fetching doctors:', doctorsError);
-        setDoctors([]);
-      } else {
-        const filteredDoctors = (doctorsData || []).filter(user => 
-          user.role === 'doctor' || user.role === 'admin'
-        ).map(user => ({
-          id: user.id,
-          email: user.email,
-          user_metadata: {
-            full_name: user.full_name,
-            role: user.role
-          }
-        }));
-        setDoctors(filteredDoctors);
-      }
+      // Use robust practice data service
+      const practiceAppointments = await practiceDataService.getPracticeAppointments(authContext.practiceId);
+      const practicePatients = await practiceDataService.getPracticePatients(authContext.practiceId);
+      const practiceDoctors = await practiceDataService.getPracticeDoctors(authContext.practiceId);
 
-      // Fetch patient count - get unique patients who have appointments at this practice
-      const uniquePatientIds = [...new Set(practiceAppointments.map(apt => apt.patient_id))];
-      const patientsCount = uniquePatientIds.length;
-
-      // Fetch lab requests for patients of this practice
-      const { data: labRequestsData } = await supabase
-        .from('lab_requests')
-        .select('*')
-        .eq('status', 'pending')
-        .in('patient_id', uniquePatientIds.length > 0 ? uniquePatientIds : ['']);
-
-      // Fetch media requests for patients of this practice
-      const { data: mediaRequestsData } = await supabase
-        .from('media_requests')
-        .select('*')
-        .eq('status', 'pending')
-        .in('patient_id', uniquePatientIds.length > 0 ? uniquePatientIds : ['']);
-
-      console.log('Dashboard data:', {
-        appointments: practiceAppointments,
-        patientsCount,
-        labRequests: labRequestsData,
-        mediaRequests: mediaRequestsData
+      console.log('✅ [Dashboard] Final results:', {
+        appointments: practiceAppointments.length,
+        patients: practicePatients.length,
+        doctors: practiceDoctors.length,
+        practiceId: authContext.practiceId
       });
 
-      setAppointments(practiceAppointments);
-      setPatients(Array(patientsCount || 0));
-      setLabRequests(labRequestsData || []);
-      setMediaRequests(mediaRequestsData || []);
+      // Get unique patient IDs for lab/media requests
+      const uniquePatientIds = [...new Set(practiceAppointments.map(apt => apt.patient_id))];
 
-      // Generate recent activities from real data
+      // Fetch lab requests (only if we have patients)
+      let labRequestsData = [];
+      if (uniquePatientIds.length > 0) {
+        const { data } = await supabase
+          .from('lab_requests')
+          .select('*')
+          .eq('status', 'pending')
+          .in('patient_id', uniquePatientIds);
+        labRequestsData = data || [];
+      }
+
+      // Fetch media requests (only if we have patients)
+      let mediaRequestsData = [];
+      if (uniquePatientIds.length > 0) {
+        const { data } = await supabase
+          .from('media_requests')
+          .select('*')
+          .eq('status', 'pending')
+          .in('patient_id', uniquePatientIds);
+        mediaRequestsData = data || [];
+      }
+
+      // Set state
+      setAppointments(practiceAppointments);
+      setPatients(Array(practicePatients.length || 0));
+      setLabRequests(labRequestsData);
+      setMediaRequests(mediaRequestsData);
+
+      // Format doctors for dropdown
+      const formattedDoctors = practiceDoctors.map(doctor => ({
+        id: doctor.id,
+        email: doctor.email,
+        user_metadata: {
+          full_name: doctor.full_name,
+          role: doctor.role
+        }
+      }));
+      setDoctors(formattedDoctors);
+
+      // Generate recent activities from practice data
       const activities: ActivityItem[] = [];
       
-      // Add recent appointments as activities
       practiceAppointments.slice(0, 3).forEach((apt) => {
         activities.push({
           id: `apt-${apt.id}`,
@@ -228,8 +184,7 @@ function Dashboard() {
         });
       });
 
-      // Add lab requests as activities
-      (labRequestsData || []).slice(0, 2).forEach((lab) => {
+      labRequestsData.slice(0, 2).forEach((lab) => {
         activities.push({
           id: `lab-${lab.id}`,
           type: 'lab',
@@ -242,9 +197,17 @@ function Dashboard() {
       });
 
       setRecentActivities(activities);
+
+      console.log('✅ [Dashboard] Data fetch complete:', {
+        appointmentsSet: practiceAppointments.length,
+        patientsSet: practicePatients.length,
+        labRequestsSet: labRequestsData.length,
+        mediaRequestsSet: mediaRequestsData.length,
+        activitiesSet: activities.length
+      });
       
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('❌ [Dashboard] Error fetching data:', error);
       setError(error as Error);
     } finally {
       setIsLoading(false);

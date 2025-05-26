@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from './authStore';
+import { practiceDataService } from '../lib/practiceDataService';
 
 export interface Appointment {
   id: string;
@@ -43,63 +44,26 @@ export const useAppointmentsStore = create<AppointmentsState>((set, get) => ({
   fetchAppointments: async (date) => {
     set({ isLoading: true, error: null });
     try {
-      // Check if user is authenticated
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) {
-        console.log('No authenticated user, skipping appointment fetch');
+      console.log('🔄 [AppointmentsStore] Starting fetchAppointments', { date });
+      
+      // Get authenticated user context
+      const authContext = await practiceDataService.getAuthContext();
+      if (!authContext) {
+        console.log('❌ [AppointmentsStore] No valid auth context, returning empty appointments');
         set({ appointments: [], isLoading: false });
         return;
       }
 
-      // Get current user's practice_id
-      const user = useAuthStore.getState().user;
-      if (!user?.practice_id) {
-        console.log('No practice_id found for user, skipping appointment fetch');
-        set({ appointments: [], isLoading: false });
-        return;
-      }
+      console.log('✅ [AppointmentsStore] Auth context established', authContext);
 
-      let query = supabase
-        .from('appointments')
-        .select(`
-          *,
-          patient:patients!patient_id (
-            id,
-            first_name,
-            last_name
-          ),
-          doctor:users!doctor_id (
-            id,
-            full_name,
-            practice_id
-          )
-        `)
-        .order('date', { ascending: true })
-        .order('time', { ascending: true });
+      // Use the robust practice data service
+      const appointments = await practiceDataService.getPracticeAppointments(authContext.practiceId, date);
       
-      if (date) {
-        query = query.eq('date', date);
-      }
+      console.log(`✅ [AppointmentsStore] Final result: ${appointments.length} appointments for practice ${authContext.practiceId}`);
       
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      
-      // Filter appointments to only include those from the same practice
-      const practiceAppointments = (data || []).filter(apt => 
-        apt.doctor?.practice_id === user.practice_id
-      );
-      
-      console.log(`Found ${practiceAppointments.length} appointments for practice ${user.practice_id}`);
-      
-      // Log if practice has no appointments
-      if (practiceAppointments.length === 0) {
-        console.log(`Practice ${user.practice_id} - no appointments found`);
-      }
-      
-      set({ appointments: practiceAppointments, isLoading: false });
+      set({ appointments, isLoading: false });
     } catch (error) {
-      console.error('Error fetching appointments:', error);
+      console.error('❌ [AppointmentsStore] Error fetching appointments:', error);
       set({ error: 'Failed to fetch appointments', isLoading: false });
     }
   },
