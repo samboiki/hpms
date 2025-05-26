@@ -17,7 +17,8 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   // Use special services for Dr. Polina
-  const services = practice.slug === 'dr-polina-aesthetics' ? drPolinaServices : practice.services;
+  const isDrPolina = practice.slug === 'dr-polina-aesthetics';
+  const services = isDrPolina ? drPolinaServices : practice.services;
 
   const handleBookNow = (subService: SubService) => {
     if (onBookService && selectedCategory) {
@@ -101,10 +102,10 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
                   onClick={() => setSelectedCategory(service as ServiceCategory)}
                 >
                   {/* Service Image */}
-                  {service.image && (
+                  {isDrPolina && 'image' in service && (service as ServiceCategory).image && (
                     <div className="relative h-48 overflow-hidden">
                       <img 
-                        src={service.image} 
+                        src={(service as ServiceCategory).image} 
                         alt={service.name}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       />
@@ -125,7 +126,7 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
                     <motion.div
                       className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
                       style={{
-                        background: service.color || `linear-gradient(135deg, ${practice.primary_color}, ${practice.secondary_color})`,
+                        background: isDrPolina && 'color' in service && (service as ServiceCategory).color ? (service as ServiceCategory).color : `linear-gradient(135deg, ${practice.primary_color}, ${practice.secondary_color})`,
                       }}
                       animate={isHovered ? { rotate: [0, -10, 10, -10, 0] } : {}}
                       transition={{ duration: 0.5 }}
@@ -151,9 +152,9 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
                     </motion.div>
 
                     {/* Service Count Badge */}
-                    {service.subServices && (
+                    {isDrPolina && 'subServices' in service && (service as ServiceCategory).subServices && (
                       <div className="absolute top-6 right-6 px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-700">
-                        {service.subServices.length} treatments
+                        {(service as ServiceCategory).subServices.length} treatments
                       </div>
                     )}
                   </div>
