@@ -127,7 +127,7 @@ const Appointments: React.FC = () => {
     const completionRate = todayCount > 0 ? (completedToday / todayCount) * 100 : 0;
     
     const requestedCount = appointments.filter(apt => 
-      apt.status === 'requested'
+      apt.status === 'pending'
     ).length;
     
     setStats({
@@ -228,13 +228,13 @@ const Appointments: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'rose';
-      case 'requested': return 'lavender';
+      case 'pending': return 'lavender';
       case 'scheduled': return 'azure';
       case 'confirmed': return 'emerald';
       case 'in-progress': return 'amber';
       case 'completed': return 'slate';
       case 'cancelled': return 'coral';
+      case 'no-show': return 'rose';
       default: return 'glass';
     }
   };

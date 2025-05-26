@@ -15,7 +15,7 @@ interface Appointment {
   time: string;
   duration: number;
   type: string;
-  status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show' | 'requested';
+  status: 'pending' | 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
   notes?: string;
   patient?: {
     id: string;
@@ -222,12 +222,12 @@ const DayTimelineView: React.FC<DayTimelineViewProps> = ({
             <span className="text-sm text-gray-600">
               {practiceAppointments.length} appointment{practiceAppointments.length !== 1 ? 's' : ''}
             </span>
-            {practiceAppointments.filter(apt => apt.status === 'requested').length > 0 && (
+            {practiceAppointments.filter(apt => apt.status === 'pending').length > 0 && (
               <>
                 <span className="text-gray-400">•</span>
                 <AlertCircle size={16} className="text-purple-500" />
                 <span className="text-sm text-purple-600">
-                  {practiceAppointments.filter(apt => apt.status === 'requested').length} request{practiceAppointments.filter(apt => apt.status === 'requested').length !== 1 ? 's' : ''}
+                  {practiceAppointments.filter(apt => apt.status === 'pending').length} pending{practiceAppointments.filter(apt => apt.status === 'pending').length !== 1 ? '' : ''}
                 </span>
               </>
             )}
@@ -340,7 +340,7 @@ const DayTimelineView: React.FC<DayTimelineViewProps> = ({
                               <span className="text-xs font-bold opacity-90">
                                 {apt.time.slice(0, 5)}
                               </span>
-                              {apt.status === 'requested' && (
+                              {apt.status === 'pending' && (
                                 <AlertCircle size={14} className="animate-pulse" />
                               )}
                               {apt.height > 40 && (
@@ -361,7 +361,7 @@ const DayTimelineView: React.FC<DayTimelineViewProps> = ({
                             </div>
 
                             {/* Actions - Show on hover if space allows */}
-                            {(apt.status === 'scheduled' || apt.status === 'requested') && apt.height > 60 && (
+                            {(apt.status === 'scheduled' || apt.status === 'pending') && apt.height > 60 && (
                               <div className="absolute bottom-1 left-1 right-1 flex gap-1 
                                 opacity-0 hover:opacity-100 transition-opacity">
                                 {apt.status === 'scheduled' && (

@@ -132,14 +132,18 @@ export default function EnhancedBookingWidget({
     setIsSubmitting(true);
 
     try {
-      // Submit booking via Edge Function
+      // Always use Edge Function (it's been fixed)
+      console.log('Submitting booking via Edge Function...');
+      
       const { data, error } = await supabase.functions.invoke('submit-booking', {
         body: {
           formData,
           practiceSlug: practice.slug,
-          captchaToken: captchaToken || 'test-token' // Use test token if no captcha
+          captchaToken: captchaToken || 'test-token'
         }
       });
+
+      console.log('Edge Function response:', { data, error });
 
       if (error) throw error;
       if (!data?.success) throw new Error(data?.error || 'Booking failed');
@@ -151,16 +155,21 @@ export default function EnhancedBookingWidget({
       
       // Show user-friendly error message
       let errorMessage = 'There was an error booking your appointment. Please try again.';
-      if (error.message) {
-        errorMessage = error.message;
-      }
-      if (error.context?.body) {
+      
+      // Try to get more details from the error
+      if (error.context) {
         try {
-          const body = JSON.parse(error.context.body);
-          if (body.error) {
-            errorMessage = body.error;
+          const errorText = await error.context.text();
+          const errorData = JSON.parse(errorText);
+          if (errorData.error) {
+            errorMessage = errorData.error;
           }
-        } catch (e) {}
+          console.error('Edge Function Error Details:', errorData);
+        } catch (e) {
+          console.error('Could not parse error response');
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
       }
       
       alert(errorMessage);

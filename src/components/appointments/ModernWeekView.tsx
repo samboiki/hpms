@@ -12,7 +12,7 @@ interface Appointment {
   time: string;
   duration: number;
   type: string;
-  status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show' | 'requested';
+  status: 'pending' | 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
   notes?: string;
   patient?: {
     id: string;
