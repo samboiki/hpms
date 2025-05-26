@@ -157,12 +157,14 @@ export default function EnhancedBookingWidget({
 
       if (patientError) throw patientError;
 
-      // Get available doctors for this practice
-      const { data: doctors, error: doctorsError } = await supabase
-        .from('users')
-        .select('id, email, raw_user_meta_data')
-        .eq('raw_user_meta_data->>practice_id', practice.id)
-        .in('raw_user_meta_data->>role', ['doctor', 'admin']);
+      // For now, we'll create a dummy doctor assignment
+      // In production, this should query a proper users/doctors table
+      const doctors = [{
+        id: '00000000-0000-0000-0000-000000000001', // Dummy doctor ID
+        email: 'polina@drpolinaaesthetics.com',
+        raw_user_meta_data: { full_name: 'Dr. Polina' }
+      }];
+      const doctorsError = null;
 
       if (doctorsError) {
         console.error('Error fetching doctors:', doctorsError);
