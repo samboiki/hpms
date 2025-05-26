@@ -81,18 +81,20 @@ export async function getPracticeByDomain(domain: string): Promise<Practice | nu
         console.error('https://app.supabase.com/project/jjxlfunlbyayxwvlpgwt/sql/new');
       }
       
-      // If domain not found, try fallback for MedCenter
-      if (error.code === 'PGRST116' && domain.includes('medcenter')) {
-        console.log('Falling back to MedCenter by slug...');
-        return await getPracticeBySlug('medcenter-aesthetics');
+      // If domain not found, try fallback for Dr. Polina
+      if (error.code === 'PGRST116' && (domain.includes('dr-polina') || domain.includes('healthpractice'))) {
+        console.log('Falling back to Dr. Polina by slug...');
+        return await getPracticeBySlug('dr-polina-aesthetics');
       }
       
       return null;
     }
 
-    if (!data && domain.includes('medcenter')) {
-      console.log('No practice found for domain, trying fallback for MedCenter...');
-      return await getPracticeBySlug('medcenter-aesthetics');
+    if (!data) {
+      if (domain.includes('dr-polina') || domain.includes('healthpractice')) {
+        console.log('No practice found for domain, trying fallback for Dr. Polina...');
+        return await getPracticeBySlug('dr-polina-aesthetics');
+      }
     }
 
     console.log('Practice found:', data?.name);
@@ -100,10 +102,10 @@ export async function getPracticeByDomain(domain: string): Promise<Practice | nu
   } catch (error) {
     console.error('Error in getPracticeByDomain:', error);
     
-    // Final fallback for MedCenter domains
-    if (domain.includes('medcenter')) {
-      console.log('Exception fallback for MedCenter...');
-      return await getPracticeBySlug('medcenter-aesthetics');
+    // Final fallback for known domains
+    if (domain.includes('dr-polina') || domain.includes('healthpractice')) {
+      console.log('Exception fallback for Dr. Polina...');
+      return await getPracticeBySlug('dr-polina-aesthetics');
     }
     
     return null;
