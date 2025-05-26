@@ -157,10 +157,25 @@ export default function EnhancedBookingWidget({
 
       if (patientError) throw patientError;
 
+      // Get available doctors for this practice
+      const { data: doctors, error: doctorsError } = await supabase
+        .from('users')
+        .select('id, email, raw_user_meta_data')
+        .eq('raw_user_meta_data->>practice_id', practice.id)
+        .in('raw_user_meta_data->>role', ['doctor', 'admin']);
+
+      if (doctorsError) {
+        console.error('Error fetching doctors:', doctorsError);
+      }
+
+      // Assign to first available doctor or fallback to practice admin
+      const assignedDoctor = doctors && doctors.length > 0 ? doctors[0] : null;
+
       const { error: appointmentError } = await supabase
         .from('appointments')
         .insert({
           patient_id: patient.id,
+          doctor_id: assignedDoctor?.id,
           appointment_date: formData.date,
           appointment_time: formData.time,
           type: formData.categoryId || 'consultation',
