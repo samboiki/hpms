@@ -118,7 +118,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               name: authUser.user_metadata.full_name || 'Admin User',
               role: (authUser.user_metadata.role as any) || 'admin',
               avatar: null,
-              practice_id: authUser.user_metadata.practice_id || 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3'
+              practice_id: authUser.user_metadata.practice_id
             };
             set({ isAuthenticated: true, user });
             console.log('✅ Login complete with metadata!');
@@ -145,7 +145,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             name: authUser.user_metadata.full_name || 'Admin User',
             role: (authUser.user_metadata.role as any) || 'admin',
             avatar: null,
-            practice_id: authUser.user_metadata.practice_id || 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3'
+            practice_id: authUser.user_metadata.practice_id
           };
           set({ isAuthenticated: true, user });
           console.log('✅ Login complete with metadata!');

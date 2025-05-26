@@ -61,14 +61,10 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
         return;
       }
 
-      // For Dr. Polina practice, we know there are no appointments yet, so return empty
-      if (user.practice_id === 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3') {
-        console.log('Dr. Polina practice - no patients yet (no appointments exist)');
-        set({ patients: [], isLoading: false });
-        return;
-      }
+      // Try to get appointments first to see if this practice has any data
+      console.log(`Fetching patients for practice: ${user.practice_id}`);
 
-      // For other practices, get appointments to find patient IDs
+      // Get appointments to find patient IDs for this practice
       const { data: appointments, error: appointmentsError } = await supabase
         .from('appointments')
         .select(`
