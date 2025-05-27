@@ -14,7 +14,7 @@ interface AppointmentDetailsModalProps {
     time: string;
     duration: number;
     type: string;
-    status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
+    status: 'pending' | 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
     notes?: string;
     patient: {
       id: string;
@@ -39,6 +39,8 @@ interface AppointmentDetailsModalProps {
 
 const getStatusColor = (status: string) => {
   switch (status) {
+    case 'pending':
+      return 'yellow';
     case 'scheduled':
       return 'azure';
     case 'confirmed':

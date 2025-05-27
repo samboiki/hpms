@@ -13,7 +13,8 @@ import {
   UserCheck,
   MessageSquare,
   FlaskConical,
-  Zap
+  Zap,
+  XCircle
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -25,6 +26,7 @@ import PremiumAppointmentScheduler from '../components/PremiumAppointmentSchedul
 import AppointmentDetailsModal from '../components/modals/AppointmentDetailsModal';
 import RescheduleAppointmentModal from '../components/modals/RescheduleAppointmentModal';
 import AppointmentActionModal from '../components/modals/AppointmentActionModal';
+import AppointmentGridView from '../components/appointments/AppointmentGridView';
 import { motion } from 'framer-motion';
 
 interface Appointment {
@@ -35,7 +37,7 @@ interface Appointment {
   time: string;
   duration: number;
   type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
-  status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
+  status: 'pending' | 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
   notes?: string;
   patient: {
     id: string;
@@ -91,6 +93,8 @@ function Dashboard() {
   const [currentPracticeId, setCurrentPracticeId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
+  const [showGridView, setShowGridView] = useState(false);
+  const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no-show'>('pending');
   const navigate = useNavigate();
 
   const fetchData = async () => {
@@ -255,6 +259,7 @@ function Dashboard() {
   const pendingRequests = labRequests.length + mediaRequests.length;
   const completedToday = todayAppointments.filter(apt => apt.status === 'completed').length;
   const scheduledToday = todayAppointments.filter(apt => apt.status === 'scheduled' || apt.status === 'confirmed').length;
+  const cancelledAppointments = appointments.filter(apt => apt.status === 'cancelled');
 
   // Stats data matching the Patients page design
   const stats = [
@@ -265,7 +270,11 @@ function Dashboard() {
       trend: pendingAppointments.length > 0 ? 'down' : 'up',
       icon: AlertCircle,
       gradient: 'from-red-500 to-rose-600',
-      id: 'pending-bookings'
+      id: 'pending-bookings',
+      onClick: () => {
+        setGridViewStatus('pending');
+        setShowGridView(true);
+      }
     },
     { 
       label: "Today's Appointments", 
@@ -274,25 +283,37 @@ function Dashboard() {
       trend: scheduledToday > 0 ? 'neutral' : 'up',
       icon: Calendar,
       gradient: 'from-emerald-500 to-green-600',
-      id: 'appointments'
+      id: 'appointments',
+      onClick: () => {
+        setGridViewStatus('scheduled');
+        setShowGridView(true);
+      }
     },
     { 
-      label: 'Total Patients', 
-      value: patients.length.toString(),
-      change: '+12%',
-      trend: 'up',
-      icon: Users,
-      gradient: 'from-blue-500 to-indigo-600',
-      id: 'patients'
+      label: 'Cancelled', 
+      value: cancelledAppointments.length.toString(),
+      change: cancelledAppointments.length > 0 ? 'View all' : 'None',
+      trend: 'neutral',
+      icon: XCircle,
+      gradient: 'from-gray-500 to-gray-600',
+      id: 'cancelled',
+      onClick: () => {
+        setGridViewStatus('cancelled');
+        setShowGridView(true);
+      }
     },
     { 
       label: 'Completed Today', 
       value: completedToday.toString(),
-      change: '+8%',
+      change: completedToday > 0 ? 'View all' : 'None',
       trend: 'up',
       icon: CheckCircle2,
       gradient: 'from-purple-500 to-indigo-600',
-      id: 'completed'
+      id: 'completed',
+      onClick: () => {
+        setGridViewStatus('completed');
+        setShowGridView(true);
+      }
     }
   ];
 
@@ -336,6 +357,7 @@ function Dashboard() {
                   transition={{ delay: index * 0.05 }}
                   whileHover={{ y: -1, scale: 1.01 }}
                   className="relative group cursor-pointer"
+                  onClick={stat.onClick}
                 >
                   {/* Subtle Gradient Glow */}
                   <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} rounded-xl blur-md opacity-5 group-hover:opacity-15 transition-opacity duration-200`}></div>
@@ -644,6 +666,15 @@ function Dashboard() {
             currentUserRole={currentUserRole}
           />
         </>
+      )}
+
+      {/* Appointment Grid View */}
+      {showGridView && currentPracticeId && (
+        <AppointmentGridView
+          status={gridViewStatus}
+          practiceId={currentPracticeId}
+          onClose={() => setShowGridView(false)}
+        />
       )}
     </div>
   );

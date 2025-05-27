@@ -63,7 +63,7 @@ interface Appointment {
   time: string;
   duration: number;
   type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
-  status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
+  status: 'pending' | 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
   notes?: string;
 }
 
@@ -114,6 +114,8 @@ const BUSINESS_HOURS = {
 // Premium color scheme matching patients page
 const getStatusGradient = (status: Appointment['status']) => {
   switch (status) {
+    case 'pending':
+      return 'from-yellow-400 to-yellow-500';
     case 'scheduled':
       return 'from-[#01b9d5] to-[#0196be]';
     case 'confirmed':
@@ -148,6 +150,8 @@ const getTypeAccent = (type: Appointment['type']) => {
 
 const getStatusIcon = (status: Appointment['status']) => {
   switch (status) {
+    case 'pending':
+      return AlertCircle;
     case 'scheduled':
       return CalendarIcon;
     case 'confirmed':
