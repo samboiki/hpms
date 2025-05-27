@@ -14,6 +14,7 @@ import PracticeProfile from './pages/PracticeProfile';
 import Requests from './pages/Requests';
 import Inventory from './pages/Inventory';
 import Messages from './pages/Messages';
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   const { isAuthenticated, login } = useAuthStore();
@@ -47,20 +48,42 @@ function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/" element={<Layout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="patients" element={<Patients />} />
-        <Route path="patients/:id" element={<PatientModernDetail />} />
-        <Route path="requests" element={<Requests />} />
-        <Route path="inventory" element={<Inventory />} />
-        <Route path="messages" element={<Messages />} />
-        <Route path="finance" element={<Finance />} />
-        <Route path="practice-profile" element={<PracticeProfile />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="*" element={<NotFound />} />
-      </Route>
-    </Routes>
+    <>
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            style: {
+              background: '#10b981',
+            },
+          },
+          error: {
+            style: {
+              background: '#ef4444',
+            },
+          },
+        }}
+      />
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="patients" element={<Patients />} />
+          <Route path="patients/:id" element={<PatientModernDetail />} />
+          <Route path="requests" element={<Requests />} />
+          <Route path="inventory" element={<Inventory />} />
+          <Route path="messages" element={<Messages />} />
+          <Route path="finance" element={<Finance />} />
+          <Route path="practice-profile" element={<PracticeProfile />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
+    </>
   );
 }
 

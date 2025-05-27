@@ -1,7 +1,6 @@
 import React from 'react';
-import { X, Phone, Mail, Calendar, Clock, User, FileText, MapPin, Activity } from 'lucide-react';
+import { X, Phone, Mail, Calendar, Clock, User, FileText, MapPin, Activity, CheckCircle, XCircle, Edit3, AlertCircle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -86,216 +85,214 @@ const AppointmentDetailsModal: React.FC<AppointmentDetailsModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
-          {/* Backdrop */}
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-50"
-            onClick={onClose}
-          />
-
-          {/* Modal */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            onClick={onClose}
+            className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
           >
-            <div
-              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Header */}
-              <div className="bg-gradient-to-r from-[#01b9d4] to-[#0197d4] text-white p-6">
-                <div className="flex justify-between items-start">
+            {/* Gradient Header */}
+            <div className={`bg-gradient-to-r ${
+              appointment.status === 'pending' ? 'from-amber-500 to-amber-600' :
+              appointment.status === 'scheduled' ? 'from-blue-500 to-blue-600' :
+              appointment.status === 'in-progress' ? 'from-orange-500 to-orange-600' :
+              appointment.status === 'completed' ? 'from-green-500 to-green-600' :
+              appointment.status === 'cancelled' ? 'from-red-500 to-red-600' :
+              'from-gray-500 to-gray-600'
+            } text-white p-6 rounded-t-lg`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-2xl font-bold">Appointment Details</h2>
+                  <p className="text-white/90 mt-1">
+                    {format(parseISO(appointment.date), 'EEEE, MMMM d, yyyy')} at {appointment.time}
+                  </p>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              {/* Patient Information */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <User className="w-5 h-5 text-gray-600" />
+                  Patient Information
+                </h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <h2 className="text-2xl font-bold mb-2">Appointment Details</h2>
-                    <div className="flex items-center gap-4 text-white/90">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={16} />
-                        {format(parseISO(appointment.date), 'MMMM d, yyyy')}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock size={16} />
-                        {appointment.time}
-                      </span>
-                    </div>
+                    <span className="text-gray-600">Name:</span>
+                    <span className="ml-2 font-medium">
+                      {appointment.patient.first_name} {appointment.patient.last_name}
+                    </span>
                   </div>
-                  <button
-                    onClick={onClose}
-                    className="text-white/80 hover:text-white transition-colors"
-                  >
-                    <X size={24} />
-                  </button>
+                  <div>
+                    <span className="text-gray-600">Age:</span>
+                    <span className="ml-2 font-medium">{getAge(appointment.patient.date_of_birth)} years</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Gender:</span>
+                    <span className="ml-2 font-medium capitalize">{appointment.patient.gender || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Phone:</span>
+                    <span className="ml-2 font-medium">{appointment.patient.cell_number || 'N/A'}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Content */}
-              <div className="p-6 space-y-6 overflow-y-auto max-h-[60vh]">
-                {/* Status and Type */}
-                <div className="flex items-center justify-between">
-                  <Badge variant={getStatusColor(appointment.status)} size="lg">
-                    {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1).replace('-', ' ')}
-                  </Badge>
-                  <span className="text-sm text-gray-500">
-                    Duration: {appointment.duration} minutes
-                  </span>
-                </div>
-
-                {/* Patient Information */}
-                <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <User size={18} className="text-[#01b9d4]" />
-                    Patient Information
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Name</p>
-                      <p className="font-medium">
-                        {appointment.patient.first_name} {appointment.patient.last_name}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Gender</p>
-                      <p className="font-medium">{appointment.patient.gender || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Age</p>
-                      <p className="font-medium">{getAge(appointment.patient.date_of_birth)} years</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Contact</p>
-                      <p className="font-medium flex items-center gap-1">
-                        <Phone size={14} />
-                        {appointment.patient.cell_number || 'N/A'}
-                      </p>
-                    </div>
+              {/* Appointment Details */}
+              <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-blue-600" />
+                  Appointment Details
+                </h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-600">Type:</span>
+                    <span className="ml-2 font-medium capitalize">{appointment.type}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Duration:</span>
+                    <span className="ml-2 font-medium">{appointment.duration} minutes</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Doctor:</span>
+                    <span className="ml-2 font-medium">{appointment.doctor?.full_name || 'Not assigned'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Status:</span>
+                    <Badge variant={getStatusColor(appointment.status)} size="sm" className="ml-2">
+                      {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1).replace('-', ' ')}
+                    </Badge>
                   </div>
                 </div>
-
-                {/* Appointment Details */}
-                <div className="bg-blue-50 rounded-xl p-4 space-y-3">
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <Activity size={18} className="text-[#01b9d4]" />
-                    Appointment Details
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Type</p>
-                      <p className="font-medium">{appointment.type}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Doctor</p>
-                      <p className="font-medium">{appointment.doctor?.full_name || 'N/A'}</p>
-                    </div>
+                {appointment.notes && (
+                  <div className="mt-3">
+                    <span className="text-gray-600 text-sm">Notes:</span>
+                    <p className="mt-1 text-sm bg-white p-2 rounded border border-blue-200">
+                      {appointment.notes}
+                    </p>
                   </div>
-                  {appointment.notes && (
-                    <div>
-                      <p className="text-sm text-gray-500 mb-1">Notes</p>
-                      <p className="text-gray-700 bg-white rounded-lg p-3">{appointment.notes}</p>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
 
-              {/* Actions */}
-              <div className="border-t border-gray-200 p-6 bg-gray-50">
-                <div className="flex justify-end gap-3">
-                  <Button variant="outline" onClick={onClose}>
-                    Close
-                  </Button>
-                  
-                  {canEdit && (
-                    <>
-                      {/* Scheduled appointment actions */}
-                      {appointment.status === 'scheduled' && (
-                        <>
-                          {onEdit && (
-                            <Button
-                              variant="outline"
-                              onClick={() => onEdit(appointment)}
-                              className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                            >
-                              Reschedule
-                            </Button>
-                          )}
-                          {onCancel && (
-                            <Button
-                              variant="outline"
-                              onClick={() => onCancel(appointment.id)}
-                              className="text-red-600 border-red-200 hover:bg-red-50"
-                            >
-                              Cancel
-                            </Button>
-                          )}
-                          {onStartVisit && (
-                            <Button
-                              onClick={() => onStartVisit(appointment.id)}
-                              className="bg-[#01b9d4] text-white hover:bg-[#0197d4]"
-                            >
-                              Start Visit
-                            </Button>
-                          )}
-                        </>
-                      )}
-                      
-                      {/* In-progress appointment actions */}
-                      {appointment.status === 'in-progress' && (
-                        <>
-                          {onCancel && (
-                            <Button
-                              variant="outline"
-                              onClick={() => onCancel(appointment.id)}
-                              className="text-red-600 border-red-200 hover:bg-red-50"
-                            >
-                              Cancel Visit
-                            </Button>
-                          )}
-                          {onCompleteVisit && (
-                            <Button
-                              onClick={() => onCompleteVisit(appointment.id)}
-                              className="bg-emerald-600 text-white hover:bg-emerald-700"
-                            >
-                              Complete Visit
-                            </Button>
-                          )}
-                        </>
-                      )}
-                      
-                      {/* Pending appointment actions */}
-                      {appointment.status === 'pending' && (
-                        <>
-                          {onEdit && (
-                            <Button
-                              variant="outline"
-                              onClick={() => onEdit(appointment)}
-                              className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                            >
-                              Reschedule
-                            </Button>
-                          )}
-                          {onCancel && (
-                            <Button
-                              variant="outline"
-                              onClick={() => onCancel(appointment.id)}
-                              className="text-red-600 border-red-200 hover:bg-red-50"
-                            >
-                              Reject
-                            </Button>
-                          )}
-                        </>
-                      )}
-                    </>
-                  )}
+              {/* Actions Section */}
+              {canEdit && appointment.status === 'scheduled' && (
+                <div className="bg-green-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-green-600" />
+                    Available Actions
+                  </h3>
+                  <div className="flex gap-3">
+                    {onEdit && (
+                      <button
+                        onClick={() => onEdit(appointment)}
+                        className="flex-1 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                        Reschedule
+                      </button>
+                    )}
+                    {onCancel && (
+                      <button
+                        onClick={() => onCancel(appointment.id)}
+                        className="flex-1 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Cancel
+                      </button>
+                    )}
+                    {onStartVisit && (
+                      <button
+                        onClick={() => onStartVisit(appointment.id)}
+                        className="flex-1 px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Start Visit
+                      </button>
+                    )}
+                  </div>
                 </div>
+              )}
+              
+              {canEdit && appointment.status === 'in-progress' && (
+                <div className="bg-amber-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-amber-600" />
+                    Visit Actions
+                  </h3>
+                  <div className="flex gap-3">
+                    {onCancel && (
+                      <button
+                        onClick={() => onCancel(appointment.id)}
+                        className="flex-1 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Cancel Visit
+                      </button>
+                    )}
+                    {onCompleteVisit && (
+                      <button
+                        onClick={() => onCompleteVisit(appointment.id)}
+                        className="flex-1 px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Complete Visit
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {canEdit && appointment.status === 'pending' && (
+                <div className="bg-amber-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-amber-600" />
+                    Pending Actions
+                  </h3>
+                  <div className="flex gap-3">
+                    {onEdit && (
+                      <button
+                        onClick={() => onEdit(appointment)}
+                        className="flex-1 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                        Reschedule
+                      </button>
+                    )}
+                    {onCancel && (
+                      <button
+                        onClick={() => onCancel(appointment.id)}
+                        className="flex-1 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Reject
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Close button for all statuses */}
+              <div className="flex justify-end mt-4">
+                <button
+                  onClick={onClose}
+                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </motion.div>
-        </>
+        </div>
       )}
     </AnimatePresence>
   );

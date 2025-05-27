@@ -29,6 +29,8 @@ import AppointmentActionModal from '../components/modals/AppointmentActionModal'
 import AppointmentApprovalModal from '../components/modals/AppointmentApprovalModal';
 import AppointmentGridView from '../components/appointments/AppointmentGridView';
 import { motion } from 'framer-motion';
+import { useRealtimeAppointments } from '../hooks/useRealtimeAppointments';
+import { toast } from 'react-hot-toast';
 
 interface Appointment {
   id: string;
@@ -98,6 +100,64 @@ function Dashboard() {
   const [showGridView, setShowGridView] = useState(false);
   const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress'>('pending');
   const navigate = useNavigate();
+
+  // Real-time appointment updates
+  useRealtimeAppointments({
+    practiceId: currentPracticeId,
+    onAppointmentChange: (change) => {
+      console.log('📡 Real-time change:', change);
+      
+      if (change.eventType === 'INSERT') {
+        // New appointment - add to list and show notification
+        setAppointments(prev => [...prev, change.new]);
+        toast.success(`New appointment for ${change.new.patient?.first_name} ${change.new.patient?.last_name}`, {
+          duration: 5000,
+          position: 'top-right',
+          icon: '📅'
+        });
+        
+        // Update recent activities
+        const newActivity: ActivityItem = {
+          id: `act-${Date.now()}`,
+          type: 'appointment',
+          message: 'New appointment booked',
+          details: `${change.new.patient?.first_name} ${change.new.patient?.last_name} - ${change.new.type}`,
+          time: 'Just now',
+          icon: Calendar,
+          color: 'text-blue-600'
+        };
+        setRecentActivities(prev => [newActivity, ...prev.slice(0, 4)]);
+      } else if (change.eventType === 'UPDATE') {
+        // Updated appointment - update in list
+        setAppointments(prev => 
+          prev.map(apt => apt.id === change.new.id ? change.new : apt)
+        );
+        
+        // Show notification if status changed
+        if (change.old.status !== change.new.status) {
+          const statusMessages: Record<string, string> = {
+            'scheduled': 'Appointment approved',
+            'in-progress': 'Visit started',
+            'completed': 'Visit completed',
+            'cancelled': 'Appointment cancelled',
+            'no-show': 'Marked as no-show'
+          };
+          
+          toast(statusMessages[change.new.status] || 'Appointment updated', {
+            duration: 4000,
+            position: 'top-right',
+            icon: change.new.status === 'cancelled' ? '❌' : '✅'
+          });
+        }
+      } else if (change.eventType === 'DELETE') {
+        // Deleted appointment - remove from list
+        setAppointments(prev => prev.filter(apt => apt.id !== change.old.id));
+      }
+    },
+    onError: (error) => {
+      console.error('Real-time error:', error);
+    }
+  });
 
   const fetchData = async () => {
     try {
@@ -224,10 +284,6 @@ function Dashboard() {
     fetchData();
   }, []);
 
-  const handleAppointmentClick = (appointment: Appointment) => {
-    setSelectedAppointment(appointment);
-    setIsDetailsModalOpen(true);
-  };
 
   const handleEditAppointment = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
