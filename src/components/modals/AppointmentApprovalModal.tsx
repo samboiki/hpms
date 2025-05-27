@@ -29,12 +29,15 @@ export default function AppointmentApprovalModal({
 
   useEffect(() => {
     if (isOpen && appointment) {
+      console.log('📋 Appointment data:', appointment);
       fetchDoctors();
     }
   }, [isOpen, appointment]);
 
   const fetchDoctors = async () => {
     try {
+      console.log('🔍 Fetching doctors for practice:', appointment.practice_id);
+      
       const { data, error } = await supabase
         .from('users')
         .select('id, full_name, role')
@@ -42,6 +45,8 @@ export default function AppointmentApprovalModal({
         .eq('practice_id', appointment.practice_id);
 
       if (error) throw error;
+      
+      console.log('✅ Found doctors:', data);
       setDoctors(data || []);
       
       // Pre-select first doctor if available
@@ -49,7 +54,7 @@ export default function AppointmentApprovalModal({
         setSelectedDoctor(data[0].id);
       }
     } catch (error) {
-      console.error('Error fetching doctors:', error);
+      console.error('❌ Error fetching doctors:', error);
     }
   };
 

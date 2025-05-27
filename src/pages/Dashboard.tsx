@@ -26,6 +26,7 @@ import PremiumAppointmentScheduler from '../components/PremiumAppointmentSchedul
 import AppointmentDetailsModal from '../components/modals/AppointmentDetailsModal';
 import RescheduleAppointmentModal from '../components/modals/RescheduleAppointmentModal';
 import AppointmentActionModal from '../components/modals/AppointmentActionModal';
+import AppointmentApprovalModal from '../components/modals/AppointmentApprovalModal';
 import AppointmentGridView from '../components/appointments/AppointmentGridView';
 import { motion } from 'framer-motion';
 
@@ -88,6 +89,7 @@ function Dashboard() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<'admin' | 'doctor' | 'nurse' | 'receptionist'>('admin');
   const [currentUserId, setCurrentUserId] = useState('');
   const [currentPracticeId, setCurrentPracticeId] = useState<string | null>(null);
@@ -248,6 +250,50 @@ function Dashboard() {
       fetchData();
     } catch (error) {
       console.error('Error deleting appointment:', error);
+    }
+  };
+
+  const handleApproveAppointment = async (appointmentId: string, doctorId: string) => {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ 
+          status: 'scheduled',
+          doctor_id: doctorId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointmentId);
+
+      if (error) throw error;
+      
+      setIsApprovalModalOpen(false);
+      setSelectedAppointment(null);
+      fetchData();
+    } catch (error) {
+      console.error('Error approving appointment:', error);
+      throw error;
+    }
+  };
+
+  const handleRejectAppointment = async (appointmentId: string, reason?: string) => {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ 
+          status: 'cancelled',
+          notes: reason ? `Rejected: ${reason}` : 'Rejected by practice',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointmentId);
+
+      if (error) throw error;
+      
+      setIsApprovalModalOpen(false);
+      setSelectedAppointment(null);
+      fetchData();
+    } catch (error) {
+      console.error('Error rejecting appointment:', error);
+      throw error;
     }
   };
 
@@ -434,7 +480,11 @@ function Dashboard() {
                   onDateChange={setSelectedDate}
                   onAppointmentClick={(apt) => {
                     setSelectedAppointment(apt);
-                    setIsActionModalOpen(true);
+                    if (apt.status === 'pending') {
+                      setIsApprovalModalOpen(true);
+                    } else {
+                      setIsActionModalOpen(true);
+                    }
                   }}
                   onEditAppointment={handleEditAppointment}
                   onCreateAppointment={handleCreateAppointment}
@@ -666,6 +716,24 @@ function Dashboard() {
             currentUserRole={currentUserRole}
           />
         </>
+      )}
+
+      {/* Appointment Approval Modal */}
+      {isApprovalModalOpen && selectedAppointment && (
+        <AppointmentApprovalModal
+          isOpen={isApprovalModalOpen}
+          onClose={() => {
+            setIsApprovalModalOpen(false);
+            setSelectedAppointment(null);
+          }}
+          appointment={selectedAppointment}
+          onApprove={handleApproveAppointment}
+          onReject={handleRejectAppointment}
+          onReschedule={(appointmentId) => {
+            setIsApprovalModalOpen(false);
+            setIsRescheduleModalOpen(true);
+          }}
+        />
       )}
 
       {/* Appointment Grid View */}
