@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Calendar, Clock, User, Filter, Search, ChevronDown, 
   CheckCircle, XCircle, AlertCircle, MoreVertical,
-  Edit3, Trash2, UserCheck, X
+  Edit3, Trash2, UserCheck, X, Activity, Play
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
@@ -11,7 +11,7 @@ import RescheduleAppointmentModal from '../modals/RescheduleAppointmentModal';
 import { motion } from 'framer-motion';
 
 interface AppointmentGridViewProps {
-  status: 'pending' | 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no-show';
+  status: 'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress';
   practiceId: string;
   onClose: () => void;
 }
@@ -183,11 +183,82 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
     }
   };
 
+  const handleStartVisit = async (appointment: any) => {
+    try {
+      // Create a visit record
+      const { data: visitData, error: visitError } = await supabase
+        .from('visits')
+        .insert([{
+          appointment_id: appointment.id,
+          patient_id: appointment.patient_id,
+          doctor_id: appointment.doctor_id,
+          visit_date: appointment.date,
+          visit_time: appointment.time,
+          visit_type: appointment.type,
+          status: 'in-progress'
+        }])
+        .select()
+        .single();
+      
+      if (visitError) throw visitError;
+      
+      // Update appointment status
+      const { error: updateError } = await supabase
+        .from('appointments')
+        .update({ 
+          status: 'in-progress',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointment.id);
+      
+      if (updateError) throw updateError;
+      
+      fetchAppointments();
+      alert('Visit started successfully');
+    } catch (error) {
+      console.error('Error starting visit:', error);
+      alert('Failed to start visit');
+    }
+  };
+
+  const handleCompleteVisit = async (appointment: any) => {
+    try {
+      // Update visit status
+      const { error: visitError } = await supabase
+        .from('visits')
+        .update({ 
+          status: 'completed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('appointment_id', appointment.id)
+        .eq('status', 'in-progress');
+      
+      if (visitError) throw visitError;
+      
+      // Update appointment status
+      const { error: updateError } = await supabase
+        .from('appointments')
+        .update({ 
+          status: 'completed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointment.id);
+      
+      if (updateError) throw updateError;
+      
+      fetchAppointments();
+      alert('Visit completed successfully');
+    } catch (error) {
+      console.error('Error completing visit:', error);
+      alert('Failed to complete visit');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
       case 'scheduled': return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'confirmed': return 'bg-green-100 text-green-800 border-green-300';
+      case 'in-progress': return 'bg-amber-100 text-amber-800 border-amber-300';
       case 'completed': return 'bg-gray-100 text-gray-800 border-gray-300';
       case 'cancelled': return 'bg-red-100 text-red-800 border-red-300';
       case 'no-show': return 'bg-orange-100 text-orange-800 border-orange-300';
@@ -199,7 +270,7 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
     switch (status) {
       case 'pending': return <AlertCircle className="w-4 h-4" />;
       case 'scheduled': return <Calendar className="w-4 h-4" />;
-      case 'confirmed': return <CheckCircle className="w-4 h-4" />;
+      case 'in-progress': return <Activity className="w-4 h-4" />;
       case 'completed': return <UserCheck className="w-4 h-4" />;
       case 'cancelled': return <XCircle className="w-4 h-4" />;
       case 'no-show': return <User className="w-4 h-4" />;
@@ -321,11 +392,14 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
                           {status === 'scheduled' && (
                             <>
                               <button
-                                onClick={() => handleStatusChange(appointment.id, 'confirmed')}
+                                onClick={() => {
+                                  handleStartVisit(appointment);
+                                  setShowActionMenu(null);
+                                }}
                                 className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2"
                               >
-                                <CheckCircle className="w-4 h-4 text-green-600" />
-                                Confirm
+                                <Play className="w-4 h-4 text-green-600" />
+                                Start Visit
                               </button>
                               <button
                                 onClick={() => {
@@ -344,6 +418,27 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
                               >
                                 <XCircle className="w-4 h-4 text-red-600" />
                                 Cancel
+                              </button>
+                            </>
+                          )}
+                          {status === 'in-progress' && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  handleCompleteVisit(appointment);
+                                  setShowActionMenu(null);
+                                }}
+                                className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2"
+                              >
+                                <CheckCircle className="w-4 h-4 text-green-600" />
+                                Complete Visit
+                              </button>
+                              <button
+                                onClick={() => handleStatusChange(appointment.id, 'cancelled')}
+                                className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2"
+                              >
+                                <XCircle className="w-4 h-4 text-red-600" />
+                                Cancel Visit
                               </button>
                             </>
                           )}
@@ -415,7 +510,7 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
           appointment={selectedAppointment}
           onApprove={handleApprove}
           onReject={handleReject}
-          onReschedule={(id) => {
+          onReschedule={() => {
             setShowApprovalModal(false);
             setShowRescheduleModal(true);
           }}

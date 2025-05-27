@@ -38,7 +38,7 @@ interface Appointment {
   time: string;
   duration: number;
   type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
-  status: 'pending' | 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
+  status: 'pending' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
   notes?: string;
   patient: {
     id: string;
@@ -96,7 +96,7 @@ function Dashboard() {
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
   const [showGridView, setShowGridView] = useState(false);
-  const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no-show'>('pending');
+  const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress'>('pending');
   const navigate = useNavigate();
 
   const fetchData = async () => {
@@ -297,6 +297,82 @@ function Dashboard() {
     }
   };
 
+  const handleStartVisit = async (appointmentId: string) => {
+    try {
+      const appointment = appointments.find(apt => apt.id === appointmentId);
+      if (!appointment) return;
+
+      // Create a visit record
+      const { error: visitError } = await supabase
+        .from('visits')
+        .insert([{
+          appointment_id: appointmentId,
+          patient_id: appointment.patient_id,
+          doctor_id: appointment.doctor_id,
+          visit_date: appointment.date,
+          visit_time: appointment.time,
+          visit_type: appointment.type,
+          status: 'in-progress'
+        }])
+        .select()
+        .single();
+      
+      if (visitError) throw visitError;
+      
+      // Update appointment status
+      const { error: updateError } = await supabase
+        .from('appointments')
+        .update({ 
+          status: 'in-progress',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointmentId);
+      
+      if (updateError) throw updateError;
+      
+      setIsActionModalOpen(false);
+      setSelectedAppointment(null);
+      fetchData();
+      
+      // Navigate to patient detail page
+      navigate(`/patients/${appointment.patient_id}`);
+    } catch (error) {
+      console.error('Error starting visit:', error);
+      alert('Failed to start visit');
+    }
+  };
+
+  const handleCompleteVisit = async (appointmentId: string) => {
+    try {
+      // Update appointment status
+      const { error: appointmentError } = await supabase
+        .from('appointments')
+        .update({ 
+          status: 'completed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointmentId);
+      
+      if (appointmentError) throw appointmentError;
+      
+      // Update visit status if exists
+      const { error: visitError } = await supabase
+        .from('visits')
+        .update({ status: 'completed' })
+        .eq('appointment_id', appointmentId)
+        .eq('status', 'in-progress');
+      
+      if (visitError) throw visitError;
+      
+      setIsActionModalOpen(false);
+      setSelectedAppointment(null);
+      fetchData();
+    } catch (error) {
+      console.error('Error completing visit:', error);
+      alert('Failed to complete visit');
+    }
+  };
+
   // Calculate today's statistics
   const todayAppointments = appointments.filter(apt => 
     apt.date === format(new Date(), 'yyyy-MM-dd')
@@ -304,7 +380,7 @@ function Dashboard() {
   const pendingAppointments = appointments.filter(apt => apt.status === 'pending');
   const pendingRequests = labRequests.length + mediaRequests.length;
   const completedToday = todayAppointments.filter(apt => apt.status === 'completed').length;
-  const scheduledToday = todayAppointments.filter(apt => apt.status === 'scheduled' || apt.status === 'confirmed').length;
+  const scheduledToday = todayAppointments.filter(apt => apt.status === 'scheduled').length;
   const cancelledAppointments = appointments.filter(apt => apt.status === 'cancelled');
 
   // Stats data matching the Patients page design
@@ -714,6 +790,8 @@ function Dashboard() {
               fetchData();
             }}
             currentUserRole={currentUserRole}
+            onStartVisit={handleStartVisit}
+            onCompleteVisit={handleCompleteVisit}
           />
         </>
       )}
@@ -729,7 +807,7 @@ function Dashboard() {
           appointment={selectedAppointment}
           onApprove={handleApproveAppointment}
           onReject={handleRejectAppointment}
-          onReschedule={(appointmentId) => {
+          onReschedule={() => {
             setIsApprovalModalOpen(false);
             setIsRescheduleModalOpen(true);
           }}

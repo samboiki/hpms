@@ -11,7 +11,7 @@ export interface Appointment {
   time: string;
   duration: number;
   type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
-  status: 'pending' | 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
+  status: 'pending' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
   notes?: string;
   patient?: {
     id: string;

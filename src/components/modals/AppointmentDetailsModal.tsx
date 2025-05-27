@@ -14,7 +14,7 @@ interface AppointmentDetailsModalProps {
     time: string;
     duration: number;
     type: string;
-    status: 'pending' | 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
+    status: 'pending' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
     notes?: string;
     patient: {
       id: string;
@@ -34,17 +34,17 @@ interface AppointmentDetailsModalProps {
   onEdit?: (appointment: any) => void;
   onCancel?: (appointmentId: string) => void;
   onComplete?: (appointmentId: string) => void;
+  onStartVisit?: (appointmentId: string) => void;
+  onCompleteVisit?: (appointmentId: string) => void;
   canEdit?: boolean;
 }
 
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'pending':
-      return 'yellow';
+      return 'amber';
     case 'scheduled':
       return 'azure';
-    case 'confirmed':
-      return 'emerald';
     case 'in-progress':
       return 'amber';
     case 'completed':
@@ -64,7 +64,9 @@ const AppointmentDetailsModal: React.FC<AppointmentDetailsModalProps> = ({
   onClose,
   onEdit,
   onCancel,
-  onComplete,
+  onComplete: _onComplete, // Deprecated - use onStartVisit instead
+  onStartVisit,
+  onCompleteVisit,
   canEdit = false,
 }) => {
   if (!isOpen) return null;
@@ -206,33 +208,86 @@ const AppointmentDetailsModal: React.FC<AppointmentDetailsModalProps> = ({
                   <Button variant="outline" onClick={onClose}>
                     Close
                   </Button>
-                  {canEdit && appointment.status === 'scheduled' && (
+                  
+                  {canEdit && (
                     <>
-                      {onEdit && (
-                        <Button
-                          variant="outline"
-                          onClick={() => onEdit(appointment)}
-                          className="text-blue-600 border-blue-200 hover:bg-blue-50"
-                        >
-                          Reschedule
-                        </Button>
+                      {/* Scheduled appointment actions */}
+                      {appointment.status === 'scheduled' && (
+                        <>
+                          {onEdit && (
+                            <Button
+                              variant="outline"
+                              onClick={() => onEdit(appointment)}
+                              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                            >
+                              Reschedule
+                            </Button>
+                          )}
+                          {onCancel && (
+                            <Button
+                              variant="outline"
+                              onClick={() => onCancel(appointment.id)}
+                              className="text-red-600 border-red-200 hover:bg-red-50"
+                            >
+                              Cancel
+                            </Button>
+                          )}
+                          {onStartVisit && (
+                            <Button
+                              onClick={() => onStartVisit(appointment.id)}
+                              className="bg-[#01b9d4] text-white hover:bg-[#0197d4]"
+                            >
+                              Start Visit
+                            </Button>
+                          )}
+                        </>
                       )}
-                      {onCancel && (
-                        <Button
-                          variant="outline"
-                          onClick={() => onCancel(appointment.id)}
-                          className="text-red-600 border-red-200 hover:bg-red-50"
-                        >
-                          Cancel
-                        </Button>
+                      
+                      {/* In-progress appointment actions */}
+                      {appointment.status === 'in-progress' && (
+                        <>
+                          {onCancel && (
+                            <Button
+                              variant="outline"
+                              onClick={() => onCancel(appointment.id)}
+                              className="text-red-600 border-red-200 hover:bg-red-50"
+                            >
+                              Cancel Visit
+                            </Button>
+                          )}
+                          {onCompleteVisit && (
+                            <Button
+                              onClick={() => onCompleteVisit(appointment.id)}
+                              className="bg-emerald-600 text-white hover:bg-emerald-700"
+                            >
+                              Complete Visit
+                            </Button>
+                          )}
+                        </>
                       )}
-                      {onComplete && (
-                        <Button
-                          onClick={() => onComplete(appointment.id)}
-                          className="bg-[#01b9d4] text-white hover:bg-[#0197d4]"
-                        >
-                          Check In
-                        </Button>
+                      
+                      {/* Pending appointment actions */}
+                      {appointment.status === 'pending' && (
+                        <>
+                          {onEdit && (
+                            <Button
+                              variant="outline"
+                              onClick={() => onEdit(appointment)}
+                              className="text-blue-600 border-blue-200 hover:bg-blue-50"
+                            >
+                              Reschedule
+                            </Button>
+                          )}
+                          {onCancel && (
+                            <Button
+                              variant="outline"
+                              onClick={() => onCancel(appointment.id)}
+                              className="text-red-600 border-red-200 hover:bg-red-50"
+                            >
+                              Reject
+                            </Button>
+                          )}
+                        </>
                       )}
                     </>
                   )}

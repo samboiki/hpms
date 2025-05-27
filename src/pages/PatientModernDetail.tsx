@@ -52,6 +52,7 @@ interface Patient {
 
 interface Visit {
   id: string;
+  appointment_id?: string;
   visit_date: string;
   visit_time: string;
   visit_type: string;
@@ -140,11 +141,11 @@ const PatientModernDetail = () => {
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'completed':
-        return 'success';
+        return 'emerald';
       case 'in-progress':
-        return 'warning';
+        return 'amber';
       case 'cancelled':
-        return 'error';
+        return 'rose';
       default:
         return 'glass';
     }
@@ -166,14 +167,28 @@ const PatientModernDetail = () => {
     }
   };
 
-  const handleVisitStatusChange = async (visitId: string, status: string) => {
+  const handleVisitStatusChange = async (visitId: string, status: string, appointmentId?: string) => {
     try {
-      const { error } = await supabase
+      // Update visit status
+      const { error: visitError } = await supabase
         .from('visits')
         .update({ status })
         .eq('id', visitId);
 
-      if (error) throw error;
+      if (visitError) throw visitError;
+
+      // If completing a visit and it has an associated appointment, update the appointment too
+      if (status === 'completed' && appointmentId) {
+        const { error: appointmentError } = await supabase
+          .from('appointments')
+          .update({ 
+            status: 'completed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', appointmentId);
+
+        if (appointmentError) throw appointmentError;
+      }
 
       const { data: updatedVisits } = await supabase
         .from('visit_details_view')
@@ -241,7 +256,7 @@ const PatientModernDetail = () => {
                     <h1 className="text-[30px] font-bold text-[#494c61] flex items-center">
                       {patient.first_name} {patient.last_name}
                       <div className="flex items-center ml-4 space-x-2">
-                        <Badge variant="success" size="sm">Active</Badge>
+                        <Badge variant="emerald" size="sm">Active</Badge>
                         <Badge variant="azure" size="sm">Insured</Badge>
                         <Button 
                           variant="outline" 
@@ -306,7 +321,7 @@ const PatientModernDetail = () => {
                       <p className="text-base font-semibold text-gray-900">Discovery Health</p>
                       <p className="text-xs text-gray-500">Executive Plan</p>
                     </div>
-                    <Badge variant="success" size="sm">Active</Badge>
+                    <Badge variant="emerald" size="sm">Active</Badge>
                   </div>
                   
                   <div className="text-sm">
@@ -438,30 +453,34 @@ const PatientModernDetail = () => {
                   </div>
 
                   <div className="mt-3 flex justify-end space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleVisitStatusChange(visit.id, 'completed');
-                      }}
-                      className={visit.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : ''}
-                    >
-                      <CheckCircle2 size={14} className="mr-1" />
-                      Complete
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleVisitStatusChange(visit.id, 'in-progress');
-                      }}
-                      className={visit.status === 'in-progress' ? 'bg-amber-50 text-amber-600' : ''}
-                    >
-                      <Activity size={14} className="mr-1" />
-                      In Progress
-                    </Button>
+                    {visit.status === 'in-progress' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleVisitStatusChange(visit.id, 'completed', visit.appointment_id);
+                        }}
+                        className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                      >
+                        <CheckCircle2 size={14} className="mr-1" />
+                        End Visit
+                      </Button>
+                    )}
+                    {visit.status === 'scheduled' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleVisitStatusChange(visit.id, 'in-progress', visit.appointment_id);
+                        }}
+                        className="bg-amber-50 text-amber-600 hover:bg-amber-100"
+                      >
+                        <Activity size={14} className="mr-1" />
+                        Start Visit
+                      </Button>
+                    )}
                   </div>
                 </motion.div>
               ))}
@@ -491,7 +510,7 @@ const PatientModernDetail = () => {
               setSelectedVisit(null);
             }}
             onStatusChange={(status) => {
-              handleVisitStatusChange(selectedVisit.id, status);
+              handleVisitStatusChange(selectedVisit.id, status, selectedVisit.appointment_id);
             }}
             onEdit={() => {
               setIsVisitDetailModalOpen(false);

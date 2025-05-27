@@ -10,6 +10,8 @@ interface AppointmentActionModalProps {
   appointment: any;
   onUpdate: () => void;
   currentUserRole: string;
+  onStartVisit?: (appointmentId: string) => void;
+  onCompleteVisit?: (appointmentId: string) => void;
 }
 
 export default function AppointmentActionModal({
@@ -17,7 +19,9 @@ export default function AppointmentActionModal({
   onClose,
   appointment,
   onUpdate,
-  currentUserRole
+  currentUserRole,
+  onStartVisit,
+  onCompleteVisit
 }: AppointmentActionModalProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [notes, setNotes] = useState(appointment?.notes || '');
@@ -37,9 +41,9 @@ export default function AppointmentActionModal({
 
       if (error) throw error;
 
-      // If approving, send notification (in real app)
-      if (newStatus === 'confirmed') {
-        console.log('Appointment confirmed, notify patient');
+      // If scheduling, send notification (in real app)
+      if (newStatus === 'scheduled') {
+        console.log('Appointment scheduled, notify patient');
       }
 
       onUpdate();
@@ -99,11 +103,12 @@ export default function AppointmentActionModal({
 
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
-      case 'confirmed': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-amber-100 text-amber-800';
       case 'scheduled': return 'bg-blue-100 text-blue-800';
       case 'cancelled': return 'bg-red-100 text-red-800';
       case 'completed': return 'bg-gray-100 text-gray-800';
       case 'in-progress': return 'bg-yellow-100 text-yellow-800';
+      case 'no-show': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -221,15 +226,17 @@ export default function AppointmentActionModal({
             
             {appointment.status === 'scheduled' && (
               <div className="flex gap-3">
-                <Button
-                  onClick={() => handleStatusChange('confirmed')}
-                  disabled={isUpdating}
-                  variant="primary"
-                  className="flex-1"
-                >
-                  <Check className="w-4 h-4 mr-2" />
-                  Approve Appointment
-                </Button>
+                {onStartVisit && (
+                  <Button
+                    onClick={() => onStartVisit(appointment.id)}
+                    disabled={isUpdating}
+                    variant="primary"
+                    className="flex-1"
+                  >
+                    <Check className="w-4 h-4 mr-2" />
+                    Start Visit
+                  </Button>
+                )}
                 <Button
                   onClick={() => handleStatusChange('cancelled')}
                   disabled={isUpdating}
@@ -237,44 +244,37 @@ export default function AppointmentActionModal({
                   className="flex-1"
                 >
                   <XCircle className="w-4 h-4 mr-2" />
-                  Decline Appointment
+                  Cancel Appointment
                 </Button>
               </div>
             )}
 
-            {appointment.status === 'confirmed' && (
+            {appointment.status === 'in-progress' && (
               <div className="flex gap-3">
-                <Button
-                  onClick={() => handleStatusChange('in-progress')}
-                  disabled={isUpdating}
-                  variant="primary"
-                  className="flex-1"
-                >
-                  Start Appointment
-                </Button>
+                {onCompleteVisit && (
+                  <Button
+                    onClick={() => onCompleteVisit(appointment.id)}
+                    disabled={isUpdating}
+                    variant="primary"
+                    className="flex-1"
+                  >
+                    <Check className="w-4 h-4 mr-2" />
+                    Complete Visit
+                  </Button>
+                )}
                 <Button
                   onClick={() => handleStatusChange('cancelled')}
                   disabled={isUpdating}
                   variant="secondary"
                   className="flex-1"
                 >
-                  Cancel
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Cancel Visit
                 </Button>
               </div>
             )}
 
-            {appointment.status === 'in-progress' && (
-              <Button
-                onClick={() => handleStatusChange('completed')}
-                disabled={isUpdating}
-                variant="primary"
-                className="w-full"
-              >
-                Complete Appointment
-              </Button>
-            )}
-
-            {['admin', 'doctor'].includes(currentUserRole) && (
+            {appointment.status === 'cancelled' && ['admin', 'doctor'].includes(currentUserRole) && (
               <Button
                 onClick={handleDelete}
                 disabled={isUpdating}

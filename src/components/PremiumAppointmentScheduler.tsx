@@ -63,7 +63,7 @@ interface Appointment {
   time: string;
   duration: number;
   type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
-  status: 'pending' | 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
+  status: 'pending' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
   notes?: string;
 }
 
@@ -118,8 +118,6 @@ const getStatusGradient = (status: Appointment['status']) => {
       return 'from-yellow-400 to-yellow-500';
     case 'scheduled':
       return 'from-[#01b9d5] to-[#0196be]';
-    case 'confirmed':
-      return 'from-emerald-500 to-emerald-600';
     case 'in-progress':
       return 'from-amber-500 to-amber-600';
     case 'completed':
@@ -154,8 +152,6 @@ const getStatusIcon = (status: Appointment['status']) => {
       return AlertCircle;
     case 'scheduled':
       return CalendarIcon;
-    case 'confirmed':
-      return CheckCircle;
     case 'in-progress':
       return Activity;
     case 'completed':
@@ -329,7 +325,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             {filteredAppointments.map((appointment) => {
               const StatusIcon = getStatusIcon(appointment.status);
               const time = appointment.time;
-              const isUpcoming = appointment.status === 'scheduled' || appointment.status === 'confirmed';
+              const isUpcoming = appointment.status === 'scheduled';
               const aptDate = parseISO(appointment.date);
 
               return (

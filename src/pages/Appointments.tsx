@@ -30,6 +30,7 @@ import AddAppointmentForm from '../components/forms/AddAppointmentForm';
 import RescheduleAppointmentModal from '../components/modals/RescheduleAppointmentModal';
 import ModernWeekView from '../components/appointments/ModernWeekView';
 import DayTimelineView from '../components/appointments/DayTimelineView';
+import AppointmentGridView from '../components/appointments/AppointmentGridView';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 
@@ -65,6 +66,9 @@ const Appointments: React.FC = () => {
     requestedCount: 0
   });
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [showGridView, setShowGridView] = useState(false);
+  const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress'>('pending');
+  const { user } = useAuthStore();
   
   // Generate dates for week view
   const startOfCurrentWeek = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -230,7 +234,6 @@ const Appointments: React.FC = () => {
     switch (status) {
       case 'pending': return 'lavender';
       case 'scheduled': return 'azure';
-      case 'confirmed': return 'emerald';
       case 'in-progress': return 'amber';
       case 'completed': return 'slate';
       case 'cancelled': return 'coral';
@@ -271,7 +274,11 @@ const Appointments: React.FC = () => {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
+          // Today's appointments would typically be scheduled or in-progress
+          setGridViewStatus('scheduled');
+          setShowGridView(true);
+        }}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -299,11 +306,14 @@ const Appointments: React.FC = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
+          setGridViewStatus('scheduled');
+          setShowGridView(true);
+        }}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Pending Check-ins</p>
+                <p className="text-sm font-medium text-gray-600">Ready to Start</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.pendingCheckins}</p>
               </div>
               <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
@@ -327,11 +337,14 @@ const Appointments: React.FC = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
+          setGridViewStatus('pending');
+          setShowGridView(true);
+        }}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Appointment Requests</p>
+                <p className="text-sm font-medium text-gray-600">Pending Approvals</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.requestedCount}</p>
               </div>
               <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
@@ -363,8 +376,8 @@ const Appointments: React.FC = () => {
                 className="px-4 py-2 rounded-md border border-gray-300 focus:ring-brand-primary focus:border-brand-primary"
               >
                 <option value="all">All Statuses</option>
+                <option value="pending">Pending</option>
                 <option value="scheduled">Scheduled</option>
-                <option value="confirmed">Confirmed</option>
                 <option value="in-progress">In Progress</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
@@ -477,8 +490,9 @@ const Appointments: React.FC = () => {
                         <div 
                           key={apt.id}
                           className={`text-xs p-1 rounded truncate ${
-                            apt.status === 'confirmed' ? 'bg-green-100 text-green-800' :
                             apt.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
+                            apt.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            apt.status === 'in-progress' ? 'bg-amber-100 text-amber-800' :
                             apt.status === 'cancelled' ? 'bg-red-100 text-red-800' :
                             'bg-gray-100 text-gray-800'
                           }`}
@@ -568,7 +582,7 @@ const Appointments: React.FC = () => {
           ) : filteredAppointments.length > 0 ? (
             <div className="space-y-4">
               {filteredAppointments
-                .filter(app => ['scheduled', 'confirmed'].includes(app.status))
+                .filter(app => ['pending', 'scheduled'].includes(app.status))
                 .slice(0, 5)
                 .map((appointment) => (
                   <motion.div 
@@ -694,6 +708,15 @@ const Appointments: React.FC = () => {
             setSelectedAppointmentForReschedule(null);
             fetchAppointments();
           }}
+        />
+      )}
+
+      {/* Appointment Grid View */}
+      {showGridView && user?.practice_id && (
+        <AppointmentGridView
+          status={gridViewStatus}
+          practiceId={user.practice_id}
+          onClose={() => setShowGridView(false)}
         />
       )}
     </div>
