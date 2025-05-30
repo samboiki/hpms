@@ -73,7 +73,7 @@ serve(async (req) => {
         date: formData.date,
         time: formData.time,
         type: formData.categoryId || 'consultation',
-        status: 'scheduled',
+        status: 'pending',
         notes: `Service: ${formData.service}\nPrice: ${formData.price}\nDuration: ${formData.duration}\nLocation: ${formData.location}\nAdditional Notes: ${formData.notes}`,
         practice_id: practice.id
       })

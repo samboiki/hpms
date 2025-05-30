@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { Search, Calendar, Clock, User, FileText, AlertCircle } from 'lucide-react';
 import { format, setHours, setMinutes } from 'date-fns';
 import { checkAppointmentConflict } from '../../utils/appointments';
+import { PremiumTimePicker } from '../ui/PremiumTimePicker';
 
 interface AddAppointmentFormData {
   patient_id: string;
@@ -286,20 +287,15 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
 
         {/* Time */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Clock className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="time"
-              {...register('time', { required: 'Time is required' })}
-              className="pl-10 block w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
-            />
-          </div>
-          {errors.time && (
-            <p className="mt-1 text-sm text-red-600">{errors.time.message}</p>
-          )}
+          <PremiumTimePicker
+            label="Time"
+            value={watch('time')}
+            onChange={(time) => setValue('time', time)}
+            error={errors.time?.message}
+            min="08:00"
+            max="17:00"
+            step={15}
+          />
         </div>
 
         {/* Duration */}

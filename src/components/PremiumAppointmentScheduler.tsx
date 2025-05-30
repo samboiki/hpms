@@ -39,11 +39,19 @@ import {
   eachDayOfInterval,
   isSameDay,
   addWeeks,
-  subWeeks
+  subWeeks,
+  addMonths,
+  subMonths,
+  startOfMonth,
+  endOfMonth
 } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import FormModal from './modals/FormModal';
 import AddAppointmentForm from './forms/AddAppointmentForm';
+import { PremiumDayGridView } from './appointments/PremiumDayGridView';
+import { PremiumWeekGridView } from './appointments/PremiumWeekGridView';
+import { supabase } from '../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 interface AppointmentPatient {
   id: string;
@@ -100,7 +108,7 @@ interface PremiumAppointmentSchedulerProps {
   currentUserRole: 'admin' | 'doctor' | 'nurse' | 'receptionist';
   currentUserId: string;
   onRefresh?: () => void;
-  viewMode?: 'day' | 'week' | 'month';
+  viewMode?: 'day' | 'week' | 'month' | 'all';
 }
 
 // Constants
@@ -191,7 +199,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<{ doctorId: string; time: string; date: Date } | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [internalViewMode, setInternalViewMode] = useState<'timeline' | 'grid'>('timeline');
+  const [internalViewMode, setInternalViewMode] = useState<'timeline' | 'grid'>('grid');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -215,7 +223,9 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   const filteredAppointments = useMemo(() => {
     let filtered = appointments;
 
-    if (viewMode === 'day') {
+    if (viewMode === 'all') {
+      // No date filtering for "all" view - show everything
+    } else if (viewMode === 'day') {
       filtered = appointments.filter((apt) => {
         const aptDate = apt.date;
         if (!aptDate) return false;
@@ -227,6 +237,15 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
         if (!aptDate) return false;
         const date = parseISO(aptDate);
         return weekDates.some(weekDate => isSameDay(date, weekDate));
+      });
+    } else if (viewMode === 'month') {
+      filtered = appointments.filter((apt) => {
+        const aptDate = apt.date;
+        if (!aptDate) return false;
+        const date = parseISO(aptDate);
+        const monthStart = startOfMonth(selectedDate);
+        const monthEnd = endOfMonth(selectedDate);
+        return date >= monthStart && date <= monthEnd;
       });
     }
 
@@ -241,6 +260,15 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
           apt.patient.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           apt.type.toLowerCase().includes(searchQuery.toLowerCase())
       );
+    }
+
+    // Sort by date for "all" view - most recent first
+    if (viewMode === 'all') {
+      filtered = filtered.sort((a, b) => {
+        const dateA = new Date(`${a.date}T${a.time}`);
+        const dateB = new Date(`${b.date}T${b.time}`);
+        return dateB.getTime() - dateA.getTime();
+      });
     }
 
     return filtered;
@@ -274,8 +302,14 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   }, [filteredAppointments]);
 
   const navigateDate = (direction: 'prev' | 'next') => {
-    if (viewMode === 'week') {
+    if (viewMode === 'all') {
+      // No navigation for "all time" view
+      return;
+    } else if (viewMode === 'week') {
       const newDate = direction === 'prev' ? subWeeks(selectedDate, 1) : addWeeks(selectedDate, 1);
+      onDateChange(newDate);
+    } else if (viewMode === 'month') {
+      const newDate = direction === 'prev' ? subMonths(selectedDate, 1) : addMonths(selectedDate, 1);
       onDateChange(newDate);
     } else {
       const newDate = direction === 'prev' ? subDays(selectedDate, 1) : addDays(selectedDate, 1);
@@ -303,10 +337,48 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     return { top, height: Math.max(height, 40), left, width };
   };
 
-  // Premium Grid View Component
-  const GridView = () => (
-    <div className="p-4 max-h-[600px] overflow-y-auto">
-      <div className="grid grid-cols-1 gap-3">
+  // Handle appointment drop
+  const handleAppointmentDrop = async (appointmentId: string, newTime: Date, newDoctorId: string) => {
+    try {
+      const appointment = appointments.find(apt => apt.id === appointmentId);
+      if (!appointment) return false;
+
+      const newDate = format(newTime, 'yyyy-MM-dd');
+      const newTimeStr = format(newTime, 'HH:mm:ss');
+
+      const { error } = await supabase
+        .from('appointments')
+        .update({
+          date: newDate,
+          time: newTimeStr,
+          doctor_id: newDoctorId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointmentId);
+
+      if (error) {
+        console.error('Error updating appointment:', error);
+        return false;
+      }
+
+      // Refresh data
+      if (onRefresh) {
+        onRefresh();
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error in handleAppointmentDrop:', error);
+      return false;
+    }
+  };
+
+  // Premium Grid View Component - Card-based layout for all modes
+  const GridView = () => {
+    // Card-based grid view for day/week/month/all
+    return (
+      <div className="p-4 max-h-[600px] overflow-y-auto">
+        <div className="grid grid-cols-1 gap-3">
         {filteredAppointments.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -314,8 +386,12 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             </div>
             <p className="text-gray-600 font-medium">No appointments found</p>
             <p className="text-sm text-gray-400 mt-1">
-              {viewMode === 'week' 
+              {viewMode === 'all'
+                ? 'All time appointments'
+                : viewMode === 'week' 
                 ? `Week of ${format(weekDates[0], 'MMM d')} - ${format(weekDates[6], 'MMM d, yyyy')}`
+                : viewMode === 'month'
+                ? format(selectedDate, 'MMMM yyyy')
                 : format(selectedDate, 'MMMM d, yyyy')
               }
             </p>
@@ -458,7 +534,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
         )}
       </div>
     </div>
-  );
+    );
+  };
 
   // Premium Timeline/Week View Component
   const TimelineView = () => {
@@ -794,8 +871,12 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg">
               <CalendarIcon className="h-4 w-4 text-[#01b9d5]" />
               <span className="text-sm font-semibold text-gray-800">
-                {viewMode === 'week' 
+                {viewMode === 'all' 
+                  ? 'All Appointments'
+                  : viewMode === 'week' 
                   ? `${format(weekDates[0], 'MMM d')} - ${format(weekDates[6], 'MMM d, yyyy')}`
+                  : viewMode === 'month'
+                  ? format(selectedDate, 'MMMM yyyy')
                   : format(selectedDate, 'EEEE, MMMM d, yyyy')
                 }
               </span>
@@ -844,28 +925,33 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               ))}
             </select>
 
-            <div className="flex items-center bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => setInternalViewMode('timeline')}
-                className={`px-3 py-1.5 text-sm font-medium rounded transition-all ${
-                  internalViewMode === 'timeline' 
-                    ? 'bg-white text-gray-900 shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <List className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setInternalViewMode('grid')}
-                className={`px-3 py-1.5 text-sm font-medium rounded transition-all ${
-                  internalViewMode === 'grid' 
-                    ? 'bg-white text-gray-900 shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <Grid3X3 className="h-4 w-4" />
-              </button>
-            </div>
+            {/* View Mode Toggle for Day/Week */}
+            {(viewMode === 'day' || viewMode === 'week') && (
+              <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setInternalViewMode('timeline')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded transition-all flex items-center gap-1.5 ${
+                    internalViewMode === 'timeline' 
+                      ? 'bg-white text-gray-900 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <List className="h-4 w-4" />
+                  <span className="hidden sm:inline">Timeline</span>
+                </button>
+                <button
+                  onClick={() => setInternalViewMode('grid')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded transition-all flex items-center gap-1.5 ${
+                    internalViewMode === 'grid' 
+                      ? 'bg-white text-gray-900 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Grid</span>
+                </button>
+              </div>
+            )}
 
             {onRefresh && (
               <button
@@ -881,7 +967,51 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
 
       {/* Content Section */}
       <div className="flex-1 overflow-hidden bg-gradient-to-br from-gray-50/50 via-white to-gray-50/30">
-        {internalViewMode === 'grid' ? <GridView /> : <TimelineView />}
+        {viewMode === 'day' && internalViewMode === 'timeline' ? (
+          // Day Timeline -> Use the drag-and-drop time grid
+          <PremiumDayGridView
+            selectedDate={selectedDate}
+            appointments={filteredAppointments}
+            doctors={doctors}
+            onAppointmentClick={onAppointmentClick}
+            onTimeSlotClick={(time, doctorId) => {
+              setSelectedTimeSlot({
+                doctorId,
+                time: format(time, 'HH:mm:ss'),
+                date: time
+              });
+              setIsAddModalOpen(true);
+            }}
+            onAppointmentDrop={handleAppointmentDrop}
+            businessHours={{ start: '08:00', end: '17:00' }}
+            slotDuration={30}
+          />
+        ) : viewMode === 'day' && internalViewMode === 'grid' ? (
+          // Day Grid -> Use card-based layout (same as month)
+          <GridView />
+        ) : viewMode === 'week' && internalViewMode === 'timeline' ? (
+          // Week Timeline -> Use the week timeline view
+          <PremiumWeekGridView
+            weekDates={weekDates}
+            appointments={filteredAppointments}
+            doctors={doctors}
+            onAppointmentClick={onAppointmentClick}
+            onTimeSlotClick={(date, time) => {
+              setSelectedTimeSlot({
+                doctorId: selectedDoctorId || doctors[0]?.id || '',
+                time: time + ':00',
+                date: date
+              });
+              setIsAddModalOpen(true);
+            }}
+          />
+        ) : viewMode === 'week' && internalViewMode === 'grid' ? (
+          // Week Grid -> Use card-based layout (same as month)
+          <GridView />
+        ) : (
+          // Month/All -> Always use card-based grid
+          <GridView />
+        )}
       </div>
 
       {/* Premium Floating Add Button */}

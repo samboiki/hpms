@@ -33,6 +33,7 @@ import DayTimelineView from '../components/appointments/DayTimelineView';
 import AppointmentGridView from '../components/appointments/AppointmentGridView';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
+import { AnimatedPageBackground } from '../components/ui/AnimatedBackground';
 
 interface AppointmentStats {
   todayCount: number;
@@ -243,7 +244,8 @@ const Appointments: React.FC = () => {
   };
 
   return (
-    <div className="animate-fade-in">
+    <AnimatedPageBackground>
+      <div className="animate-fade-in">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-center justify-between mb-6">
         <div className="flex items-center">
@@ -719,7 +721,8 @@ const Appointments: React.FC = () => {
           onClose={() => setShowGridView(false)}
         />
       )}
-    </div>
+      </div>
+    </AnimatedPageBackground>
   );
 };
 

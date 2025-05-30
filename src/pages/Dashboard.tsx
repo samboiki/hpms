@@ -6,15 +6,11 @@ import {
   Microscope,
   AlertCircle,
   Plus,
-  FileText,
-  Clock,
   Pill,
   CheckCircle2,
   UserCheck,
   MessageSquare,
-  FlaskConical,
-  Zap,
-  XCircle
+  Zap
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -31,6 +27,8 @@ import AppointmentGridView from '../components/appointments/AppointmentGridView'
 import { motion } from 'framer-motion';
 import { useRealtimeAppointments } from '../hooks/useRealtimeAppointments';
 import { toast } from 'react-hot-toast';
+import { AnimatedPageBackground } from '../components/ui/AnimatedBackground';
+import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
 
 interface Appointment {
   id: string;
@@ -99,6 +97,7 @@ function Dashboard() {
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
   const [showGridView, setShowGridView] = useState(false);
   const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress'>('pending');
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const navigate = useNavigate();
 
   // Real-time appointment updates
@@ -264,12 +263,128 @@ function Dashboard() {
 
       setRecentActivities(activities);
 
+      // Generate notifications
+      const newNotifications: Notification[] = [];
+
+      // Pending appointment bookings that need approval
+      const pendingBookings = practiceAppointments.filter(apt => apt.status === 'pending');
+      pendingBookings.forEach((apt) => {
+        newNotifications.push({
+          id: `booking-${apt.id}`,
+          type: 'booking',
+          priority: 'high',
+          title: 'New Booking Request',
+          description: `${apt.patient?.first_name} ${apt.patient?.last_name} requested a ${apt.type} appointment for ${format(new Date(apt.date + 'T' + apt.time), 'MMM d, h:mm a')}`,
+          time: new Date(apt.created_at || new Date()),
+          actionRequired: true,
+          read: false,
+          data: apt,
+          actions: {
+            primary: {
+              label: 'Approve',
+              variant: 'approve',
+              onClick: () => {
+                setSelectedAppointment(apt);
+                setIsApprovalModalOpen(true);
+              }
+            },
+            secondary: {
+              label: 'View Details',
+              onClick: () => {
+                setSelectedAppointment(apt);
+                setIsDetailsModalOpen(true);
+              }
+            }
+          }
+        });
+      });
+
+      // Lab results pending review
+      labRequestsData.forEach((lab) => {
+        newNotifications.push({
+          id: `lab-${lab.id}`,
+          type: 'lab-result',
+          priority: lab.is_urgent ? 'urgent' : 'normal',
+          title: 'Lab Results Ready',
+          description: `${lab.test_name || 'Lab test'} results are ready for review`,
+          time: new Date(lab.created_at || new Date()),
+          actionRequired: true,
+          read: false,
+          data: lab,
+          actions: {
+            primary: {
+              label: 'Review Results',
+              onClick: () => navigate('/requests')
+            }
+          }
+        });
+      });
+
+      // Upcoming follow-ups for today
+      const todayFollowUps = practiceAppointments.filter(apt => 
+        apt.type === 'follow-up' && 
+        apt.status === 'scheduled' &&
+        apt.date === format(new Date(), 'yyyy-MM-dd')
+      );
+      todayFollowUps.forEach((apt) => {
+        newNotifications.push({
+          id: `followup-${apt.id}`,
+          type: 'follow-up',
+          priority: 'normal',
+          title: 'Follow-up Reminder',
+          description: `${apt.patient?.first_name} ${apt.patient?.last_name} has a follow-up appointment at ${apt.time ? format(new Date(apt.date + 'T' + apt.time), 'h:mm a') : 'TBD'}`,
+          time: new Date(apt.date + 'T' + apt.time),
+          actionRequired: false,
+          read: false,
+          data: apt,
+          actions: {
+            primary: {
+              label: 'Start Visit',
+              onClick: () => handleStartVisit(apt.id)
+            }
+          }
+        });
+      });
+
+      // Media requests pending
+      mediaRequestsData.forEach((media) => {
+        newNotifications.push({
+          id: `media-${media.id}`,
+          type: 'system',
+          priority: 'normal',
+          title: 'Media Upload Pending',
+          description: `${media.request_type || 'Media'} upload requested for patient`,
+          time: new Date(media.created_at || new Date()),
+          actionRequired: true,
+          read: false,
+          data: media,
+          actions: {
+            primary: {
+              label: 'Upload Media',
+              onClick: () => navigate('/requests')
+            }
+          }
+        });
+      });
+
+      // Sort notifications by priority and time
+      newNotifications.sort((a, b) => {
+        const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 };
+        if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+          return priorityOrder[a.priority] - priorityOrder[b.priority];
+        }
+        return b.time.getTime() - a.time.getTime();
+      });
+
+      setNotifications(newNotifications);
+
       console.log('✅ [Dashboard] Data fetch complete:', {
         appointmentsSet: practiceAppointments.length,
         patientsSet: practicePatients.length,
         labRequestsSet: labRequestsData.length,
         mediaRequestsSet: mediaRequestsData.length,
-        activitiesSet: activities.length
+        activitiesSet: activities.length,
+        notificationsSet: newNotifications.length
       });
       
     } catch (error) {
@@ -292,7 +407,7 @@ function Dashboard() {
 
   const handleCreateAppointment = async () => {
     setIsAddAppointmentModalOpen(false);
-    fetchData();
+    // Real-time updates will handle the refresh
   };
 
   const handleDeleteAppointment = async (appointmentId: string) => {
@@ -303,7 +418,7 @@ function Dashboard() {
         .eq('id', appointmentId);
       
       if (error) throw error;
-      fetchData();
+      // Real-time updates will handle the refresh
     } catch (error) {
       console.error('Error deleting appointment:', error);
     }
@@ -324,7 +439,7 @@ function Dashboard() {
       
       setIsApprovalModalOpen(false);
       setSelectedAppointment(null);
-      fetchData();
+      // Real-time updates will handle the refresh
     } catch (error) {
       console.error('Error approving appointment:', error);
       throw error;
@@ -346,7 +461,7 @@ function Dashboard() {
       
       setIsApprovalModalOpen(false);
       setSelectedAppointment(null);
-      fetchData();
+      // Real-time updates will handle the refresh
     } catch (error) {
       console.error('Error rejecting appointment:', error);
       throw error;
@@ -388,7 +503,7 @@ function Dashboard() {
       
       setIsActionModalOpen(false);
       setSelectedAppointment(null);
-      fetchData();
+      // Real-time updates will handle the refresh
       
       // Navigate to patient detail page
       navigate(`/patients/${appointment.patient_id}`);
@@ -422,7 +537,7 @@ function Dashboard() {
       
       setIsActionModalOpen(false);
       setSelectedAppointment(null);
-      fetchData();
+      // Real-time updates will handle the refresh
     } catch (error) {
       console.error('Error completing visit:', error);
       alert('Failed to complete visit');
@@ -437,7 +552,7 @@ function Dashboard() {
   const pendingRequests = labRequests.length + mediaRequests.length;
   const completedToday = todayAppointments.filter(apt => apt.status === 'completed').length;
   const scheduledToday = todayAppointments.filter(apt => apt.status === 'scheduled').length;
-  const cancelledAppointments = appointments.filter(apt => apt.status === 'cancelled');
+  const inProgressAppointments = appointments.filter(apt => apt.status === 'in-progress');
 
   // Stats data matching the Patients page design
   const stats = [
@@ -468,15 +583,15 @@ function Dashboard() {
       }
     },
     { 
-      label: 'Cancelled', 
-      value: cancelledAppointments.length.toString(),
-      change: cancelledAppointments.length > 0 ? 'View all' : 'None',
+      label: 'In Progress', 
+      value: inProgressAppointments.length.toString(),
+      change: inProgressAppointments.length > 0 ? 'Active visits' : 'None',
       trend: 'neutral',
-      icon: XCircle,
-      gradient: 'from-gray-500 to-gray-600',
-      id: 'cancelled',
+      icon: Activity,
+      gradient: 'from-blue-500 to-cyan-600',
+      id: 'in-progress',
       onClick: () => {
-        setGridViewStatus('cancelled');
+        setGridViewStatus('in-progress');
         setShowGridView(true);
       }
     },
@@ -497,17 +612,18 @@ function Dashboard() {
 
   // Quick actions data
   const quickActions = [
-    { label: 'New Patient', icon: UserCheck, onClick: () => navigate('/patients'), color: 'from-blue-500 to-indigo-600' },
-    { label: 'Lab Request', icon: Microscope, onClick: () => navigate('/requests'), color: 'from-green-500 to-emerald-600' },
-    { label: 'Prescription', icon: Pill, onClick: () => navigate('/patients'), color: 'from-purple-500 to-indigo-600' },
-    { label: 'Messages', icon: MessageSquare, onClick: () => navigate('/messages'), color: 'from-amber-500 to-orange-600' }
+    { label: 'New Patient', icon: UserCheck, onClick: () => navigate('/patients') },
+    { label: 'Lab Request', icon: Microscope, onClick: () => navigate('/requests') },
+    { label: 'Prescription', icon: Pill, onClick: () => navigate('/patients') },
+    { label: 'Messages', icon: MessageSquare, onClick: () => navigate('/messages') }
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50/80 to-blue-50/20">
-      <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+    <AnimatedPageBackground>
+      <div className="min-h-screen bg-transparent">
+        <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
         {/* Compact Professional Header */}
-        <div className="bg-gradient-to-r from-gray-50 via-white to-gray-50 rounded-xl shadow-sm border border-gray-100">
+        <div className="bg-white/60 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">
           <div className="p-4 md:p-5">
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
               <div>
@@ -541,7 +657,7 @@ function Dashboard() {
                   <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} rounded-xl blur-md opacity-5 group-hover:opacity-15 transition-opacity duration-200`}></div>
                   
                   {/* Glass Card */}
-                  <div className="relative bg-white/60 backdrop-blur-sm border rounded-xl p-3 transition-all duration-200 shadow-sm border-gray-200/40 hover:border-gray-300/50 hover:shadow-md">
+                  <div className="relative bg-white/80 backdrop-blur-sm border rounded-xl p-3 transition-all duration-200 shadow-sm border-gray-200/40 hover:border-gray-300/50 hover:shadow-md">
                     <div className="flex items-center justify-between mb-2">
                       <div className={`p-2 bg-gradient-to-br ${stat.gradient} rounded-lg shadow-md`}>
                         <stat.icon className="w-4 h-4 text-white" />
@@ -571,7 +687,7 @@ function Dashboard() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-[700px] flex flex-col"
+              className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 overflow-hidden h-[700px] flex flex-col"
             >
               {/* Header */}
               <div className="p-4 border-b border-gray-200 bg-gray-50/50">
@@ -588,7 +704,7 @@ function Dashboard() {
                           onClick={() => setViewMode(mode as any)}
                           className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all capitalize ${
                             viewMode === mode
-                              ? 'bg-white text-gray-900 shadow-sm'
+                              ? 'bg-white/90 text-gray-900 shadow-sm'
                               : 'text-gray-600 hover:text-gray-900'
                           }`}
                         >
@@ -627,7 +743,7 @@ function Dashboard() {
                   onDeleteAppointment={handleDeleteAppointment}
                   currentUserRole={currentUserRole}
                   currentUserId={currentUserId}
-                  onRefresh={fetchData}
+                  onRefresh={() => {/* Real-time updates handle refresh */}}
                 />
               </div>
             </motion.div>
@@ -635,12 +751,104 @@ function Dashboard() {
 
           {/* Right Section (6 columns) */}
           <div className="col-span-12 lg:col-span-6 space-y-4 md:space-y-6">
-            {/* Recent Activity */}
+            {/* Notifications - FIRST */}
+            <NotificationsPanel
+              notifications={notifications}
+              onNotificationAction={(notificationId, action) => {
+                console.log('Notification action:', notificationId, action);
+                // Remove notification after action
+                setNotifications(prev => prev.filter(n => n.id !== notificationId));
+              }}
+              onMarkAsRead={(notificationId) => {
+                setNotifications(prev => 
+                  prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+                );
+              }}
+              onMarkAllAsRead={() => {
+                setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+              }}
+            />
+
+            {/* Quick Actions - SECOND */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-5"
+              transition={{ delay: 0.3 }}
+              className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 overflow-hidden"
+            >
+              {/* Modern gradient header */}
+              <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 via-white to-gray-50">
+                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-[#01b9d5] blur-xl opacity-20 animate-pulse" />
+                    <Zap className="relative w-5 h-5 text-[#01b9d5]" />
+                  </div>
+                  Quick Actions
+                </h3>
+              </div>
+              
+              {/* Compact modern button grid */}
+              <div className="p-4">
+                <div className="grid grid-cols-4 gap-2">
+                  {quickActions.map((action, index) => (
+                    <motion.button
+                      key={action.label}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ 
+                        delay: 0.4 + index * 0.05,
+                        type: "spring",
+                        stiffness: 300,
+                        damping: 24
+                      }}
+                      whileHover={{ y: -2 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={action.onClick}
+                      className="relative group"
+                    >
+                      {/* Modern glass card effect */}
+                      <div className="relative p-3 rounded-xl bg-gradient-to-br from-white/80 to-gray-50/50 backdrop-blur-sm border border-gray-200/50 hover:border-[#01b9d5]/30 transition-all duration-300 overflow-hidden">
+                        {/* Animated gradient background */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5]/0 via-[#01b9d5]/0 to-[#01b9d5]/0 group-hover:from-[#01b9d5]/5 group-hover:via-[#01b9d5]/10 group-hover:to-[#01b9d5]/5 transition-all duration-500" />
+                        
+                        {/* Floating orb effect */}
+                        <div className="absolute -top-4 -right-4 w-16 h-16 bg-[#01b9d5]/10 rounded-full blur-2xl group-hover:bg-[#01b9d5]/20 transition-all duration-500 group-hover:scale-150" />
+                        
+                        {/* Icon container with modern styling */}
+                        <div className="relative mb-2">
+                          <div className="w-10 h-10 mx-auto relative">
+                            {/* Icon glow effect */}
+                            <div className="absolute inset-0 bg-[#01b9d5]/20 rounded-lg blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                            {/* Icon background */}
+                            <div className="relative w-full h-full bg-gradient-to-br from-gray-100 to-gray-50 rounded-lg flex items-center justify-center group-hover:from-[#01b9d5]/10 group-hover:to-[#01b9d5]/5 transition-all duration-300">
+                              <action.icon className="w-4 h-4 text-gray-500 group-hover:text-[#01b9d5] transition-all duration-300 group-hover:scale-110" />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Compact label */}
+                        <p className="relative text-[11px] font-medium text-gray-600 group-hover:text-gray-800 transition-colors duration-300 leading-tight">
+                          {action.label}
+                        </p>
+                        
+                        {/* Modern hover indicator */}
+                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-gradient-to-r from-transparent via-[#01b9d5]/0 to-transparent group-hover:via-[#01b9d5]/40 transition-all duration-300" />
+                      </div>
+                      
+                      {/* Subtle shadow on hover */}
+                      <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg shadow-[#01b9d5]/10 pointer-events-none" />
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Recent Activity - THIRD */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+              className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 p-4 md:p-5"
             >
               <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <Activity className="w-5 h-5 text-[#01b9d5]" />
@@ -653,7 +861,7 @@ function Dashboard() {
                       key={activity.id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.3 + index * 0.05 }}
+                      transition={{ delay: 0.5 + index * 0.05 }}
                       className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       <div className={`p-2 rounded-lg bg-gray-100`}>
@@ -671,113 +879,6 @@ function Dashboard() {
                 )}
               </div>
             </motion.div>
-
-            {/* Critical Tasks */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-5"
-            >
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-amber-500" />
-                Pending Tasks
-              </h3>
-              <div className="space-y-3">
-                {labRequests.length > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg border border-amber-200">
-                    <div className="flex items-center gap-3">
-                      <FlaskConical className="w-5 h-5 text-amber-600" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">Lab Results Pending</p>
-                        <p className="text-xs text-gray-600">{labRequests.length} requests awaiting review</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => navigate('/requests')}
-                      className="text-xs font-medium text-amber-600 hover:text-amber-700"
-                    >
-                      Review →
-                    </button>
-                  </div>
-                )}
-                
-                {mediaRequests.length > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
-                    <div className="flex items-center gap-3">
-                      <FileText className="w-5 h-5 text-purple-600" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">Media Requests</p>
-                        <p className="text-xs text-gray-600">{mediaRequests.length} files pending</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => navigate('/requests')}
-                      className="text-xs font-medium text-purple-600 hover:text-purple-700"
-                    >
-                      View →
-                    </button>
-                  </div>
-                )}
-
-                {scheduledToday > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-3">
-                      <Clock className="w-5 h-5 text-blue-600" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">Upcoming Appointments</p>
-                        <p className="text-xs text-gray-600">{scheduledToday} scheduled for today</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => navigate('/appointments')}
-                      className="text-xs font-medium text-blue-600 hover:text-blue-700"
-                    >
-                      View All →
-                    </button>
-                  </div>
-                )}
-
-                {pendingRequests === 0 && scheduledToday === 0 && (
-                  <div className="text-center py-8">
-                    <CheckCircle2 className="w-12 h-12 text-green-500 mx-auto mb-3" />
-                    <p className="text-sm text-gray-500">All caught up! No pending tasks.</p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-
-            {/* Quick Actions */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4 }}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-5"
-            >
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <Zap className="w-5 h-5 text-[#01b9d5]" />
-                Quick Actions
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                {quickActions.map((action, index) => (
-                  <motion.button
-                    key={action.label}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.5 + index * 0.05 }}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={action.onClick}
-                    className="p-4 bg-gray-50 hover:bg-gray-100 rounded-lg border border-gray-200 transition-all group"
-                  >
-                    <div className={`w-10 h-10 bg-gradient-to-br ${action.color} rounded-lg flex items-center justify-center mx-auto mb-2 group-hover:shadow-lg transition-shadow`}>
-                      <action.icon className="w-5 h-5 text-white" />
-                    </div>
-                    <p className="text-sm font-medium text-gray-700">{action.label}</p>
-                  </motion.button>
-                ))}
-              </div>
-            </motion.div>
           </div>
         </div>
       </div>
@@ -791,7 +892,7 @@ function Dashboard() {
         <AddAppointmentForm
           onSuccess={() => {
             setIsAddAppointmentModalOpen(false);
-            fetchData();
+            // Real-time updates will handle the refresh
           }}
         />
       </FormModal>
@@ -829,7 +930,7 @@ function Dashboard() {
             onReschedule={() => {
               setIsRescheduleModalOpen(false);
               setSelectedAppointment(null);
-              fetchData();
+              // Real-time updates will handle the refresh
             }}
           />
 
@@ -843,7 +944,7 @@ function Dashboard() {
             onUpdate={() => {
               setIsActionModalOpen(false);
               setSelectedAppointment(null);
-              fetchData();
+              // Real-time updates will handle the refresh
             }}
             currentUserRole={currentUserRole}
             onStartVisit={handleStartVisit}
@@ -878,7 +979,8 @@ function Dashboard() {
           onClose={() => setShowGridView(false)}
         />
       )}
-    </div>
+      </div>
+    </AnimatedPageBackground>
   );
 }
 
