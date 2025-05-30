@@ -26,7 +26,7 @@ import Badge from '../components/ui/Badge';
 import { useNavigate } from 'react-router-dom';
 import { format, addDays, startOfWeek, addWeeks, subWeeks, parseISO, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, isToday, isSameMonth } from 'date-fns';
 import FormModal from '../components/modals/FormModal';
-import AddAppointmentForm from '../components/forms/AddAppointmentForm';
+import EnhancedAppointmentForm from '../components/forms/EnhancedAppointmentForm';
 import RescheduleAppointmentModal from '../components/modals/RescheduleAppointmentModal';
 import ModernWeekView from '../components/appointments/ModernWeekView';
 import DayTimelineView from '../components/appointments/DayTimelineView';
@@ -34,6 +34,8 @@ import AppointmentGridView from '../components/appointments/AppointmentGridView'
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { AnimatedPageBackground } from '../components/ui/AnimatedBackground';
+import WaitlistManager from '../components/appointments/WaitlistManager';
+import { Tabs, TabsList, TabsTrigger } from '../components/ui/Tabs';
 
 interface AppointmentStats {
   todayCount: number;
@@ -69,6 +71,7 @@ const Appointments: React.FC = () => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [showGridView, setShowGridView] = useState(false);
   const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress'>('pending');
+  const [activeTab, setActiveTab] = useState<'appointments' | 'waitlist'>('appointments');
   const { user } = useAuthStore();
   
   // Generate dates for week view
@@ -274,6 +277,28 @@ const Appointments: React.FC = () => {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="mb-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value: string) => setActiveTab(value as 'appointments' | 'waitlist')}
+          className="w-full"
+        >
+          <TabsList className="grid w-full grid-cols-2 max-w-md">
+            <TabsTrigger value="appointments" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Appointments
+            </TabsTrigger>
+            <TabsTrigger value="waitlist" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Waitlist
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {activeTab === 'appointments' ? (
+        <>
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
@@ -682,13 +707,18 @@ const Appointments: React.FC = () => {
         </CardContent>
       </Card>
 
+        </>
+      ) : (
+        <WaitlistManager />
+      )}
+
       {/* Add Appointment Modal */}
       <FormModal
         isOpen={isAddAppointmentModalOpen}
         onClose={() => setIsAddAppointmentModalOpen(false)}
         title="Schedule New Appointment"
       >
-        <AddAppointmentForm 
+        <EnhancedAppointmentForm 
           onSuccess={() => {
             setIsAddAppointmentModalOpen(false);
             fetchAppointments();
