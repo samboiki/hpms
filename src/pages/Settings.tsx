@@ -7,13 +7,11 @@ import {
   Globe, 
   HardDrive,
   CheckCircle2,
-  Lock,
-  MessageSquare
+  Lock
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { useAuthStore } from '../stores/authStore';
-import ReminderSettings from '../components/settings/ReminderSettings';
 
 const Settings: React.FC = () => {
   const { user } = useAuthStore();
@@ -332,16 +330,11 @@ const Settings: React.FC = () => {
           )}
           
           {activeTab === 'notifications' && (
-            <div className="space-y-6">
-              {/* SMS & Reminder Configuration */}
-              <ReminderSettings />
-              
-              {/* Original Notification Preferences */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Notification Preferences</CardTitle>
-                </CardHeader>
-                <CardContent>
+            <Card>
+              <CardHeader>
+                <CardTitle>Notification Preferences</CardTitle>
+              </CardHeader>
+              <CardContent>
                 <div className="space-y-6">
                   <div>
                     <h3 className="text-sm font-medium text-gray-900 mb-3">Appointment Notifications</h3>
@@ -481,7 +474,6 @@ const Settings: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-            </div>
           )}
           
           {activeTab === 'system' && (

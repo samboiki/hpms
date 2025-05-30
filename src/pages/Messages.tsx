@@ -22,7 +22,7 @@ import Workflows from '../components/messages/Workflows';
 import CommunicationHistory from '../components/messages/CommunicationHistory';
 import Analytics from '../components/messages/Analytics';
 import InboxComponent from '../components/messages/Inbox';
-import SettingsComponent from '../components/messages/Settings';
+import EnhancedSettings from '../components/messages/EnhancedSettings';
 import AIAssistant from '../components/messages/AIAssistant';
 
 type TabType = 'compose' | 'templates' | 'workflows' | 'history' | 'analytics' | 'inbox' | 'settings' | 'ai-assistant';
@@ -213,7 +213,7 @@ const Messages: React.FC = () => {
               {activeTab === 'history' && <CommunicationHistory />}
               {activeTab === 'analytics' && <Analytics />}
               {activeTab === 'ai-assistant' && <AIAssistant />}
-              {activeTab === 'settings' && <SettingsComponent />}
+              {activeTab === 'settings' && <EnhancedSettings />}
             </div>
           </div>
         </motion.div>
