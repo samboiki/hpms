@@ -23,6 +23,7 @@ import {
   Phone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Compose from './Compose';
 
 interface QuickAction {
   id: string;
@@ -64,6 +65,7 @@ const CommunicationHub: React.FC = () => {
   const [setupStatus, setSetupStatus] = useState<Record<string, 'not_setup' | 'active' | 'inactive'>>({});
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showCompose, setShowCompose] = useState(false);
 
   // Quick Setup Actions
   const quickActions: QuickAction[] = [
@@ -256,6 +258,7 @@ const CommunicationHub: React.FC = () => {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            onClick={() => setShowCompose(true)}
             className="bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:shadow-lg transition-all duration-300"
           >
             <Send className="w-4 h-4" />
@@ -619,6 +622,13 @@ const CommunicationHub: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Compose Modal */}
+      {showCompose && (
+        <div className="fixed inset-0" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999 }}>
+          <Compose onClose={() => setShowCompose(false)} />
+        </div>
+      )}
     </div>
   );
 };

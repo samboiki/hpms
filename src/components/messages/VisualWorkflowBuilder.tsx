@@ -72,24 +72,83 @@ const VisualWorkflowBuilder: React.FC<{ onClose: () => void }> = ({ onClose }) =
   ];
 
   const templates = [
-    { id: 'reminder_sms', name: 'Appointment Reminder SMS', type: 'SMS', icon: MessageSquare },
-    { id: 'reminder_email', name: 'Appointment Reminder Email', type: 'EMAIL', icon: Mail },
-    { id: 'birthday_sms', name: 'Birthday Greeting SMS', type: 'SMS', icon: MessageSquare },
-    { id: 'birthday_email', name: 'Birthday Greeting Email', type: 'EMAIL', icon: Mail },
-    { id: 'followup_email', name: 'Follow-up Care Email', type: 'EMAIL', icon: Mail },
-    { id: 'payment_sms', name: 'Payment Reminder SMS', type: 'SMS', icon: MessageSquare }
+    // Appointment templates
+    { id: 'reminder_sms', name: 'Appointment Reminder SMS', type: 'SMS', icon: MessageSquare, triggers: ['appointment_scheduled', 'appointment_reminder'] },
+    { id: 'reminder_email', name: 'Appointment Reminder Email', type: 'EMAIL', icon: Mail, triggers: ['appointment_scheduled', 'appointment_reminder'] },
+    { id: 'confirmation_sms', name: 'Appointment Confirmation SMS', type: 'SMS', icon: MessageSquare, triggers: ['appointment_scheduled'] },
+    
+    // Birthday templates
+    { id: 'birthday_sms', name: 'Birthday Greeting SMS', type: 'SMS', icon: MessageSquare, triggers: ['patient_birthday'] },
+    { id: 'birthday_email', name: 'Birthday Special Offer Email', type: 'EMAIL', icon: Mail, triggers: ['patient_birthday'] },
+    
+    // Visit/Follow-up templates
+    { id: 'followup_email', name: 'Post-Visit Follow-up Email', type: 'EMAIL', icon: Mail, triggers: ['visit_completed'] },
+    { id: 'followup_sms', name: 'Care Instructions SMS', type: 'SMS', icon: MessageSquare, triggers: ['visit_completed'] },
+    { id: 'satisfaction_email', name: 'Visit Satisfaction Survey', type: 'EMAIL', icon: Mail, triggers: ['visit_completed'] },
+    
+    // Payment templates
+    { id: 'payment_sms', name: 'Payment Due SMS', type: 'SMS', icon: MessageSquare, triggers: ['payment_due'] },
+    { id: 'payment_email', name: 'Payment Reminder Email', type: 'EMAIL', icon: Mail, triggers: ['payment_due'] },
+    { id: 'payment_options', name: 'Payment Plan Options Email', type: 'EMAIL', icon: Mail, triggers: ['payment_due'] },
+    
+    // Screening templates
+    { id: 'screening_sms', name: 'Health Screening Reminder SMS', type: 'SMS', icon: MessageSquare, triggers: ['screening_due'] },
+    { id: 'screening_email', name: 'Annual Checkup Reminder Email', type: 'EMAIL', icon: Mail, triggers: ['screening_due'] }
   ];
 
-  const timingPresets = [
-    { label: 'Immediately', when: 'immediate', value: 0, unit: 'minutes' },
-    { label: '30 minutes before', when: 'before', value: 30, unit: 'minutes' },
-    { label: '1 hour before', when: 'before', value: 1, unit: 'hours' },
-    { label: '2 hours before', when: 'before', value: 2, unit: 'hours' },
-    { label: '24 hours before', when: 'before', value: 24, unit: 'hours' },
-    { label: '1 day after', when: 'after', value: 1, unit: 'days' },
-    { label: '3 days after', when: 'after', value: 3, unit: 'days' },
-    { label: '1 week after', when: 'after', value: 7, unit: 'days' }
-  ];
+  const getTimingPresets = (trigger: string) => {
+    switch (trigger) {
+      case 'appointment_scheduled':
+      case 'appointment_reminder':
+        return [
+          { label: 'Immediately', when: 'immediate', value: 0, unit: 'minutes' },
+          { label: '1 week before', when: 'before', value: 7, unit: 'days' },
+          { label: '3 days before', when: 'before', value: 3, unit: 'days' },
+          { label: '24 hours before', when: 'before', value: 24, unit: 'hours' },
+          { label: '2 hours before', when: 'before', value: 2, unit: 'hours' }
+        ];
+      
+      case 'patient_birthday':
+        return [
+          { label: 'On birthday at 9 AM', when: 'immediate', value: 0, unit: 'minutes' },
+          { label: '1 day before', when: 'before', value: 1, unit: 'days' },
+          { label: '1 week before', when: 'before', value: 7, unit: 'days' }
+        ];
+      
+      case 'visit_completed':
+        return [
+          { label: 'Immediately', when: 'immediate', value: 0, unit: 'minutes' },
+          { label: '1 hour after', when: 'after', value: 1, unit: 'hours' },
+          { label: '1 day after', when: 'after', value: 1, unit: 'days' },
+          { label: '3 days after', when: 'after', value: 3, unit: 'days' },
+          { label: '1 week after', when: 'after', value: 7, unit: 'days' }
+        ];
+      
+      case 'payment_due':
+        return [
+          { label: '3 days before due', when: 'before', value: 3, unit: 'days' },
+          { label: '1 day before due', when: 'before', value: 1, unit: 'days' },
+          { label: 'On due date', when: 'immediate', value: 0, unit: 'minutes' },
+          { label: '7 days after due', when: 'after', value: 7, unit: 'days' },
+          { label: '14 days after due', when: 'after', value: 14, unit: 'days' },
+          { label: '30 days after due', when: 'after', value: 30, unit: 'days' }
+        ];
+      
+      case 'screening_due':
+        return [
+          { label: '1 month before', when: 'before', value: 30, unit: 'days' },
+          { label: '2 weeks before', when: 'before', value: 14, unit: 'days' },
+          { label: '1 week before', when: 'before', value: 7, unit: 'days' },
+          { label: 'On due date', when: 'immediate', value: 0, unit: 'minutes' }
+        ];
+      
+      default:
+        return [
+          { label: 'Immediately', when: 'immediate', value: 0, unit: 'minutes' },
+          { label: '1 day after', when: 'after', value: 1, unit: 'days' }
+        ];
+    }
+  };
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
@@ -154,41 +213,50 @@ const VisualWorkflowBuilder: React.FC<{ onClose: () => void }> = ({ onClose }) =
             </div>
             
             <div className="space-y-3">
-              {templates.map((template) => {
-                const Icon = template.icon;
-                return (
-                  <motion.button
-                    key={template.id}
-                    whileHover={{ scale: 1.01 }}
-                    whileTap={{ scale: 0.99 }}
-                    onClick={() => {
-                      setWorkflowData({ ...workflowData, template: template.id });
-                      handleNext();
-                    }}
-                    className={`w-full p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${
-                      workflowData.template === template.id
-                        ? 'border-[#01b9d5] bg-[#01b9d5]/10'
-                        : 'border-gray-200 hover:border-gray-300 bg-white'
-                    }`}
-                  >
-                    <Icon className={`w-6 h-6 ${
-                      template.type === 'SMS' ? 'text-purple-500' : 'text-blue-500'
-                    }`} />
-                    <div className="text-left flex-1">
-                      <p className="font-medium text-gray-900">{template.name}</p>
-                      <p className="text-sm text-gray-600">{template.type}</p>
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      template.type === 'SMS' 
-                        ? 'bg-purple-100 text-purple-700'
-                        : 'bg-blue-100 text-blue-700'
-                    }`}>
-                      {template.type}
-                    </span>
-                  </motion.button>
-                );
-              })}
+              {templates
+                .filter(template => template.triggers.includes(workflowData.trigger))
+                .map((template) => {
+                  const Icon = template.icon;
+                  return (
+                    <motion.button
+                      key={template.id}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                      onClick={() => {
+                        setWorkflowData({ ...workflowData, template: template.id });
+                        handleNext();
+                      }}
+                      className={`w-full p-4 rounded-xl border-2 transition-all flex items-center gap-4 ${
+                        workflowData.template === template.id
+                          ? 'border-[#01b9d5] bg-[#01b9d5]/10'
+                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                      }`}
+                    >
+                      <Icon className={`w-6 h-6 ${
+                        template.type === 'SMS' ? 'text-purple-500' : 'text-blue-500'
+                      }`} />
+                      <div className="text-left flex-1">
+                        <p className="font-medium text-gray-900">{template.name}</p>
+                        <p className="text-sm text-gray-600">{template.type}</p>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        template.type === 'SMS' 
+                          ? 'bg-purple-100 text-purple-700'
+                          : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {template.type}
+                      </span>
+                    </motion.button>
+                  );
+                })}
             </div>
+            
+            {templates.filter(template => template.triggers.includes(workflowData.trigger)).length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <p>No templates available for this trigger.</p>
+                <p className="text-sm mt-2">Please select a different trigger.</p>
+              </div>
+            )}
           </div>
         );
 
@@ -201,7 +269,7 @@ const VisualWorkflowBuilder: React.FC<{ onClose: () => void }> = ({ onClose }) =
             </div>
             
             <div className="grid grid-cols-2 gap-3">
-              {timingPresets.map((preset) => (
+              {getTimingPresets(workflowData.trigger).map((preset) => (
                 <motion.button
                   key={preset.label}
                   whileHover={{ scale: 1.02 }}
