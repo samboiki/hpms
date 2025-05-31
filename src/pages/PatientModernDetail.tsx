@@ -83,6 +83,8 @@ const PatientModernDetail = () => {
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [isVisitDetailModalOpen, setIsVisitDetailModalOpen] = useState(false);
   const [isEditVisitModalOpen, setIsEditVisitModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -228,7 +230,7 @@ const PatientModernDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-gray-100 via-gray-200 to-gray-300 relative overflow-hidden">
       {/* Premium mesh gradient background */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-50/50 via-transparent to-transparent"></div>
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-purple-50/30 via-transparent to-transparent"></div>
@@ -250,7 +252,7 @@ const PatientModernDetail = () => {
           animate={{ opacity: 1, y: 0 }}
           className="relative overflow-hidden"
         >
-          <div className="relative backdrop-blur-xl bg-white/80 border border-white/60 rounded-3xl shadow-xl overflow-hidden">
+          <div className="relative backdrop-blur-xl bg-white/95 border-2 border-[#01b9d5]/30 rounded-3xl shadow-2xl overflow-hidden">
             {/* Gradient mesh background */}
             <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5]/5 via-transparent to-purple-600/5"></div>
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/40 via-transparent to-transparent"></div>
@@ -380,9 +382,21 @@ const PatientModernDetail = () => {
                     </div>
                   </div>
                 </div>
+                
+                {/* View Profile Button */}
+                <div className="mt-4 flex justify-center">
+                  <motion.button
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsProfileModalOpen(true)}
+                    className="px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-2xl transition-all duration-300 text-sm font-semibold"
+                  >
+                    <User className="w-4 h-4" />
+                    View Full Profile
+                  </motion.button>
+                </div>
               </div>
             )}
-            </div>
           </div>
         </motion.div>
 
@@ -601,6 +615,7 @@ const PatientModernDetail = () => {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
+                      onClick={() => setIsSmsModalOpen(true)}
                       className="flex-1 p-2 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-lg font-medium text-xs shadow-md hover:shadow-lg transition-all duration-300"
                     >
                       Quick Contact
@@ -627,11 +642,12 @@ const PatientModernDetail = () => {
               transition={{ delay: 0.2 }}
               className="relative overflow-hidden"
             >
-              {/* Background effects */}
-              <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-gray-900/50 to-blue-900/20 rounded-2xl"></div>
-              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-[#01b9d5]/10 to-purple-500/10 rounded-full blur-3xl"></div>
+              {/* Premium Background Effects */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white via-gray-50/50 to-blue-50/30 rounded-2xl"></div>
+              <div className="absolute top-0 right-0 w-72 h-72 bg-gradient-to-br from-[#01b9d5]/5 to-purple-500/5 rounded-full blur-3xl animate-float-slow"></div>
+              <div className="absolute bottom-0 left-0 w-60 h-60 bg-gradient-to-br from-emerald-500/5 to-cyan-500/5 rounded-full blur-2xl animate-float-delayed"></div>
               
-              <div className="relative backdrop-blur-xl bg-white/10 border border-white/10 rounded-2xl shadow-xl p-6">
+              <div className="relative backdrop-blur-xl bg-white/95 border border-gray-200/50 rounded-2xl shadow-xl p-6">
                 {/* Enhanced Header */}
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-4">
@@ -639,10 +655,10 @@ const PatientModernDetail = () => {
                       <Activity className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                      <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
                         Medical Timeline
                       </h2>
-                      <p className="text-sm text-gray-400 font-medium">
+                      <p className="text-sm text-gray-500 font-medium">
                         {visits.length} visits • Comprehensive care history
                       </p>
                     </div>
@@ -653,11 +669,11 @@ const PatientModernDetail = () => {
                       whileHover={{ scale: 1.02 }}
                       className="relative"
                     >
-                      <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
                       <input
                         type="text"
                         placeholder="Search timeline..."
-                        className="pl-10 pr-4 py-2.5 text-sm bg-white/10 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#01b9d4]/30 focus:border-[#01b9d4] transition-all backdrop-blur-sm shadow-sm text-white placeholder:text-gray-400"
+                        className="pl-10 pr-4 py-2.5 text-sm bg-white/80 border border-gray-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#01b9d4]/30 focus:border-[#01b9d4] transition-all backdrop-blur-sm shadow-sm text-gray-700 placeholder:text-gray-400"
                       />
                     </motion.div>
                   </div>
@@ -690,18 +706,18 @@ const PatientModernDetail = () => {
 
                       {/* Visit card with premium design */}
                       <div 
-                        className={`relative ml-16 p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 group-hover:shadow-2xl ${
-                          visit.status === 'completed' ? 'bg-gradient-to-br from-emerald-500/10 via-white/5 to-emerald-500/5 border-emerald-500/30 group-hover:border-emerald-400' :
-                          visit.status === 'in-progress' ? 'bg-gradient-to-br from-amber-500/10 via-white/5 to-orange-500/5 border-amber-500/30 group-hover:border-amber-400' :
-                          'bg-gradient-to-br from-gray-500/10 via-white/5 to-slate-500/5 border-gray-500/30 group-hover:border-gray-400'
-                        } backdrop-blur-sm`}
+                        className={`relative ml-16 p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 group-hover:shadow-2xl backdrop-blur-sm ${
+                          visit.status === 'completed' ? 'bg-white/95 border-emerald-200 group-hover:border-emerald-300 shadow-emerald-100/50' :
+                          visit.status === 'in-progress' ? 'bg-white/95 border-amber-200 group-hover:border-amber-300 shadow-amber-100/50' :
+                          'bg-white/95 border-gray-200 group-hover:border-gray-300 shadow-gray-100/50'
+                        }`}
                         onClick={() => handleVisitClick(visit.id)}
                       >
                         {/* Card header */}
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
-                              <h3 className="text-lg font-bold text-white">
+                              <h3 className="text-lg font-bold text-gray-800">
                                 {visit.visit_type}
                               </h3>
                               <Badge 
@@ -715,16 +731,16 @@ const PatientModernDetail = () => {
                             
                             <div className="flex items-center gap-4 text-sm text-gray-600">
                               <div className="flex items-center gap-2">
-                                <Calendar className="w-4 h-4 text-gray-400" />
-                                <span className="font-medium text-gray-300">{format(new Date(visit.visit_date), 'MMM d, yyyy')}</span>
+                                <Calendar className="w-4 h-4 text-gray-500" />
+                                <span className="font-medium text-gray-600">{format(new Date(visit.visit_date), 'MMM d, yyyy')}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-gray-400" />
-                                <span className="font-medium text-gray-300">{visit.visit_time}</span>
+                                <Clock className="w-4 h-4 text-gray-500" />
+                                <span className="font-medium text-gray-600">{visit.visit_time}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <User className="w-4 h-4 text-gray-400" />
-                                <span className="font-medium text-gray-300">Dr. {visit.doctor_name}</span>
+                                <User className="w-4 h-4 text-gray-500" />
+                                <span className="font-medium text-gray-600">Dr. {visit.doctor_name}</span>
                               </div>
                             </div>
                           </div>
@@ -739,9 +755,9 @@ const PatientModernDetail = () => {
                         
                         {/* Chief complaint with enhanced styling */}
                         {visit.chief_complaint && (
-                          <div className="mb-4 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
-                            <p className="text-sm text-gray-300">
-                              <span className="font-semibold text-white">Chief Complaint: </span>
+                          <div className="mb-4 p-4 bg-gray-50/80 backdrop-blur-sm rounded-xl border border-gray-100">
+                            <p className="text-sm text-gray-700">
+                              <span className="font-semibold text-gray-800">Chief Complaint: </span>
                               {visit.chief_complaint}
                             </p>
                           </div>
@@ -752,22 +768,22 @@ const PatientModernDetail = () => {
                           <div className="flex items-center gap-3">
                             <motion.div 
                               whileHover={{ scale: 1.05 }}
-                              className="flex items-center gap-2 px-3 py-1.5 bg-white/70 rounded-full text-xs font-medium text-gray-600 shadow-sm"
+                              className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-50 to-purple-100 rounded-full text-xs font-medium text-purple-700 shadow-sm border border-purple-200"
                             >
-                              <Microscope className="w-3.5 h-3.5 text-purple-500" />
+                              <Microscope className="w-3.5 h-3.5 text-purple-600" />
                               <span>2 Lab Results</span>
                             </motion.div>
                             <motion.div 
                               whileHover={{ scale: 1.05 }}
-                              className="flex items-center gap-2 px-3 py-1.5 bg-white/70 rounded-full text-xs font-medium text-gray-600 shadow-sm"
+                              className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-blue-100 rounded-full text-xs font-medium text-blue-700 shadow-sm border border-blue-200"
                             >
-                              <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
+                              <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
                               <span>3 Images</span>
                             </motion.div>
                             {visit.diagnosis && (
                               <motion.div 
                                 whileHover={{ scale: 1.05 }}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-white/70 rounded-full text-xs font-medium text-gray-600 shadow-sm"
+                                className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-full text-xs font-medium text-emerald-700 shadow-sm border border-emerald-200"
                               >
                                 <Stethoscope className="w-3.5 h-3.5 text-emerald-500" />
                                 <span>Diagnosis</span>
@@ -820,8 +836,8 @@ const PatientModernDetail = () => {
                       <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                         <Activity className="w-10 h-10 text-gray-400" />
                       </div>
-                      <h3 className="text-lg font-semibold text-gray-300 mb-2">No visits recorded yet</h3>
-                      <p className="text-sm text-gray-400">Patient's medical timeline will appear here</p>
+                      <h3 className="text-lg font-semibold text-gray-600 mb-2">No visits recorded yet</h3>
+                      <p className="text-sm text-gray-500">Patient's medical timeline will appear here</p>
                     </motion.div>
                   )}
                 </div>
@@ -1144,6 +1160,113 @@ const PatientModernDetail = () => {
             }
           }}
         />
+      </FormModal>
+
+      {/* Patient Profile Modal */}
+      <FormModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        title="Patient Profile Details"
+        className="max-w-4xl"
+      >
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-800">Personal Information</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Full Name</label>
+                  <p className="text-gray-800">{patient?.first_name} {patient?.last_name}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Email</label>
+                  <p className="text-gray-800">{patient?.email}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Phone</label>
+                  <p className="text-gray-800">{patient?.cell_number}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Date of Birth</label>
+                  <p className="text-gray-800">{patient?.date_of_birth}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Gender</label>
+                  <p className="text-gray-800">{patient?.gender}</p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-800">Medical Summary</h3>
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600">
+                  Patient has {visits.length} recorded visits. Latest vitals show normal readings across all parameters.
+                  Recommend regular check-ups and continued monitoring.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </FormModal>
+
+      {/* SMS Quick Contact Modal */}
+      <FormModal
+        isOpen={isSmsModalOpen}
+        onClose={() => setIsSmsModalOpen(false)}
+        title="Send SMS to Next of Kin"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Recipient: Sarah Smith (Next of Kin)
+            </label>
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-700">+1 234 567 8900</p>
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Message Template
+            </label>
+            <select className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30">
+              <option>Appointment Reminder</option>
+              <option>Test Results Available</option>
+              <option>Emergency Contact</option>
+              <option>Custom Message</option>
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Message
+            </label>
+            <textarea
+              rows={4}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30"
+              placeholder="Type your message here..."
+              defaultValue="Hello Sarah, this is regarding {patient?.first_name} {patient?.last_name}'s medical care. Please contact us at your earliest convenience."
+            />
+          </div>
+          
+          <div className="flex gap-3 pt-4">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setIsSmsModalOpen(false)}
+              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Cancel
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex-1 px-4 py-2 bg-gradient-to-r from-[#01b9d5] to-purple-600 text-white rounded-lg shadow-lg hover:shadow-xl transition-all"
+            >
+              Send SMS
+            </motion.button>
+          </div>
+        </div>
       </FormModal>
       </div>
     </div>

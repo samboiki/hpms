@@ -94,14 +94,37 @@ describe('PatientModernDetail', () => {
     expect(screen.getByText('Start Next Visit')).toBeInTheDocument();
   });
 
-  it('renders visit history section', async () => {
+  it('renders medical timeline section', async () => {
     render(<PatientModernDetailWrapper />);
     
     // Wait for the component to load
-    await screen.findByText('Visit History');
+    await screen.findByText('Medical Timeline');
     
-    // Check if visit history elements are present
-    expect(screen.getByText('Visit History')).toBeInTheDocument();
+    // Check if medical timeline elements are present
+    expect(screen.getByText('Medical Timeline')).toBeInTheDocument();
+    expect(screen.getByText('Comprehensive care history')).toBeInTheDocument();
+  });
+
+  it('renders minified vitals widget', async () => {
+    render(<PatientModernDetailWrapper />);
+    
+    // Wait for the component to load
+    await screen.findByText('Vitals');
+    
+    // Check if minified vitals elements are present
+    expect(screen.getByText('Vitals')).toBeInTheDocument();
+    expect(screen.getByText('Latest readings')).toBeInTheDocument();
+    expect(screen.getByText('View Full Report')).toBeInTheDocument();
+  });
+
+  it('does not render quick actions panel', async () => {
+    render(<PatientModernDetailWrapper />);
+    
+    // Wait for the component to load and ensure Quick Actions is not present
+    await screen.findByText('Medical Timeline');
+    
+    // Check that quick actions panel has been removed
+    expect(screen.queryByText('Quick Actions')).not.toBeInTheDocument();
   });
 
   it('handles loading state properly', () => {
