@@ -386,48 +386,74 @@ const PracticeProfile: React.FC = () => {
             </CardContent>
           </Card>
           
-          <Card>
-            <CardHeader>
-              <CardTitle>Staff Availability</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {practiceData.staff
-                  .filter(s => s.role.includes('Physician') || s.role.includes('Doctor'))
-                  .map((staff) => (
-                    <div key={staff.id} className="flex justify-between items-center py-2 border-b border-gray-100">
-                      <div className="flex items-center">
-                        {staff.avatar ? (
-                          <img 
-                            src={staff.avatar} 
-                            alt={staff.name}
-                            className="w-10 h-10 rounded-full object-cover mr-3"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                            <User size={16} className="text-gray-400" />
-                          </div>
-                        )}
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-900">{staff.name}</h4>
-                          <p className="text-xs text-gray-500">{staff.specialty}</p>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-white rounded-xl shadow-lg border border-gray-200 p-6"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Users className="w-5 h-5 text-[#01b9d5]" />
+                Staff Availability
+              </h3>
+            </div>
+            
+            <div className="space-y-4">
+              {practiceData.staff
+                .filter(s => s.role.includes('Physician') || s.role.includes('Doctor'))
+                .map((staff, index) => (
+                  <motion.div 
+                    key={staff.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center">
+                      {staff.avatar ? (
+                        <img 
+                          src={staff.avatar} 
+                          alt={staff.name}
+                          className="w-12 h-12 rounded-full object-cover mr-3 border-2 border-[#01b9d5]/20"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-full flex items-center justify-center mr-3">
+                          <User size={20} className="text-white" />
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="font-medium text-gray-900">{staff.name}</h4>
+                        <p className="text-sm text-gray-500">{staff.specialty}</p>
+                        <div className="flex items-center gap-1 mt-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          <span className="text-xs text-green-600">Available</span>
                         </div>
                       </div>
-                      <Button variant="outline" size="sm">
-                        <Calendar size={14} className="mr-2" />
-                        Schedule
-                      </Button>
                     </div>
-                  ))
-                }
-              </div>
-              <div className="text-center mt-6">
-                <Button>
-                  Manage All Schedules
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex items-center gap-2 px-3 py-2 border border-[#01b9d5] text-[#01b9d5] rounded-lg hover:bg-[#01b9d5]/5 transition-colors"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      Schedule
+                    </motion.button>
+                  </motion.div>
+                ))
+              }
+            </div>
+            
+            <div className="text-center mt-6">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="px-6 py-3 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg font-medium hover:shadow-lg transition-all duration-300"
+              >
+                Manage All Schedules
+              </motion.button>
+            </div>
+          </motion.div>
         </div>
       )}
     </div>
