@@ -2,33 +2,28 @@ import React, { useState } from 'react';
 import { 
   Send, 
   Settings, 
-  FileText, 
   Zap, 
-  History, 
   BarChart3,
   CheckCircle,
   XCircle,
   Plus,
-  Inbox,
-  BrainCircuit,
   MessageSquare,
   Mail,
-  Sparkles
+  Sparkles,
+  TrendingUp,
+  Inbox
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import Compose from '../components/messages/Compose';
-import Templates from '../components/messages/Templates';
-import Workflows from '../components/messages/Workflows';
-import CommunicationHistory from '../components/messages/CommunicationHistory';
+import CommunicationHub from '../components/messages/CommunicationHub';
+import SmartAutomations from '../components/messages/SmartAutomations';
 import Analytics from '../components/messages/Analytics';
 import InboxComponent from '../components/messages/Inbox';
-import EnhancedSettings from '../components/messages/EnhancedSettings';
-import AIAssistant from '../components/messages/AIAssistant';
+import SettingsComponent from '../components/messages/Settings';
 
-type TabType = 'compose' | 'templates' | 'workflows' | 'history' | 'analytics' | 'inbox' | 'settings' | 'ai-assistant';
+type TabType = 'hub' | 'automations' | 'inbox' | 'performance' | 'settings';
 
 const Messages: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('compose');
+  const [activeTab, setActiveTab] = useState<TabType>('hub');
 
   const stats = [
     {
@@ -66,13 +61,10 @@ const Messages: React.FC = () => {
   ];
 
   const tabs = [
-    { id: 'compose', label: 'Compose', icon: Send, description: 'Send messages' },
-    { id: 'inbox', label: 'Inbox', icon: Inbox, description: 'View replies' },
-    { id: 'templates', label: 'Templates', icon: FileText, description: 'Message templates' },
-    { id: 'workflows', label: 'Workflows', icon: Zap, description: 'Automations' },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3, description: 'Performance' },
-    { id: 'history', label: 'History', icon: History, description: 'Past messages' },
-    { id: 'ai-assistant', label: 'AI Assistant', icon: BrainCircuit, description: 'Smart suggestions' },
+    { id: 'hub', label: 'Communication Hub', icon: Sparkles, description: 'Dashboard & Quick Setup' },
+    { id: 'automations', label: 'Smart Automations', icon: Zap, description: 'Templates & Workflows' },
+    { id: 'inbox', label: 'Inbox', icon: Inbox, description: 'View Replies' },
+    { id: 'performance', label: 'Performance', icon: BarChart3, description: 'Analytics' },
     { id: 'settings', label: 'Settings', icon: Settings, description: 'Configuration' }
   ];
 
@@ -100,61 +92,58 @@ const Messages: React.FC = () => {
             </div>
           </div>
           
-          <div className="relative p-6 md:p-8">
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-6 md:mb-8">
-              <div className="flex items-center gap-4 md:gap-6">
+          <div className="relative p-4 md:p-6">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-3 md:gap-4">
                 <img 
                   src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=100&h=100&fit=crop"
                   alt="Healthcare communication"
-                  className="w-16 h-16 md:w-20 md:h-20 rounded-2xl object-cover shadow-xl border-4 border-white/20"
+                  className="w-12 h-12 md:w-16 md:h-16 rounded-xl object-cover shadow-lg border-2 border-white/20"
                 />
                 <div>
-                  <h1 className="text-[24px] md:text-[30px] font-bold font-heading text-white mb-1 md:mb-2">Communication Center</h1>
-                  <p className="text-sm md:text-lg text-white/90 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 md:w-5 md:h-5 text-yellow-300" />
-                    <span className="hidden md:inline">Elevate your patient engagement with intelligent messaging</span>
-                    <span className="md:hidden">Smart patient messaging</span>
+                  <h1 className="text-[20px] md:text-[24px] font-bold font-heading text-white mb-1">Communication Center</h1>
+                  <p className="text-xs md:text-sm text-white/90 flex items-center gap-2">
+                    <Sparkles className="w-3 h-3 md:w-4 md:h-4 text-yellow-300" />
+                    <span className="hidden md:inline">Smart patient messaging</span>
+                    <span className="md:hidden">Patient messaging</span>
                   </p>
                 </div>
               </div>
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                className="w-full lg:w-auto bg-white/20 backdrop-blur-sm border border-white/30 text-white px-4 md:px-6 py-2 md:py-3 rounded-xl flex items-center justify-center gap-2 md:gap-3 hover:bg-white/30 hover:shadow-xl transition-all duration-300 font-medium"
-                onClick={() => setActiveTab('compose')}
+                className="w-full lg:w-auto bg-white/20 backdrop-blur-sm border border-white/30 text-white px-3 md:px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-white/30 hover:shadow-lg transition-all duration-300 font-medium text-sm"
+                onClick={() => setActiveTab('hub')}
               >
-                <Plus className="w-4 h-4 md:w-5 md:h-5" />
-                <span className="text-sm md:text-base">Compose Message</span>
+                <Plus className="w-4 h-4" />
+                <span>Compose Message</span>
               </motion.button>
             </div>
 
-            {/* Premium Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Compact Stats Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {stats.map((stat, index) => (
                 <motion.div
                   key={stat.label}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="relative group"
+                  className="relative bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 hover:bg-white/15 transition-all duration-300"
                 >
-                  <div className={`absolute inset-0 bg-gradient-to-r opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${stat.gradient} rounded-xl blur`}></div>
-                  <div className="relative bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 hover:bg-white/15 transition-all duration-300">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className={`p-3 bg-gradient-to-br ${stat.gradient} rounded-lg`}>
-                        <stat.icon className="w-6 h-6 text-white" />
-                      </div>
-                      <span className={`text-sm font-semibold ${
-                        stat.trend === 'up' ? 'text-emerald-400' : 
-                        stat.trend === 'down' ? 'text-rose-400' : 
-                        'text-gray-400'
-                      }`}>
-                        {stat.change}
-                      </span>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className={`p-2 bg-gradient-to-br ${stat.gradient} rounded-md`}>
+                      <stat.icon className="w-4 h-4 text-white" />
                     </div>
-                    <p className="text-3xl font-bold text-white mb-1">{stat.value}</p>
-                    <p className="text-sm text-gray-300">{stat.label}</p>
+                    <span className={`text-xs font-semibold ${
+                      stat.trend === 'up' ? 'text-emerald-400' : 
+                      stat.trend === 'down' ? 'text-rose-400' : 
+                      'text-gray-400'
+                    }`}>
+                      {stat.change}
+                    </span>
                   </div>
+                  <p className="text-lg md:text-xl font-bold text-white mb-1">{stat.value}</p>
+                  <p className="text-xs text-gray-300">{stat.label}</p>
                 </motion.div>
               ))}
             </div>
@@ -162,7 +151,7 @@ const Messages: React.FC = () => {
         </div>
 
         {/* Premium Navigation Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
           {tabs.map((tab, index) => (
             <motion.button
               key={tab.id}
@@ -172,18 +161,20 @@ const Messages: React.FC = () => {
               whileHover={{ y: -5 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => setActiveTab(tab.id as TabType)}
-              className={`relative p-3 md:p-4 rounded-xl md:rounded-2xl transition-all duration-300 ${
+              className={`relative p-4 md:p-6 rounded-xl md:rounded-2xl transition-all duration-300 ${
                 activeTab === tab.id
                   ? 'bg-gradient-to-br from-[#01b9d4] to-purple-600 text-white shadow-xl scale-105'
                   : 'bg-white/80 backdrop-blur-sm hover:bg-white text-gray-700 shadow-md hover:shadow-xl border border-gray-200/50'
               }`}
             >
-              <div className="flex flex-col items-center gap-1 md:gap-2">
-                <tab.icon className={`w-5 h-5 md:w-6 md:h-6 ${activeTab === tab.id ? 'text-white' : 'text-gray-600'}`} />
-                <span className="text-xs md:text-sm font-semibold">{tab.label}</span>
-                <span className={`text-[10px] md:text-xs hidden sm:block ${activeTab === tab.id ? 'text-white/80' : 'text-gray-500'}`}>
-                  {tab.description}
-                </span>
+              <div className="flex flex-col items-center gap-2 md:gap-3 text-center">
+                <tab.icon className={`w-6 h-6 md:w-8 md:h-8 ${activeTab === tab.id ? 'text-white' : 'text-gray-600'}`} />
+                <div>
+                  <span className="text-sm md:text-base font-semibold block">{tab.label}</span>
+                  <span className={`text-xs ${activeTab === tab.id ? 'text-white/80' : 'text-gray-500'} block mt-1`}>
+                    {tab.description}
+                  </span>
+                </div>
               </div>
               {activeTab === tab.id && (
                 <motion.div
@@ -206,14 +197,11 @@ const Messages: React.FC = () => {
         >
           <div className="bg-gradient-to-r from-gray-50 to-gray-100/50 p-1">
             <div className="bg-white rounded-xl">
-              {activeTab === 'compose' && <Compose />}
+              {activeTab === 'hub' && <CommunicationHub />}
+              {activeTab === 'automations' && <SmartAutomations />}
               {activeTab === 'inbox' && <InboxComponent />}
-              {activeTab === 'templates' && <Templates />}
-              {activeTab === 'workflows' && <Workflows />}
-              {activeTab === 'history' && <CommunicationHistory />}
-              {activeTab === 'analytics' && <Analytics />}
-              {activeTab === 'ai-assistant' && <AIAssistant />}
-              {activeTab === 'settings' && <EnhancedSettings />}
+              {activeTab === 'performance' && <Analytics />}
+              {activeTab === 'settings' && <SettingsComponent />}
             </div>
           </div>
         </motion.div>

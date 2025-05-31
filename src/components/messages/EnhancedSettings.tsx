@@ -21,7 +21,8 @@ import {
   Edit2,
   RefreshCw,
   Users,
-  Sparkles
+  Sparkles,
+  Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
