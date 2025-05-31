@@ -398,6 +398,7 @@ const PatientModernDetail = () => {
               </div>
             )}
           </div>
+          </div>
         </motion.div>
 
         {/* Main Content */}
