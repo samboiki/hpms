@@ -320,88 +320,251 @@ const PatientModernDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
           {/* Left Sidebar */}
           <div className="lg:col-span-3 space-y-4 md:space-y-6">
-          {/* Medical Aid Card */}
+          {/* Premium Medical Aid Card */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"
+            initial={{ opacity: 0, y: 20, rotateX: -5 }}
+            animate={{ opacity: 1, y: 0, rotateX: 0 }}
+            whileHover={{ y: -2, scale: 1.01 }}
+            className="relative group"
           >
-            <div className="h-1 bg-gradient-to-r from-[#01b9d4] to-purple-600"></div>
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-[#01b9d4]" />
-                  Medical Aid
-                </h3>
-                <button className="text-[#01b9d5] hover:text-[#01a3c7] p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                  <Edit3 className="w-4 h-4" />
-                </button>
+            {/* Floating glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d4]/20 via-purple-500/20 to-blue-600/20 rounded-xl blur-xl opacity-0 group-hover:opacity-70 transition-all duration-500 -z-10"></div>
+            
+            {/* Main card */}
+            <div className="relative bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
+              {/* Animated gradient header */}
+              <div className="h-2 bg-gradient-to-r from-[#01b9d4] via-purple-500 to-blue-600 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
               </div>
               
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-base font-semibold text-gray-900">Discovery Health</p>
-                    <p className="text-sm text-gray-500">Executive Plan</p>
+              {/* Floating orbs background */}
+              <div className="absolute top-4 right-4 w-20 h-20 bg-gradient-to-br from-[#01b9d4]/10 to-purple-500/10 rounded-full blur-2xl opacity-60"></div>
+              <div className="absolute bottom-4 left-4 w-16 h-16 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-full blur-xl opacity-40"></div>
+              
+              <div className="relative p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-gradient-to-br from-[#01b9d4] to-purple-600 rounded-xl shadow-lg">
+                      <Building2 className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Medical Aid</h3>
+                      <p className="text-xs text-gray-500 font-medium">Insurance Coverage</p>
+                    </div>
                   </div>
-                  <Badge variant="emerald" size="sm">Active</Badge>
+                  <motion.button 
+                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="p-2.5 bg-gradient-to-br from-gray-50 to-gray-100 hover:from-[#01b9d4]/10 hover:to-purple-500/10 rounded-xl border border-gray-200 hover:border-[#01b9d4]/30 transition-all duration-300 shadow-sm"
+                  >
+                    <Edit3 className="w-4 h-4 text-gray-600 hover:text-[#01b9d4] transition-colors" />
+                  </motion.button>
                 </div>
                 
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-500 mb-1">Membership Number</p>
-                  <p className="font-mono text-gray-700 font-medium">DH123456789</p>
-                </div>
-                
-                <div className="pt-3 border-t border-gray-200">
-                  <p className="text-xs text-gray-500 mb-2">Main Member</p>
-                  <p className="text-sm font-medium text-gray-900">John Smith</p>
-                  <p className="text-xs text-gray-500">ID: 8001015012087</p>
+                <div className="space-y-5">
+                  {/* Provider Info with glassmorphism */}
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-cyan-500/5 to-blue-500/5 rounded-xl"></div>
+                    <div className="relative p-4 bg-white/70 backdrop-blur-sm rounded-xl border border-white/20 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                            Discovery Health
+                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                          </p>
+                          <p className="text-sm font-medium text-gray-600 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">Executive Plan</p>
+                        </div>
+                        <div className="text-center">
+                          <Badge variant="emerald" size="sm" className="shadow-md">Active</Badge>
+                          <p className="text-xs text-gray-500 mt-1">Premium</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Membership Card */}
+                  <div className="relative group/card">
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 rounded-lg opacity-5 group-hover/card:opacity-10 transition-opacity"></div>
+                    <div className="relative p-4 bg-gradient-to-br from-gray-50 via-white to-gray-50 rounded-lg border border-gray-200/80 shadow-inner">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-8 h-5 bg-gradient-to-r from-[#01b9d4] to-purple-600 rounded-sm flex items-center justify-center">
+                          <div className="w-4 h-3 bg-white/20 rounded-xs"></div>
+                        </div>
+                        <p className="text-xs font-bold text-gray-600 tracking-wider">MEMBERSHIP CARD</p>
+                      </div>
+                      <p className="text-xs text-gray-500 mb-1 font-medium">Member ID</p>
+                      <p className="font-mono text-base font-bold text-gray-800 tracking-wider">DH123456789</p>
+                      <div className="mt-3 flex justify-between text-xs text-gray-500">
+                        <span>Valid From: 01/24</span>
+                        <span>Expires: 12/24</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Main Member Info */}
+                  <div className="p-4 bg-gradient-to-br from-blue-50/50 via-white to-purple-50/50 rounded-xl border border-blue-100/50 shadow-sm">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
+                        <User className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 mb-1">Main Member</p>
+                        <p className="text-sm font-bold text-gray-900">John Smith</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                      <span>ID: 8001015012087</span>
+                      <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                      <span>Relationship: Self</span>
+                    </div>
+                  </div>
+                  
+                  {/* Quick actions */}
+                  <div className="flex gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex-1 p-3 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      View Benefits
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                      <FileText className="w-4 h-4 text-gray-600" />
+                    </motion.button>
+                  </div>
                 </div>
               </div>
             </div>
           </motion.div>
 
-          {/* Next of Kin Card */}
+          {/* Premium Next of Kin Card */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 20, rotateX: -5 }}
+            animate={{ opacity: 1, y: 0, rotateX: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"
+            whileHover={{ y: -2, scale: 1.01 }}
+            className="relative group"
           >
-            <div className="h-1 bg-gradient-to-r from-red-500 to-pink-600"></div>
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <Heart className="w-5 h-5 text-red-500" />
-                  Next of Kin
-                </h3>
-                <button 
-                  onClick={() => setIsNextOfKinModalOpen(true)}
-                  className="text-[#01b9d5] hover:text-[#01a3c7] p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </button>
+            {/* Floating glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-red-400/20 via-pink-500/20 to-rose-600/20 rounded-xl blur-xl opacity-0 group-hover:opacity-70 transition-all duration-500 -z-10"></div>
+            
+            {/* Main card */}
+            <div className="relative bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
+              {/* Animated gradient header */}
+              <div className="h-2 bg-gradient-to-r from-red-500 via-pink-500 to-rose-600 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
               </div>
               
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-pink-600 rounded-full flex items-center justify-center">
-                    <Heart className="w-6 h-6 text-white" />
+              {/* Floating orbs background */}
+              <div className="absolute top-4 right-4 w-20 h-20 bg-gradient-to-br from-red-400/10 to-pink-500/10 rounded-full blur-2xl opacity-60"></div>
+              <div className="absolute bottom-4 left-4 w-16 h-16 bg-gradient-to-br from-rose-500/10 to-pink-500/10 rounded-full blur-xl opacity-40"></div>
+              
+              <div className="relative p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-gradient-to-br from-red-500 to-pink-600 rounded-xl shadow-lg">
+                      <Heart className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Next of Kin</h3>
+                      <p className="text-xs text-gray-500 font-medium">Emergency Contact</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">Sarah Smith</p>
-                    <p className="text-sm text-gray-500">Spouse</p>
-                  </div>
+                  <motion.button 
+                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsNextOfKinModalOpen(true)}
+                    className="p-2.5 bg-gradient-to-br from-gray-50 to-gray-100 hover:from-red-500/10 hover:to-pink-500/10 rounded-xl border border-gray-200 hover:border-red-400/30 transition-all duration-300 shadow-sm"
+                  >
+                    <Edit3 className="w-4 h-4 text-gray-600 hover:text-red-500 transition-colors" />
+                  </motion.button>
                 </div>
                 
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <Phone className="w-4 h-4 text-[#01b9d5]" />
-                    <span className="text-sm text-gray-700">+1 234 567 8900</span>
+                <div className="space-y-5">
+                  {/* Contact Person with enhanced design */}
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-pink-500/5 to-rose-500/5 rounded-xl"></div>
+                    <div className="relative p-4 bg-white/70 backdrop-blur-sm rounded-xl border border-white/20 shadow-sm">
+                      <div className="flex items-center gap-4">
+                        <div className="relative">
+                          <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
+                            <Heart className="w-7 h-7 text-white" />
+                          </div>
+                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></div>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-lg font-bold text-gray-900">Sarah Smith</p>
+                          <p className="text-sm font-medium text-gray-600 bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">Spouse</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                            <span className="text-xs text-green-600 font-medium">Available</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                    <MapPin className="w-4 h-4 text-[#01b9d5] mt-0.5" />
-                    <span className="text-sm text-gray-700">123 Main Street, Anytown</span>
+                  
+                  {/* Contact Details with modern cards */}
+                  <div className="space-y-3">
+                    <motion.div 
+                      whileHover={{ x: 2 }}
+                      className="group/contact p-4 bg-gradient-to-r from-blue-50/50 via-white to-cyan-50/50 rounded-xl border border-blue-100/50 shadow-sm hover:shadow-md transition-all duration-300"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg shadow-sm group-hover/contact:scale-110 transition-transform">
+                          <Phone className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-500 font-medium">Primary Phone</p>
+                          <p className="text-sm font-bold text-gray-900">+1 234 567 8900</p>
+                        </div>
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          className="p-2 bg-white/80 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors shadow-sm"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-blue-600" />
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                    
+                    <motion.div 
+                      whileHover={{ x: 2 }}
+                      className="group/contact p-4 bg-gradient-to-r from-emerald-50/50 via-white to-green-50/50 rounded-xl border border-emerald-100/50 shadow-sm hover:shadow-md transition-all duration-300"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg shadow-sm group-hover/contact:scale-110 transition-transform">
+                          <MapPin className="w-4 h-4 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-500 font-medium mb-1">Home Address</p>
+                          <p className="text-sm font-bold text-gray-900 leading-relaxed">123 Main Street, Anytown</p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </div>
+                  
+                  {/* Emergency Actions */}
+                  <div className="flex gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="flex-1 p-3 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      Quick Contact
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                    >
+                      <Mail className="w-4 h-4 text-gray-600" />
+                    </motion.button>
                   </div>
                 </div>
               </div>
@@ -562,7 +725,180 @@ const PatientModernDetail = () => {
             <VitalsDisplay vitals={visits[0]?.vitals || {}} />
           </motion.div>
           
-          {/* Quick Actions */}
+          {/* Doctor's Premium Appointment Management Dashboard */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="relative group"
+          >
+            {/* Floating glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d4]/20 via-purple-500/20 to-indigo-600/20 rounded-xl blur-xl opacity-0 group-hover:opacity-50 transition-all duration-500 -z-10"></div>
+            
+            <div className="relative bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
+              {/* Animated gradient header */}
+              <div className="h-2 bg-gradient-to-r from-[#01b9d4] via-purple-500 to-indigo-600 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+              </div>
+              
+              {/* Main content */}
+              <div className="p-4 md:p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-gradient-to-br from-[#01b9d4] to-purple-600 rounded-xl shadow-lg">
+                      <Stethoscope className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Appointments Today</h3>
+                      <p className="text-xs text-gray-500 font-medium">Live Queue Management</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-green-600 font-medium">Live</span>
+                  </div>
+                </div>
+                
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    className="p-3 bg-gradient-to-br from-emerald-50/80 via-white to-green-50/80 rounded-xl border border-emerald-100/50 shadow-sm"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                      <span className="text-xs font-medium text-emerald-700">Completed</span>
+                    </div>
+                    <p className="text-2xl font-bold text-emerald-600">8</p>
+                  </motion.div>
+                  
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    className="p-3 bg-gradient-to-br from-amber-50/80 via-white to-yellow-50/80 rounded-xl border border-amber-100/50 shadow-sm"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                      <span className="text-xs font-medium text-amber-700">In Queue</span>
+                    </div>
+                    <p className="text-2xl font-bold text-amber-600">3</p>
+                  </motion.div>
+                </div>
+                
+                {/* Live Queue */}
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-gray-900">Next Patients</h4>
+                    <span className="text-xs text-gray-500">Updated now</span>
+                  </div>
+                  
+                  {/* Queue Items */}
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="relative group/queue"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-lg opacity-0 group-hover/queue:opacity-100 transition-opacity"></div>
+                    <div className="relative p-3 bg-white/80 rounded-lg border border-blue-200/50 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
+                          1
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-gray-900">Maria Rodriguez</p>
+                          <p className="text-xs text-gray-500">Follow-up • 2:30 PM</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs text-green-600 font-medium">Ready</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                  
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="relative group/queue"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-orange-500/5 rounded-lg opacity-0 group-hover/queue:opacity-100 transition-opacity"></div>
+                    <div className="relative p-3 bg-white/80 rounded-lg border border-amber-200/50 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
+                          2
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-gray-900">James Wilson</p>
+                          <p className="text-xs text-gray-500">Consultation • 3:00 PM</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs text-amber-600 font-medium">Waiting</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                  
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="relative group/queue"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-gray-500/5 to-slate-500/5 rounded-lg opacity-0 group-hover/queue:opacity-100 transition-opacity"></div>
+                    <div className="relative p-3 bg-white/80 rounded-lg border border-gray-200/50 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-gray-400 to-slate-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
+                          3
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-gray-900">Sarah Johnson</p>
+                          <p className="text-xs text-gray-500">Check-up • 3:30 PM</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                          <span className="text-xs text-gray-500 font-medium">Scheduled</span>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+                
+                {/* Quick Actions */}
+                <div className="space-y-2">
+                  <motion.button
+                    whileHover={{ scale: 1.02, y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full p-3 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2"
+                  >
+                    <Activity className="w-4 h-4" />
+                    Start Next Visit
+                  </motion.button>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="p-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm flex items-center justify-center gap-2 text-xs font-medium text-gray-700"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      Schedule
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="p-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm flex items-center justify-center gap-2 text-xs font-medium text-gray-700"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      Records
+                    </motion.button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+          
+          {/* Quick Actions Panel */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
