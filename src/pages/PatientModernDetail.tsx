@@ -232,172 +232,214 @@ const PatientModernDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm rounded-xl">
-        <div className="max-w-[1600px] mx-auto px-4 md:px-6 py-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/patients')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronLeft size={20} />
-              </button>
-              {patient && (
-                <div className="flex items-center space-x-4">
-                  <div className="h-12 w-12 rounded-full overflow-hidden">
-                    <img 
-                      src="https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200"
-                      alt={`${patient.first_name} ${patient.last_name}`}
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                  <div>
-                    <h1 className="text-[30px] font-bold text-[#494c61] flex items-center">
-                      {patient.first_name} {patient.last_name}
-                      <div className="flex items-center ml-4 space-x-2">
-                        <Badge variant="emerald" size="sm">Active</Badge>
-                        <Badge variant="azure" size="sm">Insured</Badge>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setShowHealthSummary(true)}
-                          className="ml-2"
-                        >
-                          <Brain size={14} className="mr-1" />
-                          Health Summary
-                        </Button>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50/80 to-blue-50/20">
+      <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+        {/* Modern Header */}
+        <div className="bg-white/60 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">
+          <div className="p-4 md:p-5">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
+              <div className="flex items-center gap-4">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => navigate('/patients')}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </motion.button>
+                
+                {patient && (
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div className="h-14 w-14 rounded-full overflow-hidden border-4 border-[#01b9d5]/20">
+                        <img 
+                          src="https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200"
+                          alt={`${patient.first_name} ${patient.last_name}`}
+                          className="h-full w-full object-cover"
+                        />
                       </div>
-                    </h1>
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mt-1">
-                      <div className="flex items-center">
-                        <Phone size={14} className="mr-2" />
-                        {patient.cell_number}
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></div>
+                    </div>
+                    
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h1 className="text-2xl font-semibold text-gray-800">
+                          {patient.first_name} {patient.last_name}
+                        </h1>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="emerald" size="sm">Active</Badge>
+                          <Badge variant="azure" size="sm">Insured</Badge>
+                        </div>
                       </div>
-                      <div className="flex items-center">
-                        <Mail size={14} className="mr-2" />
-                        {patient.email}
-                      </div>
-                      <div className="flex items-center">
-                        <MapPin size={14} className="mr-2" />
-                        123 Main Street, Anytown
+                      
+                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mt-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5" />
+                          {patient.cell_number}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5" />
+                          {patient.email}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5" />
+                          Age {calculateAge(patient.date_of_birth)} • {patient.gender}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowHealthSummary(true)}
+                  className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-all duration-300 text-sm"
+                >
+                  <Brain className="w-4 h-4" />
+                  Health Summary
+                </motion.button>
+          
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setIsAddVisitModalOpen(true)}
+                  className="bg-[#01b9d5] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:shadow-lg hover:shadow-[#01b9d5]/20 transition-all duration-200 font-medium text-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  New Visit
+                </motion.button>
+              </div>
             </div>
-            <Button
-              onClick={() => setIsAddVisitModalOpen(true)}
-              style={{ backgroundColor: '#01b9d4' }}
-              className="text-white hover:bg-opacity-90"
-            >
-              <Plus size={16} className="mr-2" />
-              New Visit
-            </Button>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-[1600px] mx-auto px-4 md:px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-3 space-y-6">
-            <Card className="overflow-hidden border-l-4 border-l-[#01b9d4]">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center text-sm font-medium text-gray-700">
-                    <Building2 size={16} className="mr-2 text-[#01b9d4]" />
-                    Medical Aid
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
+          {/* Left Sidebar */}
+          <div className="lg:col-span-3 space-y-4 md:space-y-6">
+          {/* Medical Aid Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"
+          >
+            <div className="h-1 bg-gradient-to-r from-[#01b9d4] to-purple-600"></div>
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-[#01b9d4]" />
+                  Medical Aid
+                </h3>
+                <button className="text-[#01b9d5] hover:text-[#01a3c7] p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                  <Edit3 className="w-4 h-4" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-base font-semibold text-gray-900">Discovery Health</p>
+                    <p className="text-sm text-gray-500">Executive Plan</p>
                   </div>
-                  <Button variant="ghost" size="sm">
-                    <Edit3 size={14} />
-                  </Button>
+                  <Badge variant="emerald" size="sm">Active</Badge>
                 </div>
-              </CardHeader>
-              <CardContent className="pt-2">
+                
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500 mb-1">Membership Number</p>
+                  <p className="font-mono text-gray-700 font-medium">DH123456789</p>
+                </div>
+                
+                <div className="pt-3 border-t border-gray-200">
+                  <p className="text-xs text-gray-500 mb-2">Main Member</p>
+                  <p className="text-sm font-medium text-gray-900">John Smith</p>
+                  <p className="text-xs text-gray-500">ID: 8001015012087</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Next of Kin Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"
+          >
+            <div className="h-1 bg-gradient-to-r from-red-500 to-pink-600"></div>
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Heart className="w-5 h-5 text-red-500" />
+                  Next of Kin
+                </h3>
+                <button 
+                  onClick={() => setIsNextOfKinModalOpen(true)}
+                  className="text-[#01b9d5] hover:text-[#01a3c7] p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-pink-600 rounded-full flex items-center justify-center">
+                    <Heart className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">Sarah Smith</p>
+                    <p className="text-sm text-gray-500">Spouse</p>
+                  </div>
+                </div>
+                
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-base font-semibold text-gray-900">Discovery Health</p>
-                      <p className="text-xs text-gray-500">Executive Plan</p>
-                    </div>
-                    <Badge variant="emerald" size="sm">Active</Badge>
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <Phone className="w-4 h-4 text-[#01b9d5]" />
+                    <span className="text-sm text-gray-700">+1 234 567 8900</span>
                   </div>
-                  
-                  <div className="text-sm">
-                    <p className="text-gray-500">Membership Number</p>
-                    <p className="font-mono text-gray-700">DH123456789</p>
-                  </div>
-                  
-                  <div className="pt-3 border-t border-gray-100">
-                    <p className="text-xs text-gray-500">Main Member</p>
-                    <p className="text-sm font-medium text-gray-900">John Smith</p>
-                    <p className="text-xs text-gray-500">ID: 8001015012087</p>
+                  <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+                    <MapPin className="w-4 h-4 text-[#01b9d5] mt-0.5" />
+                    <span className="text-sm text-gray-700">123 Main Street, Anytown</span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+          </motion.div>
+        </div>
 
-            <Card className="overflow-hidden border-l-4 border-l-[#0197d4]">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center text-sm font-medium text-gray-700">
-                    <Heart size={16} className="mr-2 text-[#0197d4]" />
-                    Next of Kin
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => setIsNextOfKinModalOpen(true)}>
-                    <Edit3 size={14} />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-2">
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-rose-50 rounded-full">
-                      <Heart size={16} className="text-rose-500" />
-                    </div>
-                    <div>
-                      <p className="text-base font-medium text-gray-900">Sarah Smith</p>
-                      <p className="text-xs text-gray-500">Spouse</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Phone size={14} className="mr-2 text-gray-400" />
-                      <span>+1 234 567 8900</span>
-                    </div>
-                    <div className="flex items-start text-sm text-gray-600">
-                      <MapPin size={14} className="mr-2 mt-1 text-gray-400" />
-                      <span>123 Main Street, Anytown</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="lg:col-span-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium text-gray-900">Visit History</h2>
-              <div className="flex items-center space-x-3">
+          {/* Main Content - Visit History */}
+          <div className="lg:col-span-6 space-y-4 md:space-y-6">
+            <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-[#01b9d5]" />
+                Visit History
+                <span className="text-sm font-normal text-gray-500">({visits.length} visits)</span>
+              </h2>
+              <div className="flex items-center gap-3">
                 <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search visits..."
-                    className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#01b9d4]"
+                    className="pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#01b9d4] focus:border-transparent"
                   />
                 </div>
-                <Button variant="outline" size="sm">
-                  <Filter size={14} className="mr-2" />
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <Filter className="w-4 h-4" />
                   Filter
-                </Button>
+                </motion.button>
               </div>
             </div>
 
             <div className="relative space-y-4">
-              <div className="absolute left-6 top-0 bottom-0 w-px bg-gray-200"></div>
+              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
 
               {visits.map((visit, index) => (
                 <motion.div
@@ -405,91 +447,171 @@ const PatientModernDetail = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className={`relative bg-white rounded-xl border ${
-                    visit.status === 'completed' ? 'border-emerald-200' :
-                    visit.status === 'in-progress' ? 'border-amber-200' :
+                  className={`relative bg-gray-50 rounded-xl border-2 ${
+                    visit.status === 'completed' ? 'border-emerald-200 bg-emerald-50/50' :
+                    visit.status === 'in-progress' ? 'border-amber-200 bg-amber-50/50' :
                     'border-gray-200'
-                  } p-4 hover:shadow-md transition-shadow cursor-pointer ml-10`}
+                  } p-5 hover:shadow-lg hover:bg-white transition-all duration-300 cursor-pointer ml-10`}
                   onClick={() => handleVisitClick(visit.id)}
                 >
-                  <div className={`absolute -left-10 top-6 w-4 h-4 rounded-full border-2 ${
-                    visit.status === 'completed' ? 'bg-emerald-500 border-emerald-200' :
-                    visit.status === 'in-progress' ? 'bg-amber-500 border-amber-200' :
-                    'bg-gray-500 border-gray-200'
+                  <div className={`absolute -left-10 top-6 w-5 h-5 rounded-full border-4 border-white shadow-sm ${
+                    visit.status === 'completed' ? 'bg-emerald-500' :
+                    visit.status === 'in-progress' ? 'bg-amber-500' :
+                    'bg-gray-400'
                   }`} />
 
                   <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center space-x-3">
-                        <h3 className="font-medium text-gray-900">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-semibold text-gray-900">
                           {visit.visit_type} with {visit.doctor_name}
                         </h3>
                         <Badge variant={getStatusColor(visit.status)} size="sm">
                           {visit.status}
                         </Badge>
                       </div>
-                      <div className="flex items-center mt-1 text-sm text-gray-500">
-                        <Calendar size={14} className="mr-2" />
+                      
+                      <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
+                        <Calendar className="w-4 h-4" />
                         {format(new Date(visit.visit_date), 'MMM d, yyyy')} at {visit.visit_time}
                       </div>
+                      
                       {visit.chief_complaint && (
-                        <p className="mt-2 text-sm text-gray-600">
-                          {visit.chief_complaint}
+                        <p className="text-sm text-gray-600 bg-white/70 p-3 rounded-lg">
+                          <span className="font-medium">Chief Complaint:</span> {visit.chief_complaint}
                         </p>
                       )}
                     </div>
-                    <ChevronRight size={16} className="text-gray-400" />
+                    
+                    <motion.div
+                      whileHover={{ scale: 1.1 }}
+                      className="p-2 hover:bg-white/70 rounded-lg transition-colors"
+                    >
+                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                    </motion.div>
                   </div>
 
-                  <div className="mt-3 flex items-center space-x-4">
-                    <div className="flex items-center text-gray-500">
-                      <Microscope size={14} className="mr-1" />
-                      <span className="text-xs">2 Lab Results</span>
+                  <div className="mt-4 flex items-center gap-4">
+                    <div className="flex items-center gap-1 text-gray-500 bg-white/70 px-2 py-1 rounded-full">
+                      <Microscope className="w-4 h-4" />
+                      <span className="text-xs font-medium">2 Lab Results</span>
                     </div>
-                    <div className="flex items-center text-gray-500">
-                      <ImageIcon size={14} className="mr-1" />
-                      <span className="text-xs">3 Media Files</span>
+                    <div className="flex items-center gap-1 text-gray-500 bg-white/70 px-2 py-1 rounded-full">
+                      <ImageIcon className="w-4 h-4" />
+                      <span className="text-xs font-medium">3 Media Files</span>
                     </div>
+                    {visit.diagnosis && (
+                      <div className="flex items-center gap-1 text-gray-500 bg-white/70 px-2 py-1 rounded-full">
+                        <Stethoscope className="w-4 h-4" />
+                        <span className="text-xs font-medium">Diagnosis</span>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="mt-3 flex justify-end space-x-2">
+                  <div className="mt-4 flex justify-end gap-2">
                     {visit.status === 'in-progress' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleVisitStatusChange(visit.id, 'completed', visit.appointment_id);
                         }}
-                        className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                        className="flex items-center gap-2 px-3 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors text-sm font-medium"
                       >
-                        <CheckCircle2 size={14} className="mr-1" />
+                        <CheckCircle2 className="w-4 h-4" />
                         End Visit
-                      </Button>
+                      </motion.button>
                     )}
                     {visit.status === 'scheduled' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleVisitStatusChange(visit.id, 'in-progress', visit.appointment_id);
                         }}
-                        className="bg-amber-50 text-amber-600 hover:bg-amber-100"
+                        className="flex items-center gap-2 px-3 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors text-sm font-medium"
                       >
-                        <Activity size={14} className="mr-1" />
+                        <Activity className="w-4 h-4" />
                         Start Visit
-                      </Button>
+                      </motion.button>
                     )}
                   </div>
                 </motion.div>
               ))}
+              
+              {visits.length === 0 && (
+                <div className="text-center py-12">
+                  <Activity className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 font-medium">No visits recorded yet</p>
+                  <p className="text-sm text-gray-400 mt-1">Click "New Visit" to record the first visit</p>
+                </div>
+              )}
             </div>
           </div>
+        </div>
 
-          <div className="lg:col-span-3 space-y-6">
+          {/* Right Sidebar - Vitals */}
+          <div className="lg:col-span-3 space-y-4 md:space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
             <VitalsDisplay vitals={visits[0]?.vitals || {}} />
-          </div>
+          </motion.div>
+          
+          {/* Quick Actions */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 p-4 md:p-6"
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Stethoscope className="w-5 h-5 text-[#01b9d5]" />
+              Quick Actions
+            </h3>
+            
+            <div className="space-y-3">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
+              >
+                <FileText className="w-5 h-5 text-[#01b9d5]" />
+                <div>
+                  <p className="font-medium text-gray-900">View Records</p>
+                  <p className="text-xs text-gray-500">Medical history & documents</p>
+                </div>
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
+              >
+                <Calendar className="w-5 h-5 text-[#01b9d5]" />
+                <div>
+                  <p className="font-medium text-gray-900">Schedule Appointment</p>
+                  <p className="text-xs text-gray-500">Book follow-up visit</p>
+                </div>
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
+              >
+                <Pill className="w-5 h-5 text-[#01b9d5]" />
+                <div>
+                  <p className="font-medium text-gray-900">Prescriptions</p>
+                  <p className="text-xs text-gray-500">View & manage medications</p>
+                </div>
+              </motion.button>
+            </div>
+          </motion.div>
         </div>
       </div>
 
@@ -499,7 +621,7 @@ const PatientModernDetail = () => {
           setIsVisitDetailModalOpen(false);
           setSelectedVisit(null);
         }}
-        title="Visit Detailss"
+        title="Visit Details"
         hideHeader
       >
         {selectedVisit && (
@@ -632,6 +754,7 @@ const PatientModernDetail = () => {
           }}
         />
       </FormModal>
+      </div>
     </div>
   );
 };
