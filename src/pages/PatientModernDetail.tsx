@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -14,7 +14,6 @@ import {
   Stethoscope,
   Plus,
   Search,
-  Filter,
   ArrowRight,
   CheckCircle2,
   AlertCircle,
@@ -24,18 +23,15 @@ import {
   ChevronRight,
   Clock,
   Calendar,
-  FileText,
-  Pill
+  FileText
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
 import NextOfKinForm from '../components/forms/NextOfKinForm';
 import AddVisitForm from '../components/forms/AddVisitForm';
-import VitalsDisplay from '../components/patients/VitalsDisplay';
 import EditVisitForm from '../components/forms/EditVisitForm';
 import VisitModal from '../components/visits/VisitModal';
 
@@ -232,89 +228,163 @@ const PatientModernDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50/80 to-blue-50/20">
-      <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
-        {/* Modern Header */}
-        <div className="bg-white/60 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">
-          <div className="p-4 md:p-5">
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
-              <div className="flex items-center gap-4">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => navigate('/patients')}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </motion.button>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-gray-100 relative overflow-hidden">
+      {/* Premium mesh gradient background */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-blue-50/50 via-transparent to-transparent"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-purple-50/30 via-transparent to-transparent"></div>
+      
+      {/* Subtle texture overlay */}
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cdefs%3E%3Cpattern id=\'dots\' x=\'0\' y=\'0\' width=\'60\' height=\'60\' patternUnits=\'userSpaceOnUse\'%3E%3Ccircle cx=\'2\' cy=\'2\' r=\'1\' fill=\'%23000\' opacity=\'0.1\'/%3E%3Ccircle cx=\'30\' cy=\'30\' r=\'1\' fill=\'%23000\' opacity=\'0.1\'/%3E%3Ccircle cx=\'30\' cy=\'2\' r=\'1\' fill=\'%23000\' opacity=\'0.1\'/%3E%3Ccircle cx=\'2\' cy=\'30\' r=\'1\' fill=\'%23000\' opacity=\'0.1\'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width=\'100%25\' height=\'100%25\' fill=\'url(%23dots)\'/%3E%3C/svg%3E")', backgroundSize: '60px 60px' }}></div>
+        <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.05) 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+      </div>
+      
+      {/* Floating light orbs for depth */}
+      <div className="absolute top-40 left-20 w-72 h-72 bg-gradient-to-br from-[#01b9d5]/10 to-cyan-400/10 rounded-full blur-3xl animate-float"></div>
+      <div className="absolute bottom-40 right-20 w-96 h-96 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-3xl animate-float-delayed"></div>
+      <div className="absolute top-1/2 left-1/3 w-80 h-80 bg-gradient-to-br from-indigo-400/10 to-blue-400/10 rounded-full blur-3xl animate-float-slow"></div>
+      <div className="relative z-10 px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+        {/* Premium Header Section */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative overflow-hidden"
+        >
+          <div className="relative backdrop-blur-xl bg-white/80 border border-white/60 rounded-3xl shadow-xl overflow-hidden">
+            {/* Gradient mesh background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5]/5 via-transparent to-purple-600/5"></div>
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/40 via-transparent to-transparent"></div>
+            
+            <div className="relative p-4 md:p-6">
+              <div className="flex items-center justify-between mb-3">
+              <motion.button
+                whileHover={{ scale: 1.1, x: -2 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate('/patients')}
+                className="p-2 bg-white/90 hover:bg-white rounded-xl border border-gray-200/50 hover:border-[#01b9d5]/50 shadow-md hover:shadow-xl transition-all duration-300 group"
+              >
+                <ChevronLeft className="w-4 h-4 text-gray-600 group-hover:text-[#01b9d5] transition-colors" />
+              </motion.button>
+            </div>
+            
+            {patient && (
+              <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6">
+                {/* Enhanced Avatar Section */}
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-3xl blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
+                  <div className="relative h-20 w-20 rounded-3xl overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                    <img 
+                      src="https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200"
+                      alt={`${patient.first_name} ${patient.last_name}`}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-3 border-white rounded-full shadow-lg animate-pulse"></div>
+                  <div className="absolute -top-1 -left-1 w-5 h-5 bg-[#01b9d5] border-2 border-white rounded-full shadow-md"></div>
+                </div>
                 
-                {patient && (
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <div className="h-14 w-14 rounded-full overflow-hidden border-4 border-[#01b9d5]/20">
-                        <img 
-                          src="https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200"
-                          alt={`${patient.first_name} ${patient.last_name}`}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></div>
+                {/* Enhanced Patient Info */}
+                <div className="flex-1">
+                  <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-4">
+                    <div>
+                      <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent leading-tight">
+                        {patient.first_name} {patient.last_name}
+                      </h1>
+                      <p className="text-xs text-gray-500 font-medium">Patient ID: {patient.id.slice(0, 8)}</p>
                     </div>
                     
-                    <div>
-                      <div className="flex items-center gap-3">
-                        <h1 className="text-2xl font-semibold text-gray-800">
-                          {patient.first_name} {patient.last_name}
-                        </h1>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="emerald" size="sm">Active</Badge>
-                          <Badge variant="azure" size="sm">Insured</Badge>
+                    <div className="flex items-center gap-3">
+                      <motion.button
+                        whileHover={{ scale: 1.05, y: -2 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setShowHealthSummary(true)}
+                        className="px-3 py-1.5 bg-white/80 hover:bg-white border border-gray-200/50 text-gray-700 hover:text-[#01b9d5] rounded-lg flex items-center gap-2 hover:shadow-lg transition-all duration-300 text-xs font-medium"
+                      >
+                        <Brain className="w-3.5 h-3.5" />
+                        AI Summary
+                      </motion.button>
+                      
+                      <motion.button
+                        whileHover={{ scale: 1.05, y: -2 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setIsAddVisitModalOpen(true)}
+                        className="px-4 py-1.5 bg-gradient-to-r from-[#01b9d4] to-indigo-600 text-white rounded-lg flex items-center gap-2 shadow-lg hover:shadow-2xl hover:shadow-[#01b9d5]/30 transition-all duration-300 font-semibold text-xs"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        New Visit
+                      </motion.button>
+                    </div>
+                  </div>
+                  
+                  {/* Premium Contact Pills */}
+                  <div className="flex flex-wrap items-center gap-2 text-sm mt-3">
+                    <motion.div 
+                      whileHover={{ scale: 1.05 }}
+                      className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-full border border-cyan-100/50 shadow-sm"
+                    >
+                      <Phone className="w-3 h-3 text-[#01b9d5]" />
+                      <span className="text-gray-700 text-xs font-medium">{patient.cell_number}</span>
+                    </motion.div>
+                    <motion.div 
+                      whileHover={{ scale: 1.05 }}
+                      className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-emerald-50 to-green-50 rounded-full border border-emerald-100/50 shadow-sm"
+                    >
+                      <Mail className="w-3 h-3 text-emerald-500" />
+                      <span className="text-gray-700 text-xs font-medium truncate max-w-[180px]">{patient.email}</span>
+                    </motion.div>
+                    <motion.div 
+                      whileHover={{ scale: 1.05 }}
+                      className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-purple-50 to-pink-50 rounded-full border border-purple-100/50 shadow-sm"
+                    >
+                      <User className="w-3 h-3 text-purple-500" />
+                      <span className="text-gray-700 text-xs font-medium">{calculateAge(patient.date_of_birth)} yrs • {patient.gender}</span>
+                    </motion.div>
+                  </div>
+                  
+                  {/* Elegant Compact Vitals Strip */}
+                  <div className="mt-2 px-3 py-2 bg-gradient-to-r from-white/90 to-blue-50/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-1.5">
+                          <div className="p-1 bg-gradient-to-br from-[#01b9d5] to-cyan-600 rounded-lg">
+                            <Activity className="w-3 h-3 text-white" />
+                          </div>
+                          <span className="text-[11px] font-semibold text-gray-700">Vitals</span>
+                        </div>
+                        
+                        {/* Vital Pills */}
+                        <div className="flex items-center gap-3">
+                          <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                            <span className="text-[11px] font-medium text-gray-700">BP: <span className="font-bold">120/80</span></span>
+                          </motion.div>
+                          <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                            <span className="text-[11px] font-medium text-gray-700">HR: <span className="font-bold">72</span></span>
+                          </motion.div>
+                          <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
+                            <span className="text-[11px] font-medium text-gray-700">Temp: <span className="font-bold">98.6°</span></span>
+                          </motion.div>
+                          <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
+                            <span className="text-[11px] font-medium text-gray-700">SpO2: <span className="font-bold">98%</span></span>
+                          </motion.div>
                         </div>
                       </div>
                       
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mt-0.5">
-                        <div className="flex items-center gap-1.5">
-                          <Phone className="w-3.5 h-3.5" />
-                          {patient.cell_number}
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <Mail className="w-3.5 h-3.5" />
-                          {patient.email}
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5" />
-                          Age {calculateAge(patient.date_of_birth)} • {patient.gender}
-                        </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-[10px] text-green-600 font-medium">All Normal</span>
                       </div>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
-              
-              <div className="flex items-center gap-3">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setShowHealthSummary(true)}
-                  className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-all duration-300 text-sm"
-                >
-                  <Brain className="w-4 h-4" />
-                  Health Summary
-                </motion.button>
-          
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setIsAddVisitModalOpen(true)}
-                  className="bg-[#01b9d5] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:shadow-lg hover:shadow-[#01b9d5]/20 transition-all duration-200 font-medium text-sm"
-                >
-                  <Plus className="w-4 h-4" />
-                  New Visit
-                </motion.button>
-              </div>
+            )}
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
@@ -331,7 +401,7 @@ const PatientModernDetail = () => {
             <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d4]/20 via-purple-500/20 to-blue-600/20 rounded-xl blur-xl opacity-0 group-hover:opacity-70 transition-all duration-500 -z-10"></div>
             
             {/* Main card */}
-            <div className="relative bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
+            <div className="relative bg-white/90 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
               {/* Animated gradient header */}
               <div className="h-2 bg-gradient-to-r from-[#01b9d4] via-purple-500 to-blue-600 relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
@@ -348,16 +418,16 @@ const PatientModernDetail = () => {
                       <Building2 className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-gray-900">Medical Aid</h3>
+                      <h3 className="text-lg font-bold text-gray-800">Medical Aid</h3>
                       <p className="text-xs text-gray-500 font-medium">Insurance Coverage</p>
                     </div>
                   </div>
                   <motion.button 
                     whileHover={{ scale: 1.1, rotate: 5 }}
                     whileTap={{ scale: 0.95 }}
-                    className="p-2.5 bg-gradient-to-br from-gray-50 to-gray-100 hover:from-[#01b9d4]/10 hover:to-purple-500/10 rounded-xl border border-gray-200 hover:border-[#01b9d4]/30 transition-all duration-300 shadow-sm"
+                    className="p-2.5 bg-gray-50 hover:bg-white rounded-xl border border-gray-200 hover:border-[#01b9d4]/50 transition-all duration-300 shadow-sm"
                   >
-                    <Edit3 className="w-4 h-4 text-gray-600 hover:text-[#01b9d4] transition-colors" />
+                    <Edit3 className="w-4 h-4 text-gray-300 hover:text-[#01b9d4] transition-colors" />
                   </motion.button>
                 </div>
                 
@@ -365,18 +435,18 @@ const PatientModernDetail = () => {
                   {/* Provider Info with glassmorphism */}
                   <div className="relative">
                     <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-cyan-500/5 to-blue-500/5 rounded-xl"></div>
-                    <div className="relative p-4 bg-white/70 backdrop-blur-sm rounded-xl border border-white/20 shadow-sm">
+                    <div className="relative p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 shadow-sm">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                          <p className="text-base font-bold text-gray-800 flex items-center gap-2">
                             Discovery Health
-                            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
                           </p>
-                          <p className="text-sm font-medium text-gray-600 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">Executive Plan</p>
+                          <p className="text-xs font-medium bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Executive Plan</p>
                         </div>
                         <div className="text-center">
                           <Badge variant="emerald" size="sm" className="shadow-md">Active</Badge>
-                          <p className="text-xs text-gray-500 mt-1">Premium</p>
+                          <p className="text-[10px] text-gray-500 mt-0.5">Premium</p>
                         </div>
                       </div>
                     </div>
@@ -385,7 +455,7 @@ const PatientModernDetail = () => {
                   {/* Membership Card */}
                   <div className="relative group/card">
                     <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 rounded-lg opacity-5 group-hover/card:opacity-10 transition-opacity"></div>
-                    <div className="relative p-4 bg-gradient-to-br from-gray-50 via-white to-gray-50 rounded-lg border border-gray-200/80 shadow-inner">
+                    <div className="relative p-4 bg-gradient-to-br from-gray-50 via-white to-gray-50 rounded-lg border border-gray-200/50 shadow-inner">
                       <div className="flex items-center gap-3 mb-3">
                         <div className="w-8 h-5 bg-gradient-to-r from-[#01b9d4] to-purple-600 rounded-sm flex items-center justify-center">
                           <div className="w-4 h-3 bg-white/20 rounded-xs"></div>
@@ -402,17 +472,17 @@ const PatientModernDetail = () => {
                   </div>
                   
                   {/* Main Member Info */}
-                  <div className="p-4 bg-gradient-to-br from-blue-50/50 via-white to-purple-50/50 rounded-xl border border-blue-100/50 shadow-sm">
+                  <div className="p-4 bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-xl border border-blue-200/50 shadow-sm">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
                         <User className="w-5 h-5 text-white" />
                       </div>
                       <div>
                         <p className="text-xs font-medium text-gray-500 mb-1">Main Member</p>
-                        <p className="text-sm font-bold text-gray-900">John Smith</p>
+                        <p className="text-sm font-bold text-gray-800">John Smith</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
                       <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
                       <span>ID: 8001015012087</span>
                       <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
@@ -432,9 +502,9 @@ const PatientModernDetail = () => {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                      className="p-3 bg-white/10 border border-white/10 rounded-lg hover:bg-white/20 transition-colors shadow-sm"
                     >
-                      <FileText className="w-4 h-4 text-gray-600" />
+                      <FileText className="w-4 h-4 text-gray-300" />
                     </motion.button>
                   </div>
                 </div>
@@ -509,44 +579,21 @@ const PatientModernDetail = () => {
                     </div>
                   </div>
                   
-                  {/* Contact Details with modern cards */}
-                  <div className="space-y-3">
-                    <motion.div 
-                      whileHover={{ x: 2 }}
-                      className="group/contact p-4 bg-gradient-to-r from-blue-50/50 via-white to-cyan-50/50 rounded-xl border border-blue-100/50 shadow-sm hover:shadow-md transition-all duration-300"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg shadow-sm group-hover/contact:scale-110 transition-transform">
-                          <Phone className="w-4 h-4 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs text-gray-500 font-medium">Primary Phone</p>
-                          <p className="text-sm font-bold text-gray-900">+1 234 567 8900</p>
-                        </div>
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          className="p-2 bg-white/80 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors shadow-sm"
-                        >
-                          <Phone className="w-3.5 h-3.5 text-blue-600" />
-                        </motion.button>
+                  {/* Contact Details - Compact */}
+                  <div className="space-y-2">
+                    <div className="p-2.5 bg-white/5 rounded-lg border border-white/10">
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3 h-3 text-blue-400" />
+                        <p className="text-xs text-gray-300">+1 234 567 8900</p>
                       </div>
-                    </motion.div>
+                    </div>
                     
-                    <motion.div 
-                      whileHover={{ x: 2 }}
-                      className="group/contact p-4 bg-gradient-to-r from-emerald-50/50 via-white to-green-50/50 rounded-xl border border-emerald-100/50 shadow-sm hover:shadow-md transition-all duration-300"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg shadow-sm group-hover/contact:scale-110 transition-transform">
-                          <MapPin className="w-4 h-4 text-white" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs text-gray-500 font-medium mb-1">Home Address</p>
-                          <p className="text-sm font-bold text-gray-900 leading-relaxed">123 Main Street, Anytown</p>
-                        </div>
+                    <div className="p-2.5 bg-white/5 rounded-lg border border-white/10">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3 h-3 text-emerald-400" />
+                        <p className="text-xs text-gray-300">123 Main Street, Anytown</p>
                       </div>
-                    </motion.div>
+                    </div>
                   </div>
                   
                   {/* Emergency Actions */}
@@ -554,16 +601,16 @@ const PatientModernDetail = () => {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="flex-1 p-3 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300"
+                      className="flex-1 p-2 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-lg font-medium text-xs shadow-md hover:shadow-lg transition-all duration-300"
                     >
                       Quick Contact
                     </motion.button>
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="p-3 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                      className="p-2 bg-white/10 border border-white/10 rounded-lg hover:bg-white/20 transition-colors shadow-sm"
                     >
-                      <Mail className="w-4 h-4 text-gray-600" />
+                      <Mail className="w-3 h-3 text-gray-300" />
                     </motion.button>
                   </div>
                 </div>
@@ -572,159 +619,218 @@ const PatientModernDetail = () => {
           </motion.div>
         </div>
 
-          {/* Main Content - Visit History */}
+          {/* Sophisticated Visit History */}
           <div className="lg:col-span-6 space-y-4 md:space-y-6">
-            <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-[#01b9d5]" />
-                Visit History
-                <span className="text-sm font-normal text-gray-500">({visits.length} visits)</span>
-              </h2>
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search visits..."
-                    className="pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#01b9d4] focus:border-transparent"
-                  />
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <Filter className="w-4 h-4" />
-                  Filter
-                </motion.button>
-              </div>
-            </div>
-
-            <div className="relative space-y-4">
-              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
-
-              {visits.map((visit, index) => (
-                <motion.div
-                  key={visit.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className={`relative bg-gray-50 rounded-xl border-2 ${
-                    visit.status === 'completed' ? 'border-emerald-200 bg-emerald-50/50' :
-                    visit.status === 'in-progress' ? 'border-amber-200 bg-amber-50/50' :
-                    'border-gray-200'
-                  } p-5 hover:shadow-lg hover:bg-white transition-all duration-300 cursor-pointer ml-10`}
-                  onClick={() => handleVisitClick(visit.id)}
-                >
-                  <div className={`absolute -left-10 top-6 w-5 h-5 rounded-full border-4 border-white shadow-sm ${
-                    visit.status === 'completed' ? 'bg-emerald-500' :
-                    visit.status === 'in-progress' ? 'bg-amber-500' :
-                    'bg-gray-400'
-                  }`} />
-
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-semibold text-gray-900">
-                          {visit.visit_type} with {visit.doctor_name}
-                        </h3>
-                        <Badge variant={getStatusColor(visit.status)} size="sm">
-                          {visit.status}
-                        </Badge>
-                      </div>
-                      
-                      <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-                        <Calendar className="w-4 h-4" />
-                        {format(new Date(visit.visit_date), 'MMM d, yyyy')} at {visit.visit_time}
-                      </div>
-                      
-                      {visit.chief_complaint && (
-                        <p className="text-sm text-gray-600 bg-white/70 p-3 rounded-lg">
-                          <span className="font-medium">Chief Complaint:</span> {visit.chief_complaint}
-                        </p>
-                      )}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="relative overflow-hidden"
+            >
+              {/* Background effects */}
+              <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-gray-900/50 to-blue-900/20 rounded-2xl"></div>
+              <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-[#01b9d5]/10 to-purple-500/10 rounded-full blur-3xl"></div>
+              
+              <div className="relative backdrop-blur-xl bg-white/10 border border-white/10 rounded-2xl shadow-xl p-6">
+                {/* Enhanced Header */}
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-gradient-to-br from-[#01b9d5] to-indigo-600 rounded-2xl shadow-lg">
+                      <Activity className="w-6 h-6 text-white" />
                     </div>
-                    
+                    <div>
+                      <h2 className="text-2xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                        Medical Timeline
+                      </h2>
+                      <p className="text-sm text-gray-400 font-medium">
+                        {visits.length} visits • Comprehensive care history
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
                     <motion.div
-                      whileHover={{ scale: 1.1 }}
-                      className="p-2 hover:bg-white/70 rounded-lg transition-colors"
+                      whileHover={{ scale: 1.02 }}
+                      className="relative"
                     >
-                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search timeline..."
+                        className="pl-10 pr-4 py-2.5 text-sm bg-white/10 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#01b9d4]/30 focus:border-[#01b9d4] transition-all backdrop-blur-sm shadow-sm text-white placeholder:text-gray-400"
+                      />
                     </motion.div>
                   </div>
-
-                  <div className="mt-4 flex items-center gap-4">
-                    <div className="flex items-center gap-1 text-gray-500 bg-white/70 px-2 py-1 rounded-full">
-                      <Microscope className="w-4 h-4" />
-                      <span className="text-xs font-medium">2 Lab Results</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-gray-500 bg-white/70 px-2 py-1 rounded-full">
-                      <ImageIcon className="w-4 h-4" />
-                      <span className="text-xs font-medium">3 Media Files</span>
-                    </div>
-                    {visit.diagnosis && (
-                      <div className="flex items-center gap-1 text-gray-500 bg-white/70 px-2 py-1 rounded-full">
-                        <Stethoscope className="w-4 h-4" />
-                        <span className="text-xs font-medium">Diagnosis</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-4 flex justify-end gap-2">
-                    {visit.status === 'in-progress' && (
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleVisitStatusChange(visit.id, 'completed', visit.appointment_id);
-                        }}
-                        className="flex items-center gap-2 px-3 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors text-sm font-medium"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        End Visit
-                      </motion.button>
-                    )}
-                    {visit.status === 'scheduled' && (
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleVisitStatusChange(visit.id, 'in-progress', visit.appointment_id);
-                        }}
-                        className="flex items-center gap-2 px-3 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors text-sm font-medium"
-                      >
-                        <Activity className="w-4 h-4" />
-                        Start Visit
-                      </motion.button>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-              
-              {visits.length === 0 && (
-                <div className="text-center py-12">
-                  <Activity className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 font-medium">No visits recorded yet</p>
-                  <p className="text-sm text-gray-400 mt-1">Click "New Visit" to record the first visit</p>
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
 
-          {/* Right Sidebar - Vitals */}
+                {/* Enhanced Timeline */}
+                <div className="relative">
+                  {/* Modern timeline line */}
+                  <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-[#01b9d5] via-purple-500 to-indigo-600 opacity-30"></div>
+
+                  {visits.map((visit, index) => (
+                    <motion.div
+                      key={visit.id}
+                      initial={{ opacity: 0, x: -30 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      whileHover={{ y: -2, scale: 1.01 }}
+                      className="relative group mb-6 last:mb-0"
+                    >
+                      {/* Timeline dot with enhanced design */}
+                      <div className={`absolute left-6 top-6 w-6 h-6 rounded-full border-4 border-white shadow-lg z-10 ${
+                        visit.status === 'completed' ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' :
+                        visit.status === 'in-progress' ? 'bg-gradient-to-br from-amber-400 to-orange-500 animate-pulse' :
+                        'bg-gradient-to-br from-gray-400 to-gray-500'
+                      }`}>
+                        <div className={`absolute inset-1 rounded-full ${
+                          visit.status === 'in-progress' ? 'bg-white/30 animate-ping' : ''
+                        }`}></div>
+                      </div>
+
+                      {/* Visit card with premium design */}
+                      <div 
+                        className={`relative ml-16 p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 group-hover:shadow-2xl ${
+                          visit.status === 'completed' ? 'bg-gradient-to-br from-emerald-500/10 via-white/5 to-emerald-500/5 border-emerald-500/30 group-hover:border-emerald-400' :
+                          visit.status === 'in-progress' ? 'bg-gradient-to-br from-amber-500/10 via-white/5 to-orange-500/5 border-amber-500/30 group-hover:border-amber-400' :
+                          'bg-gradient-to-br from-gray-500/10 via-white/5 to-slate-500/5 border-gray-500/30 group-hover:border-gray-400'
+                        } backdrop-blur-sm`}
+                        onClick={() => handleVisitClick(visit.id)}
+                      >
+                        {/* Card header */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-lg font-bold text-white">
+                                {visit.visit_type}
+                              </h3>
+                              <Badge 
+                                variant={getStatusColor(visit.status)} 
+                                size="md"
+                                className="shadow-sm"
+                              >
+                                {visit.status}
+                              </Badge>
+                            </div>
+                            
+                            <div className="flex items-center gap-4 text-sm text-gray-600">
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-gray-400" />
+                                <span className="font-medium text-gray-300">{format(new Date(visit.visit_date), 'MMM d, yyyy')}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-gray-400" />
+                                <span className="font-medium text-gray-300">{visit.visit_time}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <User className="w-4 h-4 text-gray-400" />
+                                <span className="font-medium text-gray-300">Dr. {visit.doctor_name}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <motion.div
+                            whileHover={{ scale: 1.1, rotate: 5 }}
+                            className="p-2 bg-white/70 rounded-xl shadow-sm group-hover:bg-white transition-colors"
+                          >
+                            <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#01b9d5] transition-colors" />
+                          </motion.div>
+                        </div>
+                        
+                        {/* Chief complaint with enhanced styling */}
+                        {visit.chief_complaint && (
+                          <div className="mb-4 p-4 bg-white/10 backdrop-blur-sm rounded-xl border border-white/10">
+                            <p className="text-sm text-gray-300">
+                              <span className="font-semibold text-white">Chief Complaint: </span>
+                              {visit.chief_complaint}
+                            </p>
+                          </div>
+                        )}
+                        
+                        {/* Enhanced attachments section */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <motion.div 
+                              whileHover={{ scale: 1.05 }}
+                              className="flex items-center gap-2 px-3 py-1.5 bg-white/70 rounded-full text-xs font-medium text-gray-600 shadow-sm"
+                            >
+                              <Microscope className="w-3.5 h-3.5 text-purple-500" />
+                              <span>2 Lab Results</span>
+                            </motion.div>
+                            <motion.div 
+                              whileHover={{ scale: 1.05 }}
+                              className="flex items-center gap-2 px-3 py-1.5 bg-white/70 rounded-full text-xs font-medium text-gray-600 shadow-sm"
+                            >
+                              <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
+                              <span>3 Images</span>
+                            </motion.div>
+                            {visit.diagnosis && (
+                              <motion.div 
+                                whileHover={{ scale: 1.05 }}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-white/70 rounded-full text-xs font-medium text-gray-600 shadow-sm"
+                              >
+                                <Stethoscope className="w-3.5 h-3.5 text-emerald-500" />
+                                <span>Diagnosis</span>
+                              </motion.div>
+                            )}
+                          </div>
+                          
+                          {/* Action buttons */}
+                          <div className="flex gap-2">
+                            {visit.status === 'in-progress' && (
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleVisitStatusChange(visit.id, 'completed', visit.appointment_id);
+                                }}
+                                className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all text-sm font-semibold flex items-center gap-2"
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                                Complete
+                              </motion.button>
+                            )}
+                            {visit.status === 'scheduled' && (
+                              <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleVisitStatusChange(visit.id, 'in-progress', visit.appointment_id);
+                                }}
+                                className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl shadow-lg hover:shadow-xl transition-all text-sm font-semibold flex items-center gap-2"
+                              >
+                                <Activity className="w-4 h-4" />
+                                Start Visit
+                              </motion.button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                  
+                  {visits.length === 0 && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-center py-16"
+                    >
+                      <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                        <Activity className="w-10 h-10 text-gray-400" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-300 mb-2">No visits recorded yet</h3>
+                      <p className="text-sm text-gray-400">Patient's medical timeline will appear here</p>
+                    </motion.div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Right Sidebar - Appointment Dashboard */}
           <div className="lg:col-span-3 space-y-4 md:space-y-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <VitalsDisplay vitals={visits[0]?.vitals || {}} />
-          </motion.div>
-          
           {/* Doctor's Premium Appointment Management Dashboard */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -749,8 +855,8 @@ const PatientModernDetail = () => {
                       <Stethoscope className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-gray-900">Appointments Today</h3>
-                      <p className="text-xs text-gray-500 font-medium">Live Queue Management</p>
+                      <h3 className="text-lg font-bold text-white">Appointments Today</h3>
+                      <p className="text-xs text-gray-400 font-medium">Live Queue Management</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -763,7 +869,7 @@ const PatientModernDetail = () => {
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   <motion.div
                     whileHover={{ scale: 1.02 }}
-                    className="p-3 bg-gradient-to-br from-emerald-50/80 via-white to-green-50/80 rounded-xl border border-emerald-100/50 shadow-sm"
+                    className="p-3 bg-gradient-to-br from-emerald-500/10 to-green-600/10 rounded-xl border border-emerald-500/20 shadow-sm"
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
@@ -774,7 +880,7 @@ const PatientModernDetail = () => {
                   
                   <motion.div
                     whileHover={{ scale: 1.02 }}
-                    className="p-3 bg-gradient-to-br from-amber-50/80 via-white to-yellow-50/80 rounded-xl border border-amber-100/50 shadow-sm"
+                    className="p-3 bg-gradient-to-br from-amber-500/10 to-yellow-600/10 rounded-xl border border-amber-500/20 shadow-sm"
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
@@ -787,8 +893,8 @@ const PatientModernDetail = () => {
                 {/* Live Queue */}
                 <div className="space-y-3 mb-6">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-bold text-gray-900">Next Patients</h4>
-                    <span className="text-xs text-gray-500">Updated now</span>
+                    <h4 className="text-sm font-bold text-white">Next Patients</h4>
+                    <span className="text-xs text-gray-400">Updated now</span>
                   </div>
                   
                   {/* Queue Items */}
@@ -798,14 +904,14 @@ const PatientModernDetail = () => {
                     className="relative group/queue"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-lg opacity-0 group-hover/queue:opacity-100 transition-opacity"></div>
-                    <div className="relative p-3 bg-white/80 rounded-lg border border-blue-200/50 shadow-sm">
+                    <div className="relative p-3 bg-white/10 rounded-lg border border-blue-200/20 shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
                           1
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-bold text-gray-900">Maria Rodriguez</p>
-                          <p className="text-xs text-gray-500">Follow-up • 2:30 PM</p>
+                          <p className="text-sm font-bold text-white">Maria Rodriguez</p>
+                          <p className="text-xs text-gray-400">Follow-up • 2:30 PM</p>
                         </div>
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -822,14 +928,14 @@ const PatientModernDetail = () => {
                     className="relative group/queue"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-orange-500/5 rounded-lg opacity-0 group-hover/queue:opacity-100 transition-opacity"></div>
-                    <div className="relative p-3 bg-white/80 rounded-lg border border-amber-200/50 shadow-sm">
+                    <div className="relative p-3 bg-white/10 rounded-lg border border-amber-200/20 shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
                           2
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-bold text-gray-900">James Wilson</p>
-                          <p className="text-xs text-gray-500">Consultation • 3:00 PM</p>
+                          <p className="text-sm font-bold text-white">James Wilson</p>
+                          <p className="text-xs text-gray-400">Consultation • 3:00 PM</p>
                         </div>
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
@@ -846,14 +952,14 @@ const PatientModernDetail = () => {
                     className="relative group/queue"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-gray-500/5 to-slate-500/5 rounded-lg opacity-0 group-hover/queue:opacity-100 transition-opacity"></div>
-                    <div className="relative p-3 bg-white/80 rounded-lg border border-gray-200/50 shadow-sm">
+                    <div className="relative p-3 bg-white/10 rounded-lg border border-gray-200/20 shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-gradient-to-br from-gray-400 to-slate-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
                           3
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-bold text-gray-900">Sarah Johnson</p>
-                          <p className="text-xs text-gray-500">Check-up • 3:30 PM</p>
+                          <p className="text-sm font-bold text-white">Sarah Johnson</p>
+                          <p className="text-xs text-gray-400">Check-up • 3:30 PM</p>
                         </div>
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
@@ -879,7 +985,7 @@ const PatientModernDetail = () => {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="p-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm flex items-center justify-center gap-2 text-xs font-medium text-gray-700"
+                      className="p-2.5 bg-white/10 border border-white/10 rounded-lg hover:bg-white/20 transition-colors shadow-sm flex items-center justify-center gap-2 text-xs font-medium text-gray-300"
                     >
                       <Calendar className="w-3.5 h-3.5" />
                       Schedule
@@ -887,7 +993,7 @@ const PatientModernDetail = () => {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="p-2.5 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm flex items-center justify-center gap-2 text-xs font-medium text-gray-700"
+                      className="p-2.5 bg-white/10 border border-white/10 rounded-lg hover:bg-white/20 transition-colors shadow-sm flex items-center justify-center gap-2 text-xs font-medium text-gray-300"
                     >
                       <FileText className="w-3.5 h-3.5" />
                       Records
@@ -895,57 +1001,6 @@ const PatientModernDetail = () => {
                   </div>
                 </div>
               </div>
-            </div>
-          </motion.div>
-          
-          {/* Quick Actions Panel */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 p-4 md:p-6"
-          >
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <Stethoscope className="w-5 h-5 text-[#01b9d5]" />
-              Quick Actions
-            </h3>
-            
-            <div className="space-y-3">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
-              >
-                <FileText className="w-5 h-5 text-[#01b9d5]" />
-                <div>
-                  <p className="font-medium text-gray-900">View Records</p>
-                  <p className="text-xs text-gray-500">Medical history & documents</p>
-                </div>
-              </motion.button>
-              
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
-              >
-                <Calendar className="w-5 h-5 text-[#01b9d5]" />
-                <div>
-                  <p className="font-medium text-gray-900">Schedule Appointment</p>
-                  <p className="text-xs text-gray-500">Book follow-up visit</p>
-                </div>
-              </motion.button>
-              
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-left"
-              >
-                <Pill className="w-5 h-5 text-[#01b9d5]" />
-                <div>
-                  <p className="font-medium text-gray-900">Prescriptions</p>
-                  <p className="text-xs text-gray-500">View & manage medications</p>
-                </div>
-              </motion.button>
             </div>
           </motion.div>
         </div>
