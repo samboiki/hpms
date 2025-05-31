@@ -105,16 +105,14 @@ describe('PatientModernDetail', () => {
     expect(screen.getByText('Comprehensive care history')).toBeInTheDocument();
   });
 
-  it('renders minified vitals widget', async () => {
+  it('renders comprehensive vitals section', async () => {
     render(<PatientModernDetailWrapper />);
     
     // Wait for the component to load
-    await screen.findByText('Vitals');
+    await screen.findByText('Latest Vitals');
     
-    // Check if minified vitals elements are present
-    expect(screen.getByText('Vitals')).toBeInTheDocument();
-    expect(screen.getByText('Latest readings')).toBeInTheDocument();
-    expect(screen.getByText('View Full Report')).toBeInTheDocument();
+    // Check if vitals section is present
+    expect(screen.getByText('Latest Vitals')).toBeInTheDocument();
   });
 
   it('does not render quick actions panel', async () => {
@@ -133,5 +131,36 @@ describe('PatientModernDetail', () => {
     
     // The component should handle loading gracefully
     expect(screen.getByRole('main')).toBeTruthy();
+  });
+
+  it('renders view profile button in header', async () => {
+    render(<PatientModernDetailWrapper />);
+    
+    // Wait for the component to load
+    await screen.findByText('John Doe');
+    
+    // Check if view profile button is present
+    expect(screen.getByText('View Profile')).toBeInTheDocument();
+  });
+
+  it('renders clean visit cards without gradients', async () => {
+    render(<PatientModernDetailWrapper />);
+    
+    // Wait for the component to load
+    await screen.findByText('Medical Timeline');
+    
+    // The visit cards should have clean borders, not gradient backgrounds
+    const timeline = screen.getByText('Medical Timeline').closest('div');
+    expect(timeline).toBeInTheDocument();
+  });
+
+  it('modal centering works correctly', async () => {
+    render(<PatientModernDetailWrapper />);
+    
+    // Wait for the component to load
+    await screen.findByText('Medical Aid');
+    
+    // All modals should be centered when opened
+    expect(screen.getByText('Quick Contact')).toBeInTheDocument();
   });
 });

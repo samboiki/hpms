@@ -351,29 +351,22 @@ const PatientModernDetail = () => {
           animate={{ opacity: 1, y: 0 }}
           className="relative overflow-hidden"
         >
-          <div className="relative backdrop-blur-xl bg-white/90 rounded-3xl shadow-2xl overflow-hidden">
-            {/* Premium gradient border */}
-            <div className="absolute inset-0 bg-gradient-to-r from-[#01b9d5] via-purple-500 to-indigo-600 p-[2px] rounded-3xl">
-              <div className="h-full w-full bg-white/95 backdrop-blur-xl rounded-3xl"></div>
-            </div>
-            {/* Glassmorphism effects */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5]/10 via-white/20 to-purple-600/10"></div>
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/60 via-transparent to-transparent"></div>
-            {/* Subtle bulges */}
-            <div className="absolute top-4 right-8 w-32 h-32 bg-gradient-to-br from-[#01b9d5]/5 to-purple-500/5 rounded-full blur-2xl"></div>
-            <div className="absolute bottom-6 left-6 w-24 h-24 bg-gradient-to-br from-indigo-500/5 to-cyan-500/5 rounded-full blur-xl"></div>
+          <div className="relative bg-white rounded-3xl shadow-xl border border-gray-200/50 overflow-hidden backdrop-blur-md">
+            {/* Subtle background pattern */}
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-50/50 via-white to-blue-50/30"></div>
             
-            <div className="relative p-4 md:p-6">
-              <div className="flex items-center justify-between mb-3">
-              <motion.button
-                whileHover={{ scale: 1.1, x: -2 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => navigate('/patients')}
-                className="p-2 bg-white/90 hover:bg-white rounded-xl border border-gray-200/50 hover:border-[#01b9d5]/50 shadow-md hover:shadow-xl transition-all duration-300 group"
-              >
-                <ChevronLeft className="w-4 h-4 text-gray-600 group-hover:text-[#01b9d5] transition-colors" />
-              </motion.button>
-            </div>
+            <div className="relative p-6">
+              {/* Compact header with back button */}
+              <div className="absolute top-4 left-4">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate('/patients')}
+                  className="p-2 bg-white/80 backdrop-blur-sm rounded-lg border border-gray-200/50 hover:border-[#01b9d5]/50 shadow-sm hover:shadow-md transition-all duration-300 group"
+                >
+                  <ChevronLeft className="w-4 h-4 text-gray-600 group-hover:text-[#01b9d5] transition-colors" />
+                </motion.button>
+              </div>
             
             {patient && (
               <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6">
@@ -395,7 +388,7 @@ const PatientModernDetail = () => {
                 <div className="flex-1">
                   <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-4">
                     <div>
-                      <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-[#01b9d5] via-purple-600 to-indigo-600 bg-clip-text text-transparent leading-tight">
+                      <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 leading-tight">
                         {patient.first_name} {patient.last_name}
                       </h1>
                       <p className="text-xs text-gray-500 font-medium">Patient ID: {patient.id.slice(0, 8)}</p>
@@ -440,76 +433,81 @@ const PatientModernDetail = () => {
                     </motion.div>
                   </div>
                   
-                  {/* Elegant Compact Vitals Strip */}
-                  <div className="mt-2 px-3 py-2 bg-gradient-to-r from-white/90 to-blue-50/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-1.5">
-                          <div className="p-1 bg-gradient-to-br from-[#01b9d5] to-cyan-600 rounded-lg">
-                            <Activity className="w-3 h-3 text-white" />
-                          </div>
-                          <span className="text-[11px] font-semibold text-gray-700">Vitals</span>
-                        </div>
-                        
-                        {/* Vital Pills */}
-                        <div className="flex items-center gap-3">
-                          {latestVitals?.blood_pressure && (
-                            <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
-                              <span className="text-[11px] font-medium text-gray-700">BP: <span className="font-bold">{latestVitals.blood_pressure}</span></span>
-                            </motion.div>
-                          )}
-                          {latestVitals?.pulse_rate && (
-                            <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                              <span className="text-[11px] font-medium text-gray-700">HR: <span className="font-bold">{latestVitals.pulse_rate}</span></span>
-                            </motion.div>
-                          )}
-                          {latestVitals?.temperature && (
-                            <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
-                              <span className="text-[11px] font-medium text-gray-700">Temp: <span className="font-bold">{latestVitals.temperature}°C</span></span>
-                            </motion.div>
-                          )}
-                          {latestVitals?.respiratory_rate && (
-                            <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
-                              <span className="text-[11px] font-medium text-gray-700">RR: <span className="font-bold">{latestVitals.respiratory_rate}</span></span>
-                            </motion.div>
-                          )}
-                          {!latestVitals && (
-                            <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
-                              <span className="text-[11px] font-medium text-gray-500">No recent vitals</span>
-                            </motion.div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-1">
-                        <div className={`w-1 h-1 rounded-full animate-pulse ${
-                          latestVitals ? 'bg-green-500' : 'bg-gray-400'
-                        }`}></div>
-                        <span className={`text-[10px] font-medium ${
-                          latestVitals ? 'text-green-600' : 'text-gray-500'
-                        }`}>
-                          {latestVitals ? 'Latest Data' : 'No Data'}
+                  {/* Comprehensive Vitals Display */}
+                  <div className="mt-4 p-4 bg-gray-50 rounded-2xl border border-gray-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Activity className="w-4 h-4 text-[#01b9d5]" />
+                      <h3 className="text-sm font-semibold text-gray-800">Latest Vitals</h3>
+                      {latestVitals && (
+                        <span className="text-xs text-gray-500">
+                          {format(new Date(latestVitals.created_at), 'MMM d, yyyy')}
                         </span>
-                      </div>
+                      )}
                     </div>
+                    
+                    {latestVitals ? (
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {latestVitals.blood_pressure && (
+                          <div className="bg-white p-3 rounded-lg border border-gray-200">
+                            <p className="text-xs text-gray-600 mb-1">Blood Pressure</p>
+                            <p className="text-sm font-bold text-gray-900">{latestVitals.blood_pressure}</p>
+                          </div>
+                        )}
+                        {latestVitals.pulse_rate && (
+                          <div className="bg-white p-3 rounded-lg border border-gray-200">
+                            <p className="text-xs text-gray-600 mb-1">Heart Rate</p>
+                            <p className="text-sm font-bold text-gray-900">{latestVitals.pulse_rate} bpm</p>
+                          </div>
+                        )}
+                        {latestVitals.temperature && (
+                          <div className="bg-white p-3 rounded-lg border border-gray-200">
+                            <p className="text-xs text-gray-600 mb-1">Temperature</p>
+                            <p className="text-sm font-bold text-gray-900">{latestVitals.temperature}°C</p>
+                          </div>
+                        )}
+                        {latestVitals.respiratory_rate && (
+                          <div className="bg-white p-3 rounded-lg border border-gray-200">
+                            <p className="text-xs text-gray-600 mb-1">Respiratory Rate</p>
+                            <p className="text-sm font-bold text-gray-900">{latestVitals.respiratory_rate} /min</p>
+                          </div>
+                        )}
+                        {latestVitals.weight && (
+                          <div className="bg-white p-3 rounded-lg border border-gray-200">
+                            <p className="text-xs text-gray-600 mb-1">Weight</p>
+                            <p className="text-sm font-bold text-gray-900">{latestVitals.weight} kg</p>
+                          </div>
+                        )}
+                        {latestVitals.height && (
+                          <div className="bg-white p-3 rounded-lg border border-gray-200">
+                            <p className="text-xs text-gray-600 mb-1">Height</p>
+                            <p className="text-sm font-bold text-gray-900">{latestVitals.height} cm</p>
+                          </div>
+                        )}
+                        {latestVitals.bmi && (
+                          <div className="bg-white p-3 rounded-lg border border-gray-200">
+                            <p className="text-xs text-gray-600 mb-1">BMI</p>
+                            <p className="text-sm font-bold text-gray-900">{latestVitals.bmi}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-500 text-sm">
+                        No vitals recorded yet
+                      </div>
+                    )}
                   </div>
                 </div>
                 
-                {/* View Profile Button */}
-                <div className="mt-4 flex justify-center">
+                {/* View Profile Button - positioned at top right */}
+                <div className="absolute top-4 right-4">
                   <motion.button
-                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setIsProfileModalOpen(true)}
-                    className="px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-2xl transition-all duration-300 text-sm font-semibold"
+                    className="px-4 py-2 bg-[#01b9d4] text-white rounded-lg flex items-center gap-2 shadow-md hover:shadow-lg transition-all duration-300 text-sm font-medium"
                   >
                     <User className="w-4 h-4" />
-                    View Full Profile
+                    View Profile
                   </motion.button>
                 </div>
               </div>
@@ -637,6 +635,7 @@ const PatientModernDetail = () => {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
+                      onClick={() => alert('View Benefits feature coming soon!')}
                       className="flex-1 p-3 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300"
                     >
                       View Benefits
@@ -851,12 +850,12 @@ const PatientModernDetail = () => {
                         }`}></div>
                       </div>
 
-                      {/* Visit card with premium design and gradient backgrounds */}
+                      {/* Visit card with clean design */}
                       <div 
-                        className={`relative ml-16 p-6 rounded-2xl cursor-pointer transition-all duration-300 group-hover:shadow-2xl backdrop-blur-sm ${
-                          visit.status === 'completed' ? 'bg-gradient-to-br from-emerald-50/80 via-white/95 to-green-50/60 shadow-emerald-100/50' :
-                          visit.status === 'in-progress' ? 'bg-gradient-to-br from-amber-50/80 via-white/95 to-yellow-50/60 shadow-amber-100/50' :
-                          'bg-gradient-to-br from-gray-50/80 via-white/95 to-slate-50/60 shadow-gray-100/50'
+                        className={`relative ml-16 p-6 bg-white rounded-2xl border-2 cursor-pointer transition-all duration-300 group-hover:shadow-xl ${
+                          visit.status === 'completed' ? 'border-emerald-200 hover:border-emerald-300' :
+                          visit.status === 'in-progress' ? 'border-amber-200 hover:border-amber-300' :
+                          'border-gray-200 hover:border-gray-300'
                         }`}
                         onClick={() => handleVisitClick(visit.id)}
                       >
@@ -1322,7 +1321,6 @@ const PatientModernDetail = () => {
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         title="Patient Profile Details"
-        className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-black/30"
       >
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1370,7 +1368,6 @@ const PatientModernDetail = () => {
         onClose={() => setIsSmsModalOpen(false)}
         title=""
         hideHeader={true}
-        className="max-w-2xl backdrop-blur-2xl"
       >
         <div className="relative bg-gradient-to-br from-white via-blue-50/30 to-purple-50/20 rounded-2xl shadow-2xl overflow-hidden">
           {/* Premium Header */}
