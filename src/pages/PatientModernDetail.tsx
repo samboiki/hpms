@@ -44,6 +44,42 @@ interface Patient {
   date_of_birth: string;
   gender: string;
   avatar?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  emergency_contact_relationship?: string;
+}
+
+interface NextOfKin {
+  id: string;
+  patient_id: string;
+  name: string;
+  relationship: string;
+  phone: string;
+  address?: string;
+}
+
+interface MedicalAidDetails {
+  id: string;
+  patient_id: string;
+  provider: string;
+  scheme: string;
+  membership_number: string;
+  plan_type: string;
+  main_member_name: string;
+  main_member_id_number: string;
+  relationship_to_main: string;
+}
+
+interface LatestVitals {
+  id: string;
+  blood_pressure?: string;
+  temperature?: number;
+  pulse_rate?: number;
+  respiratory_rate?: number;
+  weight?: number;
+  height?: number;
+  bmi?: number;
+  created_at: string;
 }
 
 interface Visit {
@@ -51,12 +87,16 @@ interface Visit {
   appointment_id?: string;
   visit_date: string;
   visit_time: string;
-  visit_type: string;
-  status: string;
+  visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
+  status: 'in-progress' | 'completed' | 'cancelled' | 'scheduled';
   doctor_name: string;
   chief_complaint: string;
   diagnosis: string;
+  treatment_plan?: string;
   prescription?: string;
+  follow_up_required?: boolean;
+  follow_up_date?: string;
+  notes?: string;
   vitals: {
     blood_pressure?: string;
     temperature?: number;
@@ -66,6 +106,21 @@ interface Visit {
     height?: number;
     bmi?: number;
   };
+  lab_results?: Array<{
+    id?: string;
+    name: string;
+    value: string;
+    unit: string;
+    reference_range: string;
+    status: 'normal' | 'high' | 'low' | 'critical';
+    date: string;
+  }>;
+  media?: Array<{
+    type: 'xray' | 'ct' | 'mri' | 'ultrasound' | 'photo';
+    url: string;
+    description: string;
+    date: string;
+  }>;
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -75,6 +130,9 @@ const PatientModernDetail = () => {
   const navigate = useNavigate();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [nextOfKin, setNextOfKin] = useState<NextOfKin | null>(null);
+  const [medicalAid, setMedicalAid] = useState<MedicalAidDetails | null>(null);
+  const [latestVitals, setLatestVitals] = useState<LatestVitals | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isNextOfKinModalOpen, setIsNextOfKinModalOpen] = useState(false);
@@ -115,6 +173,47 @@ const PatientModernDetail = () => {
 
         if (visitsError) throw visitsError;
         setVisits(visitsData || []);
+
+        // Fetch Next of Kin
+        const { data: nextOfKinData, error: nextOfKinError } = await supabase
+          .from('next_of_kin')
+          .select('*')
+          .eq('patient_id', id)
+          .maybeSingle();
+
+        if (nextOfKinError && nextOfKinError.code !== 'PGRST116') {
+          console.error('Error fetching next of kin:', nextOfKinError);
+        } else {
+          setNextOfKin(nextOfKinData);
+        }
+
+        // Fetch Medical Aid Details
+        const { data: medicalAidData, error: medicalAidError } = await supabase
+          .from('medical_aid_details')
+          .select('*')
+          .eq('patient_id', id)
+          .maybeSingle();
+
+        if (medicalAidError && medicalAidError.code !== 'PGRST116') {
+          console.error('Error fetching medical aid:', medicalAidError);
+        } else {
+          setMedicalAid(medicalAidData);
+        }
+
+        // Fetch Latest Vitals
+        const { data: vitalsData, error: vitalsError } = await supabase
+          .from('vitals')
+          .select('*')
+          .in('visit_id', visitsData?.map(v => v.id) || [])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (vitalsError && vitalsError.code !== 'PGRST116') {
+          console.error('Error fetching vitals:', vitalsError);
+        } else {
+          setLatestVitals(vitalsData);
+        }
 
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -252,10 +351,17 @@ const PatientModernDetail = () => {
           animate={{ opacity: 1, y: 0 }}
           className="relative overflow-hidden"
         >
-          <div className="relative backdrop-blur-xl bg-white/95 border-2 border-[#01b9d5]/30 rounded-3xl shadow-2xl overflow-hidden">
-            {/* Gradient mesh background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5]/5 via-transparent to-purple-600/5"></div>
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/40 via-transparent to-transparent"></div>
+          <div className="relative backdrop-blur-xl bg-white/90 rounded-3xl shadow-2xl overflow-hidden">
+            {/* Premium gradient border */}
+            <div className="absolute inset-0 bg-gradient-to-r from-[#01b9d5] via-purple-500 to-indigo-600 p-[2px] rounded-3xl">
+              <div className="h-full w-full bg-white/95 backdrop-blur-xl rounded-3xl"></div>
+            </div>
+            {/* Glassmorphism effects */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5]/10 via-white/20 to-purple-600/10"></div>
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/60 via-transparent to-transparent"></div>
+            {/* Subtle bulges */}
+            <div className="absolute top-4 right-8 w-32 h-32 bg-gradient-to-br from-[#01b9d5]/5 to-purple-500/5 rounded-full blur-2xl"></div>
+            <div className="absolute bottom-6 left-6 w-24 h-24 bg-gradient-to-br from-indigo-500/5 to-cyan-500/5 rounded-full blur-xl"></div>
             
             <div className="relative p-4 md:p-6">
               <div className="flex items-center justify-between mb-3">
@@ -289,7 +395,7 @@ const PatientModernDetail = () => {
                 <div className="flex-1">
                   <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-4">
                     <div>
-                      <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent leading-tight">
+                      <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-[#01b9d5] via-purple-600 to-indigo-600 bg-clip-text text-transparent leading-tight">
                         {patient.first_name} {patient.last_name}
                       </h1>
                       <p className="text-xs text-gray-500 font-medium">Patient ID: {patient.id.slice(0, 8)}</p>
@@ -306,15 +412,6 @@ const PatientModernDetail = () => {
                         AI Summary
                       </motion.button>
                       
-                      <motion.button
-                        whileHover={{ scale: 1.05, y: -2 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setIsAddVisitModalOpen(true)}
-                        className="px-4 py-1.5 bg-gradient-to-r from-[#01b9d4] to-indigo-600 text-white rounded-lg flex items-center gap-2 shadow-lg hover:shadow-2xl hover:shadow-[#01b9d5]/30 transition-all duration-300 font-semibold text-xs"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        New Visit
-                      </motion.button>
                     </div>
                   </div>
                   
@@ -356,28 +453,48 @@ const PatientModernDetail = () => {
                         
                         {/* Vital Pills */}
                         <div className="flex items-center gap-3">
-                          <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
-                            <span className="text-[11px] font-medium text-gray-700">BP: <span className="font-bold">120/80</span></span>
-                          </motion.div>
-                          <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
-                            <span className="text-[11px] font-medium text-gray-700">HR: <span className="font-bold">72</span></span>
-                          </motion.div>
-                          <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
-                            <span className="text-[11px] font-medium text-gray-700">Temp: <span className="font-bold">98.6°</span></span>
-                          </motion.div>
-                          <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
-                            <span className="text-[11px] font-medium text-gray-700">SpO2: <span className="font-bold">98%</span></span>
-                          </motion.div>
+                          {latestVitals?.blood_pressure && (
+                            <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
+                              <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                              <span className="text-[11px] font-medium text-gray-700">BP: <span className="font-bold">{latestVitals.blood_pressure}</span></span>
+                            </motion.div>
+                          )}
+                          {latestVitals?.pulse_rate && (
+                            <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
+                              <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                              <span className="text-[11px] font-medium text-gray-700">HR: <span className="font-bold">{latestVitals.pulse_rate}</span></span>
+                            </motion.div>
+                          )}
+                          {latestVitals?.temperature && (
+                            <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
+                              <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
+                              <span className="text-[11px] font-medium text-gray-700">Temp: <span className="font-bold">{latestVitals.temperature}°C</span></span>
+                            </motion.div>
+                          )}
+                          {latestVitals?.respiratory_rate && (
+                            <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
+                              <div className="w-1.5 h-1.5 bg-purple-500 rounded-full"></div>
+                              <span className="text-[11px] font-medium text-gray-700">RR: <span className="font-bold">{latestVitals.respiratory_rate}</span></span>
+                            </motion.div>
+                          )}
+                          {!latestVitals && (
+                            <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-1.5">
+                              <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
+                              <span className="text-[11px] font-medium text-gray-500">No recent vitals</span>
+                            </motion.div>
+                          )}
                         </div>
                       </div>
                       
                       <div className="flex items-center gap-1">
-                        <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="text-[10px] text-green-600 font-medium">All Normal</span>
+                        <div className={`w-1 h-1 rounded-full animate-pulse ${
+                          latestVitals ? 'bg-green-500' : 'bg-gray-400'
+                        }`}></div>
+                        <span className={`text-[10px] font-medium ${
+                          latestVitals ? 'text-green-600' : 'text-gray-500'
+                        }`}>
+                          {latestVitals ? 'Latest Data' : 'No Data'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -454,14 +571,20 @@ const PatientModernDetail = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-base font-bold text-gray-800 flex items-center gap-2">
-                            Discovery Health
-                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                            {medicalAid?.provider || 'No Medical Aid'}
+                            {medicalAid && <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>}
                           </p>
-                          <p className="text-xs font-medium bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">Executive Plan</p>
+                          <p className="text-xs font-medium bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+                            {medicalAid?.scheme || 'No scheme'}
+                          </p>
                         </div>
                         <div className="text-center">
-                          <Badge variant="emerald" size="sm" className="shadow-md">Active</Badge>
-                          <p className="text-[10px] text-gray-500 mt-0.5">Premium</p>
+                          <Badge variant={medicalAid ? "emerald" : "glass"} size="sm" className="shadow-md">
+                            {medicalAid ? 'Active' : 'None'}
+                          </Badge>
+                          <p className="text-[10px] text-gray-500 mt-0.5">
+                            {medicalAid?.plan_type || 'No plan'}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -478,7 +601,9 @@ const PatientModernDetail = () => {
                         <p className="text-xs font-bold text-gray-600 tracking-wider">MEMBERSHIP CARD</p>
                       </div>
                       <p className="text-xs text-gray-500 mb-1 font-medium">Member ID</p>
-                      <p className="font-mono text-base font-bold text-gray-800 tracking-wider">DH123456789</p>
+                      <p className="font-mono text-base font-bold text-gray-800 tracking-wider">
+                        {medicalAid?.membership_number || 'No membership'}
+                      </p>
                       <div className="mt-3 flex justify-between text-xs text-gray-500">
                         <span>Valid From: 01/24</span>
                         <span>Expires: 12/24</span>
@@ -494,14 +619,16 @@ const PatientModernDetail = () => {
                       </div>
                       <div>
                         <p className="text-xs font-medium text-gray-500 mb-1">Main Member</p>
-                        <p className="text-sm font-bold text-gray-800">John Smith</p>
+                        <p className="text-sm font-bold text-gray-800">
+                          {medicalAid?.main_member_name || 'No main member'}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                      <span>ID: 8001015012087</span>
+                      <span>ID: {medicalAid?.main_member_id_number || 'N/A'}</span>
                       <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                      <span>Relationship: Self</span>
+                      <span>Relationship: {medicalAid?.relationship_to_main || 'N/A'}</span>
                     </div>
                   </div>
                   
@@ -583,8 +710,12 @@ const PatientModernDetail = () => {
                           <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></div>
                         </div>
                         <div className="flex-1">
-                          <p className="text-lg font-bold text-gray-900">Sarah Smith</p>
-                          <p className="text-sm font-medium text-gray-600 bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">Spouse</p>
+                          <p className="text-lg font-bold text-gray-900">
+                            {nextOfKin?.name || patient?.emergency_contact_name || 'No emergency contact'}
+                          </p>
+                          <p className="text-sm font-medium text-gray-600 bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
+                            {nextOfKin?.relationship || patient?.emergency_contact_relationship || 'Not specified'}
+                          </p>
                           <div className="flex items-center gap-2 mt-1">
                             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                             <span className="text-xs text-green-600 font-medium">Available</span>
@@ -599,14 +730,18 @@ const PatientModernDetail = () => {
                     <div className="p-2.5 bg-white/5 rounded-lg border border-white/10">
                       <div className="flex items-center gap-2">
                         <Phone className="w-3 h-3 text-blue-400" />
-                        <p className="text-xs text-gray-300">+1 234 567 8900</p>
+                        <p className="text-xs text-gray-600">
+                          {nextOfKin?.phone || patient?.emergency_contact_phone || 'No phone number'}
+                        </p>
                       </div>
                     </div>
                     
                     <div className="p-2.5 bg-white/5 rounded-lg border border-white/10">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-3 h-3 text-emerald-400" />
-                        <p className="text-xs text-gray-300">123 Main Street, Anytown</p>
+                        <p className="text-xs text-gray-600">
+                          {nextOfKin?.address || 'No address provided'}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -677,6 +812,17 @@ const PatientModernDetail = () => {
                         className="pl-10 pr-4 py-2.5 text-sm bg-white/80 border border-gray-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#01b9d4]/30 focus:border-[#01b9d4] transition-all backdrop-blur-sm shadow-sm text-gray-700 placeholder:text-gray-400"
                       />
                     </motion.div>
+                    
+                    {/* New Visit Button */}
+                    <motion.button
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setIsAddVisitModalOpen(true)}
+                      className="px-4 py-2.5 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-2xl hover:shadow-[#01b9d5]/30 transition-all duration-300 font-semibold text-sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                      New Visit
+                    </motion.button>
                   </div>
                 </div>
 
@@ -705,12 +851,12 @@ const PatientModernDetail = () => {
                         }`}></div>
                       </div>
 
-                      {/* Visit card with premium design */}
+                      {/* Visit card with premium design and gradient backgrounds */}
                       <div 
-                        className={`relative ml-16 p-6 rounded-2xl border-2 cursor-pointer transition-all duration-300 group-hover:shadow-2xl backdrop-blur-sm ${
-                          visit.status === 'completed' ? 'bg-white/95 border-emerald-200 group-hover:border-emerald-300 shadow-emerald-100/50' :
-                          visit.status === 'in-progress' ? 'bg-white/95 border-amber-200 group-hover:border-amber-300 shadow-amber-100/50' :
-                          'bg-white/95 border-gray-200 group-hover:border-gray-300 shadow-gray-100/50'
+                        className={`relative ml-16 p-6 rounded-2xl cursor-pointer transition-all duration-300 group-hover:shadow-2xl backdrop-blur-sm ${
+                          visit.status === 'completed' ? 'bg-gradient-to-br from-emerald-50/80 via-white/95 to-green-50/60 shadow-emerald-100/50' :
+                          visit.status === 'in-progress' ? 'bg-gradient-to-br from-amber-50/80 via-white/95 to-yellow-50/60 shadow-amber-100/50' :
+                          'bg-gradient-to-br from-gray-50/80 via-white/95 to-slate-50/60 shadow-gray-100/50'
                         }`}
                         onClick={() => handleVisitClick(visit.id)}
                       >
@@ -787,7 +933,7 @@ const PatientModernDetail = () => {
                                 className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-full text-xs font-medium text-emerald-700 shadow-sm border border-emerald-200"
                               >
                                 <Stethoscope className="w-3.5 h-3.5 text-emerald-500" />
-                                <span>Diagnosis</span>
+                                <span>Clinical Notes</span>
                               </motion.div>
                             )}
                           </div>
@@ -910,8 +1056,8 @@ const PatientModernDetail = () => {
                 {/* Live Queue */}
                 <div className="space-y-3 mb-6">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-bold text-white">Next Patients</h4>
-                    <span className="text-xs text-gray-400">Updated now</span>
+                    <h4 className="text-sm font-bold text-gray-800">Next Patients</h4>
+                    <span className="text-xs text-gray-500">Updated now</span>
                   </div>
                   
                   {/* Queue Items */}
@@ -921,14 +1067,14 @@ const PatientModernDetail = () => {
                     className="relative group/queue"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-lg opacity-0 group-hover/queue:opacity-100 transition-opacity"></div>
-                    <div className="relative p-3 bg-white/10 rounded-lg border border-blue-200/20 shadow-sm">
+                    <div className="relative p-3 bg-white/90 rounded-lg border border-blue-200/50 shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
                           1
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-bold text-white">Maria Rodriguez</p>
-                          <p className="text-xs text-gray-400">Follow-up • 2:30 PM</p>
+                          <p className="text-sm font-bold text-gray-800">Maria Rodriguez</p>
+                          <p className="text-xs text-gray-600">Follow-up • 2:30 PM</p>
                         </div>
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -945,14 +1091,14 @@ const PatientModernDetail = () => {
                     className="relative group/queue"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-orange-500/5 rounded-lg opacity-0 group-hover/queue:opacity-100 transition-opacity"></div>
-                    <div className="relative p-3 bg-white/10 rounded-lg border border-amber-200/20 shadow-sm">
+                    <div className="relative p-3 bg-white/90 rounded-lg border border-amber-200/50 shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
                           2
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-bold text-white">James Wilson</p>
-                          <p className="text-xs text-gray-400">Consultation • 3:00 PM</p>
+                          <p className="text-sm font-bold text-gray-800">James Wilson</p>
+                          <p className="text-xs text-gray-600">Consultation • 3:00 PM</p>
                         </div>
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
@@ -969,14 +1115,14 @@ const PatientModernDetail = () => {
                     className="relative group/queue"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-gray-500/5 to-slate-500/5 rounded-lg opacity-0 group-hover/queue:opacity-100 transition-opacity"></div>
-                    <div className="relative p-3 bg-white/10 rounded-lg border border-gray-200/20 shadow-sm">
+                    <div className="relative p-3 bg-white/90 rounded-lg border border-gray-200/50 shadow-sm">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-gradient-to-br from-gray-400 to-slate-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
                           3
                         </div>
                         <div className="flex-1">
-                          <p className="text-sm font-bold text-white">Sarah Johnson</p>
-                          <p className="text-xs text-gray-400">Check-up • 3:30 PM</p>
+                          <p className="text-sm font-bold text-gray-800">Sarah Johnson</p>
+                          <p className="text-xs text-gray-600">Check-up • 3:30 PM</p>
                         </div>
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
@@ -1002,7 +1148,7 @@ const PatientModernDetail = () => {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="p-2.5 bg-white/10 border border-white/10 rounded-lg hover:bg-white/20 transition-colors shadow-sm flex items-center justify-center gap-2 text-xs font-medium text-gray-300"
+                      className="p-2.5 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 transition-colors shadow-sm flex items-center justify-center gap-2 text-xs font-medium text-gray-600"
                     >
                       <Calendar className="w-3.5 h-3.5" />
                       Schedule
@@ -1010,7 +1156,7 @@ const PatientModernDetail = () => {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className="p-2.5 bg-white/10 border border-white/10 rounded-lg hover:bg-white/20 transition-colors shadow-sm flex items-center justify-center gap-2 text-xs font-medium text-gray-300"
+                      className="p-2.5 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 transition-colors shadow-sm flex items-center justify-center gap-2 text-xs font-medium text-gray-600"
                     >
                       <FileText className="w-3.5 h-3.5" />
                       Records
@@ -1061,7 +1207,15 @@ const PatientModernDetail = () => {
         {selectedVisit && (
           <EditVisitForm
             visitId={selectedVisit.id}
-            initialData={selectedVisit}
+            initialData={{
+              ...selectedVisit,
+              visit_type: selectedVisit.visit_type as 'consultation' | 'follow-up' | 'procedure' | 'emergency',
+              status: selectedVisit.status as 'in-progress' | 'completed' | 'cancelled',
+              treatment_plan: selectedVisit.treatment_plan || '',
+              follow_up_required: selectedVisit.follow_up_required || false,
+              lab_results: selectedVisit.lab_results || [],
+              media: selectedVisit.media || []
+            }}
             onSuccess={() => {
               setIsEditVisitModalOpen(false);
               if (id) {
@@ -1168,7 +1322,7 @@ const PatientModernDetail = () => {
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         title="Patient Profile Details"
-        className="max-w-4xl"
+        className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md bg-black/30"
       >
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1210,62 +1364,141 @@ const PatientModernDetail = () => {
         </div>
       </FormModal>
 
-      {/* SMS Quick Contact Modal */}
+      {/* Premium SMS Quick Contact Modal */}
       <FormModal
         isOpen={isSmsModalOpen}
         onClose={() => setIsSmsModalOpen(false)}
-        title="Send SMS to Next of Kin"
+        title=""
+        hideHeader={true}
+        className="max-w-2xl backdrop-blur-2xl"
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-2">
-              Recipient: Sarah Smith (Next of Kin)
-            </label>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-700">+1 234 567 8900</p>
+        <div className="relative bg-gradient-to-br from-white via-blue-50/30 to-purple-50/20 rounded-2xl shadow-2xl overflow-hidden">
+          {/* Premium Header */}
+          <div className="relative bg-gradient-to-r from-[#01b9d5] to-purple-600 p-6 text-white">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#01b9d5]/20 to-purple-600/20 backdrop-blur-sm"></div>
+            <div className="relative flex items-center gap-4">
+              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                <Mail className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Send SMS Message</h2>
+                <p className="text-blue-100 text-sm">Contact Next of Kin directly</p>
+              </div>
             </div>
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-2">
-              Message Template
-            </label>
-            <select className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30">
-              <option>Appointment Reminder</option>
-              <option>Test Results Available</option>
-              <option>Emergency Contact</option>
-              <option>Custom Message</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-600 mb-2">
-              Message
-            </label>
-            <textarea
-              rows={4}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30"
-              placeholder="Type your message here..."
-              defaultValue="Hello Sarah, this is regarding {patient?.first_name} {patient?.last_name}'s medical care. Please contact us at your earliest convenience."
-            />
-          </div>
-          
-          <div className="flex gap-3 pt-4">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setIsSmsModalOpen(false)}
-              className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              Cancel
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-[#01b9d5] to-purple-600 text-white rounded-lg shadow-lg hover:shadow-xl transition-all"
-            >
-              Send SMS
-            </motion.button>
+
+          <div className="p-6 space-y-6">
+            {/* Recipient Section */}
+            <div className="space-y-3">
+              <label className="block text-sm font-semibold text-gray-700">
+                Recipient Information
+              </label>
+              <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-100">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
+                    <User className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-800">
+                      {nextOfKin?.name || patient?.emergency_contact_name || 'No emergency contact'}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Next of Kin • {nextOfKin?.relationship || patient?.emergency_contact_relationship || 'Not specified'}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-gray-600">Phone Number</label>
+                  <input
+                    type="tel"
+                    defaultValue={nextOfKin?.phone || patient?.emergency_contact_phone || ''}
+                    className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all font-mono text-gray-800"
+                    placeholder={nextOfKin?.phone || patient?.emergency_contact_phone ? "Edit phone number" : "Enter phone number"}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Message Template */}
+            <div className="space-y-3">
+              <label className="block text-sm font-semibold text-gray-700">
+                Message Template
+              </label>
+              <div className="relative">
+                <select className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all appearance-none cursor-pointer">
+                  <option value="appointment">🗓️ Appointment Reminder</option>
+                  <option value="results">📋 Test Results Available</option>
+                  <option value="emergency">🚨 Emergency Contact</option>
+                  <option value="followup">💊 Follow-up Required</option>
+                  <option value="custom">✏️ Custom Message</option>
+                </select>
+                <ChevronRight className="absolute right-3 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Message Content */}
+            <div className="space-y-3">
+              <label className="block text-sm font-semibold text-gray-700">
+                Message Content
+              </label>
+              <div className="relative">
+                <textarea
+                  rows={4}
+                  className="w-full p-4 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all resize-none"
+                  placeholder="Type your message here..."
+                  defaultValue={`Hello Sarah,
+
+This is regarding ${patient?.first_name} ${patient?.last_name}'s medical care. Please contact us at your earliest convenience.
+
+Best regards,
+Medical Team`}
+                />
+                <div className="absolute bottom-3 right-3 text-xs text-gray-400">
+                  Character count: 160/1600
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Templates */}
+            <div className="grid grid-cols-2 gap-3">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="p-3 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 rounded-lg text-left hover:shadow-md transition-all"
+              >
+                <div className="text-sm font-medium text-emerald-800">Appointment Confirmed</div>
+                <div className="text-xs text-emerald-600">Ready-to-send template</div>
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="p-3 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg text-left hover:shadow-md transition-all"
+              >
+                <div className="text-sm font-medium text-orange-800">Lab Results Ready</div>
+                <div className="text-xs text-orange-600">Ready-to-send template</div>
+              </motion.button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4 border-t border-gray-100">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setIsSmsModalOpen(false)}
+                className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02, y: -1 }}
+                whileTap={{ scale: 0.98 }}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-[#01b9d5] to-purple-600 text-white rounded-xl shadow-lg hover:shadow-2xl transition-all font-semibold flex items-center justify-center gap-2"
+              >
+                <Mail className="w-4 h-4" />
+                Send SMS
+              </motion.button>
+            </div>
           </div>
         </div>
       </FormModal>
