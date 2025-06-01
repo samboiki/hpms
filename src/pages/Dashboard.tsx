@@ -28,6 +28,7 @@ import { motion } from 'framer-motion';
 import { useRealtimeAppointments } from '../hooks/useRealtimeAppointments';
 import { toast } from 'react-hot-toast';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
+import DashboardStats from '../components/dashboard/DashboardStats';
 
 interface Appointment {
   id: string;
@@ -879,6 +880,9 @@ function Dashboard() {
             </motion.div>
           </div>
         </div>
+
+        {/* Advanced Statistics Dashboard */}
+        <DashboardStats practiceId={currentPracticeId} />
       </div>
 
       {/* Modals */}
