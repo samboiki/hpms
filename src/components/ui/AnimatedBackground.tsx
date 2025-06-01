@@ -49,7 +49,7 @@ export const AnimatedBackground: React.FC<AnimatedBackgroundProps> = ({
 
 export const AnimatedPageBackground: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen relative bg-gray-50">
       {/* Main background gradient - light grey */}
       <div className="fixed inset-0 bg-gradient-to-br from-gray-50 via-gray-100/50 to-gray-50 animate-gradient-shift" />
       

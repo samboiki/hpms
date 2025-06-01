@@ -620,7 +620,7 @@ function Dashboard() {
 
   return (
     <AnimatedPageBackground>
-      <div className="min-h-screen bg-transparent">
+      <div className="min-h-screen">
         <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
         {/* Compact Professional Header */}
         <div className="bg-white/60 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">

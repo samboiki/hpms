@@ -62,7 +62,7 @@ const Layout: React.FC = () => {
       {/* Main Content */}
       <main
         className={cn(
-          'flex-1 overflow-y-auto transition-all duration-300 bg-transparent',
+          'flex-1 overflow-y-auto transition-all duration-300 bg-gray-50',
           !isMobile && (sidebarCollapsed ? 'ml-[72px]' : 'ml-[240px]'),
           isMobile && 'ml-0 pl-16' // Add padding for mobile menu button
         )}
