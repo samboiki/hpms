@@ -715,190 +715,145 @@ Medical Team`;
                   </div>
                 </div>
 
-                {/* Premium Vitals Section */}
+                {/* Compact Vitals Section - One Row */}
                 {latestVitals && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3 }}
-                    className="mb-8 relative group"
-                    data-section="vitals"
-                  >
-                    {/* Subtle glow effect */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-gray-400/5 via-gray-500/5 to-gray-400/5 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500 -z-10"></div>
-                    
-                    <div className="relative bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/30 overflow-hidden">
-                      {/* Elegant header stripe */}
-                      <div className="h-1 bg-gradient-to-r from-gray-400 via-gray-500 to-gray-400"></div>
-                      
-                      <div className="p-6">
-                        {/* Premium title */}
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="p-2 bg-gradient-to-br from-gray-600 to-gray-700 rounded-lg shadow-sm">
-                            <Activity className="w-4 h-4 text-white" />
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-semibold text-gray-800">Latest Vitals</h3>
-                            <p className="text-xs text-gray-500">
-                              {latestVitals.created_at ? new Date(latestVitals.created_at).toLocaleDateString() : 'Recent readings'}
-                            </p>
-                          </div>
-                        </div>
-                        
-                        {/* Premium vitals display */}
-                        <div className="flex items-center gap-6 text-sm bg-gray-50/50 rounded-lg p-4 border border-gray-100">
-                          {latestVitals.blood_pressure && (
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
-                              <span className="text-gray-700">
-                                <span className="font-semibold text-gray-800">{latestVitals.blood_pressure}</span> BP
-                              </span>
-                            </div>
-                          )}
-                          {latestVitals.pulse_rate && (
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
-                              <span className="text-gray-700">
-                                <span className="font-semibold text-gray-800">{latestVitals.pulse_rate}</span> bpm
-                              </span>
-                            </div>
-                          )}
-                          {latestVitals.temperature && (
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
-                              <span className="text-gray-700">
-                                <span className="font-semibold text-gray-800">{latestVitals.temperature}°C</span>
-                              </span>
-                            </div>
-                          )}
-                          {latestVitals.weight && (
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
-                              <span className="text-gray-700">
-                                <span className="font-semibold text-gray-800">{latestVitals.weight}</span> kg
-                              </span>
-                            </div>
-                          )}
-                          {latestVitals.bmi && (
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
-                              <span className="text-gray-700">
-                                BMI <span className="font-semibold text-gray-800">{latestVitals.bmi}</span>
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                  <div className="mb-4 flex items-center justify-between bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+                    <div className="flex items-center gap-3">
+                      <Activity className="w-4 h-4 text-gray-600" />
+                      <h3 className="text-sm font-semibold text-gray-800">Latest Vitals</h3>
                     </div>
-                  </motion.div>
+                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                      {latestVitals.blood_pressure && (
+                        <span>{latestVitals.blood_pressure} BP</span>
+                      )}
+                      {latestVitals.pulse_rate && (
+                        <span>{latestVitals.pulse_rate} bpm</span>
+                      )}
+                      {latestVitals.temperature && (
+                        <span>{latestVitals.temperature}°C</span>
+                      )}
+                      {latestVitals.weight && (
+                        <span>{latestVitals.weight} kg</span>
+                      )}
+                      {latestVitals.bmi && (
+                        <span>BMI {latestVitals.bmi}</span>
+                      )}
+                    </div>
+                  </div>
                 )}
 
-                {/* 🚀 ULTRA-PREMIUM MEDICAL TIMELINE - WOW Factor */}
+                {/* Medical Timeline - Clean Professional Style */}
                 <div className="relative">
-                  {/* Revolutionary animated timeline spine */}
-                  <div className="absolute left-8 top-0 bottom-0 w-1 bg-gradient-to-b from-[#01b9d5] via-purple-500 via-pink-500 to-indigo-600 rounded-full shadow-lg">
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/30 to-transparent rounded-full animate-pulse"></div>
-                  </div>
+                  {/* Clean timeline line */}
+                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
 
                   {visits.map((visit, index) => (
-                    <div
+                    <motion.div
                       key={visit.id}
-                      className="relative mb-6 group cursor-pointer"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="relative group/visit mb-4"
                       onClick={() => handleVisitClick(visit.id)}
                     >
-                      {/* Simple timeline line */}
-                      {index < visits.length - 1 && (
-                        <div className="absolute left-4 top-10 w-0.5 h-12 bg-gray-200"></div>
-                      )}
-                      
-                      {/* Simple timeline node */}
-                      <div className="absolute left-2 top-6 w-4 h-4 bg-white border-2 border-gray-400 rounded-full shadow-sm">
-                        {visit.status === 'completed' && (
-                          <CheckCircle2 className="absolute -inset-1 w-6 h-6 text-green-600" />
-                        )}
-                        {visit.status === 'in-progress' && (
-                          <Activity className="absolute -inset-1 w-6 h-6 text-blue-600" />
-                        )}
+                      {/* Timeline node - properly aligned */}
+                      <div className={`absolute left-4 top-3 w-8 h-8 -ml-4 rounded-full flex items-center justify-center shadow-md ${
+                        visit.status === 'completed' ? 'bg-gradient-to-br from-emerald-500 to-green-600' :
+                        visit.status === 'in-progress' ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
+                        'bg-gradient-to-br from-gray-400 to-slate-500'
+                      }`}>
+                        <span className="text-white text-xs font-bold">{index + 1}</span>
                       </div>
 
-                      {/* Minimalist visit card */}
-                      <div className="ml-12 bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200">
-                        {/* Header */}
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h3 className="text-base font-semibold text-gray-900">
-                              {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)}
-                            </h3>
-                            <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                              <span>{format(new Date(visit.visit_date), 'MMM d, yyyy')}</span>
-                              <span>{visit.visit_time}</span>
-                              <span>Dr. {visit.doctor_name}</span>
+                      {/* Visit card - Appointments Today style */}
+                      <div className="ml-8 relative group/card">
+                        <div className="absolute inset-0 bg-gradient-to-r from-gray-500/5 to-slate-500/5 rounded-lg opacity-0 group-hover/card:opacity-100 transition-opacity"></div>
+                        <div className="relative p-4 bg-white/90 rounded-lg border border-gray-200/50 shadow-sm hover:shadow-md transition-all duration-200">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <p className="text-sm font-bold text-gray-800">
+                                  {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)}
+                                </p>
+                                <div className="flex items-center gap-1">
+                                  <div className={`w-2 h-2 rounded-full ${
+                                    visit.status === 'completed' ? 'bg-green-500' :
+                                    visit.status === 'in-progress' ? 'bg-blue-500 animate-pulse' :
+                                    'bg-gray-400'
+                                  }`}></div>
+                                  <span className={`text-xs font-medium ${
+                                    visit.status === 'completed' ? 'text-green-600' :
+                                    visit.status === 'in-progress' ? 'text-blue-600' :
+                                    'text-gray-500'
+                                  }`}>
+                                    {visit.status === 'completed' ? 'Completed' :
+                                     visit.status === 'in-progress' ? 'In Progress' : 'Scheduled'}
+                                  </span>
+                                </div>
+                              </div>
+                              <p className="text-xs text-gray-600 mb-2">
+                                {format(new Date(visit.visit_date), 'MMM d, yyyy')} • {visit.visit_time} • Dr. {visit.doctor_name}
+                              </p>
+                              
+                              {/* Complaint and Diagnosis */}
+                              {(visit.chief_complaint || visit.diagnosis) && (
+                                <div className="mt-3 space-y-1">
+                                  {visit.chief_complaint && (
+                                    <p className="text-xs text-gray-700">
+                                      <span className="font-medium">Complaint:</span> {visit.chief_complaint}
+                                    </p>
+                                  )}
+                                  {visit.diagnosis && (
+                                    <p className="text-xs text-gray-700">
+                                      <span className="font-medium">Diagnosis:</span> {visit.diagnosis}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Attachments */}
+                              <div className="flex items-center gap-3 mt-3 text-xs text-gray-500">
+                                <div className="flex items-center gap-1">
+                                  <Microscope className="w-3 h-3" />
+                                  <span>2 Results</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <ImageIcon className="w-3 h-3" />
+                                  <span>3 Images</span>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            visit.status === 'completed' ? 'bg-green-100 text-green-700' :
-                            visit.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
-                            'bg-gray-100 text-gray-700'
-                          }`}>
-                            {visit.status}
-                          </span>
-                        </div>
-                        
-                        {/* Content */}
-                        {(visit.chief_complaint || visit.diagnosis) && (
-                          <div className="space-y-2 text-sm">
-                            {visit.chief_complaint && (
-                              <div>
-                                <span className="font-medium text-gray-700">Complaint:</span>
-                                <span className="text-gray-600 ml-2">{visit.chief_complaint}</span>
-                              </div>
-                            )}
-                            {visit.diagnosis && (
-                              <div>
-                                <span className="font-medium text-gray-700">Diagnosis:</span>
-                                <span className="text-gray-600 ml-2">{visit.diagnosis}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        
-                        {/* Action buttons */}
-                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
-                            <Microscope className="w-3 h-3" />
-                            <span>2 Results</span>
-                            <ImageIcon className="w-3 h-3 ml-2" />
-                            <span>3 Images</span>
-                          </div>
-                          
-                          <div className="flex gap-2">
-                            {visit.status === 'in-progress' && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleVisitStatusChange(visit.id, 'completed', visit.appointment_id);
-                                }}
-                                className="px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition-colors"
-                              >
-                                Complete
-                              </button>
-                            )}
-                            {visit.status === 'scheduled' && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleVisitStatusChange(visit.id, 'in-progress', visit.appointment_id);
-                                }}
-                                className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition-colors"
-                              >
-                                Start Visit
-                              </button>
-                            )}
-                            <ChevronRight className="w-4 h-4 text-gray-400" />
+                            
+                            {/* Actions */}
+                            <div className="flex items-center gap-2">
+                              {visit.status === 'in-progress' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleVisitStatusChange(visit.id, 'completed', visit.appointment_id);
+                                  }}
+                                  className="px-3 py-1.5 bg-emerald-500 text-white rounded-md text-xs font-medium hover:bg-emerald-600 transition-colors"
+                                >
+                                  Complete
+                                </button>
+                              )}
+                              {visit.status === 'scheduled' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleVisitStatusChange(visit.id, 'in-progress', visit.appointment_id);
+                                  }}
+                                  className="px-3 py-1.5 bg-blue-500 text-white rounded-md text-xs font-medium hover:bg-blue-600 transition-colors"
+                                >
+                                  Start Visit
+                                </button>
+                              )}
+                              <ChevronRight className="w-4 h-4 text-gray-400" />
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                   
                   {visits.length === 0 && (
@@ -1221,20 +1176,30 @@ Medical Team`;
                     </div>
                   </div>
                   
-                  {/* Next of Kin Info */}
+                  {/* Next of Kin Info - Clickable */}
                   <div className="p-4 bg-gradient-to-br from-gray-50 via-white to-gray-50 rounded-xl border border-gray-200/50 shadow-sm">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-gray-500 to-gray-600 rounded-full flex items-center justify-center shadow-md">
-                        <Heart className="w-5 h-5 text-white" />
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-gray-500 to-gray-600 rounded-full flex items-center justify-center shadow-md">
+                          <Heart className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 mb-1">Emergency Contact</p>
+                          <p className="text-sm font-bold text-gray-800">
+                            {nextOfKin?.name || patient?.emergency_contact_name || 'No emergency contact'}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 mb-1">Emergency Contact</p>
-                        <p className="text-sm font-bold text-gray-800">
-                          {nextOfKin?.name || patient?.emergency_contact_name || 'No emergency contact'}
-                        </p>
-                      </div>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setIsNextOfKinModalOpen(true)}
+                        className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      >
+                        <Edit3 className="w-3 h-3 text-gray-600" />
+                      </motion.button>
                     </div>
-                    <div className="space-y-1 text-xs text-gray-500">
+                    <div className="space-y-1 text-xs text-gray-500 mb-3">
                       <div className="flex items-center gap-2">
                         <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
                         <span>Phone: {nextOfKin?.phone || patient?.emergency_contact_phone || 'N/A'}</span>
@@ -1243,6 +1208,29 @@ Medical Team`;
                         <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
                         <span>Relationship: {nextOfKin?.relationship || patient?.emergency_contact_relationship || 'N/A'}</span>
                       </div>
+                    </div>
+                    {/* Action buttons */}
+                    <div className="flex gap-2">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={openSmsModal}
+                        className="flex-1 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-md text-xs font-medium hover:shadow-md transition-all"
+                      >
+                        <Phone className="w-3 h-3 inline mr-1" />
+                        Send Message
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          const phone = nextOfKin?.phone || patient?.emergency_contact_phone;
+                          if (phone) window.open(`tel:${phone}`, '_self');
+                        }}
+                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-xs font-medium transition-colors"
+                      >
+                        <Phone className="w-3 h-3" />
+                      </motion.button>
                     </div>
                   </div>
                   
