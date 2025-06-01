@@ -23,7 +23,12 @@ import {
   ChevronRight,
   Clock,
   Calendar,
-  FileText
+  FileText,
+  Shield,
+  CreditCard,
+  Thermometer,
+  Weight,
+  Sparkles
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
@@ -490,66 +495,6 @@ Medical Team`;
                     </motion.div>
                   </div>
                   
-                  {/* Simple Vitals Display - One Row Below Contact Info */}
-                  {latestVitals && (
-                    <div className="mt-4 flex items-center gap-2 overflow-x-auto scrollbar-hide">
-                          {/* Blood Pressure */}
-                          {latestVitals.blood_pressure && (
-                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
-                              isBloodPressureAbnormal(latestVitals.blood_pressure) 
-                                ? 'bg-red-100 text-red-700 border border-red-200 animate-pulse' 
-                                : 'bg-gray-100 text-gray-700 border border-gray-200'
-                            }`}>
-                              <Heart className="w-3 h-3" />
-                              <span>BP: {latestVitals.blood_pressure}</span>
-                            </div>
-                          )}
-                          
-                          {/* Heart Rate */}
-                          {latestVitals.pulse_rate && (
-                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
-                              (latestVitals.pulse_rate < 60 || latestVitals.pulse_rate > 100)
-                                ? 'bg-orange-100 text-orange-700 border border-orange-200 animate-pulse' 
-                                : 'bg-gray-100 text-gray-700 border border-gray-200'
-                            }`}>
-                              <Activity className="w-3 h-3" />
-                              <span>Pulse: {latestVitals.pulse_rate} bpm</span>
-                            </div>
-                          )}
-                          
-                          {/* Temperature */}
-                          {latestVitals.temperature && (
-                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
-                              (latestVitals.temperature < 36.5 || latestVitals.temperature > 37.5)
-                                ? 'bg-purple-100 text-purple-700 border border-purple-200 animate-pulse' 
-                                : 'bg-gray-100 text-gray-700 border border-gray-200'
-                            }`}>
-                              <div className="w-3 h-3 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full"></div>
-                              <span>Temp: {latestVitals.temperature}°C</span>
-                            </div>
-                          )}
-                          
-                          {/* Weight */}
-                          {latestVitals.weight && (
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-full text-xs font-medium text-gray-700 border border-gray-200">
-                              <div className="w-3 h-3 bg-gradient-to-r from-emerald-500 to-green-500 rounded"></div>
-                              <span>Weight: {latestVitals.weight} kg</span>
-                            </div>
-                          )}
-                          
-                          {/* BMI */}
-                          {latestVitals.bmi && (
-                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
-                              (latestVitals.bmi < 18.5 || latestVitals.bmi > 25)
-                                ? 'bg-blue-100 text-blue-700 border border-blue-200 animate-pulse' 
-                                : 'bg-gray-100 text-gray-700 border border-gray-200'
-                            }`}>
-                              <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full"></div>
-                              <span>BMI: {latestVitals.bmi}</span>
-                            </div>
-                          )}
-                    </div>
-                  )}
                 </div>
                 
                 {/* Simple View Profile Button */}
@@ -709,164 +654,7 @@ Medical Team`;
             </div>
           </motion.div>
           
-          {/* Premium Medical Aid Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20, rotateX: -5 }}
-            animate={{ opacity: 1, y: 0, rotateX: 0 }}
-            whileHover={{ y: -2, scale: 1.01 }}
-            className="relative group"
-          >
-            {/* Floating glow effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d4]/20 via-purple-500/20 to-blue-600/20 rounded-xl blur-xl opacity-0 group-hover:opacity-70 transition-all duration-500 -z-10"></div>
-            
-            {/* Main card */}
-            <div className="relative bg-white/90 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
-              {/* Animated gradient header */}
-              <div className="h-2 bg-gradient-to-r from-[#01b9d4] via-purple-500 to-blue-600 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
-              </div>
-              
-              {/* Floating orbs background */}
-              <div className="absolute top-4 right-4 w-20 h-20 bg-gradient-to-br from-[#01b9d4]/10 to-purple-500/10 rounded-full blur-2xl opacity-60"></div>
-              <div className="absolute bottom-4 left-4 w-16 h-16 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-full blur-xl opacity-40"></div>
-              
-              <div className="relative p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-gradient-to-br from-[#01b9d4] to-purple-600 rounded-xl shadow-lg">
-                      <Building2 className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-800">Medical Aid</h3>
-                      <p className="text-xs text-gray-500 font-medium">Insurance Coverage</p>
-                    </div>
-                  </div>
-                  <motion.button 
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setIsMedicalAidModalOpen(true)}
-                    className="p-2.5 bg-gray-50 hover:bg-white rounded-xl border border-gray-200 hover:border-[#01b9d4]/50 transition-all duration-300 shadow-sm"
-                  >
-                    <Edit3 className="w-4 h-4 text-gray-600 hover:text-[#01b9d4] transition-colors" />
-                  </motion.button>
-                </div>
-                
-                <div className="space-y-5">
-                  {/* Provider Info with glassmorphism */}
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-cyan-500/5 to-blue-500/5 rounded-xl"></div>
-                    <div className="relative p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-base font-bold text-gray-800 flex items-center gap-2">
-                            {medicalAid?.provider || 'No Medical Aid'}
-                            {medicalAid && <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>}
-                          </p>
-                          <p className="text-xs font-medium bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                            {medicalAid?.scheme || 'No scheme'}
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <Badge variant={medicalAid ? "emerald" : "glass"} size="sm" className="shadow-md">
-                            {medicalAid ? 'Active' : 'None'}
-                          </Badge>
-                          <p className="text-[10px] text-gray-500 mt-0.5">
-                            {medicalAid?.scheme || 'No scheme'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Membership Card */}
-                  <div className="relative group/card">
-                    <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 rounded-lg opacity-5 group-hover/card:opacity-10 transition-opacity"></div>
-                    <div className="relative p-4 bg-gradient-to-br from-gray-50 via-white to-gray-50 rounded-lg border border-gray-200/50 shadow-inner">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-8 h-5 bg-gradient-to-r from-[#01b9d4] to-purple-600 rounded-sm flex items-center justify-center">
-                          <div className="w-4 h-3 bg-white/20 rounded-xs"></div>
-                        </div>
-                        <p className="text-xs font-bold text-gray-600 tracking-wider">MEMBERSHIP CARD</p>
-                      </div>
-                      <p className="text-xs text-gray-500 mb-1 font-medium">Member ID</p>
-                      <p className="font-mono text-base font-bold text-gray-800 tracking-wider">
-                        {medicalAid?.membership_number || 'No membership'}
-                      </p>
-                      <div className="mt-3 flex justify-between text-xs text-gray-500">
-                        <span>Valid From: 01/24</span>
-                        <span>Expires: 12/24</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Main Member Info */}
-                  <div className="p-4 bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-xl border border-blue-200/50 shadow-sm">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
-                        <User className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 mb-1">Main Member</p>
-                        <p className="text-sm font-bold text-gray-800">
-                          {medicalAid?.main_member_name || 'No main member'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                      <span>ID: {medicalAid?.main_member_id_number || 'N/A'}</span>
-                      <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                      <span>Relationship: {medicalAid?.relationship_to_main || 'N/A'}</span>
-                    </div>
-                  </div>
-                  
-                  {/* Quick actions */}
-                  <div className="flex gap-2">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => {
-                        // Create a modal for viewing benefits
-                        const modal = document.createElement('div');
-                        modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm';
-                        modal.innerHTML = `
-                          <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
-                            <h3 class="text-xl font-bold text-gray-800 mb-4">Medical Aid Benefits</h3>
-                            <div class="space-y-3">
-                              <div class="p-4 bg-emerald-50 rounded-lg border border-emerald-200">
-                                <p class="text-sm font-medium text-emerald-800">✓ Hospital Cover: 100%</p>
-                              </div>
-                              <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                                <p class="text-sm font-medium text-blue-800">✓ Specialist Visits: 80%</p>
-                              </div>
-                              <div class="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                                <p class="text-sm font-medium text-purple-800">✓ Medication: R5,000/year</p>
-                              </div>
-                            </div>
-                            <button onclick="this.closest('.fixed').remove()" class="mt-6 w-full px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-lg font-medium hover:shadow-lg transition-all">Close</button>
-                          </div>
-                        `;
-                        document.body.appendChild(modal);
-                        modal.addEventListener('click', (e) => {
-                          if (e.target === modal) modal.remove();
-                        });
-                      }}
-                      className="flex-1 p-3 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300"
-                    >
-                      View Benefits
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="p-3 bg-white/10 border border-white/10 rounded-lg hover:bg-white/20 transition-colors shadow-sm"
-                    >
-                      <FileText className="w-4 h-4 text-gray-300" />
-                    </motion.button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
+          {/* Medical Aid Card moved to right sidebar */}
 
           {/* Premium Next of Kin Card */}
           <motion.div
@@ -982,6 +770,127 @@ Medical Team`;
               </div>
             </div>
           </motion.div>
+          
+          {/* Medical Details Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20, rotateX: -5 }}
+            animate={{ opacity: 1, y: 0, rotateX: 0 }}
+            transition={{ delay: 0.2 }}
+            whileHover={{ y: -2, scale: 1.01 }}
+            className="relative group"
+          >
+            {/* Floating glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/20 via-blue-500/20 to-purple-600/20 rounded-xl blur-xl opacity-0 group-hover:opacity-70 transition-all duration-500 -z-10"></div>
+            
+            <div className="relative bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
+              {/* Animated gradient header */}
+              <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-600 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+              </div>
+              
+              <div className="p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-blue-600 rounded-xl shadow-lg">
+                    <Stethoscope className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">Medical Details</h3>
+                    <p className="text-xs text-gray-500 font-medium">Clinical Overview</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  {/* Quick Medical Summary */}
+                  <div className="p-3 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-lg border border-emerald-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                      <span className="text-sm font-semibold text-gray-800">Medical Summary</span>
+                    </div>
+                    <p className="text-xs text-gray-700 leading-relaxed">
+                      {visits.length > 0 
+                        ? `${visits.length} total visits recorded. Recent consultations show consistent follow-up care with ${visits.filter(v => v.status === 'completed').length} completed visits.`
+                        : 'No medical history available. New patient requiring initial assessment.'
+                      }
+                    </p>
+                  </div>
+                  
+                  {/* Recent Diagnosis */}
+                  {visits.length > 0 && visits[0].diagnosis && (
+                    <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        <span className="text-sm font-semibold text-gray-800">Latest Diagnosis</span>
+                      </div>
+                      <p className="text-xs text-gray-700 truncate">
+                        {visits[0].diagnosis}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Medical Aid Status */}
+                  <div className="p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                      <span className="text-sm font-semibold text-gray-800">Medical Aid</span>
+                    </div>
+                    <p className="text-xs text-gray-700">
+                      {medicalAid 
+                        ? `${medicalAid.provider} - ${medicalAid.scheme}` 
+                        : 'No medical aid registered'
+                      }
+                    </p>
+                  </div>
+                  
+                  {/* Vitals Summary */}
+                  {latestVitals && (
+                    <div className="p-3 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-100">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                        <span className="text-sm font-semibold text-gray-800">Latest Vitals</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {latestVitals.blood_pressure && (
+                          <div className="text-xs text-gray-600">
+                            <span className="font-medium">BP:</span> {latestVitals.blood_pressure}
+                          </div>
+                        )}
+                        {latestVitals.pulse_rate && (
+                          <div className="text-xs text-gray-600">
+                            <span className="font-medium">HR:</span> {latestVitals.pulse_rate} bpm
+                          </div>
+                        )}
+                        {latestVitals.temperature && (
+                          <div className="text-xs text-gray-600">
+                            <span className="font-medium">Temp:</span> {latestVitals.temperature}°C
+                          </div>
+                        )}
+                        {latestVitals.weight && (
+                          <div className="text-xs text-gray-600">
+                            <span className="font-medium">Weight:</span> {latestVitals.weight} kg
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* View Full History Button */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    // Scroll to visit history section
+                    const historySection = document.querySelector('[data-section="visit-history"]');
+                    historySection?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="w-full mt-4 p-2.5 bg-gradient-to-r from-emerald-500 to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  View Full Medical History
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
         </div>
 
           {/* Sophisticated Visit History */}
@@ -1040,6 +949,81 @@ Medical Team`;
                   </div>
                 </div>
 
+                {/* Latest Vitals - Compact Design */}
+                {latestVitals && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden"
+                    data-section="vitals"
+                  >
+                    <div className="bg-gradient-to-r from-[#01b9d5] to-blue-600 px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-5 h-5 text-white" />
+                        <h3 className="text-sm font-semibold text-white">Latest Vitals</h3>
+                        <span className="text-xs text-white/80">
+                          {latestVitals.created_at ? new Date(latestVitals.created_at).toLocaleDateString() : 'Recent'}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="p-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {latestVitals.blood_pressure && (
+                          <div className="text-center">
+                            <p className="text-xs text-gray-600 mb-1">Blood Pressure</p>
+                            <p className="text-sm font-bold text-red-600">{latestVitals.blood_pressure}</p>
+                          </div>
+                        )}
+                        {latestVitals.pulse_rate && (
+                          <div className="text-center">
+                            <p className="text-xs text-gray-600 mb-1">Heart Rate</p>
+                            <p className="text-sm font-bold text-blue-600">{latestVitals.pulse_rate} bpm</p>
+                          </div>
+                        )}
+                        {latestVitals.temperature && (
+                          <div className="text-center">
+                            <p className="text-xs text-gray-600 mb-1">Temperature</p>
+                            <p className="text-sm font-bold text-purple-600">{latestVitals.temperature}°C</p>
+                          </div>
+                        )}
+                        {latestVitals.weight && (
+                          <div className="text-center">
+                            <p className="text-xs text-gray-600 mb-1">Weight</p>
+                            <p className="text-sm font-bold text-emerald-600">{latestVitals.weight} kg</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {(latestVitals.bmi || latestVitals.height || latestVitals.respiratory_rate) && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <div className="grid grid-cols-3 gap-3 text-center">
+                            {latestVitals.bmi && (
+                              <div>
+                                <p className="text-xs text-gray-600">BMI</p>
+                                <p className="text-sm font-semibold text-amber-600">{latestVitals.bmi}</p>
+                              </div>
+                            )}
+                            {latestVitals.height && (
+                              <div>
+                                <p className="text-xs text-gray-600">Height</p>
+                                <p className="text-sm font-semibold text-indigo-600">{latestVitals.height} cm</p>
+                              </div>
+                            )}
+                            {latestVitals.respiratory_rate && (
+                              <div>
+                                <p className="text-xs text-gray-600">Resp Rate</p>
+                                <p className="text-sm font-semibold text-green-600">{latestVitals.respiratory_rate}/min</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+
                 {/* 🚀 ULTRA-PREMIUM MEDICAL TIMELINE - WOW Factor */}
                 <div className="relative">
                   {/* Revolutionary animated timeline spine */}
@@ -1059,8 +1043,34 @@ Medical Team`;
                         rotateY: 2,
                         transition: { type: "spring", damping: 15 }
                       }}
-                      className="relative group mb-8 last:mb-0 perspective-1000"
+                      className="relative group mb-12 last:mb-0 perspective-1000"
                     >
+                      {/* Arrow Progress Indicator between visits */}
+                      {index < visits.length - 1 && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: index * 0.15 + 0.5 }}
+                          className="absolute left-6 -bottom-8 z-10 flex items-center gap-2"
+                        >
+                          <div className="flex flex-col items-center">
+                            <motion.div
+                              animate={{ y: [0, -3, 0] }}
+                              transition={{ duration: 2, repeat: Infinity, delay: index * 0.3 }}
+                              className="w-6 h-6 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-full flex items-center justify-center shadow-lg"
+                            >
+                              <ArrowRight className="w-3 h-3 text-white rotate-90" />
+                            </motion.div>
+                            <div className="mt-1 px-2 py-1 bg-white/90 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200/50">
+                              <p className="text-xs font-medium text-gray-600">
+                                {Math.abs(new Date(visits[index + 1].visit_date).getTime() - new Date(visit.visit_date).getTime()) / (1000 * 60 * 60 * 24) >= 1 
+                                  ? `${Math.floor(Math.abs(new Date(visits[index + 1].visit_date).getTime() - new Date(visit.visit_date).getTime()) / (1000 * 60 * 60 * 24))} days`
+                                  : 'Same day'} later
+                              </p>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
                       {/* Professional subtle hover glow */}
                       <div className={`absolute inset-0 ml-16 rounded-2xl blur-xl opacity-0 group-hover:opacity-10 transition-opacity duration-300 ${
                         visit.status === 'completed' ? 'bg-[#01b9d5]' :
@@ -1116,8 +1126,11 @@ Medical Team`;
                           />
                         </div>
                         
-                        {/* Glassmorphic container */}
-                        <div className="relative backdrop-blur-xl bg-white/70 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300">
+                        {/* Ultra-Premium Glassmorphic container */}
+                        <div className="relative backdrop-blur-2xl bg-white/80 rounded-2xl p-6 shadow-2xl hover:shadow-3xl transition-all duration-500 border border-white/30"
+                             style={{ 
+                               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)' 
+                             }}>
                           {/* Status gradient overlay */}
                           <div className={`absolute inset-0 rounded-2xl opacity-5 ${
                             visit.status === 'completed' ? 'bg-gradient-to-br from-[#01b9d5] to-cyan-600' :
@@ -1129,8 +1142,8 @@ Medical Team`;
                             <div className="flex items-start justify-between mb-4">
                               <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-2">
-                                  <h3 className="text-lg font-bold text-gray-900 drop-shadow-sm">
-                                    {visit.visit_type}
+                                  <h3 className="text-lg font-bold text-gray-900 drop-shadow-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                                    {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)}
                                   </h3>
                                   <div className={`px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md ${
                                     visit.status === 'completed' ? 'bg-[#01b9d5]/20 text-[#01b9d5] border border-[#01b9d5]/30' :
@@ -1141,7 +1154,7 @@ Medical Team`;
                                   </div>
                                 </div>
                             
-                            <div className="flex items-center gap-4 text-sm text-gray-600">
+                            <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
                               <div className="flex items-center gap-2">
                                 <Calendar className="w-4 h-4 text-gray-500" />
                                 <span className="font-medium text-gray-600">{format(new Date(visit.visit_date), 'MMM d, yyyy')}</span>
@@ -1152,8 +1165,24 @@ Medical Team`;
                               </div>
                               <div className="flex items-center gap-2">
                                 <User className="w-4 h-4 text-gray-500" />
-                                <span className="font-medium text-gray-600">Dr. {visit.doctor_name}</span>
+                                <span className="font-medium text-gray-600" style={{ fontFamily: 'Poppins, sans-serif' }}>Dr. {visit.doctor_name}</span>
                               </div>
+                            </div>
+                            
+                            {/* Chief Complaint and Diagnosis */}
+                            <div className="mb-4 space-y-2">
+                              {visit.chief_complaint && (
+                                <div className="p-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 backdrop-blur-sm rounded-xl border border-blue-200/30">
+                                  <p className="text-xs font-medium text-blue-700 mb-1">Chief Complaint</p>
+                                  <p className="text-sm text-gray-800 font-medium">{visit.chief_complaint}</p>
+                                </div>
+                              )}
+                              {visit.diagnosis && (
+                                <div className="p-3 bg-gradient-to-r from-emerald-50/80 to-green-50/80 backdrop-blur-sm rounded-xl border border-emerald-200/30">
+                                  <p className="text-xs font-medium text-emerald-700 mb-1">Diagnosis</p>
+                                  <p className="text-sm text-gray-800 font-medium">{visit.diagnosis}</p>
+                                </div>
+                              )}
                             </div>
                           </div>
                           
@@ -1283,8 +1312,8 @@ Medical Team`;
                       <Stethoscope className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white">Appointments Today</h3>
-                      <p className="text-xs text-gray-400 font-medium">Live Queue Management</p>
+                      <h3 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>Appointments Today</h3>
+                      <p className="text-xs text-gray-500 font-medium">Live Queue Management</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1431,6 +1460,111 @@ Medical Team`;
               </div>
             </div>
           </motion.div>
+
+          {/* Medical Aid Card - Moved below appointments */}
+          {medicalAid && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 }}
+              className="relative group"
+            >
+              {/* Floating glow effect */}
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 via-blue-500/20 to-purple-600/20 rounded-xl blur-xl opacity-0 group-hover:opacity-50 transition-all duration-500 -z-10"></div>
+              
+              <div className="relative bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
+                {/* Animated gradient header */}
+                <div className="h-2 bg-gradient-to-r from-cyan-500 to-blue-600 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+                </div>
+                
+                <div className="p-5">
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl shadow-lg">
+                        <Shield className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          Medical Insurance
+                        </h3>
+                        <p className="text-xs text-gray-500 font-medium">Active Coverage</p>
+                      </div>
+                    </div>
+                    <div className="bg-green-100 px-3 py-1 rounded-full">
+                      <span className="text-xs font-medium text-green-700">Verified</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Provider</p>
+                        <p className="font-semibold text-gray-900 text-sm">
+                          {medicalAid.provider}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Member #</p>
+                        <p className="font-semibold text-gray-900 text-sm">
+                          {medicalAid.membership_number}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Scheme</p>
+                        <p className="font-semibold text-gray-900 text-sm">
+                          {medicalAid.scheme || 'Standard'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Status</p>
+                        <p className="font-semibold text-green-700 text-sm">Active</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-cyan-600" />
+                          <div>
+                            <p className="text-xs font-medium text-gray-900">
+                              Coverage Status
+                            </p>
+                            <p className="text-[10px] text-gray-600">
+                              Full coverage with specialist referrals
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] text-gray-500">Co-pay</p>
+                          <p className="font-semibold text-gray-900 text-sm">15%</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="flex-1 bg-cyan-50 text-cyan-700 px-3 py-2 rounded-xl text-xs font-medium hover:bg-cyan-100 transition-all flex items-center justify-center gap-2"
+                      >
+                        <CreditCard className="w-3.5 h-3.5" />
+                        View Benefits
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded-xl text-xs font-medium hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        Contact
+                      </motion.button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
         </div>
       </div>
 
