@@ -72,6 +72,7 @@ interface MedicalAidDetails {
   provider: string;
   scheme: string;
   membership_number: string;
+  plan_type?: string;
   main_member_name: string;
   main_member_id_number: string;
   relationship_to_main: string;
@@ -586,31 +587,74 @@ Medical Team`;
                       </h1>
                       <p className="text-xs text-gray-500 font-medium">Patient ID: {patient.id.slice(0, 8)}</p>
                       
-                      {/* Medical Aid Information */}
+                      {/* Enhanced Medical Aid Information */}
                       {medicalAid && (
-                        <div className="flex items-center gap-3 mt-2 p-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
-                          <img 
-                            src={getMedicalAidLogo(medicalAid.provider)} 
-                            alt={medicalAid.provider}
-                            className="h-8 w-auto object-contain bg-white rounded px-1"
-                            onError={(e) => {
-                              e.currentTarget.src = defaultMedicalAidLogo;
-                            }}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-semibold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                                {medicalAid.provider}
-                              </span>
-                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
-                                {medicalAid.scheme}
-                              </span>
-                              <span className="text-xs text-gray-600 font-mono">
-                                #{medicalAid.membership_number}
-                              </span>
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.3 }}
+                          className="mt-3 bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/50 backdrop-blur-sm rounded-xl border border-blue-200/60 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden"
+                        >
+                          {/* Premium header with subtle gradient */}
+                          <div className="bg-gradient-to-r from-blue-500/5 via-indigo-500/5 to-purple-500/5 p-3 border-b border-blue-200/40">
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                <div className="absolute inset-0 bg-white rounded-lg shadow-md"></div>
+                                <img 
+                                  src={getMedicalAidLogo(medicalAid.provider)} 
+                                  alt={medicalAid.provider}
+                                  className="relative h-10 w-16 object-contain bg-white rounded-lg p-1 shadow-sm"
+                                  onError={(e) => {
+                                    e.currentTarget.src = defaultMedicalAidLogo;
+                                  }}
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h3 className="text-sm font-bold text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                                  {medicalAid.provider}
+                                </h3>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <div className="flex items-center gap-1">
+                                    <Shield className="w-3 h-3 text-blue-600" />
+                                    <span className="text-xs bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 px-2 py-1 rounded-full font-semibold border border-blue-200/50">
+                                      {medicalAid.scheme}
+                                    </span>
+                                  </div>
+                                  {medicalAid.plan_type && (
+                                    <span className="text-xs bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 px-2 py-1 rounded-full font-semibold border border-emerald-200/50">
+                                      {medicalAid.plan_type}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="flex items-center gap-1 mb-1">
+                                  <CreditCard className="w-3 h-3 text-gray-500" />
+                                  <span className="text-xs text-gray-500 font-medium">Member #</span>
+                                </div>
+                                <span className="text-sm font-bold text-gray-800 font-mono bg-gray-50 px-2 py-1 rounded border">
+                                  {medicalAid.membership_number}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                        </div>
+                          
+                          {/* Additional member details */}
+                          <div className="p-3 space-y-2">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
+                              <div className="flex items-center gap-2">
+                                <User className="w-3 h-3 text-gray-500" />
+                                <span className="text-gray-600 font-medium">Main Member:</span>
+                                <span className="text-gray-800 font-semibold">{medicalAid.main_member_name}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Heart className="w-3 h-3 text-gray-500" />
+                                <span className="text-gray-600 font-medium">Relationship:</span>
+                                <span className="text-gray-800 font-semibold capitalize">{medicalAid.relationship_to_main}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
                       )}
                     </div>
                     
