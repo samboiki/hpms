@@ -42,6 +42,7 @@ import EditVisitForm from '../components/forms/EditVisitForm';
 import VisitModal from '../components/visits/VisitModal';
 import MedicalAidForm from '../components/forms/MedicalAidForm';
 import { defaultSMSService } from '../services/smsPortal';
+import { medicalAidService } from '../services/medicalAidService';
 
 interface Patient {
   id: string;
@@ -286,6 +287,30 @@ const PatientModernDetail = () => {
   const [smsPhone, setSmsPhone] = useState('');
   const [isSendingSms, setIsSendingSms] = useState(false);
 
+  // Debug function to manually test medical aid fetch
+  const testMedicalAidFetch = async () => {
+    console.log('🧪 [PatientModernDetail] Manual test - fetching medical aid for:', id);
+    if (!id) return;
+
+    try {
+      const data = await medicalAidService.getMedicalAidDetails(id);
+      console.log('🧪 [PatientModernDetail] Manual test result:', data);
+      alert(`Medical Aid Test: ${data ? 'FOUND' : 'NOT FOUND'} - ${data?.provider || 'No provider'}`);
+      
+      // Also test if we can access the table at all
+      const canAccess = await medicalAidService.testAccess();
+      console.log('🧪 [PatientModernDetail] Table access test:', canAccess ? 'CAN ACCESS' : 'BLOCKED');
+    } catch (err) {
+      console.error('🧪 [PatientModernDetail] Manual test error:', err);
+      alert(`Medical Aid Test Error: ${err}`);
+    }
+  };
+
+  // Debug medical aid state changes
+  useEffect(() => {
+    console.log('🐛 [PatientModernDetail] Medical aid state changed:', medicalAid);
+  }, [medicalAid]);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -329,18 +354,11 @@ const PatientModernDetail = () => {
           setNextOfKin(nextOfKinData);
         }
 
-        // Fetch Medical Aid Details
-        const { data: medicalAidData, error: medicalAidError } = await supabase
-          .from('medical_aid_details')
-          .select('*')
-          .eq('patient_id', id)
-          .maybeSingle();
-
-        if (medicalAidError && medicalAidError.code !== 'PGRST116') {
-          console.error('Error fetching medical aid:', medicalAidError);
-        } else {
-          setMedicalAid(medicalAidData);
-        }
+        // Fetch Medical Aid Details using service
+        console.log('🔍 [PatientModernDetail] Fetching medical aid for patient:', id);
+        const medicalAidData = await medicalAidService.getMedicalAidDetails(id);
+        console.log('✅ [PatientModernDetail] Medical aid service result:', medicalAidData);
+        setMedicalAid(medicalAidData);
 
         // Fetch Latest Vitals
         const { data: vitalsData, error: vitalsError } = await supabase
@@ -588,6 +606,26 @@ Medical Team`;
                       <p className="text-xs text-gray-500 font-medium">Patient ID: {patient.id.slice(0, 8)}</p>
                       
                       {/* Enhanced Medical Aid Information */}
+                      {/* Debug: Always show medical aid section for testing */}
+                      {(medicalAid || true) && (
+                        <div className="mt-3 p-3 bg-yellow-100 border border-yellow-300 rounded-lg">
+                          <p className="text-sm text-yellow-800">
+                            🐛 DEBUG: Medical Aid State = {medicalAid ? 'FOUND' : 'NULL'} | 
+                            {medicalAid ? ` Provider: ${medicalAid.provider}` : ' No data'}
+                          </p>
+                          {!medicalAid && (
+                            <p className="text-xs text-yellow-700 mt-1">
+                              ⚠️ Medical aid data may be blocked by RLS policies. Using service fallback...
+                            </p>
+                          )}
+                          <button 
+                            onClick={testMedicalAidFetch}
+                            className="mt-2 px-3 py-1 bg-yellow-500 text-white rounded text-xs hover:bg-yellow-600"
+                          >
+                            🧪 Test Medical Aid Fetch
+                          </button>
+                        </div>
+                      )}
                       {medicalAid && (
                         <motion.div 
                           initial={{ opacity: 0, y: 10 }}
