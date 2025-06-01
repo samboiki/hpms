@@ -144,7 +144,14 @@ Make it beautiful - Every interaction should feel premium
 Performance matters - Fast load times save lives
 Accessibility is crucial - Healthcare must be inclusive
 Test thoroughly - Healthcare software must be reliable
-always run npm run dev after each update
+
+## CRITICAL WORKFLOW REQUIREMENT - SET IN STONE
+After EVERY change/prompt, you MUST:
+1. Run `npm run dev` to test changes
+2. Commit ALL changes with descriptive message
+3. Push to dev branch (`git push origin dev`)
+
+This is NON-NEGOTIABLE and MANDATORY after EVERY modification.
 
 Common Workflows
 14. **Explore › Plan › Confirm › Code › Commit**
