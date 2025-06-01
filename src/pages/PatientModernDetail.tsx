@@ -1461,110 +1461,164 @@ Medical Team`;
             </div>
           </motion.div>
 
-          {/* Medical Aid Card - Moved below appointments */}
-          {medicalAid && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8 }}
-              className="relative group"
-            >
-              {/* Floating glow effect */}
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/20 via-blue-500/20 to-purple-600/20 rounded-xl blur-xl opacity-0 group-hover:opacity-50 transition-all duration-500 -z-10"></div>
+          {/* Premium Medical Aid Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20, rotateX: -5 }}
+            animate={{ opacity: 1, y: 0, rotateX: 0 }}
+            whileHover={{ y: -2, scale: 1.01 }}
+            className="relative group"
+          >
+            {/* Floating glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d4]/20 via-purple-500/20 to-blue-600/20 rounded-xl blur-xl opacity-0 group-hover:opacity-70 transition-all duration-500 -z-10"></div>
+            
+            {/* Main card */}
+            <div className="relative bg-white/90 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
+              {/* Animated gradient header */}
+              <div className="h-2 bg-gradient-to-r from-[#01b9d4] via-purple-500 to-blue-600 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+              </div>
               
-              <div className="relative bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
-                {/* Animated gradient header */}
-                <div className="h-2 bg-gradient-to-r from-cyan-500 to-blue-600 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
-                </div>
-                
-                <div className="p-5">
-                  <div className="flex items-center justify-between mb-5">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2.5 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl shadow-lg">
-                        <Shield className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                          Medical Insurance
-                        </h3>
-                        <p className="text-xs text-gray-500 font-medium">Active Coverage</p>
-                      </div>
+              {/* Floating orbs background */}
+              <div className="absolute top-4 right-4 w-20 h-20 bg-gradient-to-br from-[#01b9d4]/10 to-purple-500/10 rounded-full blur-2xl opacity-60"></div>
+              <div className="absolute bottom-4 left-4 w-16 h-16 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-full blur-xl opacity-40"></div>
+              
+              <div className="relative p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-gradient-to-br from-[#01b9d4] to-purple-600 rounded-xl shadow-lg">
+                      <Building2 className="w-5 h-5 text-white" />
                     </div>
-                    <div className="bg-green-100 px-3 py-1 rounded-full">
-                      <span className="text-xs font-medium text-green-700">Verified</span>
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-800">Medical Aid</h3>
+                      <p className="text-xs text-gray-500 font-medium">Insurance Coverage</p>
                     </div>
                   </div>
-
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Provider</p>
-                        <p className="font-semibold text-gray-900 text-sm">
-                          {medicalAid.provider}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Member #</p>
-                        <p className="font-semibold text-gray-900 text-sm">
-                          {medicalAid.membership_number}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Scheme</p>
-                        <p className="font-semibold text-gray-900 text-sm">
-                          {medicalAid.scheme || 'Standard'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Status</p>
-                        <p className="font-semibold text-green-700 text-sm">Active</p>
-                      </div>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl p-3">
+                  <motion.button 
+                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsMedicalAidModalOpen(true)}
+                    className="p-2.5 bg-gray-50 hover:bg-white rounded-xl border border-gray-200 hover:border-[#01b9d4]/50 transition-all duration-300 shadow-sm"
+                  >
+                    <Edit3 className="w-4 h-4 text-gray-600 hover:text-[#01b9d4] transition-colors" />
+                  </motion.button>
+                </div>
+                
+                <div className="space-y-5">
+                  {/* Provider Info with glassmorphism */}
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-cyan-500/5 to-blue-500/5 rounded-xl"></div>
+                    <div className="relative p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 shadow-sm">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Activity className="w-4 h-4 text-cyan-600" />
-                          <div>
-                            <p className="text-xs font-medium text-gray-900">
-                              Coverage Status
-                            </p>
-                            <p className="text-[10px] text-gray-600">
-                              Full coverage with specialist referrals
-                            </p>
-                          </div>
+                        <div>
+                          <p className="text-base font-bold text-gray-800 flex items-center gap-2">
+                            {medicalAid?.provider || 'No Medical Aid'}
+                            {medicalAid && <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>}
+                          </p>
+                          <p className="text-xs font-medium bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+                            {medicalAid?.scheme || 'No scheme'}
+                          </p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-[10px] text-gray-500">Co-pay</p>
-                          <p className="font-semibold text-gray-900 text-sm">15%</p>
+                        <div className="text-center">
+                          <Badge variant={medicalAid ? "emerald" : "glass"} size="sm" className="shadow-md">
+                            {medicalAid ? 'Active' : 'None'}
+                          </Badge>
+                          <p className="text-[10px] text-gray-500 mt-0.5">
+                            {medicalAid?.scheme || 'No scheme'}
+                          </p>
                         </div>
                       </div>
                     </div>
-
-                    <div className="flex gap-2">
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="flex-1 bg-cyan-50 text-cyan-700 px-3 py-2 rounded-xl text-xs font-medium hover:bg-cyan-100 transition-all flex items-center justify-center gap-2"
-                      >
-                        <CreditCard className="w-3.5 h-3.5" />
-                        View Benefits
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded-xl text-xs font-medium hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                        Contact
-                      </motion.button>
+                  </div>
+                  
+                  {/* Membership Card */}
+                  <div className="relative group/card">
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 rounded-lg opacity-5 group-hover/card:opacity-10 transition-opacity"></div>
+                    <div className="relative p-4 bg-gradient-to-br from-gray-50 via-white to-gray-50 rounded-lg border border-gray-200/50 shadow-inner">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-8 h-5 bg-gradient-to-r from-[#01b9d4] to-purple-600 rounded-sm flex items-center justify-center">
+                          <div className="w-4 h-3 bg-white/20 rounded-xs"></div>
+                        </div>
+                        <p className="text-xs font-bold text-gray-600 tracking-wider">MEMBERSHIP CARD</p>
+                      </div>
+                      <p className="text-xs text-gray-500 mb-1 font-medium">Member ID</p>
+                      <p className="font-mono text-base font-bold text-gray-800 tracking-wider">
+                        {medicalAid?.membership_number || 'No membership'}
+                      </p>
+                      <div className="mt-3 flex justify-between text-xs text-gray-500">
+                        <span>Valid From: 01/24</span>
+                        <span>Expires: 12/24</span>
+                      </div>
                     </div>
+                  </div>
+                  
+                  {/* Main Member Info */}
+                  <div className="p-4 bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-xl border border-blue-200/50 shadow-sm">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
+                        <User className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 mb-1">Main Member</p>
+                        <p className="text-sm font-bold text-gray-800">
+                          {medicalAid?.main_member_name || 'No main member'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                      <span>ID: {medicalAid?.main_member_id_number || 'N/A'}</span>
+                      <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                      <span>Relationship: {medicalAid?.relationship_to_main || 'N/A'}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Quick actions */}
+                  <div className="flex gap-2">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        // Create a modal for viewing benefits
+                        const modal = document.createElement('div');
+                        modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm';
+                        modal.innerHTML = `
+                          <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">Medical Aid Benefits</h3>
+                            <div class="space-y-3">
+                              <div class="p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                                <p class="text-sm font-medium text-emerald-800">✓ Hospital Cover: 100%</p>
+                              </div>
+                              <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                <p class="text-sm font-medium text-blue-800">✓ Specialist Visits: 80%</p>
+                              </div>
+                              <div class="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                                <p class="text-sm font-medium text-purple-800">✓ Medication: R5,000/year</p>
+                              </div>
+                            </div>
+                            <button onclick="this.closest('.fixed').remove()" class="mt-6 w-full px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-lg font-medium hover:shadow-lg transition-all">Close</button>
+                          </div>
+                        `;
+                        document.body.appendChild(modal);
+                        modal.addEventListener('click', (e) => {
+                          if (e.target === modal) modal.remove();
+                        });
+                      }}
+                      className="flex-1 p-3 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      View Benefits
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="p-3 bg-white/10 border border-white/10 rounded-lg hover:bg-white/20 transition-colors shadow-sm"
+                    >
+                      <FileText className="w-4 h-4 text-gray-300" />
+                    </motion.button>
                   </div>
                 </div>
               </div>
-            </motion.div>
-          )}
+            </div>
+          </motion.div>
         </div>
       </div>
 
