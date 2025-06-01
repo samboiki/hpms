@@ -131,6 +131,136 @@ interface Visit {
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+// Visit Card Component
+const VisitCard: React.FC<{ visit: any; index: number; onClick: () => void; onStatusChange: (id: string, status: string, appointmentId?: string) => void }> = ({ visit, index, onClick, onStatusChange }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.1 }}
+      className="relative group/visit mb-4"
+      onClick={onClick}
+    >
+      {/* Timeline node - properly aligned */}
+      <div className={`absolute left-4 top-3 w-8 h-8 -ml-4 rounded-full flex items-center justify-center shadow-md ${
+        visit.status === 'completed' ? 'bg-gradient-to-br from-emerald-500 to-green-600' :
+        visit.status === 'in-progress' ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
+        'bg-gradient-to-br from-gray-400 to-slate-500'
+      }`}>
+        <span className="text-white text-xs font-bold">{index + 1}</span>
+      </div>
+
+      <motion.div className="ml-8 relative group/card">
+        <div className={`absolute inset-0 rounded-lg opacity-0 group-hover/card:opacity-100 transition-opacity ${
+          visit.visit_type === 'consultation' ? 'bg-gradient-to-r from-blue-500/5 to-indigo-500/5' :
+          visit.visit_type === 'follow-up' ? 'bg-gradient-to-r from-emerald-500/5 to-green-500/5' :
+          visit.visit_type === 'procedure' ? 'bg-gradient-to-r from-purple-500/5 to-pink-500/5' :
+          'bg-gradient-to-r from-gray-500/5 to-slate-500/5'
+        }`}></div>
+        <div className={`relative bg-white/95 rounded-lg shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden ${
+          visit.visit_type === 'consultation' ? 'border-l-4 border-l-blue-500' :
+          visit.visit_type === 'follow-up' ? 'border-l-4 border-l-emerald-500' :
+          visit.visit_type === 'procedure' ? 'border-l-4 border-l-purple-500' :
+          'border-l-4 border-l-gray-400'
+        } border border-gray-200/50`}>
+          <div className="p-4">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    visit.visit_type === 'consultation' ? 'bg-blue-100' :
+                    visit.visit_type === 'follow-up' ? 'bg-emerald-100' :
+                    visit.visit_type === 'procedure' ? 'bg-purple-100' :
+                    'bg-gray-100'
+                  }`}>
+                    {visit.visit_type === 'consultation' ? <Stethoscope className="w-4 h-4 text-blue-600" /> :
+                     visit.visit_type === 'follow-up' ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> :
+                     visit.visit_type === 'procedure' ? <Activity className="w-4 h-4 text-purple-600" /> :
+                     <User className="w-4 h-4 text-gray-600" />}
+                  </div>
+                  <p className="text-sm font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                    {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <div className={`w-2 h-2 rounded-full ${
+                      visit.status === 'completed' ? 'bg-green-500' :
+                      visit.status === 'in-progress' ? 'bg-blue-500 animate-pulse' :
+                      'bg-gray-400'
+                    }`}></div>
+                    <span className={`text-xs font-medium ${
+                      visit.status === 'completed' ? 'text-green-600' :
+                      visit.status === 'in-progress' ? 'text-blue-600' :
+                      'text-gray-500'
+                    }`}>
+                      {visit.status === 'completed' ? 'Completed' :
+                       visit.status === 'in-progress' ? 'In Progress' : 'Scheduled'}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-600 mb-2">
+                  {format(new Date(visit.visit_date), 'MMM d, yyyy')} • {visit.visit_time} • Dr. {visit.doctor_name}
+                </p>
+                
+                {(visit.chief_complaint || visit.diagnosis) && (
+                  <div className="mt-3 space-y-1">
+                    {visit.chief_complaint && (
+                      <p className="text-xs text-gray-700">
+                        <span className="font-medium">Complaint:</span> {visit.chief_complaint}
+                      </p>
+                    )}
+                    {visit.diagnosis && (
+                      <p className="text-xs text-gray-700">
+                        <span className="font-medium">Diagnosis:</span> {visit.diagnosis}
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                <div className="flex items-center gap-3 mt-3 text-xs text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <Microscope className="w-3 h-3" />
+                    <span>2 Results</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <ImageIcon className="w-3 h-3" />
+                    <span>3 Images</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                {visit.status === 'in-progress' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStatusChange(visit.id, 'completed', visit.appointment_id);
+                    }}
+                    className="px-3 py-1.5 bg-emerald-500 text-white rounded-md text-xs font-medium hover:bg-emerald-600 transition-colors"
+                  >
+                    Complete
+                  </button>
+                )}
+                {visit.status === 'scheduled' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onStatusChange(visit.id, 'in-progress', visit.appointment_id);
+                    }}
+                    className="px-3 py-1.5 bg-blue-500 text-white rounded-md text-xs font-medium hover:bg-blue-600 transition-colors"
+                  >
+                    Start Visit
+                  </button>
+                )}
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
 const PatientModernDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -497,8 +627,10 @@ Medical Team`;
                   
                 </div>
               </div>
-              
-              {/* View Profile Button - Bottom Right */}
+            )}
+            
+            {/* View Profile Button - Bottom Right */}
+            {patient && (
               <div className="absolute bottom-4 right-4">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
@@ -510,6 +642,7 @@ Medical Team`;
                 </motion.button>
               </div>
             )}
+            </div>
           </div>
         </motion.div>
 
@@ -765,137 +898,13 @@ Medical Team`;
                   <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
 
                   {visits.map((visit, index) => (
-                    <motion.div
+                    <VisitCard
                       key={visit.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="relative group/visit mb-4"
+                      visit={visit}
+                      index={index}
                       onClick={() => handleVisitClick(visit.id)}
-                    >
-                      {/* Timeline node - properly aligned */}
-                      <div className={`absolute left-4 top-3 w-8 h-8 -ml-4 rounded-full flex items-center justify-center shadow-md ${
-                        visit.status === 'completed' ? 'bg-gradient-to-br from-emerald-500 to-green-600' :
-                        visit.status === 'in-progress' ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
-                        'bg-gradient-to-br from-gray-400 to-slate-500'
-                      }`}>
-                        <span className="text-white text-xs font-bold">{index + 1}</span>
-                      </div>
-
-                      {/* Visit card - Enhanced with subtle style segmentation */}
-                      <div className="ml-8 relative group/card">
-                        {/* Subtle gradient background based on visit type */}
-                        <div className={`absolute inset-0 rounded-lg opacity-0 group-hover/card:opacity-100 transition-opacity ${
-                          visit.visit_type === 'consultation' ? 'bg-gradient-to-r from-blue-500/5 to-indigo-500/5' :
-                          visit.visit_type === 'follow-up' ? 'bg-gradient-to-r from-emerald-500/5 to-green-500/5' :
-                          visit.visit_type === 'procedure' ? 'bg-gradient-to-r from-purple-500/5 to-pink-500/5' :
-                          'bg-gradient-to-r from-gray-500/5 to-slate-500/5'
-                        }`}></div>
-                        {/* Card with left accent border */}
-                        <div className={`relative bg-white/95 rounded-lg shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden ${
-                          visit.visit_type === 'consultation' ? 'border-l-4 border-l-blue-500' :
-                          visit.visit_type === 'follow-up' ? 'border-l-4 border-l-emerald-500' :
-                          visit.visit_type === 'procedure' ? 'border-l-4 border-l-purple-500' :
-                          'border-l-4 border-l-gray-400'
-                        } border border-gray-200/50`}>
-                        <div className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                {/* Visit type icon */}
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                  visit.visit_type === 'consultation' ? 'bg-blue-100' :
-                                  visit.visit_type === 'follow-up' ? 'bg-emerald-100' :
-                                  visit.visit_type === 'procedure' ? 'bg-purple-100' :
-                                  'bg-gray-100'
-                                }`}>
-                                  {visit.visit_type === 'consultation' ? <Stethoscope className="w-4 h-4 text-blue-600" /> :
-                                   visit.visit_type === 'follow-up' ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> :
-                                   visit.visit_type === 'procedure' ? <Activity className="w-4 h-4 text-purple-600" /> :
-                                   <User className="w-4 h-4 text-gray-600" />}
-                                </div>
-                                <p className="text-sm font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                                  {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)}
-                                </p>
-                                <div className="flex items-center gap-1">
-                                  <div className={`w-2 h-2 rounded-full ${
-                                    visit.status === 'completed' ? 'bg-green-500' :
-                                    visit.status === 'in-progress' ? 'bg-blue-500 animate-pulse' :
-                                    'bg-gray-400'
-                                  }`}></div>
-                                  <span className={`text-xs font-medium ${
-                                    visit.status === 'completed' ? 'text-green-600' :
-                                    visit.status === 'in-progress' ? 'text-blue-600' :
-                                    'text-gray-500'
-                                  }`}>
-                                    {visit.status === 'completed' ? 'Completed' :
-                                     visit.status === 'in-progress' ? 'In Progress' : 'Scheduled'}
-                                  </span>
-                                </div>
-                              </div>
-                              <p className="text-xs text-gray-600 mb-2">
-                                {format(new Date(visit.visit_date), 'MMM d, yyyy')} • {visit.visit_time} • Dr. {visit.doctor_name}
-                              </p>
-                              
-                              {/* Complaint and Diagnosis */}
-                              {(visit.chief_complaint || visit.diagnosis) && (
-                                <div className="mt-3 space-y-1">
-                                  {visit.chief_complaint && (
-                                    <p className="text-xs text-gray-700">
-                                      <span className="font-medium">Complaint:</span> {visit.chief_complaint}
-                                    </p>
-                                  )}
-                                  {visit.diagnosis && (
-                                    <p className="text-xs text-gray-700">
-                                      <span className="font-medium">Diagnosis:</span> {visit.diagnosis}
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-                              
-                              {/* Attachments */}
-                              <div className="flex items-center gap-3 mt-3 text-xs text-gray-500">
-                                <div className="flex items-center gap-1">
-                                  <Microscope className="w-3 h-3" />
-                                  <span>2 Results</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <ImageIcon className="w-3 h-3" />
-                                  <span>3 Images</span>
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Actions */}
-                            <div className="flex items-center gap-2">
-                              {visit.status === 'in-progress' && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleVisitStatusChange(visit.id, 'completed', visit.appointment_id);
-                                  }}
-                                  className="px-3 py-1.5 bg-emerald-500 text-white rounded-md text-xs font-medium hover:bg-emerald-600 transition-colors"
-                                >
-                                  Complete
-                                </button>
-                              )}
-                              {visit.status === 'scheduled' && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleVisitStatusChange(visit.id, 'in-progress', visit.appointment_id);
-                                  }}
-                                  className="px-3 py-1.5 bg-blue-500 text-white rounded-md text-xs font-medium hover:bg-blue-600 transition-colors"
-                                >
-                                  Start Visit
-                                </button>
-                              )}
-                              <ChevronRight className="w-4 h-4 text-gray-400" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
+                      onStatusChange={handleVisitStatusChange}
+                    />
                   ))}
                   
                   {visits.length === 0 && (
