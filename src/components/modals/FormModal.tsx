@@ -61,19 +61,32 @@ const FormModal: React.FC<FormModalProps> = ({
         }
       }}
     >
-      <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] pointer-events-auto flex flex-col relative animate-scale-in border border-white/20">
+      <div className="relative bg-gradient-to-br from-white via-blue-50/30 to-purple-50/20 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] pointer-events-auto flex flex-col overflow-hidden animate-scale-in">
         {!hideHeader && (
-          <div className="flex items-center justify-between p-6 border-b border-gray-100/50 bg-gradient-to-r from-white/50 to-gray-50/50">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">{title}</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-all duration-200 p-2.5 rounded-xl hover:bg-gray-100/80 hover:shadow-md hover:scale-105"
-            >
-              <X size={24} />
-            </button>
+          <div className="relative bg-gradient-to-r from-[#01b9d5] to-purple-600 p-6 text-white">
+            <div className="absolute inset-0 bg-gradient-to-r from-[#01b9d5]/20 to-purple-600/20 backdrop-blur-sm"></div>
+            <div className="relative flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <div className="w-6 h-6 flex items-center justify-center">
+                    <div className="w-5 h-5 bg-white rounded"></div>
+                  </div>
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">{title}</h2>
+                  <p className="text-blue-100 text-sm">Complete the information below</p>
+                </div>
+              </div>
+              <button
+                onClick={onClose}
+                className="text-white/80 hover:text-white transition-all duration-200 p-2.5 rounded-xl hover:bg-white/20 hover:scale-105"
+              >
+                <X size={24} />
+              </button>
+            </div>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-gradient-to-br from-white/50 to-white/30">
           {children}
         </div>
       </div>

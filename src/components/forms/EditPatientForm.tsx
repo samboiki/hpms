@@ -54,17 +54,17 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* Tabs */}
-      <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+      {/* Premium Tabs */}
+      <div className="flex space-x-1 bg-gradient-to-r from-blue-50 to-purple-50 p-1 rounded-xl border border-blue-100">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
               activeTab === tab.id
-                ? 'bg-[#01b9d5] text-white shadow-md'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-gradient-to-r from-[#01b9d5] to-purple-600 text-white shadow-lg transform scale-105'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
             }`}
           >
             <tab.icon className="w-4 h-4" />
@@ -77,12 +77,12 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
       <div className="mt-6">
         {activeTab === 'personal' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">First Name</label>
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">First Name</label>
               <input
                 type="text"
                 {...register('first_name', { required: 'First name is required' })}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#01b9d5] focus:ring-[#01b9d5]"
+                className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all shadow-sm hover:shadow-md"
               />
               {errors.first_name && (
                 <p className="mt-1 text-sm text-red-600">{errors.first_name.message}</p>
@@ -248,13 +248,20 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
         )}
       </div>
 
-      <div className="flex justify-end space-x-3">
-        <Button type="button" variant="outline" onClick={() => onSuccess()}>
+      <div className="flex justify-end space-x-3 pt-6 border-t border-gray-100">
+        <button
+          type="button"
+          onClick={() => onSuccess()}
+          className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-all hover:shadow-md"
+        >
           Cancel
-        </Button>
-        <Button type="submit">
+        </button>
+        <button
+          type="submit"
+          className="px-6 py-2.5 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+        >
           Update Patient
-        </Button>
+        </button>
       </div>
     </form>
   );

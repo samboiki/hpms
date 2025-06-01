@@ -6,24 +6,20 @@ import {
   User,
   Phone,
   Mail,
-  MapPin,
   Building2,
   Heart,
   Activity,
   Stethoscope,
   Plus,
   Search,
-  ArrowRight,
   CheckCircle2,
   AlertCircle,
   Edit3,
   ImageIcon,
   Microscope,
   ChevronRight,
-  Clock,
   Calendar,
   FileText,
-  Shield,
   Thermometer,
   Weight,
   Sparkles
@@ -586,7 +582,7 @@ Medical Team`;
                       </h1>
                       <p className="text-xs text-gray-500 font-medium">Patient ID: {patient.id.slice(0, 8)}</p>
                       
-                      {/* Medical Aid - Simple one row */}
+                      {/* Medical Aid - Simple one row with logo */}
                       {medicalAid && (
                         <motion.div 
                           initial={{ opacity: 0, x: -10 }}
@@ -594,7 +590,16 @@ Medical Team`;
                           transition={{ delay: 0.2 }}
                           className="mt-3 flex items-center gap-3 text-sm"
                         >
-                          <Shield className="w-4 h-4 text-blue-600" />
+                          {/* Medical Aid Logo */}
+                          <div className="relative">
+                            <div className="w-12 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-md flex items-center justify-center text-white font-bold text-xs shadow-md">
+                              {medicalAid.provider.includes('NMC') ? 'NMC' : 
+                               medicalAid.provider.includes('NHP') ? 'NHP' :
+                               medicalAid.provider.includes('Nammed') ? 'NAM' :
+                               medicalAid.provider.includes('Gem') ? 'GEM' :
+                               'MA'}
+                            </div>
+                          </div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-gray-700">{medicalAid.provider}</span>
                             <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">
