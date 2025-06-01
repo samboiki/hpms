@@ -14,8 +14,8 @@
   }
   
   body {
-    background-color: #f9fafb; /* gray-50 */
-    background: #f9fafb;
+    background-color: #f3f4f6 !important; /* gray-100 */
+    background: #f3f4f6 !important;
   }
 
   h1, h2, h3, h4, h5, h6 {

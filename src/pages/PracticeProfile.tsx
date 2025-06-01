@@ -82,7 +82,8 @@ const PracticeProfile: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'profile' | 'staff' | 'hours'>('profile');
 
   return (
-    <div className="animate-fade-in">
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="animate-fade-in">
       <div className="flex flex-col md:flex-row items-center justify-between mb-6">
         <div className="flex items-center">
           <Building2 size={28} className="text-primary-600 mr-3" />
@@ -456,6 +457,7 @@ const PracticeProfile: React.FC = () => {
           </motion.div>
         </div>
       )}
+      </div>
     </div>
   );
 };

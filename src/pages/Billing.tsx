@@ -93,7 +93,8 @@ const Billing: React.FC = () => {
     .reduce((sum, inv) => sum + inv.amount, 0);
 
   return (
-    <div className="animate-fade-in">
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="animate-fade-in">
       <div className="flex flex-col md:flex-row items-center justify-between mb-6">
         <div className="flex items-center">
           <CreditCard size={28} className="text-primary-600 mr-3" />
@@ -261,6 +262,7 @@ const Billing: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };

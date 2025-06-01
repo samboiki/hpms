@@ -4,7 +4,8 @@ import RequestsOverview from '../components/requests/RequestsOverview';
 
 const Requests: React.FC = () => {
   return (
-    <div className="animate-fade-in">
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="animate-fade-in">
       <div className="flex items-center mb-6">
         <Microscope size={28} className="text-primary-600 mr-3" />
         <div>
@@ -16,6 +17,7 @@ const Requests: React.FC = () => {
       </div>
 
       <RequestsOverview />
+      </div>
     </div>
   );
 };

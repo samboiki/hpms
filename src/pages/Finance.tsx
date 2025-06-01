@@ -129,7 +129,8 @@ const Finance: React.FC = () => {
   const [dateRange, setDateRange] = useState('month');
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="animate-fade-in space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-center justify-between">
         <div className="flex items-center">
@@ -488,6 +489,7 @@ const Finance: React.FC = () => {
           </Card>
         </div>
       )}
+      </div>
     </div>
   );
 };

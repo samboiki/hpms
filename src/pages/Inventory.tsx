@@ -56,7 +56,8 @@ const Inventory: React.FC = () => {
   ];
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="animate-fade-in space-y-6">
       <div className="flex items-center mb-6">
         <Package2 size={28} className="text-primary-600 mr-3" />
         <div>
@@ -258,6 +259,7 @@ const Inventory: React.FC = () => {
           {/* Add more form fields */}
         </div>
       </FormModal>
+      </div>
     </div>
   );
 };
