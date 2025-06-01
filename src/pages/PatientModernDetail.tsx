@@ -656,241 +656,7 @@ Medical Team`;
           
           {/* Medical Aid Card moved to right sidebar */}
 
-          {/* Premium Next of Kin Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20, rotateX: -5 }}
-            animate={{ opacity: 1, y: 0, rotateX: 0 }}
-            transition={{ delay: 0.1 }}
-            whileHover={{ y: -2, scale: 1.01 }}
-            className="relative group"
-          >
-            {/* Floating glow effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-red-400/20 via-pink-500/20 to-rose-600/20 rounded-xl blur-xl opacity-0 group-hover:opacity-70 transition-all duration-500 -z-10"></div>
-            
-            {/* Main card */}
-            <div className="relative bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
-              {/* Animated gradient header */}
-              <div className="h-2 bg-gradient-to-r from-red-500 via-pink-500 to-rose-600 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
-              </div>
-              
-              {/* Floating orbs background */}
-              <div className="absolute top-4 right-4 w-20 h-20 bg-gradient-to-br from-red-400/10 to-pink-500/10 rounded-full blur-2xl opacity-60"></div>
-              <div className="absolute bottom-4 left-4 w-16 h-16 bg-gradient-to-br from-rose-500/10 to-pink-500/10 rounded-full blur-xl opacity-40"></div>
-              
-              <div className="relative p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-gradient-to-br from-red-500 to-pink-600 rounded-xl shadow-lg">
-                      <Heart className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900">Next of Kin</h3>
-                      <p className="text-xs text-gray-500 font-medium">Emergency Contact</p>
-                    </div>
-                  </div>
-                  <motion.button 
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setIsNextOfKinModalOpen(true)}
-                    className="p-2.5 bg-gradient-to-br from-gray-50 to-gray-100 hover:from-red-500/10 hover:to-pink-500/10 rounded-xl border border-gray-200 hover:border-red-400/30 transition-all duration-300 shadow-sm"
-                  >
-                    <Edit3 className="w-4 h-4 text-gray-600 hover:text-red-500 transition-colors" />
-                  </motion.button>
-                </div>
-                
-                <div className="space-y-5">
-                  {/* Contact Person with enhanced design */}
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-pink-500/5 to-rose-500/5 rounded-xl"></div>
-                    <div className="relative p-4 bg-white/70 backdrop-blur-sm rounded-xl border border-white/20 shadow-sm">
-                      <div className="flex items-center gap-4">
-                        <div className="relative">
-                          <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
-                            <Heart className="w-7 h-7 text-white" />
-                          </div>
-                          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 border-2 border-white rounded-full"></div>
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-lg font-bold text-gray-900">
-                            {nextOfKin?.name || patient?.emergency_contact_name || 'No emergency contact'}
-                          </p>
-                          <p className="text-sm font-medium text-gray-600 bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
-                            {nextOfKin?.relationship || patient?.emergency_contact_relationship || 'Not specified'}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                            <span className="text-xs text-green-600 font-medium">Available</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Contact Details - Compact */}
-                  <div className="space-y-2">
-                    <div className="p-2.5 bg-white/5 rounded-lg border border-white/10">
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-3 h-3 text-blue-400" />
-                        <p className="text-xs text-gray-600">
-                          {nextOfKin?.phone || patient?.emergency_contact_phone || 'No phone number'}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="p-2.5 bg-white/5 rounded-lg border border-white/10">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-3 h-3 text-emerald-400" />
-                        <p className="text-xs text-gray-600">
-                          {nextOfKin?.address || 'No address provided'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Emergency Actions */}
-                  <div className="flex gap-2">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={openSmsModal}
-                      className="flex-1 p-2 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-lg font-medium text-xs shadow-md hover:shadow-lg transition-all duration-300"
-                    >
-                      Quick Contact
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="p-2 bg-white/10 border border-white/10 rounded-lg hover:bg-white/20 transition-colors shadow-sm"
-                    >
-                      <Mail className="w-3 h-3 text-gray-300" />
-                    </motion.button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
           
-          {/* Medical Details Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20, rotateX: -5 }}
-            animate={{ opacity: 1, y: 0, rotateX: 0 }}
-            transition={{ delay: 0.2 }}
-            whileHover={{ y: -2, scale: 1.01 }}
-            className="relative group"
-          >
-            {/* Floating glow effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/20 via-blue-500/20 to-purple-600/20 rounded-xl blur-xl opacity-0 group-hover:opacity-70 transition-all duration-500 -z-10"></div>
-            
-            <div className="relative bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
-              {/* Animated gradient header */}
-              <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-600 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
-              </div>
-              
-              <div className="p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-blue-600 rounded-xl shadow-lg">
-                    <Stethoscope className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-800">Medical Details</h3>
-                    <p className="text-xs text-gray-500 font-medium">Clinical Overview</p>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  {/* Quick Medical Summary */}
-                  <div className="p-3 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-lg border border-emerald-100">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                      <span className="text-sm font-semibold text-gray-800">Medical Summary</span>
-                    </div>
-                    <p className="text-xs text-gray-700 leading-relaxed">
-                      {visits.length > 0 
-                        ? `${visits.length} total visits recorded. Recent consultations show consistent follow-up care with ${visits.filter(v => v.status === 'completed').length} completed visits.`
-                        : 'No medical history available. New patient requiring initial assessment.'
-                      }
-                    </p>
-                  </div>
-                  
-                  {/* Recent Diagnosis */}
-                  {visits.length > 0 && visits[0].diagnosis && (
-                    <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        <span className="text-sm font-semibold text-gray-800">Latest Diagnosis</span>
-                      </div>
-                      <p className="text-xs text-gray-700 truncate">
-                        {visits[0].diagnosis}
-                      </p>
-                    </div>
-                  )}
-                  
-                  {/* Medical Aid Status */}
-                  <div className="p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-100">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                      <span className="text-sm font-semibold text-gray-800">Medical Aid</span>
-                    </div>
-                    <p className="text-xs text-gray-700">
-                      {medicalAid 
-                        ? `${medicalAid.provider} - ${medicalAid.scheme}` 
-                        : 'No medical aid registered'
-                      }
-                    </p>
-                  </div>
-                  
-                  {/* Vitals Summary */}
-                  {latestVitals && (
-                    <div className="p-3 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border border-red-100">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                        <span className="text-sm font-semibold text-gray-800">Latest Vitals</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {latestVitals.blood_pressure && (
-                          <div className="text-xs text-gray-600">
-                            <span className="font-medium">BP:</span> {latestVitals.blood_pressure}
-                          </div>
-                        )}
-                        {latestVitals.pulse_rate && (
-                          <div className="text-xs text-gray-600">
-                            <span className="font-medium">HR:</span> {latestVitals.pulse_rate} bpm
-                          </div>
-                        )}
-                        {latestVitals.temperature && (
-                          <div className="text-xs text-gray-600">
-                            <span className="font-medium">Temp:</span> {latestVitals.temperature}°C
-                          </div>
-                        )}
-                        {latestVitals.weight && (
-                          <div className="text-xs text-gray-600">
-                            <span className="font-medium">Weight:</span> {latestVitals.weight} kg
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* View Full History Button */}
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    // Scroll to visit history section
-                    const historySection = document.querySelector('[data-section="visit-history"]');
-                    historySection?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className="w-full mt-4 p-2.5 bg-gradient-to-r from-emerald-500 to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2"
-                >
-                  <FileText className="w-4 h-4" />
-                  View Full Medical History
-                </motion.button>
-              </div>
-            </div>
-          </motion.div>
         </div>
 
           {/* Sophisticated Visit History */}
@@ -949,41 +715,80 @@ Medical Team`;
                   </div>
                 </div>
 
-                {/* Latest Vitals - Single Row */}
+                {/* Premium Vitals Section */}
                 {latestVitals && (
                   <motion.div
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
-                    className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4"
+                    className="mb-8 relative group"
                     data-section="vitals"
                   >
-                    <div className="flex items-center gap-4 text-sm">
-                      {latestVitals.blood_pressure && (
-                        <span className="text-gray-700">
-                          <span className="font-medium text-red-600">{latestVitals.blood_pressure}</span> BP
-                        </span>
-                      )}
-                      {latestVitals.pulse_rate && (
-                        <span className="text-gray-700">
-                          <span className="font-medium text-blue-600">{latestVitals.pulse_rate}</span> bpm
-                        </span>
-                      )}
-                      {latestVitals.temperature && (
-                        <span className="text-gray-700">
-                          <span className="font-medium text-purple-600">{latestVitals.temperature}°C</span>
-                        </span>
-                      )}
-                      {latestVitals.weight && (
-                        <span className="text-gray-700">
-                          <span className="font-medium text-emerald-600">{latestVitals.weight}</span> kg
-                        </span>
-                      )}
-                      {latestVitals.bmi && (
-                        <span className="text-gray-700">
-                          BMI <span className="font-medium text-amber-600">{latestVitals.bmi}</span>
-                        </span>
-                      )}
+                    {/* Subtle glow effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-gray-400/5 via-gray-500/5 to-gray-400/5 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500 -z-10"></div>
+                    
+                    <div className="relative bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/30 overflow-hidden">
+                      {/* Elegant header stripe */}
+                      <div className="h-1 bg-gradient-to-r from-gray-400 via-gray-500 to-gray-400"></div>
+                      
+                      <div className="p-6">
+                        {/* Premium title */}
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="p-2 bg-gradient-to-br from-gray-600 to-gray-700 rounded-lg shadow-sm">
+                            <Activity className="w-4 h-4 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-800">Latest Vitals</h3>
+                            <p className="text-xs text-gray-500">
+                              {latestVitals.created_at ? new Date(latestVitals.created_at).toLocaleDateString() : 'Recent readings'}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {/* Premium vitals display */}
+                        <div className="flex items-center gap-6 text-sm bg-gray-50/50 rounded-lg p-4 border border-gray-100">
+                          {latestVitals.blood_pressure && (
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
+                              <span className="text-gray-700">
+                                <span className="font-semibold text-gray-800">{latestVitals.blood_pressure}</span> BP
+                              </span>
+                            </div>
+                          )}
+                          {latestVitals.pulse_rate && (
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
+                              <span className="text-gray-700">
+                                <span className="font-semibold text-gray-800">{latestVitals.pulse_rate}</span> bpm
+                              </span>
+                            </div>
+                          )}
+                          {latestVitals.temperature && (
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
+                              <span className="text-gray-700">
+                                <span className="font-semibold text-gray-800">{latestVitals.temperature}°C</span>
+                              </span>
+                            </div>
+                          )}
+                          {latestVitals.weight && (
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
+                              <span className="text-gray-700">
+                                <span className="font-semibold text-gray-800">{latestVitals.weight}</span> kg
+                              </span>
+                            </div>
+                          )}
+                          {latestVitals.bmi && (
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-gray-600 rounded-full"></div>
+                              <span className="text-gray-700">
+                                BMI <span className="font-semibold text-gray-800">{latestVitals.bmi}</span>
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -996,224 +801,104 @@ Medical Team`;
                   </div>
 
                   {visits.map((visit, index) => (
-                    <motion.div
+                    <div
                       key={visit.id}
-                      initial={{ opacity: 0, x: -50, rotateY: -15 }}
-                      animate={{ opacity: 1, x: 0, rotateY: 0 }}
-                      transition={{ delay: index * 0.15, type: "spring", damping: 20 }}
-                      whileHover={{ 
-                        y: -8, 
-                        scale: 1.02,
-                        rotateY: 2,
-                        transition: { type: "spring", damping: 15 }
-                      }}
-                      className="relative group mb-12 last:mb-0 perspective-1000"
+                      className="relative mb-6 group cursor-pointer"
+                      onClick={() => handleVisitClick(visit.id)}
                     >
-                      {/* Arrow Progress Indicator between visits */}
+                      {/* Simple timeline line */}
                       {index < visits.length - 1 && (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ delay: index * 0.15 + 0.5 }}
-                          className="absolute left-6 -bottom-8 z-10 flex items-center gap-2"
-                        >
-                          <div className="flex flex-col items-center">
-                            <motion.div
-                              animate={{ y: [0, -3, 0] }}
-                              transition={{ duration: 2, repeat: Infinity, delay: index * 0.3 }}
-                              className="w-6 h-6 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-full flex items-center justify-center shadow-lg"
-                            >
-                              <ArrowRight className="w-3 h-3 text-white rotate-90" />
-                            </motion.div>
-                            <div className="mt-1 px-2 py-1 bg-white/90 backdrop-blur-sm rounded-lg shadow-sm border border-gray-200/50">
-                              <p className="text-xs font-medium text-gray-600">
-                                {Math.abs(new Date(visits[index + 1].visit_date).getTime() - new Date(visit.visit_date).getTime()) / (1000 * 60 * 60 * 24) >= 1 
-                                  ? `${Math.floor(Math.abs(new Date(visits[index + 1].visit_date).getTime() - new Date(visit.visit_date).getTime()) / (1000 * 60 * 60 * 24))} days`
-                                  : 'Same day'} later
-                              </p>
-                            </div>
-                          </div>
-                        </motion.div>
+                        <div className="absolute left-4 top-10 w-0.5 h-12 bg-gray-200"></div>
                       )}
-                      {/* Professional subtle hover glow */}
-                      <div className={`absolute inset-0 ml-16 rounded-2xl blur-xl opacity-0 group-hover:opacity-10 transition-opacity duration-300 ${
-                        visit.status === 'completed' ? 'bg-[#01b9d5]' :
-                        visit.status === 'in-progress' ? 'bg-amber-500' :
-                        'bg-gray-400'
-                      }`}></div>
                       
-                      {/* Revolutionary 3D Timeline Node */}
-                      <div className="absolute left-5 top-8 z-20">
-                        <div className={`relative w-8 h-8 rounded-full shadow-lg transform-gpu group-hover:scale-110 transition-transform duration-300 ${
-                          visit.status === 'completed' ? 'bg-gradient-to-br from-[#01b9d5] to-[#0197b0]' :
-                          visit.status === 'in-progress' ? 'bg-gradient-to-br from-amber-400 to-orange-500 animate-pulse' :
-                          'bg-gradient-to-br from-gray-400 to-gray-600'
-                        }`}>
-                          <div className="absolute inset-1 rounded-xl bg-white/20"></div>
-                          {visit.status === 'completed' && (
-                            <CheckCircle2 className="absolute inset-0 m-auto w-4 h-4 text-white" />
-                          )}
-                          {visit.status === 'in-progress' && (
-                            <Activity className="absolute inset-0 m-auto w-4 h-4 text-white animate-pulse" />
-                          )}
-                          {visit.status === 'scheduled' && (
-                            <Clock className="absolute inset-0 m-auto w-4 h-4 text-white" />
-                          )}
-                        </div>
-                        
-                        {/* Ripple effect for active visits */}
+                      {/* Simple timeline node */}
+                      <div className="absolute left-2 top-6 w-4 h-4 bg-white border-2 border-gray-400 rounded-full shadow-sm">
+                        {visit.status === 'completed' && (
+                          <CheckCircle2 className="absolute -inset-1 w-6 h-6 text-green-600" />
+                        )}
                         {visit.status === 'in-progress' && (
-                          <div className="absolute inset-0 w-8 h-8 rounded-2xl bg-orange-400/30 animate-ping"></div>
+                          <Activity className="absolute -inset-1 w-6 h-6 text-blue-600" />
                         )}
                       </div>
 
-                      {/* Premium Glassmorphic Visit Card */}
-                      <motion.div 
-                        className="relative ml-20 overflow-hidden"
-                        onClick={() => handleVisitClick(visit.id)}
-                        whileHover={{ 
-                          y: -4,
-                          transition: { duration: 0.3 }
-                        }}
-                      >
-                        {/* Medical background image */}
-                        <div className="absolute inset-0 opacity-5">
-                          <img 
-                            src={visit.visit_type === 'consultation' ? 
-                              "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400" :
-                              visit.visit_type === 'follow-up' ?
-                              "https://images.unsplash.com/photo-1581056771107-24ca5f033842?w=400" :
-                              "https://images.unsplash.com/photo-1559175631-c96fc4f24743?w=400"
-                            }
-                            alt="Medical background"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        
-                        {/* Ultra-Premium Glassmorphic container */}
-                        <div className="relative backdrop-blur-2xl bg-white/80 rounded-2xl p-6 shadow-2xl hover:shadow-3xl transition-all duration-500 border border-white/30"
-                             style={{ 
-                               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)' 
-                             }}>
-                          {/* Status gradient overlay */}
-                          <div className={`absolute inset-0 rounded-2xl opacity-5 ${
-                            visit.status === 'completed' ? 'bg-gradient-to-br from-[#01b9d5] to-cyan-600' :
-                            visit.status === 'in-progress' ? 'bg-gradient-to-br from-amber-500 to-orange-600' :
-                            'bg-gradient-to-br from-gray-400 to-slate-600'
-                          }`}></div>
-                          {/* Card header */}
-                          <div className="relative z-10">
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                  <h3 className="text-lg font-bold text-gray-900 drop-shadow-sm" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                                    {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)}
-                                  </h3>
-                                  <div className={`px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md ${
-                                    visit.status === 'completed' ? 'bg-[#01b9d5]/20 text-[#01b9d5] border border-[#01b9d5]/30' :
-                                    visit.status === 'in-progress' ? 'bg-amber-500/20 text-amber-700 border border-amber-500/30' :
-                                    'bg-gray-400/20 text-gray-700 border border-gray-400/30'
-                                  }`}>
-                                    {visit.status}
-                                  </div>
-                                </div>
-                            
-                            <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                              <div className="flex items-center gap-2">
-                                <Calendar className="w-4 h-4 text-gray-500" />
-                                <span className="font-medium text-gray-600">{format(new Date(visit.visit_date), 'MMM d, yyyy')}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-gray-500" />
-                                <span className="font-medium text-gray-600">{visit.visit_time}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <User className="w-4 h-4 text-gray-500" />
-                                <span className="font-medium text-gray-600" style={{ fontFamily: 'Poppins, sans-serif' }}>Dr. {visit.doctor_name}</span>
-                              </div>
-                            </div>
-                            
-                            {/* Chief Complaint and Diagnosis */}
-                            <div className="mb-4 space-y-2">
-                              {visit.chief_complaint && (
-                                <div className="p-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 backdrop-blur-sm rounded-xl border border-blue-200/30">
-                                  <p className="text-xs font-medium text-blue-700 mb-1">Chief Complaint</p>
-                                  <p className="text-sm text-gray-800 font-medium">{visit.chief_complaint}</p>
-                                </div>
-                              )}
-                              {visit.diagnosis && (
-                                <div className="p-3 bg-gradient-to-r from-emerald-50/80 to-green-50/80 backdrop-blur-sm rounded-xl border border-emerald-200/30">
-                                  <p className="text-xs font-medium text-emerald-700 mb-1">Diagnosis</p>
-                                  <p className="text-sm text-gray-800 font-medium">{visit.diagnosis}</p>
-                                </div>
-                              )}
+                      {/* Minimalist visit card */}
+                      <div className="ml-12 bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200">
+                        {/* Header */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <h3 className="text-base font-semibold text-gray-900">
+                              {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)}
+                            </h3>
+                            <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                              <span>{format(new Date(visit.visit_date), 'MMM d, yyyy')}</span>
+                              <span>{visit.visit_time}</span>
+                              <span>Dr. {visit.doctor_name}</span>
                             </div>
                           </div>
-                          
-                              <motion.div
-                                whileHover={{ scale: 1.1, rotate: 5 }}
-                                className="p-2 bg-white/50 backdrop-blur-sm rounded-xl shadow-sm hover:bg-white/70 transition-all"
-                              >
-                                <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-[#01b9d5] transition-colors" />
-                              </motion.div>
-                            </div>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            visit.status === 'completed' ? 'bg-green-100 text-green-700' :
+                            visit.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {visit.status}
+                          </span>
+                        </div>
                         
-                        
-                            {/* Enhanced attachments section with glassmorphic style */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/30 backdrop-blur-sm rounded-full text-xs font-medium text-purple-700">
-                                  <Microscope className="w-3.5 h-3.5 text-purple-600" />
-                                  <span>2 Lab Results</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/30 backdrop-blur-sm rounded-full text-xs font-medium text-blue-700">
-                                  <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
-                                  <span>3 Images</span>
-                                </div>
-                                {visit.diagnosis && (
-                                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/30 backdrop-blur-sm rounded-full text-xs font-medium text-emerald-700">
-                                    <Stethoscope className="w-3.5 h-3.5 text-emerald-500" />
-                                    <span>Clinical Notes</span>
-                                  </div>
-                                )}
+                        {/* Content */}
+                        {(visit.chief_complaint || visit.diagnosis) && (
+                          <div className="space-y-2 text-sm">
+                            {visit.chief_complaint && (
+                              <div>
+                                <span className="font-medium text-gray-700">Complaint:</span>
+                                <span className="text-gray-600 ml-2">{visit.chief_complaint}</span>
                               </div>
+                            )}
+                            {visit.diagnosis && (
+                              <div>
+                                <span className="font-medium text-gray-700">Diagnosis:</span>
+                                <span className="text-gray-600 ml-2">{visit.diagnosis}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Action buttons */}
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <Microscope className="w-3 h-3" />
+                            <span>2 Results</span>
+                            <ImageIcon className="w-3 h-3 ml-2" />
+                            <span>3 Images</span>
+                          </div>
                           
-                          {/* Action buttons */}
                           <div className="flex gap-2">
                             {visit.status === 'in-progress' && (
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleVisitStatusChange(visit.id, 'completed', visit.appointment_id);
                                 }}
-                                className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all text-sm font-semibold flex items-center gap-2"
+                                className="px-3 py-1 bg-green-600 text-white rounded text-xs font-medium hover:bg-green-700 transition-colors"
                               >
-                                <CheckCircle2 className="w-4 h-4" />
                                 Complete
-                              </motion.button>
+                              </button>
                             )}
                             {visit.status === 'scheduled' && (
-                              <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleVisitStatusChange(visit.id, 'in-progress', visit.appointment_id);
                                 }}
-                                className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl shadow-lg hover:shadow-xl transition-all text-sm font-semibold flex items-center gap-2"
+                                className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition-colors"
                               >
-                                <Activity className="w-4 h-4" />
                                 Start Visit
-                              </motion.button>
+                              </button>
                             )}
-                          </div>
-                            </div>
+                            <ChevronRight className="w-4 h-4 text-gray-400" />
                           </div>
                         </div>
-                      </motion.div>
-                    </motion.div>
+                      </div>
+                    </div>
                   ))}
                   
                   {visits.length === 0 && (
@@ -1533,6 +1218,31 @@ Medical Team`;
                       <span>ID: {medicalAid?.main_member_id_number || 'N/A'}</span>
                       <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
                       <span>Relationship: {medicalAid?.relationship_to_main || 'N/A'}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Next of Kin Info */}
+                  <div className="p-4 bg-gradient-to-br from-gray-50 via-white to-gray-50 rounded-xl border border-gray-200/50 shadow-sm">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-gray-500 to-gray-600 rounded-full flex items-center justify-center shadow-md">
+                        <Heart className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 mb-1">Emergency Contact</p>
+                        <p className="text-sm font-bold text-gray-800">
+                          {nextOfKin?.name || patient?.emergency_contact_name || 'No emergency contact'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-1 text-xs text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                        <span>Phone: {nextOfKin?.phone || patient?.emergency_contact_phone || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                        <span>Relationship: {nextOfKin?.relationship || patient?.emergency_contact_relationship || 'N/A'}</span>
+                      </div>
                     </div>
                   </div>
                   
