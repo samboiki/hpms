@@ -240,6 +240,11 @@ const PatientModernDetail = () => {
     return new Date().getFullYear() - new Date(dateOfBirth).getFullYear();
   };
 
+  const isBloodPressureAbnormal = (bp: string) => {
+    const [systolic, diastolic] = bp.split('/').map(Number);
+    return systolic > 140 || systolic < 90 || diastolic > 90 || diastolic < 60;
+  };
+
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'completed':
@@ -401,14 +406,11 @@ Medical Team`;
           animate={{ opacity: 1, y: 0 }}
           className="relative overflow-hidden"
         >
-          <div className="relative bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-200/50 overflow-hidden">
+          <div className="relative bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-200/50 overflow-hidden rounded-2xl">
             {/* Premium glass morphism background */}
-            <div className="absolute inset-0 bg-gradient-to-br from-white via-gray-50/20 to-gray-100/10"></div>
+            <div className="absolute inset-0 bg-gradient-to-br from-white via-gray-50/20 to-gray-100/10 rounded-2xl"></div>
             
-            {/* Soft rounded corners for the bottom */}
-            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-gray-50/50 to-transparent rounded-t-[2rem]"></div>
-            
-            <div className="relative p-6">
+            <div className="relative p-4">
               {/* Compact header with back button */}
               <div className="absolute top-4 left-4">
                 <motion.button
@@ -423,18 +425,20 @@ Medical Team`;
             
             {patient && (
               <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6">
-                {/* Enhanced Avatar Section */}
+                {/* Enhanced Avatar Section - Circle with Pulsating Ring */}
                 <div className="relative group">
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-3xl blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
-                  <div className="relative h-20 w-20 rounded-3xl overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                  {/* Pulsating outer ring */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300 animate-pulse"></div>
+                  <div className="absolute -inset-1 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-full opacity-50 animate-pulse"></div>
+                  
+                  {/* Avatar circle */}
+                  <div className="relative h-20 w-20 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
                     <img 
                       src="https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200"
                       alt={`${patient.first_name} ${patient.last_name}`}
                       className="h-full w-full object-cover"
                     />
                   </div>
-                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-3 border-white rounded-full shadow-lg animate-pulse"></div>
-                  <div className="absolute -top-1 -left-1 w-5 h-5 bg-[#01b9d5] border-2 border-white rounded-full shadow-md"></div>
                 </div>
                 
                 {/* Enhanced Patient Info */}
@@ -486,214 +490,77 @@ Medical Team`;
                     </motion.div>
                   </div>
                   
-                  {/* 🌟 ULTRA-PREMIUM VITALS DISPLAY - One Row WOW Factor */}
-                  <div className="mt-6 relative group/vitals">
-                    {/* Magical floating background */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-blue-500/5 to-purple-500/5 rounded-2xl blur-xl opacity-0 group-hover/vitals:opacity-100 transition-opacity duration-700"></div>
-                    
-                    <div className="relative p-5 bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 shadow-2xl overflow-hidden">
-                      {/* Animated header with pulse effect */}
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="relative">
-                          <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-blue-500 rounded-lg blur-md opacity-60 animate-pulse"></div>
-                          <div className="relative p-2 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-lg shadow-lg">
-                            <Activity className="w-4 h-4 text-white" />
-                          </div>
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">Latest Vitals</h3>
-                          {latestVitals && (
-                            <p className="text-xs text-gray-500 font-medium">
-                              {format(new Date(latestVitals.created_at), 'MMM d, yyyy')} • Live Monitoring
-                            </p>
-                          )}
-                        </div>
-                        <div className="ml-auto flex items-center gap-2">
-                          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                          <span className="text-xs text-emerald-600 font-semibold">ACTIVE</span>
-                        </div>
-                      </div>
-                      
-                      {latestVitals ? (
-                        <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide">
-                          {/* Blood Pressure - Heart Theme */}
+                  {/* Simple Vitals Display - One Row Below Contact Info */}
+                  {latestVitals && (
+                    <div className="mt-4 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+                          {/* Blood Pressure */}
                           {latestVitals.blood_pressure && (
-                            <motion.div 
-                              whileHover={{ scale: 1.05, y: -2 }}
-                              className="flex-shrink-0 relative group/bp"
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-r from-red-400/20 to-pink-500/20 rounded-xl blur-lg opacity-0 group-hover/bp:opacity-100 transition-opacity duration-300"></div>
-                              <div className="relative p-3 bg-gradient-to-br from-red-50 to-pink-50 rounded-xl border border-red-200/50 shadow-lg min-w-[120px]">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <Heart className="w-3 h-3 text-red-500 animate-pulse" />
-                                  <span className="text-xs font-semibold text-red-700">BP</span>
-                                </div>
-                                <p className="text-lg font-bold text-red-800">{latestVitals.blood_pressure}</p>
-                                <div className="absolute top-2 right-2 w-1 h-1 bg-red-400 rounded-full animate-ping"></div>
-                              </div>
-                            </motion.div>
-                          )}
-                          
-                          {/* Heart Rate - Pulse Theme */}
-                          {latestVitals.pulse_rate && (
-                            <motion.div 
-                              whileHover={{ scale: 1.05, y: -2 }}
-                              className="flex-shrink-0 relative group/hr"
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-r from-orange-400/20 to-amber-500/20 rounded-xl blur-lg opacity-0 group-hover/hr:opacity-100 transition-opacity duration-300"></div>
-                              <div className="relative p-3 bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl border border-orange-200/50 shadow-lg min-w-[120px]">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <Activity className="w-3 h-3 text-orange-500" />
-                                  <span className="text-xs font-semibold text-orange-700">PULSE</span>
-                                </div>
-                                <p className="text-lg font-bold text-orange-800">{latestVitals.pulse_rate}</p>
-                                <p className="text-xs text-orange-600">bpm</p>
-                              </div>
-                            </motion.div>
-                          )}
-                          
-                          {/* Temperature - Fire Theme */}
-                          {latestVitals.temperature && (
-                            <motion.div 
-                              whileHover={{ scale: 1.05, y: -2 }}
-                              className="flex-shrink-0 relative group/temp"
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-r from-purple-400/20 to-indigo-500/20 rounded-xl blur-lg opacity-0 group-hover/temp:opacity-100 transition-opacity duration-300"></div>
-                              <div className="relative p-3 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border border-purple-200/50 shadow-lg min-w-[120px]">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <div className="w-3 h-3 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full"></div>
-                                  <span className="text-xs font-semibold text-purple-700">TEMP</span>
-                                </div>
-                                <p className="text-lg font-bold text-purple-800">{latestVitals.temperature}°C</p>
-                                <div className="absolute bottom-1 right-2 w-1 h-4 bg-gradient-to-t from-purple-400 to-transparent rounded-full"></div>
-                              </div>
-                            </motion.div>
-                          )}
-                          
-                          {/* Weight - Scale Theme */}
-                          {latestVitals.weight && (
-                            <motion.div 
-                              whileHover={{ scale: 1.05, y: -2 }}
-                              className="flex-shrink-0 relative group/weight"
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/20 to-green-500/20 rounded-xl blur-lg opacity-0 group-hover/weight:opacity-100 transition-opacity duration-300"></div>
-                              <div className="relative p-3 bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl border border-emerald-200/50 shadow-lg min-w-[120px]">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <div className="w-3 h-3 bg-gradient-to-r from-emerald-500 to-green-500 rounded"></div>
-                                  <span className="text-xs font-semibold text-emerald-700">WEIGHT</span>
-                                </div>
-                                <p className="text-lg font-bold text-emerald-800">{latestVitals.weight} kg</p>
-                              </div>
-                            </motion.div>
-                          )}
-                          
-                          {/* BMI - Target Theme */}
-                          {latestVitals.bmi && (
-                            <motion.div 
-                              whileHover={{ scale: 1.05, y: -2 }}
-                              className="flex-shrink-0 relative group/bmi"
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-cyan-500/20 rounded-xl blur-lg opacity-0 group-hover/bmi:opacity-100 transition-opacity duration-300"></div>
-                              <div className="relative p-3 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-200/50 shadow-lg min-w-[120px]">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full border-2 border-white shadow-sm"></div>
-                                  <span className="text-xs font-semibold text-blue-700">BMI</span>
-                                </div>
-                                <p className="text-lg font-bold text-blue-800">{latestVitals.bmi}</p>
-                                <div className="absolute top-2 right-2">
-                                  <div className="w-2 h-2 bg-blue-400 rounded-full opacity-60"></div>
-                                </div>
-                              </div>
-                            </motion.div>
-                          )}
-                        </div>
-                      ) : (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="flex items-center justify-center py-8 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-300"
-                        >
-                          <div className="text-center">
-                            <div className="w-12 h-12 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl flex items-center justify-center mx-auto mb-3">
-                              <Activity className="w-6 h-6 text-gray-400" />
+                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+                              isBloodPressureAbnormal(latestVitals.blood_pressure) 
+                                ? 'bg-red-100 text-red-700 border border-red-200 animate-pulse' 
+                                : 'bg-gray-100 text-gray-700 border border-gray-200'
+                            }`}>
+                              <Heart className="w-3 h-3" />
+                              <span>BP: {latestVitals.blood_pressure}</span>
                             </div>
-                            <p className="text-sm font-semibold text-gray-600">No vitals recorded yet</p>
-                            <p className="text-xs text-gray-500">Patient vitals will appear here</p>
-                          </div>
-                        </motion.div>
-                      )}
+                          )}
+                          
+                          {/* Heart Rate */}
+                          {latestVitals.pulse_rate && (
+                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+                              (latestVitals.pulse_rate < 60 || latestVitals.pulse_rate > 100)
+                                ? 'bg-orange-100 text-orange-700 border border-orange-200 animate-pulse' 
+                                : 'bg-gray-100 text-gray-700 border border-gray-200'
+                            }`}>
+                              <Activity className="w-3 h-3" />
+                              <span>Pulse: {latestVitals.pulse_rate} bpm</span>
+                            </div>
+                          )}
+                          
+                          {/* Temperature */}
+                          {latestVitals.temperature && (
+                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+                              (latestVitals.temperature < 36.5 || latestVitals.temperature > 37.5)
+                                ? 'bg-purple-100 text-purple-700 border border-purple-200 animate-pulse' 
+                                : 'bg-gray-100 text-gray-700 border border-gray-200'
+                            }`}>
+                              <div className="w-3 h-3 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full"></div>
+                              <span>Temp: {latestVitals.temperature}°C</span>
+                            </div>
+                          )}
+                          
+                          {/* Weight */}
+                          {latestVitals.weight && (
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-full text-xs font-medium text-gray-700 border border-gray-200">
+                              <div className="w-3 h-3 bg-gradient-to-r from-emerald-500 to-green-500 rounded"></div>
+                              <span>Weight: {latestVitals.weight} kg</span>
+                            </div>
+                          )}
+                          
+                          {/* BMI */}
+                          {latestVitals.bmi && (
+                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+                              (latestVitals.bmi < 18.5 || latestVitals.bmi > 25)
+                                ? 'bg-blue-100 text-blue-700 border border-blue-200 animate-pulse' 
+                                : 'bg-gray-100 text-gray-700 border border-gray-200'
+                            }`}>
+                              <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full"></div>
+                              <span>BMI: {latestVitals.bmi}</span>
+                            </div>
+                          )}
                     </div>
-                  </div>
+                  )}
                 </div>
                 
-                {/* 🌟 ULTRA-3D View Profile Button with Real Bulges - positioned at top right */}
+                {/* Simple View Profile Button */}
                 <div className="absolute top-4 right-4">
                   <motion.button
-                    whileHover={{ 
-                      scale: 1.08, 
-                      y: -4, 
-                      rotateX: 8,
-                      transition: { type: "spring", damping: 15 }
-                    }}
-                    whileTap={{ 
-                      scale: 0.92, 
-                      y: 0, 
-                      rotateX: 2,
-                      transition: { duration: 0.1 }
-                    }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => setIsProfileModalOpen(true)}
-                    className="relative px-8 py-4 text-white rounded-2xl flex items-center gap-3 font-bold text-sm overflow-hidden group transform-gpu"
-                    style={{
-                      background: 'linear-gradient(145deg, #01b9d4, #0197b0, #016b7a)',
-                      boxShadow: `
-                        0 12px 24px -8px rgba(1, 185, 212, 0.6),
-                        0 6px 16px -4px rgba(1, 185, 212, 0.4),
-                        inset 0 3px 0 rgba(255,255,255,0.4),
-                        inset 0 -3px 0 rgba(0,0,0,0.2),
-                        inset 2px 0 0 rgba(255,255,255,0.1),
-                        inset -2px 0 0 rgba(0,0,0,0.1)
-                      `,
-                      transform: 'perspective(1200px) rotateX(8deg) rotateY(-2deg)',
-                      filter: 'drop-shadow(0 8px 16px rgba(1, 185, 212, 0.3))'
-                    }}
+                    className="px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300"
                   >
-                    {/* Multi-layered glow background */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d4] via-[#0197b0] to-[#016b7a] rounded-2xl"></div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/5 to-white/20 rounded-2xl"></div>
-                    
-                    {/* Left bulge highlight */}
-                    <div className="absolute left-1 top-1 bottom-1 w-2 bg-gradient-to-b from-white/40 via-white/20 to-transparent rounded-l-2xl"></div>
-                    
-                    {/* Right bulge shadow */}
-                    <div className="absolute right-1 top-1 bottom-1 w-2 bg-gradient-to-b from-transparent via-black/10 to-black/20 rounded-r-2xl"></div>
-                    
-                    {/* Top bulge highlight */}
-                    <div className="absolute top-1 left-1 right-1 h-2 bg-gradient-to-r from-white/30 via-white/40 to-white/30 rounded-t-2xl"></div>
-                    
-                    {/* Bottom bulge shadow */}
-                    <div className="absolute bottom-1 left-1 right-1 h-2 bg-gradient-to-r from-black/20 via-black/30 to-black/20 rounded-b-2xl"></div>
-                    
-                    {/* Premium shine sweep effect */}
-                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 -skew-x-12 translate-x-[-150%] group-hover:translate-x-[150%] group-hover:duration-1000 rounded-2xl"></div>
-                    
-                    {/* Micro texture overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent rounded-2xl opacity-60"></div>
-                    
-                    {/* Button content with enhanced positioning */}
-                    <div className="relative z-20 flex items-center gap-3">
-                      <div className="relative">
-                        <User className="w-5 h-5 drop-shadow-md" />
-                        <div className="absolute inset-0 bg-white/20 rounded-full blur-sm"></div>
-                      </div>
-                      <span className="drop-shadow-md tracking-wide">View Profile</span>
-                    </div>
-                    
-                    {/* Floating particles effect */}
-                    <div className="absolute top-2 right-3 w-1 h-1 bg-white/60 rounded-full animate-pulse"></div>
-                    <div className="absolute bottom-3 left-3 w-0.5 h-0.5 bg-white/40 rounded-full animate-ping"></div>
-                    
-                    {/* Press state indicator */}
-                    <div className="absolute inset-0 bg-black/10 rounded-2xl opacity-0 group-active:opacity-100 transition-opacity duration-75"></div>
+                    View Profile
                   </motion.button>
                 </div>
               </div>
@@ -1154,15 +1021,6 @@ Medical Team`;
                           </motion.div>
                         </div>
                         
-                        {/* Chief complaint with enhanced styling */}
-                        {visit.chief_complaint && (
-                          <div className="mb-4 p-4 bg-gray-50/80 backdrop-blur-sm rounded-xl border border-gray-100">
-                            <p className="text-sm text-gray-700">
-                              <span className="font-semibold text-gray-800">Chief Complaint: </span>
-                              {visit.chief_complaint}
-                            </p>
-                          </div>
-                        )}
                         
                         {/* Enhanced attachments section */}
                         <div className="flex items-center justify-between">
