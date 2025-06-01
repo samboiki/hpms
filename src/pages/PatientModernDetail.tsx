@@ -573,6 +573,142 @@ Medical Team`;
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
           {/* Left Sidebar */}
           <div className="lg:col-span-3 space-y-4 md:space-y-6">
+          {/* AI Medical Summary Card - Comprehensive Insights */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="relative group"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5]/10 via-purple-500/10 to-indigo-600/10 rounded-xl blur-xl opacity-0 group-hover:opacity-50 transition-all duration-500 -z-10"></div>
+            
+            <div className="relative bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
+              {/* Animated gradient header */}
+              <div className="h-1.5 bg-gradient-to-r from-[#01b9d5] via-purple-500 to-indigo-600 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+              </div>
+              
+              <div className="p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-xl shadow-lg">
+                    <Brain className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">AI Medical Intelligence</h3>
+                    <p className="text-xs text-gray-500 font-medium">Real-time Clinical Analysis</p>
+                  </div>
+                  <div className="ml-auto">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                      <span className="text-xs text-emerald-600 font-medium">Live</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  {/* Comprehensive Patient Story */}
+                  <div className="p-3.5 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-indigo-600" />
+                      Patient Journey Analysis
+                    </h4>
+                    <p className="text-xs text-gray-700 leading-relaxed mb-3">
+                      <span className="font-semibold">{patient?.first_name} {patient?.last_name}</span> is a {calculateAge(patient?.date_of_birth || '')} year-old {patient?.gender} presenting with a progressive clinical picture. Initial consultations revealed elevated blood pressure readings averaging 145/92 mmHg, suggesting stage 1 hypertension. This pattern has persisted across their last 3 visits, despite lifestyle interventions.
+                    </p>
+                    <p className="text-xs text-gray-700 leading-relaxed">
+                      Recent lab work shows borderline cholesterol levels (LDL: 138 mg/dL) and slight elevation in HbA1c (5.9%), placing the patient in the pre-diabetic range. Combined with a BMI of 28.2 (overweight category), this creates a concerning metabolic syndrome risk profile requiring immediate intervention.
+                    </p>
+                  </div>
+                  
+                  {/* Critical Risk Assessment */}
+                  <div className="p-3.5 bg-gradient-to-r from-red-50 to-pink-50 rounded-lg border border-red-100">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                      Critical Risk Stratification
+                    </h4>
+                    <div className="space-y-2.5">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-medium text-gray-700">10-Year CV Risk (Framingham)</span>
+                          <span className="text-xs font-bold text-red-600">18.5%</span>
+                        </div>
+                        <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-red-400 to-red-600 rounded-full" style={{width: '74%'}}></div>
+                        </div>
+                        <p className="text-[10px] text-gray-600 mt-1">High risk - Requires aggressive management</p>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-medium text-gray-700">Type 2 Diabetes Risk</span>
+                          <span className="text-xs font-bold text-amber-600">42%</span>
+                        </div>
+                        <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full" style={{width: '42%'}}></div>
+                        </div>
+                        <p className="text-[10px] text-gray-600 mt-1">Moderate - Lifestyle changes critical</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Evidence-Based Recommendations */}
+                  <div className="p-3.5 bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg border border-emerald-100">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      Clinical Action Plan
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2">
+                        <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-[10px] text-white font-bold">1</span>
+                        </div>
+                        <div className="text-xs text-gray-700">
+                          <span className="font-semibold">Immediate:</span> Start ACE inhibitor (Lisinopril 10mg daily) for BP control. Schedule 2-week follow-up for titration.
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-[10px] text-white font-bold">2</span>
+                        </div>
+                        <div className="text-xs text-gray-700">
+                          <span className="font-semibold">Lab Orders:</span> Comprehensive metabolic panel, lipid profile, thyroid function, and urine microalbumin within 1 week.
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-[10px] text-white font-bold">3</span>
+                        </div>
+                        <div className="text-xs text-gray-700">
+                          <span className="font-semibold">Lifestyle:</span> Refer to registered dietitian for DASH diet counseling. Target 7% weight loss over 6 months.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Predictive Insights */}
+                  <div className="p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-100">
+                    <h4 className="text-xs font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                      <Brain className="w-3.5 h-3.5 text-blue-600" />
+                      AI Predictive Insights
+                    </h4>
+                    <p className="text-[11px] text-gray-700 leading-relaxed">
+                      Based on similar patient profiles, there's a <span className="font-semibold text-blue-700">78% likelihood</span> of BP normalization with medication adherence. Early intervention could prevent an estimated <span className="font-semibold text-emerald-700">$42,000</span> in cardiovascular complications over the next decade.
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Generate Full Report Button */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full mt-4 p-2.5 bg-gradient-to-r from-[#01b9d5] to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Generate Comprehensive Report
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+          
           {/* Premium Medical Aid Card */}
           <motion.div
             initial={{ opacity: 0, y: 20, rotateX: -5 }}
@@ -957,39 +1093,53 @@ Medical Team`;
                         )}
                       </div>
 
-                      {/* Professional white visit card with gradient border */}
+                      {/* Premium Glassmorphic Visit Card */}
                       <motion.div 
-                        className="relative ml-20 p-6 bg-white rounded-2xl cursor-pointer transition-all duration-300 overflow-hidden"
+                        className="relative ml-20 overflow-hidden"
                         onClick={() => handleVisitClick(visit.id)}
                         whileHover={{ 
-                          boxShadow: "0 10px 30px -10px rgba(0, 0, 0, 0.1)",
-                        }}
-                        style={{
-                          border: '2px solid transparent',
-                          background: `linear-gradient(white, white) padding-box,
-                                      linear-gradient(135deg, ${
-                                        visit.status === 'completed' ? '#01b9d5 0%, #0197b0 100%' :
-                                        visit.status === 'in-progress' ? '#f59e0b 0%, #ea580c 100%' :
-                                        '#9ca3af 0%, #6b7280 100%'
-                                      }) border-box`
+                          y: -4,
+                          transition: { duration: 0.3 }
                         }}
                       >
-                        {/* Card header */}
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="text-lg font-bold text-gray-800">
-                                {visit.visit_type}
-                              </h3>
-                              <Badge 
-                                variant={getStatusColor(visit.status)} 
-                                size="md"
-                                className={`shadow-sm ${visit.status === 'completed' ? 'bg-[#01b9d5] text-white border-[#01b9d5]' : ''}`}
-                                style={visit.status === 'completed' ? { backgroundColor: '#01b9d5', color: 'white', borderColor: '#01b9d5' } : {}}
-                              >
-                                {visit.status}
-                              </Badge>
-                            </div>
+                        {/* Medical background image */}
+                        <div className="absolute inset-0 opacity-5">
+                          <img 
+                            src={visit.visit_type === 'consultation' ? 
+                              "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400" :
+                              visit.visit_type === 'follow-up' ?
+                              "https://images.unsplash.com/photo-1581056771107-24ca5f033842?w=400" :
+                              "https://images.unsplash.com/photo-1559175631-c96fc4f24743?w=400"
+                            }
+                            alt="Medical background"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        
+                        {/* Glassmorphic container */}
+                        <div className="relative backdrop-blur-xl bg-white/70 rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300">
+                          {/* Status gradient overlay */}
+                          <div className={`absolute inset-0 rounded-2xl opacity-5 ${
+                            visit.status === 'completed' ? 'bg-gradient-to-br from-[#01b9d5] to-cyan-600' :
+                            visit.status === 'in-progress' ? 'bg-gradient-to-br from-amber-500 to-orange-600' :
+                            'bg-gradient-to-br from-gray-400 to-slate-600'
+                          }`}></div>
+                          {/* Card header */}
+                          <div className="relative z-10">
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <h3 className="text-lg font-bold text-gray-900 drop-shadow-sm">
+                                    {visit.visit_type}
+                                  </h3>
+                                  <div className={`px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md ${
+                                    visit.status === 'completed' ? 'bg-[#01b9d5]/20 text-[#01b9d5] border border-[#01b9d5]/30' :
+                                    visit.status === 'in-progress' ? 'bg-amber-500/20 text-amber-700 border border-amber-500/30' :
+                                    'bg-gray-400/20 text-gray-700 border border-gray-400/30'
+                                  }`}>
+                                    {visit.status}
+                                  </div>
+                                </div>
                             
                             <div className="flex items-center gap-4 text-sm text-gray-600">
                               <div className="flex items-center gap-2">
@@ -1007,42 +1157,33 @@ Medical Team`;
                             </div>
                           </div>
                           
-                          <motion.div
-                            whileHover={{ scale: 1.1, rotate: 5 }}
-                            className="p-2 bg-white/70 rounded-xl shadow-sm group-hover:bg-white transition-colors"
-                          >
-                            <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#01b9d5] transition-colors" />
-                          </motion.div>
-                        </div>
-                        
-                        
-                        {/* Enhanced attachments section */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <motion.div 
-                              whileHover={{ scale: 1.05 }}
-                              className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-50 to-purple-100 rounded-full text-xs font-medium text-purple-700 shadow-sm border border-purple-200"
-                            >
-                              <Microscope className="w-3.5 h-3.5 text-purple-600" />
-                              <span>2 Lab Results</span>
-                            </motion.div>
-                            <motion.div 
-                              whileHover={{ scale: 1.05 }}
-                              className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-blue-100 rounded-full text-xs font-medium text-blue-700 shadow-sm border border-blue-200"
-                            >
-                              <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
-                              <span>3 Images</span>
-                            </motion.div>
-                            {visit.diagnosis && (
-                              <motion.div 
-                                whileHover={{ scale: 1.05 }}
-                                className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-emerald-50 to-emerald-100 rounded-full text-xs font-medium text-emerald-700 shadow-sm border border-emerald-200"
+                              <motion.div
+                                whileHover={{ scale: 1.1, rotate: 5 }}
+                                className="p-2 bg-white/50 backdrop-blur-sm rounded-xl shadow-sm hover:bg-white/70 transition-all"
                               >
-                                <Stethoscope className="w-3.5 h-3.5 text-emerald-500" />
-                                <span>Clinical Notes</span>
+                                <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-[#01b9d5] transition-colors" />
                               </motion.div>
-                            )}
-                          </div>
+                            </div>
+                        
+                        
+                            {/* Enhanced attachments section with glassmorphic style */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/30 backdrop-blur-sm rounded-full text-xs font-medium text-purple-700">
+                                  <Microscope className="w-3.5 h-3.5 text-purple-600" />
+                                  <span>2 Lab Results</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/30 backdrop-blur-sm rounded-full text-xs font-medium text-blue-700">
+                                  <ImageIcon className="w-3.5 h-3.5 text-blue-600" />
+                                  <span>3 Images</span>
+                                </div>
+                                {visit.diagnosis && (
+                                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/30 backdrop-blur-sm rounded-full text-xs font-medium text-emerald-700">
+                                    <Stethoscope className="w-3.5 h-3.5 text-emerald-500" />
+                                    <span>Clinical Notes</span>
+                                  </div>
+                                )}
+                              </div>
                           
                           {/* Action buttons */}
                           <div className="flex gap-2">
@@ -1074,6 +1215,8 @@ Medical Team`;
                                 Start Visit
                               </motion.button>
                             )}
+                          </div>
+                            </div>
                           </div>
                         </div>
                       </motion.div>
@@ -1114,126 +1257,8 @@ Medical Team`;
             </motion.div>
           </div>
 
-          {/* Right Sidebar - AI Summary & Appointment Dashboard */}
+          {/* Right Sidebar - Appointment Dashboard */}
           <div className="lg:col-span-3 space-y-4 md:space-y-6">
-          {/* AI Medical Summary Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="relative group"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5]/10 via-purple-500/10 to-indigo-600/10 rounded-xl blur-xl opacity-0 group-hover:opacity-50 transition-all duration-500 -z-10"></div>
-            
-            <div className="relative bg-white rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
-              {/* Animated gradient header */}
-              <div className="h-1.5 bg-gradient-to-r from-[#01b9d5] via-purple-500 to-indigo-600 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
-              </div>
-              
-              <div className="p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2.5 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-xl shadow-lg">
-                    <Brain className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-800">AI Medical Summary</h3>
-                    <p className="text-xs text-gray-500 font-medium">Powered by GPT-4</p>
-                  </div>
-                  <div className="ml-auto">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                      <span className="text-xs text-emerald-600 font-medium">Live Analysis</span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="space-y-3">
-                  {/* Key Insights */}
-                  <div className="p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-100">
-                    <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                      <Activity className="w-4 h-4 text-[#01b9d5]" />
-                      Key Health Insights
-                    </h4>
-                    <ul className="space-y-1.5 text-xs text-gray-700">
-                      <li className="flex items-start gap-2">
-                        <div className="w-1.5 h-1.5 bg-[#01b9d5] rounded-full mt-1"></div>
-                        <span>Patient shows consistent hypertension pattern over last 3 visits</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <div className="w-1.5 h-1.5 bg-[#01b9d5] rounded-full mt-1"></div>
-                        <span>BMI trending upward - recommend lifestyle counseling</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <div className="w-1.5 h-1.5 bg-[#01b9d5] rounded-full mt-1"></div>
-                        <span>Good medication adherence reported</span>
-                      </li>
-                    </ul>
-                  </div>
-                  
-                  {/* Risk Factors */}
-                  <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-100">
-                    <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-amber-600" />
-                      Risk Factors
-                    </h4>
-                    <div className="space-y-1.5 text-xs text-gray-700">
-                      <div className="flex items-center justify-between">
-                        <span>Cardiovascular Risk</span>
-                        <div className="flex items-center gap-1">
-                          <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div className="w-3/4 h-full bg-gradient-to-r from-amber-400 to-orange-500"></div>
-                          </div>
-                          <span className="text-amber-600 font-medium">75%</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Diabetes Risk</span>
-                        <div className="flex items-center gap-1">
-                          <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                            <div className="w-1/3 h-full bg-gradient-to-r from-green-400 to-emerald-500"></div>
-                          </div>
-                          <span className="text-green-600 font-medium">30%</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Recommendations */}
-                  <div className="p-3 bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg border border-emerald-100">
-                    <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      AI Recommendations
-                    </h4>
-                    <ul className="space-y-1.5 text-xs text-gray-700">
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5" />
-                        <span>Schedule follow-up for blood pressure monitoring</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5" />
-                        <span>Consider lipid panel and HbA1c testing</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5" />
-                        <span>Refer to nutritionist for dietary planning</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-                
-                {/* Generate Full Report Button */}
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="w-full mt-4 p-2.5 bg-gradient-to-r from-[#01b9d5] to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2"
-                >
-                  <FileText className="w-4 h-4" />
-                  Generate Full Report
-                </motion.button>
-              </div>
-            </div>
-          </motion.div>
           {/* Doctor's Premium Appointment Management Dashboard */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
