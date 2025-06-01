@@ -56,25 +56,66 @@ const MedicalAidForm: React.FC<Props> = ({ patientId, initialData, onSuccess }) 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700">Provider</label>
-          <input
-            type="text"
+          <select
             {...register('provider', { required: 'Provider is required' })}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
-            placeholder="e.g., Discovery Health"
-          />
+          >
+            <option value="">Select Medical Aid Provider</option>
+            <option value="Namibia Medical Care (NMC)">Namibia Medical Care (NMC)</option>
+            <option value="Namibia Health Plan (NHP)">Namibia Health Plan (NHP)</option>
+            <option value="Nammed Medical Aid Fund">Nammed Medical Aid Fund</option>
+            <option value="Gemhealth Medical Aid">Gemhealth Medical Aid</option>
+            <option value="Bonitas Medical Fund">Bonitas Medical Fund</option>
+            <option value="Discovery Health">Discovery Health</option>
+            <option value="Old Mutual Health">Old Mutual Health</option>
+            <option value="Momentum Health">Momentum Health</option>
+            <option value="Medshield">Medshield</option>
+            <option value="Napotel Medical Aid">Napotel Medical Aid</option>
+            <option value="Bankmed Namibia">Bankmed Namibia</option>
+            <option value="Renaissance Health Medical Aid Fund">Renaissance Health Medical Aid Fund</option>
+            <option value="Methealth Namibia">Methealth Namibia</option>
+          </select>
           {errors.provider && (
             <p className="mt-1 text-sm text-red-600">{errors.provider.message}</p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Scheme</label>
-          <input
-            type="text"
+          <label className="block text-sm font-medium text-gray-700">Scheme/Option</label>
+          <select
             {...register('scheme', { required: 'Scheme is required' })}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
-            placeholder="e.g., Executive Plan"
-          />
+          >
+            <option value="">Select Scheme</option>
+            {/* NMC Options */}
+            <option value="Diamond">Diamond</option>
+            <option value="Platinum">Platinum</option>
+            <option value="Gold">Gold</option>
+            <option value="Silver">Silver</option>
+            <option value="Bronze">Bronze</option>
+            {/* NHP Options */}
+            <option value="Comprehensive">Comprehensive</option>
+            <option value="Executive">Executive</option>
+            <option value="Standard">Standard</option>
+            <option value="Essential">Essential</option>
+            {/* Discovery Options */}
+            <option value="Executive Plan">Executive Plan</option>
+            <option value="Smart Plan">Smart Plan</option>
+            {/* Bonitas Options */}
+            <option value="BonComprehensive">BonComprehensive</option>
+            <option value="BonEssential">BonEssential</option>
+            <option value="BonCap">BonCap</option>
+            <option value="BonStart">BonStart</option>
+            {/* General Options */}
+            <option value="Premium">Premium</option>
+            <option value="Hospital">Hospital</option>
+            <option value="Access">Access</option>
+            <option value="Pinnacle">Pinnacle</option>
+            <option value="Extender">Extender</option>
+            <option value="Option A">Option A</option>
+            <option value="Option B">Option B</option>
+            <option value="Option C">Option C</option>
+          </select>
           {errors.scheme && (
             <p className="mt-1 text-sm text-red-600">{errors.scheme.message}</p>
           )}

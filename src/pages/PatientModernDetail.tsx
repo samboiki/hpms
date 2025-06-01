@@ -41,6 +41,7 @@ import AddVisitForm from '../components/forms/AddVisitForm';
 import EditVisitForm from '../components/forms/EditVisitForm';
 import VisitModal from '../components/visits/VisitModal';
 import MedicalAidForm from '../components/forms/MedicalAidForm';
+import EditPatientForm from '../components/forms/EditPatientForm';
 import { defaultSMSService } from '../services/smsPortal';
 import { medicalAidService } from '../services/medicalAidService';
 
@@ -52,6 +53,13 @@ interface Patient {
   cell_number: string;
   date_of_birth: string;
   gender: string;
+  marital_status?: string;
+  occupation?: string;
+  employer?: string;
+  home_language?: string;
+  home_address?: string;
+  postal_address?: string;
+  postal_code?: string;
   avatar?: string;
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
@@ -281,6 +289,7 @@ const PatientModernDetail = () => {
   const [isVisitDetailModalOpen, setIsVisitDetailModalOpen] = useState(false);
   const [isEditVisitModalOpen, setIsEditVisitModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isEditPatientModalOpen, setIsEditPatientModalOpen] = useState(false);
   const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
   const [isMedicalAidModalOpen, setIsMedicalAidModalOpen] = useState(false);
   const [smsContent, setSmsContent] = useState('');
@@ -1573,7 +1582,21 @@ Medical Team`;
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-800">Personal Information</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-800">Personal Information</h3>
+                <Button
+                  onClick={() => {
+                    setIsProfileModalOpen(false);
+                    setIsEditPatientModalOpen(true);
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="text-sm"
+                >
+                  <Edit3 className="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+              </div>
               <div className="space-y-3">
                 <div>
                   <label className="text-sm font-medium text-gray-600">Full Name</label>
@@ -1756,6 +1779,44 @@ Medical Team`;
         </div>
       </FormModal>
 
+      {/* Edit Patient Modal */}
+      {patient && (
+        <FormModal
+          isOpen={isEditPatientModalOpen}
+          onClose={() => setIsEditPatientModalOpen(false)}
+          title="Edit Patient Information"
+        >
+          <EditPatientForm
+            patientId={patient.id}
+            initialData={{
+              first_name: patient.first_name,
+              last_name: patient.last_name,
+              email: patient.email || '',
+              cell_number: patient.cell_number || '',
+              date_of_birth: patient.date_of_birth,
+              gender: patient.gender,
+              marital_status: patient.marital_status || '',
+              occupation: patient.occupation || '',
+              employer: patient.employer || '',
+              home_language: patient.home_language || '',
+              home_address: patient.home_address || '',
+              postal_address: patient.postal_address || '',
+              postal_code: patient.postal_code || ''
+            }}
+            onSuccess={async () => {
+              setIsEditPatientModalOpen(false);
+              // Refresh patient data
+              const { data: updatedPatient } = await supabase
+                .from('patients')
+                .select('*')
+                .eq('id', patient.id)
+                .single();
+              if (updatedPatient) setPatient(updatedPatient);
+            }}
+          />
+        </FormModal>
+      )}
+
       {/* Medical Aid Modal */}
       <FormModal
         isOpen={isMedicalAidModalOpen}
@@ -1774,13 +1835,9 @@ Medical Team`;
           } : undefined}
           onSuccess={async () => {
             setIsMedicalAidModalOpen(false);
-            // Refresh medical aid data
-            const { data } = await supabase
-              .from('medical_aid_details')
-              .select('*')
-              .eq('patient_id', id)
-              .maybeSingle();
-            if (data) setMedicalAid(data);
+            // Refresh medical aid data using the service
+            const updatedMedicalAid = await medicalAidService.getMedicalAidDetails(id || '');
+            setMedicalAid(updatedMedicalAid);
           }}
         />
       </FormModal>

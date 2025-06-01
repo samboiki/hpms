@@ -49,6 +49,39 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
 
   const onSubmit = async (data: PatientRegistrationFormData) => {
     try {
+      // Check for duplicate ID number first
+      const { data: existingPatient, error: checkError } = await supabase
+        .from('patients')
+        .select('id, first_name, last_name')
+        .eq('id_number', data.idNumber)
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+
+      if (existingPatient) {
+        alert(`Patient with ID number ${data.idNumber} already exists: ${existingPatient.first_name} ${existingPatient.last_name}`);
+        return;
+      }
+
+      // Add practice_id to patient data
+      const { data: { user } } = await supabase.auth.getUser();
+      let practiceId = 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3'; // Default to Dr. Polina's practice
+
+      // Try to get user's practice from users table
+      if (user) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('practice_id')
+          .eq('id', user.id)
+          .single();
+        
+        if (userData?.practice_id) {
+          practiceId = userData.practice_id;
+        }
+      }
+
       // Insert patient data
       const { data: patientData, error: patientError } = await supabase
         .from('patients')
@@ -65,7 +98,8 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
           email: data.email,
           home_address: data.homeAddress,
           postal_address: data.postalAddress,
-          postal_code: data.postalCode
+          postal_code: data.postalCode,
+          practice_id: practiceId
         }])
         .select()
         .single();
