@@ -949,76 +949,40 @@ Medical Team`;
                   </div>
                 </div>
 
-                {/* Latest Vitals - Compact Design */}
+                {/* Latest Vitals - Single Row */}
                 {latestVitals && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
-                    className="mb-6 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden"
+                    className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4"
                     data-section="vitals"
                   >
-                    <div className="bg-gradient-to-r from-[#01b9d5] to-blue-600 px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-white" />
-                        <h3 className="text-sm font-semibold text-white">Latest Vitals</h3>
-                        <span className="text-xs text-white/80">
-                          {latestVitals.created_at ? new Date(latestVitals.created_at).toLocaleDateString() : 'Recent'}
+                    <div className="flex items-center gap-4 text-sm">
+                      {latestVitals.blood_pressure && (
+                        <span className="text-gray-700">
+                          <span className="font-medium text-red-600">{latestVitals.blood_pressure}</span> BP
                         </span>
-                      </div>
-                    </div>
-                    
-                    <div className="p-4">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {latestVitals.blood_pressure && (
-                          <div className="text-center">
-                            <p className="text-xs text-gray-600 mb-1">Blood Pressure</p>
-                            <p className="text-sm font-bold text-red-600">{latestVitals.blood_pressure}</p>
-                          </div>
-                        )}
-                        {latestVitals.pulse_rate && (
-                          <div className="text-center">
-                            <p className="text-xs text-gray-600 mb-1">Heart Rate</p>
-                            <p className="text-sm font-bold text-blue-600">{latestVitals.pulse_rate} bpm</p>
-                          </div>
-                        )}
-                        {latestVitals.temperature && (
-                          <div className="text-center">
-                            <p className="text-xs text-gray-600 mb-1">Temperature</p>
-                            <p className="text-sm font-bold text-purple-600">{latestVitals.temperature}°C</p>
-                          </div>
-                        )}
-                        {latestVitals.weight && (
-                          <div className="text-center">
-                            <p className="text-xs text-gray-600 mb-1">Weight</p>
-                            <p className="text-sm font-bold text-emerald-600">{latestVitals.weight} kg</p>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {(latestVitals.bmi || latestVitals.height || latestVitals.respiratory_rate) && (
-                        <div className="mt-3 pt-3 border-t border-gray-100">
-                          <div className="grid grid-cols-3 gap-3 text-center">
-                            {latestVitals.bmi && (
-                              <div>
-                                <p className="text-xs text-gray-600">BMI</p>
-                                <p className="text-sm font-semibold text-amber-600">{latestVitals.bmi}</p>
-                              </div>
-                            )}
-                            {latestVitals.height && (
-                              <div>
-                                <p className="text-xs text-gray-600">Height</p>
-                                <p className="text-sm font-semibold text-indigo-600">{latestVitals.height} cm</p>
-                              </div>
-                            )}
-                            {latestVitals.respiratory_rate && (
-                              <div>
-                                <p className="text-xs text-gray-600">Resp Rate</p>
-                                <p className="text-sm font-semibold text-green-600">{latestVitals.respiratory_rate}/min</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                      )}
+                      {latestVitals.pulse_rate && (
+                        <span className="text-gray-700">
+                          <span className="font-medium text-blue-600">{latestVitals.pulse_rate}</span> bpm
+                        </span>
+                      )}
+                      {latestVitals.temperature && (
+                        <span className="text-gray-700">
+                          <span className="font-medium text-purple-600">{latestVitals.temperature}°C</span>
+                        </span>
+                      )}
+                      {latestVitals.weight && (
+                        <span className="text-gray-700">
+                          <span className="font-medium text-emerald-600">{latestVitals.weight}</span> kg
+                        </span>
+                      )}
+                      {latestVitals.bmi && (
+                        <span className="text-gray-700">
+                          BMI <span className="font-medium text-amber-600">{latestVitals.bmi}</span>
+                        </span>
                       )}
                     </div>
                   </motion.div>
