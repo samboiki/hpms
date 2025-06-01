@@ -34,6 +34,8 @@ import NextOfKinForm from '../components/forms/NextOfKinForm';
 import AddVisitForm from '../components/forms/AddVisitForm';
 import EditVisitForm from '../components/forms/EditVisitForm';
 import VisitModal from '../components/visits/VisitModal';
+import MedicalAidForm from '../components/forms/MedicalAidForm';
+import { defaultSMSService } from '../services/smsPortal';
 
 interface Patient {
   id: string;
@@ -64,7 +66,6 @@ interface MedicalAidDetails {
   provider: string;
   scheme: string;
   membership_number: string;
-  plan_type: string;
   main_member_name: string;
   main_member_id_number: string;
   relationship_to_main: string;
@@ -143,6 +144,10 @@ const PatientModernDetail = () => {
   const [isEditVisitModalOpen, setIsEditVisitModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
+  const [isMedicalAidModalOpen, setIsMedicalAidModalOpen] = useState(false);
+  const [smsContent, setSmsContent] = useState('');
+  const [smsPhone, setSmsPhone] = useState('');
+  const [isSendingSms, setIsSendingSms] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -299,6 +304,51 @@ const PatientModernDetail = () => {
     }
   };
 
+  const handleSendSms = async () => {
+    if (!smsContent.trim() || !smsPhone.trim()) {
+      alert('Please enter both phone number and message content');
+      return;
+    }
+
+    setIsSendingSms(true);
+    try {
+      const result = await defaultSMSService.sendSMS({
+        to: smsPhone,
+        content: smsContent,
+        reference: `patient-${id}-${Date.now()}`
+      });
+
+      if (result.success) {
+        alert('SMS sent successfully!');
+        setIsSmsModalOpen(false);
+        setSmsContent('');
+        setSmsPhone('');
+      } else {
+        alert(`Failed to send SMS: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error sending SMS:', error);
+      alert('Failed to send SMS. Please try again.');
+    } finally {
+      setIsSendingSms(false);
+    }
+  };
+
+  const openSmsModal = () => {
+    // Pre-populate with next of kin details
+    const defaultPhone = nextOfKin?.phone || patient?.emergency_contact_phone || '';
+    const defaultMessage = `Hello ${nextOfKin?.name || patient?.emergency_contact_name || 'there'},
+
+This is regarding ${patient?.first_name} ${patient?.last_name}'s medical care. Please contact us at your earliest convenience.
+
+Best regards,
+Medical Team`;
+    
+    setSmsPhone(defaultPhone);
+    setSmsContent(defaultMessage);
+    setIsSmsModalOpen(true);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -351,9 +401,12 @@ const PatientModernDetail = () => {
           animate={{ opacity: 1, y: 0 }}
           className="relative overflow-hidden"
         >
-          <div className="relative bg-white rounded-3xl shadow-xl border border-gray-200/50 overflow-hidden backdrop-blur-md">
-            {/* Subtle background pattern */}
-            <div className="absolute inset-0 bg-gradient-to-br from-gray-50/50 via-white to-blue-50/30"></div>
+          <div className="relative bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-200/50 overflow-hidden">
+            {/* Premium glass morphism background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white via-gray-50/20 to-gray-100/10"></div>
+            
+            {/* Soft rounded corners for the bottom */}
+            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-gray-50/50 to-transparent rounded-t-[2rem]"></div>
             
             <div className="relative p-6">
               {/* Compact header with back button */}
@@ -433,81 +486,214 @@ const PatientModernDetail = () => {
                     </motion.div>
                   </div>
                   
-                  {/* Comprehensive Vitals Display */}
-                  <div className="mt-4 p-4 bg-gray-50 rounded-2xl border border-gray-200">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Activity className="w-4 h-4 text-[#01b9d5]" />
-                      <h3 className="text-sm font-semibold text-gray-800">Latest Vitals</h3>
-                      {latestVitals && (
-                        <span className="text-xs text-gray-500">
-                          {format(new Date(latestVitals.created_at), 'MMM d, yyyy')}
-                        </span>
+                  {/* 🌟 ULTRA-PREMIUM VITALS DISPLAY - One Row WOW Factor */}
+                  <div className="mt-6 relative group/vitals">
+                    {/* Magical floating background */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-blue-500/5 to-purple-500/5 rounded-2xl blur-xl opacity-0 group-hover/vitals:opacity-100 transition-opacity duration-700"></div>
+                    
+                    <div className="relative p-5 bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/50 shadow-2xl overflow-hidden">
+                      {/* Animated header with pulse effect */}
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="relative">
+                          <div className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-blue-500 rounded-lg blur-md opacity-60 animate-pulse"></div>
+                          <div className="relative p-2 bg-gradient-to-r from-emerald-500 to-blue-600 rounded-lg shadow-lg">
+                            <Activity className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">Latest Vitals</h3>
+                          {latestVitals && (
+                            <p className="text-xs text-gray-500 font-medium">
+                              {format(new Date(latestVitals.created_at), 'MMM d, yyyy')} • Live Monitoring
+                            </p>
+                          )}
+                        </div>
+                        <div className="ml-auto flex items-center gap-2">
+                          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs text-emerald-600 font-semibold">ACTIVE</span>
+                        </div>
+                      </div>
+                      
+                      {latestVitals ? (
+                        <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide">
+                          {/* Blood Pressure - Heart Theme */}
+                          {latestVitals.blood_pressure && (
+                            <motion.div 
+                              whileHover={{ scale: 1.05, y: -2 }}
+                              className="flex-shrink-0 relative group/bp"
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-red-400/20 to-pink-500/20 rounded-xl blur-lg opacity-0 group-hover/bp:opacity-100 transition-opacity duration-300"></div>
+                              <div className="relative p-3 bg-gradient-to-br from-red-50 to-pink-50 rounded-xl border border-red-200/50 shadow-lg min-w-[120px]">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Heart className="w-3 h-3 text-red-500 animate-pulse" />
+                                  <span className="text-xs font-semibold text-red-700">BP</span>
+                                </div>
+                                <p className="text-lg font-bold text-red-800">{latestVitals.blood_pressure}</p>
+                                <div className="absolute top-2 right-2 w-1 h-1 bg-red-400 rounded-full animate-ping"></div>
+                              </div>
+                            </motion.div>
+                          )}
+                          
+                          {/* Heart Rate - Pulse Theme */}
+                          {latestVitals.pulse_rate && (
+                            <motion.div 
+                              whileHover={{ scale: 1.05, y: -2 }}
+                              className="flex-shrink-0 relative group/hr"
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-orange-400/20 to-amber-500/20 rounded-xl blur-lg opacity-0 group-hover/hr:opacity-100 transition-opacity duration-300"></div>
+                              <div className="relative p-3 bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl border border-orange-200/50 shadow-lg min-w-[120px]">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Activity className="w-3 h-3 text-orange-500" />
+                                  <span className="text-xs font-semibold text-orange-700">PULSE</span>
+                                </div>
+                                <p className="text-lg font-bold text-orange-800">{latestVitals.pulse_rate}</p>
+                                <p className="text-xs text-orange-600">bpm</p>
+                              </div>
+                            </motion.div>
+                          )}
+                          
+                          {/* Temperature - Fire Theme */}
+                          {latestVitals.temperature && (
+                            <motion.div 
+                              whileHover={{ scale: 1.05, y: -2 }}
+                              className="flex-shrink-0 relative group/temp"
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-purple-400/20 to-indigo-500/20 rounded-xl blur-lg opacity-0 group-hover/temp:opacity-100 transition-opacity duration-300"></div>
+                              <div className="relative p-3 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl border border-purple-200/50 shadow-lg min-w-[120px]">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className="w-3 h-3 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full"></div>
+                                  <span className="text-xs font-semibold text-purple-700">TEMP</span>
+                                </div>
+                                <p className="text-lg font-bold text-purple-800">{latestVitals.temperature}°C</p>
+                                <div className="absolute bottom-1 right-2 w-1 h-4 bg-gradient-to-t from-purple-400 to-transparent rounded-full"></div>
+                              </div>
+                            </motion.div>
+                          )}
+                          
+                          {/* Weight - Scale Theme */}
+                          {latestVitals.weight && (
+                            <motion.div 
+                              whileHover={{ scale: 1.05, y: -2 }}
+                              className="flex-shrink-0 relative group/weight"
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/20 to-green-500/20 rounded-xl blur-lg opacity-0 group-hover/weight:opacity-100 transition-opacity duration-300"></div>
+                              <div className="relative p-3 bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl border border-emerald-200/50 shadow-lg min-w-[120px]">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className="w-3 h-3 bg-gradient-to-r from-emerald-500 to-green-500 rounded"></div>
+                                  <span className="text-xs font-semibold text-emerald-700">WEIGHT</span>
+                                </div>
+                                <p className="text-lg font-bold text-emerald-800">{latestVitals.weight} kg</p>
+                              </div>
+                            </motion.div>
+                          )}
+                          
+                          {/* BMI - Target Theme */}
+                          {latestVitals.bmi && (
+                            <motion.div 
+                              whileHover={{ scale: 1.05, y: -2 }}
+                              className="flex-shrink-0 relative group/bmi"
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 to-cyan-500/20 rounded-xl blur-lg opacity-0 group-hover/bmi:opacity-100 transition-opacity duration-300"></div>
+                              <div className="relative p-3 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-200/50 shadow-lg min-w-[120px]">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full border-2 border-white shadow-sm"></div>
+                                  <span className="text-xs font-semibold text-blue-700">BMI</span>
+                                </div>
+                                <p className="text-lg font-bold text-blue-800">{latestVitals.bmi}</p>
+                                <div className="absolute top-2 right-2">
+                                  <div className="w-2 h-2 bg-blue-400 rounded-full opacity-60"></div>
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </div>
+                      ) : (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="flex items-center justify-center py-8 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-300"
+                        >
+                          <div className="text-center">
+                            <div className="w-12 h-12 bg-gradient-to-r from-gray-200 to-gray-300 rounded-xl flex items-center justify-center mx-auto mb-3">
+                              <Activity className="w-6 h-6 text-gray-400" />
+                            </div>
+                            <p className="text-sm font-semibold text-gray-600">No vitals recorded yet</p>
+                            <p className="text-xs text-gray-500">Patient vitals will appear here</p>
+                          </div>
+                        </motion.div>
                       )}
                     </div>
-                    
-                    {latestVitals ? (
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        {latestVitals.blood_pressure && (
-                          <div className="bg-white p-3 rounded-lg border border-gray-200">
-                            <p className="text-xs text-gray-600 mb-1">Blood Pressure</p>
-                            <p className="text-sm font-bold text-gray-900">{latestVitals.blood_pressure}</p>
-                          </div>
-                        )}
-                        {latestVitals.pulse_rate && (
-                          <div className="bg-white p-3 rounded-lg border border-gray-200">
-                            <p className="text-xs text-gray-600 mb-1">Heart Rate</p>
-                            <p className="text-sm font-bold text-gray-900">{latestVitals.pulse_rate} bpm</p>
-                          </div>
-                        )}
-                        {latestVitals.temperature && (
-                          <div className="bg-white p-3 rounded-lg border border-gray-200">
-                            <p className="text-xs text-gray-600 mb-1">Temperature</p>
-                            <p className="text-sm font-bold text-gray-900">{latestVitals.temperature}°C</p>
-                          </div>
-                        )}
-                        {latestVitals.respiratory_rate && (
-                          <div className="bg-white p-3 rounded-lg border border-gray-200">
-                            <p className="text-xs text-gray-600 mb-1">Respiratory Rate</p>
-                            <p className="text-sm font-bold text-gray-900">{latestVitals.respiratory_rate} /min</p>
-                          </div>
-                        )}
-                        {latestVitals.weight && (
-                          <div className="bg-white p-3 rounded-lg border border-gray-200">
-                            <p className="text-xs text-gray-600 mb-1">Weight</p>
-                            <p className="text-sm font-bold text-gray-900">{latestVitals.weight} kg</p>
-                          </div>
-                        )}
-                        {latestVitals.height && (
-                          <div className="bg-white p-3 rounded-lg border border-gray-200">
-                            <p className="text-xs text-gray-600 mb-1">Height</p>
-                            <p className="text-sm font-bold text-gray-900">{latestVitals.height} cm</p>
-                          </div>
-                        )}
-                        {latestVitals.bmi && (
-                          <div className="bg-white p-3 rounded-lg border border-gray-200">
-                            <p className="text-xs text-gray-600 mb-1">BMI</p>
-                            <p className="text-sm font-bold text-gray-900">{latestVitals.bmi}</p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-gray-500 text-sm">
-                        No vitals recorded yet
-                      </div>
-                    )}
                   </div>
                 </div>
                 
-                {/* View Profile Button - positioned at top right */}
+                {/* 🌟 ULTRA-3D View Profile Button with Real Bulges - positioned at top right */}
                 <div className="absolute top-4 right-4">
                   <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ 
+                      scale: 1.08, 
+                      y: -4, 
+                      rotateX: 8,
+                      transition: { type: "spring", damping: 15 }
+                    }}
+                    whileTap={{ 
+                      scale: 0.92, 
+                      y: 0, 
+                      rotateX: 2,
+                      transition: { duration: 0.1 }
+                    }}
                     onClick={() => setIsProfileModalOpen(true)}
-                    className="px-4 py-2 bg-[#01b9d4] text-white rounded-lg flex items-center gap-2 shadow-md hover:shadow-lg transition-all duration-300 text-sm font-medium"
+                    className="relative px-8 py-4 text-white rounded-2xl flex items-center gap-3 font-bold text-sm overflow-hidden group transform-gpu"
+                    style={{
+                      background: 'linear-gradient(145deg, #01b9d4, #0197b0, #016b7a)',
+                      boxShadow: `
+                        0 12px 24px -8px rgba(1, 185, 212, 0.6),
+                        0 6px 16px -4px rgba(1, 185, 212, 0.4),
+                        inset 0 3px 0 rgba(255,255,255,0.4),
+                        inset 0 -3px 0 rgba(0,0,0,0.2),
+                        inset 2px 0 0 rgba(255,255,255,0.1),
+                        inset -2px 0 0 rgba(0,0,0,0.1)
+                      `,
+                      transform: 'perspective(1200px) rotateX(8deg) rotateY(-2deg)',
+                      filter: 'drop-shadow(0 8px 16px rgba(1, 185, 212, 0.3))'
+                    }}
                   >
-                    <User className="w-4 h-4" />
-                    View Profile
+                    {/* Multi-layered glow background */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d4] via-[#0197b0] to-[#016b7a] rounded-2xl"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-transparent via-white/5 to-white/20 rounded-2xl"></div>
+                    
+                    {/* Left bulge highlight */}
+                    <div className="absolute left-1 top-1 bottom-1 w-2 bg-gradient-to-b from-white/40 via-white/20 to-transparent rounded-l-2xl"></div>
+                    
+                    {/* Right bulge shadow */}
+                    <div className="absolute right-1 top-1 bottom-1 w-2 bg-gradient-to-b from-transparent via-black/10 to-black/20 rounded-r-2xl"></div>
+                    
+                    {/* Top bulge highlight */}
+                    <div className="absolute top-1 left-1 right-1 h-2 bg-gradient-to-r from-white/30 via-white/40 to-white/30 rounded-t-2xl"></div>
+                    
+                    {/* Bottom bulge shadow */}
+                    <div className="absolute bottom-1 left-1 right-1 h-2 bg-gradient-to-r from-black/20 via-black/30 to-black/20 rounded-b-2xl"></div>
+                    
+                    {/* Premium shine sweep effect */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 -skew-x-12 translate-x-[-150%] group-hover:translate-x-[150%] group-hover:duration-1000 rounded-2xl"></div>
+                    
+                    {/* Micro texture overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent rounded-2xl opacity-60"></div>
+                    
+                    {/* Button content with enhanced positioning */}
+                    <div className="relative z-20 flex items-center gap-3">
+                      <div className="relative">
+                        <User className="w-5 h-5 drop-shadow-md" />
+                        <div className="absolute inset-0 bg-white/20 rounded-full blur-sm"></div>
+                      </div>
+                      <span className="drop-shadow-md tracking-wide">View Profile</span>
+                    </div>
+                    
+                    {/* Floating particles effect */}
+                    <div className="absolute top-2 right-3 w-1 h-1 bg-white/60 rounded-full animate-pulse"></div>
+                    <div className="absolute bottom-3 left-3 w-0.5 h-0.5 bg-white/40 rounded-full animate-ping"></div>
+                    
+                    {/* Press state indicator */}
+                    <div className="absolute inset-0 bg-black/10 rounded-2xl opacity-0 group-active:opacity-100 transition-opacity duration-75"></div>
                   </motion.button>
                 </div>
               </div>
@@ -555,9 +741,10 @@ const PatientModernDetail = () => {
                   <motion.button 
                     whileHover={{ scale: 1.1, rotate: 5 }}
                     whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsMedicalAidModalOpen(true)}
                     className="p-2.5 bg-gray-50 hover:bg-white rounded-xl border border-gray-200 hover:border-[#01b9d4]/50 transition-all duration-300 shadow-sm"
                   >
-                    <Edit3 className="w-4 h-4 text-gray-300 hover:text-[#01b9d4] transition-colors" />
+                    <Edit3 className="w-4 h-4 text-gray-600 hover:text-[#01b9d4] transition-colors" />
                   </motion.button>
                 </div>
                 
@@ -581,7 +768,7 @@ const PatientModernDetail = () => {
                             {medicalAid ? 'Active' : 'None'}
                           </Badge>
                           <p className="text-[10px] text-gray-500 mt-0.5">
-                            {medicalAid?.plan_type || 'No plan'}
+                            {medicalAid?.scheme || 'No scheme'}
                           </p>
                         </div>
                       </div>
@@ -635,7 +822,32 @@ const PatientModernDetail = () => {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => alert('View Benefits feature coming soon!')}
+                      onClick={() => {
+                        // Create a modal for viewing benefits
+                        const modal = document.createElement('div');
+                        modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm';
+                        modal.innerHTML = `
+                          <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
+                            <h3 class="text-xl font-bold text-gray-800 mb-4">Medical Aid Benefits</h3>
+                            <div class="space-y-3">
+                              <div class="p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                                <p class="text-sm font-medium text-emerald-800">✓ Hospital Cover: 100%</p>
+                              </div>
+                              <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                <p class="text-sm font-medium text-blue-800">✓ Specialist Visits: 80%</p>
+                              </div>
+                              <div class="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                                <p class="text-sm font-medium text-purple-800">✓ Medication: R5,000/year</p>
+                              </div>
+                            </div>
+                            <button onclick="this.closest('.fixed').remove()" class="mt-6 w-full px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-lg font-medium hover:shadow-lg transition-all">Close</button>
+                          </div>
+                        `;
+                        document.body.appendChild(modal);
+                        modal.addEventListener('click', (e) => {
+                          if (e.target === modal) modal.remove();
+                        });
+                      }}
                       className="flex-1 p-3 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300"
                     >
                       View Benefits
@@ -750,7 +962,7 @@ const PatientModernDetail = () => {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setIsSmsModalOpen(true)}
+                      onClick={openSmsModal}
                       className="flex-1 p-2 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-lg font-medium text-xs shadow-md hover:shadow-lg transition-all duration-300"
                     >
                       Quick Contact
@@ -825,40 +1037,83 @@ const PatientModernDetail = () => {
                   </div>
                 </div>
 
-                {/* Enhanced Timeline */}
+                {/* 🚀 ULTRA-PREMIUM MEDICAL TIMELINE - WOW Factor */}
                 <div className="relative">
-                  {/* Modern timeline line */}
-                  <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-[#01b9d5] via-purple-500 to-indigo-600 opacity-30"></div>
+                  {/* Revolutionary animated timeline spine */}
+                  <div className="absolute left-8 top-0 bottom-0 w-1 bg-gradient-to-b from-[#01b9d5] via-purple-500 via-pink-500 to-indigo-600 rounded-full shadow-lg">
+                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/30 to-transparent rounded-full animate-pulse"></div>
+                  </div>
 
                   {visits.map((visit, index) => (
                     <motion.div
                       key={visit.id}
-                      initial={{ opacity: 0, x: -30 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      whileHover={{ y: -2, scale: 1.01 }}
-                      className="relative group mb-6 last:mb-0"
+                      initial={{ opacity: 0, x: -50, rotateY: -15 }}
+                      animate={{ opacity: 1, x: 0, rotateY: 0 }}
+                      transition={{ delay: index * 0.15, type: "spring", damping: 20 }}
+                      whileHover={{ 
+                        y: -8, 
+                        scale: 1.02,
+                        rotateY: 2,
+                        transition: { type: "spring", damping: 15 }
+                      }}
+                      className="relative group mb-8 last:mb-0 perspective-1000"
                     >
-                      {/* Timeline dot with enhanced design */}
-                      <div className={`absolute left-6 top-6 w-6 h-6 rounded-full border-4 border-white shadow-lg z-10 ${
-                        visit.status === 'completed' ? 'bg-gradient-to-br from-emerald-400 to-emerald-600' :
-                        visit.status === 'in-progress' ? 'bg-gradient-to-br from-amber-400 to-orange-500 animate-pulse' :
-                        'bg-gradient-to-br from-gray-400 to-gray-500'
-                      }`}>
-                        <div className={`absolute inset-1 rounded-full ${
-                          visit.status === 'in-progress' ? 'bg-white/30 animate-ping' : ''
-                        }`}></div>
+                      {/* Floating glow effect behind card */}
+                      <div className={`absolute inset-0 ml-16 rounded-3xl blur-2xl opacity-0 group-hover:opacity-30 transition-opacity duration-500 ${
+                        visit.status === 'completed' ? 'bg-gradient-to-r from-emerald-400 to-green-500' :
+                        visit.status === 'in-progress' ? 'bg-gradient-to-r from-amber-400 to-orange-500' :
+                        'bg-gradient-to-r from-gray-400 to-slate-500'
+                      }`}></div>
+                      
+                      {/* Revolutionary 3D Timeline Node */}
+                      <div className="absolute left-5 top-8 z-20">
+                        <div className={`relative w-8 h-8 rounded-2xl shadow-2xl transform-gpu group-hover:scale-110 transition-transform duration-300 ${
+                          visit.status === 'completed' ? 'bg-gradient-to-br from-emerald-400 via-emerald-500 to-emerald-600' :
+                          visit.status === 'in-progress' ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 animate-pulse' :
+                          'bg-gradient-to-br from-gray-400 via-slate-500 to-gray-600'
+                        }`} style={{
+                          boxShadow: visit.status === 'completed' 
+                            ? '0 8px 32px -8px rgba(16, 185, 129, 0.6), inset 0 2px 0 rgba(255,255,255,0.3)'
+                            : visit.status === 'in-progress'
+                            ? '0 8px 32px -8px rgba(245, 158, 11, 0.6), inset 0 2px 0 rgba(255,255,255,0.3)'
+                            : '0 8px 32px -8px rgba(107, 114, 128, 0.6), inset 0 2px 0 rgba(255,255,255,0.3)'
+                        }}>
+                          <div className="absolute inset-1 rounded-xl bg-white/20"></div>
+                          {visit.status === 'completed' && (
+                            <CheckCircle2 className="absolute inset-0 m-auto w-4 h-4 text-white" />
+                          )}
+                          {visit.status === 'in-progress' && (
+                            <Activity className="absolute inset-0 m-auto w-4 h-4 text-white animate-pulse" />
+                          )}
+                          {visit.status === 'scheduled' && (
+                            <Clock className="absolute inset-0 m-auto w-4 h-4 text-white" />
+                          )}
+                        </div>
+                        
+                        {/* Ripple effect for active visits */}
+                        {visit.status === 'in-progress' && (
+                          <div className="absolute inset-0 w-8 h-8 rounded-2xl bg-orange-400/30 animate-ping"></div>
+                        )}
                       </div>
 
-                      {/* Visit card with clean design */}
-                      <div 
-                        className={`relative ml-16 p-6 bg-white rounded-2xl border-2 cursor-pointer transition-all duration-300 group-hover:shadow-xl ${
-                          visit.status === 'completed' ? 'border-emerald-200 hover:border-emerald-300' :
-                          visit.status === 'in-progress' ? 'border-amber-200 hover:border-amber-300' :
-                          'border-gray-200 hover:border-gray-300'
+                      {/* Premium glass-morphism visit card */}
+                      <motion.div 
+                        className={`relative ml-20 p-8 backdrop-blur-xl rounded-3xl border-2 cursor-pointer transition-all duration-500 group-hover:shadow-2xl overflow-hidden ${
+                          visit.status === 'completed' ? 'bg-gradient-to-br from-emerald-50/90 to-green-50/90 border-emerald-200/50 hover:border-emerald-300' :
+                          visit.status === 'in-progress' ? 'bg-gradient-to-br from-amber-50/90 to-orange-50/90 border-amber-200/50 hover:border-orange-300' :
+                          'bg-gradient-to-br from-gray-50/90 to-slate-50/90 border-gray-200/50 hover:border-gray-300'
                         }`}
                         onClick={() => handleVisitClick(visit.id)}
+                        whileHover={{ 
+                          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+                        }}
                       >
+                        {/* Shine effect overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] group-hover:duration-1000"></div>
+                        
+                        {/* Floating particles background */}
+                        <div className="absolute top-4 right-4 w-20 h-20 bg-gradient-to-br from-white/10 to-transparent rounded-full blur-xl opacity-60"></div>
+                        <div className="absolute bottom-4 left-4 w-16 h-16 bg-gradient-to-br from-white/5 to-transparent rounded-full blur-lg opacity-40"></div>
                         {/* Card header */}
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
@@ -969,21 +1224,37 @@ const PatientModernDetail = () => {
                             )}
                           </div>
                         </div>
-                      </div>
+                      </motion.div>
                     </motion.div>
                   ))}
                   
                   {visits.length === 0 && (
                     <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-center py-16"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ type: "spring", damping: 20 }}
+                      className="text-center py-20"
                     >
-                      <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-                        <Activity className="w-10 h-10 text-gray-400" />
+                      <div className="relative mx-auto mb-6">
+                        <div className="w-32 h-32 bg-gradient-to-br from-[#01b9d5]/10 via-purple-500/10 to-indigo-600/10 rounded-3xl flex items-center justify-center shadow-2xl backdrop-blur-xl border border-gray-200/50">
+                          <div className="w-20 h-20 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                            <Activity className="w-10 h-10 text-white animate-pulse" />
+                          </div>
+                        </div>
+                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-emerald-400 to-green-500 rounded-full animate-ping"></div>
+                        <div className="absolute -bottom-2 -left-2 w-4 h-4 bg-gradient-to-r from-blue-400 to-cyan-500 rounded-full animate-pulse"></div>
                       </div>
-                      <h3 className="text-lg font-semibold text-gray-600 mb-2">No visits recorded yet</h3>
-                      <p className="text-sm text-gray-500">Patient's medical timeline will appear here</p>
+                      <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-3">No visits recorded yet</h3>
+                      <p className="text-gray-500 mb-6 max-w-md mx-auto">This patient's comprehensive medical timeline will appear here as visits are recorded</p>
+                      <motion.button
+                        whileHover={{ scale: 1.05, y: -2 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setIsAddVisitModalOpen(true)}
+                        className="px-6 py-3 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-2xl transition-all duration-300 flex items-center gap-2 mx-auto"
+                      >
+                        <Plus className="w-5 h-5" />
+                        Record First Visit
+                      </motion.button>
                     </motion.div>
                   )}
                 </div>
@@ -1237,7 +1508,6 @@ const PatientModernDetail = () => {
         isOpen={showHealthSummary}
         onClose={() => setShowHealthSummary(false)}
         title="Health Summary"
-        className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center"
       >
         <div className="bg-gradient-to-r from-[#a855f7] to-[#00B4D8] p-6 rounded-xl text-white">
           <div className="space-y-6">
@@ -1288,7 +1558,22 @@ const PatientModernDetail = () => {
       >
         <NextOfKinForm
           patientId={id || ''}
-          onSuccess={() => setIsNextOfKinModalOpen(false)}
+          initialData={nextOfKin ? {
+            name: nextOfKin.name,
+            relationship: nextOfKin.relationship,
+            phone: nextOfKin.phone,
+            address: nextOfKin.address || ''
+          } : undefined}
+          onSuccess={async () => {
+            setIsNextOfKinModalOpen(false);
+            // Refresh next of kin data
+            const { data } = await supabase
+              .from('next_of_kin')
+              .select('*')
+              .eq('patient_id', id)
+              .maybeSingle();
+            if (data) setNextOfKin(data);
+          }}
         />
       </FormModal>
 
@@ -1409,9 +1694,10 @@ const PatientModernDetail = () => {
                   <label className="text-xs font-medium text-gray-600">Phone Number</label>
                   <input
                     type="tel"
-                    defaultValue={nextOfKin?.phone || patient?.emergency_contact_phone || ''}
+                    value={smsPhone}
+                    onChange={(e) => setSmsPhone(e.target.value)}
                     className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all font-mono text-gray-800"
-                    placeholder={nextOfKin?.phone || patient?.emergency_contact_phone ? "Edit phone number" : "Enter phone number"}
+                    placeholder="Enter phone number"
                   />
                 </div>
               </div>
@@ -1442,17 +1728,13 @@ const PatientModernDetail = () => {
               <div className="relative">
                 <textarea
                   rows={4}
+                  value={smsContent}
+                  onChange={(e) => setSmsContent(e.target.value)}
                   className="w-full p-4 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all resize-none"
                   placeholder="Type your message here..."
-                  defaultValue={`Hello Sarah,
-
-This is regarding ${patient?.first_name} ${patient?.last_name}'s medical care. Please contact us at your earliest convenience.
-
-Best regards,
-Medical Team`}
                 />
                 <div className="absolute bottom-3 right-3 text-xs text-gray-400">
-                  Character count: 160/1600
+                  Character count: {smsContent.length}/1600
                 </div>
               </div>
             </div>
@@ -1490,14 +1772,54 @@ Medical Team`}
               <motion.button
                 whileHover={{ scale: 1.02, y: -1 }}
                 whileTap={{ scale: 0.98 }}
-                className="flex-1 px-6 py-3 bg-gradient-to-r from-[#01b9d5] to-purple-600 text-white rounded-xl shadow-lg hover:shadow-2xl transition-all font-semibold flex items-center justify-center gap-2"
+                onClick={handleSendSms}
+                disabled={isSendingSms || !smsContent.trim() || !smsPhone.trim()}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-[#01b9d5] to-purple-600 text-white rounded-xl shadow-lg hover:shadow-2xl transition-all font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Mail className="w-4 h-4" />
-                Send SMS
+                {isSendingSms ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    Send SMS
+                  </>
+                )}
               </motion.button>
             </div>
           </div>
         </div>
+      </FormModal>
+
+      {/* Medical Aid Modal */}
+      <FormModal
+        isOpen={isMedicalAidModalOpen}
+        onClose={() => setIsMedicalAidModalOpen(false)}
+        title="Update Medical Aid Details"
+      >
+        <MedicalAidForm
+          patientId={id || ''}
+          initialData={medicalAid ? {
+            provider: medicalAid.provider,
+            scheme: medicalAid.scheme,
+            membership_number: medicalAid.membership_number,
+            main_member_name: medicalAid.main_member_name,
+            main_member_id_number: medicalAid.main_member_id_number,
+            relationship_to_main: medicalAid.relationship_to_main
+          } : undefined}
+          onSuccess={async () => {
+            setIsMedicalAidModalOpen(false);
+            // Refresh medical aid data
+            const { data } = await supabase
+              .from('medical_aid_details')
+              .select('*')
+              .eq('patient_id', id)
+              .maybeSingle();
+            if (data) setMedicalAid(data);
+          }}
+        />
       </FormModal>
       </div>
     </div>
