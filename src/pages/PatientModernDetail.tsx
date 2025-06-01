@@ -10,7 +10,6 @@ import {
   Building2,
   Heart,
   Activity,
-  Brain,
   Stethoscope,
   Plus,
   Search,
@@ -25,7 +24,6 @@ import {
   Calendar,
   FileText,
   Shield,
-  CreditCard,
   Thermometer,
   Weight,
   Sparkles
@@ -33,7 +31,6 @@ import {
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Button';
-import { getMedicalAidLogo, defaultMedicalAidLogo } from '../utils/medicalAidLogos';
 import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
 import NextOfKinForm from '../components/forms/NextOfKinForm';
@@ -283,7 +280,6 @@ const PatientModernDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [isNextOfKinModalOpen, setIsNextOfKinModalOpen] = useState(false);
   const [isAddVisitModalOpen, setIsAddVisitModalOpen] = useState(false);
-  const [showHealthSummary, setShowHealthSummary] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [isVisitDetailModalOpen, setIsVisitDetailModalOpen] = useState(false);
   const [isEditVisitModalOpen, setIsEditVisitModalOpen] = useState(false);
@@ -307,7 +303,7 @@ const PatientModernDetail = () => {
         }
         
         const { data: patientData, error: patientError } = await supabase
-          .from('patients')
+          .from('patient_details_view')
           .select('*')
           .eq('id', id)
           .single();
@@ -316,6 +312,11 @@ const PatientModernDetail = () => {
         if (!patientData) throw new Error('Patient not found');
         
         setPatient(patientData);
+        
+        // Extract medical aid from the view
+        if (patientData.medical_aid_details && patientData.medical_aid_details.length > 0) {
+          setMedicalAid(patientData.medical_aid_details[0]);
+        }
 
         const { data: visitsData, error: visitsError } = await supabase
           .from('visit_details_view')
@@ -339,36 +340,6 @@ const PatientModernDetail = () => {
           setNextOfKin(nextOfKinData);
         }
 
-        // Fetch Medical Aid Details directly
-        console.log('🔍 [PatientModernDetail] Fetching medical aid for patient:', id);
-        
-        // Try direct fetch first
-        const { data: medicalAidData, error: medicalAidError } = await supabase
-          .from('medical_aid_details')
-          .select('*')
-          .eq('patient_id', id)
-          .maybeSingle();
-        
-        if (medicalAidError && medicalAidError.code !== 'PGRST116') {
-          console.error('❌ Error fetching medical aid:', medicalAidError);
-        } else if (medicalAidData) {
-          console.log('✅ Found medical aid:', medicalAidData);
-          setMedicalAid(medicalAidData);
-        } else {
-          console.log('⚠️ No medical aid data found or RLS blocking');
-          // Use hardcoded data for now
-          setMedicalAid({
-            id: 'temp-' + id,
-            patient_id: id,
-            provider: 'Namibia Medical Care (NMC)',
-            scheme: 'Diamond',
-            membership_number: 'NMC123456',
-            plan_type: 'Premium',
-            main_member_name: patientData.first_name + ' ' + patientData.last_name,
-            main_member_id_number: '8505150000000',
-            relationship_to_main: 'Self'
-          });
-        }
 
         // Fetch Latest Vitals
         const { data: vitalsData, error: vitalsError } = await supabase
@@ -615,89 +586,27 @@ Medical Team`;
                       </h1>
                       <p className="text-xs text-gray-500 font-medium">Patient ID: {patient.id.slice(0, 8)}</p>
                       
-                      {/* Enhanced Medical Aid Information */}
+                      {/* Medical Aid - Simple one row */}
                       {medicalAid && (
                         <motion.div 
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.3 }}
-                          className="mt-3 bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/50 backdrop-blur-sm rounded-xl border border-blue-200/60 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden"
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.2 }}
+                          className="mt-3 flex items-center gap-3 text-sm"
                         >
-                          {/* Premium header with subtle gradient */}
-                          <div className="bg-gradient-to-r from-blue-500/5 via-indigo-500/5 to-purple-500/5 p-3 border-b border-blue-200/40">
-                            <div className="flex items-center gap-3">
-                              <div className="relative">
-                                <div className="absolute inset-0 bg-white rounded-lg shadow-md"></div>
-                                <img 
-                                  src={getMedicalAidLogo(medicalAid.provider)} 
-                                  alt={medicalAid.provider}
-                                  className="relative h-10 w-16 object-contain bg-white rounded-lg p-1 shadow-sm"
-                                  onError={(e) => {
-                                    e.currentTarget.src = defaultMedicalAidLogo;
-                                  }}
-                                />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h3 className="text-sm font-bold text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                                  {medicalAid.provider}
-                                </h3>
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <div className="flex items-center gap-1">
-                                    <Shield className="w-3 h-3 text-blue-600" />
-                                    <span className="text-xs bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 px-2 py-1 rounded-full font-semibold border border-blue-200/50">
-                                      {medicalAid.scheme}
-                                    </span>
-                                  </div>
-                                  {medicalAid.plan_type && (
-                                    <span className="text-xs bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 px-2 py-1 rounded-full font-semibold border border-emerald-200/50">
-                                      {medicalAid.plan_type}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="flex items-center gap-1 mb-1">
-                                  <CreditCard className="w-3 h-3 text-gray-500" />
-                                  <span className="text-xs text-gray-500 font-medium">Member #</span>
-                                </div>
-                                <span className="text-sm font-bold text-gray-800 font-mono bg-gray-50 px-2 py-1 rounded border">
-                                  {medicalAid.membership_number}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* Additional member details */}
-                          <div className="p-3 space-y-2">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
-                              <div className="flex items-center gap-2">
-                                <User className="w-3 h-3 text-gray-500" />
-                                <span className="text-gray-600 font-medium">Main Member:</span>
-                                <span className="text-gray-800 font-semibold">{medicalAid.main_member_name}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Heart className="w-3 h-3 text-gray-500" />
-                                <span className="text-gray-600 font-medium">Relationship:</span>
-                                <span className="text-gray-800 font-semibold capitalize">{medicalAid.relationship_to_main}</span>
-                              </div>
-                            </div>
+                          <Shield className="w-4 h-4 text-blue-600" />
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-gray-700">{medicalAid.provider}</span>
+                            <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">
+                              {medicalAid.scheme}
+                            </span>
+                            <span className="text-gray-500">•</span>
+                            <span className="text-gray-600 font-mono">{medicalAid.membership_number}</span>
                           </div>
                         </motion.div>
                       )}
                     </div>
                     
-                    <div className="flex items-center gap-3">
-                      <motion.button
-                        whileHover={{ scale: 1.05, y: -2 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setShowHealthSummary(true)}
-                        className="px-3 py-1.5 bg-white/80 hover:bg-white border border-gray-200/50 text-gray-700 hover:text-[#01b9d5] rounded-lg flex items-center gap-2 hover:shadow-lg transition-all duration-300 text-xs font-medium"
-                      >
-                        <Brain className="w-3.5 h-3.5" />
-                        AI Summary
-                      </motion.button>
-                      
-                    </div>
                   </div>
                   
                   {/* Premium Contact Pills */}
@@ -768,7 +677,7 @@ Medical Team`;
               <div className="p-5">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-2.5 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-xl shadow-lg">
-                    <Brain className="w-5 h-5 text-white" />
+                    <Activity className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>AI Medical Intelligence</h3>
@@ -864,7 +773,7 @@ Medical Team`;
                   {/* Predictive Insights */}
                   <div className="p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-100">
                     <h4 className="text-xs font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                      <Brain className="w-3.5 h-3.5 text-blue-600" />
+                      <Activity className="w-3.5 h-3.5 text-blue-600" />
                       AI Predictive Insights
                     </h4>
                     <p className="text-[11px] text-gray-700 leading-relaxed">
@@ -1500,52 +1409,6 @@ Medical Team`;
         )}
       </FormModal>
 
-      <FormModal
-        isOpen={showHealthSummary}
-        onClose={() => setShowHealthSummary(false)}
-        title="Health Summary"
-      >
-        <div className="bg-gradient-to-r from-[#a855f7] to-[#00B4D8] p-6 rounded-xl text-white">
-          <div className="space-y-6">
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-              <h3 className="text-lg font-semibold mb-2">Patient Overview</h3>
-              <p className="text-white/90">
-                {patient?.first_name} {patient?.last_name} is a {calculateAge(patient?.date_of_birth || '')} year old patient with a history of regular check-ups.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-                <h3 className="text-lg font-semibold mb-2">Recent Activity</h3>
-                <ul className="space-y-2">
-                  <li className="flex items-center">
-                    <CheckCircle2 size={16} className="mr-2" />
-                    Last visit: {format(new Date(), 'MMM d, yyyy')}
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle2 size={16} className="mr-2" />
-                    Vitals: Normal range
-                  </li>
-                </ul>
-              </div>
-
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-                <h3 className="text-lg font-semibold mb-2">Recommendations</h3>
-                <ul className="space-y-2">
-                  <li className="flex items-center">
-                    <ArrowRight size={16} className="mr-2" />
-                    Schedule follow-up in 3 months
-                  </li>
-                  <li className="flex items-center">
-                    <ArrowRight size={16} className="mr-2" />
-                    Continue current treatment plan
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-      </FormModal>
 
       <FormModal
         isOpen={isNextOfKinModalOpen}
