@@ -27,7 +27,6 @@ import AppointmentGridView from '../components/appointments/AppointmentGridView'
 import { motion } from 'framer-motion';
 import { useRealtimeAppointments } from '../hooks/useRealtimeAppointments';
 import { toast } from 'react-hot-toast';
-import { AnimatedPageBackground } from '../components/ui/AnimatedBackground';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
 
 interface Appointment {
@@ -619,9 +618,8 @@ function Dashboard() {
   ];
 
   return (
-    <AnimatedPageBackground>
-      <div className="min-h-screen">
-        <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+    <div className="min-h-screen bg-gray-100">
+      <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
         {/* Compact Professional Header */}
         <div className="bg-white/60 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">
           <div className="p-4 md:p-5">
@@ -979,8 +977,7 @@ function Dashboard() {
           onClose={() => setShowGridView(false)}
         />
       )}
-      </div>
-    </AnimatedPageBackground>
+    </div>
   );
 }
 

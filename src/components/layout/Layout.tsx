@@ -23,7 +23,7 @@ const Layout: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-gray-100">
       {/* Mobile Menu Button */}
       <button
         className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-[#01b9d4] text-white rounded-lg shadow-lg"
@@ -62,7 +62,7 @@ const Layout: React.FC = () => {
       {/* Main Content */}
       <main
         className={cn(
-          'flex-1 overflow-y-auto transition-all duration-300 bg-gray-50',
+          'flex-1 overflow-y-auto transition-all duration-300 bg-gray-100',
           !isMobile && (sidebarCollapsed ? 'ml-[72px]' : 'ml-[240px]'),
           isMobile && 'ml-0 pl-16' // Add padding for mobile menu button
         )}
