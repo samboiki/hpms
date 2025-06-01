@@ -33,6 +33,7 @@ import {
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Button';
+import { getMedicalAidLogo, defaultMedicalAidLogo } from '../utils/medicalAidLogos';
 import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
 import NextOfKinForm from '../components/forms/NextOfKinForm';
@@ -584,6 +585,33 @@ Medical Team`;
                         <span className="text-gray-900">{patient.first_name}</span> <span className="text-gray-500">{patient.last_name}</span>
                       </h1>
                       <p className="text-xs text-gray-500 font-medium">Patient ID: {patient.id.slice(0, 8)}</p>
+                      
+                      {/* Medical Aid Information */}
+                      {medicalAid && (
+                        <div className="flex items-center gap-3 mt-2 p-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                          <img 
+                            src={getMedicalAidLogo(medicalAid.provider)} 
+                            alt={medicalAid.provider}
+                            className="h-8 w-auto object-contain bg-white rounded px-1"
+                            onError={(e) => {
+                              e.currentTarget.src = defaultMedicalAidLogo;
+                            }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-semibold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                                {medicalAid.provider}
+                              </span>
+                              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                                {medicalAid.scheme}
+                              </span>
+                              <span className="text-xs text-gray-600 font-mono">
+                                #{medicalAid.membership_number}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     
                     <div className="flex items-center gap-3">

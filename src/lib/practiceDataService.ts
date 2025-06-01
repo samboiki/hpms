@@ -149,28 +149,16 @@ class PracticeDataService {
     }
   }
 
-  // Get patients for practice (only those with appointments at this practice)
+  // Get patients for practice (directly by practice_id)
   async getPracticePatients(practiceId: string): Promise<any[]> {
     this.logWithContext(`Fetching patients for practice: ${practiceId}`);
     
     try {
-      // Get appointments to find patient IDs
-      const appointments = await this.getPracticeAppointments(practiceId);
-      
-      if (appointments.length === 0) {
-        this.logWithContext(`No appointments found for practice ${practiceId}, returning empty patients`);
-        return [];
-      }
-
-      // Get unique patient IDs
-      const patientIds = [...new Set(appointments.map(apt => apt.patient_id))];
-      this.logWithContext(`Found ${patientIds.length} unique patient IDs from appointments`, patientIds);
-
-      // Fetch patients
+      // Directly fetch patients by practice_id
       const { data: patients, error } = await supabase
         .from('patients')
         .select('*')
-        .in('id', patientIds)
+        .eq('practice_id', practiceId)
         .order('last_name', { ascending: true })
         .order('first_name', { ascending: true });
 
@@ -183,7 +171,8 @@ class PracticeDataService {
         patientCount: patients?.length || 0,
         samplePatient: patients?.[0] ? {
           id: patients[0].id,
-          name: `${patients[0].first_name} ${patients[0].last_name}`
+          name: `${patients[0].first_name} ${patients[0].last_name}`,
+          practice_id: patients[0].practice_id
         } : null
       });
 

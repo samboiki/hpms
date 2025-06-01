@@ -218,7 +218,7 @@ function Dashboard() {
 
       // Set state
       setAppointments(practiceAppointments);
-      setPatients(Array(practicePatients.length || 0));
+      setPatients(practicePatients);
       setLabRequests(labRequestsData);
       setMediaRequests(mediaRequestsData);
 
