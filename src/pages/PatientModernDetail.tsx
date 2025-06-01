@@ -179,7 +179,7 @@ const PatientModernDetail = () => {
           .from('visit_details_view')
           .select('*')
           .eq('patient_id', id)
-          .order('visit_date', { ascending: false });
+          .order('visit_date', { ascending: true });
 
         if (visitsError) throw visitsError;
         setVisits(visitsData || []);
@@ -450,8 +450,8 @@ Medical Team`;
                 <div className="flex-1">
                   <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-4">
                     <div>
-                      <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 leading-tight" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                        {patient.first_name} {patient.last_name}
+                      <h1 className="text-2xl lg:text-3xl font-bold leading-tight" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        <span className="text-gray-900">{patient.first_name}</span> <span className="text-gray-500">{patient.last_name}</span>
                       </h1>
                       <p className="text-xs text-gray-500 font-medium">Patient ID: {patient.id.slice(0, 8)}</p>
                     </div>
@@ -496,21 +496,20 @@ Medical Team`;
                   </div>
                   
                 </div>
-                
-                {/* Simple View Profile Button */}
-                <div className="absolute top-4 right-4">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setIsProfileModalOpen(true)}
-                    className="px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300"
-                  >
-                    View Profile
-                  </motion.button>
-                </div>
+              </div>
+              
+              {/* View Profile Button - Bottom Right */}
+              <div className="absolute bottom-4 right-4">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setIsProfileModalOpen(true)}
+                  className="px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  View Profile
+                </motion.button>
               </div>
             )}
-          </div>
           </div>
         </motion.div>
 
@@ -539,7 +538,7 @@ Medical Team`;
                     <Brain className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-800">AI Medical Intelligence</h3>
+                    <h3 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>AI Medical Intelligence</h3>
                     <p className="text-xs text-gray-500 font-medium">Real-time Clinical Analysis</p>
                   </div>
                   <div className="ml-auto">
@@ -680,7 +679,7 @@ Medical Team`;
                       <Activity className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                      <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent" style={{ fontFamily: 'Poppins, sans-serif' }}>
                         Medical Timeline
                       </h2>
                       <p className="text-sm text-gray-500 font-medium">
@@ -715,28 +714,46 @@ Medical Team`;
                   </div>
                 </div>
 
-                {/* Compact Vitals Section - One Row */}
+                {/* Compact Vitals Section - One Row with Icons */}
                 {latestVitals && (
                   <div className="mb-4 flex items-center justify-between bg-white rounded-lg shadow-sm border border-gray-200 p-3">
                     <div className="flex items-center gap-3">
                       <Activity className="w-4 h-4 text-gray-600" />
-                      <h3 className="text-sm font-semibold text-gray-800">Latest Vitals</h3>
+                      <h3 className="text-sm font-semibold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>Latest Vitals</h3>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-4 text-sm">
                       {latestVitals.blood_pressure && (
-                        <span>{latestVitals.blood_pressure} BP</span>
+                        <div className={`flex items-center gap-1 ${isBloodPressureAbnormal(latestVitals.blood_pressure) ? 'text-red-600 animate-pulse' : 'text-gray-600'}`}>
+                          <Heart className="w-3.5 h-3.5" />
+                          <span className="font-medium">{latestVitals.blood_pressure}</span>
+                          <span className="text-xs">BP</span>
+                        </div>
                       )}
                       {latestVitals.pulse_rate && (
-                        <span>{latestVitals.pulse_rate} bpm</span>
+                        <div className={`flex items-center gap-1 ${(latestVitals.pulse_rate < 60 || latestVitals.pulse_rate > 100) ? 'text-red-600 animate-pulse' : 'text-gray-600'}`}>
+                          <Activity className="w-3.5 h-3.5" />
+                          <span className="font-medium">{latestVitals.pulse_rate}</span>
+                          <span className="text-xs">bpm</span>
+                        </div>
                       )}
                       {latestVitals.temperature && (
-                        <span>{latestVitals.temperature}°C</span>
+                        <div className={`flex items-center gap-1 ${(latestVitals.temperature < 36.5 || latestVitals.temperature > 37.5) ? 'text-red-600 animate-pulse' : 'text-gray-600'}`}>
+                          <Thermometer className="w-3.5 h-3.5" />
+                          <span className="font-medium">{latestVitals.temperature}°C</span>
+                        </div>
                       )}
                       {latestVitals.weight && (
-                        <span>{latestVitals.weight} kg</span>
+                        <div className="flex items-center gap-1 text-gray-600">
+                          <Weight className="w-3.5 h-3.5" />
+                          <span className="font-medium">{latestVitals.weight}</span>
+                          <span className="text-xs">kg</span>
+                        </div>
                       )}
                       {latestVitals.bmi && (
-                        <span>BMI {latestVitals.bmi}</span>
+                        <div className={`flex items-center gap-1 ${(latestVitals.bmi < 18.5 || latestVitals.bmi > 25) ? 'text-red-600 animate-pulse' : 'text-gray-600'}`}>
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span className="font-medium">BMI {latestVitals.bmi}</span>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -765,14 +782,39 @@ Medical Team`;
                         <span className="text-white text-xs font-bold">{index + 1}</span>
                       </div>
 
-                      {/* Visit card - Appointments Today style */}
+                      {/* Visit card - Enhanced with subtle style segmentation */}
                       <div className="ml-8 relative group/card">
-                        <div className="absolute inset-0 bg-gradient-to-r from-gray-500/5 to-slate-500/5 rounded-lg opacity-0 group-hover/card:opacity-100 transition-opacity"></div>
-                        <div className="relative p-4 bg-white/90 rounded-lg border border-gray-200/50 shadow-sm hover:shadow-md transition-all duration-200">
+                        {/* Subtle gradient background based on visit type */}
+                        <div className={`absolute inset-0 rounded-lg opacity-0 group-hover/card:opacity-100 transition-opacity ${
+                          visit.visit_type === 'consultation' ? 'bg-gradient-to-r from-blue-500/5 to-indigo-500/5' :
+                          visit.visit_type === 'follow-up' ? 'bg-gradient-to-r from-emerald-500/5 to-green-500/5' :
+                          visit.visit_type === 'procedure' ? 'bg-gradient-to-r from-purple-500/5 to-pink-500/5' :
+                          'bg-gradient-to-r from-gray-500/5 to-slate-500/5'
+                        }`}></div>
+                        {/* Card with left accent border */}
+                        <div className={`relative bg-white/95 rounded-lg shadow-sm hover:shadow-lg transition-all duration-200 overflow-hidden ${
+                          visit.visit_type === 'consultation' ? 'border-l-4 border-l-blue-500' :
+                          visit.visit_type === 'follow-up' ? 'border-l-4 border-l-emerald-500' :
+                          visit.visit_type === 'procedure' ? 'border-l-4 border-l-purple-500' :
+                          'border-l-4 border-l-gray-400'
+                        } border border-gray-200/50`}>
+                        <div className="p-4">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2">
-                                <p className="text-sm font-bold text-gray-800">
+                                {/* Visit type icon */}
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                  visit.visit_type === 'consultation' ? 'bg-blue-100' :
+                                  visit.visit_type === 'follow-up' ? 'bg-emerald-100' :
+                                  visit.visit_type === 'procedure' ? 'bg-purple-100' :
+                                  'bg-gray-100'
+                                }`}>
+                                  {visit.visit_type === 'consultation' ? <Stethoscope className="w-4 h-4 text-blue-600" /> :
+                                   visit.visit_type === 'follow-up' ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> :
+                                   visit.visit_type === 'procedure' ? <Activity className="w-4 h-4 text-purple-600" /> :
+                                   <User className="w-4 h-4 text-gray-600" />}
+                                </div>
+                                <p className="text-sm font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
                                   {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)}
                                 </p>
                                 <div className="flex items-center gap-1">
@@ -1093,7 +1135,7 @@ Medical Team`;
                       <Building2 className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-gray-800">Medical Aid</h3>
+                      <h3 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>Medical Aid</h3>
                       <p className="text-xs text-gray-500 font-medium">Insurance Coverage</p>
                     </div>
                   </div>
