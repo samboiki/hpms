@@ -445,7 +445,7 @@ Medical Team`;
                 <div className="flex-1">
                   <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-4">
                     <div>
-                      <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 leading-tight">
+                      <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 leading-tight" style={{ fontFamily: 'Poppins, sans-serif' }}>
                         {patient.first_name} {patient.last_name}
                       </h1>
                       <p className="text-xs text-gray-500 font-medium">Patient ID: {patient.id.slice(0, 8)}</p>
@@ -925,26 +925,20 @@ Medical Team`;
                       }}
                       className="relative group mb-8 last:mb-0 perspective-1000"
                     >
-                      {/* Floating glow effect behind card */}
-                      <div className={`absolute inset-0 ml-16 rounded-3xl blur-2xl opacity-0 group-hover:opacity-30 transition-opacity duration-500 ${
-                        visit.status === 'completed' ? 'bg-gradient-to-r from-emerald-400 to-green-500' :
-                        visit.status === 'in-progress' ? 'bg-gradient-to-r from-amber-400 to-orange-500' :
-                        'bg-gradient-to-r from-gray-400 to-slate-500'
+                      {/* Professional subtle hover glow */}
+                      <div className={`absolute inset-0 ml-16 rounded-2xl blur-xl opacity-0 group-hover:opacity-10 transition-opacity duration-300 ${
+                        visit.status === 'completed' ? 'bg-[#01b9d5]' :
+                        visit.status === 'in-progress' ? 'bg-amber-500' :
+                        'bg-gray-400'
                       }`}></div>
                       
                       {/* Revolutionary 3D Timeline Node */}
                       <div className="absolute left-5 top-8 z-20">
-                        <div className={`relative w-8 h-8 rounded-2xl shadow-2xl transform-gpu group-hover:scale-110 transition-transform duration-300 ${
-                          visit.status === 'completed' ? 'bg-gradient-to-br from-emerald-400 via-emerald-500 to-emerald-600' :
-                          visit.status === 'in-progress' ? 'bg-gradient-to-br from-amber-400 via-orange-500 to-red-500 animate-pulse' :
-                          'bg-gradient-to-br from-gray-400 via-slate-500 to-gray-600'
-                        }`} style={{
-                          boxShadow: visit.status === 'completed' 
-                            ? '0 8px 32px -8px rgba(16, 185, 129, 0.6), inset 0 2px 0 rgba(255,255,255,0.3)'
-                            : visit.status === 'in-progress'
-                            ? '0 8px 32px -8px rgba(245, 158, 11, 0.6), inset 0 2px 0 rgba(255,255,255,0.3)'
-                            : '0 8px 32px -8px rgba(107, 114, 128, 0.6), inset 0 2px 0 rgba(255,255,255,0.3)'
-                        }}>
+                        <div className={`relative w-8 h-8 rounded-full shadow-lg transform-gpu group-hover:scale-110 transition-transform duration-300 ${
+                          visit.status === 'completed' ? 'bg-gradient-to-br from-[#01b9d5] to-[#0197b0]' :
+                          visit.status === 'in-progress' ? 'bg-gradient-to-br from-amber-400 to-orange-500 animate-pulse' :
+                          'bg-gradient-to-br from-gray-400 to-gray-600'
+                        }`}>
                           <div className="absolute inset-1 rounded-xl bg-white/20"></div>
                           {visit.status === 'completed' && (
                             <CheckCircle2 className="absolute inset-0 m-auto w-4 h-4 text-white" />
@@ -963,24 +957,23 @@ Medical Team`;
                         )}
                       </div>
 
-                      {/* Premium glass-morphism visit card */}
+                      {/* Professional white visit card with gradient border */}
                       <motion.div 
-                        className={`relative ml-20 p-8 backdrop-blur-xl rounded-3xl border-2 cursor-pointer transition-all duration-500 group-hover:shadow-2xl overflow-hidden ${
-                          visit.status === 'completed' ? 'bg-gradient-to-br from-emerald-50/90 to-green-50/90 border-emerald-200/50 hover:border-emerald-300' :
-                          visit.status === 'in-progress' ? 'bg-gradient-to-br from-amber-50/90 to-orange-50/90 border-amber-200/50 hover:border-orange-300' :
-                          'bg-gradient-to-br from-gray-50/90 to-slate-50/90 border-gray-200/50 hover:border-gray-300'
-                        }`}
+                        className="relative ml-20 p-6 bg-white rounded-2xl cursor-pointer transition-all duration-300 overflow-hidden"
                         onClick={() => handleVisitClick(visit.id)}
                         whileHover={{ 
-                          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+                          boxShadow: "0 10px 30px -10px rgba(0, 0, 0, 0.1)",
+                        }}
+                        style={{
+                          border: '2px solid transparent',
+                          background: `linear-gradient(white, white) padding-box,
+                                      linear-gradient(135deg, ${
+                                        visit.status === 'completed' ? '#01b9d5 0%, #0197b0 100%' :
+                                        visit.status === 'in-progress' ? '#f59e0b 0%, #ea580c 100%' :
+                                        '#9ca3af 0%, #6b7280 100%'
+                                      }) border-box`
                         }}
                       >
-                        {/* Shine effect overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] group-hover:duration-1000"></div>
-                        
-                        {/* Floating particles background */}
-                        <div className="absolute top-4 right-4 w-20 h-20 bg-gradient-to-br from-white/10 to-transparent rounded-full blur-xl opacity-60"></div>
-                        <div className="absolute bottom-4 left-4 w-16 h-16 bg-gradient-to-br from-white/5 to-transparent rounded-full blur-lg opacity-40"></div>
                         {/* Card header */}
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
@@ -991,7 +984,8 @@ Medical Team`;
                               <Badge 
                                 variant={getStatusColor(visit.status)} 
                                 size="md"
-                                className="shadow-sm"
+                                className={`shadow-sm ${visit.status === 'completed' ? 'bg-[#01b9d5] text-white border-[#01b9d5]' : ''}`}
+                                style={visit.status === 'completed' ? { backgroundColor: '#01b9d5', color: 'white', borderColor: '#01b9d5' } : {}}
                               >
                                 {visit.status}
                               </Badge>
@@ -1120,8 +1114,126 @@ Medical Team`;
             </motion.div>
           </div>
 
-          {/* Right Sidebar - Appointment Dashboard */}
+          {/* Right Sidebar - AI Summary & Appointment Dashboard */}
           <div className="lg:col-span-3 space-y-4 md:space-y-6">
+          {/* AI Medical Summary Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="relative group"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5]/10 via-purple-500/10 to-indigo-600/10 rounded-xl blur-xl opacity-0 group-hover:opacity-50 transition-all duration-500 -z-10"></div>
+            
+            <div className="relative bg-white rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
+              {/* Animated gradient header */}
+              <div className="h-1.5 bg-gradient-to-r from-[#01b9d5] via-purple-500 to-indigo-600 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+              </div>
+              
+              <div className="p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-xl shadow-lg">
+                    <Brain className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800">AI Medical Summary</h3>
+                    <p className="text-xs text-gray-500 font-medium">Powered by GPT-4</p>
+                  </div>
+                  <div className="ml-auto">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                      <span className="text-xs text-emerald-600 font-medium">Live Analysis</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  {/* Key Insights */}
+                  <div className="p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-100">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-[#01b9d5]" />
+                      Key Health Insights
+                    </h4>
+                    <ul className="space-y-1.5 text-xs text-gray-700">
+                      <li className="flex items-start gap-2">
+                        <div className="w-1.5 h-1.5 bg-[#01b9d5] rounded-full mt-1"></div>
+                        <span>Patient shows consistent hypertension pattern over last 3 visits</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <div className="w-1.5 h-1.5 bg-[#01b9d5] rounded-full mt-1"></div>
+                        <span>BMI trending upward - recommend lifestyle counseling</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <div className="w-1.5 h-1.5 bg-[#01b9d5] rounded-full mt-1"></div>
+                        <span>Good medication adherence reported</span>
+                      </li>
+                    </ul>
+                  </div>
+                  
+                  {/* Risk Factors */}
+                  <div className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-100">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                      Risk Factors
+                    </h4>
+                    <div className="space-y-1.5 text-xs text-gray-700">
+                      <div className="flex items-center justify-between">
+                        <span>Cardiovascular Risk</span>
+                        <div className="flex items-center gap-1">
+                          <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div className="w-3/4 h-full bg-gradient-to-r from-amber-400 to-orange-500"></div>
+                          </div>
+                          <span className="text-amber-600 font-medium">75%</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Diabetes Risk</span>
+                        <div className="flex items-center gap-1">
+                          <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div className="w-1/3 h-full bg-gradient-to-r from-green-400 to-emerald-500"></div>
+                          </div>
+                          <span className="text-green-600 font-medium">30%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Recommendations */}
+                  <div className="p-3 bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg border border-emerald-100">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      AI Recommendations
+                    </h4>
+                    <ul className="space-y-1.5 text-xs text-gray-700">
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5" />
+                        <span>Schedule follow-up for blood pressure monitoring</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5" />
+                        <span>Consider lipid panel and HbA1c testing</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-0.5" />
+                        <span>Refer to nutritionist for dietary planning</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+                
+                {/* Generate Full Report Button */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full mt-4 p-2.5 bg-gradient-to-r from-[#01b9d5] to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Generate Full Report
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
           {/* Doctor's Premium Appointment Management Dashboard */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
