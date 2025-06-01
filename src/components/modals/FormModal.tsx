@@ -51,8 +51,8 @@ const FormModal: React.FC<FormModalProps> = ({
         className
       )}
       overlayClassName={cn(
-        "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4",
-        "backdrop-blur-sm"
+        "fixed inset-0 bg-black/60 flex items-center justify-center p-4",
+        "backdrop-blur-xl"
       )}
       contentLabel={title}
       style={{
@@ -61,13 +61,13 @@ const FormModal: React.FC<FormModalProps> = ({
         }
       }}
     >
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[90vh] pointer-events-auto flex flex-col relative animate-scale-in">
+      <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] pointer-events-auto flex flex-col relative animate-scale-in border border-white/20">
         {!hideHeader && (
-          <div className="flex items-center justify-between p-6 border-b border-gray-100">
-            <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+          <div className="flex items-center justify-between p-6 border-b border-gray-100/50 bg-gradient-to-r from-white/50 to-gray-50/50">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">{title}</h2>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-lg hover:bg-gray-100"
+              className="text-gray-400 hover:text-gray-600 transition-all duration-200 p-2.5 rounded-xl hover:bg-gray-100/80 hover:shadow-md hover:scale-105"
             >
               <X size={24} />
             </button>
