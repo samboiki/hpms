@@ -1147,17 +1147,17 @@ Medical Team`;
                 <div className="flex justify-between items-center mb-6">
                   <div className="flex items-center gap-3">
                     <div className="p-2.5 bg-gradient-to-br from-[#01b9d4] to-purple-600 rounded-xl shadow-lg">
-                      <Building2 className="w-5 h-5 text-white" />
+                      <Heart className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>Medical Aid</h3>
+                      <h3 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>Next of Kin</h3>
                       <p className="text-xs text-gray-500 font-medium">Insurance Coverage</p>
                     </div>
                   </div>
                   <motion.button 
                     whileHover={{ scale: 1.1, rotate: 5 }}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => setIsMedicalAidModalOpen(true)}
+                    onClick={() => setIsNextOfKinModalOpen(true)}
                     className="p-2.5 bg-gray-50 hover:bg-white rounded-xl border border-gray-200 hover:border-[#01b9d4]/50 transition-all duration-300 shadow-sm"
                   >
                     <Edit3 className="w-4 h-4 text-gray-600 hover:text-[#01b9d4] transition-colors" />
@@ -1165,74 +1165,6 @@ Medical Team`;
                 </div>
                 
                 <div className="space-y-5">
-                  {/* Provider Info with glassmorphism */}
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-cyan-500/5 to-blue-500/5 rounded-xl"></div>
-                    <div className="relative p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-base font-bold text-gray-800 flex items-center gap-2">
-                            {medicalAid?.provider || 'No Medical Aid'}
-                            {medicalAid && <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>}
-                          </p>
-                          <p className="text-xs font-medium bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
-                            {medicalAid?.scheme || 'No scheme'}
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <Badge variant={medicalAid ? "emerald" : "glass"} size="sm" className="shadow-md">
-                            {medicalAid ? 'Active' : 'None'}
-                          </Badge>
-                          <p className="text-[10px] text-gray-500 mt-0.5">
-                            {medicalAid?.scheme || 'No scheme'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Membership Card */}
-                  <div className="relative group/card">
-                    <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 rounded-lg opacity-5 group-hover/card:opacity-10 transition-opacity"></div>
-                    <div className="relative p-4 bg-gradient-to-br from-gray-50 via-white to-gray-50 rounded-lg border border-gray-200/50 shadow-inner">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-8 h-5 bg-gradient-to-r from-[#01b9d4] to-purple-600 rounded-sm flex items-center justify-center">
-                          <div className="w-4 h-3 bg-white/20 rounded-xs"></div>
-                        </div>
-                        <p className="text-xs font-bold text-gray-600 tracking-wider">MEMBERSHIP CARD</p>
-                      </div>
-                      <p className="text-xs text-gray-500 mb-1 font-medium">Member ID</p>
-                      <p className="font-mono text-base font-bold text-gray-800 tracking-wider">
-                        {medicalAid?.membership_number || 'No membership'}
-                      </p>
-                      <div className="mt-3 flex justify-between text-xs text-gray-500">
-                        <span>Valid From: 01/24</span>
-                        <span>Expires: 12/24</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Main Member Info */}
-                  <div className="p-4 bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-xl border border-blue-200/50 shadow-sm">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-md">
-                        <User className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 mb-1">Main Member</p>
-                        <p className="text-sm font-bold text-gray-800">
-                          {medicalAid?.main_member_name || 'No main member'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                      <span>ID: {medicalAid?.main_member_id_number || 'N/A'}</span>
-                      <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                      <span>Relationship: {medicalAid?.relationship_to_main || 'N/A'}</span>
-                    </div>
-                  </div>
-                  
                   {/* Next of Kin Info - Clickable */}
                   <div className="p-4 bg-gradient-to-br from-gray-50 via-white to-gray-50 rounded-xl border border-gray-200/50 shadow-sm">
                     <div className="flex items-center justify-between mb-3">
