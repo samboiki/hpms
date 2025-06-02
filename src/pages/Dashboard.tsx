@@ -94,6 +94,7 @@ function Dashboard() {
   const [currentUserId, setCurrentUserId] = useState('');
   const [currentPracticeId, setCurrentPracticeId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
+  const [internalViewMode, setInternalViewMode] = useState<'timeline' | 'grid'>('timeline');
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
   const [showGridView, setShowGridView] = useState(false);
   const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress'>('pending');
@@ -687,13 +688,13 @@ function Dashboard() {
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-12 gap-4 md:gap-6">
-          {/* Left Section - Appointment Schedule (6 columns) */}
-          <div className="col-span-12 lg:col-span-6">
+          {/* Left Section - Appointment Schedule (8 columns) */}
+          <div className="col-span-12 lg:col-span-8">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 overflow-hidden h-[700px] flex flex-col"
+              className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 overflow-hidden h-[800px] flex flex-col"
             >
               {/* Header */}
               <div className="p-4 border-b border-gray-200 bg-gray-50/50">
@@ -702,7 +703,8 @@ function Dashboard() {
                     <Calendar className="w-5 h-5 text-[#01b9d5]" />
                     Appointment Schedule
                   </h3>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
+                    {/* View Mode Filters */}
                     <div className="flex items-center bg-gray-100 rounded-lg p-1">
                       {['day', 'week', 'month'].map((mode) => (
                         <button
@@ -718,6 +720,34 @@ function Dashboard() {
                         </button>
                       ))}
                     </div>
+                    
+                    {/* Timeline/Grid Filters - Show only for day and week views */}
+                    {(viewMode === 'day' || viewMode === 'week') && (
+                      <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                        <button
+                          onClick={() => setInternalViewMode('timeline')}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
+                            internalViewMode === 'timeline'
+                              ? 'bg-white/90 text-gray-900 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          <Calendar className="h-3 w-3" />
+                          Timeline
+                        </button>
+                        <button
+                          onClick={() => setInternalViewMode('grid')}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
+                            internalViewMode === 'grid'
+                              ? 'bg-white/90 text-gray-900 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
+                        >
+                          <Activity className="h-3 w-3" />
+                          Grid
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -753,13 +783,15 @@ function Dashboard() {
                     console.log('🔄 Manual refresh triggered from scheduler');
                     fetchData();
                   }}
+                  internalViewMode={internalViewMode}
+                  onInternalViewModeChange={setInternalViewMode}
                 />
               </div>
             </motion.div>
           </div>
 
-          {/* Right Section (6 columns) */}
-          <div className="col-span-12 lg:col-span-6 space-y-4 md:space-y-6">
+          {/* Right Section (4 columns) */}
+          <div className="col-span-12 lg:col-span-4 space-y-4 md:space-y-6">
             {/* Notifications - FIRST */}
             <NotificationsPanel
               notifications={notifications}

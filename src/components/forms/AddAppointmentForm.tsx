@@ -402,7 +402,7 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
             onChange={(time) => setValue('time', time)}
             error={errors.time?.message}
             min="08:00"
-            max="17:00"
+            max="23:00"
             step={15}
             bookedTimes={bookedTimes}
           />

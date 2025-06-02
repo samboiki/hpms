@@ -109,6 +109,8 @@ interface PremiumAppointmentSchedulerProps {
   currentUserId: string;
   onRefresh?: () => void;
   viewMode?: 'day' | 'week' | 'month' | 'all';
+  internalViewMode?: 'timeline' | 'grid';
+  onInternalViewModeChange?: (mode: 'timeline' | 'grid') => void;
 }
 
 // Constants
@@ -116,7 +118,7 @@ const HOUR_HEIGHT = 60;
 const TIME_SLOT_INTERVAL = 30;
 const BUSINESS_HOURS = {
   start: 7,
-  end: 19,
+  end: 23,
 };
 
 // Premium color scheme matching patients page
@@ -190,7 +192,9 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     currentUserRole,
     currentUserId,
     onRefresh,
-    viewMode = 'week'
+    viewMode = 'week',
+    internalViewMode: externalInternalViewMode,
+    onInternalViewModeChange
   } = props;
 
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(
@@ -199,7 +203,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<{ doctorId: string; time: string; date: Date } | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [internalViewMode, setInternalViewMode] = useState<'timeline' | 'grid'>('grid');
+  const [internalViewMode, setInternalViewMode] = useState<'timeline' | 'grid'>(externalInternalViewMode || 'grid');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -211,6 +215,21 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     }, 60000);
     return () => clearInterval(timer);
   }, []);
+
+  // Sync with external internalViewMode prop
+  useEffect(() => {
+    if (externalInternalViewMode && externalInternalViewMode !== internalViewMode) {
+      setInternalViewMode(externalInternalViewMode);
+    }
+  }, [externalInternalViewMode]);
+
+  // Notify parent when internal view mode changes
+  const handleInternalViewModeChange = (mode: 'timeline' | 'grid') => {
+    setInternalViewMode(mode);
+    if (onInternalViewModeChange) {
+      onInternalViewModeChange(mode);
+    }
+  };
 
   // Get week dates for week view
   const weekDates = useMemo(() => {
@@ -925,33 +944,6 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               ))}
             </select>
 
-            {/* View Mode Toggle for Day/Week */}
-            {(viewMode === 'day' || viewMode === 'week') && (
-              <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => setInternalViewMode('timeline')}
-                  className={`px-3 py-1.5 text-sm font-medium rounded transition-all flex items-center gap-1.5 ${
-                    internalViewMode === 'timeline' 
-                      ? 'bg-white text-gray-900 shadow-sm' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <List className="h-4 w-4" />
-                  <span className="hidden sm:inline">Timeline</span>
-                </button>
-                <button
-                  onClick={() => setInternalViewMode('grid')}
-                  className={`px-3 py-1.5 text-sm font-medium rounded transition-all flex items-center gap-1.5 ${
-                    internalViewMode === 'grid' 
-                      ? 'bg-white text-gray-900 shadow-sm' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <Grid3X3 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Grid</span>
-                </button>
-              </div>
-            )}
 
             {onRefresh && (
               <button
@@ -983,7 +975,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               setIsAddModalOpen(true);
             }}
             onAppointmentDrop={handleAppointmentDrop}
-            businessHours={{ start: '08:00', end: '17:00' }}
+            businessHours={{ start: '08:00', end: '23:00' }}
             slotDuration={30}
           />
         ) : viewMode === 'day' && internalViewMode === 'grid' ? (
