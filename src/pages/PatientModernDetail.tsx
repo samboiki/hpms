@@ -37,7 +37,15 @@ import VisitModal from '../components/visits/VisitModal';
 import MedicalAidForm from '../components/forms/MedicalAidForm';
 import EditPatientForm from '../components/forms/EditPatientForm';
 import SendMessageModal from '../components/modals/SendMessageModal';
+import PatientDetailQueue from '../components/dashboard/PatientDetailQueue';
+import PatientDataTabs from '../components/patients/PatientDataTabs';
+import { useRealtimeAppointments } from '../hooks/useRealtimeAppointments';
+import VitalsForm from '../components/forms/VitalsForm';
+import AddLabRequestForm from '../components/forms/AddLabRequestForm';
+import AddMediaRequestForm from '../components/forms/AddMediaRequestForm';
+import { toast } from 'react-hot-toast';
 import { defaultSMSService } from '../services/smsPortal';
+import { authStore } from '../stores/authStore';
 
 interface Patient {
   id: string;
@@ -289,6 +297,16 @@ const PatientModernDetail = () => {
   const [smsPhone, setSmsPhone] = useState('');
   const [isSendingSms, setIsSendingSms] = useState(false);
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [vitals, setVitals] = useState<any[]>([]);
+  const [labRequests, setLabRequests] = useState<any[]>([]);
+  const [mediaRequests, setMediaRequests] = useState<any[]>([]);
+  const [isVitalsModalOpen, setIsVitalsModalOpen] = useState(false);
+  const [isLabRequestModalOpen, setIsLabRequestModalOpen] = useState(false);
+  const [isMediaRequestModalOpen, setIsMediaRequestModalOpen] = useState(false);
+  const [currentPracticeId, setCurrentPracticeId] = useState<string | null>(null);
+  const [currentDoctorId, setCurrentDoctorId] = useState<string>('');
+  const [doctorAppointments, setDoctorAppointments] = useState<any[]>([]);
 
 
   useEffect(() => {
@@ -325,6 +343,81 @@ const PatientModernDetail = () => {
 
         if (visitsError) throw visitsError;
         setVisits(visitsData || []);
+
+        // Fetch all patient appointments
+        const { data: appointmentsData, error: appointmentsError } = await supabase
+          .from('appointments')
+          .select('*, doctor:auth.users!appointments_doctor_id_fkey(id, email, user_metadata)')
+          .eq('patient_id', id)
+          .order('date', { ascending: false })
+          .order('time', { ascending: false });
+        
+        if (appointmentsError) console.error('Error fetching appointments:', appointmentsError);
+        else {
+          const formattedAppointments = appointmentsData?.map(apt => ({
+            ...apt,
+            doctor_name: apt.doctor?.user_metadata?.full_name || 'Unassigned'
+          })) || [];
+          setAppointments(formattedAppointments);
+        }
+
+        // Fetch all vitals for the patient
+        const { data: allVitalsData, error: allVitalsError } = await supabase
+          .from('vitals')
+          .select('*')
+          .in('visit_id', visitsData?.map(v => v.id) || [])
+          .order('created_at', { ascending: false });
+        
+        if (allVitalsError) console.error('Error fetching vitals:', allVitalsError);
+        else setVitals(allVitalsData || []);
+
+        // Fetch lab requests
+        const { data: labRequestsData, error: labRequestsError } = await supabase
+          .from('lab_requests')
+          .select('*')
+          .eq('patient_id', id)
+          .order('created_at', { ascending: false });
+        
+        if (labRequestsError) console.error('Error fetching lab requests:', labRequestsError);
+        else setLabRequests(labRequestsData || []);
+
+        // Fetch media requests
+        const { data: mediaRequestsData, error: mediaRequestsError } = await supabase
+          .from('media_requests')
+          .select('*')
+          .eq('patient_id', id)
+          .order('created_at', { ascending: false });
+        
+        if (mediaRequestsError) console.error('Error fetching media requests:', mediaRequestsError);
+        else setMediaRequests(mediaRequestsData || []);
+
+        // Get current user info and practice
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setCurrentDoctorId(user.id);
+          const { data: userData } = await supabase
+            .from('users')
+            .select('practice_id')
+            .eq('id', user.id)
+            .single();
+          
+          if (userData?.practice_id) {
+            setCurrentPracticeId(userData.practice_id);
+            
+            // Fetch all appointments for the doctor's queue
+            const { data: queueData, error: queueError } = await supabase
+              .from('appointments')
+              .select('*, patient:patients(*)')
+              .eq('practice_id', userData.practice_id)
+              .gte('date', new Date().toISOString().split('T')[0])
+              .order('date', { ascending: true })
+              .order('time', { ascending: true });
+            
+            if (!queueError && queueData) {
+              setDoctorAppointments(queueData);
+            }
+          }
+        }
 
         // Fetch Next of Kin
         const { data: nextOfKinData, error: nextOfKinError } = await supabase
@@ -406,6 +499,30 @@ const PatientModernDetail = () => {
       setIsVisitDetailModalOpen(true);
     } catch (error) {
       console.error('Error fetching visit details:', error);
+    }
+  };
+
+  const handleLinkToVisit = async (itemId: string, visitId: string, type: 'vital' | 'lab' | 'media') => {
+    try {
+      let tableName = '';
+      if (type === 'vital') tableName = 'vitals';
+      else if (type === 'lab') tableName = 'lab_requests';
+      else if (type === 'media') tableName = 'media_requests';
+      
+      const { error } = await supabase
+        .from(tableName)
+        .update({ visit_id: visitId })
+        .eq('id', itemId);
+      
+      if (error) throw error;
+      
+      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} linked to visit successfully`);
+      
+      // Refresh data
+      fetchData();
+    } catch (error) {
+      console.error('Error linking to visit:', error);
+      toast.error('Failed to link to visit');
     }
   };
 
@@ -1643,6 +1760,53 @@ Medical Team`;
           cell_number: patient.cell_number || ''
         } : null}
       />
+      
+      {/* Vitals Modal */}
+      <FormModal
+        isOpen={isVitalsModalOpen}
+        onClose={() => setIsVitalsModalOpen(false)}
+        title="Record Vitals"
+      >
+        <VitalsForm
+          visitId={visits[0]?.id} // Link to most recent visit
+          onSuccess={() => {
+            setIsVitalsModalOpen(false);
+            fetchData();
+          }}
+        />
+      </FormModal>
+
+      {/* Lab Request Modal */}
+      <FormModal
+        isOpen={isLabRequestModalOpen}
+        onClose={() => setIsLabRequestModalOpen(false)}
+        title="Request Laboratory Test"
+      >
+        <AddLabRequestForm
+          patientId={id || ''}
+          visitId={visits[0]?.id} // Link to most recent visit
+          onSuccess={() => {
+            setIsLabRequestModalOpen(false);
+            fetchData();
+          }}
+        />
+      </FormModal>
+
+      {/* Media Request Modal */}
+      <FormModal
+        isOpen={isMediaRequestModalOpen}
+        onClose={() => setIsMediaRequestModalOpen(false)}
+        title="Request Medical Imaging"
+      >
+        <AddMediaRequestForm
+          patientId={id || ''}
+          visitId={visits[0]?.id} // Link to most recent visit
+          onSuccess={() => {
+            setIsMediaRequestModalOpen(false);
+            fetchData();
+          }}
+        />
+      </FormModal>
       </div>
     </div>
   );
