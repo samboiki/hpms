@@ -932,7 +932,6 @@ Medical Team`;
                       <div className="mx-auto mb-6">
                         <div className="w-32 h-32 bg-gradient-to-br from-[#01b9d5]/10 via-purple-500/10 to-indigo-600/10 rounded-3xl flex items-center justify-center shadow-2xl backdrop-blur-xl border border-gray-200/50">
                           <div className="w-20 h-20 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                            <Activity className="w-10 h-10 text-white" />
                           </div>
                         </div>
                       </div>
