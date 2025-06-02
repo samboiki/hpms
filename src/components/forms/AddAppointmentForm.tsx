@@ -39,7 +39,7 @@ interface Props {
 
 const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTime, initialDoctorId }) => {
   const { user } = useAuthStore();
-  const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<AddAppointmentFormData>({
+  const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm<AddAppointmentFormData>({
     defaultValues: {
       date: initialDate ? format(initialDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
       time: initialTime || format(new Date(), 'HH:mm'),
@@ -49,6 +49,18 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
     }
   });
   
+  // Reset form when initial values change
+  useEffect(() => {
+    reset({
+      date: initialDate ? format(initialDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+      time: initialTime || format(new Date(), 'HH:mm'),
+      duration: 30,
+      type: 'consultation',
+      doctor_id: initialDoctorId || '',
+      patient_id: ''
+    });
+  }, [initialDate, initialTime, initialDoctorId, reset]);
+  
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,11 +68,34 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
   const [patientSearchTerm, setPatientSearchTerm] = useState('');
   const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
+  const [bookedTimes, setBookedTimes] = useState<string[]>([]);
+  const [endTime, setEndTime] = useState<string>('');
   
   const selectedPatientId = watch('patient_id');
   const selectedDate = watch('date');
   const selectedTime = watch('time');
   const selectedDoctorId = watch('doctor_id');
+  const selectedDuration = watch('duration');
+
+  // Calculate end time whenever start time or duration changes
+  useEffect(() => {
+    if (selectedTime && selectedDuration) {
+      const [hours, minutes] = selectedTime.split(':').map(Number);
+      const startDate = new Date();
+      startDate.setHours(hours, minutes, 0, 0);
+      
+      const endDate = new Date(startDate.getTime() + (selectedDuration * 60000));
+      const calculatedEndTime = format(endDate, 'HH:mm');
+      setEndTime(calculatedEndTime);
+    }
+  }, [selectedTime, selectedDuration]);
+
+  // Fetch booked times when doctor or date changes
+  useEffect(() => {
+    if (selectedDoctorId && selectedDate) {
+      fetchBookedTimes(selectedDoctorId, selectedDate);
+    }
+  }, [selectedDoctorId, selectedDate]);
 
   useEffect(() => {
     fetchPatients();
@@ -132,6 +167,40 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
     } catch (err) {
       console.error('Error fetching doctors:', err);
       setError('Failed to load doctors');
+    }
+  };
+
+  const fetchBookedTimes = async (doctorId: string, date: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('time, duration')
+        .eq('doctor_id', doctorId)
+        .eq('date', date)
+        .in('status', ['scheduled', 'in-progress']); // Only consider confirmed appointments
+
+      if (error) throw error;
+
+      // Generate array of booked time slots
+      const bookedSlots: string[] = [];
+      data?.forEach(appointment => {
+        if (appointment.time && appointment.duration) {
+          const [hours, minutes] = appointment.time.split(':').map(Number);
+          const startTime = new Date();
+          startTime.setHours(hours, minutes, 0, 0);
+          
+          // Mark every 15-minute slot within the appointment duration as booked
+          for (let i = 0; i < appointment.duration; i += 15) {
+            const slotTime = new Date(startTime.getTime() + (i * 60000));
+            bookedSlots.push(format(slotTime, 'HH:mm'));
+          }
+        }
+      });
+
+      setBookedTimes(bookedSlots);
+    } catch (err) {
+      console.error('Error fetching booked times:', err);
+      setBookedTimes([]);
     }
   };
 
@@ -328,28 +397,92 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
         {/* Time */}
         <div>
           <PremiumTimePicker
-            label="Time"
+            label="Start Time"
             value={watch('time')}
             onChange={(time) => setValue('time', time)}
             error={errors.time?.message}
             min="08:00"
             max="17:00"
             step={15}
+            bookedTimes={bookedTimes}
           />
         </div>
 
+        {/* End Time Display */}
+        {endTime && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">End Time</label>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Clock className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => {
+                    const newEndTime = e.target.value;
+                    setEndTime(newEndTime);
+                    
+                    // Calculate duration based on start and end time
+                    if (selectedTime && newEndTime) {
+                      const [startHours, startMinutes] = selectedTime.split(':').map(Number);
+                      const [endHours, endMinutes] = newEndTime.split(':').map(Number);
+                      
+                      const startDate = new Date();
+                      startDate.setHours(startHours, startMinutes, 0, 0);
+                      
+                      const endDate = new Date();
+                      endDate.setHours(endHours, endMinutes, 0, 0);
+                      
+                      if (endDate > startDate) {
+                        const durationMs = endDate.getTime() - startDate.getTime();
+                        const durationMinutes = Math.round(durationMs / 60000);
+                        setValue('duration', durationMinutes);
+                      }
+                    }
+                  }}
+                  className="pl-10 block w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
+                />
+              </div>
+              <span className="text-sm text-gray-500 whitespace-nowrap">
+                ({selectedDuration} min)
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Duration */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)</label>
-          <select
-            {...register('duration', { required: 'Duration is required' })}
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
-          >
-            <option value="15">15 minutes</option>
-            <option value="30">30 minutes</option>
-            <option value="45">45 minutes</option>
-            <option value="60">60 minutes</option>
-          </select>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+          <div className="grid grid-cols-2 gap-2">
+            <select
+              {...register('duration', { required: 'Duration is required' })}
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
+            >
+              <option value="15">15 minutes</option>
+              <option value="30">30 minutes</option>
+              <option value="45">45 minutes</option>
+              <option value="60">60 minutes</option>
+              <option value="90">90 minutes</option>
+              <option value="120">2 hours</option>
+            </select>
+            <input
+              type="number"
+              min="15"
+              max="480"
+              step="15"
+              value={selectedDuration}
+              onChange={(e) => {
+                const duration = parseInt(e.target.value);
+                if (duration >= 15 && duration <= 480) {
+                  setValue('duration', duration);
+                }
+              }}
+              placeholder="Custom"
+              className="block w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-brand-primary focus:border-brand-primary text-sm"
+            />
+          </div>
           {errors.duration && (
             <p className="mt-1 text-sm text-red-600">{errors.duration.message}</p>
           )}
@@ -405,12 +538,15 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
             <div>
               <p className="text-gray-500">Date & Time</p>
               <p className="font-medium">
-                {format(new Date(selectedDate), 'MMMM d, yyyy')} at {selectedTime}
+                {format(new Date(selectedDate), 'MMMM d, yyyy')} 
+              </p>
+              <p className="text-sm text-gray-600">
+                {selectedTime} - {endTime} ({selectedDuration} min)
               </p>
             </div>
             <div>
-              <p className="text-gray-500">Duration</p>
-              <p className="font-medium">{watch('duration')} minutes</p>
+              <p className="text-gray-500">Appointment Type</p>
+              <p className="font-medium capitalize">{watch('type')}</p>
             </div>
           </div>
         </div>

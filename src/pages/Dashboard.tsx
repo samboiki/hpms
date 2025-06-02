@@ -405,9 +405,16 @@ function Dashboard() {
     setIsRescheduleModalOpen(true);
   };
 
-  const handleCreateAppointment = async () => {
-    setIsAddAppointmentModalOpen(false);
-    // Real-time updates will handle the refresh
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<{
+    doctorId: string;
+    date: string;
+    time: string;
+  } | null>(null);
+
+  const handleCreateAppointment = async (doctorId: string, date: string, time: string) => {
+    console.log('Creating appointment for:', { doctorId, date, time });
+    setSelectedTimeSlot({ doctorId, date, time });
+    setIsAddAppointmentModalOpen(true);
   };
 
   const handleDeleteAppointment = async (appointmentId: string) => {
@@ -742,7 +749,10 @@ function Dashboard() {
                   onDeleteAppointment={handleDeleteAppointment}
                   currentUserRole={currentUserRole}
                   currentUserId={currentUserId}
-                  onRefresh={() => {/* Real-time updates handle refresh */}}
+                  onRefresh={() => {
+                    console.log('🔄 Manual refresh triggered from scheduler');
+                    fetchData();
+                  }}
                 />
               </div>
             </motion.div>
@@ -888,12 +898,19 @@ function Dashboard() {
       {/* Modals */}
       <FormModal
         isOpen={isAddAppointmentModalOpen}
-        onClose={() => setIsAddAppointmentModalOpen(false)}
+        onClose={() => {
+          setIsAddAppointmentModalOpen(false);
+          setSelectedTimeSlot(null);
+        }}
         title="Schedule New Appointment"
       >
         <AddAppointmentForm
+          initialDate={selectedTimeSlot ? new Date(selectedTimeSlot.date) : undefined}
+          initialTime={selectedTimeSlot?.time}
+          initialDoctorId={selectedTimeSlot?.doctorId}
           onSuccess={() => {
             setIsAddAppointmentModalOpen(false);
+            setSelectedTimeSlot(null);
             // Real-time updates will handle the refresh
           }}
         />

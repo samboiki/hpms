@@ -977,7 +977,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             onTimeSlotClick={(time, doctorId) => {
               setSelectedTimeSlot({
                 doctorId,
-                time: format(time, 'HH:mm:ss'),
+                time: format(time, 'HH:mm'),
                 date: time
               });
               setIsAddModalOpen(true);
@@ -999,7 +999,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             onTimeSlotClick={(date, time, doctorId) => {
               setSelectedTimeSlot({
                 doctorId: doctorId || selectedDoctorId || doctors[0]?.id || '',
-                time: time + ':00',
+                time: time, // time should already be in HH:mm format
                 date: date
               });
               setIsAddModalOpen(true);

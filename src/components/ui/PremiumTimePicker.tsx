@@ -12,6 +12,7 @@ interface PremiumTimePickerProps {
   max?: string;
   step?: number;
   className?: string;
+  bookedTimes?: string[];
 }
 
 export const PremiumTimePicker: React.FC<PremiumTimePickerProps> = ({
@@ -22,7 +23,8 @@ export const PremiumTimePicker: React.FC<PremiumTimePickerProps> = ({
   min = '00:00',
   max = '23:59',
   step = 15,
-  className
+  className,
+  bookedTimes = []
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [hours, setHours] = useState(parseInt(value.split(':')[0]));
@@ -238,37 +240,54 @@ export const PremiumTimePicker: React.FC<PremiumTimePickerProps> = ({
 
               {/* Time Slots Grid */}
               <div className="mt-4 pt-4 border-t border-gray-100">
-                <p className="text-xs font-medium text-gray-600 mb-2">Common Slots</p>
+                <p className="text-xs font-medium text-gray-600 mb-2">Available Slots</p>
                 <div className="grid grid-cols-6 gap-1 max-h-32 overflow-y-auto custom-scrollbar">
                   {Array.from({ length: 24 }, (_, h) => 
                     Array.from({ length: 60 / step }, (_, m) => {
                       const hour = h;
                       const minute = m * step;
                       const timeStr = formatTime(hour, minute);
+                      const isBooked = bookedTimes.includes(timeStr);
+                      const isSelected = formatTime(hours, minutes) === timeStr;
+                      const isHovered = hoveredSlot === timeStr;
                       
                       return (
                         <motion.button
                           key={timeStr}
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onMouseEnter={() => setHoveredSlot(timeStr)}
+                          whileHover={!isBooked ? { scale: 1.1 } : {}}
+                          whileTap={!isBooked ? { scale: 0.9 } : {}}
+                          onMouseEnter={() => !isBooked && setHoveredSlot(timeStr)}
                           onMouseLeave={() => setHoveredSlot(null)}
-                          onClick={() => handleTimeSelect(hour, minute)}
+                          onClick={() => !isBooked && handleTimeSelect(hour, minute)}
+                          disabled={isBooked}
                           className={cn(
-                            "p-1.5 text-xs rounded transition-all",
-                            formatTime(hours, minutes) === timeStr
+                            "p-1.5 text-xs rounded transition-all relative",
+                            isSelected
                               ? "bg-[#01b9d5] text-white font-medium shadow-sm"
-                              : hoveredSlot === timeStr
+                              : isBooked
+                              ? "bg-red-50 text-red-300 cursor-not-allowed opacity-60 line-through"
+                              : isHovered
                               ? "bg-gray-100 text-gray-700"
                               : "text-gray-500 hover:bg-gray-50"
                           )}
                         >
                           {timeStr}
+                          {isBooked && (
+                            <div className="absolute inset-0 bg-red-100/50 rounded flex items-center justify-center">
+                              <span className="text-[8px] text-red-500 font-bold">✕</span>
+                            </div>
+                          )}
                         </motion.button>
                       );
                     })
                   ).flat()}
                 </div>
+                {bookedTimes.length > 0 && (
+                  <div className="mt-2 text-xs text-gray-500 flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 bg-red-100 rounded border border-red-200"></span>
+                    Booked times are crossed out
+                  </div>
+                )}
               </div>
 
               {/* Set Time Button */}
