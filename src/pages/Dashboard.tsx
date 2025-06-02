@@ -28,7 +28,7 @@ import { motion } from 'framer-motion';
 import { useRealtimeAppointments } from '../hooks/useRealtimeAppointments';
 import { toast } from 'react-hot-toast';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
-import DashboardStats from '../components/dashboard/DashboardStats';
+import DoctorQueueManagement from '../components/dashboard/DoctorQueueManagement';
 
 interface Appointment {
   id: string;
@@ -479,51 +479,110 @@ function Dashboard() {
   const handleStartVisit = async (appointmentId: string) => {
     try {
       const appointment = appointments.find(apt => apt.id === appointmentId);
-      if (!appointment) return;
+      if (!appointment) {
+        toast.error('Appointment not found');
+        return;
+      }
 
-      // Create a visit record
-      const { error: visitError } = await supabase
+      // Start a database transaction by creating visit first
+      const { data: visit, error: visitError } = await supabase
         .from('visits')
         .insert([{
           appointment_id: appointmentId,
           patient_id: appointment.patient_id,
-          doctor_id: appointment.doctor_id,
+          doctor_id: appointment.doctor_id || currentUserId, // Use current doctor if not assigned
           visit_date: appointment.date,
           visit_time: appointment.time,
-          visit_type: appointment.type,
-          status: 'in-progress'
+          visit_type: appointment.type || 'consultation',
+          chief_complaint: appointment.notes || 'See appointment notes',
+          status: 'in-progress',
+          created_at: new Date().toISOString()
         }])
         .select()
         .single();
       
-      if (visitError) throw visitError;
+      if (visitError) {
+        console.error('Visit creation error:', visitError);
+        throw new Error('Failed to create visit record');
+      }
       
-      // Update appointment status
+      // Update appointment status to in-progress
       const { error: updateError } = await supabase
         .from('appointments')
         .update({ 
           status: 'in-progress',
+          doctor_id: appointment.doctor_id || currentUserId, // Assign doctor if not already assigned
           updated_at: new Date().toISOString()
         })
         .eq('id', appointmentId);
       
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Appointment update error:', updateError);
+        // Try to rollback by deleting the visit
+        await supabase.from('visits').delete().eq('id', visit.id);
+        throw new Error('Failed to update appointment status');
+      }
       
+      // Close any open modals
       setIsActionModalOpen(false);
+      setIsApprovalModalOpen(false);
       setSelectedAppointment(null);
-      // Real-time updates will handle the refresh
       
-      // Navigate to patient detail page
-      navigate(`/patients/${appointment.patient_id}`);
+      // Show success message with patient name
+      toast.success(
+        `Visit started for ${appointment.patient?.first_name} ${appointment.patient?.last_name}`,
+        { duration: 3000, icon: '🏥' }
+      );
+      
+      // Add to activity log
+      const newActivity: ActivityItem = {
+        id: `visit-${Date.now()}`,
+        type: 'appointment',
+        message: 'Visit started',
+        details: `${appointment.patient?.first_name} ${appointment.patient?.last_name} - ${appointment.type}`,
+        time: 'Just now',
+        icon: Activity,
+        color: 'text-green-600'
+      };
+      setRecentActivities(prev => [newActivity, ...prev.slice(0, 4)]);
+      
+      // Navigate to patient detail page after a short delay
+      setTimeout(() => {
+        navigate(`/patients/${appointment.patient_id}`);
+      }, 500);
+      
     } catch (error) {
       console.error('Error starting visit:', error);
-      alert('Failed to start visit');
+      toast.error(error instanceof Error ? error.message : 'Failed to start visit');
     }
   };
 
   const handleCompleteVisit = async (appointmentId: string) => {
     try {
-      // Update appointment status
+      const appointment = appointments.find(apt => apt.id === appointmentId);
+      if (!appointment) {
+        toast.error('Appointment not found');
+        return;
+      }
+      
+      // Update visit status first
+      const { data: visit, error: visitError } = await supabase
+        .from('visits')
+        .update({ 
+          status: 'completed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('appointment_id', appointmentId)
+        .eq('status', 'in-progress')
+        .select()
+        .single();
+      
+      if (visitError && visitError.code !== 'PGRST116') { // Ignore "no rows returned" error
+        console.error('Visit update error:', visitError);
+        throw new Error('Failed to update visit status');
+      }
+      
+      // Update appointment status to completed
       const { error: appointmentError } = await supabase
         .from('appointments')
         .update({ 
@@ -532,23 +591,105 @@ function Dashboard() {
         })
         .eq('id', appointmentId);
       
-      if (appointmentError) throw appointmentError;
+      if (appointmentError) {
+        console.error('Appointment update error:', appointmentError);
+        // Try to rollback visit status if appointment update fails
+        if (visit) {
+          await supabase
+            .from('visits')
+            .update({ status: 'in-progress' })
+            .eq('id', visit.id);
+        }
+        throw new Error('Failed to update appointment status');
+      }
       
-      // Update visit status if exists
-      const { error: visitError } = await supabase
-        .from('visits')
-        .update({ status: 'completed' })
-        .eq('appointment_id', appointmentId)
-        .eq('status', 'in-progress');
-      
-      if (visitError) throw visitError;
-      
+      // Close modals
       setIsActionModalOpen(false);
       setSelectedAppointment(null);
-      // Real-time updates will handle the refresh
+      
+      // Show success message
+      toast.success(
+        `Visit completed for ${appointment.patient?.first_name} ${appointment.patient?.last_name}`,
+        { duration: 3000, icon: '✅' }
+      );
+      
+      // Add to activity log
+      const newActivity: ActivityItem = {
+        id: `complete-${Date.now()}`,
+        type: 'appointment',
+        message: 'Visit completed',
+        details: `${appointment.patient?.first_name} ${appointment.patient?.last_name} - ${appointment.type}`,
+        time: 'Just now',
+        icon: CheckCircle2,
+        color: 'text-blue-600'
+      };
+      setRecentActivities(prev => [newActivity, ...prev.slice(0, 4)]);
+      
+      // Update stats immediately for better UX
+      const todayStr = format(new Date(), 'yyyy-MM-dd');
+      if (appointment.date === todayStr) {
+        // Force immediate UI update
+        setAppointments(prev => 
+          prev.map(apt => apt.id === appointmentId ? { ...apt, status: 'completed' } : apt)
+        );
+      }
+      
     } catch (error) {
       console.error('Error completing visit:', error);
-      alert('Failed to complete visit');
+      toast.error(error instanceof Error ? error.message : 'Failed to complete visit');
+    }
+  };
+
+  const handleMarkReady = async (appointmentId: string) => {
+    try {
+      const appointment = appointments.find(apt => apt.id === appointmentId);
+      if (!appointment) {
+        toast.error('Appointment not found');
+        return;
+      }
+      
+      // Update appointment status to ready
+      const { error } = await supabase
+        .from('appointments')
+        .update({ 
+          status: 'ready',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointmentId);
+
+      if (error) {
+        console.error('Mark ready error:', error);
+        throw new Error('Failed to update appointment status');
+      }
+      
+      // Show success notification
+      toast.success(
+        `${appointment.patient?.first_name} ${appointment.patient?.last_name} is ready to be seen`,
+        { duration: 3000, icon: '🔔' }
+      );
+      
+      // Add to activity log
+      const newActivity: ActivityItem = {
+        id: `ready-${Date.now()}`,
+        type: 'appointment',
+        message: 'Patient ready',
+        details: `${appointment.patient?.first_name} ${appointment.patient?.last_name} - ${appointment.type}`,
+        time: 'Just now',
+        icon: AlertCircle,
+        color: 'text-green-600'
+      };
+      setRecentActivities(prev => [newActivity, ...prev.slice(0, 4)]);
+      
+      // Send notification to doctor if different from current user
+      if (appointment.doctor_id && appointment.doctor_id !== currentUserId) {
+        // This would trigger a real-time notification to the doctor
+        // For now, we'll just log it
+        console.log(`Notification sent to doctor ${appointment.doctor_id}`);
+      }
+      
+    } catch (error) {
+      console.error('Error marking patient ready:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to mark patient ready');
     }
   };
 
@@ -884,47 +1025,56 @@ function Dashboard() {
               </div>
             </motion.div>
 
-            {/* Recent Activity - THIRD */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4 }}
-              className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 p-4 md:p-5"
-            >
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-[#01b9d5]" />
-                Recent Activity
-              </h3>
-              <div className="space-y-3">
-                {recentActivities.length > 0 ? (
-                  recentActivities.map((activity, index) => (
-                    <motion.div
-                      key={activity.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.5 + index * 0.05 }}
-                      className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <div className={`p-2 rounded-lg bg-gray-100`}>
-                        <activity.icon className={`w-4 h-4 ${activity.color}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{activity.message}</p>
-                        <p className="text-xs text-gray-500">{activity.details}</p>
-                      </div>
-                      <span className="text-xs text-gray-400">{activity.time}</span>
-                    </motion.div>
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-500 text-center py-8">No recent activity</p>
-                )}
-              </div>
-            </motion.div>
+            {/* Doctor Queue Management or Recent Activity - THIRD */}
+            {currentUserRole === 'doctor' ? (
+              <DoctorQueueManagement
+                appointments={appointments}
+                currentDoctorId={currentUserId}
+                onStartVisit={handleStartVisit}
+                onCompleteVisit={handleCompleteVisit}
+                onMarkReady={handleMarkReady}
+                isLoading={isLoading}
+              />
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 }}
+                className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 p-4 md:p-5"
+              >
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-[#01b9d5]" />
+                  Recent Activity
+                </h3>
+                <div className="space-y-3">
+                  {recentActivities.length > 0 ? (
+                    recentActivities.map((activity, index) => (
+                      <motion.div
+                        key={activity.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.5 + index * 0.05 }}
+                        className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        <div className={`p-2 rounded-lg bg-gray-100`}>
+                          <activity.icon className={`w-4 h-4 ${activity.color}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900">{activity.message}</p>
+                          <p className="text-xs text-gray-500">{activity.details}</p>
+                        </div>
+                        <span className="text-xs text-gray-400">{activity.time}</span>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-8">No recent activity</p>
+                  )}
+                </div>
+              </motion.div>
+            )}
           </div>
         </div>
 
-        {/* Advanced Statistics Dashboard */}
-        <DashboardStats practiceId={currentPracticeId} />
       </div>
 
       {/* Modals */}
