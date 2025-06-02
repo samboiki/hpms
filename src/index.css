@@ -13,11 +13,24 @@
   html {
     font-family: 'Montserrat', sans-serif;
     color: theme('colors.gray.900');
+    /* Force consistent color rendering */
+    color-scheme: light;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
   body {
     background-color: #f3f4f6 !important; /* gray-100 */
     background: #f3f4f6 !important;
+    /* Force consistent brightness and color rendering */
+    filter: none !important;
+    -webkit-filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    /* Prevent color adjustments */
+    color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -25,6 +38,53 @@
     font-weight: 500;
     line-height: 1.4;
     letter-spacing: -0.02em;
+  }
+
+  /* Force consistent rendering for all elements */
+  * {
+    /* Disable forced color adjustments */
+    forced-color-adjust: none !important;
+    /* Prevent brightness/contrast adjustments */
+    filter: none !important;
+    -webkit-filter: none !important;
+  }
+  
+  /* Ensure white backgrounds stay white */
+  .bg-white,
+  [class*="bg-white"] {
+    background-color: #ffffff !important;
+    filter: none !important;
+  }
+  
+  /* Ensure gray backgrounds maintain their exact colors */
+  .bg-gray-50,
+  [class*="bg-gray-50"] {
+    background-color: #f9fafb !important;
+  }
+  
+  .bg-gray-100,
+  [class*="bg-gray-100"] {
+    background-color: #f3f4f6 !important;
+  }
+  
+  /* Protect gradient backgrounds */
+  [class*="bg-gradient"] {
+    filter: none !important;
+    -webkit-filter: none !important;
+  }
+  
+  /* Disable Windows high contrast mode adjustments */
+  @media (prefers-contrast: high) {
+    * {
+      forced-color-adjust: none !important;
+    }
+  }
+  
+  /* Disable color scheme preferences */
+  @media (prefers-color-scheme: dark) {
+    html {
+      color-scheme: light !important;
+    }
   }
 
   /* Hide header and sidebar when modal is open */
