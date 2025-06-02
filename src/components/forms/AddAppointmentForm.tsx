@@ -6,6 +6,7 @@ import { Search, Calendar, Clock, User, FileText, AlertCircle } from 'lucide-rea
 import { format, setHours, setMinutes } from 'date-fns';
 import { checkAppointmentConflict } from '../../utils/appointments';
 import { PremiumTimePicker } from '../ui/PremiumTimePicker';
+import { useAuthStore } from '../../stores/authStore';
 
 interface AddAppointmentFormData {
   patient_id: string;
@@ -33,15 +34,18 @@ interface Props {
   onSuccess: () => void;
   initialDate?: Date;
   initialTime?: string;
+  initialDoctorId?: string;
 }
 
-const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTime }) => {
+const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTime, initialDoctorId }) => {
+  const { user } = useAuthStore();
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<AddAppointmentFormData>({
     defaultValues: {
       date: initialDate ? format(initialDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
       time: initialTime || format(new Date(), 'HH:mm'),
       duration: 30,
-      type: 'consultation'
+      type: 'consultation',
+      doctor_id: initialDoctorId || ''
     }
   });
   
@@ -77,9 +81,21 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
 
   const fetchPatients = async () => {
     try {
+      // Get user's practice_id
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('id', user?.id)
+        .single();
+
+      if (userError) throw userError;
+
+      const practiceId = userData?.practice_id || user?.practice_id;
+
       const { data, error } = await supabase
         .from('patients')
         .select('id, first_name, last_name')
+        .eq('practice_id', practiceId)
         .order('last_name', { ascending: true });
 
       if (error) throw error;
@@ -93,10 +109,22 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
 
   const fetchDoctors = async () => {
     try {
+      // First get user's practice_id from users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('id', user?.id)
+        .single();
+
+      if (userError) throw userError;
+
+      const practiceId = userData?.practice_id || user?.practice_id;
+
       const { data, error } = await supabase
         .from('users')
         .select('id, full_name, role')
         .eq('role', 'doctor')
+        .eq('practice_id', practiceId)
         .order('full_name', { ascending: true });
 
       if (error) throw error;
@@ -128,6 +156,17 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
         return;
       }
 
+      // Get user's practice_id
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('id', user?.id)
+        .single();
+
+      if (userError) throw userError;
+
+      const practiceId = userData?.practice_id || user?.practice_id;
+
       // Create the appointment
       const { error: appointmentError } = await supabase
         .from('appointments')
@@ -139,7 +178,8 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
           duration: data.duration,
           type: data.type,
           status: 'scheduled',
-          notes: data.notes
+          notes: data.notes,
+          practice_id: practiceId
         }]);
 
       if (appointmentError) throw appointmentError;

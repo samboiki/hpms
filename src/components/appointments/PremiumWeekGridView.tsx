@@ -57,7 +57,7 @@ interface PremiumWeekGridViewProps {
   appointments: Appointment[];
   doctors: Doctor[];
   onAppointmentClick?: (appointment: Appointment) => void;
-  onTimeSlotClick?: (date: Date, time: string) => void;
+  onTimeSlotClick?: (date: Date, time: string, doctorId?: string) => void;
 }
 
 export const PremiumWeekGridView: React.FC<PremiumWeekGridViewProps> = ({

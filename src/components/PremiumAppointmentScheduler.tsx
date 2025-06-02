@@ -704,7 +704,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                             }}
                             onClick={() => {
                               setSelectedTimeSlot({ 
-                                doctorId: doctors[0]?.id || '', 
+                                doctorId: selectedDoctorId || doctors[0]?.id || '', 
                                 time: slot,
                                 date: date 
                               });
@@ -996,9 +996,9 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             appointments={filteredAppointments}
             doctors={doctors}
             onAppointmentClick={onAppointmentClick}
-            onTimeSlotClick={(date, time) => {
+            onTimeSlotClick={(date, time, doctorId) => {
               setSelectedTimeSlot({
-                doctorId: selectedDoctorId || doctors[0]?.id || '',
+                doctorId: doctorId || selectedDoctorId || doctors[0]?.id || '',
                 time: time + ':00',
                 date: date
               });
@@ -1040,6 +1040,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
         <AddAppointmentForm
           initialDate={selectedTimeSlot?.date || selectedDate}
           initialTime={selectedTimeSlot?.time}
+          initialDoctorId={selectedTimeSlot?.doctorId}
           onSuccess={() => {
             setIsAddModalOpen(false);
             setSelectedTimeSlot(null);
