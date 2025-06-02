@@ -71,7 +71,7 @@ interface Appointment {
   time: string;
   duration: number;
   type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
-  status: 'pending' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
+  status: 'pending' | 'scheduled' | 'ready' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
   notes?: string;
 }
 
@@ -128,6 +128,8 @@ const getStatusGradient = (status: Appointment['status']) => {
       return 'from-yellow-400 to-yellow-500';
     case 'scheduled':
       return 'from-[#01b9d5] to-[#0196be]';
+    case 'ready':
+      return 'from-green-500 to-green-600';
     case 'in-progress':
       return 'from-amber-500 to-amber-600';
     case 'completed':
@@ -162,6 +164,8 @@ const getStatusIcon = (status: Appointment['status']) => {
       return AlertCircle;
     case 'scheduled':
       return CalendarIcon;
+    case 'ready':
+      return CheckCircle;
     case 'in-progress':
       return Activity;
     case 'completed':
@@ -208,6 +212,30 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Handle Mark Ready
+  const handleMarkReady = async (appointmentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ 
+          status: 'ready',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', appointmentId);
+
+      if (error) throw error;
+      
+      toast.success('Patient marked as ready!');
+      
+      if (props.onRefresh) {
+        props.onRefresh();
+      }
+    } catch (error) {
+      console.error('Error marking patient ready:', error);
+      toast.error('Failed to mark patient ready');
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -536,9 +564,22 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                       </div>
                       
                       <div className="flex items-center justify-between">
-                        <span className={`text-xs px-3 py-1 rounded-full font-medium bg-gradient-to-r ${getStatusGradient(appointment.status)} text-white`}>
-                          {appointment.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-3 py-1 rounded-full font-medium bg-gradient-to-r ${getStatusGradient(appointment.status)} text-white`}>
+                            {appointment.status}
+                          </span>
+                          {appointment.status === 'scheduled' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkReady(appointment.id);
+                              }}
+                              className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded-full font-medium shadow-md transition-all hover:shadow-lg"
+                            >
+                              Mark Ready
+                            </button>
+                          )}
+                        </div>
                         <span className="text-sm text-gray-600 capitalize flex items-center gap-1.5">
                           <Stethoscope className="h-3.5 w-3.5" />
                           {appointment.type}
@@ -707,6 +748,18 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                   {appointment.patient.first_name} {appointment.patient.last_name}
                                 </p>
                                 <p className="text-[10px] text-gray-600 truncate">{appointment.type}</p>
+                                {/* Mark Ready Button for Week View */}
+                                {appointment.status === 'scheduled' && height >= 60 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleMarkReady(appointment.id);
+                                    }}
+                                    className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-green-500 hover:bg-green-600 text-white text-[10px] rounded shadow-sm transition-colors"
+                                  >
+                                    Ready
+                                  </button>
+                                )}
                               </div>
                             </motion.div>
                           );
@@ -779,6 +832,20 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                 <p className="text-xs text-gray-600 mt-1">{appointment.type}</p>
                                 {appointment.duration >= 60 && appointment.notes && (
                                   <p className="text-[10px] text-gray-500 mt-2 truncate">{appointment.notes}</p>
+                                )}
+                                {/* Mark Ready Button */}
+                                {appointment.status === 'scheduled' && (
+                                  <div className="absolute bottom-2 right-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleMarkReady(appointment.id);
+                                      }}
+                                      className="px-2 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded-md shadow-md transition-colors"
+                                    >
+                                      Mark Ready
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             </motion.div>

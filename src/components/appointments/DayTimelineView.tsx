@@ -15,7 +15,7 @@ interface Appointment {
   time: string;
   duration: number;
   type: string;
-  status: 'pending' | 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
+  status: 'pending' | 'scheduled' | 'confirmed' | 'ready' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
   notes?: string;
   patient?: {
     id: string;
@@ -45,6 +45,7 @@ interface DayTimelineViewProps {
   onCheckIn: (appointmentId: string) => void;
   onCancel: (appointmentId: string) => void;
   onReschedule: (appointment: Appointment) => void;
+  onMarkReady?: (appointmentId: string) => void;
 }
 
 const HOUR_HEIGHT = 80; // pixels per hour
@@ -361,24 +362,26 @@ const DayTimelineView: React.FC<DayTimelineViewProps> = ({
                             </div>
 
                             {/* Actions - Show on hover if space allows */}
-                            {(apt.status === 'scheduled' || apt.status === 'pending') && apt.height > 60 && (
+                            {(apt.status === 'scheduled' || apt.status === 'pending' || apt.status === 'ready') && apt.height > 60 && (
                               <div className="absolute bottom-1 left-1 right-1 flex gap-1 
                                 opacity-0 hover:opacity-100 transition-opacity">
-                                {apt.status === 'scheduled' && (
+                                {apt.status === 'scheduled' && onMarkReady && (
                                   <button
-                                    className="flex-1 bg-white/20 hover:bg-white/30 rounded p-1 
-                                      backdrop-blur-sm transition-colors"
+                                    className="flex-1 bg-green-500/30 hover:bg-green-500/40 rounded p-1 
+                                      backdrop-blur-sm transition-colors" 
+                                    title="Mark Ready"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      onCheckIn(apt.id);
+                                      onMarkReady(apt.id);
                                     }}
                                   >
-                                    <CheckCircle2 size={12} className="mx-auto" />
+                                    <UserCheck size={12} className="mx-auto" />
                                   </button>
                                 )}
                                 <button
                                   className="flex-1 bg-white/20 hover:bg-white/30 rounded p-1 
                                     backdrop-blur-sm transition-colors"
+                                  title="Reschedule"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     onReschedule(apt);
@@ -389,6 +392,7 @@ const DayTimelineView: React.FC<DayTimelineViewProps> = ({
                                 <button
                                   className="flex-1 bg-white/20 hover:bg-white/30 rounded p-1 
                                     backdrop-blur-sm transition-colors"
+                                  title="Cancel"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     onCancel(apt.id);
@@ -437,7 +441,7 @@ const DayTimelineView: React.FC<DayTimelineViewProps> = ({
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-gradient-to-br from-emerald-500 to-emerald-600" />
-              <span className="text-gray-600">Confirmed</span>
+              <span className="text-gray-600">Ready</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-gradient-to-br from-amber-500 to-amber-600" />
