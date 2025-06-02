@@ -58,6 +58,7 @@ interface PremiumWeekGridViewProps {
   doctors: Doctor[];
   onAppointmentClick?: (appointment: Appointment) => void;
   onTimeSlotClick?: (date: Date, time: string, doctorId?: string) => void;
+  onMarkReady?: (appointmentId: string) => void;
 }
 
 export const PremiumWeekGridView: React.FC<PremiumWeekGridViewProps> = ({
@@ -65,7 +66,8 @@ export const PremiumWeekGridView: React.FC<PremiumWeekGridViewProps> = ({
   appointments,
   doctors,
   onAppointmentClick,
-  onTimeSlotClick
+  onTimeSlotClick,
+  onMarkReady
 }) => {
   const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
 
@@ -243,9 +245,21 @@ export const PremiumWeekGridView: React.FC<PremiumWeekGridViewProps> = ({
                                 </div>
 
                                 {/* Hover actions */}
-                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded-full shadow-sm">
+                                <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                   {appointment.status === 'pending' && (
                                     <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
+                                  )}
+                                  {appointment.status === 'scheduled' && onMarkReady && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onMarkReady(appointment.id);
+                                      }}
+                                      className="px-1.5 py-0.5 bg-green-500 hover:bg-green-600 text-white text-[10px] rounded shadow-sm transition-colors font-medium"
+                                      title="Mark Ready"
+                                    >
+                                      Ready
+                                    </button>
                                   )}
                                 </div>
                               </div>

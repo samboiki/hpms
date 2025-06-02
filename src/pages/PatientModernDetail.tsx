@@ -307,157 +307,172 @@ const PatientModernDetail = () => {
   const [currentDoctorId, setCurrentDoctorId] = useState<string>('');
   const [doctorAppointments, setDoctorAppointments] = useState<any[]>([]);
 
+  // Extract fetchData function so it can be called from buttons
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
+      if (!id || !UUID_REGEX.test(id)) {
+        throw new Error('Invalid patient ID format. Please use a valid UUID.');
+      }
+      
+      const { data: patientData, error: patientError } = await supabase
+        .from('patient_details_view')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-        if (!id || !UUID_REGEX.test(id)) {
-          throw new Error('Invalid patient ID format. Please use a valid UUID.');
-        }
-        
-        const { data: patientData, error: patientError } = await supabase
-          .from('patient_details_view')
-          .select('*')
-          .eq('id', id)
-          .single();
+      if (patientError) throw patientError;
+      if (!patientData) throw new Error('Patient not found');
+      
+      setPatient(patientData);
+      
+      // Extract medical aid from the view
+      if (patientData.medical_aid_details && patientData.medical_aid_details.length > 0) {
+        setMedicalAid(patientData.medical_aid_details[0]);
+      }
 
-        if (patientError) throw patientError;
-        if (!patientData) throw new Error('Patient not found');
-        
-        setPatient(patientData);
-        
-        // Extract medical aid from the view
-        if (patientData.medical_aid_details && patientData.medical_aid_details.length > 0) {
-          setMedicalAid(patientData.medical_aid_details[0]);
-        }
+      const { data: visitsData, error: visitsError } = await supabase
+        .from('visit_details_view')
+        .select('*')
+        .eq('patient_id', id)
+        .order('visit_date', { ascending: true });
 
-        const { data: visitsData, error: visitsError } = await supabase
-          .from('visit_details_view')
-          .select('*')
-          .eq('patient_id', id)
-          .order('visit_date', { ascending: true });
+      if (visitsError) throw visitsError;
+      setVisits(visitsData || []);
 
-        if (visitsError) throw visitsError;
-        setVisits(visitsData || []);
+      // Fetch all patient appointments - Fixed query syntax
+      const { data: appointmentsData, error: appointmentsError } = await supabase
+        .from('appointments')
+        .select(`
+          *,
+          doctor:users!appointments_doctor_id_fkey(
+            id,
+            email,
+            full_name
+          )
+        `)
+        .eq('patient_id', id)
+        .order('date', { ascending: false })
+        .order('time', { ascending: false });
+      
+      if (appointmentsError) console.error('Error fetching appointments:', appointmentsError);
+      else {
+        const formattedAppointments = appointmentsData?.map(apt => ({
+          ...apt,
+          doctor_name: apt.doctor?.full_name || 'Unassigned'
+        })) || [];
+        setAppointments(formattedAppointments);
+      }
 
-        // Fetch all patient appointments
-        const { data: appointmentsData, error: appointmentsError } = await supabase
-          .from('appointments')
-          .select('*, doctor:auth.users!appointments_doctor_id_fkey(id, email, user_metadata)')
-          .eq('patient_id', id)
-          .order('date', { ascending: false })
-          .order('time', { ascending: false });
-        
-        if (appointmentsError) console.error('Error fetching appointments:', appointmentsError);
-        else {
-          const formattedAppointments = appointmentsData?.map(apt => ({
-            ...apt,
-            doctor_name: apt.doctor?.user_metadata?.full_name || 'Unassigned'
-          })) || [];
-          setAppointments(formattedAppointments);
-        }
+      // Fetch all vitals for the patient
+      const { data: allVitalsData, error: allVitalsError } = await supabase
+        .from('vitals')
+        .select('*')
+        .in('visit_id', visitsData?.map(v => v.id) || [])
+        .order('created_at', { ascending: false });
+      
+      if (allVitalsError) console.error('Error fetching vitals:', allVitalsError);
+      else setVitals(allVitalsData || []);
 
-        // Fetch all vitals for the patient
-        const { data: allVitalsData, error: allVitalsError } = await supabase
-          .from('vitals')
-          .select('*')
-          .in('visit_id', visitsData?.map(v => v.id) || [])
-          .order('created_at', { ascending: false });
-        
-        if (allVitalsError) console.error('Error fetching vitals:', allVitalsError);
-        else setVitals(allVitalsData || []);
-
-        // Fetch lab requests
-        const { data: labRequestsData, error: labRequestsError } = await supabase
+      // Fetch lab requests - Fixed to use visit_id instead of patient_id
+      const visitIds = visitsData?.map(v => v.id) || [];
+      let labRequestsData = [];
+      if (visitIds.length > 0) {
+        const { data, error: labRequestsError } = await supabase
           .from('lab_requests')
           .select('*')
-          .eq('patient_id', id)
+          .in('visit_id', visitIds)
           .order('created_at', { ascending: false });
         
         if (labRequestsError) console.error('Error fetching lab requests:', labRequestsError);
-        else setLabRequests(labRequestsData || []);
+        else labRequestsData = data || [];
+      }
+      setLabRequests(labRequestsData);
 
-        // Fetch media requests
-        const { data: mediaRequestsData, error: mediaRequestsError } = await supabase
+      // Fetch media requests - Fixed to use visit_id instead of patient_id
+      let mediaRequestsData = [];
+      if (visitIds.length > 0) {
+        const { data, error: mediaRequestsError } = await supabase
           .from('media_requests')
           .select('*')
-          .eq('patient_id', id)
+          .in('visit_id', visitIds)
           .order('created_at', { ascending: false });
         
         if (mediaRequestsError) console.error('Error fetching media requests:', mediaRequestsError);
-        else setMediaRequests(mediaRequestsData || []);
+        else mediaRequestsData = data || [];
+      }
+      setMediaRequests(mediaRequestsData);
 
-        // Get current user info and practice
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setCurrentDoctorId(user.id);
-          const { data: userData } = await supabase
-            .from('users')
-            .select('practice_id')
-            .eq('id', user.id)
-            .single();
+      // Get current user info and practice
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentDoctorId(user.id);
+        const { data: userData } = await supabase
+          .from('users')
+          .select('practice_id')
+          .eq('id', user.id)
+          .single();
+        
+        if (userData?.practice_id) {
+          setCurrentPracticeId(userData.practice_id);
           
-          if (userData?.practice_id) {
-            setCurrentPracticeId(userData.practice_id);
-            
-            // Fetch all appointments for the doctor's queue
-            const { data: queueData, error: queueError } = await supabase
-              .from('appointments')
-              .select('*, patient:patients(*)')
-              .eq('practice_id', userData.practice_id)
-              .gte('date', new Date().toISOString().split('T')[0])
-              .order('date', { ascending: true })
-              .order('time', { ascending: true });
-            
-            if (!queueError && queueData) {
-              setDoctorAppointments(queueData);
-            }
+          // Fetch all appointments for the doctor's queue
+          const { data: queueData, error: queueError } = await supabase
+            .from('appointments')
+            .select('*, patient:patients(*)')
+            .eq('practice_id', userData.practice_id)
+            .gte('date', new Date().toISOString().split('T')[0])
+            .order('date', { ascending: true })
+            .order('time', { ascending: true });
+          
+          if (!queueError && queueData) {
+            setDoctorAppointments(queueData);
           }
         }
-
-        // Fetch Next of Kin
-        const { data: nextOfKinData, error: nextOfKinError } = await supabase
-          .from('next_of_kin')
-          .select('*')
-          .eq('patient_id', id)
-          .maybeSingle();
-
-        if (nextOfKinError && nextOfKinError.code !== 'PGRST116') {
-          console.error('Error fetching next of kin:', nextOfKinError);
-        } else {
-          setNextOfKin(nextOfKinData);
-        }
-
-
-        // Fetch Latest Vitals
-        const { data: vitalsData, error: vitalsError } = await supabase
-          .from('vitals')
-          .select('*')
-          .in('visit_id', visitsData?.map(v => v.id) || [])
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (vitalsError && vitalsError.code !== 'PGRST116') {
-          console.error('Error fetching vitals:', vitalsError);
-        } else {
-          setLatestVitals(vitalsData);
-        }
-
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setError(error instanceof Error ? error.message : 'An error occurred while fetching patient data');
-        if (error instanceof Error && error.message.includes('Invalid patient ID format')) {
-          navigate('/patients');
-        }
-      } finally {
-        setIsLoading(false);
       }
-    };
 
+      // Fetch Next of Kin
+      const { data: nextOfKinData, error: nextOfKinError } = await supabase
+        .from('next_of_kin')
+        .select('*')
+        .eq('patient_id', id)
+        .maybeSingle();
+
+      if (nextOfKinError && nextOfKinError.code !== 'PGRST116') {
+        console.error('Error fetching next of kin:', nextOfKinError);
+      } else {
+        setNextOfKin(nextOfKinData);
+      }
+
+      // Fetch Latest Vitals
+      const { data: vitalsData, error: vitalsError } = await supabase
+        .from('vitals')
+        .select('*')
+        .in('visit_id', visitsData?.map(v => v.id) || [])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (vitalsError && vitalsError.code !== 'PGRST116') {
+        console.error('Error fetching vitals:', vitalsError);
+      } else {
+        setLatestVitals(vitalsData);
+      }
+
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setError(error instanceof Error ? error.message : 'An error occurred while fetching patient data');
+      if (error instanceof Error && error.message.includes('Invalid patient ID format')) {
+        navigate('/patients');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (id) {
       fetchData();
     }

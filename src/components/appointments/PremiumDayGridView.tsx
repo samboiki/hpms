@@ -62,6 +62,7 @@ interface PremiumDayGridViewProps {
   onAppointmentClick?: (appointment: Appointment) => void;
   onTimeSlotClick?: (time: Date, doctorId: string) => void;
   onAppointmentDrop?: (appointmentId: string, newTime: Date, newDoctorId: string) => Promise<boolean>;
+  onMarkReady?: (appointmentId: string) => void;
   businessHours?: { start: string; end: string };
   slotDuration?: number;
 }
@@ -73,6 +74,7 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
   onAppointmentClick,
   onTimeSlotClick,
   onAppointmentDrop,
+  onMarkReady,
   businessHours = { start: '08:00', end: '17:00' },
   slotDuration = 30
 }) => {
@@ -443,6 +445,22 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                                     <p className="text-xs text-gray-500 line-clamp-2 mt-1">
                                       {appointment.notes}
                                     </p>
+                                  )}
+                                  
+                                  {/* Mark Ready button for scheduled appointments */}
+                                  {appointment.status === 'scheduled' && onMarkReady && (
+                                    <div className="mt-2 pt-2 border-t border-gray-100">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onMarkReady(appointment.id);
+                                        }}
+                                        className="w-full px-2 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded-md font-medium shadow-sm transition-colors flex items-center justify-center gap-1"
+                                      >
+                                        <CheckCircle2 className="w-3 h-3" />
+                                        Mark Ready
+                                      </button>
+                                    </div>
                                   )}
                                 </motion.div>
                               )}

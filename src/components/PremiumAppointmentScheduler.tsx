@@ -1042,6 +1042,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               setIsAddModalOpen(true);
             }}
             onAppointmentDrop={handleAppointmentDrop}
+            onMarkReady={handleMarkReady}
             businessHours={{ start: '08:00', end: '23:00' }}
             slotDuration={30}
           />
@@ -1063,6 +1064,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               });
               setIsAddModalOpen(true);
             }}
+            onMarkReady={handleMarkReady}
           />
         ) : viewMode === 'week' && internalViewMode === 'grid' ? (
           // Week Grid -> Use card-based layout (same as month)
