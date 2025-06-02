@@ -1228,39 +1228,6 @@ Medical Team`;
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => {
-                        // Create a modal for viewing benefits
-                        const modal = document.createElement('div');
-                        modal.className = 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm';
-                        modal.innerHTML = `
-                          <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-scale-in">
-                            <h3 class="text-xl font-bold text-gray-800 mb-4">Medical Aid Benefits</h3>
-                            <div class="space-y-3">
-                              <div class="p-4 bg-emerald-50 rounded-lg border border-emerald-200">
-                                <p class="text-sm font-medium text-emerald-800">✓ Hospital Cover: 100%</p>
-                              </div>
-                              <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                                <p class="text-sm font-medium text-blue-800">✓ Specialist Visits: 80%</p>
-                              </div>
-                              <div class="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                                <p class="text-sm font-medium text-purple-800">✓ Medication: R5,000/year</p>
-                              </div>
-                            </div>
-                            <button onclick="this.closest('.fixed').remove()" class="mt-6 w-full px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-lg font-medium hover:shadow-lg transition-all">Close</button>
-                          </div>
-                        `;
-                        document.body.appendChild(modal);
-                        modal.addEventListener('click', (e) => {
-                          if (e.target === modal) modal.remove();
-                        });
-                      }}
-                      className="flex-1 p-3 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300"
-                    >
-                      View Benefits
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
                       className="p-3 bg-white/10 border border-white/10 rounded-lg hover:bg-white/20 transition-colors shadow-sm"
                     >
                       <FileText className="w-4 h-4 text-gray-300" />
