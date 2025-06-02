@@ -113,6 +113,7 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
   const [loadingSchemes, setLoadingSchemes] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [allowSubmit, setAllowSubmit] = useState(false);
   
   const { 
     register, 
@@ -210,6 +211,12 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
   };
 
   const onSubmit = async (data: PatientRegistrationFormData) => {
+    // Only allow submission if explicitly allowed (via submit button click)
+    if (!allowSubmit || currentStep !== steps.length) {
+      return;
+    }
+    
+    setAllowSubmit(false); // Reset to prevent accidental re-submission
     setIsSubmitting(true);
     try {
       // Check for duplicate ID number first
@@ -746,6 +753,7 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
             <button
               type="submit"
               disabled={isSubmitting}
+              onClick={() => setAllowSubmit(true)}
               className={`justify-center rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 px-4 py-2 flex items-center gap-2 ${
                 isSubmitting 
                   ? 'opacity-50 cursor-not-allowed bg-gradient-to-r from-blue-600 to-purple-600' 
