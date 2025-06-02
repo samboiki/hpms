@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
@@ -6,10 +6,25 @@ import { supabase } from '../../lib/supabase';
 interface MedicalAidFormData {
   provider: string;
   scheme: string;
+  provider_id: string;
+  scheme_id: string;
   membership_number: string;
   main_member_name: string;
   main_member_id_number: string;
   relationship_to_main: string;
+}
+
+interface MedicalAidProvider {
+  id: string;
+  name: string;
+  short_name: string;
+}
+
+interface MedicalAidScheme {
+  id: string;
+  provider_id: string;
+  name: string;
+  description: string;
 }
 
 interface Props {
@@ -19,17 +34,88 @@ interface Props {
 }
 
 const MedicalAidForm: React.FC<Props> = ({ patientId, initialData, onSuccess }) => {
-  const { register, handleSubmit, formState: { errors } } = useForm<MedicalAidFormData>({
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<MedicalAidFormData>({
     defaultValues: initialData
   });
 
+  const [providers, setProviders] = useState<MedicalAidProvider[]>([]);
+  const [schemes, setSchemes] = useState<MedicalAidScheme[]>([]);
+  const [loadingProviders, setLoadingProviders] = useState(true);
+  const [loadingSchemes, setLoadingSchemes] = useState(false);
+
+  const selectedProviderId = watch('provider_id');
+
+  // Fetch medical aid providers
+  useEffect(() => {
+    const fetchProviders = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('medical_aid_providers')
+          .select('id, name, short_name')
+          .order('name');
+
+        if (error) throw error;
+        setProviders(data || []);
+      } catch (error) {
+        console.error('Error fetching providers:', error);
+      } finally {
+        setLoadingProviders(false);
+      }
+    };
+
+    fetchProviders();
+  }, []);
+
+  // Fetch schemes when provider changes
+  useEffect(() => {
+    if (selectedProviderId) {
+      const fetchSchemes = async () => {
+        setLoadingSchemes(true);
+        try {
+          const { data, error } = await supabase
+            .from('medical_aid_schemes')
+            .select('id, name, description')
+            .eq('provider_id', selectedProviderId)
+            .order('name');
+
+          if (error) throw error;
+          setSchemes(data || []);
+        } catch (error) {
+          console.error('Error fetching schemes:', error);
+        } finally {
+          setLoadingSchemes(false);
+        }
+      };
+
+      fetchSchemes();
+    } else {
+      setSchemes([]);
+      setValue('scheme_id', '');
+    }
+  }, [selectedProviderId, setValue]);
+
   const onSubmit = async (data: MedicalAidFormData) => {
     try {
+      // Get provider and scheme names
+      const selectedProvider = providers.find(p => p.id === data.provider_id);
+      const selectedScheme = schemes.find(s => s.id === data.scheme_id);
+
+      const medicalAidData = {
+        provider: selectedProvider?.name || '',
+        scheme_name: selectedScheme?.name || '',
+        provider_id: data.provider_id,
+        scheme_id: data.scheme_id,
+        membership_number: data.membership_number,
+        main_member_name: data.main_member_name,
+        main_member_id_number: data.main_member_id_number,
+        relationship_to_main: data.relationship_to_main
+      };
+
       if (initialData) {
         // Update existing medical aid
         const { error } = await supabase
           .from('medical_aid_details')
-          .update(data)
+          .update(medicalAidData)
           .eq('patient_id', patientId);
 
         if (error) throw error;
@@ -39,7 +125,7 @@ const MedicalAidForm: React.FC<Props> = ({ patientId, initialData, onSuccess }) 
           .from('medical_aid_details')
           .insert([{
             patient_id: patientId,
-            ...data
+            ...medicalAidData
           }]);
 
         if (error) throw error;
@@ -57,67 +143,47 @@ const MedicalAidForm: React.FC<Props> = ({ patientId, initialData, onSuccess }) 
         <div>
           <label className="block text-sm font-medium text-gray-700">Provider</label>
           <select
-            {...register('provider', { required: 'Provider is required' })}
+            {...register('provider_id', { required: 'Provider is required' })}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            disabled={loadingProviders}
           >
             <option value="">Select Medical Aid Provider</option>
-            <option value="Namibia Medical Care (NMC)">Namibia Medical Care (NMC)</option>
-            <option value="Namibia Health Plan (NHP)">Namibia Health Plan (NHP)</option>
-            <option value="Nammed Medical Aid Fund">Nammed Medical Aid Fund</option>
-            <option value="Gemhealth Medical Aid">Gemhealth Medical Aid</option>
-            <option value="Bonitas Medical Fund">Bonitas Medical Fund</option>
-            <option value="Discovery Health">Discovery Health</option>
-            <option value="Old Mutual Health">Old Mutual Health</option>
-            <option value="Momentum Health">Momentum Health</option>
-            <option value="Medshield">Medshield</option>
-            <option value="Napotel Medical Aid">Napotel Medical Aid</option>
-            <option value="Bankmed Namibia">Bankmed Namibia</option>
-            <option value="Renaissance Health Medical Aid Fund">Renaissance Health Medical Aid Fund</option>
-            <option value="Methealth Namibia">Methealth Namibia</option>
+            {providers.map((provider) => (
+              <option key={provider.id} value={provider.id}>
+                {provider.name}
+              </option>
+            ))}
           </select>
-          {errors.provider && (
-            <p className="mt-1 text-sm text-red-600">{errors.provider.message}</p>
+          {errors.provider_id && (
+            <p className="mt-1 text-sm text-red-600">{errors.provider_id.message}</p>
+          )}
+          {loadingProviders && (
+            <p className="mt-1 text-sm text-gray-500">Loading providers...</p>
           )}
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700">Scheme/Option</label>
           <select
-            {...register('scheme', { required: 'Scheme is required' })}
+            {...register('scheme_id', { required: 'Scheme is required' })}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+            disabled={!selectedProviderId || loadingSchemes}
           >
             <option value="">Select Scheme</option>
-            {/* NMC Options */}
-            <option value="Diamond">Diamond</option>
-            <option value="Platinum">Platinum</option>
-            <option value="Gold">Gold</option>
-            <option value="Silver">Silver</option>
-            <option value="Bronze">Bronze</option>
-            {/* NHP Options */}
-            <option value="Comprehensive">Comprehensive</option>
-            <option value="Executive">Executive</option>
-            <option value="Standard">Standard</option>
-            <option value="Essential">Essential</option>
-            {/* Discovery Options */}
-            <option value="Executive Plan">Executive Plan</option>
-            <option value="Smart Plan">Smart Plan</option>
-            {/* Bonitas Options */}
-            <option value="BonComprehensive">BonComprehensive</option>
-            <option value="BonEssential">BonEssential</option>
-            <option value="BonCap">BonCap</option>
-            <option value="BonStart">BonStart</option>
-            {/* General Options */}
-            <option value="Premium">Premium</option>
-            <option value="Hospital">Hospital</option>
-            <option value="Access">Access</option>
-            <option value="Pinnacle">Pinnacle</option>
-            <option value="Extender">Extender</option>
-            <option value="Option A">Option A</option>
-            <option value="Option B">Option B</option>
-            <option value="Option C">Option C</option>
+            {schemes.map((scheme) => (
+              <option key={scheme.id} value={scheme.id}>
+                {scheme.name} {scheme.description && `- ${scheme.description}`}
+              </option>
+            ))}
           </select>
-          {errors.scheme && (
-            <p className="mt-1 text-sm text-red-600">{errors.scheme.message}</p>
+          {errors.scheme_id && (
+            <p className="mt-1 text-sm text-red-600">{errors.scheme_id.message}</p>
+          )}
+          {loadingSchemes && (
+            <p className="mt-1 text-sm text-gray-500">Loading schemes...</p>
+          )}
+          {!selectedProviderId && schemes.length === 0 && (
+            <p className="mt-1 text-sm text-gray-500">Please select a provider first</p>
           )}
         </div>
 

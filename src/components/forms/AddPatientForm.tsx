@@ -1,12 +1,12 @@
 import React from 'react';
-import PatientRegistrationForm from './PatientRegistrationForm';
+import ModernPatientRegistrationForm from './ModernPatientRegistrationForm';
 
 interface Props {
   onSuccess: () => void;
 }
 
 const AddPatientForm: React.FC<Props> = ({ onSuccess }) => {
-  return <PatientRegistrationForm onSuccess={onSuccess} />;
+  return <ModernPatientRegistrationForm onSuccess={onSuccess} />;
 };
 
 export default AddPatientForm;

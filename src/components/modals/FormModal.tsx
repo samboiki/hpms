@@ -61,7 +61,7 @@ const FormModal: React.FC<FormModalProps> = ({
         }
       }}
     >
-      <div className="relative bg-gradient-to-br from-white via-blue-50/30 to-purple-50/20 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] pointer-events-auto flex flex-col overflow-hidden animate-scale-in">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] pointer-events-auto flex flex-col overflow-hidden animate-scale-in">
         {!hideHeader && (
           <div className="relative bg-gradient-to-r from-[#01b9d5] to-purple-600 p-6 text-white">
             <div className="absolute inset-0 bg-gradient-to-r from-[#01b9d5]/20 to-purple-600/20 backdrop-blur-sm"></div>
@@ -86,7 +86,7 @@ const FormModal: React.FC<FormModalProps> = ({
             </div>
           </div>
         )}
-        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-gradient-to-br from-white/50 to-white/30">
+        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-white">
           {children}
         </div>
       </div>

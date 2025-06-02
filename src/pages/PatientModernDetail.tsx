@@ -22,7 +22,8 @@ import {
   FileText,
   Thermometer,
   Weight,
-  Sparkles
+  Sparkles,
+  MessageSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
@@ -35,6 +36,7 @@ import EditVisitForm from '../components/forms/EditVisitForm';
 import VisitModal from '../components/visits/VisitModal';
 import MedicalAidForm from '../components/forms/MedicalAidForm';
 import EditPatientForm from '../components/forms/EditPatientForm';
+import SendMessageModal from '../components/modals/SendMessageModal';
 import { defaultSMSService } from '../services/smsPortal';
 
 interface Patient {
@@ -286,6 +288,7 @@ const PatientModernDetail = () => {
   const [smsContent, setSmsContent] = useState('');
   const [smsPhone, setSmsPhone] = useState('');
   const [isSendingSms, setIsSendingSms] = useState(false);
+  const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
 
 
   useEffect(() => {
@@ -543,17 +546,6 @@ Medical Team`;
             <div className="absolute inset-0 bg-gradient-to-br from-white via-gray-50/20 to-gray-100/10 rounded-2xl"></div>
             
             <div className="relative p-4">
-              {/* Compact header with back button */}
-              <div className="absolute top-4 left-4">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => navigate('/patients')}
-                  className="p-2 bg-white/80 backdrop-blur-sm rounded-lg border border-gray-200/50 hover:border-[#01b9d5]/50 shadow-sm hover:shadow-md transition-all duration-300 group"
-                >
-                  <ChevronLeft className="w-4 h-4 text-gray-600 group-hover:text-[#01b9d5] transition-colors" />
-                </motion.button>
-              </div>
             
             {patient && (
               <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6">
@@ -643,9 +635,18 @@ Medical Team`;
               </div>
             )}
             
-            {/* View Profile Button - Bottom Right */}
+            {/* Action Buttons - Bottom Right */}
             {patient && (
-              <div className="absolute bottom-4 right-4">
+              <div className="absolute bottom-4 right-4 flex gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsMessageModalOpen(true)}
+                  className="p-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group"
+                  title="Send Message"
+                >
+                  <MessageSquare className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -1740,6 +1741,18 @@ Medical Team`;
           }}
         />
       </FormModal>
+
+      {/* Send Message Modal */}
+      <SendMessageModal
+        isOpen={isMessageModalOpen}
+        onClose={() => setIsMessageModalOpen(false)}
+        patient={patient ? {
+          id: patient.id,
+          first_name: patient.first_name,
+          last_name: patient.last_name,
+          cell_number: patient.cell_number || ''
+        } : null}
+      />
       </div>
     </div>
   );
