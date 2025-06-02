@@ -235,13 +235,13 @@ const Patients: React.FC = () => {
 
   const handlePatientAdded = () => {
     setIsAddPatientModalOpen(false);
-    fetchPatients();
+    fetchPatientsFromStore();
   };
 
   const handlePatientUpdated = () => {
     setIsEditPatientModalOpen(false);
     setSelectedPatient(null);
-    fetchPatients();
+    fetchPatientsFromStore();
   };
 
   const toggleSort = (field: 'name' | 'date' | 'age') => {
@@ -922,7 +922,7 @@ The AI uses GPT-4 to understand natural language queries like:
               <p className="text-gray-900 font-medium mb-2">Unable to load patients</p>
               <p className="text-gray-600 text-sm mb-4">{error}</p>
               <button
-                onClick={() => fetchPatients()}
+                onClick={() => fetchPatientsFromStore()}
                 className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
               >
                 Try Again

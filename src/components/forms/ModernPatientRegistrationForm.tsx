@@ -309,6 +309,7 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
       onSuccess?.();
     } catch (error) {
       console.error('Error registering patient:', error);
+      alert('Error registering patient. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -736,7 +737,7 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
             <button
               type="button"
               onClick={nextStep}
-              className="justify-center rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 bg-[#01b9d5] text-white hover:bg-[#00a5c0] hover:shadow-lg hover:shadow-[#01b9d5]/20 px-4 py-2 flex items-center gap-2"
+              className="justify-center rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 flex items-center gap-2"
             >
               Next
               <ChevronRight className="w-4 h-4" />
@@ -747,9 +748,9 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
               disabled={isSubmitting}
               className={`justify-center rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 px-4 py-2 flex items-center gap-2 ${
                 isSubmitting 
-                  ? 'opacity-50 cursor-not-allowed bg-gray-400 text-white' 
-                  : 'bg-[#01b9d5] text-white hover:bg-[#00a5c0] hover:shadow-lg hover:shadow-[#01b9d5]/20'
-              }`}
+                  ? 'opacity-50 cursor-not-allowed bg-gradient-to-r from-blue-600 to-purple-600' 
+                  : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
+              } text-white`}
             >
               {isSubmitting ? (
                 <>
