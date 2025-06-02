@@ -552,8 +552,8 @@ Medical Team`;
                 {/* Enhanced Avatar Section - Circle with Pulsating Ring */}
                 <div className="relative group">
                   {/* Pulsating outer ring */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300 animate-pulse"></div>
-                  <div className="absolute -inset-1 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-full opacity-50 animate-pulse"></div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
+                  <div className="absolute -inset-1 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-full opacity-50"></div>
                   
                   {/* Avatar circle */}
                   <div className="relative h-20 w-20 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
@@ -677,7 +677,7 @@ Medical Team`;
             <div className="relative bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
               {/* Animated gradient header */}
               <div className="h-1.5 bg-gradient-to-r from-[#01b9d5] via-purple-500 to-indigo-600 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
               </div>
               
               <div className="p-5">
@@ -691,7 +691,7 @@ Medical Team`;
                   </div>
                   <div className="ml-auto">
                     <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
                       <span className="text-xs text-emerald-600 font-medium">Live</span>
                     </div>
                   </div>
@@ -871,21 +871,21 @@ Medical Team`;
                     </div>
                     <div className="flex items-center gap-4 text-sm">
                       {latestVitals.blood_pressure && (
-                        <div className={`flex items-center gap-1 ${isBloodPressureAbnormal(latestVitals.blood_pressure) ? 'text-red-600 animate-pulse' : 'text-gray-600'}`}>
+                        <div className={`flex items-center gap-1 ${isBloodPressureAbnormal(latestVitals.blood_pressure) ? 'text-red-600' : 'text-gray-600'}`}>
                           <Heart className="w-3.5 h-3.5" />
                           <span className="font-medium">{latestVitals.blood_pressure}</span>
                           <span className="text-xs">BP</span>
                         </div>
                       )}
                       {latestVitals.pulse_rate && (
-                        <div className={`flex items-center gap-1 ${(latestVitals.pulse_rate < 60 || latestVitals.pulse_rate > 100) ? 'text-red-600 animate-pulse' : 'text-gray-600'}`}>
+                        <div className={`flex items-center gap-1 ${(latestVitals.pulse_rate < 60 || latestVitals.pulse_rate > 100) ? 'text-red-600' : 'text-gray-600'}`}>
                           <Activity className="w-3.5 h-3.5" />
                           <span className="font-medium">{latestVitals.pulse_rate}</span>
                           <span className="text-xs">bpm</span>
                         </div>
                       )}
                       {latestVitals.temperature && (
-                        <div className={`flex items-center gap-1 ${(latestVitals.temperature < 36.5 || latestVitals.temperature > 37.5) ? 'text-red-600 animate-pulse' : 'text-gray-600'}`}>
+                        <div className={`flex items-center gap-1 ${(latestVitals.temperature < 36.5 || latestVitals.temperature > 37.5) ? 'text-red-600' : 'text-gray-600'}`}>
                           <Thermometer className="w-3.5 h-3.5" />
                           <span className="font-medium">{latestVitals.temperature}°C</span>
                         </div>
@@ -898,7 +898,7 @@ Medical Team`;
                         </div>
                       )}
                       {latestVitals.bmi && (
-                        <div className={`flex items-center gap-1 ${(latestVitals.bmi < 18.5 || latestVitals.bmi > 25) ? 'text-red-600 animate-pulse' : 'text-gray-600'}`}>
+                        <div className={`flex items-center gap-1 ${(latestVitals.bmi < 18.5 || latestVitals.bmi > 25) ? 'text-red-600' : 'text-gray-600'}`}>
                           <Sparkles className="w-3.5 h-3.5" />
                           <span className="font-medium">BMI {latestVitals.bmi}</span>
                         </div>
@@ -929,14 +929,12 @@ Medical Team`;
                       transition={{ type: "spring", damping: 20 }}
                       className="text-center py-20"
                     >
-                      <div className="relative mx-auto mb-6">
+                      <div className="mx-auto mb-6">
                         <div className="w-32 h-32 bg-gradient-to-br from-[#01b9d5]/10 via-purple-500/10 to-indigo-600/10 rounded-3xl flex items-center justify-center shadow-2xl backdrop-blur-xl border border-gray-200/50">
                           <div className="w-20 h-20 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                            <Activity className="w-10 h-10 text-white animate-pulse" />
+                            <Activity className="w-10 h-10 text-white" />
                           </div>
                         </div>
-                        <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-emerald-400 to-green-500 rounded-full animate-ping"></div>
-                        <div className="absolute -bottom-2 -left-2 w-4 h-4 bg-gradient-to-r from-blue-400 to-cyan-500 rounded-full animate-pulse"></div>
                       </div>
                       <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-3">No visits recorded yet</h3>
                       <p className="text-gray-500 mb-6 max-w-md mx-auto">This patient's comprehensive medical timeline will appear here as visits are recorded</p>
@@ -971,7 +969,7 @@ Medical Team`;
             <div className="relative bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
               {/* Animated gradient header */}
               <div className="h-2 bg-gradient-to-r from-[#01b9d4] via-purple-500 to-indigo-600 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
               </div>
               
               {/* Main content */}
@@ -987,7 +985,7 @@ Medical Team`;
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <span className="text-xs text-green-600 font-medium">Live</span>
                   </div>
                 </div>
@@ -1010,7 +1008,7 @@ Medical Team`;
                     className="p-3 bg-gradient-to-br from-amber-500/10 to-yellow-600/10 rounded-xl border border-amber-500/20 shadow-sm"
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                      <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
                       <span className="text-xs font-medium text-amber-700">In Queue</span>
                     </div>
                     <p className="text-2xl font-bold text-amber-600">3</p>
@@ -1041,7 +1039,7 @@ Medical Team`;
                           <p className="text-xs text-gray-600">Follow-up • 2:30 PM</p>
                         </div>
                         <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                           <span className="text-xs text-green-600 font-medium">Ready</span>
                         </div>
                       </div>
@@ -1065,7 +1063,7 @@ Medical Team`;
                           <p className="text-xs text-gray-600">Consultation • 3:00 PM</p>
                         </div>
                         <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                          <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
                           <span className="text-xs text-amber-600 font-medium">Waiting</span>
                         </div>
                       </div>
@@ -1145,7 +1143,7 @@ Medical Team`;
             <div className="relative bg-white/90 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
               {/* Animated gradient header */}
               <div className="h-2 bg-gradient-to-r from-[#01b9d4] via-purple-500 to-blue-600 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
               </div>
               
               {/* Floating orbs background */}
@@ -1182,7 +1180,7 @@ Medical Team`;
                         <div>
                           <p className="text-base font-bold text-gray-800 flex items-center gap-2">
                             {medicalAid?.provider || 'No Medical Aid'}
-                            {medicalAid && <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>}
+                            {medicalAid && <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>}
                           </p>
                           <p className="text-xs font-medium bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
                             {medicalAid?.scheme || 'No scheme'}
