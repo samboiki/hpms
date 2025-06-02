@@ -25,7 +25,7 @@ import {
   Sparkles,
   MessageSquare
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
@@ -37,7 +37,6 @@ import VisitModal from '../components/visits/VisitModal';
 import MedicalAidForm from '../components/forms/MedicalAidForm';
 import EditPatientForm from '../components/forms/EditPatientForm';
 import SendMessageModal from '../components/modals/SendMessageModal';
-import PatientDetailQueue from '../components/dashboard/PatientDetailQueue';
 import PatientDataTabs from '../components/patients/PatientDataTabs';
 import { useRealtimeAppointments } from '../hooks/useRealtimeAppointments';
 import VitalsForm from '../components/forms/VitalsForm';
@@ -1095,7 +1094,7 @@ Medical Team`;
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                     <span className="text-xs text-green-600 font-medium">Live</span>
                   </div>
                 </div>
@@ -1110,7 +1109,13 @@ Medical Team`;
                       <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
                       <span className="text-xs font-medium text-emerald-700">Completed</span>
                     </div>
-                    <p className="text-2xl font-bold text-emerald-600">8</p>
+                    <p className="text-2xl font-bold text-emerald-600">
+                      {doctorAppointments.filter(apt => 
+                        apt.doctor_id === currentDoctorId && 
+                        apt.status === 'completed' &&
+                        apt.date === format(new Date(), 'yyyy-MM-dd')
+                      ).length}
+                    </p>
                   </motion.div>
                   
                   <motion.div
@@ -1121,7 +1126,13 @@ Medical Team`;
                       <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
                       <span className="text-xs font-medium text-amber-700">In Queue</span>
                     </div>
-                    <p className="text-2xl font-bold text-amber-600">3</p>
+                    <p className="text-2xl font-bold text-amber-600">
+                      {doctorAppointments.filter(apt => 
+                        (apt.doctor_id === currentDoctorId || (!apt.doctor_id && apt.status === 'ready')) && 
+                        ['scheduled', 'ready'].includes(apt.status) &&
+                        apt.date === format(new Date(), 'yyyy-MM-dd')
+                      ).length}
+                    </p>
                   </motion.div>
                 </div>
                 
@@ -1132,94 +1143,169 @@ Medical Team`;
                     <span className="text-xs text-gray-500">Updated now</span>
                   </div>
                   
-                  {/* Queue Items */}
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="relative group/queue"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-lg opacity-0 group-hover/queue:opacity-100 transition-opacity"></div>
-                    <div className="relative p-3 bg-white/90 rounded-lg border border-blue-200/50 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
-                          1
+                  {/* Queue Items - Dynamic */}
+                  {(() => {
+                    const todayQueue = doctorAppointments
+                      .filter(apt => {
+                        const isToday = apt.date === format(new Date(), 'yyyy-MM-dd');
+                        const isMyPatient = apt.doctor_id === currentDoctorId || (!apt.doctor_id && apt.status === 'ready');
+                        const notCurrentPatient = apt.patient_id !== id;
+                        const isQueued = ['scheduled', 'ready'].includes(apt.status);
+                        return isToday && isMyPatient && notCurrentPatient && isQueued;
+                      })
+                      .sort((a, b) => {
+                        // Ready patients first
+                        if (a.status === 'ready' && b.status !== 'ready') return -1;
+                        if (b.status === 'ready' && a.status !== 'ready') return 1;
+                        // Then by time
+                        return a.time.localeCompare(b.time);
+                      })
+                      .slice(0, 3);
+                    
+                    if (todayQueue.length === 0) {
+                      return (
+                        <div className="text-center py-8">
+                          <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <Calendar className="w-6 h-6 text-gray-400" />
+                          </div>
+                          <p className="text-sm text-gray-600">No more appointments in queue</p>
+                          <p className="text-xs text-gray-500 mt-1">Great job today!</p>
                         </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-bold text-gray-800">Maria Rodriguez</p>
-                          <p className="text-xs text-gray-600">Follow-up • 2:30 PM</p>
+                      );
+                    }
+                    
+                    return todayQueue.map((apt, index) => (
+                      <motion.div
+                        key={apt.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="relative group/queue cursor-pointer"
+                        onClick={() => navigate(`/patients/${apt.patient_id}`)}
+                      >
+                        <div className={`absolute inset-0 bg-gradient-to-r ${
+                          apt.status === 'ready' ? 'from-green-500/5 to-emerald-500/5' :
+                          'from-blue-500/5 to-purple-500/5'
+                        } rounded-lg opacity-0 group-hover/queue:opacity-100 transition-opacity`}></div>
+                        <div className={`relative p-3 bg-white/90 rounded-lg border ${
+                          apt.status === 'ready' ? 'border-green-200/50' : 'border-blue-200/50'
+                        } shadow-sm hover:shadow-md transition-all`}>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 bg-gradient-to-br ${
+                              apt.status === 'ready' ? 'from-green-500 to-emerald-600' :
+                              index === 0 ? 'from-blue-500 to-purple-600' :
+                              index === 1 ? 'from-amber-500 to-orange-600' :
+                              'from-gray-400 to-slate-500'
+                            } rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md`}>
+                              {index + 1}
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-bold text-gray-800">
+                                {apt.patient.first_name} {apt.patient.last_name}
+                              </p>
+                              <p className="text-xs text-gray-600">
+                                {apt.type} • {apt.time}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className={`w-2 h-2 rounded-full ${
+                                apt.status === 'ready' ? 'bg-green-500' : 'bg-amber-500'
+                              }`}></div>
+                              <span className={`text-xs font-medium ${
+                                apt.status === 'ready' ? 'text-green-600' : 'text-amber-600'
+                              }`}>
+                                {apt.status === 'ready' ? 'Ready' : 'Waiting'}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                          <span className="text-xs text-green-600 font-medium">Ready</span>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                  
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="relative group/queue"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-orange-500/5 rounded-lg opacity-0 group-hover/queue:opacity-100 transition-opacity"></div>
-                    <div className="relative p-3 bg-white/90 rounded-lg border border-amber-200/50 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
-                          2
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-bold text-gray-800">James Wilson</p>
-                          <p className="text-xs text-gray-600">Consultation • 3:00 PM</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                          <span className="text-xs text-amber-600 font-medium">Waiting</span>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                  
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="relative group/queue"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-gray-500/5 to-slate-500/5 rounded-lg opacity-0 group-hover/queue:opacity-100 transition-opacity"></div>
-                    <div className="relative p-3 bg-white/90 rounded-lg border border-gray-200/50 shadow-sm">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-gray-400 to-slate-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
-                          3
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-bold text-gray-800">Sarah Johnson</p>
-                          <p className="text-xs text-gray-600">Check-up • 3:30 PM</p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                          <span className="text-xs text-gray-500 font-medium">Scheduled</span>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
+                      </motion.div>
+                    ));
+                  })()}
                 </div>
                 
                 {/* Quick Actions */}
                 <div className="space-y-2">
-                  <motion.button
-                    whileHover={{ scale: 1.02, y: -1 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full p-3 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2"
-                  >
-                    <Activity className="w-4 h-4" />
-                    Start Next Visit
-                  </motion.button>
+                  {(() => {
+                    const nextPatient = doctorAppointments
+                      .filter(apt => {
+                        const isToday = apt.date === format(new Date(), 'yyyy-MM-dd');
+                        const isMyPatient = apt.doctor_id === currentDoctorId || (!apt.doctor_id && apt.status === 'ready');
+                        const notCurrentPatient = apt.patient_id !== id;
+                        const isQueued = ['scheduled', 'ready'].includes(apt.status);
+                        return isToday && isMyPatient && notCurrentPatient && isQueued;
+                      })
+                      .sort((a, b) => {
+                        if (a.status === 'ready' && b.status !== 'ready') return -1;
+                        if (b.status === 'ready' && a.status !== 'ready') return 1;
+                        return a.time.localeCompare(b.time);
+                      })[0];
+                    
+                    return (
+                      <motion.button
+                        whileHover={{ scale: 1.02, y: -1 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={async () => {
+                          if (!nextPatient) {
+                            toast.error('No appointments in queue');
+                            return;
+                          }
+                          
+                          try {
+                            // Create visit and update appointment
+                            const { data: visit, error: visitError } = await supabase
+                              .from('visits')
+                              .insert([{
+                                appointment_id: nextPatient.id,
+                                patient_id: nextPatient.patient_id,
+                                doctor_id: currentDoctorId,
+                                visit_date: nextPatient.date,
+                                visit_time: nextPatient.time,
+                                visit_type: nextPatient.type || 'consultation',
+                                chief_complaint: nextPatient.notes || 'See appointment notes',
+                                status: 'in-progress',
+                                created_at: new Date().toISOString()
+                              }])
+                              .select()
+                              .single();
+                            
+                            if (visitError) throw visitError;
+                            
+                            const { error: updateError } = await supabase
+                              .from('appointments')
+                              .update({ 
+                                status: 'in-progress',
+                                doctor_id: currentDoctorId,
+                                updated_at: new Date().toISOString()
+                              })
+                              .eq('id', nextPatient.id);
+                            
+                            if (updateError) {
+                              await supabase.from('visits').delete().eq('id', visit.id);
+                              throw updateError;
+                            }
+                            
+                            toast.success(`Starting visit for ${nextPatient.patient.first_name} ${nextPatient.patient.last_name}`);
+                            navigate(`/patients/${nextPatient.patient_id}`);
+                          } catch (error) {
+                            console.error('Error starting next visit:', error);
+                            toast.error('Failed to start next visit');
+                          }
+                        }}
+                        disabled={!nextPatient}
+                        className="w-full p-3 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Activity className="w-4 h-4" />
+                        {nextPatient ? `Start Next Visit (${nextPatient.patient.first_name})` : 'No Patients in Queue'}
+                      </motion.button>
+                    );
+                  })()}
                   
                   <div className="grid grid-cols-2 gap-2">
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
+                      onClick={() => navigate('/appointments')}
                       className="p-2.5 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 transition-colors shadow-sm flex items-center justify-center gap-2 text-xs font-medium text-gray-600"
                     >
                       <Calendar className="w-3.5 h-3.5" />
@@ -1228,10 +1314,11 @@ Medical Team`;
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
+                      onClick={fetchData}
                       className="p-2.5 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200 transition-colors shadow-sm flex items-center justify-center gap-2 text-xs font-medium text-gray-600"
                     >
                       <FileText className="w-3.5 h-3.5" />
-                      Records
+                      Refresh
                     </motion.button>
                   </div>
                 </div>
