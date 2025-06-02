@@ -23,16 +23,46 @@ import { format, addDays, startOfWeek, addWeeks, subWeeks, parseISO, isSameDay }
 import FormModal from '../components/modals/FormModal';
 import AddAppointmentForm from '../components/forms/AddAppointmentForm';
 import { motion } from 'framer-motion';
+import { useRealtimeAppointments } from '../hooks/useRealtimeAppointments';
+import { useAuthStore } from '../stores/authStore';
+import { toast } from 'react-hot-toast';
 
 const Appointments: React.FC = () => {
   const navigate = useNavigate();
   const { appointments, fetchAppointments, checkInAppointment, cancelAppointment, isLoading, error } = useAppointmentsStore();
+  const { user } = useAuthStore();
   const [isAddAppointmentModalOpen, setIsAddAppointmentModalOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'day' | 'week' | 'month'>('week');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterDoctor, setFilterDoctor] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Real-time appointment updates
+  useRealtimeAppointments({
+    practiceId: user?.practice_id || null,
+    onAppointmentChange: (change) => {
+      console.log('📡 Real-time appointment change:', change);
+      
+      if (change.eventType === 'INSERT' || change.eventType === 'UPDATE') {
+        // Refresh appointments to get the latest data
+        fetchAppointments();
+        
+        if (change.eventType === 'INSERT') {
+          toast.success(`New appointment scheduled for ${change.new.patient?.first_name} ${change.new.patient?.last_name}`, {
+            duration: 5000,
+            position: 'top-right',
+          });
+        }
+      } else if (change.eventType === 'DELETE') {
+        // Refresh appointments to remove deleted one
+        fetchAppointments();
+      }
+    },
+    onError: (error) => {
+      console.error('Real-time subscription error:', error);
+    }
+  });
   
   // Generate dates for week view
   const startOfCurrentWeek = startOfWeek(currentDate, { weekStartsOn: 1 }); // Start on Monday
@@ -607,7 +637,7 @@ const Appointments: React.FC = () => {
         <AddAppointmentForm 
           onSuccess={() => {
             setIsAddAppointmentModalOpen(false);
-            fetchAppointments();
+            // Real-time subscription will automatically update the appointments
           }}
         />
       </FormModal>
