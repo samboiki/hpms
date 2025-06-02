@@ -12,6 +12,7 @@ interface AppointmentActionModalProps {
   currentUserRole: string;
   onStartVisit?: (appointmentId: string) => void;
   onCompleteVisit?: (appointmentId: string) => void;
+  onEditAppointment?: (appointment: any) => void;
 }
 
 export default function AppointmentActionModal({
@@ -21,7 +22,8 @@ export default function AppointmentActionModal({
   onUpdate,
   currentUserRole,
   onStartVisit,
-  onCompleteVisit
+  onCompleteVisit,
+  onEditAppointment
 }: AppointmentActionModalProps) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [notes, setNotes] = useState(appointment?.notes || '');
@@ -207,7 +209,7 @@ export default function AppointmentActionModal({
                   </div>
                 </div>
                 
-                {/* Status Badge */}
+                {/* Status Badge and Edit Button */}
                 <div className="mt-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-gray-600 text-sm">Status:</span>
@@ -215,9 +217,20 @@ export default function AppointmentActionModal({
                       {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1).replace('-', ' ')}
                     </span>
                   </div>
-                  <span className="text-xs text-gray-500">
-                    ID: {appointment.id.slice(0, 8)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {onEditAppointment && ['scheduled', 'pending'].includes(appointment.status) && (
+                      <button
+                        onClick={() => onEditAppointment(appointment)}
+                        className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-1 text-sm"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                        Edit
+                      </button>
+                    )}
+                    <span className="text-xs text-gray-500">
+                      ID: {appointment.id.slice(0, 8)}
+                    </span>
+                  </div>
                 </div>
               </div>
 

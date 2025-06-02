@@ -968,6 +968,10 @@ function Dashboard() {
             currentUserRole={currentUserRole}
             onStartVisit={handleStartVisit}
             onCompleteVisit={handleCompleteVisit}
+            onEditAppointment={(appointment) => {
+              setIsActionModalOpen(false);
+              setIsRescheduleModalOpen(true);
+            }}
           />
         </>
       )}
