@@ -190,7 +190,7 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
   const getFieldsForStep = (step: number) => {
     switch (step) {
       case 1:
-        return ['firstName', 'lastName', 'idNumber', 'dateOfBirth', 'gender'] as const;
+        return ['firstName', 'lastName', 'idNumber', 'dateOfBirth', 'gender', 'homeLanguage'] as const;
       case 2:
         return ['cellNo', 'email'] as const;
       case 3:
@@ -261,14 +261,14 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
           id_number: data.idNumber,
           date_of_birth: data.dateOfBirth,
           gender: data.gender,
-          marital_status: data.maritalStatus,
-          occupation: data.occupation,
-          cell_number: data.cellNo,
-          home_language: data.homeLanguage,
-          email: data.email,
-          home_address: data.homeAddress,
-          postal_address: data.postalAddress,
-          postal_code: data.postalCode,
+          marital_status: data.maritalStatus || null,
+          occupation: data.occupation || null,
+          cell_number: data.cellNo || null,
+          home_language: data.homeLanguage || 'English', // Default to English if not selected
+          email: data.email || null,
+          home_address: data.homeAddress || null,
+          postal_address: data.postalAddress || null,
+          postal_code: data.postalCode || null,
           practice_id: practiceId
         }])
         .select()
@@ -506,15 +506,18 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Home Language</label>
                   <select
-                    {...register('homeLanguage')}
+                    {...register('homeLanguage', { required: 'Home language is required' })}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    defaultValue="English"
                   >
-                    <option value="">Select language</option>
                     <option value="English">English</option>
                     <option value="Afrikaans">Afrikaans</option>
                     <option value="Oshiwambo">Oshiwambo</option>
                     <option value="Other">Other</option>
                   </select>
+                  {errors.homeLanguage && (
+                    <p className="text-xs text-red-500">{errors.homeLanguage.message}</p>
+                  )}
                 </div>
               </div>
             )}
