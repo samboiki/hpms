@@ -929,12 +929,6 @@ Medical Team`;
                       transition={{ type: "spring", damping: 20 }}
                       className="text-center py-20"
                     >
-                      <div className="mx-auto mb-6">
-                        <div className="w-32 h-32 bg-gradient-to-br from-[#01b9d5]/10 via-purple-500/10 to-indigo-600/10 rounded-3xl flex items-center justify-center shadow-2xl backdrop-blur-xl border border-gray-200/50">
-                          <div className="w-20 h-20 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                          </div>
-                        </div>
-                      </div>
                       <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-3">No visits recorded yet</h3>
                       <p className="text-gray-500 mb-6 max-w-md mx-auto">This patient's comprehensive medical timeline will appear here as visits are recorded</p>
                       <motion.button
