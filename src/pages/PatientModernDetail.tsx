@@ -650,7 +650,7 @@ Medical Team`;
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => setIsProfileModalOpen(true)}
+                  onClick={() => setIsEditPatientModalOpen(true)}
                   className="px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300"
                 >
                   View Profile
