@@ -8,18 +8,28 @@ interface User {
   role: 'admin' | 'doctor' | 'nurse' | 'receptionist';
   avatar?: string | null;
   practice_id?: string;
+  is_super_admin?: boolean;
+  can_manage_practices?: boolean;
+  permissions?: Record<string, any>;
+  last_active_at?: string;
 }
 
 interface AuthState {
   isAuthenticated: boolean;
   user: User | null;
+  selectedPracticeId: string | null;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  switchPractice: (practiceId: string) => Promise<boolean>;
+  getUserPractices: () => Promise<any[]>;
+  isSuperAdmin: () => boolean;
+  canManagePractices: () => boolean;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   user: null,
+  selectedPracticeId: null,
   login: async (email: string, password: string) => {
     console.log('🔐 Login attempt for:', email);
     
@@ -82,11 +92,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       console.log('✅ Auth successful, user ID:', authUser.id);
       console.log('📊 Auth user metadata:', authUser.user_metadata);
 
-      // Fetch the user profile data
+      // Fetch the user profile data with admin capabilities
       console.log('🔍 Fetching user profile from users table...');
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, email, full_name, role, avatar, practice_id')
+        .select('id, email, full_name, role, avatar, practice_id, is_super_admin, can_manage_practices, permissions, last_active_at')
         .eq('id', authUser.id)
         .single();
 
@@ -102,7 +112,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         console.log('🔄 Trying to fetch by email as fallback...');
         const { data: userByEmail, error: emailError } = await supabase
           .from('users')
-          .select('id, email, full_name, role, avatar, practice_id')
+          .select('id, email, full_name, role, avatar, practice_id, is_super_admin, can_manage_practices, permissions')
           .eq('email', email)
           .single();
           
@@ -161,7 +171,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         name: userData.full_name,
         role: userData.role,
         avatar: userData.avatar || null,
-        practice_id: userData.practice_id
+        practice_id: userData.practice_id,
+        is_super_admin: userData.is_super_admin || false,
+        can_manage_practices: userData.can_manage_practices || false,
+        permissions: userData.permissions || {},
+        last_active_at: userData.last_active_at
       };
 
       console.log('✅ User profile loaded:', user);
@@ -177,7 +191,14 @@ export const useAuthStore = create<AuthState>((set) => ({
         // Don't fail the login if this update fails
       }
 
-      set({ isAuthenticated: true, user });
+      // Set selected practice ID to user's practice or null if super admin
+      const selectedPracticeId = user.is_super_admin ? null : user.practice_id || null;
+      
+      set({ 
+        isAuthenticated: true, 
+        user,
+        selectedPracticeId
+      });
       console.log('✅ Login complete!');
       return true;
     } catch (error) {
@@ -189,11 +210,74 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
-      set({ isAuthenticated: false, user: null });
+      set({ isAuthenticated: false, user: null, selectedPracticeId: null });
       console.log('👋 Logged out successfully');
     } catch (error) {
       console.error('Logout error:', error);
       throw error;
     }
+  },
+  switchPractice: async (practiceId: string) => {
+    try {
+      const user = get().user;
+      if (!user) return false;
+
+      // Super admins can switch to any practice
+      if (user.is_super_admin) {
+        set({ selectedPracticeId: practiceId });
+        return true;
+      }
+
+      // Regular users can only access their assigned practices
+      const userPractices = await get().getUserPractices();
+      const hasAccess = userPractices.some(p => p.id === practiceId);
+      
+      if (hasAccess) {
+        set({ selectedPracticeId: practiceId });
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error switching practice:', error);
+      return false;
+    }
+  },
+  getUserPractices: async () => {
+    try {
+      const user = get().user;
+      if (!user) return [];
+
+      // Super admins can see all practices
+      if (user.is_super_admin) {
+        const { data: practices, error } = await supabase
+          .from('practices')
+          .select('*')
+          .order('name');
+        
+        if (error) throw error;
+        return practices || [];
+      }
+
+      // Regular users see practices they're assigned to
+      const { data: practices, error } = await supabase
+        .from('practices')
+        .select('*')
+        .eq('id', user.practice_id);
+        
+      if (error) throw error;
+      return practices || [];
+    } catch (error) {
+      console.error('Error getting user practices:', error);
+      return [];
+    }
+  },
+  isSuperAdmin: () => {
+    const user = get().user;
+    return user?.is_super_admin || false;
+  },
+  canManagePractices: () => {
+    const user = get().user;
+    return user?.is_super_admin || user?.can_manage_practices || false;
   }
 }));

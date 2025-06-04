@@ -11,9 +11,12 @@ import Login from './pages/auth/Login';
 import { useAuthStore } from './stores/authStore';
 import NotFound from './pages/NotFound';
 import PracticeProfile from './pages/PracticeProfile';
+import EnhancedPracticeProfile from './pages/EnhancedPracticeProfile';
 import Requests from './pages/Requests';
 import Inventory from './pages/Inventory';
 import Messages from './pages/Messages';
+import PracticesManagement from './pages/admin/PracticesManagement';
+import TariffManagement from './pages/admin/TariffManagement';
 import { Toaster } from 'react-hot-toast';
 
 function App() {
@@ -78,7 +81,9 @@ function App() {
           <Route path="inventory" element={<Inventory />} />
           <Route path="messages" element={<Messages />} />
           <Route path="finance" element={<Finance />} />
-          <Route path="practice-profile" element={<PracticeProfile />} />
+          <Route path="practice-profile" element={<EnhancedPracticeProfile />} />
+          <Route path="admin/practices" element={<PracticesManagement />} />
+          <Route path="admin/tariffs" element={<TariffManagement />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<NotFound />} />
         </Route>

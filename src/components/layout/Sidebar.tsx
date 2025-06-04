@@ -13,7 +13,10 @@ import {
   Cog,
   Package2,
   Bell,
-  LogOut
+  LogOut,
+  Building2,
+  DollarSign,
+  Crown
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -30,7 +33,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   isMobile,
   onMobileClose 
 }) => {
-  const { logout } = useAuthStore();
+  const { logout, isSuperAdmin, canManagePractices } = useAuthStore();
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -39,6 +42,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: Package2, label: 'Inventory', path: '/inventory' },
     { icon: Bell, label: 'Messages', path: '/messages' },
     { icon: Wallet, label: 'Finance', path: '/finance' },
+  ];
+
+  const adminItems = [
+    { icon: Crown, label: 'Manage Practices', path: '/admin/practices' },
+    { icon: DollarSign, label: 'Tariff Management', path: '/admin/tariffs' },
   ];
 
   return (
@@ -86,19 +94,50 @@ const Sidebar: React.FC<SidebarProps> = ({
             )}
           </NavLink>
         ))}
+
+        {/* Admin Section */}
+        {(isSuperAdmin() || canManagePractices()) && (
+          <>
+            {(!collapsed || isMobile) && (
+              <div className="px-3 py-2 mt-4 mb-2">
+                <div className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+                  Administration
+                </div>
+              </div>
+            )}
+            {adminItems.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) => cn(
+                  "flex items-center px-3 py-2 rounded-lg mb-1 transition-colors min-h-[44px]",
+                  "hover:bg-white/10",
+                  isActive ? "text-white bg-white/20" : "text-white/80",
+                  collapsed && !isMobile && "justify-center"
+                )}
+                onClick={isMobile ? onMobileClose : undefined}
+              >
+                <item.icon size={20} strokeWidth={1.5} />
+                {(!collapsed || isMobile) && (
+                  <span className="ml-3 text-sm font-medium">{item.label}</span>
+                )}
+              </NavLink>
+            ))}
+          </>
+        )}
       </nav>
 
       <div className="mt-auto px-2 py-4 border-t border-white/15 space-y-1">
         <NavLink
-          to="/settings"
+          to="/practice-profile"
           className={({ isActive }) => cn(
             "flex items-center px-3 py-2 rounded-lg text-white/80 hover:bg-white/10",
             isActive ? "bg-white/20" : "",
             collapsed && !isMobile && "justify-center"
           )}
         >
-          <UserRound size={18} />
-          {(!collapsed || isMobile) && <span className="ml-3 text-sm">Profile</span>}
+          <Building2 size={18} />
+          {(!collapsed || isMobile) && <span className="ml-3 text-sm">Practice</span>}
         </NavLink>
 
         <NavLink

@@ -3,9 +3,10 @@ import { Bell, Search, ChevronDown, LogOut, Settings, User } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore';
 import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
+import PracticeSwitcher from './PracticeSwitcher';
 
 const Header: React.FC = () => {
-  const { user, logout } = useAuthStore();
+  const { user, logout, isSuperAdmin, canManagePractices } = useAuthStore();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -41,6 +42,9 @@ const Header: React.FC = () => {
       </div>
 
       <div className="flex items-center space-x-4">
+        {/* Practice Switcher - only show for super admins or multi-practice users */}
+        <PracticeSwitcher />
+        
         <button className="relative p-2 text-gray-600 hover:bg-gray-50 rounded-lg">
           <Bell size={20} strokeWidth={1.5} />
           <span className="absolute top-2 right-2 w-2 h-2 bg-brand-red rounded-full" />
@@ -82,6 +86,23 @@ const Header: React.FC = () => {
                 <p className="text-sm font-medium text-gray-900">{user?.name}</p>
                 <p className="text-xs text-gray-500">{user?.email}</p>
               </div>
+              
+              {/* Super Admin Menu Items */}
+              {isSuperAdmin() && (
+                <>
+                  <button
+                    onClick={() => {
+                      setIsDropdownOpen(false);
+                      navigate('/admin/practices');
+                    }}
+                    className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                  >
+                    <Settings size={16} className="mr-2" />
+                    Manage Practices
+                  </button>
+                  <div className="border-t border-gray-100 my-1" />
+                </>
+              )}
               
               <button
                 onClick={() => {
