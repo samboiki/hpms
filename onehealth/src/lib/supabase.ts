@@ -9,6 +9,12 @@ export function createClient() {
   )
 }
 
+// Default client for use in client components
+export const supabase = createBrowserClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
 // Server-side Supabase instance for Server Components
 export function createServerComponentClient() {
   const { cookies } = require('next/headers')
