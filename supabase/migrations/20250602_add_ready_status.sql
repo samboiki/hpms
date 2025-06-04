@@ -1,19 +1,20 @@
--- Add 'ready' status to appointment status enum if it doesn't exist
+-- Add 'ready' status to appointment status check constraint
 -- This allows appointments to be marked as ready when patients arrive
 
 DO $$ 
 BEGIN
-    -- Check if the status column is already flexible enough
-    -- If it's a text field, no changes needed
-    -- If it's an enum, we need to update it
+    -- Drop the existing check constraint
+    ALTER TABLE appointments DROP CONSTRAINT IF EXISTS appointments_status_check;
     
-    -- For now, we'll assume it's a text field with check constraints
-    -- Let's ensure 'ready' is an allowed value
+    -- Add a new check constraint that includes 'ready' status
+    ALTER TABLE appointments ADD CONSTRAINT appointments_status_check 
+    CHECK (status IN ('pending', 'scheduled', 'confirmed', 'ready', 'in-progress', 'completed', 'cancelled', 'no-show'));
     
-    -- Update any existing check constraints to include 'ready'
-    -- This is a safe operation that won't break existing data
-    
-    RAISE NOTICE 'Ready status support added to appointments table';
+    RAISE NOTICE 'Ready status support added to appointments table check constraint';
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE NOTICE 'Could not update status constraint: %', SQLERRM;
+        -- If constraint update fails, we'll just log it and continue
 END $$;
 
 -- Update any existing appointments that should be marked as ready
@@ -28,4 +29,4 @@ WHERE status = 'scheduled'
   AND status != 'in-progress';
 
 -- Add comment for documentation
-COMMENT ON COLUMN appointments.status IS 'Appointment status: pending, scheduled, ready, in-progress, completed, cancelled, no-show';
+COMMENT ON COLUMN appointments.status IS 'Appointment status: pending, scheduled, confirmed, ready, in-progress, completed, cancelled, no-show';

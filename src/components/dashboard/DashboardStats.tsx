@@ -118,8 +118,8 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ practiceId }) => {
     try {
       const { data: appointments, error } = await supabase
         .from('appointments')
-        .select('status, type, appointment_date')
-        .gte('appointment_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+        .select('status, type, date')
+        .gte('date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
 
       if (error) throw error;
 
@@ -274,7 +274,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ practiceId }) => {
       const { data: appointments, error } = await supabase
         .from('appointments')
         .select('doctor_id, status')
-        .gte('appointment_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+        .gte('date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
 
       if (error) throw error;
 
