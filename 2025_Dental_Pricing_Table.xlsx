@@ -1,0 +1,1786 @@
+<?xml version="1.0"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Author>HPMS Dental Pricing Extractor</Author>
+  <LastAuthor>HPMS</LastAuthor>
+  <Created>2025-06-04</Created>
+  <Title>2025 Dental Practitioners Pricing Table</Title>
+  <Subject>Comprehensive Dental Fee Schedule</Subject>
+ </DocumentProperties>
+ <ExcelWorkbook xmlns="urn:schemas-microsoft-com:office:excel">
+  <WindowHeight>9000</WindowHeight>
+  <WindowWidth>13860</WindowWidth>
+  <WindowTopX>240</WindowTopX>
+  <WindowTopY>75</WindowTopY>
+  <ProtectStructure>False</ProtectStructure>
+  <ProtectWindows>False</ProtectWindows>
+ </ExcelWorkbook>
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Bottom"/>
+   <Borders/>
+   <Font/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="s21">
+   <Font x:Family="Swiss" ss:Bold="1" ss:Color="#FFFFFF"/>
+   <Interior ss:Color="#366092" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center"/>
+  </Style>
+  <Style ss:ID="s22">
+   <NumberFormat ss:Format="$#,##0.00"/>
+  </Style>
+  <Style ss:ID="s23">
+   <NumberFormat ss:Format="$#,##0.00"/>
+   <Font ss:Bold="1"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="Dental Pricing Table">
+  <Table ss:ExpandedColumnCount="10" ss:ExpandedRowCount="129">
+   <Column ss:AutoFitWidth="0" ss:Width="120"/>
+   <Column ss:AutoFitWidth="0" ss:Width="100"/>
+   <Column ss:AutoFitWidth="0" ss:Width="60"/>
+   <Column ss:AutoFitWidth="0" ss:Width="300"/>
+   <Column ss:AutoFitWidth="0" ss:Width="80"/>
+   <Column ss:AutoFitWidth="0" ss:Width="80"/>
+   <Column ss:AutoFitWidth="0" ss:Width="60"/>
+   <Column ss:AutoFitWidth="0" ss:Width="60"/>
+   <Column ss:AutoFitWidth="0" ss:Width="80"/>
+   <Column ss:AutoFitWidth="0" ss:Width="200"/>
+   <Row>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Category</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Subcategory</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Code</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Description</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Price</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Complexity</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Selected</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Quantity</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Total</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Notes</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Consultation & Examination</Data></Cell>
+    <Cell><Data ss:Type="String">Emergency</Data></Cell>
+    <Cell><Data ss:Type="String">004</Data></Cell>
+    <Cell><Data ss:Type="String">Emergency oral examination</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">135.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">135.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Consultation & Examination</Data></Cell>
+    <Cell><Data ss:Type="String">Emergency</Data></Cell>
+    <Cell><Data ss:Type="String">005</Data></Cell>
+    <Cell><Data ss:Type="String">Emergency examination after hours</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Consultation & Examination</Data></Cell>
+    <Cell><Data ss:Type="String">Follow-up</Data></Cell>
+    <Cell><Data ss:Type="String">009</Data></Cell>
+    <Cell><Data ss:Type="String">Post-operative examination</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">45.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">45.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Consultation & Examination</Data></Cell>
+    <Cell><Data ss:Type="String">Follow-up</Data></Cell>
+    <Cell><Data ss:Type="String">003</Data></Cell>
+    <Cell><Data ss:Type="String">Limited oral examination - problem focused</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">55.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">55.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Consultation & Examination</Data></Cell>
+    <Cell><Data ss:Type="String">Follow-up</Data></Cell>
+    <Cell><Data ss:Type="String">002</Data></Cell>
+    <Cell><Data ss:Type="String">Periodic oral examination</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">65.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">65.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Consultation & Examination</Data></Cell>
+    <Cell><Data ss:Type="String">Follow-up</Data></Cell>
+    <Cell><Data ss:Type="String">008</Data></Cell>
+    <Cell><Data ss:Type="String">Pre-operative consultation</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">85.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">85.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Consultation & Examination</Data></Cell>
+    <Cell><Data ss:Type="String">Initial Consultation</Data></Cell>
+    <Cell><Data ss:Type="String">001</Data></Cell>
+    <Cell><Data ss:Type="String">Initial comprehensive oral examination</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">95.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">95.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Consultation & Examination</Data></Cell>
+    <Cell><Data ss:Type="String">Specialist</Data></Cell>
+    <Cell><Data ss:Type="String">010</Data></Cell>
+    <Cell><Data ss:Type="String">Oral cancer screening</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">115.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">115.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Consultation & Examination</Data></Cell>
+    <Cell><Data ss:Type="String">Specialist</Data></Cell>
+    <Cell><Data ss:Type="String">007</Data></Cell>
+    <Cell><Data ss:Type="String">Second opinion consultation</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">125.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">125.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Consultation & Examination</Data></Cell>
+    <Cell><Data ss:Type="String">Specialist</Data></Cell>
+    <Cell><Data ss:Type="String">006</Data></Cell>
+    <Cell><Data ss:Type="String">Specialist consultation</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">155.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">155.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Cosmetic</Data></Cell>
+    <Cell><Data ss:Type="String">Bonding</Data></Cell>
+    <Cell><Data ss:Type="String">922</Data></Cell>
+    <Cell><Data ss:Type="String">Tooth reshaping per tooth</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Cosmetic</Data></Cell>
+    <Cell><Data ss:Type="String">Bonding</Data></Cell>
+    <Cell><Data ss:Type="String">921</Data></Cell>
+    <Cell><Data ss:Type="String">Cosmetic bonding per tooth</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">325.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">325.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Cosmetic</Data></Cell>
+    <Cell><Data ss:Type="String">Consultation</Data></Cell>
+    <Cell><Data ss:Type="String">931</Data></Cell>
+    <Cell><Data ss:Type="String">Smile makeover consultation</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Cosmetic</Data></Cell>
+    <Cell><Data ss:Type="String">Digital Services</Data></Cell>
+    <Cell><Data ss:Type="String">932</Data></Cell>
+    <Cell><Data ss:Type="String">Digital smile design</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">385.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">385.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Cosmetic</Data></Cell>
+    <Cell><Data ss:Type="String">Veneers</Data></Cell>
+    <Cell><Data ss:Type="String">913</Data></Cell>
+    <Cell><Data ss:Type="String">Veneer consultation and mockup</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">285.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">285.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Cosmetic</Data></Cell>
+    <Cell><Data ss:Type="String">Veneers</Data></Cell>
+    <Cell><Data ss:Type="String">912</Data></Cell>
+    <Cell><Data ss:Type="String">Composite veneer per tooth</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">785.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">785.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Cosmetic</Data></Cell>
+    <Cell><Data ss:Type="String">Veneers</Data></Cell>
+    <Cell><Data ss:Type="String">911</Data></Cell>
+    <Cell><Data ss:Type="String">Porcelain veneer per tooth</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1685.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1685.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Cosmetic</Data></Cell>
+    <Cell><Data ss:Type="String">Whitening</Data></Cell>
+    <Cell><Data ss:Type="String">903</Data></Cell>
+    <Cell><Data ss:Type="String">Whitening maintenance kit</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Cosmetic</Data></Cell>
+    <Cell><Data ss:Type="String">Whitening</Data></Cell>
+    <Cell><Data ss:Type="String">902</Data></Cell>
+    <Cell><Data ss:Type="String">Take-home whitening kit</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">385.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">385.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Cosmetic</Data></Cell>
+    <Cell><Data ss:Type="String">Whitening</Data></Cell>
+    <Cell><Data ss:Type="String">901</Data></Cell>
+    <Cell><Data ss:Type="String">Teeth whitening in-office</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">585.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">585.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Diagnostic</Data></Cell>
+    <Cell><Data ss:Type="String">Advanced Imaging</Data></Cell>
+    <Cell><Data ss:Type="String">821</Data></Cell>
+    <Cell><Data ss:Type="String">CBCT scan limited area</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Diagnostic</Data></Cell>
+    <Cell><Data ss:Type="String">Advanced Imaging</Data></Cell>
+    <Cell><Data ss:Type="String">822</Data></Cell>
+    <Cell><Data ss:Type="String">CBCT scan full mouth</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">685.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">685.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Diagnostic</Data></Cell>
+    <Cell><Data ss:Type="String">Digital Services</Data></Cell>
+    <Cell><Data ss:Type="String">832</Data></Cell>
+    <Cell><Data ss:Type="String">Digital impressions</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Diagnostic</Data></Cell>
+    <Cell><Data ss:Type="String">Extraoral X-rays</Data></Cell>
+    <Cell><Data ss:Type="String">812</Data></Cell>
+    <Cell><Data ss:Type="String">Cephalometric x-ray</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">95.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">95.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Diagnostic</Data></Cell>
+    <Cell><Data ss:Type="String">Extraoral X-rays</Data></Cell>
+    <Cell><Data ss:Type="String">811</Data></Cell>
+    <Cell><Data ss:Type="String">Panoramic x-ray</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">125.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">125.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Diagnostic</Data></Cell>
+    <Cell><Data ss:Type="String">Intraoral X-rays</Data></Cell>
+    <Cell><Data ss:Type="String">803</Data></Cell>
+    <Cell><Data ss:Type="String">Periapical x-ray single</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">35.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">35.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Diagnostic</Data></Cell>
+    <Cell><Data ss:Type="String">Intraoral X-rays</Data></Cell>
+    <Cell><Data ss:Type="String">801</Data></Cell>
+    <Cell><Data ss:Type="String">Bitewing x-rays 2 films</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">55.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">55.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Diagnostic</Data></Cell>
+    <Cell><Data ss:Type="String">Intraoral X-rays</Data></Cell>
+    <Cell><Data ss:Type="String">802</Data></Cell>
+    <Cell><Data ss:Type="String">Bitewing x-rays 4 films</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">85.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">85.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Diagnostic</Data></Cell>
+    <Cell><Data ss:Type="String">Intraoral X-rays</Data></Cell>
+    <Cell><Data ss:Type="String">804</Data></Cell>
+    <Cell><Data ss:Type="String">Full mouth x-ray series</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Diagnostic</Data></Cell>
+    <Cell><Data ss:Type="String">Photography</Data></Cell>
+    <Cell><Data ss:Type="String">831</Data></Cell>
+    <Cell><Data ss:Type="String">Intraoral camera photos</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">45.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">45.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Pediatric Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">421</Data></Cell>
+    <Cell><Data ss:Type="String">Pulpotomy primary tooth</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">285.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">285.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Pulp Therapy</Data></Cell>
+    <Cell><Data ss:Type="String">423</Data></Cell>
+    <Cell><Data ss:Type="String">Pulp cap indirect</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">85.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">85.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Pulp Therapy</Data></Cell>
+    <Cell><Data ss:Type="String">422</Data></Cell>
+    <Cell><Data ss:Type="String">Pulp cap direct</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">125.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">125.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Retreatment</Data></Cell>
+    <Cell><Data ss:Type="String">404</Data></Cell>
+    <Cell><Data ss:Type="String">Root canal retreatment anterior</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">985.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">985.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Retreatment</Data></Cell>
+    <Cell><Data ss:Type="String">405</Data></Cell>
+    <Cell><Data ss:Type="String">Root canal retreatment premolar</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1085.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1085.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Retreatment</Data></Cell>
+    <Cell><Data ss:Type="String">406</Data></Cell>
+    <Cell><Data ss:Type="String">Root canal retreatment molar</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1285.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1285.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Root Canal Therapy</Data></Cell>
+    <Cell><Data ss:Type="String">401</Data></Cell>
+    <Cell><Data ss:Type="String">Root canal therapy anterior tooth</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">825.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">825.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Root Canal Therapy</Data></Cell>
+    <Cell><Data ss:Type="String">402</Data></Cell>
+    <Cell><Data ss:Type="String">Root canal therapy premolar</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">925.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">925.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Root Canal Therapy</Data></Cell>
+    <Cell><Data ss:Type="String">403</Data></Cell>
+    <Cell><Data ss:Type="String">Root canal therapy molar</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1125.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1125.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Surgical Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">411</Data></Cell>
+    <Cell><Data ss:Type="String">Apicoectomy anterior tooth</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">785.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">785.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Surgical Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">412</Data></Cell>
+    <Cell><Data ss:Type="String">Apicoectomy premolar</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">885.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">885.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Surgical Endodontics</Data></Cell>
+    <Cell><Data ss:Type="String">413</Data></Cell>
+    <Cell><Data ss:Type="String">Apicoectomy molar</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">985.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">985.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Oral Surgery</Data></Cell>
+    <Cell><Data ss:Type="String">Extractions</Data></Cell>
+    <Cell><Data ss:Type="String">301</Data></Cell>
+    <Cell><Data ss:Type="String">Simple tooth extraction</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Oral Surgery</Data></Cell>
+    <Cell><Data ss:Type="String">Extractions</Data></Cell>
+    <Cell><Data ss:Type="String">303</Data></Cell>
+    <Cell><Data ss:Type="String">Removal of erupted wisdom tooth</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">285.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">285.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Oral Surgery</Data></Cell>
+    <Cell><Data ss:Type="String">Extractions</Data></Cell>
+    <Cell><Data ss:Type="String">302</Data></Cell>
+    <Cell><Data ss:Type="String">Surgical tooth extraction</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">325.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">325.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Oral Surgery</Data></Cell>
+    <Cell><Data ss:Type="String">Implants</Data></Cell>
+    <Cell><Data ss:Type="String">322</Data></Cell>
+    <Cell><Data ss:Type="String">Implant abutment placement</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Oral Surgery</Data></Cell>
+    <Cell><Data ss:Type="String">Implants</Data></Cell>
+    <Cell><Data ss:Type="String">324</Data></Cell>
+    <Cell><Data ss:Type="String">Bone graft for implant</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">885.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">885.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Oral Surgery</Data></Cell>
+    <Cell><Data ss:Type="String">Implants</Data></Cell>
+    <Cell><Data ss:Type="String">325</Data></Cell>
+    <Cell><Data ss:Type="String">Sinus lift procedure</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1285.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1285.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Oral Surgery</Data></Cell>
+    <Cell><Data ss:Type="String">Implants</Data></Cell>
+    <Cell><Data ss:Type="String">323</Data></Cell>
+    <Cell><Data ss:Type="String">Implant crown</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1485.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1485.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Oral Surgery</Data></Cell>
+    <Cell><Data ss:Type="String">Implants</Data></Cell>
+    <Cell><Data ss:Type="String">321</Data></Cell>
+    <Cell><Data ss:Type="String">Single tooth implant placement</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">2150.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">2150.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Oral Surgery</Data></Cell>
+    <Cell><Data ss:Type="String">Surgical</Data></Cell>
+    <Cell><Data ss:Type="String">311</Data></Cell>
+    <Cell><Data ss:Type="String">Biopsy soft tissue</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">385.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">385.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Oral Surgery</Data></Cell>
+    <Cell><Data ss:Type="String">Surgical</Data></Cell>
+    <Cell><Data ss:Type="String">312</Data></Cell>
+    <Cell><Data ss:Type="String">Biopsy bone tissue</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Oral Surgery</Data></Cell>
+    <Cell><Data ss:Type="String">Surgical</Data></Cell>
+    <Cell><Data ss:Type="String">304</Data></Cell>
+    <Cell><Data ss:Type="String">Surgical removal impacted tooth</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">525.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">525.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Oral Surgery</Data></Cell>
+    <Cell><Data ss:Type="String">Surgical</Data></Cell>
+    <Cell><Data ss:Type="String">305</Data></Cell>
+    <Cell><Data ss:Type="String">Surgical removal impacted wisdom tooth</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">625.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">625.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Oral Surgery</Data></Cell>
+    <Cell><Data ss:Type="String">Surgical</Data></Cell>
+    <Cell><Data ss:Type="String">306</Data></Cell>
+    <Cell><Data ss:Type="String">Complicated surgical extraction</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">785.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">785.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Orthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Appliances</Data></Cell>
+    <Cell><Data ss:Type="String">641</Data></Cell>
+    <Cell><Data ss:Type="String">Space maintainer</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">385.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">385.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Orthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Appliances</Data></Cell>
+    <Cell><Data ss:Type="String">642</Data></Cell>
+    <Cell><Data ss:Type="String">Palatal expander</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">785.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">785.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Orthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Clear Aligners</Data></Cell>
+    <Cell><Data ss:Type="String">622</Data></Cell>
+    <Cell><Data ss:Type="String">Clear aligner refinement</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1285.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1285.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Orthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Clear Aligners</Data></Cell>
+    <Cell><Data ss:Type="String">621</Data></Cell>
+    <Cell><Data ss:Type="String">Clear aligner treatment</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">6885.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">6885.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Orthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Consultation</Data></Cell>
+    <Cell><Data ss:Type="String">601</Data></Cell>
+    <Cell><Data ss:Type="String">Orthodontic consultation</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Orthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Records</Data></Cell>
+    <Cell><Data ss:Type="String">602</Data></Cell>
+    <Cell><Data ss:Type="String">Orthodontic records</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Orthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Retainers</Data></Cell>
+    <Cell><Data ss:Type="String">631</Data></Cell>
+    <Cell><Data ss:Type="String">Removable retainer</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">325.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">325.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Orthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Retainers</Data></Cell>
+    <Cell><Data ss:Type="String">632</Data></Cell>
+    <Cell><Data ss:Type="String">Fixed retainer</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Orthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Traditional Braces</Data></Cell>
+    <Cell><Data ss:Type="String">611</Data></Cell>
+    <Cell><Data ss:Type="String">Metal braces full treatment</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">5485.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">5485.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Orthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Traditional Braces</Data></Cell>
+    <Cell><Data ss:Type="String">612</Data></Cell>
+    <Cell><Data ss:Type="String">Ceramic braces full treatment</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">6285.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">6285.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Orthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Traditional Braces</Data></Cell>
+    <Cell><Data ss:Type="String">613</Data></Cell>
+    <Cell><Data ss:Type="String">Lingual braces full treatment</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">8485.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">8485.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Pediatric Dentistry</Data></Cell>
+    <Cell><Data ss:Type="String">Appliances</Data></Cell>
+    <Cell><Data ss:Type="String">1032</Data></Cell>
+    <Cell><Data ss:Type="String">Space maintainer</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">385.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">385.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Pediatric Dentistry</Data></Cell>
+    <Cell><Data ss:Type="String">Cleaning</Data></Cell>
+    <Cell><Data ss:Type="String">1011</Data></Cell>
+    <Cell><Data ss:Type="String">Pediatric cleaning</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">85.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">85.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Pediatric Dentistry</Data></Cell>
+    <Cell><Data ss:Type="String">Examination</Data></Cell>
+    <Cell><Data ss:Type="String">1002</Data></Cell>
+    <Cell><Data ss:Type="String">Infant oral health visit</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">65.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">65.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Pediatric Dentistry</Data></Cell>
+    <Cell><Data ss:Type="String">Examination</Data></Cell>
+    <Cell><Data ss:Type="String">1001</Data></Cell>
+    <Cell><Data ss:Type="String">Child dental examination</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">75.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">75.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Pediatric Dentistry</Data></Cell>
+    <Cell><Data ss:Type="String">Prevention</Data></Cell>
+    <Cell><Data ss:Type="String">1012</Data></Cell>
+    <Cell><Data ss:Type="String">Fluoride treatment child</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">45.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">45.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Pediatric Dentistry</Data></Cell>
+    <Cell><Data ss:Type="String">Prevention</Data></Cell>
+    <Cell><Data ss:Type="String">1013</Data></Cell>
+    <Cell><Data ss:Type="String">Dental sealants per tooth</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">85.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">85.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Pediatric Dentistry</Data></Cell>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">1021</Data></Cell>
+    <Cell><Data ss:Type="String">Primary tooth filling</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">125.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">125.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Pediatric Dentistry</Data></Cell>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">1022</Data></Cell>
+    <Cell><Data ss:Type="String">Stainless steel crown</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">285.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">285.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Pediatric Dentistry</Data></Cell>
+    <Cell><Data ss:Type="String">Surgery</Data></Cell>
+    <Cell><Data ss:Type="String">1031</Data></Cell>
+    <Cell><Data ss:Type="String">Primary tooth extraction</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">135.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">135.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Periodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Consultation</Data></Cell>
+    <Cell><Data ss:Type="String">701</Data></Cell>
+    <Cell><Data ss:Type="String">Periodontal consultation</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Periodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Grafts</Data></Cell>
+    <Cell><Data ss:Type="String">731</Data></Cell>
+    <Cell><Data ss:Type="String">Soft tissue graft</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">985.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">985.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Periodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Grafts</Data></Cell>
+    <Cell><Data ss:Type="String">732</Data></Cell>
+    <Cell><Data ss:Type="String">Bone graft</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1185.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1185.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Periodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Grafts</Data></Cell>
+    <Cell><Data ss:Type="String">733</Data></Cell>
+    <Cell><Data ss:Type="String">Guided tissue regeneration</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1385.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1385.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Periodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Maintenance</Data></Cell>
+    <Cell><Data ss:Type="String">702</Data></Cell>
+    <Cell><Data ss:Type="String">Periodontal maintenance</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">125.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">125.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Periodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Non-surgical</Data></Cell>
+    <Cell><Data ss:Type="String">711</Data></Cell>
+    <Cell><Data ss:Type="String">Scaling and root planing per quadrant</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">285.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">285.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Periodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Non-surgical</Data></Cell>
+    <Cell><Data ss:Type="String">712</Data></Cell>
+    <Cell><Data ss:Type="String">Full mouth debridement</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">385.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">385.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Periodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Surgical</Data></Cell>
+    <Cell><Data ss:Type="String">723</Data></Cell>
+    <Cell><Data ss:Type="String">Crown lengthening per tooth</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Periodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Surgical</Data></Cell>
+    <Cell><Data ss:Type="String">722</Data></Cell>
+    <Cell><Data ss:Type="String">Gingivectomy per quadrant</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">585.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">585.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Periodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Surgical</Data></Cell>
+    <Cell><Data ss:Type="String">721</Data></Cell>
+    <Cell><Data ss:Type="String">Gingival flap surgery per quadrant</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">785.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">785.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Preventive Care</Data></Cell>
+    <Cell><Data ss:Type="String">Cleaning</Data></Cell>
+    <Cell><Data ss:Type="String">101</Data></Cell>
+    <Cell><Data ss:Type="String">Professional teeth cleaning prophylaxis</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">105.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">105.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Preventive Care</Data></Cell>
+    <Cell><Data ss:Type="String">Cleaning</Data></Cell>
+    <Cell><Data ss:Type="String">102</Data></Cell>
+    <Cell><Data ss:Type="String">Deep cleaning full mouth</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">285.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">285.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Preventive Care</Data></Cell>
+    <Cell><Data ss:Type="String">Education</Data></Cell>
+    <Cell><Data ss:Type="String">108</Data></Cell>
+    <Cell><Data ss:Type="String">Oral hygiene instruction</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">65.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">65.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Preventive Care</Data></Cell>
+    <Cell><Data ss:Type="String">Education</Data></Cell>
+    <Cell><Data ss:Type="String">109</Data></Cell>
+    <Cell><Data ss:Type="String">Dietary counseling</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">75.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">75.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Preventive Care</Data></Cell>
+    <Cell><Data ss:Type="String">Education</Data></Cell>
+    <Cell><Data ss:Type="String">110</Data></Cell>
+    <Cell><Data ss:Type="String">Tobacco cessation counseling</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">85.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">85.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Preventive Care</Data></Cell>
+    <Cell><Data ss:Type="String">Fluoride</Data></Cell>
+    <Cell><Data ss:Type="String">105</Data></Cell>
+    <Cell><Data ss:Type="String">Fluoride treatment child</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">35.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">35.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Preventive Care</Data></Cell>
+    <Cell><Data ss:Type="String">Fluoride</Data></Cell>
+    <Cell><Data ss:Type="String">106</Data></Cell>
+    <Cell><Data ss:Type="String">Fluoride treatment adult</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">45.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">45.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Preventive Care</Data></Cell>
+    <Cell><Data ss:Type="String">Fluoride</Data></Cell>
+    <Cell><Data ss:Type="String">107</Data></Cell>
+    <Cell><Data ss:Type="String">Fluoride varnish application</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">55.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">55.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Preventive Care</Data></Cell>
+    <Cell><Data ss:Type="String">Scaling</Data></Cell>
+    <Cell><Data ss:Type="String">103</Data></Cell>
+    <Cell><Data ss:Type="String">Scaling and root planing per quadrant</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">85.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">85.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Preventive Care</Data></Cell>
+    <Cell><Data ss:Type="String">Scaling</Data></Cell>
+    <Cell><Data ss:Type="String">104</Data></Cell>
+    <Cell><Data ss:Type="String">Gross debridement of teeth</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">155.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">155.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Bridges</Data></Cell>
+    <Cell><Data ss:Type="String">511</Data></Cell>
+    <Cell><Data ss:Type="String">Three unit bridge</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">3285.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">3285.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Bridges</Data></Cell>
+    <Cell><Data ss:Type="String">512</Data></Cell>
+    <Cell><Data ss:Type="String">Four unit bridge</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">4185.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">4185.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Bridges</Data></Cell>
+    <Cell><Data ss:Type="String">513</Data></Cell>
+    <Cell><Data ss:Type="String">Implant supported bridge 3 units</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">4885.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">4885.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Crowns</Data></Cell>
+    <Cell><Data ss:Type="String">505</Data></Cell>
+    <Cell><Data ss:Type="String">Temporary crown</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Crowns</Data></Cell>
+    <Cell><Data ss:Type="String">501</Data></Cell>
+    <Cell><Data ss:Type="String">Porcelain fused to metal crown</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1285.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1285.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Crowns</Data></Cell>
+    <Cell><Data ss:Type="String">502</Data></Cell>
+    <Cell><Data ss:Type="String">All porcelain crown</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1485.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1485.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Crowns</Data></Cell>
+    <Cell><Data ss:Type="String">503</Data></Cell>
+    <Cell><Data ss:Type="String">Zirconia crown</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1685.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1685.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Crowns</Data></Cell>
+    <Cell><Data ss:Type="String">504</Data></Cell>
+    <Cell><Data ss:Type="String">Gold crown</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1885.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1885.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Denture Repairs</Data></Cell>
+    <Cell><Data ss:Type="String">528</Data></Cell>
+    <Cell><Data ss:Type="String">Denture repair</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">185.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Denture Repairs</Data></Cell>
+    <Cell><Data ss:Type="String">526</Data></Cell>
+    <Cell><Data ss:Type="String">Denture reline soft</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">385.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">385.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Denture Repairs</Data></Cell>
+    <Cell><Data ss:Type="String">527</Data></Cell>
+    <Cell><Data ss:Type="String">Denture reline hard</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Dentures</Data></Cell>
+    <Cell><Data ss:Type="String">524</Data></Cell>
+    <Cell><Data ss:Type="String">Partial denture cast metal</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1285.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1285.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Dentures</Data></Cell>
+    <Cell><Data ss:Type="String">525</Data></Cell>
+    <Cell><Data ss:Type="String">Partial denture flexible</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1485.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1485.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Dentures</Data></Cell>
+    <Cell><Data ss:Type="String">521</Data></Cell>
+    <Cell><Data ss:Type="String">Complete upper denture</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1685.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1685.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Dentures</Data></Cell>
+    <Cell><Data ss:Type="String">522</Data></Cell>
+    <Cell><Data ss:Type="String">Complete lower denture</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1685.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1685.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Prosthodontics</Data></Cell>
+    <Cell><Data ss:Type="String">Dentures</Data></Cell>
+    <Cell><Data ss:Type="String">523</Data></Cell>
+    <Cell><Data ss:Type="String">Immediate complete denture</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1885.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">1885.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Fillings</Data></Cell>
+    <Cell><Data ss:Type="String">211</Data></Cell>
+    <Cell><Data ss:Type="String">Amalgam filling one surface</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">135.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">135.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Fillings</Data></Cell>
+    <Cell><Data ss:Type="String">201</Data></Cell>
+    <Cell><Data ss:Type="String">Composite filling one surface anterior</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">155.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">155.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Fillings</Data></Cell>
+    <Cell><Data ss:Type="String">212</Data></Cell>
+    <Cell><Data ss:Type="String">Amalgam filling two surfaces</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">165.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">165.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Fillings</Data></Cell>
+    <Cell><Data ss:Type="String">204</Data></Cell>
+    <Cell><Data ss:Type="String">Composite filling one surface posterior</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">175.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">175.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Fillings</Data></Cell>
+    <Cell><Data ss:Type="String">202</Data></Cell>
+    <Cell><Data ss:Type="String">Composite filling two surfaces anterior</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">195.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">195.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Fillings</Data></Cell>
+    <Cell><Data ss:Type="String">213</Data></Cell>
+    <Cell><Data ss:Type="String">Amalgam filling three surfaces</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">195.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">195.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Fillings</Data></Cell>
+    <Cell><Data ss:Type="String">205</Data></Cell>
+    <Cell><Data ss:Type="String">Composite filling two surfaces posterior</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">215.0</Data></Cell>
+    <Cell><Data ss:Type="String">Simple</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">215.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Fillings</Data></Cell>
+    <Cell><Data ss:Type="String">203</Data></Cell>
+    <Cell><Data ss:Type="String">Composite filling three surfaces anterior</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">235.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">235.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Fillings</Data></Cell>
+    <Cell><Data ss:Type="String">206</Data></Cell>
+    <Cell><Data ss:Type="String">Composite filling three surfaces posterior</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">255.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">255.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Fillings</Data></Cell>
+    <Cell><Data ss:Type="String">207</Data></Cell>
+    <Cell><Data ss:Type="String">Composite filling four or more surfaces</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">295.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">295.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Inlays/Onlays</Data></Cell>
+    <Cell><Data ss:Type="String">221</Data></Cell>
+    <Cell><Data ss:Type="String">Composite inlay</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">525.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">525.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Inlays/Onlays</Data></Cell>
+    <Cell><Data ss:Type="String">222</Data></Cell>
+    <Cell><Data ss:Type="String">Composite onlay</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">585.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">585.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Inlays/Onlays</Data></Cell>
+    <Cell><Data ss:Type="String">223</Data></Cell>
+    <Cell><Data ss:Type="String">Porcelain inlay</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">785.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">785.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Inlays/Onlays</Data></Cell>
+    <Cell><Data ss:Type="String">224</Data></Cell>
+    <Cell><Data ss:Type="String">Porcelain onlay</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">885.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">885.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Repairs</Data></Cell>
+    <Cell><Data ss:Type="String">231</Data></Cell>
+    <Cell><Data ss:Type="String">Core buildup including pins</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">285.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">285.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Repairs</Data></Cell>
+    <Cell><Data ss:Type="String">232</Data></Cell>
+    <Cell><Data ss:Type="String">Prefabricated post and core</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">325.0</Data></Cell>
+    <Cell><Data ss:Type="String">Moderate</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">325.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String">Restorative</Data></Cell>
+    <Cell><Data ss:Type="String">Repairs</Data></Cell>
+    <Cell><Data ss:Type="String">233</Data></Cell>
+    <Cell><Data ss:Type="String">Custom post and core</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String">Complex</Data></Cell>
+    <Cell><Data ss:Type="Boolean">false</Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">485.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+  </Table>
+ </Worksheet>
+ <Worksheet ss:Name="Invoice Template">
+  <Table ss:ExpandedColumnCount="6" ss:ExpandedRowCount="30">
+   <Row>
+    <Cell ss:MergeAcross="5" ss:StyleID="s21"><Data ss:Type="String">DENTAL PRACTICE INVOICE</Data></Cell>
+   </Row>
+   <Row></Row>
+   <Row>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Practice Name:</Data></Cell>
+    <Cell ss:MergeAcross="1"><Data ss:Type="String">[Enter Practice Name]</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Patient Name:</Data></Cell>
+    <Cell ss:MergeAcross="1"><Data ss:Type="String">[Enter Patient Name]</Data></Cell>
+   </Row>
+   <Row>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Address:</Data></Cell>
+    <Cell ss:MergeAcross="1"><Data ss:Type="String">[Enter Address]</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Date:</Data></Cell>
+    <Cell ss:MergeAcross="1"><Data ss:Type="String">[Enter Date]</Data></Cell>
+   </Row>
+   <Row>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Phone:</Data></Cell>
+    <Cell ss:MergeAcross="1"><Data ss:Type="String">[Enter Phone]</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Invoice #:</Data></Cell>
+    <Cell ss:MergeAcross="1"><Data ss:Type="String">[Enter Invoice Number]</Data></Cell>
+   </Row>
+   <Row></Row>
+   <Row>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Code</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Description</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Quantity</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Unit Price</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Total</Data></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Notes</Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">0</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">0</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">0</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">0</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">0</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">0</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">0</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">0</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">0</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">0</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">0</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">0</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">0</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">0</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="Number">1</Data></Cell>
+    <Cell ss:StyleID="s22"><Data ss:Type="Number">0</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+   </Row>
+   <Row></Row>
+   <Row>
+    <Cell></Cell>
+    <Cell></Cell>
+    <Cell></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Subtotal:</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell></Cell>
+   </Row>
+   <Row>
+    <Cell></Cell>
+    <Cell></Cell>
+    <Cell></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Tax (15%):</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell></Cell>
+   </Row>
+   <Row>
+    <Cell></Cell>
+    <Cell></Cell>
+    <Cell></Cell>
+    <Cell ss:StyleID="s21"><Data ss:Type="String">Total:</Data></Cell>
+    <Cell ss:StyleID="s23"><Data ss:Type="Number">0</Data></Cell>
+    <Cell></Cell>
+   </Row>
+  </Table>
+ </Worksheet>
+</Workbook>

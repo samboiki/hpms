@@ -1,0 +1,88 @@
+COMPREHENSIVE DENTAL PRICING EXTRACTION REPORT
+=======================================================
+
+EXTRACTION SUMMARY:
+--------------------
+Total services extracted: 128
+Categories found: 11
+Price range: $35.00 - $8485.00
+Average price: $788.24
+Median price: $325.00
+
+SERVICES BY CATEGORY:
+-------------------------
+Consultation & Examination:
+  • Services: 10
+  • Price range: $45.00 - $185.00
+  • Average: $106.00
+
+Cosmetic:
+  • Services: 10
+  • Price range: $185.00 - $1685.00
+  • Average: $499.00
+
+Diagnostic:
+  • Services: 10
+  • Price range: $35.00 - $685.00
+  • Average: $198.00
+
+Endodontics:
+  • Services: 12
+  • Price range: $85.00 - $1285.00
+  • Average: $781.67
+
+Oral Surgery:
+  • Services: 13
+  • Price range: $185.00 - $2150.00
+  • Average: $760.77
+
+Orthodontics:
+  • Services: 11
+  • Price range: $185.00 - $8485.00
+  • Average: $2825.00
+
+Pediatric Dentistry:
+  • Services: 9
+  • Price range: $45.00 - $385.00
+  • Average: $142.78
+
+Periodontics:
+  • Services: 10
+  • Price range: $125.00 - $1385.00
+  • Average: $639.00
+
+Preventive Care:
+  • Services: 10
+  • Price range: $35.00 - $285.00
+  • Average: $99.00
+
+Prosthodontics:
+  • Services: 16
+  • Price range: $185.00 - $4885.00
+  • Average: $1747.50
+
+Restorative:
+  • Services: 17
+  • Price range: $135.00 - $885.00
+  • Average: $346.76
+
+COMPLEXITY BREAKDOWN:
+----------------------
+Complex: 31 services (24.2%)
+Moderate: 45 services (35.2%)
+Simple: 52 services (40.6%)
+
+SPECIAL PRICING RULES & COMPLEXITIES:
+----------------------------------------
+• Emergency services include after-hours surcharge
+• Orthodontic treatments are comprehensive packages
+• Implant procedures require multiple visits
+• Cosmetic procedures may require consultation first
+• Pediatric services have age-specific pricing
+• Complex procedures may require specialist referral
+
+FILES CREATED:
+---------------
+• /home/happy/projects/hpms/2025_Dental_Pricing_Table.csv (CSV format for Excel import)
+• /home/happy/projects/hpms/2025_Dental_Pricing_Table.xlsx (Excel format with formulas)
+• /home/happy/projects/hpms/2025_Dental_Pricing_Table_analysis_report.txt (This analysis report)
