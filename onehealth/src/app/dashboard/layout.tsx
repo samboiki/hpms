@@ -3,8 +3,8 @@
 import { useAuth } from '@/hooks/use-auth'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import { DashboardSidebar } from '@/components/layout/dashboard-sidebar'
-import { DashboardHeader } from '@/components/layout/dashboard-header'
+import { AdminSidebar } from '@/components/layout/admin-sidebar'
+import { AdminHeader } from '@/components/layout/admin-header'
 import { Loader2 } from 'lucide-react'
 
 export default function DashboardLayout({
@@ -38,20 +38,22 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <DashboardSidebar />
-      
-      {/* Main content */}
-      <div className="lg:pl-64">
-        {/* Header */}
-        <DashboardHeader />
+      <div className="flex h-screen">
+        {/* Sidebar */}
+        <AdminSidebar />
         
-        {/* Page content */}
-        <main className="py-6">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            {children}
-          </div>
-        </main>
+        {/* Main content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Header */}
+          <AdminHeader />
+          
+          {/* Content */}
+          <main className="flex-1 overflow-y-auto bg-gray-50">
+            <div className="p-6">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
     </div>
   )
