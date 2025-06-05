@@ -14,21 +14,23 @@ import Footer from '@/components/Footer';
 import LocationMap from '@/components/LocationMap';
 import { useState } from 'react';
 import { SubService, ServiceCategory } from '@/data/dr-polina-services';
+import { SubService as NewCharmSubService, ServiceCategory as NewCharmServiceCategory } from '@/data/newcharm-services';
 
 interface PageWrapperProps {
   practice: Practice;
 }
 
 export default function PageWrapper({ practice }: PageWrapperProps) {
-  const [selectedService, setSelectedService] = useState<SubService | undefined>();
-  const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | undefined>();
+  const [selectedService, setSelectedService] = useState<SubService | NewCharmSubService | undefined>();
+  const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | NewCharmServiceCategory | undefined>();
 
-  const handleBookService = (service: SubService, category: ServiceCategory) => {
+  const handleBookService = (service: SubService | NewCharmSubService, category: ServiceCategory | NewCharmServiceCategory) => {
     setSelectedService(service);
     setSelectedCategory(category);
   };
 
   const isAesthetic = practice.slug === 'dr-polina-aesthetics';
+  const isDental = practice.slug === 'newcharm-dental';
 
   return (
     <div 
@@ -56,7 +58,7 @@ export default function PageWrapper({ practice }: PageWrapperProps) {
         preSelectedService={selectedService}
         preSelectedCategory={selectedCategory}
       />
-      {isAesthetic && <LocationMap practice={practice} />}
+      {(isAesthetic || isDental) && <LocationMap practice={practice} />}
       <EnhancedContactSection practice={practice} />
       <Footer practice={practice} />
     </div>

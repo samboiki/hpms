@@ -53,10 +53,13 @@ export async function getPracticeByDomain(domain: string): Promise<Practice | nu
       'localhost:3000': 'cityclinic.vercel.app',
       'localhost:3001': 'coastalmed.vercel.app',
       'localhost:3002': 'drpolina.vercel.app',
+      'localhost:3003': 'newcharm.vercel.app',
       'dr-polina-landing.vercel.app': 'drpolina.vercel.app',
       'dr-polina-landing-onehealth.vercel.app': 'drpolina.vercel.app',
       'dr-polina-landing-28jdhmv7l-onehealth.vercel.app': 'drpolina.vercel.app',
       'healthpractice.vercel.app': 'drpolina.vercel.app',
+      'newcharm.vercel.app': 'newcharm.vercel.app',
+      'newcharm-dental.vercel.app': 'newcharm.vercel.app',
     };
 
     const mappedDomain = domainMap[domain] || domain;

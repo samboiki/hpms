@@ -6,21 +6,23 @@ import { useState } from 'react';
 import { X, Clock, DollarSign, ArrowRight, Check, Sparkles, Calendar } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { drPolinaServices, ServiceCategory, SubService } from '@/data/dr-polina-services';
+import { newcharmServices, ServiceCategory as NewCharmServiceCategory, SubService as NewCharmSubService } from '@/data/newcharm-services';
 
 interface EnhancedServicesSectionProps {
   practice: Practice;
-  onBookService?: (service: SubService, category: ServiceCategory) => void;
+  onBookService?: (service: SubService | NewCharmSubService, category: ServiceCategory | NewCharmServiceCategory) => void;
 }
 
 export default function EnhancedServicesSection({ practice, onBookService }: EnhancedServicesSectionProps) {
-  const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | NewCharmServiceCategory | null>(null);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
-  // Use special services for Dr. Polina
+  // Use specialized services for specific practices
   const isDrPolina = practice.slug === 'dr-polina-aesthetics';
-  const services = isDrPolina ? drPolinaServices : practice.services;
+  const isNewCharm = practice.slug === 'newcharm-dental';
+  const services = isDrPolina ? drPolinaServices : isNewCharm ? newcharmServices : practice.services;
 
-  const handleBookNow = (subService: SubService) => {
+  const handleBookNow = (subService: SubService | NewCharmSubService) => {
     if (onBookService && selectedCategory) {
       onBookService(subService, selectedCategory);
     }
