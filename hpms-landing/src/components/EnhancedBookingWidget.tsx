@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Practice } from '@/lib/tenants';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReCAPTCHA from "react-google-recaptcha";
+import { supabase } from '@/lib/supabase';
 import ModernCalendar from './ModernCalendar';
 import { 
   Calendar, 
@@ -28,10 +29,6 @@ interface EnhancedBookingWidgetProps {
   preSelectedCategory?: ServiceCategory;
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 export default function EnhancedBookingWidget({ 
   practice, 
