@@ -22,44 +22,37 @@ npx supabase db reset  # Reset database and apply migrations
 
 ### CRITICAL: bolt.new-Style Database Access (ALWAYS USE THIS)
 ```bash
-# MANDATORY: Always use service role for database operations
-node execute-via-service-role.js    # Execute any database operations with service role
+# MANDATORY: Always use direct PostgreSQL connection for database operations
+node execute-migrations-like-bolt.js    # Execute any database operations with direct DB access
 ```
 
-**Service Role Configuration:**
+**Direct PostgreSQL Configuration (SET IN STONE):**
 - URL: https://jjxlfunlbyayxwvlpgwt.supabase.co
-- Service Role Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NzA2MTY4OSwiZXhwIjoyMDYyNjM3Njg5fQ.E0ocHFyIgXdBkJkgNRtqq2OFxbb7fZlclwpGuNo5GGA
 - Database Password: T@ngisasa200
+- Connection String: postgresql://postgres:T@ngisasa200@db.jjxlfunlbyayxwvlpgwt.supabase.co:5432/postgres
 
-**NEVER use anon key for database operations - ALWAYS use service role to bypass RLS policies**
-
-### Image Upload & Storage Management (bolt.new Style)
-```bash
-# Upload practice images using service role
-node upload-newcharm-real-images.js    # Upload real practice images
-node upload-newcharm-local-images.js   # Upload from local directory
-```
-
-**Storage Configuration:**
-- Bucket: practice-images (public, 50MB limit)
-- Real image path: /mnt/c/Users/Happyou2/Documents/mxhealth/newcharm
-- Service role bypasses all RLS policies for storage operations
+**This is the ONLY method that works - direct PostgreSQL connection bypasses ALL restrictions**
 
 ### Database Operation Methods (MANDATORY APPROACH)
-1. **ALWAYS use service role** instead of anon key
-2. **Bypass RLS policies** for setup operations  
-3. **Direct database access** like bolt.new does
+1. **ALWAYS use direct PostgreSQL connection** with password
+2. **Use execute-migrations-like-bolt.js** for all database operations  
+3. **Direct database access** exactly like bolt.new does
 4. **Never repeat manual operations** - automate everything
-5. **Use execute-via-service-role.js** for all database operations
+5. **This method bypasses ALL RLS policies and restrictions**
 
 **Example bolt.new-style operation:**
 ```javascript
-// ✅ CORRECT: Service role with RLS bypass
-const supabase = createClient(url, serviceRoleKey);
-const { error } = await supabase.from('practices').insert(data);
+// ✅ CORRECT: Direct PostgreSQL connection (WORKS EVERY TIME)
+import pg from 'pg';
+const client = new pg.Client({
+  connectionString: 'postgresql://postgres:T@ngisasa200@db.jjxlfunlbyayxwvlpgwt.supabase.co:5432/postgres',
+  ssl: { rejectUnauthorized: false }
+});
+await client.connect();
+await client.query('INSERT INTO practices ...');
 
-// ❌ WRONG: Anon key gets blocked by RLS
-const supabase = createClient(url, anonKey);
+// ❌ WRONG: Service role or anon key - unreliable
+const supabase = createClient(url, key);
 const { error } = await supabase.from('practices').insert(data); // FAILS
 ```
 
