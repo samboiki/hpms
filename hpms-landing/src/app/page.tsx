@@ -2,11 +2,24 @@ import { headers } from 'next/headers';
 import { getPracticeByDomain } from '@/lib/tenants';
 import PageWrapper from '@/components/PageWrapper';
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const headersList = await headers();
   const domain = headersList.get('x-practice-domain') || '';
   
-  const practice = await getPracticeByDomain(domain);
+  // Get search parameters
+  const params = await searchParams;
+  const urlSearchParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (typeof value === 'string') {
+      urlSearchParams.set(key, value);
+    }
+  });
+  
+  const practice = await getPracticeByDomain(domain, urlSearchParams);
   
   if (!practice) {
     return (

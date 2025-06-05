@@ -46,12 +46,28 @@ export interface Practice {
   };
 }
 
-export async function getPracticeByDomain(domain: string): Promise<Practice | null> {
+export async function getPracticeByDomain(domain: string, searchParams?: URLSearchParams): Promise<Practice | null> {
   try {
-    // For development, map localhost to test domains
+    // 🚀 NEW: Multi-method practice selection for flexibility
+    
+    // Method 1: Query parameter override (highest priority)
+    const practiceParam = searchParams?.get('practice');
+    if (practiceParam) {
+      console.log('🎯 Using practice from query parameter:', practiceParam);
+      return await getPracticeBySlug(practiceParam);
+    }
+    
+    // Method 2: Environment variable override
+    const envPractice = process.env.NEXT_PUBLIC_PRACTICE;
+    if (envPractice) {
+      console.log('🌍 Using practice from environment:', envPractice);
+      return await getPracticeBySlug(envPractice);
+    }
+    
+    // Method 3: Port-based mapping (backward compatibility)
     const domainMap: Record<string, string> = {
       'localhost:3000': 'cityclinic.vercel.app',
-      'localhost:3001': 'coastalmed.vercel.app',
+      'localhost:3001': 'coastalmed.vercel.app', 
       'localhost:3002': 'drpolina.vercel.app',
       'localhost:3003': 'newcharm.vercel.app',
       'dr-polina-landing.vercel.app': 'drpolina.vercel.app',
@@ -62,7 +78,15 @@ export async function getPracticeByDomain(domain: string): Promise<Practice | nu
       'newcharm-dental.vercel.app': 'newcharm.vercel.app',
     };
 
-    const mappedDomain = domainMap[domain] || domain;
+    // Method 4: Default to NewCharm for any unmapped localhost port
+    let mappedDomain = domainMap[domain];
+    if (!mappedDomain && domain.includes('localhost')) {
+      console.log('🦷 Defaulting to NewCharm for localhost');
+      mappedDomain = 'newcharm.vercel.app';
+    } else {
+      mappedDomain = mappedDomain || domain;
+    }
+    
     console.log('Looking for practice with domain:', mappedDomain);
 
     const { data, error } = await supabase

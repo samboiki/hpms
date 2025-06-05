@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Menu, X, Phone, Calendar, ChevronDown, Globe, Shield, Sparkles } from 'lucide-react';
 import { Practice } from '@/lib/tenants';
 import { motion, AnimatePresence } from 'framer-motion';
+import PracticeSwitcher from '@/components/PracticeSwitcher';
 
 interface PremiumNavbarProps {
   practice: Practice;
@@ -136,6 +137,12 @@ export default function PremiumNavbar({ practice }: PremiumNavbarProps) {
                   </button>
                 </motion.div>
               ))}
+
+              {/* Practice Switcher */}
+              <PracticeSwitcher 
+                currentPractice={practice.slug} 
+                className="hidden md:block"
+              />
 
               {/* CTA Buttons */}
               <motion.div
