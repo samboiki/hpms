@@ -5,12 +5,16 @@
 ### Step 1: Execute Database Migration
 **URL**: https://supabase.com/dashboard/project/jjxlfunlbyayxwvlpgwt/sql/new
 
-**⚠️ FIXED: Copy this CORRECTED SQL into Supabase SQL Editor:**
+**🔧 FINAL FIX: Copy this SCHEMA-CORRECTED SQL into Supabase SQL Editor:**
 
 ```sql
--- ✅ CORRECTED NewCharm Dental Practice Migration
--- Testimonials are stored in practices.testimonials JSONB field, not separate table
+-- ✅ FINAL CORRECTED NewCharm Migration
+-- First add missing testimonials column, then insert NewCharm practice
 
+-- Step 1: Add testimonials column if it doesn't exist
+ALTER TABLE practices ADD COLUMN IF NOT EXISTS testimonials JSONB DEFAULT '[]'::jsonb;
+
+-- Step 2: Insert NewCharm Dental Practice
 INSERT INTO practices (
   id,
   slug,
