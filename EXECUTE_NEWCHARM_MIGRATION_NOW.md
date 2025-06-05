@@ -5,11 +5,11 @@
 ### Step 1: Execute Database Migration
 **URL**: https://supabase.com/dashboard/project/jjxlfunlbyayxwvlpgwt/sql/new
 
-**Copy this EXACT SQL into Supabase SQL Editor:**
+**⚠️ FIXED: Copy this CORRECTED SQL into Supabase SQL Editor:**
 
 ```sql
--- Add NewCharm Dental Practice to the database
--- This creates a modern dental practice with comprehensive services
+-- ✅ CORRECTED NewCharm Dental Practice Migration
+-- Testimonials are stored in practices.testimonials JSONB field, not separate table
 
 INSERT INTO practices (
   id,
@@ -33,6 +33,7 @@ INSERT INTO practices (
   hero_image_url,
   about_text,
   services,
+  testimonials,
   social_links,
   created_at,
   updated_at
@@ -42,8 +43,8 @@ INSERT INTO practices (
   'NewCharm Dental Practice',
   'newcharm.vercel.app',
   '/images/newcharm/newcharm-logo.png',
-  '#00BCD4', -- Modern teal for dental trust
-  '#0097A7', -- Darker teal for accents
+  '#00BCD4',
+  '#0097A7',
   'info@newcharmdental.na',
   '+264 61 234 567',
   '123 Independence Avenue',
@@ -125,6 +126,43 @@ Whether you need a routine checkup, cosmetic enhancement, or emergency care, New
       "icon": "Heart"
     }
   ]',
+  '[
+    {
+      "author": "Sarah Williams",
+      "rating": 5,
+      "text": "I had my teeth whitened at NewCharm and the results were amazing! The staff was so professional and made me feel comfortable throughout the entire process. My smile has never looked better!",
+      "date": "2024-12-01",
+      "treatment": "Teeth Whitening"
+    },
+    {
+      "author": "Michael Johnson",
+      "rating": 5,
+      "text": "Dr. Smith and the team at NewCharm saved my tooth with an excellent root canal treatment. What I expected to be painful was actually quite comfortable. Their technology and skill are impressive.",
+      "date": "2024-11-28",
+      "treatment": "Root Canal Treatment"
+    },
+    {
+      "author": "Emma van der Merwe",
+      "rating": 5,
+      "text": "My daughter got her braces at NewCharm and we could not be happier with the results. The orthodontist explained everything clearly and the staff was wonderful with kids. Highly recommended!",
+      "date": "2024-11-25",
+      "treatment": "Orthodontics"
+    },
+    {
+      "author": "David Nakamhela",
+      "rating": 5,
+      "text": "I had a dental emergency on a Saturday and NewCharm fit me in immediately. They relieved my pain and fixed my broken tooth beautifully. Their emergency care is exceptional.",
+      "date": "2024-11-20",
+      "treatment": "Emergency Care"
+    },
+    {
+      "author": "Lisa Thompson",
+      "rating": 5,
+      "text": "The complete smile makeover I received at NewCharm has changed my life. I finally have the confidence to smile freely. The results exceeded all my expectations!",
+      "date": "2024-11-15",
+      "treatment": "Smile Makeover"
+    }
+  ]',
   '{
     "facebook": "https://facebook.com/newcharmdental",
     "instagram": "https://instagram.com/newcharmdental", 
@@ -140,69 +178,8 @@ Whether you need a routine checkup, cosmetic enhancement, or emergency care, New
   secondary_color = EXCLUDED.secondary_color,
   hero_title = EXCLUDED.hero_title,
   hero_subtitle = EXCLUDED.hero_subtitle,
+  testimonials = EXCLUDED.testimonials,
   updated_at = NOW();
-
--- Create sample testimonials for NewCharm
-INSERT INTO testimonials (
-  id,
-  practice_id,
-  name,
-  content,
-  rating,
-  treatment_type,
-  image_url,
-  created_at
-) VALUES 
-(
-  gen_random_uuid(),
-  (SELECT id FROM practices WHERE slug = 'newcharm-dental'),
-  'Sarah Williams',
-  'I had my teeth whitened at NewCharm and the results were amazing! The staff was so professional and made me feel comfortable throughout the entire process. My smile has never looked better!',
-  5,
-  'Teeth Whitening',
-  '/images/newcharm/testimonial-sarah.jpg',
-  NOW()
-),
-(
-  gen_random_uuid(),
-  (SELECT id FROM practices WHERE slug = 'newcharm-dental'),
-  'Michael Johnson',
-  'Dr. Smith and the team at NewCharm saved my tooth with an excellent root canal treatment. What I expected to be painful was actually quite comfortable. Their technology and skill are impressive.',
-  5,
-  'Root Canal Treatment',
-  '/images/newcharm/testimonial-michael.jpg', 
-  NOW()
-),
-(
-  gen_random_uuid(),
-  (SELECT id FROM practices WHERE slug = 'newcharm-dental'),
-  'Emma van der Merwe',
-  'My daughter got her braces at NewCharm and we couldn''t be happier with the results. The orthodontist explained everything clearly and the staff was wonderful with kids. Highly recommended!',
-  5,
-  'Orthodontics',
-  '/images/newcharm/testimonial-emma.jpg',
-  NOW()
-),
-(
-  gen_random_uuid(),
-  (SELECT id FROM practices WHERE slug = 'newcharm-dental'),
-  'David Nakamhela',
-  'I had a dental emergency on a Saturday and NewCharm fit me in immediately. They relieved my pain and fixed my broken tooth beautifully. Their emergency care is exceptional.',
-  5,
-  'Emergency Care',
-  '/images/newcharm/testimonial-david.jpg',
-  NOW()
-),
-(
-  gen_random_uuid(),
-  (SELECT id FROM practices WHERE slug = 'newcharm-dental'),
-  'Lisa Thompson',
-  'The complete smile makeover I received at NewCharm has changed my life. I finally have the confidence to smile freely. The results exceeded all my expectations!',
-  5,
-  'Smile Makeover',
-  '/images/newcharm/testimonial-lisa.jpg',
-  NOW()
-);
 ```
 
 ### Step 2: Test Deployment
