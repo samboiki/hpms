@@ -22,6 +22,16 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
   const isNewCharm = practice.slug === 'newcharm-dental';
   const services = isDrPolina ? drPolinaServices : isNewCharm ? newcharmServices : practice.services;
 
+  // Premium service images for NewCharm
+  const serviceImages: Record<string, string> = {
+    'general-dentistry': 'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    'cosmetic-dentistry': 'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    'orthodontics': 'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    'oral-surgery': 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    'emergency-care': 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    'preventive-care': 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+  };
+
   const handleBookNow = (subService: SubService | NewCharmSubService) => {
     if (onBookService && selectedCategory) {
       onBookService(subService, selectedCategory);
@@ -71,12 +81,16 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
           <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
             {practice.slug === 'dr-polina-aesthetics' 
               ? 'Transform Your Beauty Journey'
+              : practice.slug === 'newcharm-dental'
+              ? 'Premier Dental Excellence'
               : 'Comprehensive Healthcare Services'
             }
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             {practice.slug === 'dr-polina-aesthetics'
               ? 'Discover our range of advanced aesthetic treatments designed to enhance your natural beauty'
+              : practice.slug === 'newcharm-dental'
+              ? 'Experience world-class dental care with cutting-edge technology and compassionate treatment in the heart of Windhoek'
               : 'Quality medical care tailored to your needs'
             }
           </p>
@@ -104,14 +118,24 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
                   onClick={() => setSelectedCategory(service as ServiceCategory)}
                 >
                   {/* Service Image */}
-                  {isDrPolina && service.hasOwnProperty('image') && (service as any).image && (
+                  {((isDrPolina && service.hasOwnProperty('image') && (service as any).image) || 
+                    (isNewCharm && serviceImages[service.id])) && (
                     <div className="relative h-48 overflow-hidden">
                       <img 
-                        src={(service as any).image} 
+                        src={isNewCharm ? serviceImages[service.id] : (service as any).image} 
                         alt={service.name}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      {/* Premium badge for NewCharm */}
+                      {isNewCharm && (
+                        <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                          <span className="text-white text-xs font-medium flex items-center gap-1">
+                            <Sparkles className="w-3 h-3" />
+                            Premium
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                   

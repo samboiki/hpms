@@ -7,6 +7,7 @@ import AboutSection from '@/components/AboutSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import BeforeAfterGallery from '@/components/BeforeAfterGallery';
 import Gallery from '@/components/Gallery';
+import PremiumGallery from '@/components/PremiumGallery';
 import EnhancedContactSection from '@/components/EnhancedContactSection';
 import EnhancedBookingWidget from '@/components/EnhancedBookingWidget';
 import PremiumNavbar from '@/components/PremiumNavbar';
@@ -52,6 +53,7 @@ export default function PageWrapper({ practice }: PageWrapperProps) {
           <BeforeAfterGallery practice={practice} />
         </>
       )}
+      {isDental && <PremiumGallery practiceSlug={practice.slug} />}
       <TestimonialsSection practice={practice} />
       <EnhancedBookingWidget 
         practice={practice} 

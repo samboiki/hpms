@@ -17,21 +17,32 @@ export default function HeroSection({ practice }: HeroSectionProps) {
     return () => clearInterval(timer);
   }, []);
 
-  // Check if this is an aesthetic practice
+  // Check practice type for specialized content
   const isAestheticPractice = practice.slug === 'dr-polina-aesthetics';
+  const isDentalPractice = practice.slug === 'newcharm-dental';
 
   const stats = isAestheticPractice ? [
     { label: 'Years of Experience', value: '10+', icon: Award },
     { label: 'Happy Clients', value: '2K+', icon: Users },
     { label: 'Procedures Done', value: '5K+', icon: Shield },
     { label: 'Client Satisfaction', value: '98%', icon: Star },
+  ] : isDentalPractice ? [
+    { label: 'Years of Excellence', value: '15+', icon: Award },
+    { label: 'Smiles Created', value: '8K+', icon: Users },
+    { label: 'Dental Procedures', value: '12K+', icon: Shield },
+    { label: 'Patient Satisfaction', value: '99%', icon: Star },
   ] : [
     { label: 'Years of Service', value: '20+', icon: Award },
     { label: 'Patients Served', value: '50K+', icon: Users },
     { label: 'Expert Doctors', value: '15+', icon: Shield },
     { label: 'Google Rating', value: '4.9', icon: Star },
   ];
-  const heroImage = isAestheticPractice ? '/images/aesthetic-hero.jpg' : null;
+
+  const heroImage = isAestheticPractice 
+    ? '/images/aesthetic-hero.jpg' 
+    : isDentalPractice 
+    ? '/images/newcharm/hero-dental-clinic.jpg'
+    : null;
 
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
@@ -103,7 +114,11 @@ export default function HeroSection({ practice }: HeroSectionProps) {
               className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-white mb-6"
             >
               <Shield className="w-4 h-4" />
-              <span className="text-sm font-medium">Trusted Healthcare Provider</span>
+              <span className="text-sm font-medium">
+                {isDentalPractice ? 'Premier Dental Excellence' : 
+                 isAestheticPractice ? 'Aesthetic Excellence Certified' : 
+                 'Trusted Healthcare Provider'}
+              </span>
             </motion.div>
 
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight">
@@ -117,23 +132,23 @@ export default function HeroSection({ practice }: HeroSectionProps) {
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 mb-12">
               <motion.button
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => document.getElementById('booking')?.scrollIntoView({ behavior: 'smooth' })}
-                className="group px-8 py-4 bg-white text-gray-900 font-semibold rounded-full shadow-2xl hover:shadow-3xl transform transition-all duration-200 flex items-center justify-center gap-2 animate-heartbeat"
+                className="group px-8 py-4 bg-white text-gray-900 font-semibold rounded-full shadow-2xl transform transition-all duration-300 flex items-center justify-center gap-2"
               >
-                Book Appointment
+                {isDentalPractice ? 'Book Dental Appointment' : 'Book Appointment'}
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </motion.button>
               
               <motion.a
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1.05, borderColor: "rgba(255,255,255,0.8)" }}
                 whileTap={{ scale: 0.95 }}
                 href={`tel:${practice.contact_phone}`}
-                className="px-8 py-4 bg-white/10 backdrop-blur-md border-2 border-white/30 text-white font-semibold rounded-full hover:bg-white/20 transition-all duration-200 flex items-center justify-center gap-2"
+                className="px-8 py-4 bg-white/10 backdrop-blur-md border-2 border-white/30 text-white font-semibold rounded-full hover:bg-white/20 transition-all duration-300 flex items-center justify-center gap-2"
               >
                 <Phone className="w-5 h-5" />
-                Emergency Call
+                {isDentalPractice ? 'Emergency Dental Care' : 'Emergency Call'}
               </motion.a>
             </div>
 
