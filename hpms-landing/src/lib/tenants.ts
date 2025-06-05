@@ -57,9 +57,9 @@ export async function getPracticeByDomain(domain: string, searchParams?: URLSear
       return await getPracticeBySlug(practiceParam);
     }
     
-    // Method 2: Environment variable override
+    // Method 2: Environment variable override (only if set)
     const envPractice = process.env.NEXT_PUBLIC_PRACTICE;
-    if (envPractice) {
+    if (envPractice && envPractice.trim() !== '') {
       console.log('🌍 Using practice from environment:', envPractice);
       return await getPracticeBySlug(envPractice);
     }
@@ -78,11 +78,11 @@ export async function getPracticeByDomain(domain: string, searchParams?: URLSear
       'newcharm-dental.vercel.app': 'newcharm.vercel.app',
     };
 
-    // Method 4: Default to NewCharm for any unmapped localhost port
+    // Method 4: Use domain mapping or return null for practice directory
     let mappedDomain = domainMap[domain];
     if (!mappedDomain && domain.includes('localhost')) {
-      console.log('🦷 Defaulting to NewCharm for localhost');
-      mappedDomain = 'newcharm.vercel.app';
+      console.log('🏥 No specific practice mapping - will show practice directory');
+      return null;
     } else {
       mappedDomain = mappedDomain || domain;
     }

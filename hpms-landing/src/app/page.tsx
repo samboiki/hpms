@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { getPracticeByDomain } from '@/lib/tenants';
 import PageWrapper from '@/components/PageWrapper';
+import PracticeDirectory from '@/components/PracticeDirectory';
 
 export default async function Home({
   searchParams,
@@ -20,6 +21,12 @@ export default async function Home({
   });
   
   const practice = await getPracticeByDomain(domain, urlSearchParams);
+  
+  // If no specific practice is requested, show the practice directory
+  const practiceParam = urlSearchParams.get('practice');
+  if (!practiceParam && !practice) {
+    return <PracticeDirectory />;
+  }
   
   if (!practice) {
     return (
