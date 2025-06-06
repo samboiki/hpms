@@ -24,7 +24,8 @@ import {
   ChevronRight,
   Plus,
   Search,
-  Filter
+  Filter,
+  Shield
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -86,13 +87,6 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       color: 'from-blue-500 to-indigo-600'
     },
     {
-      id: 'prescriptions',
-      label: 'Prescriptions',
-      icon: <Pill className="w-3.5 h-3.5" />,
-      count: 0, // Will be populated when prescriptions are added
-      color: 'from-green-500 to-emerald-600'
-    },
-    {
       id: 'vitals',
       label: 'Vitals',
       icon: <Activity className="w-3.5 h-3.5" />,
@@ -119,6 +113,13 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       icon: <CreditCard className="w-3.5 h-3.5" />,
       count: 0, // Will be populated when billing records are added
       color: 'from-teal-500 to-cyan-600'
+    },
+    {
+      id: 'audit',
+      label: 'Audit Trail',
+      icon: <Shield className="w-3.5 h-3.5" />,
+      count: 0, // Will be populated when audit logs are added
+      color: 'from-slate-500 to-gray-600'
     }
   ];
 
@@ -126,8 +127,6 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
     switch (activeTab) {
       case 'encounters':
         return <EncountersContent visits={visits} />;
-      case 'prescriptions':
-        return <PrescriptionsContent />;
       case 'vitals':
         return <VitalsContent vitals={vitals} />;
       case 'results':
@@ -136,6 +135,8 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
         return <DocumentsContent />;
       case 'billing':
         return <BillingContent />;
+      case 'audit':
+        return <AuditTrailContent />;
       default:
         return <EncountersContent visits={visits} />;
     }
@@ -228,8 +229,8 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       </div>
 
       {/* Folder-style tabs */}
-      <div className="relative mb-6">
-        <div className="flex items-end gap-0.5 relative z-10 overflow-x-auto">
+      <div className="relative mb-0">
+        <div className="flex items-end gap-0.5 relative z-10">
           {tabs.map((tab, index) => {
             const isActive = activeTab === tab.id;
             return (
@@ -237,10 +238,10 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  relative group px-4 py-3 rounded-t-xl font-medium text-xs
-                  transition-all duration-300 flex items-center gap-2 min-w-0 shrink-0
+                  relative group px-3 py-2.5 rounded-t-xl font-medium text-xs
+                  transition-all duration-150 flex items-center gap-2 min-w-0 shrink-0
                   ${isActive 
-                    ? 'bg-white shadow-lg -mb-px z-20 text-gray-800 border-x border-t border-gray-200' 
+                    ? 'bg-white shadow-lg -mb-[2px] z-20 text-gray-800' 
                     : 'bg-gray-100/80 hover:bg-gray-200/80 text-gray-600 hover:text-gray-800 mt-1'
                   }
                 `}
@@ -259,7 +260,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                 
                 {/* Tab icon - only colored when active */}
                 <div className={`
-                  p-1 rounded-md transition-all duration-300
+                  p-1 rounded-md transition-all duration-150
                   ${isActive 
                     ? `bg-gradient-to-r ${tab.color} text-white shadow-sm` 
                     : 'bg-gray-300 text-gray-500'
@@ -284,14 +285,17 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                   </span>
                 )}
                 
-                {/* Active tab indicator line */}
+                {/* Active tab top border that matches content border */}
                 {isActive && (
-                  <motion.div
-                    layoutId="activeTabIndicator"
-                    className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r ${tab.color} rounded-full`}
-                    initial={false}
-                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                  />
+                  <div className={`absolute inset-0 border-2 border-b-0 rounded-t-xl transition-colors duration-150 ${
+                    activeTab === 'encounters' ? 'border-blue-500' :
+                    activeTab === 'vitals' ? 'border-red-500' :
+                    activeTab === 'results' ? 'border-purple-500' :
+                    activeTab === 'documents' ? 'border-amber-500' :
+                    activeTab === 'billing' ? 'border-teal-500' :
+                    activeTab === 'audit' ? 'border-slate-500' :
+                    'border-gray-200'
+                  }`} />
                 )}
               </motion.button>
             );
@@ -299,15 +303,23 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
         </div>
         
         {/* Content container with seamless connection to active tab */}
-        <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-none shadow-lg relative z-10">
+        <div className={`bg-white rounded-2xl rounded-tl-none shadow-lg relative z-10 border-2 transition-all duration-300 ${
+          activeTab === 'encounters' ? 'border-blue-500' :
+          activeTab === 'vitals' ? 'border-red-500' :
+          activeTab === 'results' ? 'border-purple-500' :
+          activeTab === 'documents' ? 'border-amber-500' :
+          activeTab === 'billing' ? 'border-teal-500' :
+          activeTab === 'audit' ? 'border-slate-500' :
+          'border-gray-200'
+        }`}>
           <div className="p-6">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.1 }}
               >
                 {renderTabContent()}
               </motion.div>
@@ -411,22 +423,22 @@ const EncountersContent: React.FC<{ visits: Visit[] }> = ({ visits }) => (
   </div>
 );
 
-// Prescriptions Content Component
-const PrescriptionsContent: React.FC = () => (
+// Audit Trail Content Component
+const AuditTrailContent: React.FC = () => (
   <div className="space-y-6">
     <div className="flex items-center justify-between">
       <div>
-        <h3 className="text-xl font-bold text-gray-800 mb-1">Prescriptions</h3>
-        <p className="text-gray-500 text-sm">Active and historical medications</p>
+        <h3 className="text-xl font-bold text-gray-800 mb-1">Audit Trail</h3>
+        <p className="text-gray-500 text-sm">System logs and change history for administrators</p>
       </div>
     </div>
     
     <div className="text-center py-12">
-      <div className="p-4 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-        <Pill className="w-8 h-8 text-white" />
+      <div className="p-4 bg-gradient-to-r from-slate-500 to-gray-600 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+        <Shield className="w-8 h-8 text-white" />
       </div>
-      <h4 className="text-lg font-semibold text-gray-800 mb-2">No prescriptions recorded</h4>
-      <p className="text-gray-500 text-sm">Medication history and prescriptions will appear here</p>
+      <h4 className="text-lg font-semibold text-gray-800 mb-2">No audit logs recorded</h4>
+      <p className="text-gray-500 text-sm">System changes and administrative actions will appear here</p>
     </div>
   </div>
 );
