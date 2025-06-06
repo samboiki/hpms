@@ -288,8 +288,8 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  relative group px-4 py-2.5 rounded-t-xl font-medium text-xs
-                  transition-all duration-150 flex items-center gap-2 min-w-0 shrink-0
+                  relative group px-6 py-3 rounded-t-xl font-medium text-xs
+                  transition-all duration-300 flex items-center gap-2 min-w-0 shrink-0
                   ${isActive 
                     ? 'bg-white shadow-lg -mb-[2px] z-20 text-gray-800' 
                     : 'bg-gray-100/80 hover:bg-gray-200/80 text-gray-600 hover:text-gray-800 mt-1'
@@ -337,8 +337,8 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                 
                 {/* Active tab top border that matches content border */}
                 {isActive && (
-                  <div className={`absolute inset-0 border-2 border-b-0 rounded-t-xl transition-colors duration-150 ${
-                    activeTab === 'ai-intelligence' ? 'border-gray-300' :
+                  <div className={`absolute inset-0 border-2 border-b-0 rounded-t-xl transition-colors duration-300 ${
+                    activeTab === 'ai-intelligence' ? 'border-[#01b9d5]/30' :
                     activeTab === 'encounters' ? 'border-blue-300' :
                     activeTab === 'vitals' ? 'border-red-300' :
                     activeTab === 'results' ? 'border-purple-300' :
@@ -354,8 +354,8 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
         </div>
         
         {/* Content container with seamless connection to active tab */}
-        <div className={`bg-white rounded-2xl shadow-lg relative z-10 border-2 transition-all duration-150 ${
-          activeTab === 'ai-intelligence' ? 'border-gray-300' :
+        <div className={`bg-white rounded-2xl shadow-lg relative z-10 border-2 transition-all duration-300 ${
+          activeTab === 'ai-intelligence' ? 'border-[#01b9d5]/30' :
           activeTab === 'encounters' ? 'border-blue-300' :
           activeTab === 'vitals' ? 'border-red-300' :
           activeTab === 'results' ? 'border-purple-300' :
@@ -722,17 +722,23 @@ const AIIntelligenceContent: React.FC<{
       {/* Patient Journey and AI Insights Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Patient Journey */}
-        <div className="relative bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl">
-                <User className="w-5 h-5 text-gray-700" />
-              </div>
-              <div>
-                <h4 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>Patient Journey</h4>
-                <p className="text-xs text-gray-500">Clinical History Overview</p>
-              </div>
-            </div>
+        <div className="relative group">
+          {/* Gorgeous gradient border */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-2xl transform rotate-0.5 group-hover:rotate-1 transition-transform duration-500 opacity-20 group-hover:opacity-30"></div>
+          
+          {/* Main card */}
+          <div className="relative bg-gradient-to-br from-[#01b9d5]/5 to-purple-600/5 rounded-2xl p-0.5 shadow-lg group-hover:shadow-xl transition-all duration-300">
+            <div className="relative bg-white rounded-2xl overflow-hidden border border-[#01b9d5]/20 group-hover:border-[#01b9d5]/40 transition-all duration-300">
+              <div className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-gradient-to-br from-gray-100 to-gray-200 group-hover:from-[#01b9d5] group-hover:to-purple-600 rounded-xl transition-all duration-300">
+                    <User className="w-5 h-5 text-gray-700 group-hover:text-white transition-colors duration-300" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>Patient Journey</h4>
+                    <p className="text-xs text-gray-500">Clinical History Overview</p>
+                  </div>
+                </div>
             
             <div className="text-sm text-gray-600 leading-relaxed">
               <p className="mb-0">
@@ -742,22 +748,29 @@ const AIIntelligenceContent: React.FC<{
                 with all key indicators within normal ranges. Overall prognosis is <strong className="text-gray-800">positive</strong> with continued 
                 monitoring recommended for optimal health outcomes.
               </p>
+              </div>
             </div>
           </div>
         </div>
         
         {/* AI Insights */}
-        <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl shadow-md">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h4 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>AI Insights</h4>
-                <p className="text-xs text-gray-500">Smart Health Recommendations</p>
-              </div>
-            </div>
+        <div className="relative group">
+          {/* Gorgeous gradient border */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-2xl transform -rotate-0.5 group-hover:-rotate-1 transition-transform duration-500 opacity-20 group-hover:opacity-30"></div>
+          
+          {/* Main card */}
+          <div className="relative bg-gradient-to-br from-[#01b9d5]/5 to-purple-600/5 rounded-2xl p-0.5 shadow-lg group-hover:shadow-xl transition-all duration-300">
+            <div className="relative bg-white rounded-2xl overflow-hidden border border-[#01b9d5]/20 group-hover:border-[#01b9d5]/40 transition-all duration-300">
+              <div className="p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-gradient-to-br from-gray-100 to-gray-200 group-hover:from-purple-500 group-hover:to-pink-600 rounded-xl shadow-md transition-all duration-300">
+                    <Sparkles className="w-5 h-5 text-gray-700 group-hover:text-white transition-colors duration-300" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>AI Insights</h4>
+                    <p className="text-xs text-gray-500">Smart Health Recommendations</p>
+                  </div>
+                </div>
             
             <div className="space-y-3">
               <div className="flex items-start gap-3">
@@ -786,6 +799,7 @@ const AIIntelligenceContent: React.FC<{
                   <strong className="text-gray-800">Prevention:</strong> Consider annual health screenings and lifestyle modifications for long-term wellness.
                 </div>
               </div>
+              </div>
             </div>
           </div>
         </div>
@@ -800,41 +814,43 @@ const AIIntelligenceContent: React.FC<{
           className="relative group cursor-pointer"
           onClick={onMedicalAidClick}
         >
-          {/* Gorgeous gradient background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 rounded-3xl transform rotate-1 group-hover:rotate-2 transition-transform duration-500"></div>
+          {/* Gorgeous gradient background - hidden by default, shown on hover */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-3xl transform rotate-1 group-hover:rotate-2 transition-transform duration-500 opacity-0 group-hover:opacity-100"></div>
           
           {/* Main card */}
-          <div className="relative bg-gradient-to-br from-blue-500 to-indigo-600 rounded-3xl p-1 shadow-2xl">
+          <div className="relative bg-gradient-to-br from-gray-100 to-gray-200 group-hover:from-[#01b9d5] group-hover:to-purple-600 rounded-3xl p-1 shadow-lg group-hover:shadow-2xl transition-all duration-500">
             <div className="relative bg-white rounded-[1.25rem] overflow-hidden">
               {/* Subtle pattern overlay */}
-              <div className="absolute inset-0 opacity-[0.02]" style={{
+              <div className="absolute inset-0 opacity-[0.02] group-hover:opacity-[0.03] transition-opacity duration-300" style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230EA5E9' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
               }}></div>
               
               {/* Ultra faded background image */}
               <div 
-                className="absolute inset-0 opacity-[0.02] grayscale bg-cover bg-center mix-blend-overlay"
+                className="absolute inset-0 opacity-[0.01] group-hover:opacity-[0.02] grayscale bg-cover bg-center mix-blend-overlay transition-opacity duration-300"
                 style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=800&h=600&fit=crop)' }}
               ></div>
               
               <div className="relative p-6">
-                {/* Icon and action */}
-                <div className="flex items-start justify-between mb-4">
+                {/* Header with icon and title */}
+                <div className="flex items-center gap-3 mb-4">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-indigo-600 blur-xl opacity-50"></div>
-                    <div className="relative p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-400 to-gray-500 group-hover:from-[#01b9d5] group-hover:to-purple-600 blur-xl opacity-0 group-hover:opacity-50 transition-all duration-300"></div>
+                    <div className="relative p-3 bg-gradient-to-br from-gray-400 to-gray-500 group-hover:from-[#01b9d5] group-hover:to-purple-600 rounded-2xl shadow-sm group-hover:shadow-lg transition-all duration-300">
                       <CreditCard className="w-5 h-5 text-white" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 text-gray-400 group-hover:text-gray-600 transition-colors">
-                    <span className="text-xs font-medium">View</span>
-                    <ChevronRight className="w-3 h-3" />
+                  <div>
+                    <p className="text-sm font-bold text-gray-700 group-hover:text-gray-800 transition-colors duration-300" style={{ fontFamily: 'Poppins, sans-serif' }}>Medical Aid</p>
+                    <div className="flex items-center gap-1 text-gray-400 group-hover:text-gray-600 transition-colors">
+                      <span className="text-xs font-medium">View Details</span>
+                      <ChevronRight className="w-3 h-3" />
+                    </div>
                   </div>
                 </div>
                 
                 {/* Content */}
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Medical Aid</p>
                   <p className="text-2xl font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
                     {medicalAid?.provider || 'Not Registered'}
                   </p>
@@ -842,7 +858,7 @@ const AIIntelligenceContent: React.FC<{
                 </div>
                 
                 {/* Bottom accent */}
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#01b9d5] to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
             </div>
           </div>
@@ -855,43 +871,43 @@ const AIIntelligenceContent: React.FC<{
           className="relative group cursor-pointer"
           onClick={onSendSms}
         >
-          {/* Gorgeous gradient background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-600 via-purple-500 to-pink-600 rounded-3xl transform -rotate-1 group-hover:-rotate-2 transition-transform duration-500"></div>
+          {/* Gorgeous gradient background - hidden by default, shown on hover */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-3xl transform -rotate-1 group-hover:-rotate-2 transition-transform duration-500 opacity-0 group-hover:opacity-100"></div>
           
           {/* Main card */}
-          <div className="relative bg-gradient-to-br from-purple-500 to-pink-600 rounded-3xl p-1 shadow-2xl">
+          <div className="relative bg-gradient-to-br from-gray-100 to-gray-200 group-hover:from-[#01b9d5] group-hover:to-purple-600 rounded-3xl p-1 shadow-lg group-hover:shadow-2xl transition-all duration-500">
             <div className="relative bg-white rounded-[1.25rem] overflow-hidden">
               {/* Subtle pattern overlay */}
-              <div className="absolute inset-0 opacity-[0.02]" style={{
+              <div className="absolute inset-0 opacity-[0.02] group-hover:opacity-[0.03] transition-opacity duration-300" style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23A855F7' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
               }}></div>
               
               {/* Ultra faded background image */}
               <div 
-                className="absolute inset-0 opacity-[0.02] grayscale bg-cover bg-center mix-blend-overlay"
+                className="absolute inset-0 opacity-[0.01] group-hover:opacity-[0.02] grayscale bg-cover bg-center mix-blend-overlay transition-opacity duration-300"
                 style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1606788075819-9574a6edfab3?w=800&h=600&fit=crop)' }}
               ></div>
               
               <div className="relative p-6">
-                {/* Icon and SMS button */}
-                <div className="flex items-start justify-between mb-4">
+                {/* Header with icon and title */}
+                <div className="flex items-center gap-3 mb-4">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-400 to-pink-600 blur-xl opacity-50"></div>
-                    <div className="relative p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl shadow-lg">
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-400 to-gray-500 group-hover:from-[#01b9d5] group-hover:to-purple-600 blur-xl opacity-0 group-hover:opacity-50 transition-all duration-300"></div>
+                    <div className="relative p-3 bg-gradient-to-br from-gray-400 to-gray-500 group-hover:from-[#01b9d5] group-hover:to-purple-600 rounded-2xl shadow-sm group-hover:shadow-lg transition-all duration-300">
                       <Heart className="w-5 h-5 text-white" />
                     </div>
                   </div>
-                  <motion.div 
-                    whileHover={{ scale: 1.1 }}
-                    className="p-2 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl hover:from-purple-200 hover:to-pink-200 transition-all duration-300"
-                  >
-                    <MessageSquare className="w-4 h-4 text-purple-700" />
-                  </motion.div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-gray-700 group-hover:text-gray-800 transition-colors duration-300" style={{ fontFamily: 'Poppins, sans-serif' }}>Emergency Contact</p>
+                    <div className="flex items-center gap-1 text-gray-400 group-hover:text-gray-600 transition-colors">
+                      <span className="text-xs font-medium">Send SMS</span>
+                      <MessageSquare className="w-3 h-3" />
+                    </div>
+                  </div>
                 </div>
                 
                 {/* Content */}
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Emergency Contact</p>
                   <p className="text-2xl font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
                     {nextOfKin?.name || patient?.emergency_contact_name || 'Not Added'}
                   </p>
@@ -901,7 +917,7 @@ const AIIntelligenceContent: React.FC<{
                 </div>
                 
                 {/* Bottom accent */}
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#01b9d5] to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
             </div>
           </div>
@@ -914,41 +930,43 @@ const AIIntelligenceContent: React.FC<{
           className="relative group cursor-pointer"
           onClick={onBillingClick}
         >
-          {/* Gorgeous gradient background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-600 rounded-3xl transform rotate-1 group-hover:rotate-2 transition-transform duration-500"></div>
+          {/* Gorgeous gradient background - hidden by default, shown on hover */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-3xl transform rotate-1 group-hover:rotate-2 transition-transform duration-500 opacity-0 group-hover:opacity-100"></div>
           
           {/* Main card */}
-          <div className="relative bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl p-1 shadow-2xl">
+          <div className="relative bg-gradient-to-br from-gray-100 to-gray-200 group-hover:from-[#01b9d5] group-hover:to-purple-600 rounded-3xl p-1 shadow-lg group-hover:shadow-2xl transition-all duration-500">
             <div className="relative bg-white rounded-[1.25rem] overflow-hidden">
               {/* Subtle pattern overlay */}
-              <div className="absolute inset-0 opacity-[0.02]" style={{
+              <div className="absolute inset-0 opacity-[0.02] group-hover:opacity-[0.03] transition-opacity duration-300" style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2310B981' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
               }}></div>
               
               {/* Ultra faded background image */}
               <div 
-                className="absolute inset-0 opacity-[0.02] grayscale bg-cover bg-center mix-blend-overlay"
+                className="absolute inset-0 opacity-[0.01] group-hover:opacity-[0.02] grayscale bg-cover bg-center mix-blend-overlay transition-opacity duration-300"
                 style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1579621970795-87facc2f976d?w=800&h=600&fit=crop)' }}
               ></div>
               
               <div className="relative p-6">
-                {/* Icon and action */}
-                <div className="flex items-start justify-between mb-4">
+                {/* Header with icon and title */}
+                <div className="flex items-center gap-3 mb-4">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-teal-600 blur-xl opacity-50"></div>
-                    <div className="relative p-3 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-lg">
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-400 to-gray-500 group-hover:from-[#01b9d5] group-hover:to-purple-600 blur-xl opacity-0 group-hover:opacity-50 transition-all duration-300"></div>
+                    <div className="relative p-3 bg-gradient-to-br from-gray-400 to-gray-500 group-hover:from-[#01b9d5] group-hover:to-purple-600 rounded-2xl shadow-sm group-hover:shadow-lg transition-all duration-300">
                       <TrendingUp className="w-5 h-5 text-white" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 text-gray-400 group-hover:text-gray-600 transition-colors">
-                    <span className="text-xs font-medium">Details</span>
-                    <ChevronRight className="w-3 h-3" />
+                  <div>
+                    <p className="text-sm font-bold text-gray-700 group-hover:text-gray-800 transition-colors duration-300" style={{ fontFamily: 'Poppins, sans-serif' }}>Total Investment</p>
+                    <div className="flex items-center gap-1 text-gray-400 group-hover:text-gray-600 transition-colors">
+                      <span className="text-xs font-medium">View Details</span>
+                      <ChevronRight className="w-3 h-3" />
+                    </div>
                   </div>
                 </div>
                 
                 {/* Content */}
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Investment</p>
                   <p className="text-2xl font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
                     N$ {totalSpent.toLocaleString()}
                   </p>
@@ -956,7 +974,7 @@ const AIIntelligenceContent: React.FC<{
                 </div>
                 
                 {/* Bottom accent */}
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#01b9d5] to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
             </div>
           </div>
