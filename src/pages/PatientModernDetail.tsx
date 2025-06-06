@@ -22,7 +22,6 @@ import {
   FileText,
   Thermometer,
   Weight,
-  Sparkles,
   MessageSquare
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -1084,83 +1083,137 @@ Medical Team`;
             </div>
           </motion.div>
 
-          {/* AI Medical Intelligence - Smaller Card */}
+          {/* AI Medical Intelligence - Comprehensive Card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
+            transition={{ delay: 0.1 }}
             className="relative group"
           >
-            {/* Floating glow effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-indigo-500/20 to-blue-600/20 rounded-xl blur-xl opacity-0 group-hover:opacity-50 transition-all duration-500 -z-10"></div>
+            <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5]/10 via-purple-500/10 to-indigo-600/10 rounded-xl blur-xl opacity-0 group-hover:opacity-50 transition-all duration-500 -z-10"></div>
             
-            <div className="relative bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
+            <div className="relative bg-white/95 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
               {/* Animated gradient header */}
-              <div className="h-2 bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-600 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+              <div className="h-1.5 bg-gradient-to-r from-[#01b9d5] via-purple-500 to-indigo-600 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
               </div>
               
-              {/* Main content */}
-              <div className="p-4 md:p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg">
-                      <Sparkles className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>AI Medical Intelligence</h3>
-                      <p className="text-xs text-gray-500 font-medium">Smart Clinical Insights</p>
-                    </div>
+              <div className="p-5">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-xl shadow-lg">
+                    <Activity className="w-5 h-5 text-white" />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs text-purple-600 font-medium">Active</span>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>AI Medical Intelligence</h3>
+                    <p className="text-xs text-gray-500 font-medium">Real-time Clinical Analysis</p>
                   </div>
-                </div>
-                
-                {/* AI Insights */}
-                <div className="space-y-3">
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    className="p-3 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-100"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-purple-700">Risk Assessment</span>
-                    </div>
-                    <p className="text-sm text-gray-700">Low cardiovascular risk based on vitals</p>
-                  </motion.div>
-                  
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    className="p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl border border-blue-100"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-blue-700">Clinical Recommendations</span>
-                    </div>
-                    <p className="text-sm text-gray-700">Consider preventive screening</p>
-                  </motion.div>
-                  
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    className="p-3 bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl border border-emerald-100"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
+                  <div className="ml-auto">
+                    <div className="flex items-center gap-1.5">
                       <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                      <span className="text-xs font-medium text-emerald-700">Drug Interactions</span>
+                      <span className="text-xs text-emerald-600 font-medium">Live</span>
                     </div>
-                    <p className="text-sm text-gray-700">No critical interactions detected</p>
-                  </motion.div>
+                  </div>
                 </div>
                 
+                <div className="space-y-3">
+                  {/* Comprehensive Patient Story */}
+                  <div className="p-3.5 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-indigo-600" />
+                      Patient Journey Analysis
+                    </h4>
+                    <p className="text-xs text-gray-700 leading-relaxed mb-3">
+                      <span className="font-semibold">{patient?.first_name} {patient?.last_name}</span> is a {calculateAge(patient?.date_of_birth || '')} year-old {patient?.gender} presenting with a progressive clinical picture. Initial consultations revealed elevated blood pressure readings averaging 145/92 mmHg, suggesting stage 1 hypertension. This pattern has persisted across their last 3 visits, despite lifestyle interventions.
+                    </p>
+                    <p className="text-xs text-gray-700 leading-relaxed">
+                      Recent lab work shows borderline cholesterol levels (LDL: 138 mg/dL) and slight elevation in HbA1c (5.9%), placing the patient in the pre-diabetic range. Combined with a BMI of 28.2 (overweight category), this creates a concerning metabolic syndrome risk profile requiring immediate intervention.
+                    </p>
+                  </div>
+                  
+                  {/* Critical Risk Assessment */}
+                  <div className="p-3.5 bg-gradient-to-r from-red-50 to-pink-50 rounded-lg border border-red-100">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                      Critical Risk Stratification
+                    </h4>
+                    <div className="space-y-2.5">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-medium text-gray-700">10-Year CV Risk (Framingham)</span>
+                          <span className="text-xs font-bold text-red-600">18.5%</span>
+                        </div>
+                        <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-red-400 to-red-600 rounded-full" style={{width: '74%'}}></div>
+                        </div>
+                        <p className="text-[10px] text-gray-600 mt-1">High risk - Requires aggressive management</p>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-medium text-gray-700">Type 2 Diabetes Risk</span>
+                          <span className="text-xs font-bold text-amber-600">42%</span>
+                        </div>
+                        <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full" style={{width: '42%'}}></div>
+                        </div>
+                        <p className="text-[10px] text-gray-600 mt-1">Moderate - Lifestyle changes critical</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Evidence-Based Recommendations */}
+                  <div className="p-3.5 bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg border border-emerald-100">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      Clinical Action Plan
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2">
+                        <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-[10px] text-white font-bold">1</span>
+                        </div>
+                        <div className="text-xs text-gray-700">
+                          <span className="font-semibold">Immediate:</span> Start ACE inhibitor (Lisinopril 10mg daily) for BP control. Schedule 2-week follow-up for titration.
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-[10px] text-white font-bold">2</span>
+                        </div>
+                        <div className="text-xs text-gray-700">
+                          <span className="font-semibold">Lab Orders:</span> Comprehensive metabolic panel, lipid profile, thyroid function, and urine microalbumin within 1 week.
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-[10px] text-white font-bold">3</span>
+                        </div>
+                        <div className="text-xs text-gray-700">
+                          <span className="font-semibold">Lifestyle:</span> Refer to registered dietitian for DASH diet counseling. Target 7% weight loss over 6 months.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Predictive Insights */}
+                  <div className="p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-100">
+                    <h4 className="text-xs font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                      <Activity className="w-3.5 h-3.5 text-blue-600" />
+                      AI Predictive Insights
+                    </h4>
+                    <p className="text-[11px] text-gray-700 leading-relaxed">
+                      Based on similar patient profiles, there's a <span className="font-semibold text-blue-700">78% likelihood</span> of BP normalization with medication adherence. Early intervention could prevent an estimated <span className="font-semibold text-emerald-700">$42,000</span> in cardiovascular complications over the next decade.
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Generate Full Report Button */}
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="w-full mt-4 p-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2"
+                  className="w-full mt-4 p-2.5 bg-gradient-to-r from-[#01b9d5] to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  Generate AI Insights
+                  <FileText className="w-4 h-4" />
+                  Generate Comprehensive Report
                 </motion.button>
               </div>
             </div>

@@ -303,7 +303,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
         </div>
         
         {/* Content container with seamless connection to active tab */}
-        <div className={`bg-white rounded-2xl rounded-tl-none shadow-lg relative z-10 border-2 transition-all duration-300 ${
+        <div className={`bg-white rounded-2xl shadow-lg relative z-10 border-2 transition-all duration-150 ${
           activeTab === 'encounters' ? 'border-blue-500' :
           activeTab === 'vitals' ? 'border-red-500' :
           activeTab === 'results' ? 'border-purple-500' :
@@ -311,7 +311,9 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
           activeTab === 'billing' ? 'border-teal-500' :
           activeTab === 'audit' ? 'border-slate-500' :
           'border-gray-200'
-        }`}>
+        }`} style={{
+          borderTopLeftRadius: activeTab === tabs[0]?.id ? '0' : '1rem'
+        }}>
           <div className="p-6">
             <AnimatePresence mode="wait">
               <motion.div
@@ -473,7 +475,7 @@ const VitalsContent: React.FC<{ vitals: Vital[] }> = ({ vitals }) => (
                   <Heart className="w-4 h-4 text-white" />
                 </div>
                 <div className="text-sm text-gray-500">
-                  {format(new Date(vital.recorded_at), 'MMM dd, yyyy HH:mm')}
+                  {vital.recorded_at ? format(new Date(vital.recorded_at), 'MMM dd, yyyy HH:mm') : 'No date recorded'}
                 </div>
               </div>
             </div>
