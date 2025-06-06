@@ -38,6 +38,7 @@ import MedicalAidForm from '../components/forms/MedicalAidForm';
 import EditPatientForm from '../components/forms/EditPatientForm';
 import SendMessageModal from '../components/modals/SendMessageModal';
 import PatientDataTabs from '../components/patients/PatientDataTabs';
+import PremiumFolderTabs from '../components/patients/PremiumFolderTabs';
 import { useRealtimeAppointments } from '../hooks/useRealtimeAppointments';
 import VitalsForm from '../components/forms/VitalsForm';
 import AddLabRequestForm from '../components/forms/AddLabRequestForm';
@@ -951,129 +952,14 @@ Medical Team`;
               <div className="absolute bottom-0 left-0 w-60 h-60 bg-gradient-to-br from-emerald-500/5 to-cyan-500/5 rounded-full blur-2xl animate-float-delayed"></div>
               
               <div className="relative backdrop-blur-xl bg-white/95 border border-gray-200/50 rounded-2xl shadow-xl p-6">
-                {/* Enhanced Header */}
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-gradient-to-br from-[#01b9d5] to-indigo-600 rounded-2xl shadow-lg">
-                      <Activity className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                        Medical Timeline
-                      </h2>
-                      <p className="text-sm text-gray-500 font-medium">
-                        {visits.length} visits • Comprehensive care history
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      className="relative"
-                    >
-                      <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
-                      <input
-                        type="text"
-                        placeholder="Search timeline..."
-                        className="pl-10 pr-4 py-2.5 text-sm bg-white/80 border border-gray-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#01b9d4]/30 focus:border-[#01b9d4] transition-all backdrop-blur-sm shadow-sm text-gray-700 placeholder:text-gray-400"
-                      />
-                    </motion.div>
-                    
-                    {/* New Visit Button */}
-                    <motion.button
-                      whileHover={{ scale: 1.05, y: -2 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setIsAddVisitModalOpen(true)}
-                      className="px-4 py-2.5 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-2xl hover:shadow-[#01b9d5]/30 transition-all duration-300 font-semibold text-sm"
-                    >
-                      <Plus className="w-4 h-4" />
-                      New Visit
-                    </motion.button>
-                  </div>
-                </div>
-
-                {/* Compact Vitals Section - One Row with Icons */}
-                {latestVitals && (
-                  <div className="mb-4 flex items-center justify-between bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-                    <div className="flex items-center gap-3">
-                      <Activity className="w-4 h-4 text-gray-600" />
-                      <h3 className="text-sm font-semibold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>Latest Vitals</h3>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm">
-                      {latestVitals.blood_pressure && (
-                        <div className={`flex items-center gap-1 ${isBloodPressureAbnormal(latestVitals.blood_pressure) ? 'text-red-600' : 'text-gray-600'}`}>
-                          <Heart className="w-3.5 h-3.5" />
-                          <span className="font-medium">{latestVitals.blood_pressure}</span>
-                          <span className="text-xs">BP</span>
-                        </div>
-                      )}
-                      {latestVitals.pulse_rate && (
-                        <div className={`flex items-center gap-1 ${(latestVitals.pulse_rate < 60 || latestVitals.pulse_rate > 100) ? 'text-red-600' : 'text-gray-600'}`}>
-                          <Activity className="w-3.5 h-3.5" />
-                          <span className="font-medium">{latestVitals.pulse_rate}</span>
-                          <span className="text-xs">bpm</span>
-                        </div>
-                      )}
-                      {latestVitals.temperature && (
-                        <div className={`flex items-center gap-1 ${(latestVitals.temperature < 36.5 || latestVitals.temperature > 37.5) ? 'text-red-600' : 'text-gray-600'}`}>
-                          <Thermometer className="w-3.5 h-3.5" />
-                          <span className="font-medium">{latestVitals.temperature}°C</span>
-                        </div>
-                      )}
-                      {latestVitals.weight && (
-                        <div className="flex items-center gap-1 text-gray-600">
-                          <Weight className="w-3.5 h-3.5" />
-                          <span className="font-medium">{latestVitals.weight}</span>
-                          <span className="text-xs">kg</span>
-                        </div>
-                      )}
-                      {latestVitals.bmi && (
-                        <div className={`flex items-center gap-1 ${(latestVitals.bmi < 18.5 || latestVitals.bmi > 25) ? 'text-red-600' : 'text-gray-600'}`}>
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span className="font-medium">BMI {latestVitals.bmi}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Medical Timeline - Clean Professional Style */}
-                <div className="relative">
-                  {/* Clean timeline line */}
-                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
-
-                  {visits.map((visit, index) => (
-                    <VisitCard
-                      key={visit.id}
-                      visit={visit}
-                      index={index}
-                      onClick={() => handleVisitClick(visit.id)}
-                      onStatusChange={handleVisitStatusChange}
-                    />
-                  ))}
-                  
-                  {visits.length === 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ type: "spring", damping: 20 }}
-                      className="text-center py-20"
-                    >
-                      <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-3">No visits recorded yet</h3>
-                      <p className="text-gray-500 mb-6 max-w-md mx-auto">This patient's comprehensive medical timeline will appear here as visits are recorded</p>
-                      <motion.button
-                        whileHover={{ scale: 1.05, y: -2 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setIsAddVisitModalOpen(true)}
-                        className="px-6 py-3 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-2xl font-semibold shadow-lg hover:shadow-2xl transition-all duration-300 flex items-center gap-2 mx-auto"
-                      >
-                        <Plus className="w-5 h-5" />
-                        Record First Visit
-                      </motion.button>
-                    </motion.div>
-                  )}
-                </div>
+                {/* Premium Folder Tabs Interface */}
+                <PremiumFolderTabs 
+                  visits={visits}
+                  vitals={vitals}
+                  patientId={patient?.id || ''}
+                  onAddVisit={() => setIsAddVisitModalOpen(true)}
+                  onAddVitals={() => setIsVitalsModalOpen(true)}
+                />
               </div>
             </motion.div>
           </div>
