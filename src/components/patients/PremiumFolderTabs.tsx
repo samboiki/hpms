@@ -7,7 +7,6 @@ import {
   FileText,
   TestTube,
   CreditCard,
-  Shield,
   Stethoscope,
   Heart,
   TrendingUp,
@@ -82,51 +81,44 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
     {
       id: 'encounters',
       label: 'Encounters',
-      icon: <Stethoscope className="w-4 h-4" />,
+      icon: <Stethoscope className="w-3.5 h-3.5" />,
       count: visits.length,
       color: 'from-blue-500 to-indigo-600'
     },
     {
       id: 'prescriptions',
       label: 'Prescriptions',
-      icon: <Pill className="w-4 h-4" />,
+      icon: <Pill className="w-3.5 h-3.5" />,
       count: 0, // Will be populated when prescriptions are added
       color: 'from-green-500 to-emerald-600'
     },
     {
       id: 'vitals',
       label: 'Vitals',
-      icon: <Activity className="w-4 h-4" />,
+      icon: <Activity className="w-3.5 h-3.5" />,
       count: vitals.length,
       color: 'from-red-500 to-rose-600'
     },
     {
       id: 'results',
       label: 'Results',
-      icon: <TestTube className="w-4 h-4" />,
+      icon: <TestTube className="w-3.5 h-3.5" />,
       count: 0, // Will be populated when lab results are added
       color: 'from-purple-500 to-violet-600'
     },
     {
       id: 'documents',
       label: 'Documents',
-      icon: <FileText className="w-4 h-4" />,
+      icon: <FileText className="w-3.5 h-3.5" />,
       count: 0, // Will be populated when documents are added
       color: 'from-amber-500 to-orange-600'
     },
     {
       id: 'billing',
       label: 'Billing',
-      icon: <CreditCard className="w-4 h-4" />,
+      icon: <CreditCard className="w-3.5 h-3.5" />,
       count: 0, // Will be populated when billing records are added
       color: 'from-teal-500 to-cyan-600'
-    },
-    {
-      id: 'audit',
-      label: 'Audit',
-      icon: <Shield className="w-4 h-4" />,
-      count: 0, // Will be populated when audit logs are added
-      color: 'from-slate-500 to-gray-600'
     }
   ];
 
@@ -144,8 +136,6 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
         return <DocumentsContent />;
       case 'billing':
         return <BillingContent />;
-      case 'audit':
-        return <AuditContent />;
       default:
         return <EncountersContent visits={visits} />;
     }
@@ -238,8 +228,8 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       </div>
 
       {/* Folder-style tabs */}
-      <div className="relative mb-8">
-        <div className="flex flex-wrap items-end gap-1 relative z-10">
+      <div className="relative mb-6">
+        <div className="flex items-end gap-0.5 relative z-10 overflow-x-auto">
           {tabs.map((tab, index) => {
             const isActive = activeTab === tab.id;
             return (
@@ -247,44 +237,47 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  relative group px-6 py-4 rounded-t-2xl font-semibold text-sm
-                  transition-all duration-300 flex items-center gap-2.5 min-w-0
+                  relative group px-4 py-3 rounded-t-xl font-medium text-xs
+                  transition-all duration-300 flex items-center gap-2 min-w-0 shrink-0
                   ${isActive 
                     ? 'bg-white shadow-lg -mb-px z-20 text-gray-800 border-x border-t border-gray-200' 
-                    : 'bg-gray-100/80 hover:bg-gray-200/80 text-gray-600 hover:text-gray-800 mt-2'
+                    : 'bg-gray-100/80 hover:bg-gray-200/80 text-gray-600 hover:text-gray-800 mt-1'
                   }
                 `}
                 whileHover={{ scale: isActive ? 1 : 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 style={{
                   clipPath: isActive 
-                    ? 'polygon(8px 0%, calc(100% - 8px) 0%, 100% 8px, 100% 100%, 0% 100%, 0% 8px)'
-                    : 'polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% 100%, 0% 100%, 0% 6px)'
+                    ? 'polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% 100%, 0% 100%, 0% 6px)'
+                    : 'polygon(4px 0%, calc(100% - 4px) 0%, 100% 4px, 100% 100%, 0% 100%, 0% 4px)'
                 }}
               >
                 {/* Gradient background for active tab */}
                 {isActive && (
-                  <div className={`absolute inset-0 bg-gradient-to-r ${tab.color} opacity-5 rounded-t-2xl`} />
+                  <div className={`absolute inset-0 bg-gradient-to-r ${tab.color} opacity-5 rounded-t-xl`} />
                 )}
                 
-                {/* Tab icon with gradient background */}
+                {/* Tab icon - only colored when active */}
                 <div className={`
-                  p-1.5 rounded-lg bg-gradient-to-r ${tab.color} text-white shadow-sm
-                  ${isActive ? 'shadow-md' : 'opacity-80'}
+                  p-1 rounded-md transition-all duration-300
+                  ${isActive 
+                    ? `bg-gradient-to-r ${tab.color} text-white shadow-sm` 
+                    : 'bg-gray-300 text-gray-500'
+                  }
                 `}>
                   {tab.icon}
                 </div>
                 
                 {/* Tab label */}
-                <span className="font-medium truncate">{tab.label}</span>
+                <span className="font-medium truncate whitespace-nowrap">{tab.label}</span>
                 
                 {/* Count badge */}
                 {tab.count !== undefined && tab.count > 0 && (
                   <span className={`
-                    px-2 py-0.5 rounded-full text-xs font-bold
+                    px-1.5 py-0.5 rounded-full text-xs font-bold min-w-[18px] text-center
                     ${isActive 
-                      ? 'bg-gray-800 text-white' 
-                      : 'bg-gray-300 text-gray-600 group-hover:bg-gray-400 group-hover:text-white'
+                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-sm' 
+                      : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white group-hover:from-slate-500 group-hover:to-slate-600'
                     }
                   `}>
                     {tab.count}
@@ -295,7 +288,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                 {isActive && (
                   <motion.div
                     layoutId="activeTabIndicator"
-                    className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${tab.color} rounded-full`}
+                    className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r ${tab.color} rounded-full`}
                     initial={false}
                     transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                   />
@@ -578,24 +571,5 @@ const BillingContent: React.FC = () => (
   </div>
 );
 
-// Audit Content Component
-const AuditContent: React.FC = () => (
-  <div className="space-y-6">
-    <div className="flex items-center justify-between">
-      <div>
-        <h3 className="text-xl font-bold text-gray-800 mb-1">Audit Trail</h3>
-        <p className="text-gray-500 text-sm">Record changes and system activity log</p>
-      </div>
-    </div>
-    
-    <div className="text-center py-12">
-      <div className="p-4 bg-gradient-to-r from-slate-500 to-gray-600 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-        <Shield className="w-8 h-8 text-white" />
-      </div>
-      <h4 className="text-lg font-semibold text-gray-800 mb-2">No audit records</h4>
-      <p className="text-gray-500 text-sm">System changes and modifications will appear here</p>
-    </div>
-  </div>
-);
 
 export default PremiumFolderTabs;
