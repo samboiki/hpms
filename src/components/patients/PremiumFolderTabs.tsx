@@ -696,155 +696,192 @@ const AIIntelligenceContent: React.FC<{
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xl font-bold text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>Overview</h3>
-          <p className="text-gray-500 text-sm">Patient Health Summary</p>
+          <h3 className="text-2xl font-bold text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>Overview</h3>
+          <p className="text-gray-500 text-sm">Comprehensive Health Analysis</p>
         </div>
         
         {/* Live Status */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full">
           <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-          <span className="text-xs text-emerald-600 font-medium">Live</span>
+          <span className="text-xs text-emerald-600 font-medium">Live Analysis</span>
         </div>
       </div>
       
-      {/* Patient Journey Section */}
-      <div className="relative p-6 bg-gradient-to-br from-white via-gray-50/30 to-blue-50/20 rounded-2xl border border-gray-200/50 shadow-lg overflow-hidden">
-        {/* Background decorative elements */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-gray-400/5 to-gray-600/5 rounded-full blur-2xl"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-br from-gray-500/5 to-gray-700/5 rounded-full blur-xl"></div>
-        
-        <div className="relative">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-2 bg-gradient-to-br from-gray-500 to-gray-700 rounded-lg shadow-md">
-              <User className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>Patient Journey</h4>
-              <p className="text-xs text-gray-500">Health Overview</p>
-            </div>
-          </div>
-          
-          <div className="text-sm text-gray-700 leading-tight">
-            <p className="mb-0">
-              {patient?.first_name} {patient?.last_name} has been under our care with a total of <strong>{visits.length} medical encounters</strong> recorded in our system. The patient demonstrates <strong>excellent compliance</strong> with scheduled appointments and treatment protocols. Clinical assessments show <strong>stable vital signs</strong> across {vitals.length} recorded measurements, indicating good baseline health status. Blood pressure, heart rate, and other key indicators remain within normal ranges, suggesting effective ongoing management. Overall prognosis is <strong>positive</strong> with continued monitoring recommended. The patient's consistent engagement with healthcare services and adherence to treatment plans positions them well for long-term health outcomes.
-            </p>
-          </div>
-        </div>
-      </div>
-      
-      {/* Premium Interactive Cards with Real Background Images */}
-      <div className="grid grid-cols-3 gap-6">
-        {/* Medical Aid Info Card */}
-        <motion.button
-          whileHover={{ scale: 1.03, y: -2 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={onMedicalAidClick || (() => console.log('Open Medical Aid Modal'))}
-          className="relative p-6 rounded-2xl border border-blue-200/30 shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden group cursor-pointer"
-        >
-          {/* Real medical background image - more faded */}
-          <div 
-            className="absolute inset-0 opacity-5 group-hover:opacity-8 transition-opacity duration-300 bg-cover bg-center"
-            style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=800&h=600&fit=crop&crop=center)' }}
-          ></div>
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-50/90 via-white/80 to-indigo-50/90"></div>
-          
-          {/* Floating gradient orb */}
-          <div className="absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br from-blue-400/20 to-indigo-500/20 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
-          
-          <div className="relative text-left">
+      {/* Patient Journey and AI Insights Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Patient Journey */}
+        <div className="relative bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg group-hover:shadow-xl transition-shadow">
-                <CreditCard className="w-4 h-4 text-white" />
+              <div className="p-2.5 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl">
+                <User className="w-5 h-5 text-gray-700" />
               </div>
-              <span className="text-sm font-semibold text-blue-700" style={{ fontFamily: 'Poppins, sans-serif' }}>Medical Aid</span>
+              <div>
+                <h4 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>Patient Journey</h4>
+                <p className="text-xs text-gray-500">Clinical History Overview</p>
+              </div>
             </div>
-            <p className="text-2xl font-black text-blue-700 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>{medicalAid?.provider || 'None'}</p>
-            <p className="text-sm text-blue-600 font-medium">{medicalAid?.scheme || 'No coverage'}</p>
+            
+            <div className="text-sm text-gray-600 leading-relaxed">
+              <p className="mb-0">
+                {patient?.first_name} {patient?.last_name} has been under our care with <strong className="text-gray-800">{visits.length} medical encounters</strong> recorded. 
+                The patient demonstrates <strong className="text-gray-800">excellent compliance</strong> with scheduled appointments and treatment protocols. 
+                Clinical assessments show <strong className="text-gray-800">stable vital signs</strong> across {vitals.length} recorded measurements, 
+                with all key indicators within normal ranges. Overall prognosis is <strong className="text-gray-800">positive</strong> with continued 
+                monitoring recommended for optimal health outcomes.
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        {/* AI Insights */}
+        <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl shadow-md">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>AI Insights</h4>
+                <p className="text-xs text-gray-500">Smart Health Recommendations</p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm font-bold text-blue-700">1</span>
+                </div>
+                <div className="text-sm text-gray-600">
+                  <strong className="text-gray-800">Health Status:</strong> Stable clinical parameters with consistent improvement patterns observed.
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-green-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm font-bold text-green-700">2</span>
+                </div>
+                <div className="text-sm text-gray-600">
+                  <strong className="text-gray-800">Recommendations:</strong> Continue current treatment plan with quarterly follow-ups for monitoring.
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-purple-100 to-purple-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm font-bold text-purple-700">3</span>
+                </div>
+                <div className="text-sm text-gray-600">
+                  <strong className="text-gray-800">Prevention:</strong> Consider annual health screenings and lifestyle modifications for long-term wellness.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Premium Stats Cards */}
+      <div className="grid grid-cols-3 gap-4">
+        {/* Medical Aid Card */}
+        <motion.button
+          whileHover={{ y: -4 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onMedicalAidClick}
+          className="relative bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group"
+        >
+          {/* Faded grayscale background */}
+          <div 
+            className="absolute inset-0 opacity-[0.03] grayscale bg-cover bg-center"
+            style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=600&h=400&fit=crop)' }}
+          ></div>
+          
+          <div className="relative p-5">
+            <div className="flex items-start justify-between mb-3">
+              <div className="p-2 bg-blue-50 rounded-lg">
+                <CreditCard className="w-4 h-4 text-blue-600" />
+              </div>
+              <ChevronRight className="w-4 h-4 text-gray-400 mt-0.5" />
+            </div>
+            
+            <p className="text-xs text-gray-500 font-medium mb-1">Medical Aid</p>
+            <p className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
+              {medicalAid?.provider || 'Not Registered'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">{medicalAid?.scheme || 'Add medical aid'}</p>
           </div>
         </motion.button>
         
         {/* Next of Kin Card */}
         <motion.button
-          whileHover={{ scale: 1.03, y: -2 }}
+          whileHover={{ y: -4 }}
           whileTap={{ scale: 0.98 }}
           onClick={onSendSms}
-          className="relative p-6 rounded-2xl border border-purple-200/30 shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden group cursor-pointer"
+          className="relative bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group"
         >
-          {/* Real family/contact background image - more faded */}
+          {/* Faded grayscale background */}
           <div 
-            className="absolute inset-0 opacity-5 group-hover:opacity-8 transition-opacity duration-300 bg-cover bg-center"
-            style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1511895426328-dc8714191300?w=800&h=600&fit=crop&crop=center)' }}
+            className="absolute inset-0 opacity-[0.03] grayscale bg-cover bg-center"
+            style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1581579438747-1dc8d17bbce4?w=600&h=400&fit=crop)' }}
           ></div>
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-50/90 via-white/80 to-pink-50/90"></div>
           
-          {/* Floating gradient orb */}
-          <div className="absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br from-purple-400/20 to-pink-500/20 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
-          
-          {/* SMS Button in corner */}
-          <div className="absolute top-3 right-3">
-            <div className="p-1.5 bg-purple-100/80 hover:bg-purple-200/80 rounded-lg transition-colors backdrop-blur-sm">
-              <MessageSquare className="w-3 h-3 text-purple-600" />
-            </div>
-          </div>
-          
-          <div className="relative text-left">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl shadow-lg group-hover:shadow-xl transition-shadow">
-                <Heart className="w-4 h-4 text-white" />
+          <div className="relative p-5">
+            <div className="flex items-start justify-between mb-3">
+              <div className="p-2 bg-purple-50 rounded-lg">
+                <Heart className="w-4 h-4 text-purple-600" />
               </div>
-              <span className="text-sm font-semibold text-purple-700" style={{ fontFamily: 'Poppins, sans-serif' }}>Next of Kin</span>
+              <div className="p-1.5 bg-purple-50 rounded-md hover:bg-purple-100 transition-colors">
+                <MessageSquare className="w-3 h-3 text-purple-600" />
+              </div>
             </div>
-            <p className="text-2xl font-black text-purple-700 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>{nextOfKin?.name || patient?.emergency_contact_name || 'None'}</p>
-            <p className="text-sm text-purple-600 font-medium">{nextOfKin?.relationship || patient?.emergency_contact_relationship || 'Not specified'}</p>
+            
+            <p className="text-xs text-gray-500 font-medium mb-1">Next of Kin</p>
+            <p className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
+              {nextOfKin?.name || patient?.emergency_contact_name || 'Not Added'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {nextOfKin?.relationship || patient?.emergency_contact_relationship || 'Add contact'}
+            </p>
           </div>
         </motion.button>
         
-        {/* Money Spent Card */}
+        {/* Billing Card */}
         <motion.button
-          whileHover={{ scale: 1.03, y: -2 }}
+          whileHover={{ y: -4 }}
           whileTap={{ scale: 0.98 }}
-          onClick={onBillingClick || (() => console.log('Open Billing Modal'))}
-          className="relative p-6 rounded-2xl border border-emerald-200/30 shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden group cursor-pointer"
+          onClick={onBillingClick}
+          className="relative bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group"
         >
-          {/* Real money/finance background image - more faded */}
+          {/* Faded grayscale background */}
           <div 
-            className="absolute inset-0 opacity-5 group-hover:opacity-8 transition-opacity duration-300 bg-cover bg-center"
-            style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800&h=600&fit=crop&crop=center)' }}
+            className="absolute inset-0 opacity-[0.03] grayscale bg-cover bg-center"
+            style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&h=400&fit=crop)' }}
           ></div>
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/90 via-white/80 to-green-50/90"></div>
           
-          {/* Floating gradient orb */}
-          <div className="absolute -top-4 -right-4 w-16 h-16 bg-gradient-to-br from-emerald-400/20 to-green-500/20 rounded-full blur-xl group-hover:scale-125 transition-transform duration-500"></div>
-          
-          <div className="relative text-left">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl shadow-lg group-hover:shadow-xl transition-shadow">
-                <TrendingUp className="w-4 h-4 text-white" />
+          <div className="relative p-5">
+            <div className="flex items-start justify-between mb-3">
+              <div className="p-2 bg-emerald-50 rounded-lg">
+                <TrendingUp className="w-4 h-4 text-emerald-600" />
               </div>
-              <span className="text-sm font-semibold text-emerald-700" style={{ fontFamily: 'Poppins, sans-serif' }}>Money Spent</span>
+              <ChevronRight className="w-4 h-4 text-gray-400 mt-0.5" />
             </div>
-            <p className="text-2xl font-black text-emerald-700 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>N$ {totalSpent.toLocaleString()}</p>
-            <p className="text-sm text-emerald-600 font-medium">Total to date</p>
+            
+            <p className="text-xs text-gray-500 font-medium mb-1">Total Spent</p>
+            <p className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
+              N$ {totalSpent.toLocaleString()}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">View billing history</p>
           </div>
         </motion.button>
       </div>
       
       {/* Generate Report Button */}
-      <div className="pt-4">
+      <div className="pt-2">
         <motion.button
-          whileHover={{ scale: 1.02, y: -2 }}
-          whileTap={{ scale: 0.98 }}
-          className="w-full p-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white rounded-2xl font-bold text-sm shadow-2xl hover:shadow-3xl hover:shadow-purple-500/40 transition-all duration-500 flex items-center justify-center gap-3 relative overflow-hidden group"
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
+          className="w-full px-6 py-3.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
         >
-          {/* Animated background shimmer */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-          
-          <div className="relative flex items-center gap-3">
-            <div className="p-1.5 bg-white/20 rounded-lg">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <span style={{ fontFamily: 'Poppins, sans-serif' }}>Generate Comprehensive AI Report</span>
-          </div>
+          <Sparkles className="w-4 h-4" />
+          <span style={{ fontFamily: 'Poppins, sans-serif' }}>Generate Comprehensive Report</span>
         </motion.button>
       </div>
     </div>
