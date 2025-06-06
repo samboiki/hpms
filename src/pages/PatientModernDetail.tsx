@@ -820,6 +820,8 @@ Medical Team`;
                   nextOfKin={nextOfKin}
                   medicalAid={medicalAid}
                   onSendSms={() => setIsSmsModalOpen(true)}
+                  onMedicalAidClick={() => setIsMedicalAidModalOpen(true)}
+                  onBillingClick={() => console.log('Open billing modal')}
                 />
               </div>
             </motion.div>
