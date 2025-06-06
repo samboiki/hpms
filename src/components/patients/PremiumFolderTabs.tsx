@@ -358,6 +358,27 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
           </div>
         </div>
       </div>
+      
+      {/* Premium Visit Modal */}
+      <PremiumVisitModal
+        isOpen={isVisitModalOpen}
+        onClose={() => {
+          setIsVisitModalOpen(false);
+          setSelectedVisit(null);
+        }}
+        visit={selectedVisit}
+        onEdit={() => {
+          setIsVisitModalOpen(false);
+          if (selectedVisit && onEditVisit) {
+            onEditVisit(selectedVisit);
+          }
+        }}
+        onStatusChange={(status) => {
+          if (selectedVisit && onVisitStatusChange) {
+            onVisitStatusChange(selectedVisit.id, status);
+          }
+        }}
+      />
     </div>
   );
 };
@@ -834,27 +855,6 @@ const AIIntelligenceContent: React.FC<{ visits: Visit[]; vitals: Vital[]; patien
           Generate Comprehensive AI Report
         </motion.button>
       </div>
-      
-      {/* Premium Visit Modal */}
-      <PremiumVisitModal
-        isOpen={isVisitModalOpen}
-        onClose={() => {
-          setIsVisitModalOpen(false);
-          setSelectedVisit(null);
-        }}
-        visit={selectedVisit}
-        onEdit={() => {
-          setIsVisitModalOpen(false);
-          if (selectedVisit && onEditVisit) {
-            onEditVisit(selectedVisit);
-          }
-        }}
-        onStatusChange={(status) => {
-          if (selectedVisit && onVisitStatusChange) {
-            onVisitStatusChange(selectedVisit.id, status);
-          }
-        }}
-      />
     </div>
   );
 };
