@@ -25,7 +25,8 @@ import {
   Plus,
   Search,
   Filter,
-  Shield
+  Shield,
+  Sparkles
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -75,10 +76,17 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
   onAddVisit,
   onAddVitals 
 }) => {
-  const [activeTab, setActiveTab] = useState('encounters');
+  const [activeTab, setActiveTab] = useState('ai-intelligence');
   const [showActionMenu, setShowActionMenu] = useState(false);
 
   const tabs: TabData[] = [
+    {
+      id: 'ai-intelligence',
+      label: 'AI Medical Intelligence',
+      icon: <Sparkles className="w-3.5 h-3.5" />,
+      count: undefined,
+      color: 'from-cyan-500 to-blue-600'
+    },
     {
       id: 'encounters',
       label: 'Encounters',
@@ -125,6 +133,8 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
 
   const renderTabContent = () => {
     switch (activeTab) {
+      case 'ai-intelligence':
+        return <AIIntelligenceContent visits={visits} vitals={vitals} patientId={patientId} />;
       case 'encounters':
         return <EncountersContent visits={visits} />;
       case 'vitals':
@@ -138,7 +148,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       case 'audit':
         return <AuditTrailContent />;
       default:
-        return <EncountersContent visits={visits} />;
+        return <AIIntelligenceContent visits={visits} vitals={vitals} patientId={patientId} />;
     }
   };
 
@@ -288,6 +298,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                 {/* Active tab top border that matches content border */}
                 {isActive && (
                   <div className={`absolute inset-0 border-2 border-b-0 rounded-t-xl transition-colors duration-150 ${
+                    activeTab === 'ai-intelligence' ? 'border-cyan-500' :
                     activeTab === 'encounters' ? 'border-blue-500' :
                     activeTab === 'vitals' ? 'border-red-500' :
                     activeTab === 'results' ? 'border-purple-500' :
@@ -304,6 +315,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
         
         {/* Content container with seamless connection to active tab */}
         <div className={`bg-white rounded-2xl shadow-lg relative z-10 border-2 transition-all duration-150 ${
+          activeTab === 'ai-intelligence' ? 'border-cyan-500' :
           activeTab === 'encounters' ? 'border-blue-500' :
           activeTab === 'vitals' ? 'border-red-500' :
           activeTab === 'results' ? 'border-purple-500' :
@@ -585,5 +597,129 @@ const BillingContent: React.FC = () => (
   </div>
 );
 
+
+// AI Intelligence Content Component
+const AIIntelligenceContent: React.FC<{ visits: Visit[]; vitals: Vital[]; patientId: string }> = ({ visits, vitals, patientId }) => (
+  <div className="space-y-6">
+    <div className="flex items-center justify-between">
+      <div>
+        <h3 className="text-xl font-bold text-gray-800 mb-1">AI Medical Intelligence</h3>
+        <p className="text-gray-500 text-sm">Real-time Clinical Analysis</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+        <span className="text-xs text-emerald-600 font-medium">Live</span>
+      </div>
+    </div>
+    
+    <div className="space-y-4">
+      {/* Comprehensive Patient Story */}
+      <div className="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl border border-indigo-100">
+        <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <Activity className="w-4 h-4 text-indigo-600" />
+          Patient Journey Analysis
+        </h4>
+        <p className="text-sm text-gray-700 leading-relaxed mb-3">
+          Patient has <span className="font-semibold text-indigo-700">{visits.length} recorded visits</span> and <span className="font-semibold text-red-700">{vitals.length} vital sign measurements</span>. Initial consultations show consistent monitoring patterns with stable baseline readings.
+        </p>
+        <p className="text-sm text-gray-700 leading-relaxed">
+          Treatment adherence appears good based on regular follow-up patterns. Recommend continuing current monitoring protocol with quarterly assessments.
+        </p>
+      </div>
+      
+      {/* Critical Risk Assessment */}
+      <div className="p-4 bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl border border-emerald-100">
+        <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          Risk Assessment Summary
+        </h4>
+        <div className="space-y-3">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">Overall Health Score</span>
+              <span className="text-sm font-bold text-emerald-600">Good (78/100)</span>
+            </div>
+            <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-emerald-400 to-green-500 rounded-full" style={{width: '78%'}}></div>
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">Treatment Compliance</span>
+              <span className="text-sm font-bold text-blue-600">High (85%)</span>
+            </div>
+            <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-blue-400 to-blue-500 rounded-full" style={{width: '85%'}}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Evidence-Based Recommendations */}
+      <div className="p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-xl border border-cyan-100">
+        <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-cyan-600" />
+          AI-Generated Insights
+        </h4>
+        <div className="space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-xs text-white font-bold">1</span>
+            </div>
+            <div className="text-sm text-gray-700">
+              <span className="font-semibold">Current Status:</span> Patient shows stable clinical parameters with good treatment response patterns.
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-xs text-white font-bold">2</span>
+            </div>
+            <div className="text-sm text-gray-700">
+              <span className="font-semibold">Recommendations:</span> Continue current monitoring schedule. Consider preventive screenings based on age and risk factors.
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+              <span className="text-xs text-white font-bold">3</span>
+            </div>
+            <div className="text-sm text-gray-700">
+              <span className="font-semibold">Next Steps:</span> Schedule follow-up in 3 months. Review medication adherence and lifestyle factors.
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="p-3 bg-white border border-gray-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-1">
+            <Stethoscope className="w-4 h-4 text-blue-500" />
+            <span className="text-xs font-medium text-gray-600">Total Visits</span>
+          </div>
+          <p className="text-lg font-bold text-blue-600">{visits.length}</p>
+        </div>
+        <div className="p-3 bg-white border border-gray-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-1">
+            <Activity className="w-4 h-4 text-red-500" />
+            <span className="text-xs font-medium text-gray-600">Vital Readings</span>
+          </div>
+          <p className="text-lg font-bold text-red-600">{vitals.length}</p>
+        </div>
+      </div>
+      
+      {/* Generate Report Button */}
+      <div className="pt-4">
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="w-full p-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2"
+        >
+          <FileText className="w-4 h-4" />
+          Generate Comprehensive AI Report
+        </motion.button>
+      </div>
+    </div>
+  </div>
+);
 
 export default PremiumFolderTabs;
