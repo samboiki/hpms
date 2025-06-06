@@ -810,6 +810,12 @@ Medical Team`;
                   patientId={patient?.id || ''}
                   onAddVisit={() => setIsAddVisitModalOpen(true)}
                   onAddVitals={() => setIsVitalsModalOpen(true)}
+                  onVisitClick={(visitId) => handleVisitClick(visitId)}
+                  onEditVisit={(visit) => {
+                    setSelectedVisit(visit);
+                    setIsEditVisitModalOpen(true);
+                  }}
+                  onVisitStatusChange={(visitId, status) => handleVisitStatusChange(visitId, status)}
                 />
               </div>
             </motion.div>
