@@ -42,6 +42,7 @@ import { useRealtimeAppointments } from '../hooks/useRealtimeAppointments';
 import VitalsForm from '../components/forms/VitalsForm';
 import AddLabRequestForm from '../components/forms/AddLabRequestForm';
 import AddMediaRequestForm from '../components/forms/AddMediaRequestForm';
+import PremiumBillingModal from '../components/modals/PremiumBillingModal';
 import { toast } from 'react-hot-toast';
 import { defaultSMSService } from '../services/smsPortal';
 import { authStore } from '../stores/authStore';
@@ -303,6 +304,7 @@ const PatientModernDetail = () => {
   const [isVitalsModalOpen, setIsVitalsModalOpen] = useState(false);
   const [isLabRequestModalOpen, setIsLabRequestModalOpen] = useState(false);
   const [isMediaRequestModalOpen, setIsMediaRequestModalOpen] = useState(false);
+  const [isBillingModalOpen, setIsBillingModalOpen] = useState(false);
   const [currentPracticeId, setCurrentPracticeId] = useState<string | null>(null);
   const [currentDoctorId, setCurrentDoctorId] = useState<string>('');
   const [doctorAppointments, setDoctorAppointments] = useState<any[]>([]);
@@ -821,7 +823,7 @@ Medical Team`;
                   medicalAid={medicalAid}
                   onSendSms={() => setIsSmsModalOpen(true)}
                   onMedicalAidClick={() => setIsMedicalAidModalOpen(true)}
-                  onBillingClick={() => console.log('Open billing modal')}
+                  onBillingClick={() => setIsBillingModalOpen(true)}
                 />
               </div>
             </motion.div>
@@ -1544,6 +1546,15 @@ Medical Team`;
           }}
         />
       </FormModal>
+
+      {/* Premium Billing Modal */}
+      <PremiumBillingModal
+        isOpen={isBillingModalOpen}
+        onClose={() => setIsBillingModalOpen(false)}
+        patientName={patient ? `${patient.first_name} ${patient.last_name}` : 'Patient'}
+        totalSpent={visits.length * 450 + vitals.length * 75 + 1250}
+        billingItems={[]}
+      />
       </div>
     </div>
   );

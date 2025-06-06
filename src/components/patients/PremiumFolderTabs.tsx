@@ -700,10 +700,22 @@ const AIIntelligenceContent: React.FC<{
           <p className="text-gray-500 text-sm">Comprehensive Health Analysis</p>
         </div>
         
-        {/* Live Status */}
-        <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full">
-          <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-          <span className="text-xs text-emerald-600 font-medium">Live Analysis</span>
+        <div className="flex items-center gap-3">
+          {/* Live Status */}
+          <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-full">
+            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+            <span className="text-xs text-emerald-600 font-medium">Live Analysis</span>
+          </div>
+          
+          {/* Generate Report Button - Relocated here */}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-lg font-medium text-sm shadow-md hover:shadow-xl transition-all duration-300"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span style={{ fontFamily: 'Poppins, sans-serif' }}>Generate Report</span>
+          </motion.button>
         </div>
       </div>
       
@@ -779,110 +791,176 @@ const AIIntelligenceContent: React.FC<{
         </div>
       </div>
       
-      {/* Premium Stats Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Ultra Premium Stats Cards */}
+      <div className="grid grid-cols-3 gap-6">
         {/* Medical Aid Card */}
-        <motion.button
-          whileHover={{ y: -4 }}
+        <motion.div
+          whileHover={{ y: -8, scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
+          className="relative group cursor-pointer"
           onClick={onMedicalAidClick}
-          className="relative bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group"
         >
-          {/* Faded grayscale background */}
-          <div 
-            className="absolute inset-0 opacity-[0.03] grayscale bg-cover bg-center"
-            style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=600&h=400&fit=crop)' }}
-          ></div>
+          {/* Gorgeous gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 rounded-3xl transform rotate-1 group-hover:rotate-2 transition-transform duration-500"></div>
           
-          <div className="relative p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="p-2 bg-blue-50 rounded-lg">
-                <CreditCard className="w-4 h-4 text-blue-600" />
+          {/* Main card */}
+          <div className="relative bg-gradient-to-br from-blue-500 to-indigo-600 rounded-3xl p-1 shadow-2xl">
+            <div className="relative bg-white rounded-[1.25rem] overflow-hidden">
+              {/* Subtle pattern overlay */}
+              <div className="absolute inset-0 opacity-[0.02]" style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230EA5E9' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+              }}></div>
+              
+              {/* Ultra faded background image */}
+              <div 
+                className="absolute inset-0 opacity-[0.02] grayscale bg-cover bg-center mix-blend-overlay"
+                style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=800&h=600&fit=crop)' }}
+              ></div>
+              
+              <div className="relative p-6">
+                {/* Icon and action */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-indigo-600 blur-xl opacity-50"></div>
+                    <div className="relative p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
+                      <CreditCard className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-gray-400 group-hover:text-gray-600 transition-colors">
+                    <span className="text-xs font-medium">View</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </div>
+                </div>
+                
+                {/* Content */}
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Medical Aid</p>
+                  <p className="text-2xl font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                    {medicalAid?.provider || 'Not Registered'}
+                  </p>
+                  <p className="text-sm text-gray-600 font-medium">{medicalAid?.scheme || 'Click to add'}</p>
+                </div>
+                
+                {/* Bottom accent */}
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
-              <ChevronRight className="w-4 h-4 text-gray-400 mt-0.5" />
             </div>
-            
-            <p className="text-xs text-gray-500 font-medium mb-1">Medical Aid</p>
-            <p className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
-              {medicalAid?.provider || 'Not Registered'}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">{medicalAid?.scheme || 'Add medical aid'}</p>
           </div>
-        </motion.button>
+        </motion.div>
         
         {/* Next of Kin Card */}
-        <motion.button
-          whileHover={{ y: -4 }}
+        <motion.div
+          whileHover={{ y: -8, scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
+          className="relative group cursor-pointer"
           onClick={onSendSms}
-          className="relative bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group"
         >
-          {/* Faded grayscale background */}
-          <div 
-            className="absolute inset-0 opacity-[0.03] grayscale bg-cover bg-center"
-            style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1581579438747-1dc8d17bbce4?w=600&h=400&fit=crop)' }}
-          ></div>
+          {/* Gorgeous gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-600 via-purple-500 to-pink-600 rounded-3xl transform -rotate-1 group-hover:-rotate-2 transition-transform duration-500"></div>
           
-          <div className="relative p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="p-2 bg-purple-50 rounded-lg">
-                <Heart className="w-4 h-4 text-purple-600" />
-              </div>
-              <div className="p-1.5 bg-purple-50 rounded-md hover:bg-purple-100 transition-colors">
-                <MessageSquare className="w-3 h-3 text-purple-600" />
+          {/* Main card */}
+          <div className="relative bg-gradient-to-br from-purple-500 to-pink-600 rounded-3xl p-1 shadow-2xl">
+            <div className="relative bg-white rounded-[1.25rem] overflow-hidden">
+              {/* Subtle pattern overlay */}
+              <div className="absolute inset-0 opacity-[0.02]" style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23A855F7' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+              }}></div>
+              
+              {/* Ultra faded background image */}
+              <div 
+                className="absolute inset-0 opacity-[0.02] grayscale bg-cover bg-center mix-blend-overlay"
+                style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1606788075819-9574a6edfab3?w=800&h=600&fit=crop)' }}
+              ></div>
+              
+              <div className="relative p-6">
+                {/* Icon and SMS button */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-400 to-pink-600 blur-xl opacity-50"></div>
+                    <div className="relative p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl shadow-lg">
+                      <Heart className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
+                  <motion.div 
+                    whileHover={{ scale: 1.1 }}
+                    className="p-2 bg-gradient-to-br from-purple-100 to-pink-100 rounded-xl hover:from-purple-200 hover:to-pink-200 transition-all duration-300"
+                  >
+                    <MessageSquare className="w-4 h-4 text-purple-700" />
+                  </motion.div>
+                </div>
+                
+                {/* Content */}
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Emergency Contact</p>
+                  <p className="text-2xl font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                    {nextOfKin?.name || patient?.emergency_contact_name || 'Not Added'}
+                  </p>
+                  <p className="text-sm text-gray-600 font-medium">
+                    {nextOfKin?.relationship || patient?.emergency_contact_relationship || 'Click to add'}
+                  </p>
+                </div>
+                
+                {/* Bottom accent */}
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
             </div>
-            
-            <p className="text-xs text-gray-500 font-medium mb-1">Next of Kin</p>
-            <p className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
-              {nextOfKin?.name || patient?.emergency_contact_name || 'Not Added'}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {nextOfKin?.relationship || patient?.emergency_contact_relationship || 'Add contact'}
-            </p>
           </div>
-        </motion.button>
+        </motion.div>
         
-        {/* Billing Card */}
-        <motion.button
-          whileHover={{ y: -4 }}
+        {/* Total Spent Card */}
+        <motion.div
+          whileHover={{ y: -8, scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
+          className="relative group cursor-pointer"
           onClick={onBillingClick}
-          className="relative bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group"
         >
-          {/* Faded grayscale background */}
-          <div 
-            className="absolute inset-0 opacity-[0.03] grayscale bg-cover bg-center"
-            style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&h=400&fit=crop)' }}
-          ></div>
+          {/* Gorgeous gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-600 rounded-3xl transform rotate-1 group-hover:rotate-2 transition-transform duration-500"></div>
           
-          <div className="relative p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="p-2 bg-emerald-50 rounded-lg">
-                <TrendingUp className="w-4 h-4 text-emerald-600" />
+          {/* Main card */}
+          <div className="relative bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl p-1 shadow-2xl">
+            <div className="relative bg-white rounded-[1.25rem] overflow-hidden">
+              {/* Subtle pattern overlay */}
+              <div className="absolute inset-0 opacity-[0.02]" style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2310B981' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+              }}></div>
+              
+              {/* Ultra faded background image */}
+              <div 
+                className="absolute inset-0 opacity-[0.02] grayscale bg-cover bg-center mix-blend-overlay"
+                style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1579621970795-87facc2f976d?w=800&h=600&fit=crop)' }}
+              ></div>
+              
+              <div className="relative p-6">
+                {/* Icon and action */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-teal-600 blur-xl opacity-50"></div>
+                    <div className="relative p-3 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-lg">
+                      <TrendingUp className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-gray-400 group-hover:text-gray-600 transition-colors">
+                    <span className="text-xs font-medium">Details</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </div>
+                </div>
+                
+                {/* Content */}
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Investment</p>
+                  <p className="text-2xl font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                    N$ {totalSpent.toLocaleString()}
+                  </p>
+                  <p className="text-sm text-gray-600 font-medium">Healthcare expenses</p>
+                </div>
+                
+                {/* Bottom accent */}
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
-              <ChevronRight className="w-4 h-4 text-gray-400 mt-0.5" />
             </div>
-            
-            <p className="text-xs text-gray-500 font-medium mb-1">Total Spent</p>
-            <p className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
-              N$ {totalSpent.toLocaleString()}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">View billing history</p>
           </div>
-        </motion.button>
-      </div>
-      
-      {/* Generate Report Button */}
-      <div className="pt-2">
-        <motion.button
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.99 }}
-          className="w-full px-6 py-3.5 bg-gray-900 hover:bg-gray-800 text-white rounded-xl font-medium text-sm shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
-        >
-          <Sparkles className="w-4 h-4" />
-          <span style={{ fontFamily: 'Poppins, sans-serif' }}>Generate Comprehensive Report</span>
-        </motion.button>
+        </motion.div>
       </div>
     </div>
   );
