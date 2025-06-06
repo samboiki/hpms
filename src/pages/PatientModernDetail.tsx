@@ -816,6 +816,10 @@ Medical Team`;
                     setIsEditVisitModalOpen(true);
                   }}
                   onVisitStatusChange={(visitId, status) => handleVisitStatusChange(visitId, status)}
+                  patient={patient}
+                  nextOfKin={nextOfKin}
+                  medicalAid={medicalAid}
+                  onSendSms={() => setIsSmsModalOpen(true)}
                 />
               </div>
             </motion.div>
@@ -1085,121 +1089,6 @@ Medical Team`;
           </motion.div>
 
 
-          {/* Premium Next of Kin Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20, rotateX: -5 }}
-            animate={{ opacity: 1, y: 0, rotateX: 0 }}
-            whileHover={{ y: -2, scale: 1.01 }}
-            className="relative group"
-          >
-            {/* Floating glow effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d4]/20 via-purple-500/20 to-blue-600/20 rounded-xl blur-xl opacity-0 group-hover:opacity-70 transition-all duration-500 -z-10"></div>
-            
-            {/* Main card */}
-            <div className="relative bg-white/90 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
-              {/* Animated gradient header */}
-              <div className="h-2 bg-gradient-to-r from-[#01b9d4] via-purple-500 to-blue-600 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
-              </div>
-              
-              {/* Floating orbs background */}
-              <div className="absolute top-4 right-4 w-20 h-20 bg-gradient-to-br from-[#01b9d4]/10 to-purple-500/10 rounded-full blur-2xl opacity-60"></div>
-              <div className="absolute bottom-4 left-4 w-16 h-16 bg-gradient-to-br from-blue-500/10 to-cyan-500/10 rounded-full blur-xl opacity-40"></div>
-              
-              <div className="relative p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-gradient-to-br from-[#01b9d4] to-purple-600 rounded-xl shadow-lg">
-                      <Heart className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>Next of Kin</h3>
-                      <p className="text-xs text-gray-500 font-medium">Emergency Contact Details</p>
-                    </div>
-                  </div>
-                  <motion.button 
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setIsNextOfKinModalOpen(true)}
-                    className="p-2.5 bg-gray-50 hover:bg-white rounded-xl border border-gray-200 hover:border-[#01b9d4]/50 transition-all duration-300 shadow-sm"
-                  >
-                    <Edit3 className="w-4 h-4 text-gray-600 hover:text-[#01b9d4] transition-colors" />
-                  </motion.button>
-                </div>
-                
-                <div className="space-y-5">
-                  {/* Next of Kin Info - Clickable */}
-                  <div className="p-4 bg-gradient-to-br from-gray-50 via-white to-gray-50 rounded-xl border border-gray-200/50 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-gray-500 to-gray-600 rounded-full flex items-center justify-center shadow-md">
-                          <Heart className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-gray-500 mb-1">Emergency Contact</p>
-                          <p className="text-sm font-bold text-gray-800">
-                            {nextOfKin?.name || patient?.emergency_contact_name || 'No emergency contact'}
-                          </p>
-                        </div>
-                      </div>
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setIsNextOfKinModalOpen(true)}
-                        className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                      >
-                        <Edit3 className="w-3 h-3 text-gray-600" />
-                      </motion.button>
-                    </div>
-                    <div className="space-y-1 text-xs text-gray-500 mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                        <span>Phone: {nextOfKin?.phone || patient?.emergency_contact_phone || 'N/A'}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                        <span>Relationship: {nextOfKin?.relationship || patient?.emergency_contact_relationship || 'N/A'}</span>
-                      </div>
-                    </div>
-                    {/* Action buttons */}
-                    <div className="flex gap-2">
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={openSmsModal}
-                        className="flex-1 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-md text-xs font-medium hover:shadow-md transition-all"
-                      >
-                        <Phone className="w-3 h-3 inline mr-1" />
-                        Send Message
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => {
-                          const phone = nextOfKin?.phone || patient?.emergency_contact_phone;
-                          if (phone) window.open(`tel:${phone}`, '_self');
-                        }}
-                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-xs font-medium transition-colors"
-                      >
-                        <Phone className="w-3 h-3" />
-                      </motion.button>
-                    </div>
-                  </div>
-                  
-                  {/* Quick actions */}
-                  <div className="flex gap-2">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="p-3 bg-white/10 border border-white/10 rounded-lg hover:bg-white/20 transition-colors shadow-sm"
-                    >
-                      <FileText className="w-4 h-4 text-gray-300" />
-                    </motion.button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
         </div>
       </div>
 

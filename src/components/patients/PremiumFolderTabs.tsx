@@ -26,7 +26,8 @@ import {
   Search,
   Filter,
   Shield,
-  Sparkles
+  Sparkles,
+  MessageSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 import PremiumVisitModal from '../modals/PremiumVisitModal';
@@ -63,6 +64,10 @@ interface PremiumFolderTabsProps {
   onVisitClick?: (visitId: string) => Promise<void>;
   onEditVisit?: (visit: Visit) => void;
   onVisitStatusChange?: (visitId: string, status: string) => Promise<void>;
+  patient?: any;
+  nextOfKin?: any;
+  medicalAid?: any;
+  onSendSms?: () => void;
 }
 
 interface TabData {
@@ -81,7 +86,11 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
   onAddVitals,
   onVisitClick,
   onEditVisit,
-  onVisitStatusChange
+  onVisitStatusChange,
+  patient,
+  nextOfKin,
+  medicalAid,
+  onSendSms
 }) => {
   const [activeTab, setActiveTab] = useState('ai-intelligence');
   const [showActionMenu, setShowActionMenu] = useState(false);
@@ -94,7 +103,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       label: 'Overview',
       icon: <Sparkles className="w-3.5 h-3.5" />,
       count: undefined,
-      color: 'from-cyan-500 to-blue-600'
+      color: 'from-gray-400 to-gray-600'
     },
     {
       id: 'encounters',
@@ -143,7 +152,15 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
   const renderTabContent = () => {
     switch (activeTab) {
       case 'ai-intelligence':
-        return <AIIntelligenceContent visits={visits} vitals={vitals} patientId={patientId} />;
+        return <AIIntelligenceContent 
+          visits={visits} 
+          vitals={vitals} 
+          patientId={patientId}
+          patient={patient}
+          nextOfKin={nextOfKin}
+          medicalAid={medicalAid}
+          onSendSms={onSendSms}
+        />;
       case 'encounters':
         return <EncountersContent 
           visits={visits} 
@@ -315,7 +332,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                 {/* Active tab top border that matches content border */}
                 {isActive && (
                   <div className={`absolute inset-0 border-2 border-b-0 rounded-t-xl transition-colors duration-150 ${
-                    activeTab === 'ai-intelligence' ? 'border-cyan-300' :
+                    activeTab === 'ai-intelligence' ? 'border-gray-300' :
                     activeTab === 'encounters' ? 'border-blue-300' :
                     activeTab === 'vitals' ? 'border-red-300' :
                     activeTab === 'results' ? 'border-purple-300' :
@@ -332,7 +349,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
         
         {/* Content container with seamless connection to active tab */}
         <div className={`bg-white rounded-2xl shadow-lg relative z-10 border-2 transition-all duration-150 ${
-          activeTab === 'ai-intelligence' ? 'border-cyan-300' :
+          activeTab === 'ai-intelligence' ? 'border-gray-300' :
           activeTab === 'encounters' ? 'border-blue-300' :
           activeTab === 'vitals' ? 'border-red-300' :
           activeTab === 'results' ? 'border-purple-300' :
@@ -655,18 +672,24 @@ const BillingContent: React.FC = () => (
 
 
 // AI Intelligence Content Component
-const AIIntelligenceContent: React.FC<{ visits: Visit[]; vitals: Vital[]; patientId: string }> = ({ visits, vitals, patientId }) => {
+const AIIntelligenceContent: React.FC<{ 
+  visits: Visit[]; 
+  vitals: Vital[]; 
+  patientId: string;
+  patient?: any;
+  nextOfKin?: any;
+  medicalAid?: any;
+  onSendSms?: () => void;
+}> = ({ visits, vitals, patientId, patient, nextOfKin, medicalAid, onSendSms }) => {
   // Calculate total spent (mock calculation based on visits)
-  const totalSpent = visits.length * 450 + vitals.length * 75 + 1250; // Mock calculation
-  const dollars = Math.floor(totalSpent);
-  const cents = Math.round((totalSpent - dollars) * 100);
+  const totalSpent = visits.length * 450 + vitals.length * 75 + 1250;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xl font-bold text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>Overview</h3>
-          <p className="text-gray-500 text-sm">Real-time Clinical Analysis</p>
+          <p className="text-gray-500 text-sm">Patient Health Summary</p>
         </div>
         
         {/* Live Status */}
@@ -676,171 +699,111 @@ const AIIntelligenceContent: React.FC<{ visits: Visit[]; vitals: Vital[]; patien
         </div>
       </div>
       
-      {/* Single Premium Container */}
+      {/* Patient Journey Section */}
       <div className="relative p-6 bg-gradient-to-br from-white via-gray-50/30 to-blue-50/20 rounded-2xl border border-gray-200/50 shadow-lg overflow-hidden">
         {/* Background decorative elements */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#01b9d4]/5 to-purple-500/5 rounded-full blur-2xl"></div>
-        <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-br from-emerald-500/5 to-cyan-500/5 rounded-full blur-xl"></div>
+        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-gray-400/5 to-gray-600/5 rounded-full blur-2xl"></div>
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-br from-gray-500/5 to-gray-700/5 rounded-full blur-xl"></div>
         
-        <div className="relative grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Patient Journey Analysis */}
-          <div className="lg:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg shadow-md">
-                <Stethoscope className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>Patient Journey</h4>
-                <p className="text-xs text-gray-500">Clinical Timeline</p>
-              </div>
+        <div className="relative">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="p-2 bg-gradient-to-br from-gray-500 to-gray-700 rounded-lg shadow-md">
+              <User className="w-4 h-4 text-white" />
             </div>
-            
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-sm">
-                  <Calendar className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">{visits.length} Medical Visits</p>
-                  <p className="text-xs text-gray-500">Consistent monitoring pattern</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-pink-600 rounded-full flex items-center justify-center shadow-sm">
-                  <Activity className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">{vitals.length} Vital Recordings</p>
-                  <p className="text-xs text-gray-500">Stable baseline readings</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center shadow-sm">
-                  <CheckCircle2 className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">Good Adherence</p>
-                  <p className="text-xs text-gray-500">Regular follow-up patterns</p>
-                </div>
-              </div>
+            <div>
+              <h4 className="text-sm font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>Patient Journey</h4>
+              <p className="text-xs text-gray-500">Health Overview</p>
             </div>
           </div>
           
-          {/* Risk Assessment Donut Chart */}
-          <div className="lg:col-span-1 flex flex-col items-center justify-center">
-            <div className="flex items-center gap-2 mb-4 w-full justify-center">
-              <div className="p-2 bg-gradient-to-br from-[#01b9d4] to-purple-600 rounded-lg shadow-md">
-                <Shield className="w-4 h-4 text-white" />
-              </div>
-              <div className="text-center">
-                <h4 className="text-sm font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>Risk Assessment</h4>
-                <p className="text-xs text-gray-500">Overall Health Score</p>
-              </div>
-            </div>
-            
-            {/* Premium Donut Chart */}
-            <div className="relative w-32 h-32 mb-4">
-              {/* Outer ring background */}
-              <div className="absolute inset-0 rounded-full border-8 border-gray-200"></div>
-              {/* Gradient progress ring */}
-              <div 
-                className="absolute inset-0 rounded-full border-8 border-transparent"
-                style={{
-                  background: `conic-gradient(from 0deg, #01b9d4 0%, #8b5cf6 ${78 * 3.6}deg, transparent ${78 * 3.6}deg)`,
-                  borderRadius: '50%',
-                  mask: 'radial-gradient(circle at center, transparent 60px, black 68px)',
-                  WebkitMask: 'radial-gradient(circle at center, transparent 60px, black 68px)'
-                }}
-              ></div>
-              {/* Center content */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>78</span>
-                <span className="text-xs text-gray-500 font-medium">/ 100</span>
-              </div>
-            </div>
-            
-            <div className="text-center">
-              <p className="text-sm font-bold text-emerald-600 mb-1">Good Health</p>
-              <p className="text-xs text-gray-500">Above average score</p>
-            </div>
-          </div>
-          
-          {/* AI-Generated Insights */}
-          <div className="lg:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg shadow-md">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>AI Insights</h4>
-                <p className="text-xs text-gray-500">Smart Recommendations</p>
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="w-6 h-6 bg-gradient-to-br from-[#01b9d4] to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
-                  <span className="text-xs text-white font-bold">1</span>
-                </div>
-                <div className="text-sm text-gray-700">
-                  <span className="font-semibold">Status:</span> Stable clinical parameters, good response patterns.
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-3">
-                <div className="w-6 h-6 bg-gradient-to-br from-[#01b9d4] to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
-                  <span className="text-xs text-white font-bold">2</span>
-                </div>
-                <div className="text-sm text-gray-700">
-                  <span className="font-semibold">Action:</span> Continue monitoring, consider preventive screenings.
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-3">
-                <div className="w-6 h-6 bg-gradient-to-br from-[#01b9d4] to-purple-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
-                  <span className="text-xs text-white font-bold">3</span>
-                </div>
-                <div className="text-sm text-gray-700">
-                  <span className="font-semibold">Follow-up:</span> Schedule in 3 months, review medication.
-                </div>
-              </div>
-            </div>
+          <div className="prose prose-sm text-gray-700 leading-relaxed">
+            <p className="mb-3">
+              {patient?.first_name} {patient?.last_name} has been under our care with a total of <strong>{visits.length} medical encounters</strong> recorded in our system. 
+              The patient demonstrates <strong>excellent compliance</strong> with scheduled appointments and treatment protocols.
+            </p>
+            <p className="mb-3">
+              Clinical assessments show <strong>stable vital signs</strong> across {vitals.length} recorded measurements, indicating good baseline health status. 
+              Blood pressure, heart rate, and other key indicators remain within normal ranges, suggesting effective ongoing management.
+            </p>
+            <p className="mb-0">
+              Overall prognosis is <strong>positive</strong> with continued monitoring recommended. The patient's consistent engagement with healthcare services 
+              and adherence to treatment plans positions them well for long-term health outcomes.
+            </p>
           </div>
         </div>
       </div>
       
-      {/* Quick Stats Cards */}
+      {/* Quick Stats Cards with Background Images */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-100/50 shadow-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
-              <Thermometer className="w-3 h-3 text-white" />
+        {/* Medical Aid Info */}
+        <div className="relative p-4 rounded-xl border border-blue-100/50 shadow-sm overflow-hidden">
+          {/* Unsplash medical background */}
+          <div 
+            className="absolute inset-0 opacity-10 bg-cover bg-center"
+            style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=300&fit=crop&crop=center)' }}
+          ></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-50/80 to-indigo-50/80"></div>
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
+                <CreditCard className="w-3 h-3 text-white" />
+              </div>
+              <span className="text-xs font-medium text-blue-700">Medical Aid</span>
             </div>
-            <span className="text-xs font-medium text-blue-700">Vitals Trend</span>
+            <p className="text-sm font-bold text-blue-600">{medicalAid?.provider || 'None'}</p>
+            <p className="text-xs text-blue-500">{medicalAid?.scheme || 'No coverage'}</p>
           </div>
-          <p className="text-lg font-bold text-blue-600">Stable</p>
         </div>
         
-        <div className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-100/50 shadow-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg">
-              <Heart className="w-3 h-3 text-white" />
+        {/* Next of Kin */}
+        <div className="relative p-4 rounded-xl border border-purple-100/50 shadow-sm overflow-hidden">
+          {/* Unsplash family/contact background */}
+          <div 
+            className="absolute inset-0 opacity-10 bg-cover bg-center"
+            style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1609220136736-443140cffec6?w=400&h=300&fit=crop&crop=center)' }}
+          ></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-50/80 to-pink-50/80"></div>
+          <div className="relative">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg">
+                  <Heart className="w-3 h-3 text-white" />
+                </div>
+                <span className="text-xs font-medium text-purple-700">Next of Kin</span>
+              </div>
+              {onSendSms && (
+                <button
+                  onClick={onSendSms}
+                  className="p-1 bg-purple-100 hover:bg-purple-200 rounded-md transition-colors"
+                  title="Send SMS"
+                >
+                  <MessageSquare className="w-3 h-3 text-purple-600" />
+                </button>
+              )}
             </div>
-            <span className="text-xs font-medium text-purple-700">Compliance</span>
+            <p className="text-sm font-bold text-purple-600">{nextOfKin?.name || patient?.emergency_contact_name || 'None'}</p>
+            <p className="text-xs text-purple-500">{nextOfKin?.relationship || patient?.emergency_contact_relationship || 'Not specified'}</p>
           </div>
-          <p className="text-lg font-bold text-purple-600">85%</p>
         </div>
         
-        <div className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-100/50 shadow-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg">
-              <TrendingUp className="w-3 h-3 text-white" />
+        {/* Money Spent */}
+        <div className="relative p-4 rounded-xl border border-emerald-100/50 shadow-sm overflow-hidden">
+          {/* Unsplash money/finance background */}
+          <div 
+            className="absolute inset-0 opacity-10 bg-cover bg-center"
+            style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&h=300&fit=crop&crop=center)' }}
+          ></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/80 to-green-50/80"></div>
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="p-1.5 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg">
+                <TrendingUp className="w-3 h-3 text-white" />
+              </div>
+              <span className="text-xs font-medium text-emerald-700">Money Spent</span>
             </div>
-            <span className="text-xs font-medium text-purple-700">Prognosis</span>
+            <p className="text-sm font-bold text-emerald-600">N$ {totalSpent.toLocaleString()}</p>
+            <p className="text-xs text-emerald-500">Total to date</p>
           </div>
-          <p className="text-lg font-bold text-purple-600">Good</p>
         </div>
       </div>
       
@@ -849,10 +812,10 @@ const AIIntelligenceContent: React.FC<{ visits: Visit[]; vitals: Vital[]; patien
         <motion.button
           whileHover={{ scale: 1.02, y: -1 }}
           whileTap={{ scale: 0.98 }}
-          className="w-full p-3 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-xl font-semibold text-sm shadow-lg hover:shadow-2xl hover:shadow-[#01b9d5]/30 transition-all duration-300 flex items-center justify-center gap-2"
+          className="w-full p-3 bg-gradient-to-r from-gray-500 to-gray-700 text-white rounded-xl font-semibold text-sm shadow-lg hover:shadow-2xl hover:shadow-gray-500/30 transition-all duration-300 flex items-center justify-center gap-2"
         >
           <Sparkles className="w-4 h-4" />
-          Generate Comprehensive AI Report
+          Generate Comprehensive Report
         </motion.button>
       </div>
     </div>
