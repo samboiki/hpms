@@ -799,7 +799,6 @@ const AIIntelligenceContent: React.FC<{
                   <strong className="text-gray-800">Prevention:</strong> Consider annual health screenings and lifestyle modifications for long-term wellness.
                 </div>
               </div>
-              </div>
             </div>
           </div>
         </div>
