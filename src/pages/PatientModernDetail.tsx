@@ -22,7 +22,8 @@ import {
   FileText,
   Thermometer,
   Weight,
-  MessageSquare
+  MessageSquare,
+  Clock
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '../lib/supabase';
