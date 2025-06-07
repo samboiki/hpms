@@ -278,56 +278,100 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
         </div>
       </div>
 
-      {/* Floating folder-style tabs */}
-      <div className="relative mb-6">
-        <div className="flex items-end gap-0.5 relative z-10 transform -translate-y-3">
+      {/* Floating separated tabs */}
+      <div className="relative mb-8">
+        <div className="flex items-center gap-3 relative z-10 transform -translate-y-6">
           {tabs.map((tab, index) => {
             const isActive = activeTab === tab.id;
+            
+            // Get content area colors
+            const getTabColors = () => {
+              switch(tab.id) {
+                case 'ai-intelligence': return {
+                  gradient: 'from-purple-500 to-pink-600',
+                  textColor: isActive ? 'text-purple-700' : 'text-gray-600',
+                  borderColor: 'border-purple-200/50'
+                };
+                case 'encounters': return {
+                  gradient: 'from-blue-500 to-indigo-600', 
+                  textColor: isActive ? 'text-blue-700' : 'text-gray-600',
+                  borderColor: 'border-blue-200/50'
+                };
+                case 'vitals': return {
+                  gradient: 'from-red-500 to-rose-600',
+                  textColor: isActive ? 'text-red-700' : 'text-gray-600', 
+                  borderColor: 'border-red-200/50'
+                };
+                case 'results': return {
+                  gradient: 'from-purple-500 to-violet-600',
+                  textColor: isActive ? 'text-purple-700' : 'text-gray-600',
+                  borderColor: 'border-purple-200/50'
+                };
+                case 'documents': return {
+                  gradient: 'from-amber-500 to-orange-600',
+                  textColor: isActive ? 'text-amber-700' : 'text-gray-600',
+                  borderColor: 'border-amber-200/50'
+                };
+                case 'billing': return {
+                  gradient: 'from-teal-500 to-cyan-600',
+                  textColor: isActive ? 'text-teal-700' : 'text-gray-600',
+                  borderColor: 'border-teal-200/50'
+                };
+                case 'audit': return {
+                  gradient: 'from-slate-500 to-gray-600',
+                  textColor: isActive ? 'text-slate-700' : 'text-gray-600',
+                  borderColor: 'border-slate-200/50'
+                };
+                default: return {
+                  gradient: 'from-purple-500 to-pink-600',
+                  textColor: isActive ? 'text-purple-700' : 'text-gray-600',
+                  borderColor: 'border-purple-200/50'
+                };
+              }
+            };
+            
+            const colors = getTabColors();
+            
             return (
               <motion.button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  relative group px-6 py-3 rounded-t-xl font-medium text-xs
-                  transition-all duration-150 flex items-center gap-2 min-w-0 shrink-0
+                  relative group px-4 py-3 rounded-2xl font-medium text-xs
+                  transition-all duration-300 flex items-center gap-2 min-w-0 shrink-0 border
                   ${isActive 
-                    ? 'bg-white shadow-lg -mb-[2px] z-20 text-gray-800' 
-                    : 'bg-gray-100/80 hover:bg-gray-200/80 text-gray-600 hover:text-gray-800 mt-1'
+                    ? `bg-white shadow-lg z-20 ${colors.textColor} ${colors.borderColor}` 
+                    : 'bg-gray-100/80 hover:bg-gray-200/80 text-gray-600 hover:text-gray-800 border-gray-200/50'
                   }
                 `}
-                whileHover={{ scale: isActive ? 1 : 1.02 }}
+                whileHover={{ scale: 1.02, y: -2 }}
                 whileTap={{ scale: 0.98 }}
-                style={{
-                  clipPath: isActive 
-                    ? 'polygon(6px 0%, calc(100% - 6px) 0%, 100% 6px, 100% 100%, 0% 100%, 0% 6px)'
-                    : 'polygon(4px 0%, calc(100% - 4px) 0%, 100% 4px, 100% 100%, 0% 100%, 0% 4px)'
-                }}
               >
                 {/* Gradient background for active tab */}
                 {isActive && (
-                  <div className={`absolute inset-0 bg-gradient-to-r ${tab.color} opacity-5 rounded-t-xl`} />
+                  <div className={`absolute inset-0 bg-gradient-to-r ${colors.gradient} opacity-5 rounded-2xl`} />
                 )}
                 
-                {/* Tab icon - only colored when active */}
+                {/* Tab icon - colored when active to match content area */}
                 <div className={`
-                  p-1 rounded-md transition-all duration-150
+                  p-1.5 rounded-lg transition-all duration-300 shadow-sm
                   ${isActive 
-                    ? `bg-gradient-to-r ${tab.color} text-white shadow-sm` 
-                    : 'bg-gray-300 text-gray-500'
+                    ? `bg-gradient-to-r ${colors.gradient} text-white` 
+                    : 'bg-gray-300 text-gray-500 group-hover:bg-gray-400'
                   }
                 `}>
                   {tab.icon}
                 </div>
                 
                 {/* Tab label */}
-                <span className="font-medium truncate whitespace-nowrap" style={{ fontFamily: 'Poppins, sans-serif' }}>{tab.label}</span>
+                <span className={`font-medium truncate whitespace-nowrap transition-colors duration-300 ${colors.textColor}`} style={{ fontFamily: 'Poppins, sans-serif' }}>{tab.label}</span>
                 
                 {/* Count badge */}
                 {tab.count !== undefined && tab.count > 0 && (
                   <span className={`
-                    px-1.5 py-0.5 rounded-full text-xs font-bold min-w-[18px] text-center
+                    px-2 py-0.5 rounded-full text-xs font-bold min-w-[20px] text-center transition-all duration-300
                     ${isActive 
-                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-sm' 
+                      ? `bg-gradient-to-r ${colors.gradient} text-white shadow-sm` 
                       : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white group-hover:from-slate-500 group-hover:to-slate-600'
                     }
                   `}>
@@ -335,18 +379,9 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                   </span>
                 )}
                 
-                {/* Active tab top border that matches content border */}
+                {/* Active tab glow effect */}
                 {isActive && (
-                  <div className={`absolute inset-0 border-2 border-b-0 rounded-t-xl transition-colors duration-150 ${
-                    activeTab === 'ai-intelligence' ? 'border-[#01b9d5]/30' :
-                    activeTab === 'encounters' ? 'border-blue-300' :
-                    activeTab === 'vitals' ? 'border-red-300' :
-                    activeTab === 'results' ? 'border-purple-300' :
-                    activeTab === 'documents' ? 'border-amber-300' :
-                    activeTab === 'billing' ? 'border-teal-300' :
-                    activeTab === 'audit' ? 'border-slate-300' :
-                    'border-gray-200'
-                  }`} />
+                  <div className={`absolute inset-0 bg-gradient-to-r ${colors.gradient} opacity-10 rounded-2xl blur-sm -z-10`} />
                 )}
               </motion.button>
             );
@@ -363,9 +398,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
           activeTab === 'billing' ? 'bg-gradient-to-br from-teal-500 to-cyan-600' :
           activeTab === 'audit' ? 'bg-gradient-to-br from-slate-500 to-gray-600' :
           'bg-gradient-to-br from-purple-500 to-pink-600'
-        }`} style={{
-          borderTopLeftRadius: activeTab === tabs[0]?.id ? '0' : '1.5rem'
-        }}>
+        }`}>
           <div className="bg-white rounded-[1.25rem] overflow-hidden">
           <div className="p-6">
             <AnimatePresence mode="wait">
