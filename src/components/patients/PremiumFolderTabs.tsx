@@ -354,18 +354,19 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
         </div>
         
         {/* Content container with emergency contact card style border */}
-        <div className={`bg-white rounded-3xl shadow-2xl relative z-10 border transition-all duration-300 ${
-          activeTab === 'ai-intelligence' ? 'border-purple-200/50' :
-          activeTab === 'encounters' ? 'border-blue-200/50' :
-          activeTab === 'vitals' ? 'border-red-200/50' :
-          activeTab === 'results' ? 'border-purple-200/50' :
-          activeTab === 'documents' ? 'border-amber-200/50' :
-          activeTab === 'billing' ? 'border-teal-200/50' :
-          activeTab === 'audit' ? 'border-slate-200/50' :
-          'border-purple-200/50'
+        <div className={`bg-white rounded-3xl shadow-2xl relative z-10 p-1 transition-all duration-300 ${
+          activeTab === 'ai-intelligence' ? 'bg-gradient-to-br from-purple-500 to-pink-600' :
+          activeTab === 'encounters' ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
+          activeTab === 'vitals' ? 'bg-gradient-to-br from-red-500 to-rose-600' :
+          activeTab === 'results' ? 'bg-gradient-to-br from-purple-500 to-violet-600' :
+          activeTab === 'documents' ? 'bg-gradient-to-br from-amber-500 to-orange-600' :
+          activeTab === 'billing' ? 'bg-gradient-to-br from-teal-500 to-cyan-600' :
+          activeTab === 'audit' ? 'bg-gradient-to-br from-slate-500 to-gray-600' :
+          'bg-gradient-to-br from-purple-500 to-pink-600'
         }`} style={{
           borderTopLeftRadius: activeTab === tabs[0]?.id ? '0' : '1.5rem'
         }}>
+          <div className="bg-white rounded-[1.25rem] overflow-hidden">
           <div className="p-6">
             <AnimatePresence mode="wait">
               <motion.div
@@ -378,6 +379,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                 {renderTabContent()}
               </motion.div>
             </AnimatePresence>
+          </div>
           </div>
         </div>
       </div>

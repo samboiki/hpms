@@ -10,7 +10,8 @@ import {
   CheckCircle2,
   UserCheck,
   MessageSquare,
-  Zap
+  Zap,
+  ChevronRight
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -788,40 +789,104 @@ function Dashboard() {
               </motion.button>
             </div>
 
-            {/* Premium Stats - Exact same design as Patients page */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-              {stats.map((stat, index) => (
-                <motion.div
-                  key={stat.label}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  whileHover={{ y: -1, scale: 1.01 }}
-                  className="relative group cursor-pointer"
-                  onClick={stat.onClick}
-                >
-                  {/* Subtle Gradient Glow */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} rounded-xl blur-md opacity-5 group-hover:opacity-15 transition-opacity duration-200`}></div>
-                  
-                  {/* Glass Card */}
-                  <div className="relative bg-white/80 backdrop-blur-sm border rounded-xl p-3 transition-all duration-200 shadow-sm border-gray-200/40 hover:border-gray-300/50 hover:shadow-md">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className={`p-2 bg-gradient-to-br ${stat.gradient} rounded-lg shadow-md`}>
-                        <stat.icon className="w-4 h-4 text-white" />
+            {/* Premium Stats - Next of Kin and Total Investment card style */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-4">
+              {stats.map((stat, index) => {
+                // Use premium card style for "In Progress" and "Completed Today"
+                const isPremiumCard = stat.id === 'in-progress' || stat.id === 'completed';
+                
+                if (isPremiumCard) {
+                  return (
+                    <motion.div
+                      key={stat.label}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      whileHover={{ y: -8, scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="relative group cursor-pointer"
+                      onClick={stat.onClick}
+                    >
+                      {/* Gorgeous gradient background like next of kin card */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} rounded-3xl transform ${stat.id === 'completed' ? 'rotate-1 group-hover:rotate-2' : '-rotate-1 group-hover:-rotate-2'} transition-transform duration-500`}></div>
+                      
+                      {/* Main card */}
+                      <div className={`relative bg-gradient-to-br ${stat.gradient} rounded-3xl p-1 shadow-2xl`}>
+                        <div className="relative bg-white rounded-[1.25rem] overflow-hidden">
+                          {/* Subtle pattern overlay */}
+                          <div className="absolute inset-0 opacity-[0.02]" style={{
+                            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23${stat.id === 'completed' ? 'A855F7' : '0EA5E9'}' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+                          }}></div>
+                          
+                          <div className="relative p-6">
+                            {/* Icon and trend indicator */}
+                            <div className="flex items-start justify-between mb-4">
+                              <div className="relative">
+                                <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} blur-xl opacity-50`}></div>
+                                <div className={`relative p-3 bg-gradient-to-br ${stat.gradient} rounded-2xl shadow-lg`}>
+                                  <stat.icon className="w-5 h-5 text-white" />
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 text-gray-400 group-hover:text-gray-600 transition-colors">
+                                <span className="text-xs font-medium">{stat.change}</span>
+                                <ChevronRight className="w-3 h-3" />
+                              </div>
+                            </div>
+                            
+                            {/* Content */}
+                            <div className="space-y-1">
+                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{stat.label}</p>
+                              <p className="text-2xl font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                                {stat.value}
+                              </p>
+                              <p className="text-sm text-gray-600 font-medium">
+                                {stat.id === 'completed' ? 'Visits completed' : 'Active visits'}
+                              </p>
+                            </div>
+                            
+                            {/* Bottom accent */}
+                            <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${stat.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
+                          </div>
+                        </div>
                       </div>
-                      <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                        stat.trend === 'up' ? 'bg-emerald-100 text-emerald-700' : 
-                        stat.trend === 'down' ? 'bg-rose-100 text-rose-700' : 
-                        'bg-gray-100 text-gray-600'
-                      }`}>
-                        {stat.change}
-                      </span>
+                    </motion.div>
+                  );
+                }
+                
+                // Regular card style for other stats
+                return (
+                  <motion.div
+                    key={stat.label}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    whileHover={{ y: -1, scale: 1.01 }}
+                    className="relative group cursor-pointer"
+                    onClick={stat.onClick}
+                  >
+                    {/* Subtle Gradient Glow */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} rounded-xl blur-md opacity-5 group-hover:opacity-15 transition-opacity duration-200`}></div>
+                    
+                    {/* Glass Card */}
+                    <div className="relative bg-white/80 backdrop-blur-sm border rounded-xl p-3 transition-all duration-200 shadow-sm border-gray-200/40 hover:border-gray-300/50 hover:shadow-md">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className={`p-2 bg-gradient-to-br ${stat.gradient} rounded-lg shadow-md`}>
+                          <stat.icon className="w-4 h-4 text-white" />
+                        </div>
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                          stat.trend === 'up' ? 'bg-emerald-100 text-emerald-700' : 
+                          stat.trend === 'down' ? 'bg-rose-100 text-rose-700' : 
+                          'bg-gray-100 text-gray-600'
+                        }`}>
+                          {stat.change}
+                        </span>
+                      </div>
+                      <p className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-1">{stat.value}</p>
+                      <p className="text-sm text-gray-600 font-medium">{stat.label}</p>
                     </div>
-                    <p className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-1">{stat.value}</p>
-                    <p className="text-sm text-gray-600 font-medium">{stat.label}</p>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </div>
           </div>
         </div>
