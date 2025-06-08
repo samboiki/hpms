@@ -70,11 +70,19 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({
         console.log(`🏥 Practice: ${practiceData?.name} (Type: ${practiceType})`);
 
         // Fetch tariffs that match the practice type (simplified structure - no practice_id)
+        // Aesthetic practices also see dental codes since they do dental work
         let tariffs = [];
+        let serviceTypesToFetch = [practiceType];
+        
+        // Aesthetic practices can also perform dental services
+        if (practiceType === 'aesthetic') {
+          serviceTypesToFetch.push('dental');
+        }
+        
         const { data: fetchedTariffs, error: tariffsError } = await supabase
           .from('practice_tariffs')
           .select('*')
-          .eq('practice_type', practiceType)
+          .in('practice_type', serviceTypesToFetch)
           .eq('is_active', true)
           .order('code', { ascending: true });
 
