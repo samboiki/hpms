@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HPMS Database Analysis Suite</title>
+    <script src="https://unpkg.com/cytoscape@3.26.0/dist/cytoscape.min.js"></script>
+    <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+    <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+    <script src="https://unpkg.com/@faker-js/faker@8.3.1/dist/faker.min.js"></script>
+    <script src="https://unpkg.com/chart.js@4.4.0/dist/chart.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .tab-button.active { @apply bg-blue-600 text-white; }
+        #cy { height: 600px; width: 100%; border: 2px solid #e5e7eb; border-radius: 8px; }
+        .form-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+        .code-block { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 1rem; font-family: 'Courier New', monospace; font-size: 0.875rem; overflow-x: auto; }
+        .relationship-line { stroke: #4f46e5; stroke-width: 2; fill: none; }
+        .entity-box { fill: #f8fafc; stroke: #4f46e5; stroke-width: 2; rx: 8; }
+        .field-text { font-family: 'Courier New', monospace; font-size: 12px; fill: #374151; }
+        .primary-key { font-weight: bold; fill: #dc2626; }
+        .foreign-key { fill: #16a34a; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">HPMS Database Analysis Suite</h1>
+                        <p class="text-sm text-gray-600">Comprehensive ERD, Forms Analysis & Test Data Generation</p>
+                    </div>
+                    <div class="flex space-x-4">
+                        <button id="exportData" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                            Export Analysis
+                        </button>
+                        <button id="generateTestData" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                            Generate Test Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="bg-white border-b">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex space-x-8">
+                    <button class="tab-button py-4 px-2 border-b-2 border-transparent hover:border-gray-300 text-sm font-medium text-gray-500 hover:text-gray-700 active" data-tab="erd">
+                        ERD Diagram
+                    </button>
+                    <button class="tab-button py-4 px-2 border-b-2 border-transparent hover:border-gray-300 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="relationships">
+                        Relationships
+                    </button>
+                    <button class="tab-button py-4 px-2 border-b-2 border-transparent hover:border-gray-300 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="forms">
+                        Forms Analysis
+                    </button>
+                    <button class="tab-button py-4 px-2 border-b-2 border-transparent hover:border-gray-300 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="testing">
+                        Test Data
+                    </button>
+                    <button class="tab-button py-4 px-2 border-b-2 border-transparent hover:border-gray-300 text-sm font-medium text-gray-500 hover:text-gray-700" data-tab="requirements">
+                        Requirements
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            
+            <!-- ERD Diagram Tab -->
+            <div id="erd" class="tab-content active">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-semibold text-gray-900">Entity Relationship Diagram</h2>
+                        <div class="flex space-x-2">
+                            <button id="layoutHierarchical" class="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">
+                                Hierarchical
+                            </button>
+                            <button id="layoutCircular" class="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600">
+                                Circular
+                            </button>
+                            <button id="layoutGrid" class="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600">
+                                Grid
+                            </button>
+                        </div>
+                    </div>
+                    <div id="cy"></div>
+                    <div class="mt-4 grid grid-cols-4 gap-4 text-sm">
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 bg-blue-100 border-2 border-blue-600 rounded mr-2"></div>
+                            <span>Core Tables</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 bg-green-100 border-2 border-green-600 rounded mr-2"></div>
+                            <span>Support Tables</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 bg-purple-100 border-2 border-purple-600 rounded mr-2"></div>
+                            <span>Billing Tables</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-4 h-4 bg-orange-100 border-2 border-orange-600 rounded mr-2"></div>
+                            <span>Admin Tables</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Relationships Tab -->
+            <div id="relationships" class="tab-content">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-6">Database Relationships Analysis</h2>
+                    <div id="relationshipsContent" class="space-y-6">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Forms Analysis Tab -->
+            <div id="forms" class="tab-content">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-6">Forms & Modals Comparison</h2>
+                    <div id="formsContent">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test Data Tab -->
+            <div id="testing" class="tab-content">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-6">Test Data Generation</h2>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">Generate Sample Data</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Table</label>
+                                    <select id="tableSelect" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                        <option value="patients">Patients</option>
+                                        <option value="appointments">Appointments</option>
+                                        <option value="visits">Visits</option>
+                                        <option value="medical_aid_details">Medical Aid Details</option>
+                                        <option value="practice_tariffs">Practice Tariffs</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Number of Records</label>
+                                    <input type="number" id="recordCount" value="10" min="1" max="1000" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                </div>
+                                <button id="generateSampleData" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                                    Generate Sample Data
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">Generated SQL</h3>
+                            <textarea id="generatedSQL" class="w-full h-64 border border-gray-300 rounded-lg px-3 py-2 font-mono text-sm" readonly></textarea>
+                            <button id="copySql" class="mt-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                                Copy SQL
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-8">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Test Scenarios</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <button class="scenario-btn bg-gray-100 p-4 rounded-lg border hover:bg-gray-200" data-scenario="basic-workflow">
+                                Basic Patient Workflow
+                            </button>
+                            <button class="scenario-btn bg-gray-100 p-4 rounded-lg border hover:bg-gray-200" data-scenario="complex-case">
+                                Complex Medical Case
+                            </button>
+                            <button class="scenario-btn bg-gray-100 p-4 rounded-lg border hover:bg-gray-200" data-scenario="billing-scenario">
+                                Complete Billing Cycle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Requirements Tab -->
+            <div id="requirements" class="tab-content">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-6">System Requirements Analysis</h2>
+                    <div id="requirementsContent">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // Database Schema Definition
+        const databaseSchema = {
+            // Core Tables
+            patients: {
+                category: 'core',
+                fields: {
+                    id: { type: 'uuid', primaryKey: true },
+                    first_name: { type: 'text', required: true },
+                    last_name: { type: 'text', required: true },
+                    email: { type: 'text' },
+                    cell_number: { type: 'text' },
+                    date_of_birth: { type: 'date' },
+                    gender: { type: 'text' },
+                    id_number: { type: 'text', unique: true },
+                    address: { type: 'text' },
+                    city: { type: 'text' },
+                    practice_id: { type: 'uuid', foreignKey: 'practices.id' }
+                },
+                relationships: ['appointments', 'visits', 'medical_aid_details', 'invoices_enhanced']
+            },
+            
+            practices: {
+                category: 'core',
+                fields: {
+                    id: { type: 'uuid', primaryKey: true },
+                    name: { type: 'text', required: true },
+                    slug: { type: 'text', unique: true },
+                    email: { type: 'text' },
+                    phone: { type: 'text' },
+                    address: { type: 'text' },
+                    city: { type: 'text' },
+                    practice_type: { type: 'text' }
+                },
+                relationships: ['patients', 'users', 'practice_tariffs', 'practice_sms_subscriptions']
+            },
+
+            appointments: {
+                category: 'core',
+                fields: {
+                    id: { type: 'uuid', primaryKey: true },
+                    patient_id: { type: 'uuid', foreignKey: 'patients.id' },
+                    doctor_id: { type: 'uuid', foreignKey: 'users.id' },
+                    practice_id: { type: 'uuid', foreignKey: 'practices.id' },
+                    appointment_date: { type: 'date', required: true },
+                    appointment_time: { type: 'time', required: true },
+                    duration: { type: 'integer' },
+                    type: { type: 'text' },
+                    status: { type: 'text' },
+                    notes: { type: 'text' }
+                },
+                relationships: ['patients', 'users', 'practices']
+            },
+
+            visits: {
+                category: 'core',
+                fields: {
+                    id: { type: 'uuid', primaryKey: true },
+                    patient_id: { type: 'uuid', foreignKey: 'patients.id' },
+                    doctor_id: { type: 'uuid', foreignKey: 'users.id' },
+                    visit_date: { type: 'date', required: true },
+                    visit_time: { type: 'time' },
+                    chief_complaint: { type: 'text' },
+                    diagnosis: { type: 'text' },
+                    treatment_plan: { type: 'text' },
+                    status: { type: 'text' }
+                },
+                relationships: ['patients', 'users', 'vitals', 'visit_services']
+            },
+
+            // Support Tables
+            users: {
+                category: 'support',
+                fields: {
+                    id: { type: 'uuid', primaryKey: true },
+                    email: { type: 'text', unique: true },
+                    full_name: { type: 'text' },
+                    role: { type: 'text' },
+                    practice_id: { type: 'uuid', foreignKey: 'practices.id' },
+                    last_login: { type: 'timestamp' }
+                },
+                relationships: ['practices', 'appointments', 'visits']
+            },
+
+            medical_aid_details: {
+                category: 'support',
+                fields: {
+                    id: { type: 'uuid', primaryKey: true },
+                    patient_id: { type: 'uuid', foreignKey: 'patients.id' },
+                    provider: { type: 'text' },
+                    scheme_name: { type: 'text' },
+                    member_number: { type: 'text' },
+                    valid_from: { type: 'date' },
+                    valid_to: { type: 'date' }
+                },
+                relationships: ['patients', 'medical_aid_coverage']
+            },
+
+            vitals: {
+                category: 'support',
+                fields: {
+                    id: { type: 'uuid', primaryKey: true },
+                    visit_id: { type: 'uuid', foreignKey: 'visits.id' },
+                    blood_pressure_systolic: { type: 'integer' },
+                    blood_pressure_diastolic: { type: 'integer' },
+                    heart_rate: { type: 'integer' },
+                    temperature: { type: 'numeric' },
+                    weight: { type: 'numeric' },
+                    height: { type: 'numeric' }
+                },
+                relationships: ['visits']
+            },
+
+            // Billing Tables
+            practice_tariffs: {
+                category: 'billing',
+                fields: {
+                    id: { type: 'uuid', primaryKey: true },
+                    practice_id: { type: 'uuid', foreignKey: 'practices.id' },
+                    code: { type: 'text', required: true },
+                    price: { type: 'decimal', required: true },
+                    namaf_prace_2025: { type: 'text' },
+                    practice_type: { type: 'text' },
+                    category: { type: 'text' },
+                    is_active: { type: 'boolean' }
+                },
+                relationships: ['practices', 'visit_services', 'invoice_items_enhanced']
+            },
+
+            invoices_enhanced: {
+                category: 'billing',
+                fields: {
+                    id: { type: 'uuid', primaryKey: true },
+                    invoice_number: { type: 'text', unique: true },
+                    patient_id: { type: 'uuid', foreignKey: 'patients.id' },
+                    visit_id: { type: 'uuid', foreignKey: 'visits.id' },
+                    practice_id: { type: 'uuid', foreignKey: 'practices.id' },
+                    issue_date: { type: 'date' },
+                    due_date: { type: 'date' },
+                    subtotal: { type: 'decimal' },
+                    total: { type: 'decimal' },
+                    payment_status: { type: 'text' }
+                },
+                relationships: ['patients', 'visits', 'practices', 'invoice_items_enhanced', 'payment_records']
+            },
+
+            visit_services: {
+                category: 'billing',
+                fields: {
+                    id: { type: 'uuid', primaryKey: true },
+                    visit_id: { type: 'uuid', foreignKey: 'visits.id' },
+                    tariff_id: { type: 'uuid', foreignKey: 'practice_tariffs.id' },
+                    quantity: { type: 'integer' },
+                    unit_price: { type: 'decimal' },
+                    total_price: { type: 'decimal' }
+                },
+                relationships: ['visits', 'practice_tariffs']
+            },
+
+            // Admin Tables
+            sms_plans: {
+                category: 'admin',
+                fields: {
+                    id: { type: 'uuid', primaryKey: true },
+                    name: { type: 'text', unique: true },
+                    monthly_sms_limit: { type: 'integer' },
+                    price_per_month: { type: 'decimal' },
+                    is_active: { type: 'boolean' }
+                },
+                relationships: ['practice_sms_subscriptions']
+            },
+
+            practice_sms_subscriptions: {
+                category: 'admin',
+                fields: {
+                    id: { type: 'uuid', primaryKey: true },
+                    practice_id: { type: 'uuid', foreignKey: 'practices.id' },
+                    plan_id: { type: 'uuid', foreignKey: 'sms_plans.id' },
+                    monthly_limit: { type: 'integer' },
+                    current_usage: { type: 'integer' },
+                    is_active: { type: 'boolean' }
+                },
+                relationships: ['practices', 'sms_plans', 'sms_usage_logs']
+            }
+        };
+
+        // Forms Analysis Data
+        const formsAnalysis = {
+            'Patient Forms': {
+                addForm: {
+                    name: 'AddPatientForm.tsx',
+                    fields: ['first_name', 'last_name', 'email', 'cell_number', 'date_of_birth', 'gender', 'id_number', 'address'],
+                    validation: 'React Hook Form with schema validation',
+                    complexity: 'Medium'
+                },
+                editForm: {
+                    name: 'EditPatientForm.tsx',
+                    fields: ['first_name', 'last_name', 'email', 'cell_number', 'date_of_birth', 'gender', 'id_number', 'address', 'updated_at'],
+                    validation: 'React Hook Form with pre-populated data',
+                    complexity: 'Medium'
+                },
+                registrationForm: {
+                    name: 'PatientRegistrationForm.tsx / ModernPatientRegistrationForm.tsx',
+                    fields: ['All patient fields', 'medical_aid_details', 'emergency_contact'],
+                    validation: 'Multi-step validation with medical aid integration',
+                    complexity: 'High'
+                }
+            },
+            'Appointment Forms': {
+                addForm: {
+                    name: 'AddAppointmentForm.tsx',
+                    fields: ['patient_id', 'doctor_id', 'appointment_date', 'appointment_time', 'duration', 'type', 'notes'],
+                    validation: 'Date/time conflict checking',
+                    complexity: 'High'
+                },
+                enhancedForm: {
+                    name: 'EnhancedAppointmentForm.tsx',
+                    fields: ['All appointment fields', 'recurring_options', 'reminder_settings'],
+                    validation: 'Advanced scheduling with conflict resolution',
+                    complexity: 'Very High'
+                }
+            },
+            'Visit Forms': {
+                addForm: {
+                    name: 'AddVisitForm.tsx',
+                    fields: ['patient_id', 'visit_date', 'chief_complaint', 'diagnosis', 'treatment_plan'],
+                    validation: 'Medical terminology validation',
+                    complexity: 'Medium'
+                },
+                editForm: {
+                    name: 'EditVisitForm.tsx',
+                    fields: ['All visit fields', 'follow_up_instructions', 'status_updates'],
+                    validation: 'Status workflow validation',
+                    complexity: 'Medium'
+                }
+            },
+            'Medical Records': {
+                addForm: {
+                    name: 'AddMedicalRecordForm.tsx',
+                    fields: ['visit_id', 'record_type', 'diagnosis', 'treatment', 'prescriptions', 'attachments'],
+                    validation: 'File upload and medical coding validation',
+                    complexity: 'High'
+                }
+            },
+            'Specialized Forms': {
+                vitalsForm: {
+                    name: 'VitalsForm.tsx',
+                    fields: ['blood_pressure', 'heart_rate', 'temperature', 'weight', 'height', 'bmi'],
+                    validation: 'Numeric ranges and BMI calculation',
+                    complexity: 'Medium'
+                },
+                medicalAidForm: {
+                    name: 'MedicalAidForm.tsx',
+                    fields: ['provider', 'scheme_name', 'member_number', 'validity_dates', 'coverage_details'],
+                    validation: 'Medical aid provider integration',
+                    complexity: 'High'
+                },
+                nextOfKinForm: {
+                    name: 'NextOfKinForm.tsx',
+                    fields: ['emergency_contact_name', 'emergency_contact_phone', 'relationship'],
+                    validation: 'Contact information validation',
+                    complexity: 'Low'
+                }
+            }
+        };
+
+        // Initialize the application
+        let cy;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeTabs();
+            initializeERD();
+            populateRelationships();
+            populateFormsAnalysis();
+            populateRequirements();
+            bindEventHandlers();
+        });
+
+        function initializeTabs() {
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetTab = button.getAttribute('data-tab');
+                    
+                    // Remove active class from all buttons and contents
+                    tabButtons.forEach(btn => btn.classList.remove('active', 'bg-blue-600', 'text-white', 'border-blue-600'));
+                    tabContents.forEach(content => content.classList.remove('active'));
+                    
+                    // Add active class to clicked button and corresponding content
+                    button.classList.add('active', 'bg-blue-600', 'text-white', 'border-blue-600');
+                    document.getElementById(targetTab).classList.add('active');
+                });
+            });
+        }
+
+        function initializeERD() {
+            // Create nodes and edges from schema
+            const elements = [];
+            
+            // Add table nodes
+            Object.entries(databaseSchema).forEach(([tableName, table]) => {
+                const categoryColors = {
+                    core: '#3b82f6',      // Blue
+                    support: '#10b981',   // Green  
+                    billing: '#8b5cf6',   // Purple
+                    admin: '#f59e0b'      // Orange
+                };
+
+                elements.push({
+                    data: {
+                        id: tableName,
+                        label: tableName,
+                        category: table.category,
+                        fields: Object.keys(table.fields).length,
+                        color: categoryColors[table.category]
+                    }
+                });
+            });
+
+            // Add relationship edges
+            Object.entries(databaseSchema).forEach(([tableName, table]) => {
+                Object.entries(table.fields).forEach(([fieldName, field]) => {
+                    if (field.foreignKey) {
+                        const targetTable = field.foreignKey.split('.')[0];
+                        elements.push({
+                            data: {
+                                id: `${tableName}-${targetTable}`,
+                                source: tableName,
+                                target: targetTable,
+                                label: fieldName,
+                                type: 'foreign_key'
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Initialize Cytoscape
+            cy = cytoscape({
+                container: document.getElementById('cy'),
+                elements: elements,
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'background-color': 'data(color)',
+                            'label': 'data(label)',
+                            'color': '#ffffff',
+                            'text-valign': 'center',
+                            'text-halign': 'center',
+                            'font-size': '12px',
+                            'font-weight': 'bold',
+                            'width': '120px',
+                            'height': '60px',
+                            'shape': 'roundrectangle',
+                            'border-width': '2px',
+                            'border-color': '#ffffff',
+                            'text-wrap': 'wrap',
+                            'text-max-width': '100px'
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'width': 2,
+                            'line-color': '#64748b',
+                            'target-arrow-color': '#64748b',
+                            'target-arrow-shape': 'triangle',
+                            'curve-style': 'bezier',
+                            'label': 'data(label)',
+                            'font-size': '8px',
+                            'text-rotation': 'autorotate',
+                            'text-margin-y': -10
+                        }
+                    },
+                    {
+                        selector: 'node:selected',
+                        style: {
+                            'border-width': '4px',
+                            'border-color': '#ef4444'
+                        }
+                    }
+                ],
+                layout: {
+                    name: 'dagre',
+                    rankDir: 'TB',
+                    spacingFactor: 1.5,
+                    nodeDimensionsIncludeLabels: true
+                }
+            });
+
+            // Add node click handler for detailed view
+            cy.on('tap', 'node', function(evt) {
+                const node = evt.target;
+                const tableName = node.id();
+                showTableDetails(tableName);
+            });
+        }
+
+        function showTableDetails(tableName) {
+            const table = databaseSchema[tableName];
+            if (!table) return;
+
+            let fieldsHtml = '<div class="space-y-2">';
+            Object.entries(table.fields).forEach(([fieldName, field]) => {
+                let classes = 'text-sm';
+                if (field.primaryKey) classes += ' text-red-600 font-bold';
+                else if (field.foreignKey) classes += ' text-green-600';
+                
+                fieldsHtml += `
+                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                        <span class="${classes}">${fieldName}</span>
+                        <span class="text-xs text-gray-500">${field.type}</span>
+                    </div>`;
+            });
+            fieldsHtml += '</div>';
+
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-lg w-full mx-4 max-h-96 overflow-y-auto">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">${tableName}</h3>
+                        <button class="text-gray-400 hover:text-gray-600" onclick="this.closest('.fixed').remove()">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="mb-4">
+                        <span class="inline-block px-3 py-1 text-xs font-semibold text-white bg-${table.category === 'core' ? 'blue' : table.category === 'support' ? 'green' : table.category === 'billing' ? 'purple' : 'orange'}-600 rounded-full">
+                            ${table.category.toUpperCase()}
+                        </span>
+                    </div>
+                    ${fieldsHtml}
+                    <div class="mt-4 text-sm text-gray-600">
+                        <strong>Relationships:</strong> ${table.relationships.join(', ')}
+                    </div>
+                </div>`;
+            
+            document.body.appendChild(modal);
+        }
+
+        function populateRelationships() {
+            const container = document.getElementById('relationshipsContent');
+            let html = '';
+
+            // Group relationships by type
+            const relationships = {
+                'One-to-Many': [
+                    { from: 'practices', to: 'patients', description: 'A practice can have many patients' },
+                    { from: 'practices', to: 'users', description: 'A practice can have many staff members' },
+                    { from: 'patients', to: 'appointments', description: 'A patient can have many appointments' },
+                    { from: 'patients', to: 'visits', description: 'A patient can have many visits' },
+                    { from: 'visits', to: 'vitals', description: 'A visit can have vitals recorded' },
+                    { from: 'practices', to: 'practice_tariffs', description: 'A practice has its own pricing structure' }
+                ],
+                'Many-to-Many (through junction tables)': [
+                    { from: 'visits', to: 'practice_tariffs', through: 'visit_services', description: 'Services can be applied to visits' },
+                    { from: 'patients', to: 'medical_aid_details', description: 'Patients can have medical aid coverage' }
+                ],
+                'Complex Billing Relationships': [
+                    { from: 'invoices_enhanced', to: 'invoice_items_enhanced', description: 'Invoices contain multiple line items' },
+                    { from: 'invoices_enhanced', to: 'payment_records', description: 'Invoices can have multiple payments' },
+                    { from: 'patients', to: 'invoices_enhanced', description: 'Patients receive invoices for services' }
+                ]
+            };
+
+            Object.entries(relationships).forEach(([category, relations]) => {
+                html += `
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h3 class="text-lg font-medium text-gray-900 mb-3">${category}</h3>
+                        <div class="space-y-2">`;
+                
+                relations.forEach(rel => {
+                    html += `
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded">
+                            <div class="flex items-center space-x-3">
+                                <span class="font-mono text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">${rel.from}</span>
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                                ${rel.through ? `<span class="font-mono text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">${rel.through}</span><svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>` : ''}
+                                <span class="font-mono text-sm bg-green-100 text-green-800 px-2 py-1 rounded">${rel.to}</span>
+                            </div>
+                            <span class="text-sm text-gray-600">${rel.description}</span>
+                        </div>`;
+                });
+                
+                html += `</div></div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function populateFormsAnalysis() {
+            const container = document.getElementById('formsContent');
+            let html = '';
+
+            Object.entries(formsAnalysis).forEach(([category, forms]) => {
+                html += `
+                    <div class="mb-8">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">${category}</h3>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">`;
+
+                Object.entries(forms).forEach(([formType, form]) => {
+                    const complexityColor = {
+                        'Low': 'green',
+                        'Medium': 'yellow', 
+                        'High': 'orange',
+                        'Very High': 'red'
+                    }[form.complexity] || 'gray';
+
+                    html += `
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex justify-between items-start mb-3">
+                                <h4 class="font-medium text-gray-900">${formType.replace(/([A-Z])/g, ' $1').trim()}</h4>
+                                <span class="inline-block px-2 py-1 text-xs font-semibold text-${complexityColor}-800 bg-${complexityColor}-100 rounded-full">
+                                    ${form.complexity}
+                                </span>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-3">${form.name}</p>
+                            <div class="mb-3">
+                                <p class="text-xs font-medium text-gray-700 mb-1">Fields:</p>
+                                <div class="flex flex-wrap gap-1">
+                                    ${(Array.isArray(form.fields) ? form.fields : [form.fields]).map(field => 
+                                        `<span class="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">${field}</span>`
+                                    ).join('')}
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-600"><strong>Validation:</strong> ${form.validation}</p>
+                        </div>`;
+                });
+
+                html += `</div></div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function populateRequirements() {
+            const container = document.getElementById('requirementsContent');
+            
+            const requirements = {
+                'Functional Requirements': [
+                    'Patient registration and management with comprehensive demographics',
+                    'Appointment scheduling with conflict detection and automated reminders',
+                    'Visit documentation with chief complaints, diagnosis, and treatment plans',
+                    'Medical aid integration with coverage validation and claims processing',
+                    'Billing system with tariff management and invoice generation',
+                    'SMS communication with usage tracking and template management',
+                    'Multi-practice support with role-based access control',
+                    'Comprehensive reporting and analytics dashboard'
+                ],
+                'Data Requirements': [
+                    'Patient data must include contact information, demographics, and medical aid details',
+                    'Appointment data must track scheduling, status, and associated services',
+                    'Visit records must capture medical information and link to billing',
+                    'Billing system must support complex tariff structures and payment tracking',
+                    'User management must support multiple roles and practice assignment',
+                    'SMS system must track usage, costs, and delivery status',
+                    'All data must be secured with row-level security policies'
+                ],
+                'Technical Requirements': [
+                    'React/TypeScript frontend with modern UI components',
+                    'Supabase backend with PostgreSQL database',
+                    'Row Level Security (RLS) for data protection',
+                    'Real-time subscriptions for live updates',
+                    'File upload capabilities for medical documents',
+                    'Integration with SMS gateways for communications',
+                    'Responsive design for mobile and desktop usage',
+                    'Comprehensive test suite with automated testing'
+                ],
+                'Business Requirements': [
+                    'Support for multiple practice types (dental, medical, aesthetic)',
+                    'Scalable pricing model based on usage and features',
+                    'Integration with Namibian medical aid providers',
+                    'Compliance with healthcare data protection regulations',
+                    'Multi-tenant architecture for practice isolation',
+                    'Comprehensive audit trails for all transactions',
+                    'Backup and disaster recovery capabilities',
+                    'Performance monitoring and optimization'
+                ]
+            };
+
+            let html = '';
+            Object.entries(requirements).forEach(([category, reqs]) => {
+                html += `
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-3">${category}</h3>
+                        <ul class="space-y-2">
+                            ${reqs.map(req => `
+                                <li class="flex items-start">
+                                    <svg class="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    <span class="text-gray-700">${req}</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function generateTestData() {
+            const table = document.getElementById('tableSelect').value;
+            const count = parseInt(document.getElementById('recordCount').value);
+            
+            let sql = '';
+            const faker = window.faker;
+
+            switch (table) {
+                case 'patients':
+                    sql = generatePatientsData(faker, count);
+                    break;
+                case 'appointments':
+                    sql = generateAppointmentsData(faker, count);
+                    break;
+                case 'visits':
+                    sql = generateVisitsData(faker, count);
+                    break;
+                case 'medical_aid_details':
+                    sql = generateMedicalAidData(faker, count);
+                    break;
+                case 'practice_tariffs':
+                    sql = generateTariffsData(faker, count);
+                    break;
+            }
+
+            document.getElementById('generatedSQL').value = sql;
+        }
+
+        function generatePatientsData(faker, count) {
+            let sql = 'INSERT INTO patients (id, first_name, last_name, email, cell_number, date_of_birth, gender, id_number, address, city, practice_id, created_at) VALUES\n';
+            
+            const values = [];
+            for (let i = 0; i < count; i++) {
+                const firstName = faker.person.firstName();
+                const lastName = faker.person.lastName();
+                const email = faker.internet.email({ firstName, lastName });
+                const phone = '+264 ' + faker.phone.number('## ### ####');
+                const dob = faker.date.birthdate({ min: 18, max: 80, mode: 'age' }).toISOString().split('T')[0];
+                const gender = faker.person.sex();
+                const idNumber = faker.string.numeric(11);
+                const address = faker.location.streetAddress();
+                const city = faker.location.city();
+                
+                values.push(`(
+                    gen_random_uuid(),
+                    '${firstName}',
+                    '${lastName}',
+                    '${email}',
+                    '${phone}',
+                    '${dob}',
+                    '${gender}',
+                    '${idNumber}',
+                    '${address}',
+                    '${city}',
+                    (SELECT id FROM practices LIMIT 1),
+                    NOW()
+                )`);
+            }
+            
+            return sql + values.join(',\n') + ';';
+        }
+
+        function generateAppointmentsData(faker, count) {
+            let sql = 'INSERT INTO appointments (id, patient_id, doctor_id, practice_id, appointment_date, appointment_time, duration, type, status, notes, created_at) VALUES\n';
+            
+            const appointmentTypes = ['consultation', 'follow-up', 'procedure', 'emergency'];
+            const statuses = ['scheduled', 'confirmed', 'completed', 'cancelled'];
+            
+            const values = [];
+            for (let i = 0; i < count; i++) {
+                const date = faker.date.future({ years: 0.25 }).toISOString().split('T')[0];
+                const time = faker.date.recent().toTimeString().split(' ')[0];
+                const duration = faker.helpers.arrayElement([30, 45, 60, 90]);
+                const type = faker.helpers.arrayElement(appointmentTypes);
+                const status = faker.helpers.arrayElement(statuses);
+                const notes = faker.lorem.sentence();
+                
+                values.push(`(
+                    gen_random_uuid(),
+                    (SELECT id FROM patients ORDER BY RANDOM() LIMIT 1),
+                    (SELECT id FROM users WHERE role = 'doctor' ORDER BY RANDOM() LIMIT 1),
+                    (SELECT id FROM practices LIMIT 1),
+                    '${date}',
+                    '${time}',
+                    ${duration},
+                    '${type}',
+                    '${status}',
+                    '${notes}',
+                    NOW()
+                )`);
+            }
+            
+            return sql + values.join(',\n') + ';';
+        }
+
+        function generateVisitsData(faker, count) {
+            let sql = 'INSERT INTO visits (id, patient_id, doctor_id, visit_date, visit_time, chief_complaint, diagnosis, treatment_plan, status, created_at) VALUES\n';
+            
+            const complaints = [
+                'Tooth pain', 'Routine checkup', 'Gum bleeding', 'Broken tooth', 'Jaw pain',
+                'Cleaning', 'Crown replacement', 'Root canal pain', 'Wisdom tooth', 'Whitening consultation'
+            ];
+            
+            const diagnoses = [
+                'Dental caries', 'Gingivitis', 'Periodontitis', 'Tooth fracture', 'TMJ disorder',
+                'Healthy teeth', 'Plaque buildup', 'Tooth abscess', 'Impacted wisdom tooth', 'Tooth discoloration'
+            ];
+            
+            const values = [];
+            for (let i = 0; i < count; i++) {
+                const date = faker.date.past({ years: 1 }).toISOString().split('T')[0];
+                const time = faker.date.recent().toTimeString().split(' ')[0];
+                const complaint = faker.helpers.arrayElement(complaints);
+                const diagnosis = faker.helpers.arrayElement(diagnoses);
+                const treatment = faker.lorem.sentence();
+                
+                values.push(`(
+                    gen_random_uuid(),
+                    (SELECT id FROM patients ORDER BY RANDOM() LIMIT 1),
+                    (SELECT id FROM users WHERE role = 'doctor' ORDER BY RANDOM() LIMIT 1),
+                    '${date}',
+                    '${time}',
+                    '${complaint}',
+                    '${diagnosis}',
+                    '${treatment}',
+                    'completed',
+                    NOW()
+                )`);
+            }
+            
+            return sql + values.join(',\n') + ';';
+        }
+
+        function generateMedicalAidData(faker, count) {
+            let sql = 'INSERT INTO medical_aid_details (id, patient_id, provider, scheme_name, member_number, valid_from, valid_to, created_at) VALUES\n';
+            
+            const providers = ['Discovery Health', 'Bonitas', 'Old Mutual', 'NAMMED', 'NMC', 'GemHealth'];
+            const schemes = ['Classic', 'Premier', 'Executive', 'Family', 'Individual', 'Student'];
+            
+            const values = [];
+            for (let i = 0; i < count; i++) {
+                const provider = faker.helpers.arrayElement(providers);
+                const scheme = faker.helpers.arrayElement(schemes);
+                const memberNumber = faker.string.alphanumeric(12).toUpperCase();
+                const validFrom = faker.date.past({ years: 2 }).toISOString().split('T')[0];
+                const validTo = faker.date.future({ years: 1 }).toISOString().split('T')[0];
+                
+                values.push(`(
+                    gen_random_uuid(),
+                    (SELECT id FROM patients ORDER BY RANDOM() LIMIT 1),
+                    '${provider}',
+                    '${scheme}',
+                    '${memberNumber}',
+                    '${validFrom}',
+                    '${validTo}',
+                    NOW()
+                )`);
+            }
+            
+            return sql + values.join(',\n') + ';';
+        }
+
+        function generateTariffsData(faker, count) {
+            let sql = 'INSERT INTO practice_tariffs (id, practice_id, code, price, namaf_prace_2025, practice_type, category, subcategory, is_active, created_at) VALUES\n';
+            
+            const categories = ['Consultation', 'Diagnostic', 'Preventive', 'Restorative', 'Endodontic', 'Oral Surgery'];
+            const subcategories = ['Examination', 'Radiography', 'Cleaning', 'Fillings', 'Root Canal', 'Extractions'];
+            
+            const values = [];
+            for (let i = 0; i < count; i++) {
+                const code = faker.string.numeric(4);
+                const price = faker.number.float({ min: 200, max: 5000, precision: 0.01 });
+                const service = faker.lorem.words(3);
+                const category = faker.helpers.arrayElement(categories);
+                const subcategory = faker.helpers.arrayElement(subcategories);
+                
+                values.push(`(
+                    gen_random_uuid(),
+                    (SELECT id FROM practices LIMIT 1),
+                    '${code}',
+                    ${price},
+                    '${service}',
+                    'dental',
+                    '${category}',
+                    '${subcategory}',
+                    true,
+                    NOW()
+                )`);
+            }
+            
+            return sql + values.join(',\n') + ';';
+        }
+
+        function bindEventHandlers() {
+            // Layout buttons
+            document.getElementById('layoutHierarchical').addEventListener('click', () => {
+                cy.layout({ name: 'dagre', rankDir: 'TB' }).run();
+            });
+            
+            document.getElementById('layoutCircular').addEventListener('click', () => {
+                cy.layout({ name: 'circle' }).run();
+            });
+            
+            document.getElementById('layoutGrid').addEventListener('click', () => {
+                cy.layout({ name: 'grid' }).run();
+            });
+
+            // Test data generation
+            document.getElementById('generateSampleData').addEventListener('click', generateTestData);
+            document.getElementById('generateTestData').addEventListener('click', generateTestData);
+
+            // Copy SQL
+            document.getElementById('copySql').addEventListener('click', () => {
+                const sql = document.getElementById('generatedSQL');
+                sql.select();
+                document.execCommand('copy');
+                
+                // Show success message
+                const button = document.getElementById('copySql');
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.classList.add('bg-green-700');
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('bg-green-700');
+                }, 2000);
+            });
+
+            // Scenario buttons
+            document.querySelectorAll('.scenario-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const scenario = btn.dataset.scenario;
+                    generateScenarioData(scenario);
+                });
+            });
+
+            // Export functionality
+            document.getElementById('exportData').addEventListener('click', () => {
+                const analysisData = {
+                    schema: databaseSchema,
+                    relationships: 'Generated from schema analysis',
+                    forms: formsAnalysis,
+                    timestamp: new Date().toISOString()
+                };
+                
+                const blob = new Blob([JSON.stringify(analysisData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'hpms-database-analysis.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        function generateScenarioData(scenario) {
+            const faker = window.faker;
+            let sql = '';
+
+            switch (scenario) {
+                case 'basic-workflow':
+                    sql = generateBasicWorkflow(faker);
+                    break;
+                case 'complex-case':
+                    sql = generateComplexCase(faker);
+                    break;
+                case 'billing-scenario':
+                    sql = generateBillingScenario(faker);
+                    break;
+            }
+
+            document.getElementById('generatedSQL').value = sql;
+        }
+
+        function generateBasicWorkflow(faker) {
+            const patientName = faker.person.fullName();
+            const email = faker.internet.email();
+            const phone = '+264 ' + faker.phone.number('## ### ####');
+            
+            return `-- Basic Patient Workflow Test Scenario
+-- 1. Create patient
+INSERT INTO patients (id, first_name, last_name, email, cell_number, date_of_birth, gender, practice_id, created_at) VALUES (
+    gen_random_uuid(), '${patientName.split(' ')[0]}', '${patientName.split(' ')[1]}', '${email}', '${phone}', 
+    '${faker.date.birthdate({ min: 25, max: 65, mode: 'age' }).toISOString().split('T')[0]}', 
+    '${faker.person.sex()}', (SELECT id FROM practices LIMIT 1), NOW()
+);
+
+-- 2. Schedule appointment
+INSERT INTO appointments (id, patient_id, doctor_id, practice_id, appointment_date, appointment_time, duration, type, status, created_at) VALUES (
+    gen_random_uuid(), 
+    (SELECT id FROM patients WHERE email = '${email}'),
+    (SELECT id FROM users WHERE role = 'doctor' LIMIT 1),
+    (SELECT id FROM practices LIMIT 1),
+    '${faker.date.future({ days: 7 }).toISOString().split('T')[0]}',
+    '10:00:00', 60, 'consultation', 'scheduled', NOW()
+);
+
+-- 3. Complete visit
+INSERT INTO visits (id, patient_id, doctor_id, visit_date, visit_time, chief_complaint, diagnosis, treatment_plan, status, created_at) VALUES (
+    gen_random_uuid(),
+    (SELECT id FROM patients WHERE email = '${email}'),
+    (SELECT id FROM users WHERE role = 'doctor' LIMIT 1),
+    CURRENT_DATE, '10:00:00', 'Routine checkup', 'Healthy teeth', 'Continue regular checkups', 'completed', NOW()
+);`;
+        }
+
+        function generateComplexCase(faker) {
+            return `-- Complex Medical Case Test Scenario
+-- Multiple visits, procedures, and billing events
+INSERT INTO patients (id, first_name, last_name, email, cell_number, date_of_birth, gender, medical_aid_provider, practice_id, created_at) VALUES (
+    gen_random_uuid(), 'Complex', 'Case', 'complex@example.com', '+264 81 123 4567', 
+    '1985-05-15', 'female', 'Discovery Health', (SELECT id FROM practices LIMIT 1), NOW()
+);
+
+-- Initial consultation
+INSERT INTO visits (id, patient_id, doctor_id, visit_date, chief_complaint, diagnosis, treatment_plan, status, created_at) VALUES (
+    gen_random_uuid(), (SELECT id FROM patients WHERE email = 'complex@example.com'),
+    (SELECT id FROM users WHERE role = 'doctor' LIMIT 1), CURRENT_DATE - INTERVAL '30 days',
+    'Severe tooth pain', 'Deep caries in multiple teeth', 'Root canal treatment required', 'completed', NOW()
+);
+
+-- Follow-up visits
+INSERT INTO visits (id, patient_id, doctor_id, visit_date, chief_complaint, diagnosis, treatment_plan, status, created_at) VALUES (
+    gen_random_uuid(), (SELECT id FROM patients WHERE email = 'complex@example.com'),
+    (SELECT id FROM users WHERE role = 'doctor' LIMIT 1), CURRENT_DATE - INTERVAL '20 days',
+    'Follow-up root canal', 'Root canal in progress', 'Complete treatment and crown', 'completed', NOW()
+);`;
+        }
+
+        function generateBillingScenario(faker) {
+            return `-- Complete Billing Cycle Test Scenario
+-- Patient with medical aid, multiple services, and payment tracking
+
+-- Create patient with medical aid
+INSERT INTO patients (id, first_name, last_name, email, cell_number, practice_id, created_at) VALUES (
+    gen_random_uuid(), 'Billing', 'Test', 'billing@example.com', '+264 81 555 1234', 
+    (SELECT id FROM practices LIMIT 1), NOW()
+);
+
+-- Add medical aid details
+INSERT INTO medical_aid_details (id, patient_id, provider, scheme_name, member_number, valid_from, valid_to, created_at) VALUES (
+    gen_random_uuid(), (SELECT id FROM patients WHERE email = 'billing@example.com'),
+    'Discovery Health', 'Classic Comprehensive', 'DH123456789', '2024-01-01', '2024-12-31', NOW()
+);
+
+-- Create visit with services
+INSERT INTO visits (id, patient_id, doctor_id, visit_date, diagnosis, status, created_at) VALUES (
+    gen_random_uuid(), (SELECT id FROM patients WHERE email = 'billing@example.com'),
+    (SELECT id FROM users WHERE role = 'doctor' LIMIT 1), CURRENT_DATE,
+    'Routine cleaning and examination', 'completed', NOW()
+);
+
+-- Add services to visit
+INSERT INTO visit_services (id, visit_id, tariff_id, quantity, unit_price, total_price, created_at) VALUES (
+    gen_random_uuid(), 
+    (SELECT id FROM visits WHERE patient_id = (SELECT id FROM patients WHERE email = 'billing@example.com')),
+    (SELECT id FROM practice_tariffs WHERE code = '8101' LIMIT 1), 1, 450.00, 450.00, NOW()
+);
+
+-- Generate invoice
+INSERT INTO invoices_enhanced (id, invoice_number, patient_id, visit_id, practice_id, issue_date, due_date, subtotal, total, payment_status, created_at) VALUES (
+    gen_random_uuid(), 'INV-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-001',
+    (SELECT id FROM patients WHERE email = 'billing@example.com'),
+    (SELECT id FROM visits WHERE patient_id = (SELECT id FROM patients WHERE email = 'billing@example.com')),
+    (SELECT id FROM practices LIMIT 1), CURRENT_DATE, CURRENT_DATE + INTERVAL '30 days',
+    450.00, 517.50, 'pending', NOW()
+);`;
+        }
+    </script>
+</body>
+</html>
