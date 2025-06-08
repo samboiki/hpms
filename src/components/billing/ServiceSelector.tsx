@@ -69,14 +69,13 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({
         const practiceType = practiceData?.practice_type || 'medical';
         console.log(`🏥 Practice: ${practiceData?.name} (Type: ${practiceType})`);
 
-        // Fetch practice tariffs based on practice type
+        // Fetch tariffs that match the practice type (simplified structure - no practice_id)
         let tariffs = [];
         const { data: fetchedTariffs, error: tariffsError } = await supabase
           .from('practice_tariffs')
           .select('*')
-          .eq('practice_id', practiceId)
+          .eq('practice_type', practiceType)
           .eq('is_active', true)
-          .order('category', { ascending: true })
           .order('code', { ascending: true });
 
         if (tariffsError) {
@@ -86,7 +85,7 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({
         // Use fetched tariffs or fall back to practice-type appropriate codes
         if (fetchedTariffs && fetchedTariffs.length > 0) {
           tariffs = fetchedTariffs;
-          console.log(`✅ Found ${fetchedTariffs.length} tariffs in database`);
+          console.log(`✅ Found ${fetchedTariffs.length} ${practiceType} tariffs in database`);
         } else if (practiceType === 'dental' || practiceType === 'aesthetic') {
           // ACTUAL dental codes from dentalpractice_codes_2025.xlsx (only for dental/aesthetic practices)
           console.log('🦷 Using dental codes for dental/aesthetic practice (128 codes)');
