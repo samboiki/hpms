@@ -8,8 +8,10 @@ import {
   Download,
   User,
   Search,
-  Filter
+  Filter,
+  GitBranch
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
@@ -79,6 +81,8 @@ const mockInvoices: Invoice[] = [
 ];
 
 const Billing: React.FC = () => {
+  const navigate = useNavigate();
+  
   // Calculate financial summaries
   const totalRevenue = mockInvoices
     .filter(inv => inv.status === 'paid')
@@ -104,6 +108,13 @@ const Billing: React.FC = () => {
           </div>
         </div>
         <div className="mt-4 md:mt-0 flex space-x-3">
+          <Button 
+            variant="outline"
+            onClick={() => navigate('/billing/workflow')}
+          >
+            <GitBranch size={16} className="mr-2" />
+            Workflow
+          </Button>
           <Button variant="outline">
             <FileText size={16} className="mr-2" />
             Reports

@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HPMS Billing Workflow Diagram</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            color: #01b9d4;
+        }
+        .workflow-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border-left: 4px solid #01b9d4;
+        }
+        .flow-diagram {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin: 30px 0;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .flow-step {
+            flex: 1;
+            min-width: 200px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
+        }
+        .flow-step::after {
+            content: '→';
+            position: absolute;
+            right: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 24px;
+            color: #01b9d4;
+        }
+        .flow-step:last-child::after {
+            display: none;
+        }
+        .flow-step h3 {
+            margin-top: 0;
+            font-size: 18px;
+        }
+        .flow-step ul {
+            text-align: left;
+            padding-left: 20px;
+            margin: 10px 0;
+        }
+        .tables-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .table-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .table-card h4 {
+            margin-top: 0;
+            color: #01b9d4;
+            border-bottom: 2px solid #01b9d4;
+            padding-bottom: 10px;
+        }
+        .table-card .fields {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+        }
+        .table-card .primary {
+            background: #e3f2fd;
+            font-weight: bold;
+        }
+        .table-card .supporting {
+            background: #f3e5f5;
+        }
+        .components-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .component-item {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #4caf50;
+        }
+        .component-item h5 {
+            margin: 0 0 5px 0;
+            color: #2e7d32;
+        }
+        .component-item p {
+            margin: 0;
+            font-size: 14px;
+            color: #666;
+        }
+        .service-functions {
+            background: #fff3e0;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .service-functions h4 {
+            color: #e65100;
+            margin-top: 0;
+        }
+        .function-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 10px;
+        }
+        .function-item {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 3px solid #ff9800;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+        .interactive-flow {
+            margin: 30px 0;
+            padding: 20px;
+            background: #e3f2fd;
+            border-radius: 8px;
+        }
+        .flow-node {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .flow-node:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .flow-node.active {
+            background: #01b9d4;
+            color: white;
+        }
+        .details-panel {
+            margin-top: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            display: none;
+        }
+        .details-panel.show {
+            display: block;
+        }
+        @media (max-width: 768px) {
+            .flow-step::after {
+                display: none;
+            }
+            .flow-diagram {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>HPMS Billing Workflow Blueprint</h1>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #e3f2fd;"></div>
+                <span>Primary Tables</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #f3e5f5;"></div>
+                <span>Supporting Tables</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #e8f5e9;"></div>
+                <span>Components</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #fff3e0;"></div>
+                <span>Services</span>
+            </div>
+        </div>
+
+        <div class="workflow-section">
+            <h2>1. Database Architecture</h2>
+            <div class="tables-grid">
+                <div class="table-card primary">
+                    <h4>invoices_enhanced</h4>
+                    <div class="fields">
+                        • id (UUID)<br>
+                        • invoice_number<br>
+                        • patient_id → patients<br>
+                        • visit_id → visits<br>
+                        • practice_id → practices<br>
+                        • total_amount<br>
+                        • medical_aid_portion<br>
+                        • patient_portion<br>
+                        • status (pending/partial/paid)<br>
+                        • payment_method<br>
+                        • created_at
+                    </div>
+                </div>
+                
+                <div class="table-card primary">
+                    <h4>invoice_items_enhanced</h4>
+                    <div class="fields">
+                        • id (UUID)<br>
+                        • invoice_id → invoices<br>
+                        • service_code<br>
+                        • service_name<br>
+                        • quantity<br>
+                        • unit_price<br>
+                        • discount_percentage<br>
+                        • tax_amount<br>
+                        • medical_aid_covered<br>
+                        • patient_liable<br>
+                        • line_total
+                    </div>
+                </div>
+                
+                <div class="table-card primary">
+                    <h4>visit_services</h4>
+                    <div class="fields">
+                        • id (UUID)<br>
+                        • visit_id → visits<br>
+                        • service_code<br>
+                        • service_name<br>
+                        • quantity<br>
+                        • unit_price<br>
+                        • total_price<br>
+                        • notes<br>
+                        • created_at
+                    </div>
+                </div>
+                
+                <div class="table-card supporting">
+                    <h4>practice_tariffs</h4>
+                    <div class="fields">
+                        • id (UUID)<br>
+                        • practice_id → practices<br>
+                        • code<br>
+                        • name<br>
+                        • description<br>
+                        • category<br>
+                        • sub_category<br>
+                        • unit_price<br>
+                        • is_active<br>
+                        • effective_date
+                    </div>
+                </div>
+                
+                <div class="table-card supporting">
+                    <h4>medical_aid_coverage</h4>
+                    <div class="fields">
+                        • id (UUID)<br>
+                        • provider<br>
+                        • scheme_name<br>
+                        • service_code<br>
+                        • coverage_percentage<br>
+                        • max_amount<br>
+                        • requires_auth<br>
+                        • notes
+                    </div>
+                </div>
+                
+                <div class="table-card supporting">
+                    <h4>payment_records</h4>
+                    <div class="fields">
+                        • id (UUID)<br>
+                        • invoice_id → invoices<br>
+                        • amount<br>
+                        • payment_method<br>
+                        • transaction_ref<br>
+                        • payment_date<br>
+                        • notes<br>
+                        • created_by
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="workflow-section">
+            <h2>2. Main Workflow Steps</h2>
+            <div class="flow-diagram">
+                <div class="flow-step">
+                    <h3>1. Patient Visit</h3>
+                    <ul>
+                        <li>Patient check-in</li>
+                        <li>Create/update patient record</li>
+                        <li>Verify medical aid</li>
+                        <li>Create visit record</li>
+                    </ul>
+                </div>
+                
+                <div class="flow-step">
+                    <h3>2. Clinical Services</h3>
+                    <ul>
+                        <li>Record vitals</li>
+                        <li>Document diagnosis</li>
+                        <li>Select services provided</li>
+                        <li>Check medical aid coverage</li>
+                    </ul>
+                </div>
+                
+                <div class="flow-step">
+                    <h3>3. Invoice Generation</h3>
+                    <ul>
+                        <li>Calculate service totals</li>
+                        <li>Apply medical aid rules</li>
+                        <li>Add taxes (15% VAT)</li>
+                        <li>Generate invoice number</li>
+                    </ul>
+                </div>
+                
+                <div class="flow-step">
+                    <h3>4. Payment Processing</h3>
+                    <ul>
+                        <li>Record payment method</li>
+                        <li>Update invoice status</li>
+                        <li>Generate receipt</li>
+                        <li>Submit medical aid claim</li>
+                    </ul>
+                </div>
+                
+                <div class="flow-step">
+                    <h3>5. Financial Tracking</h3>
+                    <ul>
+                        <li>Update practice revenue</li>
+                        <li>Track outstanding amounts</li>
+                        <li>Generate reports</li>
+                        <li>Monitor collections</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="workflow-section">
+            <h2>3. Components & Forms</h2>
+            <div class="components-list">
+                <div class="component-item">
+                    <h5>ServiceSelector.tsx</h5>
+                    <p>Interactive service picker with search, categories, medical aid indicators</p>
+                </div>
+                <div class="component-item">
+                    <h5>AddVisitForm.tsx</h5>
+                    <p>Main visit form with integrated billing section and invoice generation</p>
+                </div>
+                <div class="component-item">
+                    <h5>PremiumBillingModal.tsx</h5>
+                    <p>Patient billing overview with financial summary and transaction history</p>
+                </div>
+                <div class="component-item">
+                    <h5>Billing.tsx (Page)</h5>
+                    <p>Main billing dashboard for viewing and managing all invoices</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="service-functions">
+            <h4>Invoice Service Functions (invoiceService.ts)</h4>
+            <div class="function-list">
+                <div class="function-item">
+                    <strong>generateInvoiceFromVisit()</strong> - Creates invoice from visit and selected services
+                </div>
+                <div class="function-item">
+                    <strong>calculateBilling()</strong> - Calculates totals with medical aid coverage
+                </div>
+                <div class="function-item">
+                    <strong>createInvoice()</strong> - Persists invoice to database
+                </div>
+                <div class="function-item">
+                    <strong>createInvoiceItems()</strong> - Creates individual line items
+                </div>
+                <div class="function-item">
+                    <strong>linkServicesToVisit()</strong> - Associates services with visit
+                </div>
+                <div class="function-item">
+                    <strong>updatePaymentStatus()</strong> - Updates invoice payment status
+                </div>
+                <div class="function-item">
+                    <strong>recordPayment()</strong> - Records payment transactions
+                </div>
+                <div class="function-item">
+                    <strong>submitMedicalAidClaim()</strong> - Initiates medical aid claims
+                </div>
+            </div>
+        </div>
+
+        <div class="interactive-flow">
+            <h3>Interactive Flow Visualization</h3>
+            <p>Click on each step to see details:</p>
+            <div style="text-align: center; margin: 20px 0;">
+                <span class="flow-node" onclick="showDetails('visit')">Patient Visit</span>
+                <span style="font-size: 24px; color: #01b9d4;">→</span>
+                <span class="flow-node" onclick="showDetails('services')">Select Services</span>
+                <span style="font-size: 24px; color: #01b9d4;">→</span>
+                <span class="flow-node" onclick="showDetails('invoice')">Generate Invoice</span>
+                <span style="font-size: 24px; color: #01b9d4;">→</span>
+                <span class="flow-node" onclick="showDetails('payment')">Process Payment</span>
+                <span style="font-size: 24px; color: #01b9d4;">→</span>
+                <span class="flow-node" onclick="showDetails('tracking')">Track & Report</span>
+            </div>
+            
+            <div id="visit-details" class="details-panel">
+                <h4>Patient Visit Details</h4>
+                <p><strong>Tables Used:</strong> patients, visits, medical_aid_details</p>
+                <p><strong>Components:</strong> AddVisitForm, PatientRegistrationForm</p>
+                <p><strong>Process:</strong></p>
+                <ol>
+                    <li>Patient arrives at practice</li>
+                    <li>Receptionist creates/updates patient record</li>
+                    <li>Medical aid details verified if applicable</li>
+                    <li>Visit record created with appointment linkage</li>
+                    <li>Patient sent to doctor/nurse</li>
+                </ol>
+            </div>
+            
+            <div id="services-details" class="details-panel">
+                <h4>Service Selection Details</h4>
+                <p><strong>Tables Used:</strong> practice_tariffs, medical_aid_coverage, visit_services</p>
+                <p><strong>Components:</strong> ServiceSelector, medical aid coverage indicators</p>
+                <p><strong>Process:</strong></p>
+                <ol>
+                    <li>Doctor/Nurse opens ServiceSelector in visit form</li>
+                    <li>Searches or browses available services</li>
+                    <li>System checks medical aid coverage in real-time</li>
+                    <li>Quantities adjusted as needed</li>
+                    <li>Services linked to visit record</li>
+                </ol>
+            </div>
+            
+            <div id="invoice-details" class="details-panel">
+                <h4>Invoice Generation Details</h4>
+                <p><strong>Tables Used:</strong> invoices_enhanced, invoice_items_enhanced</p>
+                <p><strong>Functions:</strong> generateInvoiceFromVisit, calculateBilling</p>
+                <p><strong>Process:</strong></p>
+                <ol>
+                    <li>"Generate Invoice" checkbox checked in visit form</li>
+                    <li>Invoice number auto-generated (INV[YY][MM][00001])</li>
+                    <li>Medical aid portions calculated per service</li>
+                    <li>15% VAT added for Namibia</li>
+                    <li>Invoice and line items saved to database</li>
+                </ol>
+            </div>
+            
+            <div id="payment-details" class="details-panel">
+                <h4>Payment Processing Details</h4>
+                <p><strong>Tables Used:</strong> payment_records, invoices_enhanced (status update)</p>
+                <p><strong>Functions:</strong> recordPayment, updatePaymentStatus</p>
+                <p><strong>Process:</strong></p>
+                <ol>
+                    <li>Patient makes payment (cash/card/EFT/medical aid)</li>
+                    <li>Payment recorded with transaction reference</li>
+                    <li>Invoice status updated (pending → partial → paid)</li>
+                    <li>Receipt generated for patient</li>
+                    <li>Medical aid claim submitted if applicable</li>
+                </ol>
+            </div>
+            
+            <div id="tracking-details" class="details-panel">
+                <h4>Financial Tracking Details</h4>
+                <p><strong>Tables Used:</strong> All billing tables for reporting</p>
+                <p><strong>Components:</strong> Billing dashboard, PremiumBillingModal</p>
+                <p><strong>Features:</strong></p>
+                <ol>
+                    <li>Real-time revenue tracking</li>
+                    <li>Outstanding balance monitoring</li>
+                    <li>Medical aid claim status tracking</li>
+                    <li>Financial reports generation</li>
+                    <li>Patient billing history</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="workflow-section">
+            <h2>4. Key Integration Points</h2>
+            <ul>
+                <li><strong>Visit-Billing Integration:</strong> Billing seamlessly integrated into visit workflow</li>
+                <li><strong>Medical Aid Integration:</strong> Real-time coverage checks and automatic calculations</li>
+                <li><strong>Practice Customization:</strong> Each practice can have custom tariffs and settings</li>
+                <li><strong>Fallback Mechanisms:</strong> System provides 128 dental codes if no tariffs loaded</li>
+                <li><strong>Tax Compliance:</strong> Automatic 15% VAT calculation for Namibia</li>
+                <li><strong>Multi-tenant Support:</strong> Practice-specific billing configurations</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function showDetails(step) {
+            // Hide all details panels
+            document.querySelectorAll('.details-panel').forEach(panel => {
+                panel.classList.remove('show');
+            });
+            
+            // Remove active class from all nodes
+            document.querySelectorAll('.flow-node').forEach(node => {
+                node.classList.remove('active');
+            });
+            
+            // Show selected details and mark node as active
+            const detailsPanel = document.getElementById(step + '-details');
+            if (detailsPanel) {
+                detailsPanel.classList.add('show');
+            }
+            
+            // Mark clicked node as active
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>

@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
-import { Image as ImageIcon, X, Upload, Plus, Wand2 } from 'lucide-react';
+import { Image as ImageIcon, X, Upload, Plus, Wand2, Receipt, DollarSign } from 'lucide-react';
 import LabResultUpload from '../visits/LabResultUpload';
 import MediaUpload from '../visits/MediaUpload';
+import ServiceSelector from '../billing/ServiceSelector';
+import { ServiceSelection } from '../../types/billing';
+import { invoiceService } from '../../services/invoiceService';
 
 interface AddVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
@@ -39,6 +42,9 @@ interface AddVisitFormData {
     description: string;
     date: string;
   }>;
+  // Billing integration
+  selectedServices: ServiceSelection[];
+  generateInvoice: boolean;
 }
 
 interface Props {
@@ -53,7 +59,9 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<AddVisitFormData>({
     defaultValues: {
       lab_results: [],
-      media: []
+      media: [],
+      selectedServices: [],
+      generateInvoice: true
     }
   });
   const followUpRequired = watch('follow_up_required');
@@ -61,9 +69,17 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
   const height = watch('vitals.height');
   const labResults = watch('lab_results'); // This will be up-to-date due to react-hook-form's watch
   const media = watch('media');
+  const selectedServices = watch('selectedServices');
+  const generateInvoice = watch('generateInvoice');
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [isAiProcessingEnabled, setIsAiProcessingEnabled] = useState<boolean>(true); // Default to true, check will update
+  
+  // Billing integration state
+  const [practiceId, setPracticeId] = useState<string>('');
+  const [medicalAidId, setMedicalAidId] = useState<string | undefined>(undefined);
+  const [patient, setPatient] = useState<any>(null);
+  const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
 
   // Check if AI processing is available when component mounts
   React.useEffect(() => {
@@ -109,6 +125,52 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
       setValue('vitals.bmi', Math.round(bmi * 10) / 10);
     }
   }, [weight, height, setValue]);
+
+  // Fetch patient and practice information for billing
+  React.useEffect(() => {
+    const fetchPatientInfo = async () => {
+      try {
+        // Fetch patient details including medical aid
+        const { data: patientData, error: patientError } = await supabase
+          .from('patients')
+          .select(`
+            *,
+            medical_aid_details(*)
+          `)
+          .eq('id', patientId)
+          .single();
+
+        if (patientError) throw patientError;
+        
+        setPatient(patientData);
+        
+        // Set medical aid ID if patient has medical aid
+        if (patientData.medical_aid_details && patientData.medical_aid_details.length > 0) {
+          setMedicalAidId(patientData.medical_aid_details[0].id);
+        }
+
+        // Get current user's practice
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('practice_id')
+            .eq('id', user.id)
+            .single();
+          
+          if (userData?.practice_id) {
+            setPracticeId(userData.practice_id);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching patient info:', error);
+      }
+    };
+
+    if (patientId) {
+      fetchPatientInfo();
+    }
+  }, [patientId]);
 
   const validateFile = (file: File): string | null => {
     if (!ALLOWED_FILE_TYPES.includes(file.type)) {
@@ -359,14 +421,21 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
       if (visitError) throw visitError;
 
       if (visitData) {
-        // Insert vitals with sanitized values and link to visit
-        const sanitizedVitalsData = sanitizeVitals(data.vitals);
+        // Insert vitals with correct column names for actual database schema
+        const vitalsData = {
+          visit_id: visitData.id,
+          blood_pressure: data.vitals.blood_pressure?.trim() || null,
+          temperature: data.vitals.temperature || null,
+          pulse_rate: data.vitals.pulse_rate || null,
+          respiratory_rate: data.vitals.respiratory_rate || null,
+          weight: data.vitals.weight || null,
+          height: data.vitals.height || null,
+          bmi: data.vitals.bmi || null
+        };
+
         const { error: vitalsError } = await supabase
           .from('vitals')
-          .insert([{
-            visit_id: visitData.id,
-            ...sanitizedVitalsData
-          }]);
+          .insert([vitalsData]);
 
         if (vitalsError) throw vitalsError;
 
@@ -399,6 +468,35 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             );
 
           if (mediaError) throw mediaError;
+        }
+
+        // Generate invoice if services are selected and invoice generation is enabled
+        if (data.generateInvoice && data.selectedServices.length > 0 && practiceId) {
+          try {
+            setIsGeneratingInvoice(true);
+            
+            const invoice = await invoiceService.generateInvoiceFromVisit({
+              visitId: visitData.id,
+              patientId: patientId,
+              practiceId: practiceId,
+              services: data.selectedServices,
+              medicalAidId: medicalAidId,
+              notes: `Invoice generated for ${data.visit_type} visit - ${data.diagnosis}`,
+              generatePdf: true,
+              emailToPatient: false // TODO: Make this configurable
+            });
+
+            console.log('Invoice generated successfully:', invoice.invoiceNumber);
+            
+            // Show success message with invoice number
+            alert(`Visit recorded successfully! Invoice ${invoice.invoiceNumber} generated for N$ ${invoice.total.toFixed(2)}`);
+          } catch (invoiceError) {
+            console.error('Error generating invoice:', invoiceError);
+            // Don't fail the entire visit creation if invoice generation fails
+            alert(`Visit recorded successfully, but failed to generate invoice: ${invoiceError instanceof Error ? invoiceError.message : 'Unknown error'}`);
+          } finally {
+            setIsGeneratingInvoice(false);
+          }
         }
       }
 
@@ -804,6 +902,53 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
           <p className="mt-1 text-sm text-red-600">{errors.treatment_plan.message}</p>
         )}
       </div>
+
+      {/* Billing Services Section */}
+      {practiceId && (
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-blue-900">Billing & Services</h3>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                {...register('generateInvoice')}
+                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                id="generate_invoice"
+              />
+              <label htmlFor="generate_invoice" className="ml-2 block text-sm text-blue-700 font-medium">
+                Generate Invoice
+              </label>
+            </div>
+          </div>
+          
+          <ServiceSelector
+            practiceId={practiceId}
+            selectedServices={selectedServices}
+            onServiceChange={(services) => setValue('selectedServices', services)}
+            medicalAidId={medicalAidId}
+            readOnly={false}
+          />
+          
+          {selectedServices.length > 0 && (
+            <div className="mt-4 p-4 bg-white border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">Total Services Cost:</span>
+                <span className="text-lg font-bold text-blue-600">
+                  N$ {selectedServices.reduce((total, service) => total + service.totalPrice, 0).toFixed(2)}
+                </span>
+              </div>
+              {medicalAidId && (
+                <div className="mt-2 text-xs text-green-600">
+                  * Medical aid coverage will be calculated during invoice generation
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-gray-700">Prescription</label>
