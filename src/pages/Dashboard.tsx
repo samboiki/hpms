@@ -807,11 +807,11 @@ function Dashboard() {
                       className="relative group cursor-pointer"
                       onClick={stat.onClick}
                     >
-                      {/* Gorgeous gradient background like next of kin card */}
-                      <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} rounded-3xl transform ${stat.id === 'completed' ? 'rotate-1 group-hover:rotate-2' : '-rotate-1 group-hover:-rotate-2'} transition-transform duration-500`}></div>
+                      {/* Gorgeous gradient background like next of kin card - lighter */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${stat.id === 'completed' ? 'from-purple-300 via-purple-400 to-indigo-400 group-hover:from-purple-500 group-hover:via-purple-400 group-hover:to-indigo-500' : 'from-blue-300 via-blue-400 to-cyan-400 group-hover:from-blue-500 group-hover:via-blue-400 group-hover:to-cyan-500'} rounded-3xl transform ${stat.id === 'completed' ? 'rotate-1 group-hover:rotate-2' : '-rotate-1 group-hover:-rotate-2'} transition-transform duration-500`}></div>
                       
                       {/* Main card */}
-                      <div className={`relative bg-gradient-to-br ${stat.gradient} rounded-3xl p-1 shadow-2xl`}>
+                      <div className={`relative bg-gradient-to-br ${stat.id === 'completed' ? 'from-purple-300 to-indigo-400 group-hover:from-purple-400 group-hover:to-indigo-500' : 'from-blue-300 to-cyan-400 group-hover:from-blue-400 group-hover:to-cyan-500'} rounded-3xl p-1 shadow-2xl transition-all duration-500`}>
                         <div className="relative bg-white rounded-[1.25rem] overflow-hidden">
                           {/* Subtle pattern overlay */}
                           <div className="absolute inset-0 opacity-[0.02]" style={{
@@ -822,8 +822,8 @@ function Dashboard() {
                             {/* Icon and trend indicator */}
                             <div className="flex items-start justify-between mb-4">
                               <div className="relative">
-                                <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} blur-xl opacity-50`}></div>
-                                <div className={`relative p-3 bg-gradient-to-br ${stat.gradient} rounded-2xl shadow-lg`}>
+                                <div className={`absolute inset-0 bg-gradient-to-br ${stat.id === 'completed' ? 'from-purple-200 to-indigo-300 group-hover:from-purple-300 group-hover:to-indigo-400' : 'from-blue-200 to-cyan-300 group-hover:from-blue-300 group-hover:to-cyan-400'} blur-xl opacity-50 transition-all duration-500`}></div>
+                                <div className={`relative p-3 bg-gradient-to-br ${stat.id === 'completed' ? 'from-purple-300 to-indigo-400 group-hover:from-purple-400 group-hover:to-indigo-500' : 'from-blue-300 to-cyan-400 group-hover:from-blue-400 group-hover:to-cyan-500'} rounded-2xl shadow-lg transition-all duration-500`}>
                                   <stat.icon className="w-5 h-5 text-white" />
                                 </div>
                               </div>
@@ -845,7 +845,7 @@ function Dashboard() {
                             </div>
                             
                             {/* Bottom accent */}
-                            <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${stat.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
+                            <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${stat.id === 'completed' ? 'from-purple-400 to-indigo-500 opacity-60 group-hover:opacity-100' : 'from-blue-400 to-cyan-500 opacity-60 group-hover:opacity-100'} transition-opacity duration-300`}></div>
                           </div>
                         </div>
                       </div>

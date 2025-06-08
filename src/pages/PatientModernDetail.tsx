@@ -725,35 +725,6 @@ Medical Team`;
                           <span className="truncate max-w-[200px]">{patient.email}</span>
                         </div>
                       </div>
-                      
-                      {/* Medical Aid - Simple one row with logo */}
-                      {medicalAid && (
-                        <motion.div 
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.2 }}
-                          className="mt-3 flex items-center gap-3 text-sm"
-                        >
-                          {/* Medical Aid Logo */}
-                          <div className="relative">
-                            <div className="w-12 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-md flex items-center justify-center text-white font-bold text-xs shadow-md">
-                              {medicalAid.provider.includes('NMC') ? 'NMC' : 
-                               medicalAid.provider.includes('NHP') ? 'NHP' :
-                               medicalAid.provider.includes('Nammed') ? 'NAM' :
-                               medicalAid.provider.includes('Gem') ? 'GEM' :
-                               'MA'}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-gray-700">{medicalAid.provider}</span>
-                            <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">
-                              {medicalAid.scheme}
-                            </span>
-                            <span className="text-gray-500">•</span>
-                            <span className="text-gray-600 font-mono">{medicalAid.membership_number}</span>
-                          </div>
-                        </motion.div>
-                      )}
                     </div>
                     
                   </div>
@@ -874,24 +845,24 @@ Medical Team`;
                     whileTap={{ scale: 0.98 }}
                     className="relative group cursor-pointer"
                   >
-                    {/* Grey to color gradient background */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-gray-400 via-gray-500 to-gray-600 group-hover:from-emerald-600 group-hover:via-emerald-500 group-hover:to-green-600 rounded-3xl transform rotate-1 group-hover:rotate-2 transition-all duration-500"></div>
+                    {/* Always emerald gradient background */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-300 via-emerald-400 to-green-400 group-hover:from-emerald-500 group-hover:via-emerald-400 group-hover:to-green-500 rounded-3xl transform rotate-1 group-hover:rotate-2 transition-all duration-500"></div>
                     
                     {/* Main card */}
-                    <div className="relative bg-gradient-to-br from-gray-500 to-gray-600 group-hover:from-emerald-500 group-hover:to-green-600 rounded-3xl p-1 shadow-2xl transition-all duration-500">
+                    <div className="relative bg-gradient-to-br from-emerald-300 to-green-400 group-hover:from-emerald-400 group-hover:to-green-500 rounded-3xl p-1 shadow-2xl transition-all duration-500">
                       <div className="relative bg-white rounded-[1.25rem] overflow-hidden">
                         {/* Subtle pattern overlay */}
                         <div className="absolute inset-0 opacity-[0.02]" style={{
                           backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2310B981' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
                         }}></div>
                         
-                        <div className="relative p-6">
+                        <div className="relative p-4">
                           {/* Icon and indicator */}
-                          <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-start justify-between mb-3">
                             <div className="relative">
-                              <div className="absolute inset-0 bg-gradient-to-br from-gray-400 to-gray-600 group-hover:from-emerald-400 group-hover:to-green-600 blur-xl opacity-50 transition-all duration-500"></div>
-                              <div className="relative p-3 bg-gradient-to-br from-gray-500 to-gray-600 group-hover:from-emerald-500 group-hover:to-green-600 rounded-2xl shadow-lg transition-all duration-500">
-                                <CheckCircle2 className="w-5 h-5 text-white" />
+                              <div className="absolute inset-0 bg-gradient-to-br from-emerald-200 to-green-300 group-hover:from-emerald-300 group-hover:to-green-400 blur-xl opacity-50 transition-all duration-500"></div>
+                              <div className="relative p-2 bg-gradient-to-br from-emerald-300 to-green-400 group-hover:from-emerald-400 group-hover:to-green-500 rounded-2xl shadow-lg transition-all duration-500">
+                                <CheckCircle2 className="w-4 h-4 text-white" />
                               </div>
                             </div>
                             <div className="flex items-center gap-1 text-gray-400 group-hover:text-gray-600 transition-colors">
@@ -903,7 +874,7 @@ Medical Team`;
                           {/* Content */}
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Completed</p>
-                            <p className="text-2xl font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                            <p className="text-xl font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
                               {doctorAppointments.filter(apt => 
                                 apt.doctor_id === currentDoctorId && 
                                 apt.status === 'completed' &&
@@ -914,7 +885,7 @@ Medical Team`;
                           </div>
                           
                           {/* Bottom accent */}
-                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-green-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 to-green-500 opacity-60 group-hover:opacity-100 transition-opacity duration-300"></div>
                         </div>
                       </div>
                     </div>
@@ -926,24 +897,24 @@ Medical Team`;
                     whileTap={{ scale: 0.98 }}
                     className="relative group cursor-pointer"
                   >
-                    {/* Grey to color gradient background */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-gray-400 via-gray-500 to-gray-600 group-hover:from-amber-600 group-hover:via-amber-500 group-hover:to-yellow-600 rounded-3xl transform -rotate-1 group-hover:-rotate-2 transition-all duration-500"></div>
+                    {/* Always amber gradient background */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-300 via-amber-400 to-yellow-400 group-hover:from-amber-500 group-hover:via-amber-400 group-hover:to-yellow-500 rounded-3xl transform -rotate-1 group-hover:-rotate-2 transition-all duration-500"></div>
                     
                     {/* Main card */}
-                    <div className="relative bg-gradient-to-br from-gray-500 to-gray-600 group-hover:from-amber-500 group-hover:to-yellow-600 rounded-3xl p-1 shadow-2xl transition-all duration-500">
+                    <div className="relative bg-gradient-to-br from-amber-300 to-yellow-400 group-hover:from-amber-400 group-hover:to-yellow-500 rounded-3xl p-1 shadow-2xl transition-all duration-500">
                       <div className="relative bg-white rounded-[1.25rem] overflow-hidden">
                         {/* Subtle pattern overlay */}
                         <div className="absolute inset-0 opacity-[0.02]" style={{
                           backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23F59E0B' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
                         }}></div>
                         
-                        <div className="relative p-6">
+                        <div className="relative p-4">
                           {/* Icon and indicator */}
-                          <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-start justify-between mb-3">
                             <div className="relative">
-                              <div className="absolute inset-0 bg-gradient-to-br from-gray-400 to-gray-600 group-hover:from-amber-400 group-hover:to-yellow-600 blur-xl opacity-50 transition-all duration-500"></div>
-                              <div className="relative p-3 bg-gradient-to-br from-gray-500 to-gray-600 group-hover:from-amber-500 group-hover:to-yellow-600 rounded-2xl shadow-lg transition-all duration-500">
-                                <Clock className="w-5 h-5 text-white" />
+                              <div className="absolute inset-0 bg-gradient-to-br from-amber-200 to-yellow-300 group-hover:from-amber-300 group-hover:to-yellow-400 blur-xl opacity-50 transition-all duration-500"></div>
+                              <div className="relative p-2 bg-gradient-to-br from-amber-300 to-yellow-400 group-hover:from-amber-400 group-hover:to-yellow-500 rounded-2xl shadow-lg transition-all duration-500">
+                                <Clock className="w-4 h-4 text-white" />
                               </div>
                             </div>
                             <div className="flex items-center gap-1 text-gray-400 group-hover:text-gray-600 transition-colors">
@@ -955,7 +926,7 @@ Medical Team`;
                           {/* Content */}
                           <div className="space-y-1">
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">In Queue</p>
-                            <p className="text-2xl font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                            <p className="text-xl font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
                               {doctorAppointments.filter(apt => 
                                 (apt.doctor_id === currentDoctorId || (!apt.doctor_id && apt.status === 'ready')) && 
                                 ['scheduled', 'ready'].includes(apt.status) &&
@@ -966,7 +937,7 @@ Medical Team`;
                           </div>
                           
                           {/* Bottom accent */}
-                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-yellow-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 to-yellow-500 opacity-60 group-hover:opacity-100 transition-opacity duration-300"></div>
                         </div>
                       </div>
                     </div>

@@ -206,18 +206,6 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
         </div>
         
         <div className="flex items-center gap-3">
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            className="relative"
-          >
-            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Search records..."
-              className="pl-10 pr-4 py-2.5 text-sm bg-white/80 border border-gray-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#01b9d4]/30 focus:border-[#01b9d4] transition-all backdrop-blur-sm shadow-sm text-gray-700 placeholder:text-gray-400"
-            />
-          </motion.div>
-          
           {/* Quick Actions Menu */}
           <div className="relative">
             <motion.button
@@ -279,8 +267,8 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       </div>
 
       {/* Floating separated tabs */}
-      <div className="relative mb-8">
-        <div className="flex items-center gap-3 relative z-10 transform -translate-y-6">
+      <div className="relative mb-4">
+        <div className="flex items-center gap-3 relative z-10 transform -translate-y-2">
           {tabs.map((tab, index) => {
             const isActive = activeTab === tab.id;
             
@@ -851,11 +839,11 @@ const AIIntelligenceContent: React.FC<{
           className="relative group cursor-pointer"
           onClick={onMedicalAidClick}
         >
-          {/* Grey to color gradient background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-400 via-gray-500 to-gray-600 group-hover:from-blue-600 group-hover:via-blue-500 group-hover:to-indigo-600 rounded-3xl transform rotate-1 group-hover:rotate-2 transition-all duration-500"></div>
+          {/* Always blue gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-300 via-blue-400 to-indigo-400 group-hover:from-blue-500 group-hover:via-blue-400 group-hover:to-indigo-500 rounded-3xl transform rotate-1 group-hover:rotate-2 transition-all duration-500"></div>
           
           {/* Main card */}
-          <div className="relative bg-gradient-to-br from-gray-500 to-gray-600 group-hover:from-blue-500 group-hover:to-indigo-600 rounded-3xl p-1 shadow-2xl transition-all duration-500">
+          <div className="relative bg-gradient-to-br from-blue-300 to-indigo-400 group-hover:from-blue-400 group-hover:to-indigo-500 rounded-3xl p-1 shadow-2xl transition-all duration-500">
             <div className="relative bg-white rounded-[1.25rem] overflow-hidden">
               {/* Subtle pattern overlay */}
               <div className="absolute inset-0 opacity-[0.02]" style={{
@@ -872,8 +860,8 @@ const AIIntelligenceContent: React.FC<{
                 {/* Icon and action */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-gray-400 to-gray-600 group-hover:from-blue-400 group-hover:to-indigo-600 blur-xl opacity-50 transition-all duration-500"></div>
-                    <div className="relative p-3 bg-gradient-to-br from-gray-500 to-gray-600 group-hover:from-blue-500 group-hover:to-indigo-600 rounded-2xl shadow-lg transition-all duration-500">
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-200 to-indigo-300 group-hover:from-blue-300 group-hover:to-indigo-400 blur-xl opacity-50 transition-all duration-500"></div>
+                    <div className="relative p-3 bg-gradient-to-br from-blue-300 to-indigo-400 group-hover:from-blue-400 group-hover:to-indigo-500 rounded-2xl shadow-lg transition-all duration-500">
                       <CreditCard className="w-5 h-5 text-white" />
                     </div>
                   </div>
@@ -893,7 +881,7 @@ const AIIntelligenceContent: React.FC<{
                 </div>
                 
                 {/* Bottom accent */}
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 to-indigo-500 opacity-60 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
             </div>
           </div>
@@ -906,11 +894,11 @@ const AIIntelligenceContent: React.FC<{
           className="relative group cursor-pointer"
           onClick={onSendSms}
         >
-          {/* Grey to color gradient background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-400 via-gray-500 to-gray-600 group-hover:from-purple-600 group-hover:via-purple-500 group-hover:to-pink-600 rounded-3xl transform -rotate-1 group-hover:-rotate-2 transition-all duration-500"></div>
+          {/* Always purple gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-300 via-purple-400 to-pink-400 group-hover:from-purple-500 group-hover:via-purple-400 group-hover:to-pink-500 rounded-3xl transform -rotate-1 group-hover:-rotate-2 transition-all duration-500"></div>
           
           {/* Main card */}
-          <div className="relative bg-gradient-to-br from-gray-500 to-gray-600 group-hover:from-purple-500 group-hover:to-pink-600 rounded-3xl p-1 shadow-2xl transition-all duration-500">
+          <div className="relative bg-gradient-to-br from-purple-300 to-pink-400 group-hover:from-purple-400 group-hover:to-pink-500 rounded-3xl p-1 shadow-2xl transition-all duration-500">
             <div className="relative bg-white rounded-[1.25rem] overflow-hidden">
               {/* Subtle pattern overlay */}
               <div className="absolute inset-0 opacity-[0.02]" style={{
@@ -927,8 +915,8 @@ const AIIntelligenceContent: React.FC<{
                 {/* Icon and SMS button */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-gray-400 to-gray-600 group-hover:from-purple-400 group-hover:to-pink-600 blur-xl opacity-50 transition-all duration-500"></div>
-                    <div className="relative p-3 bg-gradient-to-br from-gray-500 to-gray-600 group-hover:from-purple-500 group-hover:to-pink-600 rounded-2xl shadow-lg transition-all duration-500">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-200 to-pink-300 group-hover:from-purple-300 group-hover:to-pink-400 blur-xl opacity-50 transition-all duration-500"></div>
+                    <div className="relative p-3 bg-gradient-to-br from-purple-300 to-pink-400 group-hover:from-purple-400 group-hover:to-pink-500 rounded-2xl shadow-lg transition-all duration-500">
                       <Heart className="w-5 h-5 text-white" />
                     </div>
                   </div>
@@ -952,7 +940,7 @@ const AIIntelligenceContent: React.FC<{
                 </div>
                 
                 {/* Bottom accent */}
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-400 to-pink-500 opacity-60 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
             </div>
           </div>
@@ -965,11 +953,11 @@ const AIIntelligenceContent: React.FC<{
           className="relative group cursor-pointer"
           onClick={onBillingClick}
         >
-          {/* Bank card style background with slight rotation */}
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-400 via-gray-500 to-gray-600 group-hover:from-emerald-600 group-hover:via-emerald-500 group-hover:to-teal-600 rounded-2xl transform rotate-1 group-hover:rotate-2 transition-all duration-500"></div>
+          {/* Bank card style background with slight rotation - always emerald */}
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-300 via-emerald-400 to-teal-400 group-hover:from-emerald-500 group-hover:via-emerald-400 group-hover:to-teal-500 rounded-2xl transform rotate-1 group-hover:rotate-2 transition-all duration-500"></div>
           
           {/* Main bank card */}
-          <div className="relative bg-gradient-to-br from-gray-500 to-gray-600 group-hover:from-emerald-500 group-hover:to-teal-600 rounded-2xl p-1 shadow-2xl transition-all duration-500">
+          <div className="relative bg-gradient-to-br from-emerald-300 to-teal-400 group-hover:from-emerald-400 group-hover:to-teal-500 rounded-2xl p-1 shadow-2xl transition-all duration-500">
             <div className="relative bg-white rounded-[1.25rem] overflow-hidden">
               {/* Subtle pattern overlay */}
               <div className="absolute inset-0 opacity-[0.02]" style={{
@@ -986,8 +974,8 @@ const AIIntelligenceContent: React.FC<{
                 {/* Bank card style icon and chip */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-br from-gray-400 to-gray-600 group-hover:from-emerald-400 group-hover:to-teal-600 blur-xl opacity-50 transition-all duration-500"></div>
-                    <div className="relative p-3 bg-gradient-to-br from-gray-500 to-gray-600 group-hover:from-emerald-500 group-hover:to-teal-600 rounded-lg shadow-lg transition-all duration-500">
+                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-200 to-teal-300 group-hover:from-emerald-300 group-hover:to-teal-400 blur-xl opacity-50 transition-all duration-500"></div>
+                    <div className="relative p-3 bg-gradient-to-br from-emerald-300 to-teal-400 group-hover:from-emerald-400 group-hover:to-teal-500 rounded-lg shadow-lg transition-all duration-500">
                       <CreditCard className="w-5 h-5 text-white" />
                     </div>
                   </div>
@@ -1007,7 +995,7 @@ const AIIntelligenceContent: React.FC<{
                 </div>
                 
                 {/* Bottom accent */}
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 to-teal-500 opacity-60 group-hover:opacity-100 transition-opacity duration-300"></div>
               </div>
             </div>
           </div>
