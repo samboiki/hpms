@@ -209,11 +209,6 @@ Action:
 Screenshot the result using Puppeteer. 
 Iterate until it visually matches the mock.
 
-## Database Context
-
-### Connection Details
-- URL: https://jjxlfunlbyayxwvlpgwt.supabase.co
-- Project Ref: jjxlfunlbyayxwvlpgwt
 
 ### Core Tables and Relationships
 
