@@ -55,7 +55,21 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({
         setIsLoading(true);
         setError(null);
 
-        // Fetch practice tariffs - if empty, use sample data
+        // First, get practice information to determine type
+        const { data: practiceData, error: practiceError } = await supabase
+          .from('practices')
+          .select('id, name, practice_type, practice_subtypes')
+          .eq('id', practiceId)
+          .single();
+
+        if (practiceError) {
+          console.warn('Error fetching practice info:', practiceError);
+        }
+
+        const practiceType = practiceData?.practice_type || 'medical';
+        console.log(`🏥 Practice: ${practiceData?.name} (Type: ${practiceType})`);
+
+        // Fetch practice tariffs based on practice type
         let tariffs = [];
         const { data: fetchedTariffs, error: tariffsError } = await supabase
           .from('practice_tariffs')
@@ -69,12 +83,13 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({
           console.warn('Error fetching tariffs:', tariffsError);
         }
 
-        // Use fetched tariffs or fall back to ACTUAL dental codes from Excel file
+        // Use fetched tariffs or fall back to practice-type appropriate codes
         if (fetchedTariffs && fetchedTariffs.length > 0) {
           tariffs = fetchedTariffs;
-        } else {
-          // ACTUAL dental codes from dentalpractice_codes_2025.xlsx
-          console.log('Using ACTUAL dental codes from Excel file (128 codes)');
+          console.log(`✅ Found ${fetchedTariffs.length} tariffs in database`);
+        } else if (practiceType === 'dental' || practiceType === 'aesthetic') {
+          // ACTUAL dental codes from dentalpractice_codes_2025.xlsx (only for dental/aesthetic practices)
+          console.log('🦷 Using dental codes for dental/aesthetic practice (128 codes)');
           tariffs = [
             // Consultation & Examination
             { id: '004', code: '004', price: 135.00, namaf_prace_2025: 'Emergency oral examination', category: 'Consultation & Examination', subcategory: 'Emergency', practice_type: 'dental', unit: 'per_visit', is_active: true, effective_from: new Date().toISOString() },
@@ -158,6 +173,38 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({
             { id: '803', code: '803', price: 185.00, namaf_prace_2025: 'Sealant per tooth', category: 'Pediatric Dentistry', subcategory: 'Preventive', practice_type: 'dental', unit: 'per_visit', is_active: true, effective_from: new Date().toISOString() },
             { id: '811', code: '811', price: 185.00, namaf_prace_2025: 'Primary tooth filling', category: 'Pediatric Dentistry', subcategory: 'Restorative', practice_type: 'dental', unit: 'per_visit', is_active: true, effective_from: new Date().toISOString() },
             { id: '821', code: '821', price: 185.00, namaf_prace_2025: 'Primary tooth extraction', category: 'Pediatric Dentistry', subcategory: 'Surgery', practice_type: 'dental', unit: 'per_visit', is_active: true, effective_from: new Date().toISOString() }
+          ];
+        } else {
+          // General medical codes for medical practices
+          console.log('🏥 Using general medical codes for medical practice');
+          tariffs = [
+            // General Consultations
+            { id: 'M001', code: 'M001', price: 450.00, namaf_prace_2025: 'General consultation', category: 'Consultation', subcategory: 'General', practice_type: 'medical', unit: 'per_visit', is_active: true, effective_from: new Date().toISOString() },
+            { id: 'M002', code: 'M002', price: 350.00, namaf_prace_2025: 'Follow-up consultation', category: 'Consultation', subcategory: 'Follow-up', practice_type: 'medical', unit: 'per_visit', is_active: true, effective_from: new Date().toISOString() },
+            { id: 'M003', code: 'M003', price: 650.00, namaf_prace_2025: 'Emergency consultation', category: 'Emergency', subcategory: 'Consultation', practice_type: 'medical', unit: 'per_visit', is_active: true, effective_from: new Date().toISOString() },
+            { id: 'M004', code: 'M004', price: 850.00, namaf_prace_2025: 'Specialist consultation', category: 'Consultation', subcategory: 'Specialist', practice_type: 'medical', unit: 'per_visit', is_active: true, effective_from: new Date().toISOString() },
+            
+            // Diagnostic Procedures
+            { id: 'M101', code: 'M101', price: 250.00, namaf_prace_2025: 'Basic health screening', category: 'Diagnostic', subcategory: 'Screening', practice_type: 'medical', unit: 'per_test', is_active: true, effective_from: new Date().toISOString() },
+            { id: 'M102', code: 'M102', price: 180.00, namaf_prace_2025: 'Blood pressure check', category: 'Diagnostic', subcategory: 'Vitals', practice_type: 'medical', unit: 'per_test', is_active: true, effective_from: new Date().toISOString() },
+            { id: 'M103', code: 'M103', price: 320.00, namaf_prace_2025: 'ECG (Electrocardiogram)', category: 'Diagnostic', subcategory: 'Cardiac', practice_type: 'medical', unit: 'per_test', is_active: true, effective_from: new Date().toISOString() },
+            { id: 'M104', code: 'M104', price: 450.00, namaf_prace_2025: 'Basic blood test panel', category: 'Diagnostic', subcategory: 'Laboratory', practice_type: 'medical', unit: 'per_test', is_active: true, effective_from: new Date().toISOString() },
+            
+            // Preventive Care
+            { id: 'M201', code: 'M201', price: 380.00, namaf_prace_2025: 'Annual physical examination', category: 'Preventive', subcategory: 'Annual Care', practice_type: 'medical', unit: 'per_visit', is_active: true, effective_from: new Date().toISOString() },
+            { id: 'M202', code: 'M202', price: 280.00, namaf_prace_2025: 'Vaccination administration', category: 'Preventive', subcategory: 'Immunization', practice_type: 'medical', unit: 'per_injection', is_active: true, effective_from: new Date().toISOString() },
+            { id: 'M203', code: 'M203', price: 350.00, namaf_prace_2025: 'Health education session', category: 'Preventive', subcategory: 'Education', practice_type: 'medical', unit: 'per_session', is_active: true, effective_from: new Date().toISOString() },
+            
+            // Minor Procedures
+            { id: 'M301', code: 'M301', price: 185.00, namaf_prace_2025: 'Wound dressing change', category: 'Minor Procedures', subcategory: 'Wound Care', practice_type: 'medical', unit: 'per_procedure', is_active: true, effective_from: new Date().toISOString() },
+            { id: 'M302', code: 'M302', price: 280.00, namaf_prace_2025: 'Suture removal', category: 'Minor Procedures', subcategory: 'Wound Care', practice_type: 'medical', unit: 'per_procedure', is_active: true, effective_from: new Date().toISOString() },
+            { id: 'M303', code: 'M303', price: 450.00, namaf_prace_2025: 'Minor lesion removal', category: 'Minor Procedures', subcategory: 'Surgery', practice_type: 'medical', unit: 'per_procedure', is_active: true, effective_from: new Date().toISOString() },
+            { id: 'M304', code: 'M304', price: 220.00, namaf_prace_2025: 'Injection (intramuscular)', category: 'Minor Procedures', subcategory: 'Injection', practice_type: 'medical', unit: 'per_injection', is_active: true, effective_from: new Date().toISOString() },
+            
+            // Chronic Care Management
+            { id: 'M401', code: 'M401', price: 680.00, namaf_prace_2025: 'Diabetes management consultation', category: 'Chronic Care', subcategory: 'Diabetes', practice_type: 'medical', unit: 'per_visit', is_active: true, effective_from: new Date().toISOString() },
+            { id: 'M402', code: 'M402', price: 580.00, namaf_prace_2025: 'Hypertension management', category: 'Chronic Care', subcategory: 'Cardiovascular', practice_type: 'medical', unit: 'per_visit', is_active: true, effective_from: new Date().toISOString() },
+            { id: 'M403', code: 'M403', price: 750.00, namaf_prace_2025: 'Asthma/COPD management', category: 'Chronic Care', subcategory: 'Respiratory', practice_type: 'medical', unit: 'per_visit', is_active: true, effective_from: new Date().toISOString() }
           ];
         }
 
