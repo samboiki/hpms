@@ -856,36 +856,36 @@ Medical Team`;
                           backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2310B981' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
                         }}></div>
                         
-                        <div className="relative p-4">
+                        <div className="relative p-3">
                           {/* Icon and indicator */}
-                          <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-start justify-between mb-2">
                             <div className="relative">
                               <div className="absolute inset-0 bg-gradient-to-br from-emerald-200 to-green-300 group-hover:from-emerald-300 group-hover:to-green-400 blur-xl opacity-50 transition-all duration-500"></div>
-                              <div className="relative p-2 bg-gradient-to-br from-emerald-300 to-green-400 group-hover:from-emerald-400 group-hover:to-green-500 rounded-2xl shadow-lg transition-all duration-500">
-                                <CheckCircle2 className="w-4 h-4 text-white" />
+                              <div className="relative p-1.5 bg-gradient-to-br from-emerald-300 to-green-400 group-hover:from-emerald-400 group-hover:to-green-500 rounded-xl shadow-lg transition-all duration-500">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
                               </div>
                             </div>
                             <div className="flex items-center gap-1 text-gray-400 group-hover:text-gray-600 transition-colors">
-                              <span className="text-xs font-medium">Today</span>
-                              <ChevronRight className="w-3 h-3" />
+                              <span className="text-[10px] font-medium">Today</span>
+                              <ChevronRight className="w-2.5 h-2.5" />
                             </div>
                           </div>
                           
                           {/* Content */}
-                          <div className="space-y-1">
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Completed</p>
-                            <p className="text-xl font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          <div className="space-y-0.5">
+                            <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Completed</p>
+                            <p className="text-lg font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
                               {doctorAppointments.filter(apt => 
                                 apt.doctor_id === currentDoctorId && 
                                 apt.status === 'completed' &&
                                 apt.date === format(new Date(), 'yyyy-MM-dd')
                               ).length}
                             </p>
-                            <p className="text-sm text-gray-600 font-medium">Visits today</p>
+                            <p className="text-xs text-gray-600 font-medium">Visits today</p>
                           </div>
                           
                           {/* Bottom accent */}
-                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 to-green-500 opacity-60 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-400 to-green-500 opacity-60 group-hover:opacity-100 transition-opacity duration-300"></div>
                         </div>
                       </div>
                     </div>
@@ -908,36 +908,36 @@ Medical Team`;
                           backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23F59E0B' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
                         }}></div>
                         
-                        <div className="relative p-4">
+                        <div className="relative p-3">
                           {/* Icon and indicator */}
-                          <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-start justify-between mb-2">
                             <div className="relative">
                               <div className="absolute inset-0 bg-gradient-to-br from-amber-200 to-yellow-300 group-hover:from-amber-300 group-hover:to-yellow-400 blur-xl opacity-50 transition-all duration-500"></div>
-                              <div className="relative p-2 bg-gradient-to-br from-amber-300 to-yellow-400 group-hover:from-amber-400 group-hover:to-yellow-500 rounded-2xl shadow-lg transition-all duration-500">
-                                <Clock className="w-4 h-4 text-white" />
+                              <div className="relative p-1.5 bg-gradient-to-br from-amber-300 to-yellow-400 group-hover:from-amber-400 group-hover:to-yellow-500 rounded-xl shadow-lg transition-all duration-500">
+                                <Clock className="w-3.5 h-3.5 text-white" />
                               </div>
                             </div>
                             <div className="flex items-center gap-1 text-gray-400 group-hover:text-gray-600 transition-colors">
-                              <span className="text-xs font-medium">Waiting</span>
-                              <ChevronRight className="w-3 h-3" />
+                              <span className="text-[10px] font-medium">Waiting</span>
+                              <ChevronRight className="w-2.5 h-2.5" />
                             </div>
                           </div>
                           
                           {/* Content */}
-                          <div className="space-y-1">
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">In Queue</p>
-                            <p className="text-xl font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          <div className="space-y-0.5">
+                            <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">In Queue</p>
+                            <p className="text-lg font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
                               {doctorAppointments.filter(apt => 
                                 (apt.doctor_id === currentDoctorId || (!apt.doctor_id && apt.status === 'ready')) && 
                                 ['scheduled', 'ready'].includes(apt.status) &&
                                 apt.date === format(new Date(), 'yyyy-MM-dd')
                               ).length}
                             </p>
-                            <p className="text-sm text-gray-600 font-medium">Patients waiting</p>
+                            <p className="text-xs text-gray-600 font-medium">Patients waiting</p>
                           </div>
                           
                           {/* Bottom accent */}
-                          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 to-yellow-500 opacity-60 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-400 to-yellow-500 opacity-60 group-hover:opacity-100 transition-opacity duration-300"></div>
                         </div>
                       </div>
                     </div>
