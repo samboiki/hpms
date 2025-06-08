@@ -376,17 +376,8 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
           })}
         </div>
         
-        {/* Content container with emergency contact card style border */}
-        <div className={`bg-white rounded-3xl shadow-2xl relative z-10 p-1 transition-all duration-300 ${
-          activeTab === 'ai-intelligence' ? 'bg-gradient-to-br from-purple-500 to-pink-600' :
-          activeTab === 'encounters' ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
-          activeTab === 'vitals' ? 'bg-gradient-to-br from-red-500 to-rose-600' :
-          activeTab === 'results' ? 'bg-gradient-to-br from-purple-500 to-violet-600' :
-          activeTab === 'documents' ? 'bg-gradient-to-br from-amber-500 to-orange-600' :
-          activeTab === 'billing' ? 'bg-gradient-to-br from-teal-500 to-cyan-600' :
-          activeTab === 'audit' ? 'bg-gradient-to-br from-slate-500 to-gray-600' :
-          'bg-gradient-to-br from-purple-500 to-pink-600'
-        }`}>
+        {/* Content container with subtle gradient */}
+        <div className="bg-gradient-to-br from-gray-50 to-white rounded-3xl shadow-2xl relative z-10 border border-gray-100/50">
           <div className="bg-white rounded-[1.25rem] overflow-hidden">
           <div className="p-6">
             <AnimatePresence mode="wait">

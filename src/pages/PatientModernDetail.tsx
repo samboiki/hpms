@@ -841,51 +841,45 @@ Medical Team`;
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   {/* Completed Card - Premium Style */}
                   <motion.div
-                    whileHover={{ y: -4, scale: 1.01 }}
-                    whileTap={{ scale: 0.99 }}
                     className="relative group cursor-pointer"
                   >
-                    {/* Always emerald gradient background */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-300 via-emerald-400 to-green-400 group-hover:from-emerald-500 group-hover:via-emerald-400 group-hover:to-green-500 rounded-2xl transform rotate-1 group-hover:rotate-2 transition-all duration-500"></div>
+                    {/* Always dark teal gradient background */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-teal-500 via-teal-400 to-cyan-500 rounded-2xl"></div>
                     
                     {/* Main card */}
-                    <div className="relative bg-gradient-to-br from-emerald-300 to-green-400 group-hover:from-emerald-400 group-hover:to-green-500 rounded-2xl p-0.5 shadow-xl transition-all duration-500">
+                    <div className="relative bg-gradient-to-br from-teal-400 to-cyan-500 rounded-2xl p-0.5 shadow-xl">
                       <div className="relative bg-white rounded-[1rem] overflow-hidden">
                         {/* Subtle pattern overlay */}
                         <div className="absolute inset-0 opacity-[0.02]" style={{
-                          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2310B981' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2314B8A6' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
                         }}></div>
                         
                         <div className="relative p-2.5">
-                          {/* Icon and indicator */}
-                          <div className="flex items-start justify-between mb-1.5">
-                            <div className="relative">
-                              <div className="absolute inset-0 bg-gradient-to-br from-emerald-200 to-green-300 group-hover:from-emerald-300 group-hover:to-green-400 blur-xl opacity-50 transition-all duration-500"></div>
-                              <div className="relative p-1 bg-gradient-to-br from-emerald-300 to-green-400 group-hover:from-emerald-400 group-hover:to-green-500 rounded-lg shadow-lg transition-all duration-500">
-                                <CheckCircle2 className="w-3 h-3 text-white" />
+                          {/* Simplified layout with icon and number side by side */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="relative">
+                                <div className="absolute inset-0 bg-gradient-to-br from-teal-300 to-cyan-400 blur-xl opacity-50"></div>
+                                <div className="relative p-1 bg-gradient-to-br from-teal-400 to-cyan-500 rounded-lg shadow-lg">
+                                  <CheckCircle2 className="w-3 h-3 text-white" />
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-lg font-black text-gray-900 leading-none" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                                  {doctorAppointments.filter(apt => 
+                                    apt.doctor_id === currentDoctorId && 
+                                    apt.status === 'completed' &&
+                                    apt.date === format(new Date(), 'yyyy-MM-dd')
+                                  ).length}
+                                </p>
+                                <p className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">Completed</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-0.5 text-gray-400 group-hover:text-gray-600 transition-colors">
-                              <span className="text-[9px] font-medium">Today</span>
-                              <ChevronRight className="w-2 h-2" />
-                            </div>
-                          </div>
-                          
-                          {/* Content */}
-                          <div className="space-y-0">
-                            <p className="text-[9px] font-medium text-gray-500 uppercase tracking-wider">Completed</p>
-                            <p className="text-base font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                              {doctorAppointments.filter(apt => 
-                                apt.doctor_id === currentDoctorId && 
-                                apt.status === 'completed' &&
-                                apt.date === format(new Date(), 'yyyy-MM-dd')
-                              ).length}
-                            </p>
-                            <p className="text-[11px] text-gray-600 font-medium">Visits today</p>
+                            <ChevronRight className="w-3 h-3 text-gray-600" />
                           </div>
                           
                           {/* Bottom accent */}
-                          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-400 to-green-500 opacity-60 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-teal-400 to-cyan-500"></div>
                         </div>
                       </div>
                     </div>
@@ -893,15 +887,13 @@ Medical Team`;
                   
                   {/* In Queue Card - Premium Style */}
                   <motion.div
-                    whileHover={{ y: -4, scale: 1.01 }}
-                    whileTap={{ scale: 0.99 }}
                     className="relative group cursor-pointer"
                   >
-                    {/* Always amber gradient background */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-amber-300 via-amber-400 to-yellow-400 group-hover:from-amber-500 group-hover:via-amber-400 group-hover:to-yellow-500 rounded-2xl transform -rotate-1 group-hover:-rotate-2 transition-all duration-500"></div>
+                    {/* Always dark amber gradient background */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500 via-amber-400 to-orange-500 rounded-2xl"></div>
                     
                     {/* Main card */}
-                    <div className="relative bg-gradient-to-br from-amber-300 to-yellow-400 group-hover:from-amber-400 group-hover:to-yellow-500 rounded-2xl p-0.5 shadow-xl transition-all duration-500">
+                    <div className="relative bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl p-0.5 shadow-xl">
                       <div className="relative bg-white rounded-[1rem] overflow-hidden">
                         {/* Subtle pattern overlay */}
                         <div className="absolute inset-0 opacity-[0.02]" style={{
@@ -909,35 +901,31 @@ Medical Team`;
                         }}></div>
                         
                         <div className="relative p-2.5">
-                          {/* Icon and indicator */}
-                          <div className="flex items-start justify-between mb-1.5">
-                            <div className="relative">
-                              <div className="absolute inset-0 bg-gradient-to-br from-amber-200 to-yellow-300 group-hover:from-amber-300 group-hover:to-yellow-400 blur-xl opacity-50 transition-all duration-500"></div>
-                              <div className="relative p-1 bg-gradient-to-br from-amber-300 to-yellow-400 group-hover:from-amber-400 group-hover:to-yellow-500 rounded-lg shadow-lg transition-all duration-500">
-                                <Clock className="w-3 h-3 text-white" />
+                          {/* Simplified layout with icon and number side by side */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="relative">
+                                <div className="absolute inset-0 bg-gradient-to-br from-amber-300 to-orange-400 blur-xl opacity-50"></div>
+                                <div className="relative p-1 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg shadow-lg">
+                                  <Clock className="w-3 h-3 text-white" />
+                                </div>
+                              </div>
+                              <div>
+                                <p className="text-lg font-black text-gray-900 leading-none" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                                  {doctorAppointments.filter(apt => 
+                                    (apt.doctor_id === currentDoctorId || (!apt.doctor_id && apt.status === 'ready')) && 
+                                    ['scheduled', 'ready'].includes(apt.status) &&
+                                    apt.date === format(new Date(), 'yyyy-MM-dd')
+                                  ).length}
+                                </p>
+                                <p className="text-[10px] font-medium text-gray-600 uppercase tracking-wide">In Queue</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-0.5 text-gray-400 group-hover:text-gray-600 transition-colors">
-                              <span className="text-[9px] font-medium">Waiting</span>
-                              <ChevronRight className="w-2 h-2" />
-                            </div>
-                          </div>
-                          
-                          {/* Content */}
-                          <div className="space-y-0">
-                            <p className="text-[9px] font-medium text-gray-500 uppercase tracking-wider">In Queue</p>
-                            <p className="text-base font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                              {doctorAppointments.filter(apt => 
-                                (apt.doctor_id === currentDoctorId || (!apt.doctor_id && apt.status === 'ready')) && 
-                                ['scheduled', 'ready'].includes(apt.status) &&
-                                apt.date === format(new Date(), 'yyyy-MM-dd')
-                              ).length}
-                            </p>
-                            <p className="text-[11px] text-gray-600 font-medium">Patients waiting</p>
+                            <ChevronRight className="w-3 h-3 text-gray-600" />
                           </div>
                           
                           {/* Bottom accent */}
-                          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-400 to-yellow-500 opacity-60 group-hover:opacity-100 transition-opacity duration-300"></div>
+                          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-400 to-orange-500"></div>
                         </div>
                       </div>
                     </div>

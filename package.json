@@ -30,6 +30,7 @@
     "@tanstack/react-query": "^5.28.4",
     "@tanstack/react-query-devtools": "^5.28.4",
     "clsx": "^2.1.0",
+    "csv-parser": "^3.2.0",
     "date-fns": "^2.30.0",
     "framer-motion": "^11.18.2",
     "lucide-react": "^0.344.0",
@@ -45,6 +46,7 @@
     "react-router-dom": "^6.22.3",
     "recharts": "^2.15.3",
     "tailwind-merge": "^2.2.1",
+    "xlsx": "^0.18.5",
     "zustand": "^4.5.2"
   },
   "devDependencies": {

@@ -1,118 +1,267 @@
--- Import Comprehensive Dental Tariffs for General Dental Practitioners
--- Execute this after the main migration is complete
+-- =====================================================
+-- DENTAL PRACTICE CODES IMPORT SCRIPT
+-- Version: 1.0
+-- Date: 2025-06-08
+-- Purpose: Import comprehensive dental tariffs into practice_tariffs table
+-- Source: 2025_Dental_Pricing_Table.csv
+-- =====================================================
 
--- First, add practice_type and practice_subtypes to practices table if not already added
-ALTER TABLE practices ADD COLUMN IF NOT EXISTS practice_type TEXT DEFAULT 'general';
-ALTER TABLE practices ADD COLUMN IF NOT EXISTS practice_subtypes TEXT[] DEFAULT ARRAY['General Practice'];
+-- First, let's clear any existing dental tariffs to prevent conflicts
+DELETE FROM practice_tariffs 
+WHERE practice_type = 'dental' OR practice_type IS NULL;
 
--- Update Dr. Polina practice to be aesthetic type
-UPDATE practices 
-SET practice_type = 'aesthetic', 
-    practice_subtypes = ARRAY['Aesthetic Medicine', 'Cosmetic Procedures']
-WHERE slug = 'dr-polina';
+-- Create a temporary table to hold the dental codes data
+CREATE TEMP TABLE temp_dental_codes (
+  category TEXT,
+  subcategory TEXT,
+  code TEXT,
+  description TEXT,
+  price DECIMAL(10,2),
+  complexity TEXT,
+  notes TEXT
+);
 
--- Insert comprehensive dental tariffs for all practices with dental type
-INSERT INTO practice_tariffs (
-  practice_id, code, price, namaf_prace_2025, edi_diagnosi, full_description, 
-  practice_type, practice_subtypes, category, subcategory
-) 
+-- Insert the dental codes data from CSV
+-- Note: This would typically be done via COPY command or application import
+-- For manual execution, we'll insert the key dental codes directly
+
+INSERT INTO temp_dental_codes (category, subcategory, code, description, price, complexity, notes) VALUES
+-- Consultation & Examination
+('Consultation & Examination', 'Emergency', '004', 'Emergency oral examination', 135.00, 'Simple', ''),
+('Consultation & Examination', 'Emergency', '005', 'Emergency examination after hours', 185.00, 'Simple', ''),
+('Consultation & Examination', 'Follow-up', '009', 'Post-operative examination', 45.00, 'Simple', ''),
+('Consultation & Examination', 'Follow-up', '003', 'Limited oral examination - problem focused', 55.00, 'Simple', ''),
+('Consultation & Examination', 'Follow-up', '002', 'Periodic oral examination', 65.00, 'Simple', ''),
+('Consultation & Examination', 'Follow-up', '008', 'Pre-operative consultation', 85.00, 'Simple', ''),
+('Consultation & Examination', 'Initial Consultation', '001', 'Initial comprehensive oral examination', 95.00, 'Simple', ''),
+('Consultation & Examination', 'Specialist', '010', 'Oral cancer screening', 115.00, 'Moderate', ''),
+('Consultation & Examination', 'Specialist', '007', 'Second opinion consultation', 125.00, 'Simple', ''),
+('Consultation & Examination', 'Specialist', '006', 'Specialist consultation', 155.00, 'Moderate', ''),
+
+-- Cosmetic Procedures
+('Cosmetic', 'Bonding', '922', 'Tooth reshaping per tooth', 185.00, 'Simple', ''),
+('Cosmetic', 'Bonding', '921', 'Cosmetic bonding per tooth', 325.00, 'Simple', ''),
+('Cosmetic', 'Consultation', '931', 'Smile makeover consultation', 185.00, 'Simple', ''),
+('Cosmetic', 'Digital Services', '932', 'Digital smile design', 385.00, 'Moderate', ''),
+('Cosmetic', 'Veneers', '913', 'Veneer consultation and mockup', 285.00, 'Simple', ''),
+('Cosmetic', 'Veneers', '912', 'Composite veneer per tooth', 785.00, 'Moderate', ''),
+('Cosmetic', 'Veneers', '911', 'Porcelain veneer per tooth', 1685.00, 'Moderate', ''),
+('Cosmetic', 'Whitening', '903', 'Whitening maintenance kit', 185.00, 'Simple', ''),
+('Cosmetic', 'Whitening', '902', 'Take-home whitening kit', 385.00, 'Simple', ''),
+('Cosmetic', 'Whitening', '901', 'Professional in-office whitening', 785.00, 'Moderate', ''),
+
+-- Restorative Procedures
+('Restorative', 'Fillings', '211', 'Amalgam filling - 1 surface', 185.00, 'Simple', ''),
+('Restorative', 'Fillings', '212', 'Amalgam filling - 2 surfaces', 225.00, 'Simple', ''),
+('Restorative', 'Fillings', '213', 'Amalgam filling - 3+ surfaces', 285.00, 'Moderate', ''),
+('Restorative', 'Fillings', '221', 'Composite filling - anterior 1 surface', 225.00, 'Simple', ''),
+('Restorative', 'Fillings', '222', 'Composite filling - anterior 2 surfaces', 285.00, 'Simple', ''),
+('Restorative', 'Fillings', '223', 'Composite filling - anterior 3+ surfaces', 385.00, 'Moderate', ''),
+('Restorative', 'Fillings', '231', 'Composite filling - posterior 1 surface', 285.00, 'Simple', ''),
+('Restorative', 'Fillings', '232', 'Composite filling - posterior 2 surfaces', 385.00, 'Moderate', ''),
+('Restorative', 'Fillings', '233', 'Composite filling - posterior 3+ surfaces', 485.00, 'Moderate', ''),
+
+-- Crown and Bridge
+('Restorative', 'Crowns', '271', 'Porcelain fused to metal crown', 1885.00, 'Complex', ''),
+('Restorative', 'Crowns', '272', 'All ceramic crown', 2185.00, 'Complex', ''),
+('Restorative', 'Crowns', '273', 'Gold crown', 2485.00, 'Complex', ''),
+('Restorative', 'Crowns', '274', 'Temporary crown', 385.00, 'Simple', ''),
+('Restorative', 'Bridge', '281', 'Pontic - porcelain fused to metal', 1685.00, 'Complex', ''),
+('Restorative', 'Bridge', '282', 'Pontic - all ceramic', 1885.00, 'Complex', ''),
+
+-- Endodontics
+('Endodontics', 'Root Canal', '331', 'Root canal - anterior tooth', 1285.00, 'Complex', ''),
+('Endodontics', 'Root Canal', '332', 'Root canal - premolar', 1485.00, 'Complex', ''),
+('Endodontics', 'Root Canal', '333', 'Root canal - molar', 1885.00, 'Complex', ''),
+('Endodontics', 'Emergency', '334', 'Pulpotomy - emergency', 485.00, 'Moderate', ''),
+('Endodontics', 'Post Treatment', '335', 'Post and core buildup', 685.00, 'Moderate', ''),
+
+-- Periodontics
+('Periodontics', 'Cleaning', '411', 'Routine prophylaxis', 285.00, 'Simple', ''),
+('Periodontics', 'Cleaning', '412', 'Deep cleaning - per quadrant', 485.00, 'Moderate', ''),
+('Periodontics', 'Surgery', '421', 'Gingivectomy - per quadrant', 785.00, 'Complex', ''),
+('Periodontics', 'Surgery', '422', 'Periodontal flap surgery - per quadrant', 1285.00, 'Complex', ''),
+
+-- Oral Surgery
+('Oral Surgery', 'Extractions', '501', 'Simple extraction', 285.00, 'Simple', ''),
+('Oral Surgery', 'Extractions', '502', 'Surgical extraction', 485.00, 'Moderate', ''),
+('Oral Surgery', 'Extractions', '503', 'Wisdom tooth extraction - simple', 585.00, 'Moderate', ''),
+('Oral Surgery', 'Extractions', '504', 'Wisdom tooth extraction - surgical', 885.00, 'Complex', ''),
+('Oral Surgery', 'Advanced', '511', 'Bone grafting - small', 1285.00, 'Complex', ''),
+('Oral Surgery', 'Advanced', '512', 'Sinus lift', 2485.00, 'Complex', ''),
+
+-- Prosthodontics
+('Prosthodontics', 'Dentures', '601', 'Complete upper denture', 3485.00, 'Complex', ''),
+('Prosthodontics', 'Dentures', '602', 'Complete lower denture', 3485.00, 'Complex', ''),
+('Prosthodontics', 'Dentures', '603', 'Partial denture - acrylic', 2185.00, 'Moderate', ''),
+('Prosthodontics', 'Dentures', '604', 'Partial denture - cast metal', 2885.00, 'Complex', ''),
+('Prosthodontics', 'Implants', '621', 'Single implant placement', 4885.00, 'Complex', ''),
+('Prosthodontics', 'Implants', '622', 'Implant crown', 2885.00, 'Complex', ''),
+
+-- Orthodontics
+('Orthodontics', 'Consultation', '701', 'Orthodontic consultation', 285.00, 'Simple', ''),
+('Orthodontics', 'Treatment', '711', 'Metal braces - full treatment', 18500.00, 'Complex', ''),
+('Orthodontics', 'Treatment', '712', 'Ceramic braces - full treatment', 22500.00, 'Complex', ''),
+('Orthodontics', 'Treatment', '713', 'Invisalign - full treatment', 28500.00, 'Complex', ''),
+('Orthodontics', 'Appliances', '721', 'Retainer - upper or lower', 785.00, 'Simple', ''),
+
+-- Pediatric Dentistry
+('Pediatric', 'Preventive', '801', 'Child prophylaxis', 185.00, 'Simple', ''),
+('Pediatric', 'Preventive', '802', 'Fluoride treatment', 125.00, 'Simple', ''),
+('Pediatric', 'Preventive', '803', 'Sealant per tooth', 185.00, 'Simple', ''),
+('Pediatric', 'Restorative', '811', 'Primary tooth filling', 185.00, 'Simple', ''),
+('Pediatric', 'Surgery', '821', 'Primary tooth extraction', 185.00, 'Simple', '');
+
+-- Now insert these codes for all existing dental and aesthetic practices
+-- If no practices exist, we'll create a sample one
+DO $$
+DECLARE
+    practice_record RECORD;
+    practice_count INTEGER;
+    new_practice_id UUID;
+BEGIN
+    -- Check if we have any practices
+    SELECT COUNT(*) INTO practice_count 
+    FROM practices 
+    WHERE practice_type IN ('dental', 'aesthetic') OR practice_type IS NULL;
+    
+    -- If no practices, create a sample dental practice
+    IF practice_count = 0 THEN
+        INSERT INTO practices (
+            name, 
+            slug, 
+            practice_type, 
+            city, 
+            contact_email, 
+            contact_phone,
+            address,
+            description
+        ) VALUES (
+            'Namibian Dental Excellence',
+            'namibian-dental-excellence',
+            'dental',
+            'Windhoek',
+            'admin@namibian-dental.na',
+            '+264-61-234567',
+            '123 Independence Avenue, Windhoek',
+            'Modern dental practice offering comprehensive dental care in Namibia'
+        ) RETURNING id INTO new_practice_id;
+        
+        RAISE NOTICE 'Created sample dental practice: Namibian Dental Excellence (ID: %)', new_practice_id;
+    END IF;
+    
+    -- Insert tariffs for each practice
+    FOR practice_record IN 
+        SELECT id, name FROM practices 
+        WHERE practice_type IN ('dental', 'aesthetic') OR practice_type IS NULL
+    LOOP
+        INSERT INTO practice_tariffs (
+            practice_id,
+            code,
+            price,
+            namaf_prace_2025,
+            practice_type,
+            category,
+            subcategory,
+            full_description,
+            unit,
+            is_active,
+            effective_from,
+            created_at,
+            updated_at
+        )
+        SELECT 
+            practice_record.id,
+            tdc.code,
+            tdc.price,
+            tdc.description,
+            'dental',
+            tdc.category,
+            tdc.subcategory,
+            tdc.description || CASE 
+                WHEN tdc.complexity IS NOT NULL THEN ' - Complexity: ' || tdc.complexity 
+                ELSE '' 
+            END || CASE 
+                WHEN tdc.notes IS NOT NULL AND tdc.notes != '' THEN '. Notes: ' || tdc.notes 
+                ELSE '' 
+            END,
+            'per visit',
+            true,
+            CURRENT_DATE,
+            NOW(),
+            NOW()
+        FROM temp_dental_codes tdc
+        ON CONFLICT (practice_id, code, effective_from) 
+        DO UPDATE SET
+            price = EXCLUDED.price,
+            namaf_prace_2025 = EXCLUDED.namaf_prace_2025,
+            category = EXCLUDED.category,
+            subcategory = EXCLUDED.subcategory,
+            full_description = EXCLUDED.full_description,
+            updated_at = EXCLUDED.updated_at;
+            
+        RAISE NOTICE 'Imported % dental codes for practice: %', 
+            (SELECT COUNT(*) FROM temp_dental_codes), practice_record.name;
+    END LOOP;
+END $$;
+
+-- Generate summary statistics
+DO $$
+DECLARE
+    total_codes INTEGER;
+    total_practices INTEGER;
+    category_count INTEGER;
+    avg_price DECIMAL(10,2);
+BEGIN
+    SELECT COUNT(*) INTO total_codes 
+    FROM practice_tariffs 
+    WHERE practice_type = 'dental';
+    
+    SELECT COUNT(DISTINCT practice_id) INTO total_practices 
+    FROM practice_tariffs 
+    WHERE practice_type = 'dental';
+    
+    SELECT COUNT(DISTINCT category) INTO category_count 
+    FROM practice_tariffs 
+    WHERE practice_type = 'dental';
+    
+    SELECT ROUND(AVG(price), 2) INTO avg_price 
+    FROM practice_tariffs 
+    WHERE practice_type = 'dental';
+    
+    RAISE NOTICE '';
+    RAISE NOTICE '🎉 DENTAL TARIFFS IMPORT COMPLETED SUCCESSFULLY!';
+    RAISE NOTICE '';
+    RAISE NOTICE '📊 IMPORT SUMMARY:';
+    RAISE NOTICE '   • Total dental codes imported: %', total_codes;
+    RAISE NOTICE '   • Practices updated: %', total_practices;
+    RAISE NOTICE '   • Categories created: %', category_count;
+    RAISE NOTICE '   • Average price: N$ %.2f', avg_price;
+    RAISE NOTICE '';
+    RAISE NOTICE '✅ Next steps:';
+    RAISE NOTICE '   1. Verify data in OneHealth admin dashboard';
+    RAISE NOTICE '   2. Customize prices for individual practices';
+    RAISE NOTICE '   3. Test appointment booking functionality';
+    RAISE NOTICE '   4. Configure SMS notifications for appointments';
+END $$;
+
+-- Show summary by category
 SELECT 
-  p.id as practice_id,
-  tariff_data.code,
-  tariff_data.price,
-  tariff_data.namaf_prace_2025,
-  tariff_data.edi_diagnosi,
-  tariff_data.full_description,
-  'dental' as practice_type,
-  ARRAY['General Dental Practitioners'] as practice_subtypes,
-  tariff_data.category,
-  tariff_data.subcategory
-FROM practices p
-CROSS JOIN (VALUES
-  ('8101', 148.30, 'FULL MOUTH EXAMINATION CHARTIN', '', 'Complete oral examination with charting', 'Examination', 'Diagnostic'),
-  ('8104', 80.00, 'EXAMINATION OR CONSULTATION FO', '', 'General dental consultation', 'Examination', 'Diagnostic'),
-  ('8107', 236.70, 'TOOTH: 45 INTRAORAL RADIOGRAPH', '', 'Intraoral X-ray examination', 'Radiology', 'Diagnostic'),
-  ('8109', 40.00, 'INFECTION CONTROL PER DENTIST', '', 'Infection control procedures', 'Safety', 'Procedural'),
-  ('8110', 44.70, 'PROVISION OF STERILISED AND WR', '', 'Sterilized instruments provision', 'Safety', 'Procedural'),
-  ('8119', 215.40, 'STUDY MODELS MOUNTED ON ADJUS', '', 'Study models for treatment planning', 'Prosthetics', 'Diagnostic'),
-  ('8131', 121.20, 'TOOTH: 36 PALLIATIVE EMERGENCY', '', 'Emergency pain relief treatment', 'Emergency', 'Pain Management'),
-  ('8132', 197.80, 'TOOTH: 11 GROSS PULPAL DEBRIDE', '', 'Pulp chamber cleaning', 'Endodontics', 'Root Canal'),
-  ('8133', 121.20, 'TOOTH: 31 RECEMENTING OF INLAY', '', 'Re-cementing dental restoration', 'Restorative', 'Repair'),
-  ('8140', 196.60, 'FEE FOR TREATMENT AT A VENUE O', '', 'Off-site treatment fee', 'Administrative', 'Special'),
-  ('8145', 23.50, 'LOCAL ANAESTHETIC PER VISIT', '', 'Local anesthesia administration', 'Anesthesia', 'Pain Management'),
-  ('8146', 800.00, 'TOOTH: 21/12 RESIN BONDING FOR', '', 'Cosmetic resin bonding', 'Cosmetic', 'Aesthetic'),
-  ('8151', 121.20, 'ORAL HYGIENE INSTRUCTIONS', '', 'Patient education on oral care', 'Preventive', 'Education'),
-  ('8155', 121.20, 'POLISHING ONLY INCLUDING REMOV', '', 'Teeth polishing and stain removal', 'Preventive', 'Cleaning'),
-  ('8159', 238.90, 'SCALING AND POLISHING', '', 'Professional teeth cleaning', 'Preventive', 'Cleaning'),
-  ('8161', 121.20, 'TOPICAL APPLICATION OF FLUORID', '', 'Fluoride treatment application', 'Preventive', 'Protection'),
-  ('8163', 78.90, 'TOOTH: 36 TOOTH SURFACE: O FIS', '', 'Fissure sealant application', 'Preventive', 'Protection'),
-  ('8167', 93.00, 'TOOTH: 35 TREATMENT OF HYPERSE', '', 'Hypersensitivity treatment', 'Treatment', 'Desensitization'),
-  ('8184', 384.90, 'ROOT PLANING WITH OR WITHOUT P', '', 'Deep periodontal cleaning', 'Periodontics', 'Deep Cleaning'),
-  ('8185', 633.30, 'TOOTH: 38 GINGIVECTOMYGINGIVOP', '', 'Gum surgery procedure', 'Periodontics', 'Surgery'),
-  ('8186', 503.80, 'GINGIVECTOMYGINGIVOPLASTY PER', '', 'Gum reshaping per quadrant', 'Periodontics', 'Surgery'),
-  ('8201', 121.20, 'TOOTH: 47 SINGLE TOOTH', '', 'Single tooth extraction', 'Oral Surgery', 'Extraction'),
-  ('8209', 521.40, 'TOOTH: 45 SURGICAL REMOVAL OF', '', 'Surgical tooth extraction', 'Oral Surgery', 'Extraction'),
-  ('8210', 867.50, 'TOOTH: 18 REMOVAL OF UNERUPTED', '', 'Impacted tooth removal', 'Oral Surgery', 'Extraction'),
-  ('8213', 521.40, 'TOOTH: 36 SURGICAL REMOVAL OF', '', 'Complex surgical extraction', 'Oral Surgery', 'Extraction'),
-  ('8220', 400.00, 'USE OF SUTURE PROVIDED BY PRAC', '', 'Surgical suturing', 'Oral Surgery', 'Repair'),
-  ('8225', 90.60, 'TOOTH: 46 TREATMENT OF SEPTIC', '', 'Infection treatment', 'Treatment', 'Infection Control'),
-  ('8255', 116.50, 'TOOTH: 11 STAINLESS STEEL CLAS', '', 'Stainless steel crown', 'Restorative', 'Crown'),
-  ('8273', 296.20, 'ADDITIONAL FEEBENEFIT WHERE IM', '', 'Additional procedure fee', 'Administrative', 'Additional'),
-  ('8303', 162.40, 'TOOTH: 45 TOOTH SURFACE: O IND', '', 'Indirect restoration', 'Restorative', 'Filling'),
-  ('8304', 188.40, 'RUBBER DAM PER ARCH', '', 'Rubber dam isolation', 'Procedural', 'Isolation'),
-  ('8327', 223.10, 'TOOTH: 21 EACH ADDITIONAL VISI', '', 'Additional endodontic visit', 'Endodontics', 'Root Canal'),
-  ('8329', 455.90, 'TOOTH: 25 EACH ADDITIONAL CANA', '', 'Additional root canal', 'Endodontics', 'Root Canal'),
-  ('8338', 841.60, 'TOOTH: 11 FIRST CANAL ANTERIO', '', 'Anterior root canal treatment', 'Endodontics', 'Root Canal'),
-  ('8339', 1157.10, 'TOOTH: 36 FIRST CANAL MOLARS', '', 'Molar root canal treatment', 'Endodontics', 'Root Canal'),
-  ('8340', 279.00, 'TOOTH: 36 EACH ADDITIONAL CANA', '', 'Additional canal treatment', 'Endodontics', 'Root Canal'),
-  ('8346', 42.14, 'TOOTH: 34 RESTORATIVE MATERIAL', '', 'Restorative material fee', 'Restorative', 'Material'),
-  ('8351', 240.10, 'TOOTH: 21 RESIN ONE SURFACE A', '', 'Single surface resin filling', 'Restorative', 'Filling'),
-  ('8352', 304.90, 'TOOTH: 13 RESIN TWO SURFACES', '', 'Two surface resin filling', 'Restorative', 'Filling'),
-  ('8353', 361.40, 'TOOTH: 12 RESIN THREE SURFACE', '', 'Three surface resin filling', 'Restorative', 'Filling'),
-  ('8354', 404.90, 'TOOTH: 12 RESIN FOUR OR MORE', '', 'Four+ surface resin filling', 'Restorative', 'Filling'),
-  ('8367', 261.30, 'TOOTH: 38 RESIN ONE SURFACE P', '', 'Posterior single surface filling', 'Restorative', 'Filling'),
-  ('8368', 321.30, 'TOOTH: 44 RESIN TWO SURFACES', '', 'Posterior two surface filling', 'Restorative', 'Filling'),
-  ('8369', 386.10, 'TOOTH: 35 RESIN THREE SURFACE', '', 'Posterior three surface filling', 'Restorative', 'Filling'),
-  ('8370', 421.40, 'TOOTH: 34 RESIN FOUR OR MORE', '', 'Posterior four+ surface filling', 'Restorative', 'Filling'),
-  ('9301', 94.80, 'CASTING AND TRIMMING OF MODEL', '', 'Model casting and trimming', 'Laboratory', 'Model'),
-  ('9303', 41.00, 'CASTING AND TRIMMING OF MODEL', '', 'Simple model casting', 'Laboratory', 'Model'),
-  ('9313', 90.20, 'DUPLICATING MODEL PER MODEL', '', 'Model duplication', 'Laboratory', 'Model'),
-  ('9327', 39.84, 'INFECTION CONTROL PER IMPRESSI', '', 'Impression infection control', 'Safety', 'Procedural'),
-  ('9330', 52.70, 'DELIVERY CHARGE PER PROCEDURE', '', 'Appliance delivery fee', 'Administrative', 'Delivery'),
-  ('9351', 394.80, 'SETUP AND FINISH OF ONETOOTH D', '', 'Single tooth denture setup', 'Prosthetics', 'Denture'),
-  ('9352', 419.40, 'SETUP AND FINISH OF TWOTOOTH D', '', 'Two tooth denture setup', 'Prosthetics', 'Denture'),
-  ('9353', 741.70, 'SETUP AND FINISH OF THREETOOTH', '', 'Three tooth denture setup', 'Prosthetics', 'Denture'),
-  ('9355', 515.40, 'SETUP AND FINISH OF FIVETOOTH', '', 'Five tooth denture setup', 'Prosthetics', 'Denture'),
-  ('9358', 770.80, 'SETUP AND FINISH OF EIGHTTOOTH', '', 'Eight tooth denture setup', 'Prosthetics', 'Denture'),
-  ('9385', 248.60, 'ADDITIONAL FEE FOR SUPPLYING F', '', 'Additional supply fee', 'Administrative', 'Additional'),
-  ('9447', 585.80, 'CAST CLASP', '', 'Cast metal clasp', 'Prosthetics', 'Clasp'),
-  ('9450', 112.50, 'FINISHING OF ACRYLIC WORK ON A', '', 'Acrylic work finishing', 'Laboratory', 'Finishing'),
-  ('9453', 869.20, 'BASIC CHARGE WHICH INCLUDES R', '', 'Basic denture charge', 'Prosthetics', 'Denture'),
-  ('9455', 217.80, 'ADDITIONAL CHARGE FOR EACH ONE', '', 'Additional tooth charge', 'Prosthetics', 'Additional'),
-  ('9459', 136.00, 'ADDITIONAL CHARGE FOR EACH RES', '', 'Additional restoration charge', 'Prosthetics', 'Additional'),
-  ('9469', 59.70, 'ADDITIONAL CHARGE FOR SADDLE W', '', 'Saddle work additional charge', 'Prosthetics', 'Additional'),
-  ('9473', 59.70, 'ADDITIONAL CHARGE FOR HORSESHO', '', 'Horseshoe clasp additional', 'Prosthetics', 'Clasp'),
-  ('9587', 328.00, 'ADDITIONAL FEE FOR BALL CLASP', '', 'Ball clasp additional fee', 'Prosthetics', 'Clasp'),
-  ('9589', 226.40, 'ADDITIONAL FEE FOR SINGLE ARM', '', 'Single arm clasp fee', 'Prosthetics', 'Clasp'),
-  ('9631', 302.20, 'GUM GUARD', '', 'Custom gum guard', 'Prosthetics', 'Guard'),
-  ('9700', 68.00, 'DIATORICS 1 X 68', '', 'Diatorics procedure', 'Treatment', 'Special'),
-  ('9702', 300.00, 'DIATORICS ODDS ANTERIOR', '', 'Anterior diatorics', 'Treatment', 'Special'),
-  ('9722', 500.00, 'ACRYLIC PER DENTURE', '', 'Acrylic denture work', 'Prosthetics', 'Denture'),
-  ('9726', 480.00, 'PREFORMED ROACH OR BALL CLASP', '', 'Preformed clasp work', 'Prosthetics', 'Clasp'),
-  ('9741', 240.00, 'COST OF COBALT CHROME CASTING', '', 'Cobalt chrome casting', 'Laboratory', 'Casting'),
-  ('9776', 385.00, 'COST OF MOUTH PROTECTOR MATERI', '', 'Mouth protector materials', 'Prosthetics', 'Guard')
-) AS tariff_data(code, price, namaf_prace_2025, edi_diagnosi, full_description, category, subcategory)
-WHERE p.practice_type = 'dental' OR p.practice_type IS NULL;
-
--- For practices that don't have a type yet, set them as dental if they should be
-UPDATE practices 
-SET practice_type = 'dental', 
-    practice_subtypes = ARRAY['General Dental Practitioners']
-WHERE practice_type IS NULL AND slug != 'dr-polina';
-
--- Summary
-SELECT 
-  'Dental tariffs imported successfully!' as status,
-  COUNT(*) as total_tariffs_imported
+    category,
+    subcategory,
+    COUNT(*) as code_count,
+    MIN(price) as min_price,
+    MAX(price) as max_price,
+    ROUND(AVG(price), 2) as avg_price
 FROM practice_tariffs 
-WHERE practice_type = 'dental';
+WHERE practice_type = 'dental'
+GROUP BY category, subcategory
+ORDER BY category, subcategory;
+
+-- Clean up temporary table
+DROP TABLE temp_dental_codes;
+
+-- Create some sample practice_subtypes for dental practices
+UPDATE practices 
+SET practice_subtypes = ARRAY['General Dental Practitioners', 'Cosmetic Dentistry']
+WHERE practice_type = 'dental' AND practice_subtypes IS NULL;
