@@ -932,23 +932,33 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
     try {
       setLoading(true);
       
-      // Fetch services from invoice_services and invoices_enhanced ONLY
+      // Step 1: Get patient invoices
+      const { data: invoices, error: invoiceError } = await supabase
+        .from('invoices_enhanced')
+        .select('id, invoice_number, visit_id, payment_status, payment_method, total')
+        .eq('patient_id', patientId);
+
+      if (invoiceError || !invoices || invoices.length === 0) {
+        console.error('No invoices found:', invoiceError);
+        setServices([]);
+        setBillingStats({
+          totalServices: 0,
+          totalAmount: 0,
+          paidAmount: 0,
+          outstandingAmount: 0,
+          medicalAidAmount: 0,
+          patientAmount: 0
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Step 2: Get services for those invoices
+      const invoiceIds = invoices.map(inv => inv.id);
       const { data: servicesData, error: servicesError } = await supabase
         .from('invoice_services')
-        .select(`
-          *,
-          invoice:invoices_enhanced!inner(
-            id,
-            invoice_number,
-            patient_id,
-            visit_id,
-            issue_date,
-            payment_status,
-            payment_method,
-            total
-          )
-        `)
-        .eq('invoice.patient_id', patientId)
+        .select('*')
+        .in('invoice_id', invoiceIds)
         .order('created_at', { ascending: false });
 
       if (servicesError) {
@@ -965,25 +975,29 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
         return;
       }
 
-      const transformedServices = servicesData?.map(service => ({
-        id: service.id,
-        code: service.code,
-        description: service.description,
-        quantity: service.quantity,
-        unit_price: service.unit_price,
-        total_price: service.total_price,
-        medical_aid_covered: service.medical_aid_covered || 0,
-        patient_portion: service.patient_portion,
-        visit_id: service.invoice.visit_id,
-        visit_date: null, // No visit data needed
-        visit_time: null, // No visit data needed  
-        chief_complaint: null, // No visit data needed
-        invoice_id: service.invoice.id,
-        invoice_number: service.invoice.invoice_number,
-        payment_status: service.invoice.payment_status || 'pending',
-        payment_method: service.invoice.payment_method,
-        created_at: service.created_at
-      })) || [];
+      // Step 3: Combine services with invoice data
+      const transformedServices = servicesData?.map(service => {
+        const invoice = invoices.find(inv => inv.id === service.invoice_id);
+        return {
+          id: service.id,
+          code: service.code,
+          description: service.description,
+          quantity: service.quantity,
+          unit_price: service.unit_price,
+          total_price: service.total_price,
+          medical_aid_covered: service.medical_aid_covered || 0,
+          patient_portion: service.patient_portion,
+          visit_id: invoice?.visit_id,
+          visit_date: null, // No visit data needed
+          visit_time: null, // No visit data needed  
+          chief_complaint: null, // No visit data needed
+          invoice_id: invoice?.id,
+          invoice_number: invoice?.invoice_number,
+          payment_status: invoice?.payment_status || 'pending',
+          payment_method: invoice?.payment_method,
+          created_at: service.created_at
+        };
+      }) || [];
 
       setServices(transformedServices);
       
