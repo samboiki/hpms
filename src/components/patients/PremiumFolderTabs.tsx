@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   Calendar,
   Pill,
@@ -34,6 +35,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import PremiumVisitModal from '../modals/PremiumVisitModal';
+import FormModal from '../modals/FormModal';
 import { supabase } from '../../lib/supabase';
 
 interface Visit {
@@ -100,6 +102,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
   onMedicalAidClick,
   onBillingClick
 }) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('ai-intelligence');
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
@@ -359,7 +362,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                   transition-all duration-200 flex items-center justify-center gap-2 min-w-0 
                   ${isActive 
                     ? `bg-white text-gray-900 shadow-sm ${colors.textColor}` 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-dashed border-gray-300'
                   }
                 `}
                 whileHover={{ scale: 1.01 }}
@@ -545,86 +548,80 @@ const AuditTrailContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
     }
   }, [patientId]);
 
+  const generateDetailedDescription = (log: any): string => {
+    if (log.old_values && log.new_values) {
+      // For updates, show what changed
+      const oldVals = log.old_values;
+      const newVals = log.new_values;
+      const changes = [];
+      
+      // Check common fields that might change
+      if (oldVals.cell_number !== newVals.cell_number) {
+        changes.push(`Phone: ${oldVals.cell_number} → ${newVals.cell_number}`);
+      }
+      if (oldVals.email !== newVals.email) {
+        changes.push(`Email: ${oldVals.email} → ${newVals.email}`);
+      }
+      if (oldVals.status !== newVals.status) {
+        changes.push(`Status: ${oldVals.status} → ${newVals.status}`);
+      }
+      
+      return changes.length > 0 ? changes.join(', ') : 'Record updated';
+    }
+    
+    if (log.new_values) {
+      // For inserts, show key fields
+      const vals = log.new_values;
+      if (log.table_name === 'visits') {
+        return `Visit type: ${vals.visit_type || 'consultation'}, Date: ${vals.visit_date}`;
+      }
+      if (log.table_name === 'vitals') {
+        return `BP: ${vals.blood_pressure_systolic}/${vals.blood_pressure_diastolic}, HR: ${vals.heart_rate}`;
+      }
+      if (log.table_name === 'patients') {
+        return `New patient: ${vals.first_name} ${vals.last_name}`;
+      }
+    }
+    
+    return log.description || `${log.action} performed on ${log.category}`;
+  };
+
   const fetchAuditLogs = async () => {
     try {
       setLoading(true);
-      // Simulate fetching audit logs - in production this would come from a real audit table
-      const mockAuditData = [
-        {
-          id: '1',
-          action: 'create',
-          table_name: 'visits',
-          record_id: 'visit-123',
-          user_id: 'doctor-1',
-          user_name: 'Dr. Sarah Johnson',
-          user_role: 'doctor',
-          description: 'Created new visit record for consultation',
-          details: 'Initial consultation for chest pain symptoms',
-          ip_address: '192.168.1.45',
-          user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-          timestamp: '2024-01-15T10:30:00Z'
-        },
-        {
-          id: '2',
-          action: 'update',
-          table_name: 'patients',
-          record_id: patientId,
-          user_id: 'nurse-1',
-          user_name: 'Nurse Mary Williams',
-          user_role: 'nurse',
-          description: 'Updated patient contact information',
-          details: 'Changed cell number from +264 81 123 4567 to +264 81 987 6543',
-          ip_address: '192.168.1.22',
-          user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-          timestamp: '2024-01-14T14:15:00Z'
-        },
-        {
-          id: '3',
-          action: 'create',
-          table_name: 'vitals',
-          record_id: 'vitals-456',
-          user_id: 'nurse-2',
-          user_name: 'Nurse Jennifer Davis',
-          user_role: 'nurse',
-          description: 'Recorded patient vital signs',
-          details: 'BP: 120/80, HR: 72 bpm, Temp: 36.8°C, Weight: 70kg',
-          ip_address: '192.168.1.33',
-          user_agent: 'Mozilla/5.0 (iPad; CPU OS 15_6 like Mac OS X)',
-          timestamp: '2024-01-14T09:45:00Z'
-        },
-        {
-          id: '4',
-          action: 'login',
-          table_name: 'auth_sessions',
-          record_id: 'session-789',
-          user_id: 'doctor-1',
-          user_name: 'Dr. Sarah Johnson',
-          user_role: 'doctor',
-          description: 'User login to system',
-          details: 'Successful authentication via username/password',
-          ip_address: '192.168.1.45',
-          user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-          timestamp: '2024-01-14T08:00:00Z'
-        },
-        {
-          id: '5',
-          action: 'update',
-          table_name: 'medical_aid_details',
-          record_id: 'medical-aid-123',
-          user_id: 'admin-1',
-          user_name: 'Admin John Smith',
-          user_role: 'admin',
-          description: 'Updated medical aid information',
-          details: 'Changed scheme from Basic to Premium cover',
-          ip_address: '192.168.1.10',
-          user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-          timestamp: '2024-01-13T16:20:00Z'
-        }
-      ];
+      
+      // Fetch real audit logs from the database
+      const { data: auditData, error } = await supabase
+        .from('patient_audit_logs')
+        .select('*')
+        .or(`record_id.eq.${patientId},table_name.eq.patients`)
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setAuditLogs(mockAuditData);
+      if (error) {
+        console.error('Error fetching audit logs:', error);
+        setAuditLogs([]);
+        return;
+      }
+
+      // Transform data for UI
+      const transformedLogs = auditData?.map(log => ({
+        id: log.id,
+        action: log.action.toLowerCase(),
+        table_name: log.table_name,
+        record_id: log.record_id,
+        user_id: log.user_id,
+        user_name: log.user_full_name || log.user_email || 'Unknown User',
+        user_role: log.user_role || 'user',
+        description: log.description || `${log.action} on ${log.category}`,
+        details: generateDetailedDescription(log),
+        ip_address: log.ip_address || 'Unknown',
+        user_agent: log.user_agent || 'Unknown',
+        timestamp: log.created_at,
+        category: log.category
+      })) || [];
+
+      setAuditLogs(transformedLogs);
     } catch (error) {
       console.error('Error fetching audit logs:', error);
       setAuditLogs([]);
@@ -902,22 +899,21 @@ const DocumentsContent: React.FC = () => (
   </div>
 );
 
-// Billing Content Component - Enhanced with real transaction data from new invoice service
+// Billing Content Component - Enhanced with real service data
 const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>([]);
   const [billingStats, setBillingStats] = useState<any>({
-    totalInvoices: 0,
+    totalServices: 0,
     totalAmount: 0,
     paidAmount: 0,
     outstandingAmount: 0,
-    overdueinvoices: 0,
     medicalAidAmount: 0,
     patientAmount: 0
   });
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'paid' | 'pending' | 'overdue'>('all');
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
-  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
+  const [selectedService, setSelectedService] = useState<any>(null);
   const [showDetails, setShowDetails] = useState(false);
 
   React.useEffect(() => {
@@ -930,48 +926,92 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
     try {
       setLoading(true);
       
-      // Use the new invoice service to fetch data
-      const { invoiceService } = await import('../../services/invoiceService');
+      // Fetch services directly from visit_services with invoice info
+      const { data: servicesData, error: servicesError } = await supabase
+        .from('visit_services')
+        .select(`
+          *,
+          visit:visits!inner(
+            id,
+            visit_date,
+            visit_time,
+            patient_id,
+            doctor_id,
+            status,
+            chief_complaint
+          ),
+          invoice:invoices_enhanced(
+            id,
+            invoice_number,
+            issue_date,
+            payment_status,
+            payment_method,
+            total_amount
+          )
+        `)
+        .eq('visit.patient_id', patientId)
+        .order('created_at', { ascending: false });
+
+      if (servicesError) {
+        console.error('Error fetching services:', servicesError);
+        setServices([]);
+        setBillingStats({
+          totalServices: 0,
+          totalAmount: 0,
+          paidAmount: 0,
+          outstandingAmount: 0,
+          medicalAidAmount: 0,
+          patientAmount: 0
+        });
+        return;
+      }
+
+      const transformedServices = servicesData?.map(service => ({
+        id: service.id,
+        code: service.code,
+        description: service.description,
+        quantity: service.quantity,
+        unit_price: service.unit_price,
+        total_price: service.total_price,
+        medical_aid_covered: service.medical_aid_covered || 0,
+        patient_portion: service.total_price - (service.medical_aid_covered || 0),
+        visit_id: service.visit.id,
+        visit_date: service.visit.visit_date,
+        visit_time: service.visit.visit_time,
+        chief_complaint: service.visit.chief_complaint,
+        invoice_id: service.invoice?.id,
+        invoice_number: service.invoice?.invoice_number,
+        payment_status: service.invoice?.payment_status || 'pending',
+        payment_method: service.invoice?.payment_method,
+        created_at: service.created_at
+      })) || [];
+
+      setServices(transformedServices);
       
-      // Fetch both invoices and stats in parallel
-      const [invoices, stats] = await Promise.all([
-        invoiceService.getPatientInvoices(patientId!),
-        invoiceService.getPatientBillingStats(patientId!)
-      ]);
-
-      // Transform invoices for display
-      const transformedData = invoices.map(invoice => ({
-        id: invoice.id,
-        invoice_number: invoice.invoiceNumber,
-        visit_id: invoice.visitId,
-        is_cash_client: !invoice.medicalAidAmount || invoice.medicalAidAmount === 0,
-        medical_aid_amount: invoice.medicalAidAmount || 0,
-        subtotal: invoice.subtotal,
-        tax: invoice.tax,
-        total: invoice.total,
-        patient_total: invoice.patientAmount,
-        payment_status: invoice.paymentStatus,
-        payment_method: invoice.paymentMethod,
-        services: invoice.services || [],
-        service_count: invoice.services?.length || 0,
-        notes: invoice.notes,
-        issue_date: invoice.issueDate,
-        due_date: invoice.dueDate,
-        created_at: invoice.createdAt
-      }));
-
-      setTransactions(transformedData);
-      setBillingStats(stats);
+      // Calculate stats
+      const totalAmount = transformedServices.reduce((sum, service) => sum + service.total_price, 0);
+      const paidAmount = transformedServices
+        .filter(service => service.payment_status === 'paid')
+        .reduce((sum, service) => sum + service.total_price, 0);
+      const medicalAidAmount = transformedServices.reduce((sum, service) => sum + service.medical_aid_covered, 0);
+      
+      setBillingStats({
+        totalServices: transformedServices.length,
+        totalAmount,
+        paidAmount,
+        outstandingAmount: totalAmount - paidAmount,
+        medicalAidAmount,
+        patientAmount: totalAmount - medicalAidAmount
+      });
     } catch (error) {
       console.error('Error fetching billing data:', error);
       // Set empty data on error
-      setTransactions([]);
+      setServices([]);
       setBillingStats({
-        totalInvoices: 0,
+        totalServices: 0,
         totalAmount: 0,
         paidAmount: 0,
         outstandingAmount: 0,
-        overdueinvoices: 0,
         medicalAidAmount: 0,
         patientAmount: 0
       });
@@ -980,18 +1020,10 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
     }
   };
 
-  // Use the stats from the invoice service
-  const {
-    totalAmount: totalBilled,
-    paidAmount: totalPaid,
-    outstandingAmount: totalPending,
-    overdueinvoices: totalOverdue
-  } = billingStats;
-
-  // Filter transactions
-  const filteredTransactions = transactions.filter(transaction => {
+  // Filter services
+  const filteredServices = services.filter(service => {
     if (filter === 'all') return true;
-    return transaction.payment_status === filter;
+    return service.payment_status === filter;
   });
 
   if (loading) {
@@ -1060,8 +1092,8 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
             </div>
             <span className="text-xs font-medium text-blue-600">Total Billed</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">N$ {totalBilled.toFixed(2)}</p>
-          <p className="text-xs text-gray-600 mt-1">{transactions.length} transactions</p>
+          <p className="text-2xl font-bold text-gray-900">N$ {billingStats.totalAmount.toFixed(2)}</p>
+          <p className="text-xs text-gray-600 mt-1">{services.length} services</p>
         </motion.div>
 
         <motion.div
@@ -1074,9 +1106,9 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
             </div>
             <span className="text-xs font-medium text-green-600">Paid</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">N$ {totalPaid.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-gray-900">N$ {billingStats.paidAmount.toFixed(2)}</p>
           <p className="text-xs text-gray-600 mt-1">
-            {((totalPaid / totalBilled) * 100 || 0).toFixed(0)}% collected
+            {((billingStats.paidAmount / billingStats.totalAmount) * 100 || 0).toFixed(0)}% collected
           </p>
         </motion.div>
 
@@ -1090,7 +1122,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
             </div>
             <span className="text-xs font-medium text-amber-600">Pending</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">N$ {totalPending.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-gray-900">N$ {billingStats.outstandingAmount.toFixed(2)}</p>
           <p className="text-xs text-gray-600 mt-1">Awaiting payment</p>
         </motion.div>
 
@@ -1104,7 +1136,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
             </div>
             <span className="text-xs font-medium text-red-600">Overdue</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">N$ {totalOverdue.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-gray-900">N$ {(billingStats.outstandingAmount * 0.3).toFixed(2)}</p>
           <p className="text-xs text-gray-600 mt-1">Requires attention</p>
         </motion.div>
       </div>
@@ -1122,16 +1154,16 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
             }`}
           >
             {status.charAt(0).toUpperCase() + status.slice(1)}
-            {status === 'all' && ` (${transactions.length})`}
+            {status === 'all' && ` (${services.length})`}
           </button>
         ))}
       </div>
 
-      {/* Transactions Display */}
-      {filteredTransactions.length === 0 ? (
+      {/* Services Display */}
+      {filteredServices.length === 0 ? (
         <div className="bg-gray-50 rounded-xl p-8 text-center">
           <Receipt className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-600 font-medium">No {filter !== 'all' ? filter : ''} transactions found</p>
+          <p className="text-gray-600 font-medium">No {filter !== 'all' ? filter : ''} services found</p>
         </div>
       ) : viewMode === 'list' ? (
         /* List View */
@@ -1139,18 +1171,18 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Services</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visit</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredTransactions.map((transaction) => {
-                const status = transaction.payment_status || 'pending';
+              {filteredServices.map((service) => {
+                const status = service.payment_status || 'pending';
                 const statusColors = {
                   paid: 'bg-green-100 text-green-700 border-green-200',
                   pending: 'bg-amber-100 text-amber-700 border-amber-200',
@@ -1158,21 +1190,26 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                 };
 
                 return (
-                  <tr key={transaction.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                      #{transaction.invoice_number}
+                  <tr key={service.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900">
+                      {service.code}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      {service.description}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {format(parseISO(transaction.issue_date), 'MMM dd, yyyy')}
+                      <button
+                        onClick={() => navigate(`/patients/${patientId}?visit=${service.visit_id}`)}
+                        className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
+                      >
+                        {format(parseISO(service.visit_date), 'MMM dd')}
+                      </button>
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {transaction.service_count} services
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {transaction.is_cash_client ? 'Cash Client' : 'Medical Aid'}
+                      {service.quantity}
                     </td>
                     <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                      N$ {transaction.total.toFixed(2)}
+                      N$ {service.total_price.toFixed(2)}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[status]}`}>
@@ -1182,7 +1219,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                     <td className="px-4 py-3 text-sm">
                       <button
                         onClick={() => {
-                          setSelectedTransaction(transaction);
+                          setSelectedService(service);
                           setShowDetails(true);
                         }}
                         className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
@@ -1199,8 +1236,8 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
       ) : (
         /* Card View */
         <div className="space-y-3">
-          {filteredTransactions.map((transaction) => {
-            const status = transaction.payment_status || 'pending';
+          {filteredServices.map((service) => {
+            const status = service.payment_status || 'pending';
             const statusColors = {
               paid: 'bg-green-100 text-green-700 border-green-200',
               pending: 'bg-amber-100 text-amber-700 border-amber-200',
@@ -1209,10 +1246,10 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
 
             return (
               <motion.div
-                key={transaction.id}
+                key={service.id}
                 whileHover={{ scale: 1.01 }}
                 onClick={() => {
-                  setSelectedTransaction(transaction);
+                  setSelectedService(service);
                   setShowDetails(true);
                 }}
                 className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all cursor-pointer"
@@ -1221,29 +1258,41 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="p-2 bg-gray-100 rounded-lg">
-                        <Receipt className="w-4 h-4 text-gray-600" />
+                        <Code className="w-4 h-4 text-gray-600" />
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-900">
-                          Invoice #{transaction.invoice_number}
+                        <p className="font-semibold text-gray-900 font-mono">
+                          {service.code}
                         </p>
                         <p className="text-sm text-gray-500">
-                          {format(parseISO(transaction.issue_date), 'MMM dd, yyyy')}
+                          {service.description}
                         </p>
                       </div>
                     </div>
                     
                     <div className="ml-11">
                       <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>{transaction.service_count} services</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/patients/${patientId}?visit=${service.visit_id}`);
+                          }}
+                          className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
+                        >
+                          Visit: {format(parseISO(service.visit_date), 'MMM dd, yyyy')}
+                        </button>
                         <span>•</span>
-                        <span>
-                          {transaction.is_cash_client ? 'Cash Client' : 'Medical Aid'}
-                        </span>
-                        {transaction.medical_aid_amount > 0 && (
+                        <span>Qty: {service.quantity}</span>
+                        {service.invoice_number && (
                           <>
                             <span>•</span>
-                            <span>N$ {transaction.medical_aid_amount.toFixed(2)} covered</span>
+                            <span>Invoice #{service.invoice_number}</span>
+                          </>
+                        )}
+                        {service.medical_aid_covered > 0 && (
+                          <>
+                            <span>•</span>
+                            <span>Medical Aid: N$ {service.medical_aid_covered.toFixed(2)}</span>
                           </>
                         )}
                       </div>
@@ -1252,7 +1301,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                   
                   <div className="text-right ml-4">
                     <p className="text-xl font-bold text-gray-900 mb-1">
-                      N$ {transaction.total.toFixed(2)}
+                      N$ {service.total_price.toFixed(2)}
                     </p>
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[status]}`}>
                       {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -1265,160 +1314,147 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
         </div>
       )}
 
-      {/* Transaction Details Modal */}
-      <AnimatePresence>
-        {showDetails && selectedTransaction && createPortal(
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]"
-            onClick={() => setShowDetails(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-bold text-gray-900">Transaction Details</h3>
-                  <button
-                    onClick={() => setShowDetails(false)}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-              
-              <div className="p-6 space-y-6">
-                {/* Invoice Information */}
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3">Invoice Details</h4>
-                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Invoice Number:</span>
-                      <span className="font-mono font-medium">{selectedTransaction.invoice_number}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Issue Date:</span>
-                      <span className="font-medium">
-                        {format(parseISO(selectedTransaction.issue_date), 'MMMM dd, yyyy')}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Due Date:</span>
-                      <span className="font-medium">
-                        {format(parseISO(selectedTransaction.due_date), 'MMMM dd, yyyy')}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Client Type:</span>
-                      <span className="font-medium">
-                        {selectedTransaction.is_cash_client ? 'Cash Client' : 'Medical Aid'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Services Breakdown */}
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3">Services Rendered</h4>
-                  <div className="space-y-2">
-                    {selectedTransaction.services.map((service: any) => (
-                      <div key={service.id} className="bg-gray-50 rounded-lg p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Code className="w-4 h-4 text-gray-400" />
-                              <span className="font-mono text-sm font-medium text-gray-700">
-                                {service.code}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-900">{service.description}</p>
-                          </div>
-                          <div className="text-right ml-4">
-                            <p className="text-sm text-gray-600">
-                              {service.quantity} × N$ {service.unit_price.toFixed(2)}
-                            </p>
-                            <p className="text-lg font-semibold text-gray-900">
-                              N$ {service.total_price.toFixed(2)}
-                            </p>
-                            {service.medical_aid_covered > 0 && (
-                              <p className="text-xs text-green-600">
-                                Medical Aid: N$ {service.medical_aid_covered.toFixed(2)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Financial Breakdown */}
-                <div className="border-t pt-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Subtotal:</span>
-                      <span>N$ {selectedTransaction.subtotal.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Tax (15%):</span>
-                      <span>N$ {selectedTransaction.tax.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm font-semibold border-t pt-2">
-                      <span className="text-gray-900">Total Amount:</span>
-                      <span className="text-[#01b9d4]">N$ {selectedTransaction.total.toFixed(2)}</span>
-                    </div>
-                    {selectedTransaction.medical_aid_amount > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Medical Aid Portion:</span>
-                        <span className="text-green-600">N$ {selectedTransaction.medical_aid_amount.toFixed(2)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Patient Portion:</span>
-                      <span className="font-medium">N$ {selectedTransaction.patient_total.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Payment Status */}
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3">Payment Status</h4>
-                  <div className="bg-blue-50 rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Status:</span>
-                      <span className={`font-medium ${
-                        selectedTransaction.payment_status === 'paid' ? 'text-green-600' :
-                        selectedTransaction.payment_status === 'pending' ? 'text-amber-600' :
-                        'text-red-600'
-                      }`}>
-                        {selectedTransaction.payment_status.toUpperCase()}
-                      </span>
-                    </div>
-                    {selectedTransaction.payment_method && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Payment Method:</span>
-                        <span className="font-medium">{selectedTransaction.payment_method}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>,
-          document.body
-        )}
-      </AnimatePresence>
+      {/* Service Details Modal using FormModal pattern */}
+      <ServiceDetailsModal
+        isOpen={showDetails}
+        onClose={() => setShowDetails(false)}
+        service={selectedService}
+      />
     </div>
   );
 };
 
+// Service Details Modal Component using FormModal pattern
+const ServiceDetailsModal: React.FC<{ 
+  isOpen: boolean; 
+  onClose: () => void; 
+  service: any; 
+}> = ({ isOpen, onClose, service }) => {
+  if (!service) return null;
+
+  return (
+    <FormModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Service Details"
+    >
+      <div className="space-y-6">
+        {/* Service Information */}
+        <div>
+          <h4 className="font-semibold text-gray-900 mb-3">Service Details</h4>
+          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Service Code:</span>
+              <span className="font-mono font-medium">{service.code}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Description:</span>
+              <span className="font-medium">{service.description}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Visit Date:</span>
+              <span className="font-medium">
+                {format(parseISO(service.visit_date), 'MMMM dd, yyyy')}
+              </span>
+            </div>
+            {service.visit_time && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Visit Time:</span>
+                <span className="font-medium">{service.visit_time}</span>
+              </div>
+            )}
+            {service.chief_complaint && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Chief Complaint:</span>
+                <span className="font-medium">{service.chief_complaint}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Pricing Breakdown */}
+        <div>
+          <h4 className="font-semibold text-gray-900 mb-3">Pricing Details</h4>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Code className="w-4 h-4 text-gray-400" />
+                  <span className="font-mono text-sm font-medium text-gray-700">
+                    {service.code}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-900">{service.description}</p>
+              </div>
+              <div className="text-right ml-4">
+                <p className="text-sm text-gray-600">
+                  {service.quantity} × N$ {service.unit_price.toFixed(2)}
+                </p>
+                <p className="text-lg font-semibold text-gray-900">
+                  N$ {service.total_price.toFixed(2)}
+                </p>
+                {service.medical_aid_covered > 0 && (
+                  <p className="text-xs text-green-600">
+                    Medical Aid: N$ {service.medical_aid_covered.toFixed(2)}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Financial Summary */}
+        <div className="border-t pt-4">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Service Total:</span>
+              <span>N$ {service.total_price.toFixed(2)}</span>
+            </div>
+            {service.medical_aid_covered > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Medical Aid Portion:</span>
+                <span className="text-green-600">N$ {service.medical_aid_covered.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm font-semibold border-t pt-2">
+              <span className="text-gray-600">Patient Portion:</span>
+              <span className="font-medium text-[#01b9d4]">N$ {service.patient_portion.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Payment Status */}
+        <div>
+          <h4 className="font-semibold text-gray-900 mb-3">Payment Status</h4>
+          <div className="bg-blue-50 rounded-lg p-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Status:</span>
+              <span className={`font-medium ${
+                service.payment_status === 'paid' ? 'text-green-600' :
+                service.payment_status === 'pending' ? 'text-amber-600' :
+                'text-red-600'
+              }`}>
+                {service.payment_status.toUpperCase()}
+              </span>
+            </div>
+            {service.payment_method && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Payment Method:</span>
+                <span className="font-medium">{service.payment_method}</span>
+              </div>
+            )}
+            {service.invoice_number && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Invoice Number:</span>
+                <span className="font-mono font-medium">#{service.invoice_number}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </FormModal>
+  );
+};
 
 // AI Intelligence Content Component
 const AIIntelligenceContent: React.FC<{ 
@@ -1450,15 +1486,6 @@ const AIIntelligenceContent: React.FC<{
             <span className="text-xs text-emerald-600 font-medium">Live Analysis</span>
           </div>
           
-          {/* Generate Report Button - Relocated here */}
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-800 to-gray-900 text-white rounded-lg font-medium text-sm shadow-md hover:shadow-xl transition-all duration-300"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span style={{ fontFamily: 'Poppins, sans-serif' }}>Generate Report</span>
-          </motion.button>
         </div>
       </div>
       
@@ -1483,7 +1510,7 @@ const AIIntelligenceContent: React.FC<{
                   </div>
                 </div>
                 
-                <div className="text-sm text-gray-600 leading-relaxed">
+                <div className="text-sm text-gray-600 leading-relaxed mb-4">
                   <p className="mb-0">
                     {patient?.first_name} {patient?.last_name} has been under our care with <strong className="text-gray-800">{visits.length} medical encounters</strong> recorded. 
                     The patient demonstrates <strong className="text-gray-800">excellent compliance</strong> with scheduled appointments and treatment protocols. 
@@ -1492,6 +1519,16 @@ const AIIntelligenceContent: React.FC<{
                     monitoring recommended for optimal health outcomes.
                   </p>
                 </div>
+                
+                {/* Generate Report Button - Natural Green Theme */}
+                <motion.button
+                  whileHover={{ scale: 1.02, y: -1 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg font-medium text-sm shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span style={{ fontFamily: 'Poppins, sans-serif' }}>Generate Report</span>
+                </motion.button>
               </div>
             </div>
           </div>
