@@ -15,6 +15,11 @@ export interface ServiceSelection {
   requiresPreAuth?: boolean;
   medicalAidCovered?: boolean;
   coveragePercentage?: number;
+  businessRule?: string;
+  exampleCalculation?: string;
+  requiresTeethNumbers?: boolean;
+  canBeMultiplied?: boolean;
+  teethNumbers?: string[];
 }
 
 export interface TariffCode {

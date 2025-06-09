@@ -6,8 +6,6 @@ import {
   DollarSign, 
   TestTube, 
   ChevronDown,
-  Calculator,
-  Search,
   Save,
   Loader2,
   Upload,
@@ -22,7 +20,7 @@ import { ServiceSelection } from '../../types/billing';
 import { invoiceService } from '../../services/invoiceService';
 import LabResultUpload from '../visits/LabResultUpload';
 import MediaUpload from '../visits/MediaUpload';
-import { usePracticeTariffs } from '../../contexts/PracticeTariffsContext';
+import EnhancedDentalServiceSelector from '../billing/EnhancedDentalServiceSelector';
 
 interface PremiumEditVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
@@ -53,300 +51,6 @@ interface Props {
   onCancel: () => void;
 }
 
-// Premium Billing Section Component (same as AddVisitForm)
-const PremiumBillingSection: React.FC<{
-  selectedServices: ServiceSelection[];
-  onServiceChange: (services: ServiceSelection[]) => void;
-}> = ({ selectedServices, onServiceChange }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredCodes, setFilteredCodes] = useState<any[]>([]);
-  const [showCalculator, setShowCalculator] = useState(false);
-  const [pendingCalculation, setPendingCalculation] = useState<any>(null);
-  
-  // Use the global tariffs context
-  const { allTariffs, frequentTariffs, isLoading, practiceType } = usePracticeTariffs();
-
-  // Filter codes based on search term - no more API calls!
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredCodes(allTariffs);
-    } else {
-      const filtered = allTariffs.filter(code => 
-        code.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        code.description?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredCodes(filtered);
-    }
-  }, [searchTerm, allTariffs]);
-
-  const addService = (code: any, event?: React.MouseEvent) => {
-    // Prevent any form submission or bubbling
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    
-    const newService: ServiceSelection = {
-      id: crypto.randomUUID(),
-      tariffId: code.id,
-      code: code.code,
-      description: code.description,
-      category: 'Service',
-      subcategory: 'General',
-      unitPrice: code.price,
-      quantity: 1,
-      totalPrice: code.price,
-      requiresPreAuth: false,
-      medicalAidCovered: false,
-      coveragePercentage: 0,
-      businessRule: code.business_rule_formula,
-      exampleCalculation: code.example_calculation
-    };
-    
-    // Only add if not already selected
-    if (!selectedServices.find(s => s.code === code.code)) {
-      onServiceChange([...selectedServices, newService]);
-    }
-  };
-
-  const removeService = (id: string) => {
-    onServiceChange(selectedServices.filter(s => s.id !== id));
-  };
-
-  const updateQuantity = (id: string, quantity: number) => {
-    const updated = selectedServices.map(service => 
-      service.id === id 
-        ? { ...service, quantity, totalPrice: service.unitPrice * quantity }
-        : service
-    );
-    onServiceChange(updated);
-  };
-
-  const totalCost = selectedServices.reduce((sum, service) => sum + service.totalPrice, 0);
-
-  const handleCalculatorSave = () => {
-    if (pendingCalculation) {
-      const confirmed = window.confirm(
-        `Save billing calculation?\\n\\nTotal: N$ ${totalCost.toFixed(2)}\\nServices: ${selectedServices.length}\\n\\nThis will finalize the billing for this visit.`
-      );
-      
-      if (confirmed) {
-        setPendingCalculation(null);
-        setShowCalculator(false);
-        // Additional save logic here
-      }
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Cost Summary */}
-      <div className="bg-gradient-to-r from-[#01b9d4]/10 to-purple-600/10 rounded-xl p-4 border border-[#01b9d4]/20">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-              Total Cost
-            </h4>
-            <p className="text-2xl font-bold text-[#01b9d4]">N$ {totalCost.toFixed(2)}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm text-gray-600">{selectedServices.length} services</p>
-            <button
-              type="button"
-              onClick={() => {
-                setPendingCalculation({ total: totalCost, services: selectedServices });
-                setShowCalculator(true);
-              }}
-              className="flex items-center gap-2 px-4 py-2 bg-[#01b9d4] text-white rounded-lg hover:bg-[#01a5c4] transition-colors"
-            >
-              <Calculator className="w-4 h-4" />
-              Calculate
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Efficient Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-        <input
-          type="text"
-          placeholder={`Search ${allTariffs.length} available services...`}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4] transition-all"
-        />
-        {searchTerm && (
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">
-            {filteredCodes.length} found
-          </div>
-        )}
-      </div>
-      
-      {/* Search Results */}
-      {searchTerm && (
-        <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-lg bg-white">
-          {isLoading ? (
-            <div className="p-4 text-center text-gray-500">
-              <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />
-              Loading codes...
-            </div>
-          ) : filteredCodes.length > 0 ? (
-            <div className="divide-y divide-gray-100">
-              {filteredCodes.slice(0, 20).map((code) => (
-                <button
-                  key={code.id}
-                  type="button"
-                  onClick={(e) => addService(code, e)}
-                  className="w-full p-3 text-left hover:bg-gray-50 transition-colors flex justify-between items-center"
-                >
-                  <div className="flex-1">
-                    <div className="font-mono font-medium text-sm text-gray-900">{code.code}</div>
-                    <div className="text-xs text-gray-600 truncate">{code.description}</div>
-                  </div>
-                  <div className="text-sm font-semibold text-[#01b9d4] ml-4">
-                    N$ {code.price?.toFixed(2)}
-                  </div>
-                </button>
-              ))}
-              {filteredCodes.length > 20 && (
-                <div className="p-3 text-center text-xs text-gray-500">
-                  Showing first 20 of {filteredCodes.length} results. Refine your search for more.
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="p-4 text-center text-gray-500 text-sm">
-              No services found for "{searchTerm}"
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Frequent Services */}
-      <div>
-        <h4 className="font-semibold text-gray-900 mb-3" style={{ fontFamily: 'Poppins, sans-serif' }}>
-          Quick Add Services
-        </h4>
-        {isLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="p-3 bg-gray-100 rounded-lg animate-pulse">
-                <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-16"></div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {frequentTariffs.map((code) => (
-              <motion.button
-                key={code.id}
-                type="button"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={(e) => addService(code, e)}
-                className="p-3 bg-white border border-gray-200 rounded-lg hover:border-[#01b9d4] hover:shadow-md transition-all text-left group"
-              >
-                <div className="font-semibold text-sm text-gray-900 font-mono group-hover:text-[#01b9d4]">
-                  {code.code}
-                </div>
-                <div className="text-xs text-gray-600 mt-1 truncate">
-                  {code.description}
-                </div>
-                <div className="text-sm font-semibold text-[#01b9d4] mt-1">
-                  N$ {code.price?.toFixed(2)}
-                </div>
-              </motion.button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Selected Services */}
-      {selectedServices.length > 0 && (
-        <div>
-          <h4 className="font-semibold text-gray-900 mb-3" style={{ fontFamily: 'Poppins, sans-serif' }}>
-            Selected Services
-          </h4>
-          <div className="space-y-3">
-            {selectedServices.map((service) => (
-              <div key={service.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-medium text-gray-900">{service.code}</span>
-                    <span className="text-sm text-gray-600">{service.description}</span>
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    N$ {service.unitPrice} × {service.quantity} = N$ {service.totalPrice.toFixed(2)}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    value={service.quantity}
-                    onChange={(e) => updateQuantity(service.id, parseInt(e.target.value) || 1)}
-                    className="w-16 p-1 border border-gray-200 rounded text-center text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      removeService(service.id);
-                    }}
-                    className="text-red-500 hover:text-red-700 p-1"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Calculator Modal */}
-      {showCalculator && pendingCalculation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
-              Billing Summary
-            </h3>
-            <div className="space-y-3 mb-6">
-              <div className="flex justify-between">
-                <span>Services:</span>
-                <span>{pendingCalculation.services.length}</span>
-              </div>
-              <div className="flex justify-between font-semibold text-lg">
-                <span>Total:</span>
-                <span className="text-[#01b9d4]">N$ {pendingCalculation.total.toFixed(2)}</span>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowCalculator(false)}
-                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleCalculatorSave}
-                className="flex-1 px-4 py-2 text-white bg-[#01b9d4] rounded-lg hover:bg-[#01a5c4] transition-colors"
-              >
-                Save Billing
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
 // Professional Visit Type Dropdown (same as AddVisitForm)
 const ProfessionalDropdown: React.FC<{
@@ -474,7 +178,7 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
             height: vitals[0].height,
             bmi: vitals[0].bmi
           } : {},
-          generateInvoice: !!invoiceData?.[0]
+          generateInvoice: true // Default to true for invoice generation/updates
         };
 
         reset(formData);
@@ -581,20 +285,41 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
 
       // Handle invoice updates if services changed
       if (selectedServices.length > 0 && data.generateInvoice) {
+        console.log('🔄 Starting invoice update/creation...');
+        console.log('📋 Selected services:', selectedServices);
+        console.log('✅ Generate invoice enabled:', data.generateInvoice);
+        console.log('🆔 Visit ID:', visitId);
+        
         try {
           // Check if invoice exists
-          const { data: existingInvoice } = await supabase
+          console.log('🔍 Checking for existing invoice...');
+          const { data: existingInvoice, error: invoiceCheckError } = await supabase
             .from('invoices_enhanced')
             .select('id')
             .eq('visit_id', visitId)
             .limit(1);
 
+          if (invoiceCheckError) {
+            console.error('❌ Error checking for existing invoice:', invoiceCheckError);
+            throw invoiceCheckError;
+          }
+
+          console.log('📄 Existing invoice found:', existingInvoice);
+
           if (existingInvoice && existingInvoice.length > 0) {
+            console.log('♻️ Updating existing invoice:', existingInvoice[0].id);
+            
             // Update existing invoice by deleting old services and adding new ones
-            await supabase
+            console.log('🗑️ Deleting old invoice services...');
+            const { error: deleteError } = await supabase
               .from('invoice_services')
               .delete()
               .eq('invoice_id', existingInvoice[0].id);
+
+            if (deleteError) {
+              console.error('❌ Error deleting old services:', deleteError);
+              throw deleteError;
+            }
 
             // Add new services
             const invoiceServices = selectedServices.map(service => ({
@@ -607,27 +332,47 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
               total_price: service.totalPrice,
               medical_aid_covered: 0,
               patient_portion: service.totalPrice,
-              notes: service.notes
+              notes: service.notes || ''
             }));
 
-            await supabase
+            console.log('➕ Adding new invoice services:', invoiceServices);
+            const { error: insertError } = await supabase
               .from('invoice_services')
               .insert(invoiceServices);
+
+            if (insertError) {
+              console.error('❌ Error inserting new services:', insertError);
+              throw insertError;
+            }
+
+            console.log('✅ Invoice services updated successfully');
           } else {
+            console.log('🆕 Creating new invoice...');
+            
             // Create new invoice
+            console.log('👤 Getting current user...');
             const { data: { user } } = await supabase.auth.getUser();
             let practiceId = undefined;
             
             if (user) {
-              const { data: userProfile } = await supabase
+              console.log('👤 User found:', user.id);
+              const { data: userProfile, error: profileError } = await supabase
                 .from('users')
                 .select('practice_id')
                 .eq('id', user.id)
                 .single();
-              practiceId = userProfile?.practice_id;
+              
+              if (profileError) {
+                console.error('❌ Error fetching user profile:', profileError);
+              } else {
+                practiceId = userProfile?.practice_id;
+                console.log('🏢 Practice ID:', practiceId);
+              }
+            } else {
+              console.warn('⚠️ No user found');
             }
             
-            await invoiceService.generateInvoiceFromVisit({
+            const invoiceRequest = {
               visitId: visitId,
               patientId,
               practiceId,
@@ -635,12 +380,32 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
               medicalAidId: undefined,
               generatePdf: false,
               notes: 'Updated from edit visit form'
-            });
+            };
+            
+            console.log('📄 Invoice request:', invoiceRequest);
+            console.log('🚀 Calling invoiceService.generateInvoiceFromVisit...');
+            
+            const generatedInvoice = await invoiceService.generateInvoiceFromVisit(invoiceRequest);
+            
+            console.log('✅ New invoice generated successfully:', generatedInvoice);
           }
         } catch (invoiceError) {
-          console.warn('Invoice update failed:', invoiceError);
-          // Continue without invoice - don't block visit update
+          console.error('💥 Invoice update/creation failed:', invoiceError);
+          console.error('📊 Error details:', {
+            message: invoiceError instanceof Error ? invoiceError.message : 'Unknown error',
+            stack: invoiceError instanceof Error ? invoiceError.stack : undefined,
+            selectedServicesCount: selectedServices.length,
+            visitId: visitId,
+            patientId: patientId
+          });
+          
+          // Show user-friendly error
+          alert(`Invoice update failed: ${invoiceError instanceof Error ? invoiceError.message : 'Unknown error'}. The visit was updated but invoice changes were not saved.`);
         }
+      } else {
+        console.log('⏭️ Skipping invoice update:');
+        console.log('   - Services selected:', selectedServices.length);
+        console.log('   - Generate invoice:', data.generateInvoice);
       }
 
       onSuccess();
@@ -859,7 +624,7 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
                   Billing & Services
                 </h3>
 
-                <PremiumBillingSection
+                <EnhancedDentalServiceSelector
                   selectedServices={selectedServices}
                   onServiceChange={setSelectedServices}
                 />
@@ -872,7 +637,7 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
                       {...register('generateInvoice')}
                       className="rounded border-gray-300 text-[#01b9d4] focus:ring-[#01b9d4]"
                     />
-                    <span className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat, sans-serif' }}>Update invoice automatically</span>
+                    <span className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Montserrat, sans-serif' }}>Generate/update invoice automatically</span>
                   </label>
                 </div>
               </div>
