@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { Image as ImageIcon, X, Upload, Plus, Wand2, Receipt, DollarSign } from 'lucide-react';
 import LabResultUpload from '../visits/LabResultUpload';
 import MediaUpload from '../visits/MediaUpload';
-import ServiceSelector from '../billing/ServiceSelector';
+import EnhancedServiceSelector from '../billing/EnhancedServiceSelector';
 import { ServiceSelection } from '../../types/billing';
 import { invoiceService } from '../../services/invoiceService';
 
@@ -945,7 +945,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             </div>
           </div>
           
-          <ServiceSelector
+          <EnhancedServiceSelector
             practiceId={practiceId}
             selectedServices={selectedServices}
             onServiceChange={(services) => setValue('selectedServices', services)}
