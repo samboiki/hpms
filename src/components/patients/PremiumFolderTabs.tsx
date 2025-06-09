@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar,
@@ -295,9 +296,9 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
         </div>
       </div>
 
-      {/* Premium floating separated tabs */}
-      <div className="relative mb-4">
-        <div className="flex items-center gap-4 relative z-10 transform -translate-y-2 p-2 bg-white/30 backdrop-blur-sm rounded-3xl shadow-lg border border-white/20">
+      {/* Clean professional tabs */}
+      <div className="relative mb-6">
+        <div className="flex items-center gap-1 relative z-10 bg-gray-100 rounded-lg p-1">
           {tabs.map((tab, index) => {
             const isActive = activeTab === tab.id;
             
@@ -354,65 +355,37 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  relative group px-5 py-3.5 rounded-2xl font-semibold text-sm
-                  transition-all duration-300 flex items-center gap-3 min-w-0 shrink-0 
-                  border shadow-sm hover:shadow-md backdrop-blur-sm
+                  relative flex-1 px-4 py-2.5 rounded-md font-medium text-sm
+                  transition-all duration-200 flex items-center justify-center gap-2 min-w-0 
                   ${isActive 
-                    ? `bg-white/95 shadow-xl z-20 ${colors.textColor} ${colors.borderColor} border-2` 
-                    : 'bg-white/70 hover:bg-white/90 text-gray-600 hover:text-gray-800 border-gray-200/50 hover:border-gray-300/60'
+                    ? `bg-white text-gray-900 shadow-sm ${colors.textColor}` 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }
                 `}
-                whileHover={{ scale: 1.03, y: -3 }}
-                whileTap={{ scale: 0.97 }}
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
               >
-                {/* Gradient background for active tab */}
-                {isActive && (
-                  <div className={`absolute inset-0 bg-gradient-to-r ${colors.gradient} opacity-5 rounded-2xl`} />
-                )}
-                
-                {/* Tab icon - premium styling with enhanced gradients */}
-                <div className={`
-                  p-2.5 rounded-xl transition-all duration-300 shadow-lg relative overflow-hidden
-                  ${isActive 
-                    ? `bg-gradient-to-br ${colors.gradient} text-white shadow-lg` 
-                    : 'bg-gradient-to-br from-gray-200 to-gray-300 text-gray-600 group-hover:from-gray-300 group-hover:to-gray-400 group-hover:shadow-md'
-                  }
-                `}>
-                  {/* Subtle shine effect for active tabs */}
-                  {isActive && (
-                    <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent rounded-xl"></div>
-                  )}
-                  <div className="relative">
-                    {tab.icon}
-                  </div>
+                {/* Clean minimal icon */}
+                <div className={`transition-colors duration-200 ${isActive ? colors.textColor : 'text-gray-500'}`}>
+                  {tab.icon}
                 </div>
                 
                 {/* Tab label */}
                 <span className={`font-medium truncate whitespace-nowrap transition-colors duration-300 ${colors.textColor}`} style={{ fontFamily: 'Poppins, sans-serif' }}>{tab.label}</span>
                 
-                {/* Premium count badge */}
+                {/* Clean count badge */}
                 {tab.count !== undefined && tab.count > 0 && (
                   <span className={`
-                    px-3 py-1.5 rounded-full text-xs font-bold min-w-[24px] text-center transition-all duration-300 shadow-md
-                    border border-white/20 backdrop-blur-sm relative overflow-hidden
+                    px-2 py-0.5 rounded text-xs font-medium min-w-[20px] text-center transition-colors duration-200
                     ${isActive 
-                      ? `bg-gradient-to-r ${colors.gradient} text-white shadow-lg` 
-                      : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white group-hover:from-slate-500 group-hover:to-slate-600 group-hover:shadow-lg'
+                      ? 'bg-gray-200 text-gray-700' 
+                      : 'bg-gray-300 text-gray-600'
                     }
                   `}>
-                    {/* Subtle shine effect */}
-                    <div className="absolute inset-0 bg-gradient-to-tr from-white/30 to-transparent rounded-full"></div>
-                    <span className="relative">{tab.count}</span>
+                    {tab.count}
                   </span>
                 )}
                 
-                {/* Enhanced premium glow effect for active tab */}
-                {isActive && (
-                  <>
-                    <div className={`absolute -inset-1 bg-gradient-to-r ${colors.gradient} opacity-20 rounded-2xl blur-md -z-10`} />
-                    <div className={`absolute -inset-2 bg-gradient-to-r ${colors.gradient} opacity-10 rounded-2xl blur-xl -z-20`} />
-                  </>
-                )}
               </motion.button>
             );
           })}
@@ -943,6 +916,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
   });
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'paid' | 'pending' | 'overdue'>('all');
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [showDetails, setShowDetails] = useState(false);
 
@@ -1038,14 +1012,40 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
           </h3>
           <p className="text-gray-500 text-sm">Complete transaction records and payment history</p>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={fetchBillingData}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <Clock className="w-5 h-5 text-gray-600" />
-        </motion.button>
+        <div className="flex items-center gap-3">
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-md p-1">
+            <button
+              onClick={() => setViewMode('cards')}
+              className={`px-3 py-1.5 text-xs rounded transition-colors ${
+                viewMode === 'cards' 
+                  ? 'bg-white text-gray-900 shadow-sm font-medium' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Cards
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 text-xs rounded transition-colors ${
+                viewMode === 'list' 
+                  ? 'bg-white text-gray-900 shadow-sm font-medium' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              List
+            </button>
+          </div>
+          
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={fetchBillingData}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <Clock className="w-5 h-5 text-gray-600" />
+          </motion.button>
+        </div>
       </div>
       
       {/* Financial Summary Cards */}
@@ -1127,13 +1127,77 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
         ))}
       </div>
 
-      {/* Transactions List */}
+      {/* Transactions Display */}
       {filteredTransactions.length === 0 ? (
         <div className="bg-gray-50 rounded-xl p-8 text-center">
           <Receipt className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-600 font-medium">No {filter !== 'all' ? filter : ''} transactions found</p>
         </div>
+      ) : viewMode === 'list' ? (
+        /* List View */
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Services</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {filteredTransactions.map((transaction) => {
+                const status = transaction.payment_status || 'pending';
+                const statusColors = {
+                  paid: 'bg-green-100 text-green-700 border-green-200',
+                  pending: 'bg-amber-100 text-amber-700 border-amber-200',
+                  overdue: 'bg-red-100 text-red-700 border-red-200'
+                };
+
+                return (
+                  <tr key={transaction.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                      #{transaction.invoice_number}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {format(parseISO(transaction.issue_date), 'MMM dd, yyyy')}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {transaction.service_count} services
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {transaction.is_cash_client ? 'Cash Client' : 'Medical Aid'}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                      N$ {transaction.total.toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[status]}`}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <button
+                        onClick={() => {
+                          setSelectedTransaction(transaction);
+                          setShowDetails(true);
+                        }}
+                        className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
+                      >
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       ) : (
+        /* Card View */
         <div className="space-y-3">
           {filteredTransactions.map((transaction) => {
             const status = transaction.payment_status || 'pending';
@@ -1203,12 +1267,12 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
 
       {/* Transaction Details Modal */}
       <AnimatePresence>
-        {showDetails && selectedTransaction && (
+        {showDetails && selectedTransaction && createPortal(
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]"
             onClick={() => setShowDetails(false)}
           >
             <motion.div
@@ -1347,7 +1411,8 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                 </div>
               </div>
             </motion.div>
-          </motion.div>
+          </motion.div>,
+          document.body
         )}
       </AnimatePresence>
     </div>
