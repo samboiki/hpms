@@ -472,103 +472,94 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                 <div className="mb-8">
                   <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Services & Procedures</h3>
                   
-                  {/* Enhanced Services Display */}
-                  <div className="space-y-4">
-                    {invoice.services.map((service, index) => (
-                      <div key={service.id} className="bg-gradient-to-r from-white to-blue-50/30 border border-blue-200 rounded-xl p-5 hover:shadow-lg transition-all">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-gradient-to-br from-[#01b9d4] to-purple-600 rounded-lg flex items-center justify-center text-white font-bold" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                              {index + 1}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-3 mb-1">
-                                <span className="text-xl font-bold text-gray-900 px-3 py-1 bg-[#01b9d4]/10 border border-[#01b9d4]/20 rounded-lg" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                                  {service.code}
-                                </span>
-                                <span className="text-sm font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                                  Qty: {service.quantity}
-                                </span>
-                              </div>
-                              <p className="text-gray-700 font-medium mb-2">{service.description}</p>
-                              <div className="flex items-center gap-4 text-sm">
-                                <span className="text-gray-500" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                                  Unit: <span className="font-semibold text-gray-700">N$ {service.unit_price.toFixed(2)}</span>
-                                </span>
-                                {service.medical_aid_covered && (
-                                  <span className="text-emerald-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                                    Medical Aid: <span className="font-semibold">N$ {service.medical_aid_covered.toFixed(2)}</span>
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-2xl font-bold text-[#01b9d4]" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                              N$ {service.total_price.toFixed(2)}
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                              {service.quantity} × N$ {service.unit_price.toFixed(2)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                  {/* Clean Services Table */}
+                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Price</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {invoice.services.map((service, index) => (
+                          <tr key={service.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-4">
+                              <span className="text-sm font-mono text-gray-900 bg-gray-100 px-2 py-1 rounded">
+                                {service.code}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4">
+                              <span className="text-sm text-gray-900">{service.description}</span>
+                            </td>
+                            <td className="px-4 py-4 text-center">
+                              <span className="text-sm text-gray-700">{service.quantity}</span>
+                            </td>
+                            <td className="px-4 py-4 text-right">
+                              <span className="text-sm text-gray-700">N$ {service.unit_price.toFixed(2)}</span>
+                            </td>
+                            <td className="px-4 py-4 text-right">
+                              <span className="text-sm font-medium text-gray-900">N$ {service.total_price.toFixed(2)}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
                 {/* Payment Summary */}
-                <div className="bg-gradient-to-br from-gray-50 via-blue-50/50 to-purple-50/30 rounded-2xl p-6 border border-gray-200">
-                  <h3 className="font-bold text-gray-900 mb-6 flex items-center gap-3" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                    <div className="p-2 bg-gradient-to-r from-amber-500 to-orange-600 rounded-lg">
-                      <CreditCard className="w-5 h-5 text-white" />
-                    </div>
-                    Payment Summary
-                  </h3>
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Payment Summary</h3>
                   
-                  <div className="grid grid-cols-2 gap-6 mb-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-600">Status:</span>
-                        <span className={`px-3 py-1 rounded-full text-sm flex items-center gap-2 ${statusColors[invoice.payment_status]}`}>
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Subtotal:</span>
+                      <span className="text-gray-900">N$ {invoice.total.toFixed(2)}</span>
+                    </div>
+                    
+                    {invoice.medical_aid_covered > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Medical Aid Covered:</span>
+                        <span className="text-gray-900">N$ {invoice.medical_aid_covered.toFixed(2)}</span>
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Patient Portion:</span>
+                      <span className="text-gray-900">N$ {invoice.patient_portion.toFixed(2)}</span>
+                    </div>
+                    
+                    <div className="border-t border-gray-300 pt-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-base font-medium text-gray-900">Total Amount:</span>
+                        <span className="text-lg font-semibold text-gray-900">N$ {invoice.total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="border-t border-gray-300 pt-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Payment Status:</span>
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[invoice.payment_status]}`}>
                           {statusIcons[invoice.payment_status]}
-                          <span className="font-medium">{invoice.payment_status.charAt(0).toUpperCase() + invoice.payment_status.slice(1)}</span>
+                          <span className="ml-1.5">{invoice.payment_status.charAt(0).toUpperCase() + invoice.payment_status.slice(1)}</span>
                         </span>
                       </div>
                       {invoice.payment_method && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-gray-600">Method:</span>
-                          <span className="font-semibold text-gray-900">{invoice.payment_method}</span>
+                        <div className="flex justify-between items-center mt-2">
+                          <span className="text-sm text-gray-600">Payment Method:</span>
+                          <span className="text-sm text-gray-900">{invoice.payment_method}</span>
                         </div>
                       )}
-                    </div>
-                    
-                    <div className="text-right">
-                      <p className="text-sm text-gray-500 mb-1">Total Invoice Amount</p>
-                      <p className="text-3xl font-bold text-[#01b9d4]" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                        N$ {invoice.total.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-emerald-200">
-                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Medical Aid Covered</p>
-                      <p className="text-xl font-bold text-emerald-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                        N$ {invoice.medical_aid_covered.toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="bg-white p-4 rounded-xl border border-blue-200">
-                      <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Patient Portion</p>
-                      <p className="text-xl font-bold text-blue-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                        N$ {invoice.patient_portion.toFixed(2)}
-                      </p>
                     </div>
                   </div>
                 </div>
               </div>
             </motion.div>
-          </motion.div>
+          </div>
           <PrintableInvoice />
         </>
       )}
