@@ -37,8 +37,8 @@ import { format, parseISO } from 'date-fns';
 import PremiumVisitModal from '../modals/PremiumVisitModal';
 import FormModal from '../modals/FormModal';
 import InvoiceDetailsModal from '../modals/InvoiceDetailsModal';
-import DocumentUpload from '../documents/DocumentUpload';
 import DocumentList from '../documents/DocumentList';
+import DocumentUploadModal from '../modals/DocumentUploadModal';
 import { supabase } from '../../lib/supabase';
 
 interface Visit {
@@ -911,8 +911,10 @@ const ResultsContent: React.FC = () => (
 // Documents Content Component
 const DocumentsContent: React.FC<{ patientId: string; visitId?: string; onCountChange?: () => void }> = ({ patientId, visitId, onCountChange }) => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   const handleUploadSuccess = () => {
+    console.log('📊 Document upload successful - refreshing list');
     setRefreshTrigger(prev => prev + 1);
     if (onCountChange) {
       onCountChange();
@@ -926,19 +928,31 @@ const DocumentsContent: React.FC<{ patientId: string; visitId?: string; onCountC
           <h3 className="text-xl font-bold text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>Clinical Documents</h3>
           <p className="text-gray-500 text-sm">Upload and manage patient documents, lab results, and clinical files</p>
         </div>
+        
+        <motion.button
+          whileHover={{ scale: 1.05, y: -2 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setIsUploadModalOpen(true)}
+          className="px-4 py-2.5 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-2xl hover:shadow-[#01b9d5]/30 transition-all duration-300 font-semibold text-sm"
+        >
+          <Plus className="w-4 h-4" />
+          Upload Documents
+        </motion.button>
       </div>
-      
-      {/* Document Upload Section */}
-      <DocumentUpload 
-        patientId={patientId}
-        visitId={visitId}
-        onUploadSuccess={handleUploadSuccess}
-      />
       
       {/* Document List Section */}
       <DocumentList 
         patientId={patientId}
         refreshTrigger={refreshTrigger}
+      />
+      
+      {/* Document Upload Modal */}
+      <DocumentUploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        patientId={patientId}
+        visitId={visitId}
+        onUploadSuccess={handleUploadSuccess}
       />
     </div>
   );

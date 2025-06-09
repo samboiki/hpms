@@ -82,7 +82,9 @@ const DocumentList: React.FC<DocumentListProps> = ({ patientId, refreshTrigger }
 
   const fetchDocuments = async () => {
     try {
+      console.log('📂 Fetching documents for patient:', patientId);
       setLoading(true);
+      
       const { data, error } = await supabase
         .from('patient_documents')
         .select('*')
@@ -90,15 +92,25 @@ const DocumentList: React.FC<DocumentListProps> = ({ patientId, refreshTrigger }
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching documents:', error);
-        toast.error('Failed to load documents');
+        console.error('❌ Error fetching documents:', error);
+        
+        // Check if table doesn't exist
+        if (error.code === '42P01') {
+          toast.error('Documents table not created yet. Please run the setup SQL first.');
+          console.error('🚨 SETUP REQUIRED: Run CREATE_DOCUMENTS_TABLE_IN_SUPABASE.sql in Supabase Dashboard');
+        } else {
+          toast.error('Failed to load documents: ' + error.message);
+        }
+        setDocuments([]);
         return;
       }
 
+      console.log('✅ Documents fetched successfully:', data?.length || 0, 'documents');
       setDocuments(data || []);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('❌ Unexpected error:', error);
       toast.error('Failed to load documents');
+      setDocuments([]);
     } finally {
       setLoading(false);
     }
@@ -129,15 +141,20 @@ const DocumentList: React.FC<DocumentListProps> = ({ patientId, refreshTrigger }
 
   const downloadDocument = async (document: Document) => {
     try {
+      console.log('📥 Downloading document:', document.original_name);
+      
       const { data, error } = await supabase.storage
         .from('documents')
         .download(document.storage_path);
 
       if (error) {
-        toast.error('Failed to download document');
+        console.error('❌ Download failed:', error);
+        toast.error('Failed to download document: ' + error.message);
         return;
       }
 
+      console.log('✅ Document data retrieved, creating download link');
+      
       // Create download link
       const url = window.URL.createObjectURL(data);
       const link = window.document.createElement('a');
@@ -148,62 +165,76 @@ const DocumentList: React.FC<DocumentListProps> = ({ patientId, refreshTrigger }
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
+      console.log('✅ Download completed successfully');
       toast.success('Document downloaded');
     } catch (error) {
-      console.error('Download error:', error);
+      console.error('❌ Download error:', error);
       toast.error('Failed to download document');
     }
   };
 
   const previewDocument = async (document: Document) => {
     try {
+      console.log('👁️ Creating preview for document:', document.original_name);
+      
       const { data, error } = await supabase.storage
         .from('documents')
         .createSignedUrl(document.storage_path, 3600); // 1 hour expiry
 
       if (error) {
-        toast.error('Failed to preview document');
+        console.error('❌ Preview failed:', error);
+        toast.error('Failed to preview document: ' + error.message);
         return;
       }
 
+      console.log('✅ Signed URL created, opening preview');
       // Open in new tab
       window.open(data.signedUrl, '_blank');
     } catch (error) {
-      console.error('Preview error:', error);
+      console.error('❌ Preview error:', error);
       toast.error('Failed to preview document');
     }
   };
 
   const deleteDocument = async (document: Document) => {
     if (!confirm(`Are you sure you want to delete "${document.original_name}"?`)) {
+      console.log('🚫 Document deletion cancelled by user');
       return;
     }
 
     try {
+      console.log('🗑️ Deleting document:', document.original_name);
+      
       // Delete from storage
+      console.log('1️⃣ Deleting from storage...');
       const { error: storageError } = await supabase.storage
         .from('documents')
         .remove([document.storage_path]);
 
       if (storageError) {
-        console.error('Storage deletion error:', storageError);
+        console.error('⚠️ Storage deletion error (continuing anyway):', storageError);
+      } else {
+        console.log('✅ Storage deletion successful');
       }
 
       // Delete from database
+      console.log('2️⃣ Deleting from database...');
       const { error: dbError } = await supabase
         .from('patient_documents')
         .delete()
         .eq('id', document.id);
 
       if (dbError) {
-        toast.error('Failed to delete document');
+        console.error('❌ Database deletion failed:', dbError);
+        toast.error('Failed to delete document: ' + dbError.message);
         return;
       }
 
+      console.log('✅ Document deleted successfully');
       setDocuments(prev => prev.filter(doc => doc.id !== document.id));
       toast.success('Document deleted');
     } catch (error) {
-      console.error('Delete error:', error);
+      console.error('❌ Delete error:', error);
       toast.error('Failed to delete document');
     }
   };
