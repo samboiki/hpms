@@ -73,7 +73,7 @@ const FormModal: React.FC<FormModalProps> = ({
                   </div>
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold">{title}</h2>
+                  <h2 className="text-xl font-bold" style={{ fontFamily: 'Poppins, sans-serif' }}>{title}</h2>
                   <p className="text-blue-100 text-sm">Complete the information below</p>
                 </div>
               </div>
