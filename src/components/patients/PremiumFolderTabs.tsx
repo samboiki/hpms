@@ -477,7 +477,7 @@ const EncountersContent: React.FC<{
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
             className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 hover:shadow-md transition-all duration-200 cursor-pointer"
-            onClick={() => onVisitClick && onVisitClick(visit)}
+            onClick={() => onEditVisit && onEditVisit(visit)}
           >
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
