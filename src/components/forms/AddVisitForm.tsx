@@ -470,6 +470,27 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
           if (mediaError) throw mediaError;
         }
 
+        // Save selected services to visit_services table
+        if (data.selectedServices.length > 0) {
+          const visitServices = data.selectedServices.map(service => ({
+            visit_id: visitData.id,
+            tariff_id: service.tariffId,
+            quantity: service.quantity,
+            unit_price: service.unitPrice,
+            total_price: service.totalPrice,
+            notes: `${service.code} - ${service.description}`
+          }));
+
+          const { error: servicesError } = await supabase
+            .from('visit_services')
+            .insert(visitServices);
+
+          if (servicesError) {
+            console.error('Error saving visit services:', servicesError);
+            throw servicesError;
+          }
+        }
+
         // Generate invoice if services are selected and invoice generation is enabled
         if (data.generateInvoice && data.selectedServices.length > 0 && practiceId) {
           try {

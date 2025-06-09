@@ -198,6 +198,56 @@ const EnhancedEditVisitForm: React.FC<Props> = ({ visitId, patientId, initialDat
     }
   }, [patientId, visitId, setValue]);
 
+  // Fetch existing visit services when component mounts
+  React.useEffect(() => {
+    const fetchVisitServices = async () => {
+      try {
+        // Fetch visit services with tariff details
+        const { data: visitServicesData, error: servicesError } = await supabase
+          .from('visit_services')
+          .select(`
+            *,
+            practice_tariffs(
+              id,
+              code,
+              description,
+              unit_price,
+              category
+            )
+          `)
+          .eq('visit_id', visitId);
+
+        if (servicesError) {
+          console.error('Error fetching visit services:', servicesError);
+          return;
+        }
+
+        if (visitServicesData && visitServicesData.length > 0) {
+          // Convert visit services to ServiceSelection format
+          const selectedServices: ServiceSelection[] = visitServicesData.map(service => ({
+            tariffId: service.tariff_id,
+            code: service.practice_tariffs?.code || '',
+            description: service.practice_tariffs?.description || '',
+            category: service.practice_tariffs?.category || '',
+            quantity: service.quantity,
+            unitPrice: service.unit_price,
+            totalPrice: service.total_price,
+            notes: service.notes || ''
+          }));
+
+          // Update the form with existing services
+          setValue('selectedServices', selectedServices);
+        }
+      } catch (error) {
+        console.error('Error loading visit services:', error);
+      }
+    };
+
+    if (visitId) {
+      fetchVisitServices();
+    }
+  }, [visitId, setValue]);
+
   const validateFile = (file: File): string | null => {
     if (!ALLOWED_FILE_TYPES.includes(file.type)) {
       return 'Invalid file type. Please upload a JPEG, PNG, or WebP image.';
@@ -480,6 +530,39 @@ const EnhancedEditVisitForm: React.FC<Props> = ({ visitId, patientId, initialDat
           );
 
         if (mediaError) throw mediaError;
+      }
+
+      // Save/Update selected services to visit_services table
+      if (data.selectedServices.length > 0) {
+        // First, delete existing services for this visit
+        const { error: deleteError } = await supabase
+          .from('visit_services')
+          .delete()
+          .eq('visit_id', visitId);
+
+        if (deleteError) {
+          console.error('Error deleting existing visit services:', deleteError);
+          throw deleteError;
+        }
+
+        // Then insert the new services
+        const visitServices = data.selectedServices.map(service => ({
+          visit_id: visitId,
+          tariff_id: service.tariffId,
+          quantity: service.quantity,
+          unit_price: service.unitPrice,
+          total_price: service.totalPrice,
+          notes: `${service.code} - ${service.description}`
+        }));
+
+        const { error: servicesError } = await supabase
+          .from('visit_services')
+          .insert(visitServices);
+
+        if (servicesError) {
+          console.error('Error saving visit services:', servicesError);
+          throw servicesError;
+        }
       }
 
       // Handle invoice generation/update

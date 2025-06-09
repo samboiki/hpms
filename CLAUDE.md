@@ -20,6 +20,26 @@ npx supabase db push   # Push migrations to database
 npx supabase db reset  # Reset database and apply migrations
 ```
 
+### MCP Supabase Integration (ACTIVE) ✅
+```bash
+# MCP Server is configured and ready to use
+# Configuration: ~/.config/Claude/claude_desktop_config.json
+# Test connection: node test-mcp-connection.js
+```
+
+**MCP Features Available:**
+- **Direct Database Queries**: Query any table with SQL
+- **Schema Operations**: List tables, describe structure
+- **Data Operations**: Insert, update, delete records
+- **Real-time Access**: Live connection to HPMS database
+- **Service Role Access**: Full database permissions
+
+**Usage Examples:**
+- "Show me all tables in the database"
+- "Count patients in the practice_tariffs table"
+- "Describe the structure of the appointments table"
+- "Query recent visits with patient details"
+
 ### CRITICAL: bolt.new-Style Database Access (ALWAYS USE THIS)
 ```bash
 # MANDATORY: Always use direct PostgreSQL connection for database operations
