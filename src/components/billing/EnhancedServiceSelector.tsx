@@ -69,13 +69,13 @@ const getFallbackTariffs = (): DentalTariff[] => [
   { id: '10', code: '8826', description: 'CBCT capture both arches with orbits', price: 988.3, official_2025_price_nad: 988.3, on_2025_list: 'YES', found_in_claims: 'YES', requires_tooth_number: 'NO', can_be_multiplied: 'NO', business_rule_formula: 'Fixed price', example_calculation: '988.3 NAD', notes: '', unit: 'per visit', is_active: true, effective_from: '2025-01-01' }
 ];
 
-const EnhancedServiceSelector: React.FC<EnhancedServiceSelectorProps> = ({
+const EnhancedServiceSelector = React.forwardRef<any, EnhancedServiceSelectorProps>(({
   practiceId,
   selectedServices,
   onServiceChange,
   medicalAidId,
   readOnly = false
-}) => {
+}, ref) => {
   const [availableTariffs, setAvailableTariffs] = useState<DentalTariff[]>([]);
   const [filteredTariffs, setFilteredTariffs] = useState<TariffWithValidation[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -295,6 +295,11 @@ const EnhancedServiceSelector: React.FC<EnhancedServiceSelectorProps> = ({
 
     return { valid: true };
   };
+
+  // Expose methods via ref
+  React.useImperativeHandle(ref, () => ({
+    addService
+  }));
 
   // Add service with business rules validation
   const addService = (tariff: DentalTariff) => {
@@ -749,6 +754,8 @@ const EnhancedServiceSelector: React.FC<EnhancedServiceSelectorProps> = ({
       </AnimatePresence>
     </div>
   );
-};
+});
+
+EnhancedServiceSelector.displayName = 'EnhancedServiceSelector';
 
 export default EnhancedServiceSelector;

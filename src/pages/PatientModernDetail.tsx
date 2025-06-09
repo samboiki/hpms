@@ -31,7 +31,7 @@ import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
 import NextOfKinForm from '../components/forms/NextOfKinForm';
-import AddVisitForm from '../components/forms/AddVisitForm';
+import EnhancedAddVisitForm from '../components/forms/EnhancedAddVisitForm';
 import EditVisitForm from '../components/forms/EditVisitForm';
 import VisitModal from '../components/visits/VisitModal';
 import MedicalAidForm from '../components/forms/MedicalAidForm';
@@ -1223,8 +1223,9 @@ Medical Team`;
         onClose={() => setIsAddVisitModalOpen(false)}
         title="Record New Visit"
       >
-        <AddVisitForm
+        <EnhancedAddVisitForm
           patientId={id || ''}
+          onCancel={() => setIsAddVisitModalOpen(false)}
           onSuccess={() => {
             setIsAddVisitModalOpen(false);
             if (id) {
