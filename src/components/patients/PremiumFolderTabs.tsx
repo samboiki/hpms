@@ -110,6 +110,8 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
   const [billingCount, setBillingCount] = useState(0);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<any>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   // Fetch billing count when component mounts
   React.useEffect(() => {
@@ -233,7 +235,13 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       case 'documents':
         return <DocumentsContent />;
       case 'billing':
-        return <BillingContent patientId={patientId} />;
+        return <BillingContent 
+          patientId={patientId}
+          selectedService={selectedService}
+          setSelectedService={setSelectedService}
+          showDetails={showDetails}
+          setShowDetails={setShowDetails}
+        />;
       case 'audit':
         return <AuditTrailContent patientId={patientId} />;
       default:
@@ -883,7 +891,13 @@ const DocumentsContent: React.FC = () => (
 );
 
 // Billing Content Component - Enhanced with real service data
-const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
+const BillingContent: React.FC<{ 
+  patientId?: string;
+  selectedService: any;
+  setSelectedService: (service: any) => void;
+  showDetails: boolean;
+  setShowDetails: (show: boolean) => void;
+}> = ({ patientId, selectedService, setSelectedService, showDetails, setShowDetails }) => {
   const [services, setServices] = useState<any[]>([]);
   const [billingStats, setBillingStats] = useState<any>({
     totalServices: 0,
@@ -896,8 +910,6 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'paid' | 'pending' | 'overdue'>('all');
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
-  const [selectedService, setSelectedService] = useState<any>(null);
-  const [showDetails, setShowDetails] = useState(false);
 
   React.useEffect(() => {
     if (patientId) {
