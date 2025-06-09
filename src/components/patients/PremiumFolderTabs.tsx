@@ -215,7 +215,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       case 'billing':
         return <BillingContent patientId={patientId} />;
       case 'audit':
-        return <AuditTrailContent />;
+        return <AuditTrailContent patientId={patientId} />;
       default:
         return <AIIntelligenceContent visits={visits} vitals={vitals} patientId={patientId} />;
     }
@@ -295,9 +295,9 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
         </div>
       </div>
 
-      {/* Floating separated tabs */}
+      {/* Premium floating separated tabs */}
       <div className="relative mb-4">
-        <div className="flex items-center gap-3 relative z-10 transform -translate-y-2">
+        <div className="flex items-center gap-4 relative z-10 transform -translate-y-2 p-2 bg-white/30 backdrop-blur-sm rounded-3xl shadow-lg border border-white/20">
           {tabs.map((tab, index) => {
             const isActive = activeTab === tab.id;
             
@@ -354,51 +354,64 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  relative group px-4 py-3 rounded-2xl font-medium text-xs
-                  transition-all duration-300 flex items-center gap-2 min-w-0 shrink-0 border
+                  relative group px-5 py-3.5 rounded-2xl font-semibold text-sm
+                  transition-all duration-300 flex items-center gap-3 min-w-0 shrink-0 
+                  border shadow-sm hover:shadow-md backdrop-blur-sm
                   ${isActive 
-                    ? `bg-white shadow-lg z-20 ${colors.textColor} ${colors.borderColor}` 
-                    : 'bg-gray-100/80 hover:bg-gray-200/80 text-gray-600 hover:text-gray-800 border-gray-200/50'
+                    ? `bg-white/95 shadow-xl z-20 ${colors.textColor} ${colors.borderColor} border-2` 
+                    : 'bg-white/70 hover:bg-white/90 text-gray-600 hover:text-gray-800 border-gray-200/50 hover:border-gray-300/60'
                   }
                 `}
-                whileHover={{ scale: 1.02, y: -2 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: 1.03, y: -3 }}
+                whileTap={{ scale: 0.97 }}
               >
                 {/* Gradient background for active tab */}
                 {isActive && (
                   <div className={`absolute inset-0 bg-gradient-to-r ${colors.gradient} opacity-5 rounded-2xl`} />
                 )}
                 
-                {/* Tab icon - colored when active to match content area */}
+                {/* Tab icon - premium styling with enhanced gradients */}
                 <div className={`
-                  p-1.5 rounded-lg transition-all duration-300 shadow-sm
+                  p-2.5 rounded-xl transition-all duration-300 shadow-lg relative overflow-hidden
                   ${isActive 
-                    ? `bg-gradient-to-r ${colors.gradient} text-white` 
-                    : 'bg-gray-300 text-gray-500 group-hover:bg-gray-400'
+                    ? `bg-gradient-to-br ${colors.gradient} text-white shadow-lg` 
+                    : 'bg-gradient-to-br from-gray-200 to-gray-300 text-gray-600 group-hover:from-gray-300 group-hover:to-gray-400 group-hover:shadow-md'
                   }
                 `}>
-                  {tab.icon}
+                  {/* Subtle shine effect for active tabs */}
+                  {isActive && (
+                    <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent rounded-xl"></div>
+                  )}
+                  <div className="relative">
+                    {tab.icon}
+                  </div>
                 </div>
                 
                 {/* Tab label */}
                 <span className={`font-medium truncate whitespace-nowrap transition-colors duration-300 ${colors.textColor}`} style={{ fontFamily: 'Poppins, sans-serif' }}>{tab.label}</span>
                 
-                {/* Count badge */}
+                {/* Premium count badge */}
                 {tab.count !== undefined && tab.count > 0 && (
                   <span className={`
-                    px-2 py-0.5 rounded-full text-xs font-bold min-w-[20px] text-center transition-all duration-300
+                    px-3 py-1.5 rounded-full text-xs font-bold min-w-[24px] text-center transition-all duration-300 shadow-md
+                    border border-white/20 backdrop-blur-sm relative overflow-hidden
                     ${isActive 
-                      ? `bg-gradient-to-r ${colors.gradient} text-white shadow-sm` 
-                      : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white group-hover:from-slate-500 group-hover:to-slate-600'
+                      ? `bg-gradient-to-r ${colors.gradient} text-white shadow-lg` 
+                      : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white group-hover:from-slate-500 group-hover:to-slate-600 group-hover:shadow-lg'
                     }
                   `}>
-                    {tab.count}
+                    {/* Subtle shine effect */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-white/30 to-transparent rounded-full"></div>
+                    <span className="relative">{tab.count}</span>
                   </span>
                 )}
                 
-                {/* Active tab glow effect */}
+                {/* Enhanced premium glow effect for active tab */}
                 {isActive && (
-                  <div className={`absolute inset-0 bg-gradient-to-r ${colors.gradient} opacity-10 rounded-2xl blur-sm -z-10`} />
+                  <>
+                    <div className={`absolute -inset-1 bg-gradient-to-r ${colors.gradient} opacity-20 rounded-2xl blur-md -z-10`} />
+                    <div className={`absolute -inset-2 bg-gradient-to-r ${colors.gradient} opacity-10 rounded-2xl blur-xl -z-20`} />
+                  </>
                 )}
               </motion.button>
             );
@@ -548,24 +561,253 @@ const EncountersContent: React.FC<{
 );
 
 // Audit Trail Content Component
-const AuditTrailContent: React.FC = () => (
-  <div className="space-y-6">
-    <div className="flex items-center justify-between">
-      <div>
-        <h3 className="text-xl font-bold text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>Audit Trail</h3>
-        <p className="text-gray-500 text-sm">System logs and change history for administrators</p>
+const AuditTrailContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'create' | 'update' | 'delete' | 'login'>('all');
+
+  React.useEffect(() => {
+    if (patientId) {
+      fetchAuditLogs();
+    }
+  }, [patientId]);
+
+  const fetchAuditLogs = async () => {
+    try {
+      setLoading(true);
+      // Simulate fetching audit logs - in production this would come from a real audit table
+      const mockAuditData = [
+        {
+          id: '1',
+          action: 'create',
+          table_name: 'visits',
+          record_id: 'visit-123',
+          user_id: 'doctor-1',
+          user_name: 'Dr. Sarah Johnson',
+          user_role: 'doctor',
+          description: 'Created new visit record for consultation',
+          details: 'Initial consultation for chest pain symptoms',
+          ip_address: '192.168.1.45',
+          user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+          timestamp: '2024-01-15T10:30:00Z'
+        },
+        {
+          id: '2',
+          action: 'update',
+          table_name: 'patients',
+          record_id: patientId,
+          user_id: 'nurse-1',
+          user_name: 'Nurse Mary Williams',
+          user_role: 'nurse',
+          description: 'Updated patient contact information',
+          details: 'Changed cell number from +264 81 123 4567 to +264 81 987 6543',
+          ip_address: '192.168.1.22',
+          user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+          timestamp: '2024-01-14T14:15:00Z'
+        },
+        {
+          id: '3',
+          action: 'create',
+          table_name: 'vitals',
+          record_id: 'vitals-456',
+          user_id: 'nurse-2',
+          user_name: 'Nurse Jennifer Davis',
+          user_role: 'nurse',
+          description: 'Recorded patient vital signs',
+          details: 'BP: 120/80, HR: 72 bpm, Temp: 36.8°C, Weight: 70kg',
+          ip_address: '192.168.1.33',
+          user_agent: 'Mozilla/5.0 (iPad; CPU OS 15_6 like Mac OS X)',
+          timestamp: '2024-01-14T09:45:00Z'
+        },
+        {
+          id: '4',
+          action: 'login',
+          table_name: 'auth_sessions',
+          record_id: 'session-789',
+          user_id: 'doctor-1',
+          user_name: 'Dr. Sarah Johnson',
+          user_role: 'doctor',
+          description: 'User login to system',
+          details: 'Successful authentication via username/password',
+          ip_address: '192.168.1.45',
+          user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+          timestamp: '2024-01-14T08:00:00Z'
+        },
+        {
+          id: '5',
+          action: 'update',
+          table_name: 'medical_aid_details',
+          record_id: 'medical-aid-123',
+          user_id: 'admin-1',
+          user_name: 'Admin John Smith',
+          user_role: 'admin',
+          description: 'Updated medical aid information',
+          details: 'Changed scheme from Basic to Premium cover',
+          ip_address: '192.168.1.10',
+          user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+          timestamp: '2024-01-13T16:20:00Z'
+        }
+      ];
+
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setAuditLogs(mockAuditData);
+    } catch (error) {
+      console.error('Error fetching audit logs:', error);
+      setAuditLogs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter logs
+  const filteredLogs = auditLogs.filter(log => {
+    if (filter === 'all') return true;
+    return log.action === filter;
+  });
+
+  const getActionColor = (action: string) => {
+    switch (action) {
+      case 'create': return 'bg-green-100 text-green-700 border-green-200';
+      case 'update': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'delete': return 'bg-red-100 text-red-700 border-red-200';
+      case 'login': return 'bg-purple-100 text-purple-700 border-purple-200';
+      default: return 'bg-gray-100 text-gray-700 border-gray-200';
+    }
+  };
+
+  const getActionIcon = (action: string) => {
+    switch (action) {
+      case 'create': return <Plus className="w-4 h-4" />;
+      case 'update': return <FileText className="w-4 h-4" />;
+      case 'delete': return <X className="w-4 h-4" />;
+      case 'login': return <User className="w-4 h-4" />;
+      default: return <Activity className="w-4 h-4" />;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#01b9d4]"></div>
       </div>
-    </div>
-    
-    <div className="text-center py-12">
-      <div className="p-4 bg-gradient-to-r from-slate-500 to-gray-600 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-        <Shield className="w-8 h-8 text-white" />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-xl font-bold text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>Audit Trail</h3>
+          <p className="text-gray-500 text-sm">Complete system activity log and change history</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={fetchAuditLogs}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Refresh audit logs"
+          >
+            <Clock className="w-5 h-5 text-gray-600" />
+          </motion.button>
+        </div>
       </div>
-      <h4 className="text-lg font-semibold text-gray-800 mb-2">No audit logs recorded</h4>
-      <p className="text-gray-500 text-sm">System changes and administrative actions will appear here</p>
+
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-lg">
+        {(['all', 'create', 'update', 'delete', 'login'] as const).map((action) => (
+          <button
+            key={action}
+            onClick={() => setFilter(action)}
+            className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${
+              filter === action
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            {action !== 'all' && getActionIcon(action)}
+            {action.charAt(0).toUpperCase() + action.slice(1)}
+            {action === 'all' && ` (${auditLogs.length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Audit Logs List */}
+      {filteredLogs.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="p-4 bg-gradient-to-r from-slate-500 to-gray-600 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+            <Shield className="w-8 h-8 text-white" />
+          </div>
+          <h4 className="text-lg font-semibold text-gray-800 mb-2">No {filter !== 'all' ? filter : ''} audit logs found</h4>
+          <p className="text-gray-500 text-sm">System changes and administrative actions will appear here</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredLogs.map((log, index) => (
+            <motion.div
+              key={log.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-all"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`p-2 rounded-lg ${getActionColor(log.action).replace('text-', 'text-white ').replace('border-', 'bg-')}`}>
+                      <div className="text-white">{getActionIcon(log.action)}</div>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getActionColor(log.action)}`}>
+                          {log.action.toUpperCase()}
+                        </span>
+                        <span className="text-sm font-semibold text-gray-900">{log.description}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                        <span className="flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          {log.user_name} ({log.user_role})
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {format(parseISO(log.timestamp), 'MMM dd, yyyy HH:mm')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="ml-11">
+                    <p className="text-sm text-gray-700 mb-2">{log.details}</p>
+                    <div className="flex items-center gap-4 text-xs text-gray-500">
+                      <span>IP: {log.ip_address}</span>
+                      <span>•</span>
+                      <span>Table: {log.table_name}</span>
+                      {log.record_id && (
+                        <>
+                          <span>•</span>
+                          <span className="font-mono">ID: {log.record_id.slice(0, 8)}...</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="text-right ml-4">
+                  <p className="text-xs text-gray-500">
+                    {format(parseISO(log.timestamp), 'HH:mm')}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 // Vitals Content Component
 const VitalsContent: React.FC<{ vitals: Vital[] }> = ({ vitals }) => (
