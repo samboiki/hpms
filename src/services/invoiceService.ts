@@ -26,21 +26,13 @@ export class InvoiceService {
       // Generate invoice number
       const invoiceNumber = await this.generateInvoiceNumber(request.practiceId);
       
-      // Create invoice record
-      const invoice = await this.createInvoice({
+      // Create invoice with services using new structure
+      const invoice = await this.createInvoiceWithServices({
         invoiceNumber,
         patientId: request.patientId,
         visitId: request.visitId,
-        practiceId: request.practiceId,
-        calculation,
         notes: request.notes
-      });
-
-      // Create invoice items
-      await this.createInvoiceItems(invoice.id, request.services, request.medicalAidId);
-
-      // Link services to visit
-      await this.linkServicesToVisit(request.visitId, request.services);
+      }, request.services);
 
       // Generate PDF if requested
       if (request.generatePdf) {
@@ -329,30 +321,53 @@ export class InvoiceService {
   }
 
   /**
-   * Link selected services to the visit record
+   * Create invoice with services using new table structure
    */
-  private async linkServicesToVisit(visitId: string, services: ServiceSelection[]): Promise<void> {
+  private async createInvoiceWithServices(
+    invoiceData: any,
+    services: ServiceSelection[]
+  ): Promise<any> {
     try {
-      const visitServices = services.map(service => ({
-        visit_id: visitId,
+      // First create the invoice (practice_id and medical aid details auto-populated by trigger)
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('invoices_enhanced')
+        .insert([{
+          invoice_number: invoiceData.invoiceNumber,
+          patient_id: invoiceData.patientId,
+          visit_id: invoiceData.visitId,
+          due_date: this.calculateDueDate(),
+          notes: invoiceData.notes
+        }])
+        .select()
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      // Then create invoice services
+      const invoiceServices = services.map(service => ({
+        invoice_id: invoice.id,
         tariff_id: service.tariffId,
+        code: service.code,
+        description: service.description,
         quantity: service.quantity,
         unit_price: service.unitPrice,
         total_price: service.totalPrice,
+        medical_aid_covered: 0, // Default to no medical aid coverage
+        patient_portion: service.totalPrice, // Patient pays full amount initially
         notes: service.notes
       }));
 
-      const { error } = await supabase
-        .from('visit_services')
-        .insert(visitServices);
+      const { error: servicesError } = await supabase
+        .from('invoice_services')
+        .insert(invoiceServices);
 
-      if (error) {
-        console.warn('Visit services table not available, skipping service linkage:', error);
-        // Don't throw error - allow invoice creation to continue for testing
-      }
+      if (servicesError) throw servicesError;
+
+      // Totals are automatically calculated by triggers
+      return invoice;
     } catch (error) {
-      console.warn('Unable to link services to visit:', error);
-      // Don't throw error - allow invoice creation to continue for testing
+      console.error('Error creating invoice with services:', error);
+      throw error;
     }
   }
 

@@ -22,6 +22,7 @@ import { ServiceSelection } from '../../types/billing';
 import { invoiceService } from '../../services/invoiceService';
 import LabResultUpload from '../visits/LabResultUpload';
 import MediaUpload from '../visits/MediaUpload';
+import { usePracticeTariffs } from '../../contexts/PracticeTariffsContext';
 
 interface PremiumAddVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
@@ -55,63 +56,27 @@ interface Props {
 const PremiumBillingSection: React.FC<{
   selectedServices: ServiceSelection[];
   onServiceChange: (services: ServiceSelection[]) => void;
-  practiceType: string;
-}> = ({ selectedServices, onServiceChange, practiceType }) => {
+}> = ({ selectedServices, onServiceChange }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [frequentCodes, setFrequentCodes] = useState<any[]>([]);
-  const [allCodes, setAllCodes] = useState<any[]>([]);
   const [filteredCodes, setFilteredCodes] = useState<any[]>([]);
   const [showCalculator, setShowCalculator] = useState(false);
   const [pendingCalculation, setPendingCalculation] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Load all codes once on component mount
-  useEffect(() => {
-    const fetchAllCodes = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Fetch frequent codes
-        const { data: frequentData } = await supabase
-          .from('frequent_tariff_codes')
-          .select('*')
-          .eq('practice_type_name', practiceType)
-          .limit(12);
-        
-        // Fetch all practice tariffs for search
-        const { data: allData } = await supabase
-          .from('practice_tariffs_with_types')
-          .select('*')
-          .eq('practice_type_name', practiceType)
-          .order('code');
-          
-        setFrequentCodes(frequentData || []);
-        setAllCodes(allData || []);
-        setFilteredCodes(allData || []);
-      } catch (err) {
-        console.error('Error fetching codes:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    if (practiceType) {
-      fetchAllCodes();
-    }
-  }, [practiceType]);
   
-  // Filter codes based on search term
+  // Use the global tariffs context
+  const { allTariffs, frequentTariffs, isLoading, practiceType } = usePracticeTariffs();
+
+  // Filter codes based on search term - no more API calls!
   useEffect(() => {
     if (!searchTerm.trim()) {
-      setFilteredCodes(allCodes);
+      setFilteredCodes(allTariffs);
     } else {
-      const filtered = allCodes.filter(code => 
+      const filtered = allTariffs.filter(code => 
         code.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         code.description?.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredCodes(filtered);
     }
-  }, [searchTerm, allCodes]);
+  }, [searchTerm, allTariffs]);
 
   const addService = (code: any, event?: React.MouseEvent) => {
     // Prevent any form submission or bubbling
@@ -204,7 +169,7 @@ const PremiumBillingSection: React.FC<{
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
         <input
           type="text"
-          placeholder={`Search ${allCodes.length} available services...`}
+          placeholder={`Search ${allTariffs.length} available services...`}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4] transition-all"
@@ -273,7 +238,7 @@ const PremiumBillingSection: React.FC<{
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {frequentCodes.map((code) => (
+            {frequentTariffs.map((code) => (
               <motion.button
                 key={code.id}
                 type="button"
@@ -434,7 +399,6 @@ const PremiumAddVisitForm: React.FC<Props> = ({ patientId, onSuccess, onCancel }
   const [activeTab, setActiveTab] = useState('encounter');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedServices, setSelectedServices] = useState<ServiceSelection[]>([]);
-  const [practiceType, setPracticeType] = useState('dental');
   const [labResults, setLabResults] = useState<any[]>([]);
   const [mediaFiles, setMediaFiles] = useState<any[]>([]);
 
@@ -446,38 +410,6 @@ const PremiumAddVisitForm: React.FC<Props> = ({ patientId, onSuccess, onCancel }
       generateInvoice: true
     }
   });
-
-  // Fetch practice type for current user
-  useEffect(() => {
-    const fetchPracticeType = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: userProfile } = await supabase
-            .from('users')
-            .select('practice_id')
-            .eq('id', user.id)
-            .single();
-
-          if (userProfile?.practice_id) {
-            const { data: practice } = await supabase
-              .from('practices')
-              .select('practice_type')
-              .eq('id', userProfile.practice_id)
-              .single();
-
-            if (practice?.practice_type) {
-              setPracticeType(practice.practice_type);
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching practice type:', err);
-      }
-    };
-
-    fetchPracticeType();
-  }, []);
 
   const tabs = [
     { id: 'encounter', label: 'Encounter Info', icon: FileText },
@@ -769,7 +701,6 @@ const PremiumAddVisitForm: React.FC<Props> = ({ patientId, onSuccess, onCancel }
                 <PremiumBillingSection
                   selectedServices={selectedServices}
                   onServiceChange={setSelectedServices}
-                  practiceType={practiceType}
                 />
 
                 {/* Invoice Generation Option */}

@@ -21,6 +21,7 @@ import Appointments from './pages/Appointments';
 import Billing from './pages/Billing';
 import BillingWorkflow from './pages/BillingWorkflow';
 import { Toaster } from 'react-hot-toast';
+import { PracticeTariffsProvider } from './contexts/PracticeTariffsContext';
 
 function App() {
   const { isAuthenticated, login } = useAuthStore();
@@ -54,7 +55,7 @@ function App() {
   }
 
   return (
-    <>
+    <PracticeTariffsProvider>
       <Toaster 
         position="top-right"
         toastOptions={{
@@ -94,7 +95,7 @@ function App() {
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
-    </>
+    </PracticeTariffsProvider>
   );
 }
 

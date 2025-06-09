@@ -502,21 +502,9 @@ const EncountersContent: React.FC<{
             
             <div className="space-y-2">
               {visit.chief_complaint && (
-                <div>
-                  <span className="text-sm font-medium text-gray-600">Chief Complaint:</span>
-                  <p className="text-gray-800 text-sm mt-1">{visit.chief_complaint}</p>
-                </div>
-              )}
-              {visit.diagnosis && (
-                <div>
-                  <span className="text-sm font-medium text-gray-600">Diagnosis:</span>
-                  <p className="text-gray-800 text-sm mt-1">{visit.diagnosis}</p>
-                </div>
-              )}
-              {visit.treatment_plan && (
-                <div>
-                  <span className="text-sm font-medium text-gray-600">Treatment Plan:</span>
-                  <p className="text-gray-800 text-sm mt-1">{visit.treatment_plan}</p>
+                <div className="flex items-start gap-2">
+                  <span className="text-sm font-bold text-gray-800">Chief Complaint:</span>
+                  <span className="text-sm text-gray-700 flex-1">{visit.chief_complaint}</span>
                 </div>
               )}
             </div>
@@ -717,86 +705,64 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
     try {
       setLoading(true);
       
-      // Fetch visits with services and invoices for this patient
-      let { data, error } = await supabase
-        .from('visits')
+      // Fetch invoices with all related data using the new structure
+      const { data: invoicesData, error: invoicesError } = await supabase
+        .from('invoices_enhanced')
         .select(`
-          id,
-          visit_date,
-          visit_time,
-          visit_type,
-          diagnosis,
-          status,
-          visit_services(
+          *,
+          visits!inner(
             id,
+            visit_date,
+            visit_time,
+            visit_type,
+            status
+          ),
+          invoice_services(
+            id,
+            code,
+            description,
             quantity,
             unit_price,
             total_price,
-            practice_tariffs(
-              code,
-              namaf_prace_2025,
-              category,
-              subcategory
-            )
+            medical_aid_covered,
+            patient_portion,
+            notes
           )
         `)
         .eq('patient_id', patientId)
-        .order('visit_date', { ascending: false });
+        .order('issue_date', { ascending: false });
 
-      if (error) throw error;
+      if (invoicesError) throw invoicesError;
 
-      // Try to fetch invoices separately - fallback approach
-      if (data && data.length > 0) {
-        const visitIds = data.map(v => v.id);
-        
-        // Try enhanced table first, then fallback
-        let invoicesData: any[] = [];
-        try {
-          const { data: enhancedInvoices, error: enhancedError } = await supabase
-            .from('invoices_enhanced')
-            .select('*')
-            .in('visit_id', visitIds);
-          
-          if (!enhancedError && enhancedInvoices) {
-            invoicesData = enhancedInvoices;
-          }
-        } catch (enhancedError) {
-          console.warn('Enhanced invoices table not available, trying standard table');
-          
-          try {
-            const { data: standardInvoices, error: standardError } = await supabase
-              .from('invoices')
-              .select('*')
-              .in('visit_id', visitIds);
-            
-            if (!standardError && standardInvoices) {
-              invoicesData = standardInvoices;
-            }
-          } catch (standardError) {
-            console.warn('Standard invoices table not available');
-          }
-        }
-        
-        // Attach invoices to visits
-        data = data.map(visit => ({
-          ...visit,
-          invoices_enhanced: invoicesData.filter(inv => inv.visit_id === visit.id)
-        }));
-      }
-
-      if (error) throw error;
-
-      // Transform data to include totals
-      const transformedData = (data || []).map(visit => {
-        const servicesTotal = visit.visit_services?.reduce((sum: number, service: any) => 
-          sum + (service.total_price || 0), 0) || 0;
-        
-        return {
-          ...visit,
-          servicesTotal,
-          invoice: visit.invoices_enhanced?.[0]
-        };
-      }).filter(visit => visit.visit_services && visit.visit_services.length > 0);
+      // Transform data for display
+      const transformedData = (invoicesData || []).map(invoice => ({
+        id: invoice.id,
+        invoice_number: invoice.invoice_number,
+        visit_date: invoice.visits.visit_date,
+        visit_time: invoice.visits.visit_time,
+        visit_type: invoice.visits.visit_type,
+        visit_status: invoice.visits.status,
+        is_cash_client: invoice.is_cash_client,
+        medical_aid_provider: invoice.medical_aid_provider,
+        medical_aid_scheme: invoice.medical_aid_scheme,
+        medical_aid_number: invoice.medical_aid_number,
+        subtotal: invoice.subtotal,
+        tax: invoice.tax,
+        total: invoice.total,
+        medical_aid_total: invoice.medical_aid_total,
+        patient_total: invoice.patient_total,
+        amount_paid: invoice.amount_paid,
+        balance_due: invoice.balance_due,
+        payment_status: invoice.payment_status,
+        payment_method: invoice.payment_method,
+        payment_date: invoice.payment_date,
+        medical_aid_status: invoice.medical_aid_status,
+        services: invoice.invoice_services || [],
+        service_count: invoice.invoice_services?.length || 0,
+        notes: invoice.notes,
+        issue_date: invoice.issue_date,
+        due_date: invoice.due_date
+      }));
 
       setTransactions(transformedData);
     } catch (error) {
@@ -806,7 +772,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
     }
   };
 
-  // Calculate financial summaries
+  // Calculate financial summaries from new invoice structure
   const calculateSummary = () => {
     let totalBilled = 0;
     let totalPaid = 0;
@@ -814,19 +780,14 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
     let totalOverdue = 0;
 
     transactions.forEach(transaction => {
-      const amount = transaction.servicesTotal;
-      totalBilled += amount;
+      totalBilled += transaction.total || 0;
 
-      if (transaction.invoice) {
-        if (transaction.invoice.payment_status === 'paid') {
-          totalPaid += transaction.invoice.amount_paid || amount;
-        } else if (transaction.invoice.payment_status === 'pending') {
-          totalPending += transaction.invoice.balance_due || amount;
-        } else if (transaction.invoice.payment_status === 'overdue') {
-          totalOverdue += transaction.invoice.balance_due || amount;
-        }
-      } else {
-        totalPending += amount;
+      if (transaction.payment_status === 'paid') {
+        totalPaid += transaction.amount_paid || 0;
+      } else if (transaction.payment_status === 'pending') {
+        totalPending += transaction.balance_due || 0;
+      } else if (transaction.payment_status === 'overdue') {
+        totalOverdue += transaction.balance_due || 0;
       }
     });
 
@@ -838,8 +799,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
   // Filter transactions
   const filteredTransactions = transactions.filter(transaction => {
     if (filter === 'all') return true;
-    const status = transaction.invoice?.payment_status || 'pending';
-    return status === filter;
+    return transaction.payment_status === filter;
   });
 
   if (loading) {
