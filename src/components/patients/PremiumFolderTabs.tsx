@@ -112,27 +112,21 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
   // Fetch billing count when component mounts
   React.useEffect(() => {
     const fetchBillingCount = async () => {
-      if (!patientId) {
+      if (!patientId || visits.length === 0) {
         setBillingCount(0);
         return;
       }
       
-      // Count services from invoice_services table via invoices
-      const { data: invoiceData } = await supabase
-        .from('invoices_enhanced')
-        .select('id')
-        .eq('patient_id', patientId);
-      
-      if (!invoiceData || invoiceData.length === 0) {
+      const visitIds = visits.map(v => v.id);
+      if (visitIds.length === 0) {
         setBillingCount(0);
         return;
       }
       
-      const invoiceIds = invoiceData.map(inv => inv.id);
       const { count } = await supabase
-        .from('invoice_services')
+        .from('visit_services')
         .select('*', { count: 'exact', head: true })
-        .in('invoice_id', invoiceIds);
+        .in('visit_id', visitIds);
       
       setBillingCount(count || 0);
     };
@@ -932,32 +926,30 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
     try {
       setLoading(true);
       
-      // Fetch services from invoice_services with proper joins
+      // Fetch services directly from visit_services with invoice info
       const { data: servicesData, error: servicesError } = await supabase
-        .from('invoice_services')
+        .from('visit_services')
         .select(`
           *,
-          invoice:invoices_enhanced!inner(
+          visit:visits!inner(
+            id,
+            visit_date,
+            visit_time,
+            patient_id,
+            doctor_id,
+            status,
+            chief_complaint
+          ),
+          invoice:invoices_enhanced(
             id,
             invoice_number,
-            patient_id,
-            visit_id,
             issue_date,
             payment_status,
             payment_method,
-            total,
-            visit:visits(
-              id,
-              visit_date,
-              visit_time,
-              patient_id,
-              doctor_id,
-              status,
-              chief_complaint
-            )
+            total_amount
           )
         `)
-        .eq('invoice.patient_id', patientId)
+        .eq('visit.patient_id', patientId)
         .order('created_at', { ascending: false });
 
       if (servicesError) {
@@ -982,15 +974,15 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
         unit_price: service.unit_price,
         total_price: service.total_price,
         medical_aid_covered: service.medical_aid_covered || 0,
-        patient_portion: service.patient_portion,
-        visit_id: service.invoice.visit_id,
-        visit_date: service.invoice.visit?.visit_date,
-        visit_time: service.invoice.visit?.visit_time,
-        chief_complaint: service.invoice.visit?.chief_complaint,
-        invoice_id: service.invoice.id,
-        invoice_number: service.invoice.invoice_number,
-        payment_status: service.invoice.payment_status || 'pending',
-        payment_method: service.invoice.payment_method,
+        patient_portion: service.total_price - (service.medical_aid_covered || 0),
+        visit_id: service.visit.id,
+        visit_date: service.visit.visit_date,
+        visit_time: service.visit.visit_time,
+        chief_complaint: service.visit.chief_complaint,
+        invoice_id: service.invoice?.id,
+        invoice_number: service.invoice?.invoice_number,
+        payment_status: service.invoice?.payment_status || 'pending',
+        payment_method: service.invoice?.payment_method,
         created_at: service.created_at
       })) || [];
 
