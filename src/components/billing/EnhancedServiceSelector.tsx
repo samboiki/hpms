@@ -99,31 +99,7 @@ const EnhancedServiceSelector: React.FC<EnhancedServiceSelectorProps> = ({
 
         console.log('🔍 Fetching dental codes from practice_tariffs...');
 
-        // Try to fetch directly first with service role access pattern
-        console.log('🔑 Attempting direct access to practice_tariffs...');
-        
-        const { data: directTariffs, error: directError } = await supabase
-          .from('practice_tariffs')
-          .select('*')
-          .eq('is_active', true)
-          .order('code', { ascending: true });
-
-        // If direct access works, use it (service role or permissive RLS)
-        if (!directError && directTariffs && directTariffs.length > 0) {
-          console.log(`✅ Direct access successful! Found ${directTariffs.length} codes`);
-          setAvailableTariffs(directTariffs);
-          
-          const transformedTariffs: TariffWithValidation[] = directTariffs.map(tariff => ({
-            ...tariff,
-            medicalAidCovered: false,
-            coveragePercentage: 0,
-            calculatedPrice: tariff.price
-          }));
-          setFilteredTariffs(transformedTariffs);
-          return;
-        }
-
-        console.log('🔍 Direct access failed, trying triangulation approach...');
+        console.log('🔍 Starting triangulation approach...');
 
         // Triangulation: users -> practices -> practice_tariffs by practice_type
         // Step 1: Get current user's practice_id
@@ -187,28 +163,17 @@ const EnhancedServiceSelector: React.FC<EnhancedServiceSelectorProps> = ({
 
         console.log('✅ Practice type:', practiceData.practice_type);
 
-        // Step 4: If practice_type === "dental", show all practice_tariffs (179 dental codes)
-        let tariffs = null;
-        let tariffsError = null;
-
-        if (practiceData.practice_type === 'dental') {
-          console.log('🦷 Dental practice detected - fetching dental codes...');
-          
-          const result = await supabase
-            .from('practice_tariffs')
-            .select('*')
-            .eq('is_active', true)
-            .order('code', { ascending: true });
-          
-          tariffs = result.data;
-          tariffsError = result.error;
-          
-        } else {
-          console.log(`🏥 Non-dental practice (${practiceData.practice_type}) - no dental codes available`);
-          // For non-dental practices, return empty array or practice-specific codes
-          tariffs = [];
-          tariffsError = null;
-        }
+        // Step 4: Use the normalized view to get tariffs for this practice type
+        console.log('🔍 Fetching codes from practice_tariffs_with_types view...');
+        
+        const result = await supabase
+          .from('practice_tariffs_with_types')
+          .select('*')
+          .eq('practice_type_name', practiceData.practice_type)
+          .order('code', { ascending: true });
+        
+        const tariffs = result.data;
+        const tariffsError = result.error;
 
         console.log('Query result:', { 
           practiceType: practiceData.practice_type,
@@ -236,11 +201,11 @@ const EnhancedServiceSelector: React.FC<EnhancedServiceSelectorProps> = ({
 
         if (!tariffs || tariffs.length === 0) {
           if (practiceData && practiceData.practice_type !== 'dental') {
-            console.log(`ℹ️  No dental codes for ${practiceData.practice_type} practice type`);
-            setError(`This is a ${practiceData.practice_type} practice. Dental codes are only available for dental practices.`);
+            console.log(`ℹ️  No tariff codes for ${practiceData.practice_type} practice type`);
+            setError(`This is a ${practiceData.practice_type} practice. ${practiceData.practice_type} tariff codes are not available yet.`);
           } else {
-            console.error('❌ No codes found in practice_tariffs table');
-            setError('No dental codes found. Please ensure the dental tariff codes have been imported.');
+            console.error('❌ No codes found in practice_tariffs_with_types view');
+            setError('No tariff codes found. Please ensure the tariff codes have been imported.');
           }
           return;
         }
@@ -490,10 +455,10 @@ const EnhancedServiceSelector: React.FC<EnhancedServiceSelectorProps> = ({
         <div>
           <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-[#01b9d4]" />
-            Dental Services{availableTariffs.length > 0 && ` (${availableTariffs.length} codes)`}
+            Services & Billing{availableTariffs.length > 0 && ` (${availableTariffs.length} codes)`}
           </h3>
           <p className="text-sm text-gray-600">
-            Select from official 2025 dental tariff codes
+            Select from official 2025 tariff codes
             {filteredTariffs.length > 0 && filteredTariffs.length !== availableTariffs.length && 
               ` (${filteredTariffs.length} of ${availableTariffs.length} shown)`
             }
@@ -619,7 +584,7 @@ const EnhancedServiceSelector: React.FC<EnhancedServiceSelectorProps> = ({
       {/* Available Tariffs */}
       <div>
         <h4 className="font-medium text-gray-900 mb-3">
-          Available Dental Codes ({filteredTariffs.length} of {availableTariffs.length})
+          Available Codes ({filteredTariffs.length} of {availableTariffs.length})
         </h4>
         <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-2'}>
           {filteredTariffs.map((tariff) => {
@@ -672,7 +637,7 @@ const EnhancedServiceSelector: React.FC<EnhancedServiceSelectorProps> = ({
         {filteredTariffs.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             <Stethoscope className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <p>No dental codes found matching your criteria</p>
+            <p>No codes found matching your criteria</p>
           </div>
         )}
       </div>
