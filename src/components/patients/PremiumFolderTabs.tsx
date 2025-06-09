@@ -1211,12 +1211,16 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                       {service.description}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      <button
-                        onClick={() => navigate(`/patients/${patientId}?visit=${service.visit_id}`)}
-                        className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
-                      >
-                        {format(parseISO(service.visit_date), 'MMM dd')}
-                      </button>
+                      {service.visit_date ? (
+                        <button
+                          onClick={() => navigate(`/patients/${patientId}?visit=${service.visit_id}`)}
+                          className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
+                        >
+                          {format(parseISO(service.visit_date), 'MMM dd')}
+                        </button>
+                      ) : (
+                        <span className="text-gray-500">N/A</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
                       {service.quantity}
@@ -1285,15 +1289,19 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                     
                     <div className="ml-11">
                       <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/patients/${patientId}?visit=${service.visit_id}`);
-                          }}
-                          className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
-                        >
-                          Visit: {format(parseISO(service.visit_date), 'MMM dd, yyyy')}
-                        </button>
+                        {service.visit_date ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/patients/${patientId}?visit=${service.visit_id}`);
+                            }}
+                            className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
+                          >
+                            Visit: {format(parseISO(service.visit_date), 'MMM dd, yyyy')}
+                          </button>
+                        ) : (
+                          <span className="text-gray-500 text-xs">Visit: Not available</span>
+                        )}
                         <span>•</span>
                         <span>Qty: {service.quantity}</span>
                         {service.invoice_number && (
@@ -1367,7 +1375,7 @@ const ServiceDetailsModal: React.FC<{
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Visit Date:</span>
               <span className="font-medium">
-                {format(parseISO(service.visit_date), 'MMMM dd, yyyy')}
+                {service.visit_date ? format(parseISO(service.visit_date), 'MMMM dd, yyyy') : 'Not available'}
               </span>
             </div>
             {service.visit_time && (
