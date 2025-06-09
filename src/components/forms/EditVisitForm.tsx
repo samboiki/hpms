@@ -210,9 +210,10 @@ const EnhancedEditVisitForm: React.FC<Props> = ({ visitId, patientId, initialDat
             practice_tariffs(
               id,
               code,
-              description,
-              unit_price,
-              category
+              namaf_prace_2025,
+              category,
+              subcategory,
+              price
             )
           `)
           .eq('visit_id', visitId);
@@ -223,23 +224,26 @@ const EnhancedEditVisitForm: React.FC<Props> = ({ visitId, patientId, initialDat
         }
 
         if (visitServicesData && visitServicesData.length > 0) {
-          // Convert visit services to ServiceSelection format
-          const selectedServices: ServiceSelection[] = visitServicesData.map(service => ({
+          // Convert to ServiceSelection format
+          const existingServices: ServiceSelection[] = visitServicesData.map(service => ({
+            id: crypto.randomUUID(),
             tariffId: service.tariff_id,
-            code: service.practice_tariffs?.code || '',
-            description: service.practice_tariffs?.description || '',
-            category: service.practice_tariffs?.category || '',
-            quantity: service.quantity,
-            unitPrice: service.unit_price,
-            totalPrice: service.total_price,
-            notes: service.notes || ''
+            code: service.practice_tariffs?.code || 'UNKNOWN',
+            description: service.practice_tariffs?.namaf_prace_2025 || service.notes || 'Unknown Service',
+            category: service.practice_tariffs?.category || 'General',
+            subcategory: service.practice_tariffs?.subcategory || '',
+            unitPrice: service.unit_price || 0,
+            quantity: service.quantity || 1,
+            totalPrice: service.total_price || 0,
+            requiresPreAuth: false,
+            medicalAidCovered: false,
+            coveragePercentage: 0
           }));
 
-          // Update the form with existing services
-          setValue('selectedServices', selectedServices);
+          setValue('selectedServices', existingServices);
         }
       } catch (error) {
-        console.error('Error loading visit services:', error);
+        console.error('Error fetching visit services:', error);
       }
     };
 
