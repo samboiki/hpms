@@ -24,7 +24,7 @@ import Badge from '../ui/Badge';
 import FormModal from '../modals/FormModal';
 import VisitCard from './VisitCard';
 import VisitModal from './VisitModal';
-import EditVisitForm from '../forms/EditVisitForm';
+import PremiumEditVisitForm from '../forms/PremiumEditVisitForm';
 
 interface Visit {
   id: string;
@@ -435,12 +435,15 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
           onClose={() => setIsEditModalOpen(false)}
           title="Edit Visit"
         >
-          <EditVisitForm
+          <PremiumEditVisitForm
             visitId={selectedVisit.id}
-            initialData={selectedVisit}
+            patientId={patientId}
             onSuccess={() => {
               setIsEditModalOpen(false);
               fetchVisits();
+            }}
+            onCancel={() => {
+              setIsEditModalOpen(false);
             }}
           />
         </FormModal>

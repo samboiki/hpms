@@ -513,7 +513,7 @@ const PatientModernDetail = () => {
 
       if (error) throw error;
       setSelectedVisit(data);
-      setIsVisitDetailModalOpen(true);
+      setIsEditVisitModalOpen(true);
     } catch (error) {
       console.error('Error fetching visit details:', error);
     }
