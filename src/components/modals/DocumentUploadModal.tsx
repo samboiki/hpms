@@ -149,7 +149,32 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const saveFileMetadata = async (file: File, storagePath: string) => {
     console.log('💾 Saving file metadata to database...');
     
-    const { data: user } = await supabase.auth.getUser();
+    // Debug: Check current user info
+    const { data: user, error: userError } = await supabase.auth.getUser();
+    console.log('👤 Current user:', user?.user?.id, user?.user?.email);
+    if (userError) console.error('❌ User fetch error:', userError);
+    
+    // Debug: Check user's practice relationship
+    if (user?.user?.id) {
+      const { data: userInfo, error: userInfoError } = await supabase
+        .from('users')
+        .select('id, email, practice_id, role')
+        .eq('id', user.user.id)
+        .single();
+      
+      console.log('🏥 User practice info:', userInfo);
+      if (userInfoError) console.error('❌ User info error:', userInfoError);
+    }
+    
+    // Debug: Check patient accessibility
+    const { data: patientCheck, error: patientError } = await supabase
+      .from('patients')
+      .select('id, first_name, last_name')
+      .eq('id', patientId)
+      .single();
+    
+    console.log('🎯 Target patient:', patientCheck);
+    if (patientError) console.error('❌ Patient check error:', patientError);
     
     const metadata = {
       patient_id: patientId,
@@ -176,6 +201,18 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
     if (error) {
       console.error('❌ Database save failed:', error);
+      console.error('❌ Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      
+      if (error.message.includes('row-level security policy')) {
+        console.error('🚨 RLS POLICY VIOLATION - Run FIX_DOCUMENTS_RLS_POLICY.sql to fix this');
+        throw new Error('Permission denied. Please contact administrator to fix database permissions.');
+      }
+      
       throw new Error(error.message);
     }
 

@@ -12,7 +12,8 @@ import {
   Receipt,
   CheckCircle2,
   Clock,
-  AlertCircle
+  AlertCircle,
+  FileText
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
