@@ -207,6 +207,14 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
           onSendSms={onSendSms}
           onMedicalAidClick={onMedicalAidClick}
           onBillingClick={onBillingClick}
+          selectedInvoice={selectedInvoice}
+          setSelectedInvoice={setSelectedInvoice}
+          isInvoiceModalOpen={isInvoiceModalOpen}
+          setIsInvoiceModalOpen={setIsInvoiceModalOpen}
+          selectedService={selectedService}
+          setSelectedService={setSelectedService}
+          showDetails={showDetails}
+          setShowDetails={setShowDetails}
         />;
       case 'encounters':
         return <EncountersContent 
@@ -229,7 +237,19 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       case 'audit':
         return <AuditTrailContent patientId={patientId} />;
       default:
-        return <AIIntelligenceContent visits={visits} vitals={vitals} patientId={patientId} />;
+        return <AIIntelligenceContent 
+          visits={visits} 
+          vitals={vitals} 
+          patientId={patientId}
+          selectedInvoice={selectedInvoice}
+          setSelectedInvoice={setSelectedInvoice}
+          isInvoiceModalOpen={isInvoiceModalOpen}
+          setIsInvoiceModalOpen={setIsInvoiceModalOpen}
+          selectedService={selectedService}
+          setSelectedService={setSelectedService}
+          showDetails={showDetails}
+          setShowDetails={setShowDetails}
+        />;
     }
   };
 
@@ -1593,7 +1613,16 @@ const AIIntelligenceContent: React.FC<{
   onSendSms?: () => void;
   onMedicalAidClick?: () => void;
   onBillingClick?: () => void;
-}> = ({ visits, vitals, patientId, patient, nextOfKin, medicalAid, onSendSms, onMedicalAidClick, onBillingClick }) => {
+  selectedInvoice: any;
+  setSelectedInvoice: (invoice: any) => void;
+  isInvoiceModalOpen: boolean;
+  setIsInvoiceModalOpen: (open: boolean) => void;
+  selectedService: any;
+  setSelectedService: (service: any) => void;
+  showDetails: boolean;
+  setShowDetails: (show: boolean) => void;
+}> = ({ visits, vitals, patientId, patient, nextOfKin, medicalAid, onSendSms, onMedicalAidClick, onBillingClick, selectedInvoice, setSelectedInvoice, isInvoiceModalOpen, setIsInvoiceModalOpen, selectedService, setSelectedService, showDetails, setShowDetails }) => {
+  const navigate = useNavigate();
   // Calculate total spent (mock calculation based on visits)
   const totalSpent = visits.length * 450 + vitals.length * 75 + 1250;
 
