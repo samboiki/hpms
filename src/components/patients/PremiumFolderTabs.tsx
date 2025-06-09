@@ -36,6 +36,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import PremiumVisitModal from '../modals/PremiumVisitModal';
 import FormModal from '../modals/FormModal';
+import InvoiceDetailsModal from '../modals/InvoiceDetailsModal';
 import { supabase } from '../../lib/supabase';
 
 interface Visit {
@@ -104,10 +105,11 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
 }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('ai-intelligence');
-  const [showActionMenu, setShowActionMenu] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
   const [billingCount, setBillingCount] = useState(0);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
   // Fetch billing count when component mounts
   React.useEffect(() => {
@@ -250,57 +252,12 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
             <motion.button
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => setShowActionMenu(!showActionMenu)}
+              onClick={onAddVisit}
               className="px-4 py-2.5 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-2xl hover:shadow-[#01b9d5]/30 transition-all duration-300 font-semibold text-sm"
             >
               <Plus className="w-4 h-4" />
-              Quick Add
+              Add New Visit
             </motion.button>
-            
-            {/* Action Menu Dropdown */}
-            <AnimatePresence>
-              {showActionMenu && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                  className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50"
-                >
-                  {onAddVisit && (
-                    <button
-                      onClick={() => {
-                        onAddVisit();
-                        setShowActionMenu(false);
-                      }}
-                      className="w-full px-4 py-2.5 text-left hover:bg-gray-50 flex items-center gap-3 text-gray-700 transition-colors"
-                    >
-                      <Stethoscope className="w-4 h-4 text-blue-500" />
-                      <span className="text-sm font-medium">New Visit</span>
-                    </button>
-                  )}
-                  {onAddVitals && (
-                    <button
-                      onClick={() => {
-                        onAddVitals();
-                        setShowActionMenu(false);
-                      }}
-                      className="w-full px-4 py-2.5 text-left hover:bg-gray-50 flex items-center gap-3 text-gray-700 transition-colors"
-                    >
-                      <Activity className="w-4 h-4 text-red-500" />
-                      <span className="text-sm font-medium">Record Vitals</span>
-                    </button>
-                  )}
-                  <button className="w-full px-4 py-2.5 text-left hover:bg-gray-50 flex items-center gap-3 text-gray-700 transition-colors">
-                    <Pill className="w-4 h-4 text-green-500" />
-                    <span className="text-sm font-medium">Add Prescription</span>
-                  </button>
-                  <button className="w-full px-4 py-2.5 text-left hover:bg-gray-50 flex items-center gap-3 text-gray-700 transition-colors">
-                    <TestTube className="w-4 h-4 text-purple-500" />
-                    <span className="text-sm font-medium">Order Lab Test</span>
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
         </div>
       </div>
@@ -390,7 +347,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                       ? 'bg-gray-200 text-gray-700' 
                       : 'bg-gray-300 text-gray-600'
                     }
-                  `}>
+                  `} style={{ fontFamily: 'Rubik, sans-serif' }}>
                     {tab.count}
                   </span>
                 )}
@@ -459,7 +416,7 @@ const EncountersContent: React.FC<{
       </div>
       <div className="flex items-center gap-2 text-sm text-gray-500">
         <Calendar className="w-4 h-4" />
-        <span>{visits.length} total visits</span>
+        <span style={{ fontFamily: 'Rubik, sans-serif' }}>{visits.length} total visits</span>
       </div>
     </div>
     
@@ -795,7 +752,7 @@ const VitalsContent: React.FC<{ vitals: Vital[] }> = ({ vitals }) => (
       </div>
       <div className="flex items-center gap-2 text-sm text-gray-500">
         <TrendingUp className="w-4 h-4" />
-        <span>{vitals.length} recordings</span>
+        <span style={{ fontFamily: 'Rubik, sans-serif' }}>{vitals.length} recordings</span>
       </div>
     </div>
     
@@ -822,21 +779,21 @@ const VitalsContent: React.FC<{ vitals: Vital[] }> = ({ vitals }) => (
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
-                <div className="text-lg font-bold text-gray-800">
+                <div className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>
                   {vital.blood_pressure_systolic}/{vital.blood_pressure_diastolic}
                 </div>
                 <div className="text-xs text-gray-500">Blood Pressure</div>
               </div>
               <div className="text-center">
-                <div className="text-lg font-bold text-gray-800">{vital.heart_rate}</div>
+                <div className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>{vital.heart_rate}</div>
                 <div className="text-xs text-gray-500">Heart Rate</div>
               </div>
               <div className="text-center">
-                <div className="text-lg font-bold text-gray-800">{vital.temperature}°C</div>
+                <div className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>{vital.temperature}°C</div>
                 <div className="text-xs text-gray-500">Temperature</div>
               </div>
               <div className="text-center">
-                <div className="text-lg font-bold text-gray-800">{vital.weight}kg</div>
+                <div className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>{vital.weight}kg</div>
                 <div className="text-xs text-gray-500">Weight</div>
               </div>
             </div>
@@ -932,19 +889,10 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
     try {
       setLoading(true);
       
-      // Step 1: Get patient invoices with visit data
+      // Step 1: Get patient invoices (without join)
       const { data: invoices, error: invoiceError } = await supabase
         .from('invoices_enhanced')
-        .select(`
-          id, 
-          invoice_number, 
-          visit_id, 
-          payment_status, 
-          payment_method, 
-          total,
-          created_at,
-          visits(id, visit_date, visit_time, chief_complaint)
-        `)
+        .select('id, invoice_number, visit_id, payment_status, payment_method, total, created_at')
         .eq('patient_id', patientId)
         .order('created_at', { ascending: false });
 
@@ -963,7 +911,21 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
         return;
       }
 
-      // Step 2: Get services for those invoices
+      // Step 2: Get visit data for invoices that have visit_id
+      const visitIds = invoices
+        .filter(inv => inv.visit_id)
+        .map(inv => inv.visit_id);
+      
+      let visitsData = [];
+      if (visitIds.length > 0) {
+        const { data: visits } = await supabase
+          .from('visits')
+          .select('id, visit_date, visit_time, chief_complaint')
+          .in('id', visitIds);
+        visitsData = visits || [];
+      }
+
+      // Step 3: Get services for those invoices
       const invoiceIds = invoices.map(inv => inv.id);
       const { data: servicesData, error: servicesError } = await supabase
         .from('invoice_services')
@@ -985,18 +947,19 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
         return;
       }
 
-      // Step 3: Group services by invoice and create invoice objects
+      // Step 4: Group services by invoice and create invoice objects
       const invoiceMap = new Map();
       
-      // Initialize invoices
+      // Initialize invoices with visit data
       invoices.forEach(invoice => {
+        const visit = visitsData.find(v => v.id === invoice.visit_id);
         invoiceMap.set(invoice.id, {
           id: invoice.id,
           invoice_number: invoice.invoice_number,
           visit_id: invoice.visit_id,
-          visit_date: invoice.visits?.visit_date,
-          visit_time: invoice.visits?.visit_time,
-          chief_complaint: invoice.visits?.chief_complaint,
+          visit_date: visit?.visit_date,
+          visit_time: visit?.visit_time,
+          chief_complaint: visit?.chief_complaint,
           payment_status: invoice.payment_status || 'pending',
           payment_method: invoice.payment_method,
           total: invoice.total || 0,
@@ -1012,10 +975,23 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
       servicesData?.forEach(service => {
         const invoice = invoiceMap.get(service.invoice_id);
         if (invoice) {
-          invoice.services.push(service);
+          // Default medical aid coverage logic: all expenses covered unless specified
+          const serviceMedicalAid = service.medical_aid_covered !== null && service.medical_aid_covered !== undefined 
+            ? service.medical_aid_covered 
+            : service.total_price; // Default: all covered by medical aid
+          
+          const servicePatientPortion = service.patient_portion !== null && service.patient_portion !== undefined
+            ? service.patient_portion
+            : 0; // Default: patient pays nothing if medical aid covers all
+          
+          invoice.services.push({
+            ...service,
+            medical_aid_covered: serviceMedicalAid,
+            patient_portion: servicePatientPortion
+          });
           invoice.service_count += 1;
-          invoice.medical_aid_covered += service.medical_aid_covered || 0;
-          invoice.patient_portion += service.patient_portion || 0;
+          invoice.medical_aid_covered += serviceMedicalAid;
+          invoice.patient_portion += servicePatientPortion;
         }
       });
 
@@ -1120,59 +1096,71 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
       <div className="grid grid-cols-4 gap-4">
         <motion.div
           whileHover={{ y: -4 }}
-          className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 border border-blue-200"
+          className="bg-white rounded-2xl p-6 border-2 border-dotted border-gray-300"
         >
           <div className="flex items-center justify-between mb-2">
-            <div className="p-2 bg-blue-200 rounded-lg">
-              <Receipt className="w-5 h-5 text-blue-700" />
+            <div className="p-2 bg-[#489bfd]/10 rounded-lg">
+              <Receipt className="w-5 h-5 text-[#489bfd]" />
             </div>
-            <span className="text-xs font-medium text-blue-600">Total Billed</span>
+            <span className="text-xs font-medium text-[#489bfd]">Total Billed</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">N$ {billingStats.totalAmount.toFixed(2)}</p>
-          <p className="text-xs text-gray-600 mt-1">{services.length} services</p>
+          <p className="text-4xl font-bold text-[#489bfd] text-left" style={{ fontFamily: 'Rubik, sans-serif' }}>
+            <span>N$ {Math.floor(billingStats.totalAmount)}</span>
+            <span className="text-3xl opacity-60">.{String(billingStats.totalAmount.toFixed(2)).split('.')[1]}</span>
+          </p>
+          <p className="text-xs text-gray-600 mt-1" style={{ fontFamily: 'Rubik, sans-serif' }}>{services.length} services</p>
         </motion.div>
 
         <motion.div
           whileHover={{ y: -4 }}
-          className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6 border border-green-200"
+          className="bg-white rounded-2xl p-6 border-2 border-dotted border-gray-300"
         >
           <div className="flex items-center justify-between mb-2">
-            <div className="p-2 bg-green-200 rounded-lg">
-              <CheckCircle2 className="w-5 h-5 text-green-700" />
+            <div className="p-2 bg-[#30b4be]/10 rounded-lg">
+              <CheckCircle2 className="w-5 h-5 text-[#30b4be]" />
             </div>
-            <span className="text-xs font-medium text-green-600">Paid</span>
+            <span className="text-xs font-medium text-[#30b4be]">Collected</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">N$ {billingStats.paidAmount.toFixed(2)}</p>
-          <p className="text-xs text-gray-600 mt-1">
+          <p className="text-4xl font-bold text-[#30b4be] text-left" style={{ fontFamily: 'Rubik, sans-serif' }}>
+            <span>N$ {Math.floor(billingStats.paidAmount)}</span>
+            <span className="text-3xl opacity-60">.{String(billingStats.paidAmount.toFixed(2)).split('.')[1]}</span>
+          </p>
+          <p className="text-xs text-gray-600 mt-1" style={{ fontFamily: 'Rubik, sans-serif' }}>
             {((billingStats.paidAmount / billingStats.totalAmount) * 100 || 0).toFixed(0)}% collected
           </p>
         </motion.div>
 
         <motion.div
           whileHover={{ y: -4 }}
-          className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-2xl p-6 border border-amber-200"
+          className="bg-white rounded-2xl p-6 border-2 border-dotted border-gray-300"
         >
           <div className="flex items-center justify-between mb-2">
-            <div className="p-2 bg-amber-200 rounded-lg">
-              <Clock className="w-5 h-5 text-amber-700" />
+            <div className="p-2 bg-[#e98320]/10 rounded-lg">
+              <Clock className="w-5 h-5 text-[#e98320]" />
             </div>
-            <span className="text-xs font-medium text-amber-600">Pending</span>
+            <span className="text-xs font-medium text-[#e98320]">Pending</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">N$ {billingStats.outstandingAmount.toFixed(2)}</p>
+          <p className="text-4xl font-bold text-[#e98320] text-left" style={{ fontFamily: 'Rubik, sans-serif' }}>
+            <span>N$ {Math.floor(billingStats.outstandingAmount)}</span>
+            <span className="text-3xl opacity-60">.{String(billingStats.outstandingAmount.toFixed(2)).split('.')[1]}</span>
+          </p>
           <p className="text-xs text-gray-600 mt-1">Awaiting payment</p>
         </motion.div>
 
         <motion.div
           whileHover={{ y: -4 }}
-          className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-6 border border-red-200"
+          className="bg-white rounded-2xl p-6 border-2 border-dotted border-gray-300"
         >
           <div className="flex items-center justify-between mb-2">
-            <div className="p-2 bg-red-200 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-red-700" />
+            <div className="p-2 bg-[#ff4f5a]/10 rounded-lg">
+              <AlertCircle className="w-5 h-5 text-[#ff4f5a]" />
             </div>
-            <span className="text-xs font-medium text-red-600">Overdue</span>
+            <span className="text-xs font-medium text-[#ff4f5a]">Overdue</span>
           </div>
-          <p className="text-2xl font-bold text-gray-900">N$ {(billingStats.outstandingAmount * 0.3).toFixed(2)}</p>
+          <p className="text-4xl font-bold text-[#ff4f5a] text-left" style={{ fontFamily: 'Rubik, sans-serif' }}>
+            <span>N$ {Math.floor(billingStats.outstandingAmount * 0.3)}</span>
+            <span className="text-3xl opacity-60">.{String((billingStats.outstandingAmount * 0.3).toFixed(2)).split('.')[1]}</span>
+          </p>
           <p className="text-xs text-gray-600 mt-1">Requires attention</p>
         </motion.div>
       </div>
@@ -1190,7 +1178,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
             }`}
           >
             {status.charAt(0).toUpperCase() + status.slice(1)}
-            {status === 'all' && ` (${services.length})`}
+            {status === 'all' && <span style={{ fontFamily: 'Rubik, sans-serif' }}> ({services.length})</span>}
           </button>
         ))}
       </div>
@@ -1226,9 +1214,16 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                     overdue: 'bg-red-100 text-red-700 border-red-200'
                   };
 
+                  // Brand colors for table amounts based on status
+                  const statusBrandColors = {
+                    paid: '#30b4be', // collected color
+                    pending: '#e98320', // pending color  
+                    overdue: '#ff4f5a' // overdue color
+                  };
+
                   return (
                     <tr key={`${invoice.id}-${service.id}`} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900" style={{ fontFamily: 'Rubik, sans-serif' }}>
                         {service.code}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
@@ -1238,7 +1233,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                         {invoice.visit_date ? (
                           <button
                             onClick={() => navigate(`/patients/${patientId}?visit=${invoice.visit_id}`)}
-                            className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
+                            className="bg-gradient-to-r from-[#01b9d4] to-purple-600 bg-clip-text text-transparent font-medium hover:from-[#01a0c4] hover:to-purple-700 transition-all duration-200"
                           >
                             {format(parseISO(invoice.visit_date), 'MMM dd')}
                           </button>
@@ -1246,11 +1241,12 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                           <span className="text-gray-500">N/A</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-gray-500" style={{ fontFamily: 'Rubik, sans-serif' }}>
                         {service.quantity}
                       </td>
-                      <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                        N$ {service.total_price.toFixed(2)}
+                      <td className="px-4 py-3 text-sm font-semibold" style={{ fontFamily: 'Rubik, sans-serif', color: statusBrandColors[status] }}>
+                        <span>N$ {Math.floor(service.total_price)}</span>
+                        <span className="opacity-60">.{String(service.total_price.toFixed(2)).split('.')[1]}</span>
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[status]}`}>
@@ -1263,7 +1259,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                             setSelectedService({ ...service, invoice_number: invoice.invoice_number, visit_date: invoice.visit_date, visit_time: invoice.visit_time, chief_complaint: invoice.chief_complaint });
                             setShowDetails(true);
                           }}
-                          className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
+                          className="bg-gradient-to-r from-[#01b9d4] to-purple-600 bg-clip-text text-transparent font-medium hover:from-[#01a0c4] hover:to-purple-700 transition-all duration-200"
                         >
                           View Details
                         </button>
@@ -1292,6 +1288,13 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
               overdue: <AlertCircle className="w-4 h-4" />
             };
 
+            // Brand colors for invoice amounts based on status
+            const statusBrandColors = {
+              paid: '#30b4be', // collected color
+              pending: '#e98320', // pending color  
+              overdue: '#ff4f5a' // overdue color
+            };
+
             return (
               <motion.div
                 key={invoice.id}
@@ -1300,18 +1303,20 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                 whileHover={{ y: -4, scale: 1.01 }}
                 className="relative group cursor-pointer"
                 onClick={() => {
-                  setSelectedService({
-                    ...invoice.services[0], 
-                    invoice_number: invoice.invoice_number, 
-                    visit_date: invoice.visit_date,
-                    visit_time: invoice.visit_time,
-                    chief_complaint: invoice.chief_complaint
+                  setSelectedInvoice({
+                    ...invoice,
+                    patient_name: patient ? `${patient.first_name} ${patient.last_name}` : 'N/A',
+                    patient_phone: patient?.cell_number || 'N/A',
+                    patient_email: patient?.email || 'N/A',
+                    medical_aid_provider: medicalAid?.provider || null,
+                    chief_complaint: invoice.chief_complaint,
+                    payment_status: invoice.payment_status || 'pending'
                   });
-                  setShowDetails(true);
+                  setIsInvoiceModalOpen(true);
                 }}
               >
                 {/* Premium gradient border wrapper */}
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-2xl transform group-hover:scale-105 transition-transform duration-300 blur-xl"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-2xl transform group-hover:scale-102 transition-transform duration-300 blur-lg"></div>
                 
                 {/* Main invoice card */}
                 <div className="relative bg-white border border-gray-200/50 rounded-2xl p-6 shadow-lg group-hover:shadow-2xl transition-all duration-300 backdrop-blur-sm">
@@ -1328,19 +1333,19 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                         <h3 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
                           Invoice #{invoice.invoice_number}
                         </h3>
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="text-sm mt-1">
                           {invoice.visit_date ? (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 navigate(`/patients/${patientId}?visit=${invoice.visit_id}`);
                               }}
-                              className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
+                              className="bg-gradient-to-r from-[#01b9d4] to-purple-600 bg-clip-text text-transparent font-medium hover:from-[#01a0c4] hover:to-purple-700 transition-all duration-200"
                             >
                               Visit: {format(parseISO(invoice.visit_date), 'MMMM dd, yyyy')}
                             </button>
                           ) : (
-                            'Visit date not available'
+                            <span className="text-gray-500">Visit date not available</span>
                           )}
                         </p>
                       </div>
@@ -1351,8 +1356,9 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                         {statusIcons[status]}
                         {status.charAt(0).toUpperCase() + status.slice(1)}
                       </div>
-                      <p className="text-3xl font-black text-gray-900 mt-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                        N$ {invoice.total.toFixed(2)}
+                      <p className="text-3xl font-black text-gray-900 mt-2" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                        <span>N$ {Math.floor(invoice.total)}</span>
+                        <span className="text-2xl opacity-60">.{String(invoice.total.toFixed(2)).split('.')[1]}</span>
                       </p>
                     </div>
                   </div>
@@ -1361,7 +1367,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                   <div className="bg-gradient-to-r from-gray-50 to-blue-50/30 rounded-xl p-4 mb-4">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="font-semibold text-gray-800">Services Included</h4>
-                      <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded-full">
+                      <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded-full" style={{ fontFamily: 'Rubik, sans-serif' }}>
                         {invoice.service_count} item{invoice.service_count !== 1 ? 's' : ''}
                       </span>
                     </div>
@@ -1370,7 +1376,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                       {invoice.services.map((service, index) => (
                         <div key={service.id} className="flex items-center justify-between py-1">
                           <div className="flex-1">
-                            <span className="text-sm font-medium text-gray-900 font-mono">
+                            <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Rubik, sans-serif' }}>
                               {service.code}
                             </span>
                             <span className="text-sm text-gray-600 ml-2">
@@ -1378,8 +1384,8 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                             </span>
                           </div>
                           <div className="text-right ml-4">
-                            <span className="text-sm font-medium text-gray-900">
-                              {service.quantity} × N$ {service.unit_price.toFixed(2)}
+                            <span className="text-sm font-medium text-gray-900" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                              {service.quantity} × N$ {Math.floor(service.unit_price)}<span className="opacity-60">.{String(service.unit_price.toFixed(2)).split('.')[1]}</span>
                             </span>
                           </div>
                         </div>
@@ -1391,14 +1397,16 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                   <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
                     <div className="text-center">
                       <p className="text-xs text-gray-500 uppercase tracking-wider">Medical Aid</p>
-                      <p className="text-lg font-bold text-emerald-600">
-                        N$ {invoice.medical_aid_covered.toFixed(2)}
+                      <p className="text-lg font-bold text-emerald-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                        <span>N$ {Math.floor(invoice.medical_aid_covered)}</span>
+                        <span className="opacity-60">.{String(invoice.medical_aid_covered.toFixed(2)).split('.')[1]}</span>
                       </p>
                     </div>
                     <div className="text-center">
                       <p className="text-xs text-gray-500 uppercase tracking-wider">Patient Portion</p>
-                      <p className="text-lg font-bold text-blue-600">
-                        N$ {invoice.patient_portion.toFixed(2)}
+                      <p className="text-lg font-bold text-blue-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                        <span>N$ {Math.floor(invoice.patient_portion)}</span>
+                        <span className="opacity-60">.{String(invoice.patient_portion.toFixed(2)).split('.')[1]}</span>
                       </p>
                     </div>
                     <div className="text-center">
@@ -1454,7 +1462,7 @@ const ServiceDetailsModal: React.FC<{
           <div className="bg-gray-50 rounded-lg p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Service Code:</span>
-              <span className="font-mono font-medium">{service.code}</span>
+              <span className="font-medium" style={{ fontFamily: 'Rubik, sans-serif' }}>{service.code}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Description:</span>
@@ -1489,17 +1497,17 @@ const ServiceDetailsModal: React.FC<{
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <Code className="w-4 h-4 text-gray-400" />
-                  <span className="font-mono text-sm font-medium text-gray-700">
+                  <span className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Rubik, sans-serif' }}>
                     {service.code}
                   </span>
                 </div>
                 <p className="text-sm text-gray-900">{service.description}</p>
               </div>
               <div className="text-right ml-4">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
                   {service.quantity} × N$ {service.unit_price.toFixed(2)}
                 </p>
-                <p className="text-lg font-semibold text-gray-900">
+                <p className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Rubik, sans-serif' }}>
                   N$ {service.total_price.toFixed(2)}
                 </p>
                 {service.medical_aid_covered > 0 && (
@@ -1517,18 +1525,27 @@ const ServiceDetailsModal: React.FC<{
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Service Total:</span>
-              <span>N$ {service.total_price.toFixed(2)}</span>
+              <span style={{ fontFamily: 'Rubik, sans-serif' }}>N$ {service.total_price.toFixed(2)}</span>
             </div>
-            {service.medical_aid_covered > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Medical Aid Portion:</span>
-                <span className="text-green-600">N$ {service.medical_aid_covered.toFixed(2)}</span>
-              </div>
-            )}
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Medical Aid Covered:</span>
+              <span className="text-green-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                N$ {(service.medical_aid_covered || service.total_price).toFixed(2)}
+              </span>
+            </div>
             <div className="flex justify-between text-sm font-semibold border-t pt-2">
               <span className="text-gray-600">Patient Portion:</span>
-              <span className="font-medium text-[#01b9d4]">N$ {service.patient_portion.toFixed(2)}</span>
+              <span className="font-medium text-[#01b9d4]" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                N$ {(service.patient_portion || 0).toFixed(2)}
+              </span>
             </div>
+            {(service.medical_aid_covered || service.total_price) === service.total_price && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-2 mt-2">
+                <p className="text-xs text-green-700 font-medium">
+                  ✓ Fully covered by Medical Aid
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1543,7 +1560,7 @@ const ServiceDetailsModal: React.FC<{
                 service.payment_status === 'pending' ? 'text-amber-600' :
                 'text-red-600'
               }`}>
-                {service.payment_status.toUpperCase()}
+                {service.payment_status ? service.payment_status.toUpperCase() : 'PENDING'}
               </span>
             </div>
             {service.payment_method && (
@@ -1581,6 +1598,7 @@ const AIIntelligenceContent: React.FC<{
   const totalSpent = visits.length * 450 + vitals.length * 75 + 1250;
 
   return (
+    <>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -1868,6 +1886,17 @@ const AIIntelligenceContent: React.FC<{
         </motion.div>
       </div>
     </div>
+
+    {/* Invoice Details Modal */}
+    <InvoiceDetailsModal
+      isOpen={isInvoiceModalOpen}
+      onClose={() => {
+        setIsInvoiceModalOpen(false);
+        setSelectedInvoice(null);
+      }}
+      invoice={selectedInvoice}
+    />
+    </>
   );
 };
 
