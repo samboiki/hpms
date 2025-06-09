@@ -703,7 +703,7 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
             {activeTab === 'encounter' && (
               <div className="space-y-6">
                 <h3 className="text-xl font-semibold text-gray-900 mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                  Edit Encounter Information
+                  Encounter Information
                 </h3>
 
                 {/* Visit Type & Chief Complaint */}
@@ -860,7 +860,7 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
             {activeTab === 'billing' && (
               <div className="space-y-6">
                 <h3 className="text-xl font-semibold text-gray-900 mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                  Edit Billing & Services
+                  Billing & Services
                 </h3>
 
                 <PremiumBillingSection

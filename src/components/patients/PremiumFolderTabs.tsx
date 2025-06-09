@@ -687,9 +687,18 @@ const DocumentsContent: React.FC = () => (
   </div>
 );
 
-// Billing Content Component - Enhanced with real transaction data
+// Billing Content Component - Enhanced with real transaction data from new invoice service
 const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [billingStats, setBillingStats] = useState<any>({
+    totalInvoices: 0,
+    totalAmount: 0,
+    paidAmount: 0,
+    outstandingAmount: 0,
+    overdueinvoices: 0,
+    medicalAidAmount: 0,
+    patientAmount: 0
+  });
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'paid' | 'pending' | 'overdue'>('all');
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
@@ -697,104 +706,71 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
 
   React.useEffect(() => {
     if (patientId) {
-      fetchTransactions();
+      fetchBillingData();
     }
   }, [patientId]);
 
-  const fetchTransactions = async () => {
+  const fetchBillingData = async () => {
     try {
       setLoading(true);
       
-      // Fetch invoices with all related data using the new structure
-      const { data: invoicesData, error: invoicesError } = await supabase
-        .from('invoices_enhanced')
-        .select(`
-          *,
-          visits!inner(
-            id,
-            visit_date,
-            visit_time,
-            visit_type,
-            status
-          ),
-          invoice_services(
-            id,
-            code,
-            description,
-            quantity,
-            unit_price,
-            total_price,
-            medical_aid_covered,
-            patient_portion,
-            notes
-          )
-        `)
-        .eq('patient_id', patientId)
-        .order('issue_date', { ascending: false });
+      // Use the new invoice service to fetch data
+      const { invoiceService } = await import('../../services/invoiceService');
+      
+      // Fetch both invoices and stats in parallel
+      const [invoices, stats] = await Promise.all([
+        invoiceService.getPatientInvoices(patientId!),
+        invoiceService.getPatientBillingStats(patientId!)
+      ]);
 
-      if (invoicesError) throw invoicesError;
-
-      // Transform data for display
-      const transformedData = (invoicesData || []).map(invoice => ({
+      // Transform invoices for display
+      const transformedData = invoices.map(invoice => ({
         id: invoice.id,
-        invoice_number: invoice.invoice_number,
-        visit_date: invoice.visits.visit_date,
-        visit_time: invoice.visits.visit_time,
-        visit_type: invoice.visits.visit_type,
-        visit_status: invoice.visits.status,
-        is_cash_client: invoice.is_cash_client,
-        medical_aid_provider: invoice.medical_aid_provider,
-        medical_aid_scheme: invoice.medical_aid_scheme,
-        medical_aid_number: invoice.medical_aid_number,
+        invoice_number: invoice.invoiceNumber,
+        visit_id: invoice.visitId,
+        is_cash_client: !invoice.medicalAidAmount || invoice.medicalAidAmount === 0,
+        medical_aid_amount: invoice.medicalAidAmount || 0,
         subtotal: invoice.subtotal,
         tax: invoice.tax,
         total: invoice.total,
-        medical_aid_total: invoice.medical_aid_total,
-        patient_total: invoice.patient_total,
-        amount_paid: invoice.amount_paid,
-        balance_due: invoice.balance_due,
-        payment_status: invoice.payment_status,
-        payment_method: invoice.payment_method,
-        payment_date: invoice.payment_date,
-        medical_aid_status: invoice.medical_aid_status,
-        services: invoice.invoice_services || [],
-        service_count: invoice.invoice_services?.length || 0,
+        patient_total: invoice.patientAmount,
+        payment_status: invoice.paymentStatus,
+        payment_method: invoice.paymentMethod,
+        services: invoice.services || [],
+        service_count: invoice.services?.length || 0,
         notes: invoice.notes,
-        issue_date: invoice.issue_date,
-        due_date: invoice.due_date
+        issue_date: invoice.issueDate,
+        due_date: invoice.dueDate,
+        created_at: invoice.createdAt
       }));
 
       setTransactions(transformedData);
+      setBillingStats(stats);
     } catch (error) {
       console.error('Error fetching billing data:', error);
+      // Set empty data on error
+      setTransactions([]);
+      setBillingStats({
+        totalInvoices: 0,
+        totalAmount: 0,
+        paidAmount: 0,
+        outstandingAmount: 0,
+        overdueinvoices: 0,
+        medicalAidAmount: 0,
+        patientAmount: 0
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Calculate financial summaries from new invoice structure
-  const calculateSummary = () => {
-    let totalBilled = 0;
-    let totalPaid = 0;
-    let totalPending = 0;
-    let totalOverdue = 0;
-
-    transactions.forEach(transaction => {
-      totalBilled += transaction.total || 0;
-
-      if (transaction.payment_status === 'paid') {
-        totalPaid += transaction.amount_paid || 0;
-      } else if (transaction.payment_status === 'pending') {
-        totalPending += transaction.balance_due || 0;
-      } else if (transaction.payment_status === 'overdue') {
-        totalOverdue += transaction.balance_due || 0;
-      }
-    });
-
-    return { totalBilled, totalPaid, totalPending, totalOverdue };
-  };
-
-  const { totalBilled, totalPaid, totalPending, totalOverdue } = calculateSummary();
+  // Use the stats from the invoice service
+  const {
+    totalAmount: totalBilled,
+    paidAmount: totalPaid,
+    outstandingAmount: totalPending,
+    overdueinvoices: totalOverdue
+  } = billingStats;
 
   // Filter transactions
   const filteredTransactions = transactions.filter(transaction => {
@@ -823,7 +799,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={fetchTransactions}
+          onClick={fetchBillingData}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
         >
           <Clock className="w-5 h-5 text-gray-600" />
@@ -918,8 +894,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
       ) : (
         <div className="space-y-3">
           {filteredTransactions.map((transaction) => {
-            const invoice = transaction.invoice;
-            const status = invoice?.payment_status || 'pending';
+            const status = transaction.payment_status || 'pending';
             const statusColors = {
               paid: 'bg-green-100 text-green-700 border-green-200',
               pending: 'bg-amber-100 text-amber-700 border-amber-200',
@@ -940,26 +915,29 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="p-2 bg-gray-100 rounded-lg">
-                        <FileText className="w-4 h-4 text-gray-600" />
+                        <Receipt className="w-4 h-4 text-gray-600" />
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900">
-                          {transaction.visit_type.charAt(0).toUpperCase() + transaction.visit_type.slice(1)} Visit
+                          Invoice #{transaction.invoice_number}
                         </p>
                         <p className="text-sm text-gray-500">
-                          {format(parseISO(transaction.visit_date), 'MMM dd, yyyy')} at {transaction.visit_time}
+                          {format(parseISO(transaction.issue_date), 'MMM dd, yyyy')}
                         </p>
                       </div>
                     </div>
                     
                     <div className="ml-11">
-                      <p className="text-sm text-gray-600 mb-2">{transaction.diagnosis}</p>
                       <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>{transaction.visit_services.length} services</span>
-                        {invoice && (
+                        <span>{transaction.service_count} services</span>
+                        <span>•</span>
+                        <span>
+                          {transaction.is_cash_client ? 'Cash Client' : 'Medical Aid'}
+                        </span>
+                        {transaction.medical_aid_amount > 0 && (
                           <>
                             <span>•</span>
-                            <span>Invoice #{invoice.invoice_number}</span>
+                            <span>N$ {transaction.medical_aid_amount.toFixed(2)} covered</span>
                           </>
                         )}
                       </div>
@@ -968,7 +946,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                   
                   <div className="text-right ml-4">
                     <p className="text-xl font-bold text-gray-900 mb-1">
-                      N$ {transaction.servicesTotal.toFixed(2)}
+                      N$ {transaction.total.toFixed(2)}
                     </p>
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[status]}`}>
                       {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -1011,23 +989,31 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
               </div>
               
               <div className="p-6 space-y-6">
-                {/* Visit Information */}
+                {/* Invoice Information */}
                 <div>
-                  <h4 className="font-semibold text-gray-900 mb-3">Visit Information</h4>
+                  <h4 className="font-semibold text-gray-900 mb-3">Invoice Details</h4>
                   <div className="bg-gray-50 rounded-lg p-4 space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Date & Time:</span>
+                      <span className="text-gray-600">Invoice Number:</span>
+                      <span className="font-mono font-medium">{selectedTransaction.invoice_number}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Issue Date:</span>
                       <span className="font-medium">
-                        {format(parseISO(selectedTransaction.visit_date), 'MMMM dd, yyyy')} at {selectedTransaction.visit_time}
+                        {format(parseISO(selectedTransaction.issue_date), 'MMMM dd, yyyy')}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Visit Type:</span>
-                      <span className="font-medium">{selectedTransaction.visit_type}</span>
+                      <span className="text-gray-600">Due Date:</span>
+                      <span className="font-medium">
+                        {format(parseISO(selectedTransaction.due_date), 'MMMM dd, yyyy')}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Diagnosis:</span>
-                      <span className="font-medium">{selectedTransaction.diagnosis}</span>
+                      <span className="text-gray-600">Client Type:</span>
+                      <span className="font-medium">
+                        {selectedTransaction.is_cash_client ? 'Cash Client' : 'Medical Aid'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1036,21 +1022,17 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-3">Services Rendered</h4>
                   <div className="space-y-2">
-                    {selectedTransaction.visit_services.map((service: any) => (
+                    {selectedTransaction.services.map((service: any) => (
                       <div key={service.id} className="bg-gray-50 rounded-lg p-4">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <Code className="w-4 h-4 text-gray-400" />
                               <span className="font-mono text-sm font-medium text-gray-700">
-                                {service.practice_tariffs.code}
+                                {service.code}
                               </span>
                             </div>
-                            <p className="text-sm text-gray-900">{service.practice_tariffs.namaf_prace_2025}</p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {service.practice_tariffs.category}
-                              {service.practice_tariffs.subcategory && ` - ${service.practice_tariffs.subcategory}`}
-                            </p>
+                            <p className="text-sm text-gray-900">{service.description}</p>
                           </div>
                           <div className="text-right ml-4">
                             <p className="text-sm text-gray-600">
@@ -1059,6 +1041,11 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                             <p className="text-lg font-semibold text-gray-900">
                               N$ {service.total_price.toFixed(2)}
                             </p>
+                            {service.medical_aid_covered > 0 && (
+                              <p className="text-xs text-green-600">
+                                Medical Aid: N$ {service.medical_aid_covered.toFixed(2)}
+                              </p>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1066,50 +1053,56 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
                   </div>
                 </div>
 
-                {/* Total */}
+                {/* Financial Breakdown */}
                 <div className="border-t pt-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-semibold text-gray-900">Total Amount</span>
-                    <span className="text-2xl font-bold text-[#01b9d4]">
-                      N$ {selectedTransaction.servicesTotal.toFixed(2)}
-                    </span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Subtotal:</span>
+                      <span>N$ {selectedTransaction.subtotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Tax (15%):</span>
+                      <span>N$ {selectedTransaction.tax.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm font-semibold border-t pt-2">
+                      <span className="text-gray-900">Total Amount:</span>
+                      <span className="text-[#01b9d4]">N$ {selectedTransaction.total.toFixed(2)}</span>
+                    </div>
+                    {selectedTransaction.medical_aid_amount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Medical Aid Portion:</span>
+                        <span className="text-green-600">N$ {selectedTransaction.medical_aid_amount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Patient Portion:</span>
+                      <span className="font-medium">N$ {selectedTransaction.patient_total.toFixed(2)}</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Invoice Information */}
-                {selectedTransaction.invoice && (
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">Invoice Details</h4>
-                    <div className="bg-blue-50 rounded-lg p-4 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Invoice Number:</span>
-                        <span className="font-mono font-medium">{selectedTransaction.invoice.invoice_number}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Status:</span>
-                        <span className={`font-medium ${
-                          selectedTransaction.invoice.payment_status === 'paid' ? 'text-green-600' :
-                          selectedTransaction.invoice.payment_status === 'pending' ? 'text-amber-600' :
-                          'text-red-600'
-                        }`}>
-                          {selectedTransaction.invoice.payment_status.toUpperCase()}
-                        </span>
-                      </div>
-                      {selectedTransaction.invoice.amount_paid > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Amount Paid:</span>
-                          <span className="font-medium">N$ {selectedTransaction.invoice.amount_paid.toFixed(2)}</span>
-                        </div>
-                      )}
-                      {selectedTransaction.invoice.balance_due > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Balance Due:</span>
-                          <span className="font-medium text-red-600">N$ {selectedTransaction.invoice.balance_due.toFixed(2)}</span>
-                        </div>
-                      )}
+                {/* Payment Status */}
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3">Payment Status</h4>
+                  <div className="bg-blue-50 rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Status:</span>
+                      <span className={`font-medium ${
+                        selectedTransaction.payment_status === 'paid' ? 'text-green-600' :
+                        selectedTransaction.payment_status === 'pending' ? 'text-amber-600' :
+                        'text-red-600'
+                      }`}>
+                        {selectedTransaction.payment_status.toUpperCase()}
+                      </span>
                     </div>
+                    {selectedTransaction.payment_method && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Payment Method:</span>
+                        <span className="font-medium">{selectedTransaction.payment_method}</span>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             </motion.div>
           </motion.div>

@@ -332,7 +332,6 @@ export class InvoiceService {
       const { data: invoice, error: invoiceError } = await supabase
         .from('invoices_enhanced')
         .insert([{
-          invoice_number: invoiceData.invoiceNumber,
           patient_id: invoiceData.patientId,
           visit_id: invoiceData.visitId,
           due_date: this.calculateDueDate(),
@@ -354,7 +353,7 @@ export class InvoiceService {
         total_price: service.totalPrice,
         medical_aid_covered: 0, // Default to no medical aid coverage
         patient_portion: service.totalPrice, // Patient pays full amount initially
-        notes: service.notes
+        notes: service.notes || ''
       }));
 
       const { error: servicesError } = await supabase
@@ -363,8 +362,33 @@ export class InvoiceService {
 
       if (servicesError) throw servicesError;
 
-      // Totals are automatically calculated by triggers
-      return invoice;
+      // Return the complete invoice with updated totals (calculated by triggers)
+      const { data: updatedInvoice, error: fetchError } = await supabase
+        .from('invoices_enhanced')
+        .select('*')
+        .eq('id', invoice.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      return {
+        id: updatedInvoice.id,
+        invoiceNumber: updatedInvoice.invoice_number,
+        patientId: updatedInvoice.patient_id,
+        visitId: updatedInvoice.visit_id,
+        practiceId: updatedInvoice.practice_id,
+        issueDate: updatedInvoice.issue_date,
+        dueDate: updatedInvoice.due_date,
+        subtotal: updatedInvoice.subtotal,
+        tax: updatedInvoice.tax,
+        total: updatedInvoice.total,
+        paymentStatus: updatedInvoice.payment_status,
+        medicalAidAmount: updatedInvoice.medical_aid_total,
+        patientAmount: updatedInvoice.patient_total,
+        notes: updatedInvoice.notes,
+        createdAt: updatedInvoice.created_at,
+        updatedAt: updatedInvoice.updated_at
+      };
     } catch (error) {
       console.error('Error creating invoice with services:', error);
       throw error;
@@ -530,38 +554,142 @@ export class InvoiceService {
   }
 
   /**
-   * Get invoices for a patient
+   * Get invoices for a patient using new enhanced table
    */
   async getPatientInvoices(patientId: string): Promise<Invoice[]> {
-    const { data, error } = await supabase
-      .from('invoices')
-      .select('*')
-      .eq('patient_id', patientId)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('invoices_enhanced')
+        .select(`
+          *,
+          invoice_services(
+            id,
+            code,
+            description,
+            quantity,
+            unit_price,
+            total_price,
+            medical_aid_covered,
+            patient_portion
+          )
+        `)
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    return (data || []).map(invoice => ({
-      id: invoice.id,
-      invoiceNumber: invoice.invoice_number,
-      patientId: invoice.patient_id,
-      visitId: invoice.visit_id,
-      practiceId: invoice.practice_id,
-      issueDate: invoice.issue_date,
-      dueDate: invoice.due_date,
-      subtotal: invoice.subtotal,
-      tax: invoice.tax,
-      total: invoice.total,
-      paymentStatus: invoice.payment_status,
-      paymentMethod: invoice.payment_method,
-      medicalAidClaimNumber: invoice.medical_aid_claim_number,
-      medicalAidStatus: invoice.medical_aid_status,
-      medicalAidAmount: invoice.medical_aid_total,
-      patientAmount: invoice.patient_total,
-      notes: invoice.notes,
-      createdAt: invoice.created_at,
-      updatedAt: invoice.updated_at
-    }));
+      return (data || []).map(invoice => ({
+        id: invoice.id,
+        invoiceNumber: invoice.invoice_number,
+        patientId: invoice.patient_id,
+        visitId: invoice.visit_id,
+        practiceId: invoice.practice_id,
+        issueDate: invoice.issue_date,
+        dueDate: invoice.due_date,
+        subtotal: invoice.subtotal,
+        tax: invoice.tax,
+        total: invoice.total,
+        paymentStatus: invoice.payment_status,
+        paymentMethod: invoice.payment_method,
+        medicalAidClaimNumber: invoice.medical_aid_claim_number,
+        medicalAidStatus: invoice.medical_aid_status,
+        medicalAidAmount: invoice.medical_aid_total,
+        patientAmount: invoice.patient_total,
+        notes: invoice.notes,
+        createdAt: invoice.created_at,
+        updatedAt: invoice.updated_at,
+        services: invoice.invoice_services || []
+      }));
+    } catch (error) {
+      console.error('Error fetching patient invoices:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get billing statistics for patient from invoice view
+   */
+  async getPatientBillingStats(patientId: string): Promise<{
+    totalInvoices: number;
+    totalAmount: number;
+    paidAmount: number;
+    outstandingAmount: number;
+    overdueinvoices: number;
+    medicalAidAmount: number;
+    patientAmount: number;
+  }> {
+    try {
+      const { data: invoices, error } = await supabase
+        .from('invoices_enhanced')
+        .select('*')
+        .eq('patient_id', patientId);
+
+      if (error) throw error;
+
+      const stats = {
+        totalInvoices: invoices?.length || 0,
+        totalAmount: 0,
+        paidAmount: 0,
+        outstandingAmount: 0,
+        overdueinvoices: 0,
+        medicalAidAmount: 0,
+        patientAmount: 0
+      };
+
+      if (invoices) {
+        const today = new Date().toISOString().split('T')[0];
+        
+        invoices.forEach(invoice => {
+          stats.totalAmount += invoice.total || 0;
+          stats.medicalAidAmount += invoice.medical_aid_total || 0;
+          stats.patientAmount += invoice.patient_total || 0;
+          
+          if (invoice.payment_status === 'paid') {
+            stats.paidAmount += invoice.total || 0;
+          } else {
+            stats.outstandingAmount += invoice.total || 0;
+            
+            if (invoice.due_date < today) {
+              stats.overdueinvoices += 1;
+            }
+          }
+        });
+      }
+
+      return stats;
+    } catch (error) {
+      console.error('Error fetching patient billing stats:', error);
+      return {
+        totalInvoices: 0,
+        totalAmount: 0,
+        paidAmount: 0,
+        outstandingAmount: 0,
+        overdueinvoices: 0,
+        medicalAidAmount: 0,
+        patientAmount: 0
+      };
+    }
+  }
+
+  /**
+   * Get recent transactions for patient
+   */
+  async getPatientTransactions(patientId: string, limit: number = 10): Promise<any[]> {
+    try {
+      const { data, error } = await supabase
+        .from('invoice_services_view')
+        .select('*')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching patient transactions:', error);
+      return [];
+    }
   }
 
   /**
