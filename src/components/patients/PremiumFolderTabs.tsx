@@ -932,11 +932,21 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
     try {
       setLoading(true);
       
-      // Step 1: Get patient invoices
+      // Step 1: Get patient invoices with visit data
       const { data: invoices, error: invoiceError } = await supabase
         .from('invoices_enhanced')
-        .select('id, invoice_number, visit_id, payment_status, payment_method, total')
-        .eq('patient_id', patientId);
+        .select(`
+          id, 
+          invoice_number, 
+          visit_id, 
+          payment_status, 
+          payment_method, 
+          total,
+          created_at,
+          visits(id, visit_date, visit_time, chief_complaint)
+        `)
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false });
 
       if (invoiceError || !invoices || invoices.length === 0) {
         console.error('No invoices found:', invoiceError);
@@ -975,41 +985,54 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
         return;
       }
 
-      // Step 3: Combine services with invoice data
-      const transformedServices = servicesData?.map(service => {
-        const invoice = invoices.find(inv => inv.id === service.invoice_id);
-        return {
-          id: service.id,
-          code: service.code,
-          description: service.description,
-          quantity: service.quantity,
-          unit_price: service.unit_price,
-          total_price: service.total_price,
-          medical_aid_covered: service.medical_aid_covered || 0,
-          patient_portion: service.patient_portion,
-          visit_id: invoice?.visit_id,
-          visit_date: null, // No visit data needed
-          visit_time: null, // No visit data needed  
-          chief_complaint: null, // No visit data needed
-          invoice_id: invoice?.id,
-          invoice_number: invoice?.invoice_number,
-          payment_status: invoice?.payment_status || 'pending',
-          payment_method: invoice?.payment_method,
-          created_at: service.created_at
-        };
-      }) || [];
-
-      setServices(transformedServices);
+      // Step 3: Group services by invoice and create invoice objects
+      const invoiceMap = new Map();
       
-      // Calculate stats
-      const totalAmount = transformedServices.reduce((sum, service) => sum + service.total_price, 0);
-      const paidAmount = transformedServices
-        .filter(service => service.payment_status === 'paid')
-        .reduce((sum, service) => sum + service.total_price, 0);
-      const medicalAidAmount = transformedServices.reduce((sum, service) => sum + service.medical_aid_covered, 0);
+      // Initialize invoices
+      invoices.forEach(invoice => {
+        invoiceMap.set(invoice.id, {
+          id: invoice.id,
+          invoice_number: invoice.invoice_number,
+          visit_id: invoice.visit_id,
+          visit_date: invoice.visits?.visit_date,
+          visit_time: invoice.visits?.visit_time,
+          chief_complaint: invoice.visits?.chief_complaint,
+          payment_status: invoice.payment_status || 'pending',
+          payment_method: invoice.payment_method,
+          total: invoice.total || 0,
+          created_at: invoice.created_at,
+          services: [],
+          service_count: 0,
+          medical_aid_covered: 0,
+          patient_portion: 0
+        });
+      });
+
+      // Add services to their respective invoices
+      servicesData?.forEach(service => {
+        const invoice = invoiceMap.get(service.invoice_id);
+        if (invoice) {
+          invoice.services.push(service);
+          invoice.service_count += 1;
+          invoice.medical_aid_covered += service.medical_aid_covered || 0;
+          invoice.patient_portion += service.patient_portion || 0;
+        }
+      });
+
+      // Convert map to array for rendering
+      const transformedInvoices = Array.from(invoiceMap.values());
+      setServices(transformedInvoices);
+      
+      // Calculate stats based on invoices
+      const totalAmount = transformedInvoices.reduce((sum, invoice) => sum + invoice.total, 0);
+      const paidAmount = transformedInvoices
+        .filter(invoice => invoice.payment_status === 'paid')
+        .reduce((sum, invoice) => sum + invoice.total, 0);
+      const medicalAidAmount = transformedInvoices.reduce((sum, invoice) => sum + invoice.medical_aid_covered, 0);
+      const totalServices = servicesData?.length || 0;
       
       setBillingStats({
-        totalServices: transformedServices.length,
+        totalServices,
         totalAmount,
         paidAmount,
         outstandingAmount: totalAmount - paidAmount,
@@ -1033,10 +1056,10 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
     }
   };
 
-  // Filter services
-  const filteredServices = services.filter(service => {
+  // Filter invoices
+  const filteredInvoices = services.filter(invoice => {
     if (filter === 'all') return true;
-    return service.payment_status === filter;
+    return invoice.payment_status === filter;
   });
 
   if (loading) {
@@ -1172,11 +1195,11 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
         ))}
       </div>
 
-      {/* Services Display */}
-      {filteredServices.length === 0 ? (
+      {/* Invoices Display */}
+      {filteredInvoices.length === 0 ? (
         <div className="bg-gray-50 rounded-xl p-8 text-center">
           <Receipt className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-600 font-medium">No {filter !== 'all' ? filter : ''} services found</p>
+          <p className="text-gray-600 font-medium">No {filter !== 'all' ? filter : ''} invoices found</p>
         </div>
       ) : viewMode === 'list' ? (
         /* List View */
@@ -1194,139 +1217,204 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredServices.map((service) => {
-                const status = service.payment_status || 'pending';
-                const statusColors = {
-                  paid: 'bg-green-100 text-green-700 border-green-200',
-                  pending: 'bg-amber-100 text-amber-700 border-amber-200',
-                  overdue: 'bg-red-100 text-red-700 border-red-200'
-                };
+              {filteredInvoices.map((invoice) => {
+                return invoice.services.map((service, index) => {
+                  const status = service.payment_status || invoice.payment_status || 'pending';
+                  const statusColors = {
+                    paid: 'bg-green-100 text-green-700 border-green-200',
+                    pending: 'bg-amber-100 text-amber-700 border-amber-200',
+                    overdue: 'bg-red-100 text-red-700 border-red-200'
+                  };
 
-                return (
-                  <tr key={service.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900">
-                      {service.code}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {service.description}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {service.visit_date ? (
+                  return (
+                    <tr key={`${invoice.id}-${service.id}`} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-mono font-medium text-gray-900">
+                        {service.code}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {service.description}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {invoice.visit_date ? (
+                          <button
+                            onClick={() => navigate(`/patients/${patientId}?visit=${invoice.visit_id}`)}
+                            className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
+                          >
+                            {format(parseISO(invoice.visit_date), 'MMM dd')}
+                          </button>
+                        ) : (
+                          <span className="text-gray-500">N/A</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {service.quantity}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-semibold text-gray-900">
+                        N$ {service.total_price.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[status]}`}>
+                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
                         <button
-                          onClick={() => navigate(`/patients/${patientId}?visit=${service.visit_id}`)}
+                          onClick={() => {
+                            setSelectedService({ ...service, invoice_number: invoice.invoice_number, visit_date: invoice.visit_date, visit_time: invoice.visit_time, chief_complaint: invoice.chief_complaint });
+                            setShowDetails(true);
+                          }}
                           className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
                         >
-                          {format(parseISO(service.visit_date), 'MMM dd')}
+                          View Details
                         </button>
-                      ) : (
-                        <span className="text-gray-500">N/A</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {service.quantity}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                      N$ {service.total_price.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[status]}`}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <button
-                        onClick={() => {
-                          setSelectedService(service);
-                          setShowDetails(true);
-                        }}
-                        className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
-                      >
-                        View Details
-                      </button>
-                    </td>
-                  </tr>
-                );
+                      </td>
+                    </tr>
+                  );
+                });
               })}
             </tbody>
           </table>
         </div>
       ) : (
-        /* Card View */
-        <div className="space-y-3">
-          {filteredServices.map((service) => {
-            const status = service.payment_status || 'pending';
+        /* Premium Invoice Card View */
+        <div className="space-y-6">
+          {filteredInvoices.map((invoice) => {
+            const status = invoice.payment_status || 'pending';
             const statusColors = {
-              paid: 'bg-green-100 text-green-700 border-green-200',
-              pending: 'bg-amber-100 text-amber-700 border-amber-200',
-              overdue: 'bg-red-100 text-red-700 border-red-200'
+              paid: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+              pending: 'bg-amber-50 text-amber-800 border-amber-200',
+              overdue: 'bg-red-50 text-red-800 border-red-200'
+            };
+
+            const statusIcons = {
+              paid: <CheckCircle2 className="w-4 h-4" />,
+              pending: <Clock className="w-4 h-4" />,
+              overdue: <AlertCircle className="w-4 h-4" />
             };
 
             return (
               <motion.div
-                key={service.id}
-                whileHover={{ scale: 1.01 }}
+                key={invoice.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                whileHover={{ y: -4, scale: 1.01 }}
+                className="relative group cursor-pointer"
                 onClick={() => {
-                  setSelectedService(service);
+                  setSelectedService({
+                    ...invoice.services[0], 
+                    invoice_number: invoice.invoice_number, 
+                    visit_date: invoice.visit_date,
+                    visit_time: invoice.visit_time,
+                    chief_complaint: invoice.chief_complaint
+                  });
                   setShowDetails(true);
                 }}
-                className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all cursor-pointer"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="p-2 bg-gray-100 rounded-lg">
-                        <Code className="w-4 h-4 text-gray-600" />
+                {/* Premium gradient border wrapper */}
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-2xl transform group-hover:scale-105 transition-transform duration-300 blur-xl"></div>
+                
+                {/* Main invoice card */}
+                <div className="relative bg-white border border-gray-200/50 rounded-2xl p-6 shadow-lg group-hover:shadow-2xl transition-all duration-300 backdrop-blur-sm">
+                  {/* Header with invoice info */}
+                  <div className="flex items-start justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-xl blur-md opacity-30 group-hover:opacity-50 transition-opacity"></div>
+                        <div className="relative p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl shadow-lg">
+                          <Receipt className="w-6 h-6 text-white" />
+                        </div>
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-900 font-mono">
-                          {service.code}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {service.description}
+                        <h3 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          Invoice #{invoice.invoice_number}
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {invoice.visit_date ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/patients/${patientId}?visit=${invoice.visit_id}`);
+                              }}
+                              className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
+                            >
+                              Visit: {format(parseISO(invoice.visit_date), 'MMMM dd, yyyy')}
+                            </button>
+                          ) : (
+                            'Visit date not available'
+                          )}
                         </p>
                       </div>
                     </div>
                     
-                    <div className="ml-11">
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        {service.visit_date ? (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/patients/${patientId}?visit=${service.visit_id}`);
-                            }}
-                            className="text-[#01b9d4] hover:text-[#01a0c4] font-medium"
-                          >
-                            Visit: {format(parseISO(service.visit_date), 'MMM dd, yyyy')}
-                          </button>
-                        ) : (
-                          <span className="text-gray-500 text-xs">Visit: Not available</span>
-                        )}
-                        <span>•</span>
-                        <span>Qty: {service.quantity}</span>
-                        {service.invoice_number && (
-                          <>
-                            <span>•</span>
-                            <span>Invoice #{service.invoice_number}</span>
-                          </>
-                        )}
-                        {service.medical_aid_covered > 0 && (
-                          <>
-                            <span>•</span>
-                            <span>Medical Aid: N$ {service.medical_aid_covered.toFixed(2)}</span>
-                          </>
-                        )}
+                    <div className="text-right">
+                      <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium border ${statusColors[status]}`}>
+                        {statusIcons[status]}
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
                       </div>
+                      <p className="text-3xl font-black text-gray-900 mt-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        N$ {invoice.total.toFixed(2)}
+                      </p>
                     </div>
                   </div>
-                  
-                  <div className="text-right ml-4">
-                    <p className="text-xl font-bold text-gray-900 mb-1">
-                      N$ {service.total_price.toFixed(2)}
-                    </p>
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[status]}`}>
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </span>
+
+                  {/* Services summary with elegant styling */}
+                  <div className="bg-gradient-to-r from-gray-50 to-blue-50/30 rounded-xl p-4 mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-gray-800">Services Included</h4>
+                      <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded-full">
+                        {invoice.service_count} item{invoice.service_count !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {invoice.services.map((service, index) => (
+                        <div key={service.id} className="flex items-center justify-between py-1">
+                          <div className="flex-1">
+                            <span className="text-sm font-medium text-gray-900 font-mono">
+                              {service.code}
+                            </span>
+                            <span className="text-sm text-gray-600 ml-2">
+                              {service.description}
+                            </span>
+                          </div>
+                          <div className="text-right ml-4">
+                            <span className="text-sm font-medium text-gray-900">
+                              {service.quantity} × N$ {service.unit_price.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Financial breakdown */}
+                  <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 uppercase tracking-wider">Medical Aid</p>
+                      <p className="text-lg font-bold text-emerald-600">
+                        N$ {invoice.medical_aid_covered.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 uppercase tracking-wider">Patient Portion</p>
+                      <p className="text-lg font-bold text-blue-600">
+                        N$ {invoice.patient_portion.toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-500 uppercase tracking-wider">Payment Method</p>
+                      <p className="text-sm font-medium text-gray-700 capitalize">
+                        {invoice.payment_method || 'Not specified'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Hover effect indicator */}
+                  <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="flex items-center gap-1 text-xs text-gray-400">
+                      <span>View Details</span>
+                      <ChevronRight className="w-3 h-3" />
+                    </div>
                   </div>
                 </div>
               </motion.div>
