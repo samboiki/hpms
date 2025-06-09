@@ -32,7 +32,7 @@ import Badge from '../components/ui/Badge';
 import FormModal from '../components/modals/FormModal';
 import NextOfKinForm from '../components/forms/NextOfKinForm';
 import PremiumAddVisitForm from '../components/forms/PremiumAddVisitForm';
-import EditVisitForm from '../components/forms/EditVisitForm';
+import PremiumEditVisitForm from '../components/forms/PremiumEditVisitForm';
 import VisitModal from '../components/visits/VisitModal';
 import MedicalAidForm from '../components/forms/MedicalAidForm';
 import EditPatientForm from '../components/forms/EditPatientForm';
@@ -1162,17 +1162,9 @@ Medical Team`;
         title="Edit Visit"
       >
         {selectedVisit && (
-          <EditVisitForm
+          <PremiumEditVisitForm
             visitId={selectedVisit.id}
-            initialData={{
-              ...selectedVisit,
-              visit_type: selectedVisit.visit_type as 'consultation' | 'follow-up' | 'procedure' | 'emergency',
-              status: selectedVisit.status as 'in-progress' | 'completed' | 'cancelled',
-              treatment_plan: selectedVisit.treatment_plan || '',
-              follow_up_required: selectedVisit.follow_up_required || false,
-              lab_results: selectedVisit.lab_results || [],
-              media: selectedVisit.media || []
-            }}
+            patientId={id || ''}
             onSuccess={() => {
               setIsEditVisitModalOpen(false);
               if (id) {
@@ -1186,6 +1178,10 @@ Medical Team`;
                 };
                 fetchVisits();
               }
+            }}
+            onCancel={() => {
+              setIsEditVisitModalOpen(false);
+              setSelectedVisit(null);
             }}
           />
         )}
