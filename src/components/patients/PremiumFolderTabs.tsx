@@ -108,12 +108,21 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
   // Fetch billing count when component mounts
   React.useEffect(() => {
     const fetchBillingCount = async () => {
-      if (!patientId) return;
+      if (!patientId || visits.length === 0) {
+        setBillingCount(0);
+        return;
+      }
+      
+      const visitIds = visits.map(v => v.id);
+      if (visitIds.length === 0) {
+        setBillingCount(0);
+        return;
+      }
       
       const { count } = await supabase
         .from('visit_services')
         .select('*', { count: 'exact', head: true })
-        .eq('visit_id', visits.map(v => v.id));
+        .in('visit_id', visitIds);
       
       setBillingCount(count || 0);
     };
@@ -709,7 +718,7 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
       setLoading(true);
       
       // Fetch visits with services and invoices for this patient
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('visits')
         .select(`
           id,
@@ -729,20 +738,51 @@ const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
               category,
               subcategory
             )
-          ),
-          invoices_enhanced(
-            id,
-            invoice_number,
-            payment_status,
-            total,
-            amount_paid,
-            balance_due,
-            created_at,
-            due_date
           )
         `)
         .eq('patient_id', patientId)
         .order('visit_date', { ascending: false });
+
+      if (error) throw error;
+
+      // Try to fetch invoices separately - fallback approach
+      if (data && data.length > 0) {
+        const visitIds = data.map(v => v.id);
+        
+        // Try enhanced table first, then fallback
+        let invoicesData: any[] = [];
+        try {
+          const { data: enhancedInvoices, error: enhancedError } = await supabase
+            .from('invoices_enhanced')
+            .select('*')
+            .in('visit_id', visitIds);
+          
+          if (!enhancedError && enhancedInvoices) {
+            invoicesData = enhancedInvoices;
+          }
+        } catch (enhancedError) {
+          console.warn('Enhanced invoices table not available, trying standard table');
+          
+          try {
+            const { data: standardInvoices, error: standardError } = await supabase
+              .from('invoices')
+              .select('*')
+              .in('visit_id', visitIds);
+            
+            if (!standardError && standardInvoices) {
+              invoicesData = standardInvoices;
+            }
+          } catch (standardError) {
+            console.warn('Standard invoices table not available');
+          }
+        }
+        
+        // Attach invoices to visits
+        data = data.map(visit => ({
+          ...visit,
+          invoices_enhanced: invoicesData.filter(inv => inv.visit_id === visit.id)
+        }));
+      }
 
       if (error) throw error;
 
