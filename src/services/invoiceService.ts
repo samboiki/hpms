@@ -168,7 +168,7 @@ export class InvoiceService {
       // Try standard invoices table as fallback
       try {
         const result = await supabase
-          .from('invoices')
+          .from('invoices_enhanced')
           .insert([{
             invoice_number: params.invoiceNumber,
             patient_id: params.patientId,
@@ -404,7 +404,7 @@ export class InvoiceService {
     
     // Get the last invoice number for this practice
     const { data, error } = await supabase
-      .from('invoices')
+      .from('invoices_enhanced')
       .select('invoice_number')
       .eq('practice_id', practiceId)
       .like('invoice_number', `INV${year}${month}%`)
@@ -454,7 +454,7 @@ export class InvoiceService {
     reference?: string
   ): Promise<void> {
     const { error } = await supabase
-      .from('invoices')
+      .from('invoices_enhanced')
       .update({
         payment_status: status,
         payment_method: paymentMethod,
@@ -514,12 +514,11 @@ export class InvoiceService {
    */
   async getInvoiceById(invoiceId: string): Promise<Invoice | null> {
     const { data, error } = await supabase
-      .from('invoices')
+      .from('invoices_enhanced')
       .select(`
         *,
         patient:patients(*),
         visit:visits(*),
-        invoice_items(*),
         payment_records(*)
       `)
       .eq('id', invoiceId)
@@ -701,7 +700,7 @@ export class InvoiceService {
     const claimNumber = `CLM${Date.now()}`;
     
     const { error } = await supabase
-      .from('invoices')
+      .from('invoices_enhanced')
       .update({
         medical_aid_claim_number: claimNumber,
         medical_aid_status: 'submitted',

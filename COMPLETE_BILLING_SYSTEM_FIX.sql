@@ -14,21 +14,22 @@ ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 CREATE OR REPLACE FUNCTION generate_invoice_number()
 RETURNS TRIGGER AS $$
 DECLARE
-  year TEXT;
-  month TEXT;
-  sequence INT;
-  invoice_number TEXT;
+  year_val TEXT;
+  month_val TEXT;
+  sequence_num INT;
+  new_invoice_number TEXT;
 BEGIN
-  year := to_char(CURRENT_DATE, 'YY');
-  month := to_char(CURRENT_DATE, 'MM');
+  year_val := to_char(CURRENT_DATE, 'YY');
+  month_val := to_char(CURRENT_DATE, 'MM');
   
   -- Use invoices_enhanced instead of invoices
-  SELECT COALESCE(MAX(SUBSTRING(invoice_number FROM 7)::integer), 0) + 1
-  INTO sequence
-  FROM invoices_enhanced
-  WHERE invoice_number LIKE concat('INV', year, month, '%');
+  SELECT COALESCE(MAX(SUBSTRING(ie.invoice_number FROM 7)::integer), 0) + 1
+  INTO sequence_num
+  FROM invoices_enhanced ie
+  WHERE ie.invoice_number LIKE concat('INV', year_val, month_val, '%');
   
-  NEW.invoice_number := concat('INV', year, month, LPAD(sequence::text, 4, '0'));
+  new_invoice_number := concat('INV', year_val, month_val, LPAD(sequence_num::text, 4, '0'));
+  NEW.invoice_number := new_invoice_number;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
