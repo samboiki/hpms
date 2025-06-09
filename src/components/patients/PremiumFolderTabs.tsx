@@ -241,6 +241,12 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
           setSelectedService={setSelectedService}
           showDetails={showDetails}
           setShowDetails={setShowDetails}
+          selectedInvoice={selectedInvoice}
+          setSelectedInvoice={setSelectedInvoice}
+          isInvoiceModalOpen={isInvoiceModalOpen}
+          setIsInvoiceModalOpen={setIsInvoiceModalOpen}
+          patient={patient}
+          medicalAid={medicalAid}
         />;
       case 'audit':
         return <AuditTrailContent patientId={patientId} />;
@@ -897,7 +903,13 @@ const BillingContent: React.FC<{
   setSelectedService: (service: any) => void;
   showDetails: boolean;
   setShowDetails: (show: boolean) => void;
-}> = ({ patientId, selectedService, setSelectedService, showDetails, setShowDetails }) => {
+  selectedInvoice: any;
+  setSelectedInvoice: (invoice: any) => void;
+  isInvoiceModalOpen: boolean;
+  setIsInvoiceModalOpen: (open: boolean) => void;
+  patient?: any;
+  medicalAid?: any;
+}> = ({ patientId, selectedService, setSelectedService, showDetails, setShowDetails, selectedInvoice, setSelectedInvoice, isInvoiceModalOpen, setIsInvoiceModalOpen, patient, medicalAid }) => {
   const [services, setServices] = useState<any[]>([]);
   const [billingStats, setBillingStats] = useState<any>({
     totalServices: 0,
