@@ -27,10 +27,13 @@ import {
   Filter,
   Shield,
   Sparkles,
-  MessageSquare
+  MessageSquare,
+  X,
+  Code
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import PremiumVisitModal from '../modals/PremiumVisitModal';
+import { supabase } from '../../lib/supabase';
 
 interface Visit {
   id: string;
@@ -100,6 +103,23 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
+  const [billingCount, setBillingCount] = useState(0);
+
+  // Fetch billing count when component mounts
+  React.useEffect(() => {
+    const fetchBillingCount = async () => {
+      if (!patientId) return;
+      
+      const { count } = await supabase
+        .from('visit_services')
+        .select('*', { count: 'exact', head: true })
+        .eq('visit_id', visits.map(v => v.id));
+      
+      setBillingCount(count || 0);
+    };
+
+    fetchBillingCount();
+  }, [patientId, visits]);
 
   const tabs: TabData[] = [
     {
@@ -141,7 +161,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       id: 'billing',
       label: 'Billing',
       icon: <CreditCard className="w-3.5 h-3.5" />,
-      count: 0, // Will be populated when billing records are added
+      count: billingCount,
       color: 'from-teal-500 to-cyan-600'
     },
     {
@@ -184,7 +204,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       case 'documents':
         return <DocumentsContent />;
       case 'billing':
-        return <BillingContent />;
+        return <BillingContent patientId={patientId} />;
       case 'audit':
         return <AuditTrailContent />;
       default:
@@ -670,25 +690,434 @@ const DocumentsContent: React.FC = () => (
   </div>
 );
 
-// Billing Content Component
-const BillingContent: React.FC = () => (
-  <div className="space-y-6">
-    <div className="flex items-center justify-between">
-      <div>
-        <h3 className="text-xl font-bold text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>Billing & Invoices</h3>
-        <p className="text-gray-500 text-sm">Financial history and payment records</p>
+// Billing Content Component - Enhanced with real transaction data
+const BillingContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'paid' | 'pending' | 'overdue'>('all');
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
+  const [showDetails, setShowDetails] = useState(false);
+
+  React.useEffect(() => {
+    if (patientId) {
+      fetchTransactions();
+    }
+  }, [patientId]);
+
+  const fetchTransactions = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch visits with services and invoices for this patient
+      const { data, error } = await supabase
+        .from('visits')
+        .select(`
+          id,
+          visit_date,
+          visit_time,
+          visit_type,
+          diagnosis,
+          status,
+          visit_services(
+            id,
+            quantity,
+            unit_price,
+            total_price,
+            practice_tariffs(
+              code,
+              namaf_prace_2025,
+              category,
+              subcategory
+            )
+          ),
+          invoices_enhanced(
+            id,
+            invoice_number,
+            payment_status,
+            total,
+            amount_paid,
+            balance_due,
+            created_at,
+            due_date
+          )
+        `)
+        .eq('patient_id', patientId)
+        .order('visit_date', { ascending: false });
+
+      if (error) throw error;
+
+      // Transform data to include totals
+      const transformedData = (data || []).map(visit => {
+        const servicesTotal = visit.visit_services?.reduce((sum: number, service: any) => 
+          sum + (service.total_price || 0), 0) || 0;
+        
+        return {
+          ...visit,
+          servicesTotal,
+          invoice: visit.invoices_enhanced?.[0]
+        };
+      }).filter(visit => visit.visit_services && visit.visit_services.length > 0);
+
+      setTransactions(transformedData);
+    } catch (error) {
+      console.error('Error fetching billing data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate financial summaries
+  const calculateSummary = () => {
+    let totalBilled = 0;
+    let totalPaid = 0;
+    let totalPending = 0;
+    let totalOverdue = 0;
+
+    transactions.forEach(transaction => {
+      const amount = transaction.servicesTotal;
+      totalBilled += amount;
+
+      if (transaction.invoice) {
+        if (transaction.invoice.payment_status === 'paid') {
+          totalPaid += transaction.invoice.amount_paid || amount;
+        } else if (transaction.invoice.payment_status === 'pending') {
+          totalPending += transaction.invoice.balance_due || amount;
+        } else if (transaction.invoice.payment_status === 'overdue') {
+          totalOverdue += transaction.invoice.balance_due || amount;
+        }
+      } else {
+        totalPending += amount;
+      }
+    });
+
+    return { totalBilled, totalPaid, totalPending, totalOverdue };
+  };
+
+  const { totalBilled, totalPaid, totalPending, totalOverdue } = calculateSummary();
+
+  // Filter transactions
+  const filteredTransactions = transactions.filter(transaction => {
+    if (filter === 'all') return true;
+    const status = transaction.invoice?.payment_status || 'pending';
+    return status === filter;
+  });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#01b9d4]"></div>
       </div>
-    </div>
-    
-    <div className="text-center py-12">
-      <div className="p-4 bg-gradient-to-r from-teal-500 to-cyan-600 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-        <CreditCard className="w-8 h-8 text-white" />
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-2xl font-bold text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            Billing & Financial History
+          </h3>
+          <p className="text-gray-500 text-sm">Complete transaction records and payment history</p>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={fetchTransactions}
+          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <Clock className="w-5 h-5 text-gray-600" />
+        </motion.button>
       </div>
-      <h4 className="text-lg font-semibold text-gray-800 mb-2">No billing records</h4>
-      <p className="text-gray-500 text-sm">Invoices and payment history will appear here</p>
+      
+      {/* Financial Summary Cards */}
+      <div className="grid grid-cols-4 gap-4">
+        <motion.div
+          whileHover={{ y: -4 }}
+          className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 border border-blue-200"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2 bg-blue-200 rounded-lg">
+              <Receipt className="w-5 h-5 text-blue-700" />
+            </div>
+            <span className="text-xs font-medium text-blue-600">Total Billed</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">N$ {totalBilled.toFixed(2)}</p>
+          <p className="text-xs text-gray-600 mt-1">{transactions.length} transactions</p>
+        </motion.div>
+
+        <motion.div
+          whileHover={{ y: -4 }}
+          className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6 border border-green-200"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2 bg-green-200 rounded-lg">
+              <CheckCircle2 className="w-5 h-5 text-green-700" />
+            </div>
+            <span className="text-xs font-medium text-green-600">Paid</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">N$ {totalPaid.toFixed(2)}</p>
+          <p className="text-xs text-gray-600 mt-1">
+            {((totalPaid / totalBilled) * 100 || 0).toFixed(0)}% collected
+          </p>
+        </motion.div>
+
+        <motion.div
+          whileHover={{ y: -4 }}
+          className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-2xl p-6 border border-amber-200"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2 bg-amber-200 rounded-lg">
+              <Clock className="w-5 h-5 text-amber-700" />
+            </div>
+            <span className="text-xs font-medium text-amber-600">Pending</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">N$ {totalPending.toFixed(2)}</p>
+          <p className="text-xs text-gray-600 mt-1">Awaiting payment</p>
+        </motion.div>
+
+        <motion.div
+          whileHover={{ y: -4 }}
+          className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-6 border border-red-200"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2 bg-red-200 rounded-lg">
+              <AlertCircle className="w-5 h-5 text-red-700" />
+            </div>
+            <span className="text-xs font-medium text-red-600">Overdue</span>
+          </div>
+          <p className="text-2xl font-bold text-gray-900">N$ {totalOverdue.toFixed(2)}</p>
+          <p className="text-xs text-gray-600 mt-1">Requires attention</p>
+        </motion.div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-lg">
+        {(['all', 'paid', 'pending', 'overdue'] as const).map((status) => (
+          <button
+            key={status}
+            onClick={() => setFilter(status)}
+            className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-all ${
+              filter === status
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            {status.charAt(0).toUpperCase() + status.slice(1)}
+            {status === 'all' && ` (${transactions.length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Transactions List */}
+      {filteredTransactions.length === 0 ? (
+        <div className="bg-gray-50 rounded-xl p-8 text-center">
+          <Receipt className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-600 font-medium">No {filter !== 'all' ? filter : ''} transactions found</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredTransactions.map((transaction) => {
+            const invoice = transaction.invoice;
+            const status = invoice?.payment_status || 'pending';
+            const statusColors = {
+              paid: 'bg-green-100 text-green-700 border-green-200',
+              pending: 'bg-amber-100 text-amber-700 border-amber-200',
+              overdue: 'bg-red-100 text-red-700 border-red-200'
+            };
+
+            return (
+              <motion.div
+                key={transaction.id}
+                whileHover={{ scale: 1.01 }}
+                onClick={() => {
+                  setSelectedTransaction(transaction);
+                  setShowDetails(true);
+                }}
+                className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all cursor-pointer"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="p-2 bg-gray-100 rounded-lg">
+                        <FileText className="w-4 h-4 text-gray-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          {transaction.visit_type.charAt(0).toUpperCase() + transaction.visit_type.slice(1)} Visit
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {format(parseISO(transaction.visit_date), 'MMM dd, yyyy')} at {transaction.visit_time}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="ml-11">
+                      <p className="text-sm text-gray-600 mb-2">{transaction.diagnosis}</p>
+                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                        <span>{transaction.visit_services.length} services</span>
+                        {invoice && (
+                          <>
+                            <span>•</span>
+                            <span>Invoice #{invoice.invoice_number}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-right ml-4">
+                    <p className="text-xl font-bold text-gray-900 mb-1">
+                      N$ {transaction.servicesTotal.toFixed(2)}
+                    </p>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[status]}`}>
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Transaction Details Modal */}
+      <AnimatePresence>
+        {showDetails && selectedTransaction && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            onClick={() => setShowDetails(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold text-gray-900">Transaction Details</h3>
+                  <button
+                    onClick={() => setShowDetails(false)}
+                    className="p-2 hover:bg-gray-100 rounded-lg"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-6 space-y-6">
+                {/* Visit Information */}
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3">Visit Information</h4>
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Date & Time:</span>
+                      <span className="font-medium">
+                        {format(parseISO(selectedTransaction.visit_date), 'MMMM dd, yyyy')} at {selectedTransaction.visit_time}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Visit Type:</span>
+                      <span className="font-medium">{selectedTransaction.visit_type}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Diagnosis:</span>
+                      <span className="font-medium">{selectedTransaction.diagnosis}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Services Breakdown */}
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3">Services Rendered</h4>
+                  <div className="space-y-2">
+                    {selectedTransaction.visit_services.map((service: any) => (
+                      <div key={service.id} className="bg-gray-50 rounded-lg p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Code className="w-4 h-4 text-gray-400" />
+                              <span className="font-mono text-sm font-medium text-gray-700">
+                                {service.practice_tariffs.code}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-900">{service.practice_tariffs.namaf_prace_2025}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {service.practice_tariffs.category}
+                              {service.practice_tariffs.subcategory && ` - ${service.practice_tariffs.subcategory}`}
+                            </p>
+                          </div>
+                          <div className="text-right ml-4">
+                            <p className="text-sm text-gray-600">
+                              {service.quantity} × N$ {service.unit_price.toFixed(2)}
+                            </p>
+                            <p className="text-lg font-semibold text-gray-900">
+                              N$ {service.total_price.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Total */}
+                <div className="border-t pt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-semibold text-gray-900">Total Amount</span>
+                    <span className="text-2xl font-bold text-[#01b9d4]">
+                      N$ {selectedTransaction.servicesTotal.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Invoice Information */}
+                {selectedTransaction.invoice && (
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-3">Invoice Details</h4>
+                    <div className="bg-blue-50 rounded-lg p-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Invoice Number:</span>
+                        <span className="font-mono font-medium">{selectedTransaction.invoice.invoice_number}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Status:</span>
+                        <span className={`font-medium ${
+                          selectedTransaction.invoice.payment_status === 'paid' ? 'text-green-600' :
+                          selectedTransaction.invoice.payment_status === 'pending' ? 'text-amber-600' :
+                          'text-red-600'
+                        }`}>
+                          {selectedTransaction.invoice.payment_status.toUpperCase()}
+                        </span>
+                      </div>
+                      {selectedTransaction.invoice.amount_paid > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Amount Paid:</span>
+                          <span className="font-medium">N$ {selectedTransaction.invoice.amount_paid.toFixed(2)}</span>
+                        </div>
+                      )}
+                      {selectedTransaction.invoice.balance_due > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Balance Due:</span>
+                          <span className="font-medium text-red-600">N$ {selectedTransaction.invoice.balance_due.toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
-  </div>
-);
+  );
+};
 
 
 // AI Intelligence Content Component
