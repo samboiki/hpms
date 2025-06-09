@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -56,7 +56,7 @@ const FrequentCodesGrid: React.FC<{
   const [frequentCodes, setFrequentCodes] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchFrequentCodes = async () => {
       try {
         const { data, error } = await supabase
@@ -140,7 +140,7 @@ const EnhancedAddVisitForm: React.FC<Props> = ({ patientId, onSuccess, onCancel 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedServices, setSelectedServices] = useState<ServiceSelection[]>([]);
   const [practiceType, setPracticeType] = useState('dental'); // Default, will be fetched
-  const serviceSelectorRef = React.useRef<any>(null);
+  const serviceSelectorRef = useRef<any>(null);
 
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<EnhancedAddVisitFormData>({
     defaultValues: {
@@ -152,7 +152,7 @@ const EnhancedAddVisitForm: React.FC<Props> = ({ patientId, onSuccess, onCancel 
   });
 
   // Fetch practice type for current user
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchPracticeType = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -261,14 +261,6 @@ const EnhancedAddVisitForm: React.FC<Props> = ({ patientId, onSuccess, onCancel 
   return (
     <div className="max-w-6xl mx-auto">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-[#01b9d4] to-purple-600 rounded-xl p-6 text-white">
-          <h2 className="text-2xl font-bold mb-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
-            New Visit
-          </h2>
-          <p className="text-blue-100">Complete patient encounter and billing information</p>
-        </div>
-
         {/* Premium Tabs */}
         <div className="flex space-x-1 bg-gradient-to-r from-blue-50 to-purple-50 p-1 rounded-xl border border-blue-100">
           {tabs.map((tab) => (
