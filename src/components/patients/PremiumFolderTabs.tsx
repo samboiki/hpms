@@ -431,6 +431,16 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
           }
         }}
       />
+
+      {/* Invoice Details Modal */}
+      <InvoiceDetailsModal
+        isOpen={isInvoiceModalOpen}
+        onClose={() => {
+          setIsInvoiceModalOpen(false);
+          setSelectedInvoice(null);
+        }}
+        invoice={selectedInvoice}
+      />
     </div>
   );
 };
@@ -1940,15 +1950,6 @@ const AIIntelligenceContent: React.FC<{
       </div>
     </div>
 
-    {/* Invoice Details Modal */}
-    <InvoiceDetailsModal
-      isOpen={isInvoiceModalOpen}
-      onClose={() => {
-        setIsInvoiceModalOpen(false);
-        setSelectedInvoice(null);
-      }}
-      invoice={selectedInvoice}
-    />
     </>
   );
 };
