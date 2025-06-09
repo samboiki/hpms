@@ -356,32 +356,27 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 no-print">
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 no-print"
-            onClick={onClose}
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="relative bg-gradient-to-br from-white via-gray-50/30 to-blue-50/20 rounded-2xl shadow-2xl overflow-hidden max-w-4xl w-full max-h-[90vh] overflow-y-auto no-print"
+            onClick={(e) => e.stopPropagation()}
           >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden no-print"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gradient-to-r from-[#01b9d4] to-purple-600 rounded-lg">
-                    <Receipt className="w-5 h-5 text-white" />
+            {/* Premium Header */}
+            <div className="relative bg-gradient-to-r from-[#01b9d5] to-blue-600 p-6 text-white">
+              <div className="absolute inset-0 bg-gradient-to-r from-[#01b9d5]/20 to-blue-600/20 backdrop-blur-sm"></div>
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                    <Receipt className="w-6 h-6" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                    <h2 className="text-xl font-semibold" style={{ fontFamily: 'Poppins, sans-serif' }}>
                       Invoice #{invoice.invoice_number}
                     </h2>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-blue-100 text-sm">
                       {invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'No date available'}
                     </p>
                   </div>
@@ -392,7 +387,7 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleDownloadPDF}
-                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 text-sm font-medium"
+                    className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors flex items-center gap-2 text-sm font-medium backdrop-blur-sm"
                   >
                     <Download className="w-4 h-4" />
                     Download
@@ -402,7 +397,7 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handlePrint}
-                    className="px-4 py-2 bg-[#01b9d4] text-white rounded-lg hover:bg-[#01a0c4] transition-colors flex items-center gap-2 text-sm font-medium"
+                    className="px-4 py-2 bg-white text-[#01b9d5] rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2 text-sm font-medium"
                   >
                     <Printer className="w-4 h-4" />
                     Print
@@ -410,28 +405,72 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                   
                   <button
                     onClick={onClose}
-                    className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="p-2 text-white/70 hover:text-white transition-colors"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
               </div>
+            </div>
 
               {/* Content */}
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-                {/* Services Focus Section */}
-                <div className="mb-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="p-3 bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl">
-                      <Receipt className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                        Invoice Services & Codes
-                      </h3>
-                      <p className="text-sm text-gray-600">All services and procedures for this invoice</p>
+                {/* Patient & Visit Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Patient Information</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <User className="w-4 h-4 text-gray-400" />
+                        <span className="text-gray-900">{invoice.patient_name || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Phone className="w-4 h-4 text-gray-400" />
+                        <span className="text-gray-700">{invoice.patient_phone || 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Mail className="w-4 h-4 text-gray-400" />
+                        <span className="text-gray-700">{invoice.patient_email || 'N/A'}</span>
+                      </div>
+                      {invoice.medical_aid_provider && (
+                        <div className="flex items-center gap-3">
+                          <CreditCard className="w-4 h-4 text-gray-400" />
+                          <span className="text-gray-700">{invoice.medical_aid_provider}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
+                  
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Visit Details</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                        <span className="text-gray-900">{invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'N/A'}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Clock className="w-4 h-4 text-gray-400" />
+                        <span className="text-gray-700">{invoice.visit_time || 'N/A'}</span>
+                      </div>
+                      {invoice.chief_complaint && (
+                        <div className="flex items-start gap-3">
+                          <FileText className="w-4 h-4 text-gray-400 mt-0.5" />
+                          <span className="text-gray-700">{invoice.chief_complaint}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[invoice.payment_status]}`}>
+                          {statusIcons[invoice.payment_status]}
+                          <span className="ml-1.5">{invoice.payment_status.charAt(0).toUpperCase() + invoice.payment_status.slice(1)}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Services Section */}
+                <div className="mb-8">
+                  <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">Services & Procedures</h3>
                   
                   {/* Enhanced Services Display */}
                   <div className="space-y-4">

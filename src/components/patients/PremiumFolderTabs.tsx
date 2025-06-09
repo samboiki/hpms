@@ -37,6 +37,8 @@ import { format, parseISO } from 'date-fns';
 import PremiumVisitModal from '../modals/PremiumVisitModal';
 import FormModal from '../modals/FormModal';
 import InvoiceDetailsModal from '../modals/InvoiceDetailsModal';
+import DocumentUpload from '../documents/DocumentUpload';
+import DocumentList from '../documents/DocumentList';
 import { supabase } from '../../lib/supabase';
 
 interface Visit {
@@ -108,20 +110,22 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
   const [billingCount, setBillingCount] = useState(0);
+  const [documentsCount, setDocumentsCount] = useState(0);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<any>(null);
   const [showDetails, setShowDetails] = useState(false);
 
-  // Fetch billing count when component mounts
+  // Fetch counts when component mounts
   React.useEffect(() => {
-    const fetchBillingCount = async () => {
+    const fetchCounts = async () => {
       if (!patientId) {
         setBillingCount(0);
+        setDocumentsCount(0);
         return;
       }
       
-      // Count services from invoice_services via invoices_enhanced ONLY
+      // Count billing services
       const { data: invoiceData } = await supabase
         .from('invoices_enhanced')
         .select('id')
@@ -129,20 +133,38 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       
       if (!invoiceData || invoiceData.length === 0) {
         setBillingCount(0);
-        return;
+      } else {
+        const invoiceIds = invoiceData.map(inv => inv.id);
+        const { count } = await supabase
+          .from('invoice_services')
+          .select('*', { count: 'exact', head: true })
+          .in('invoice_id', invoiceIds);
+        
+        setBillingCount(count || 0);
       }
       
-      const invoiceIds = invoiceData.map(inv => inv.id);
-      const { count } = await supabase
-        .from('invoice_services')
+      // Count documents
+      const { count: docCount } = await supabase
+        .from('patient_documents')
         .select('*', { count: 'exact', head: true })
-        .in('invoice_id', invoiceIds);
+        .eq('patient_id', patientId);
       
-      setBillingCount(count || 0);
+      setDocumentsCount(docCount || 0);
     };
 
-    fetchBillingCount();
+    fetchCounts();
   }, [patientId, visits]);
+
+  const refreshDocumentsCount = async () => {
+    if (!patientId) return;
+    
+    const { count: docCount } = await supabase
+      .from('patient_documents')
+      .select('*', { count: 'exact', head: true })
+      .eq('patient_id', patientId);
+    
+    setDocumentsCount(docCount || 0);
+  };
 
   const tabs: TabData[] = [
     {
@@ -177,7 +199,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       id: 'documents',
       label: 'Documents',
       icon: <FileText className="w-3.5 h-3.5" />,
-      count: 0, // Will be populated when documents are added
+      count: documentsCount,
       color: 'from-amber-500 to-orange-600'
     },
     {
@@ -233,7 +255,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       case 'results':
         return <ResultsContent />;
       case 'documents':
-        return <DocumentsContent />;
+        return <DocumentsContent patientId={patientId} visitId={visits[0]?.id} onCountChange={refreshDocumentsCount} />;
       case 'billing':
         return <BillingContent 
           patientId={patientId}
@@ -887,24 +909,40 @@ const ResultsContent: React.FC = () => (
 );
 
 // Documents Content Component
-const DocumentsContent: React.FC = () => (
-  <div className="space-y-6">
-    <div className="flex items-center justify-between">
-      <div>
-        <h3 className="text-xl font-bold text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>Clinical Documents</h3>
-        <p className="text-gray-500 text-sm">Referrals, consents, and clinical documentation</p>
+const DocumentsContent: React.FC<{ patientId: string; visitId?: string; onCountChange?: () => void }> = ({ patientId, visitId, onCountChange }) => {
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const handleUploadSuccess = () => {
+    setRefreshTrigger(prev => prev + 1);
+    if (onCountChange) {
+      onCountChange();
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-xl font-bold text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>Clinical Documents</h3>
+          <p className="text-gray-500 text-sm">Upload and manage patient documents, lab results, and clinical files</p>
+        </div>
       </div>
+      
+      {/* Document Upload Section */}
+      <DocumentUpload 
+        patientId={patientId}
+        visitId={visitId}
+        onUploadSuccess={handleUploadSuccess}
+      />
+      
+      {/* Document List Section */}
+      <DocumentList 
+        patientId={patientId}
+        refreshTrigger={refreshTrigger}
+      />
     </div>
-    
-    <div className="text-center py-12">
-      <div className="p-4 bg-gradient-to-r from-amber-500 to-orange-600 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-        <FileText className="w-8 h-8 text-white" />
-      </div>
-      <h4 className="text-lg font-semibold text-gray-800 mb-2">No documents uploaded</h4>
-      <p className="text-gray-500 text-sm">Clinical documents and forms will appear here</p>
-    </div>
-  </div>
-);
+  );
+};
 
 // Billing Content Component - Enhanced with real service data
 const BillingContent: React.FC<{ 
