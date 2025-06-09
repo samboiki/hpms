@@ -5,9 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently --kill-others --names \"🏥DASH,🌐LAND,⚡ADMIN\" --prefix \"[{name}]\" --prefix-colors \"cyan,green,yellow\" \"npm run dev:dashboard\" \"npm run dev:landing\" \"npm run dev:admin\"",
+    "dev:clean": "./start-dev-clean.sh",
+    "dev:safe": "concurrently --kill-others --names \"🏥DASH,🌐LAND,⚡ADMIN\" --prefix \"[{name}]\" --prefix-colors \"cyan,green,yellow\" \"npm run dev:dashboard\" \"npm run dev:landing:alt\" \"npm run dev:admin:alt\"",
     "dev:dashboard": "vite --host 0.0.0.0 --port 5000 --force",
     "dev:landing": "cd hpms-landing && npm run dev -- --port 3000",
+    "dev:landing:alt": "cd hpms-landing && npm run dev -- --port 3001",
     "dev:admin": "cd onehealth && npm run dev -- --port 4000",
+    "dev:admin:alt": "cd onehealth && npm run dev -- --port 4001",
     "dev:dashboard-only": "vite --host 0.0.0.0 --port 5000 --force",
     "dev:debug": "vite --host 0.0.0.0 --port 5000 --debug --force",
     "build": "vite build",
@@ -15,7 +19,9 @@
     "lint": "eslint .",
     "lint:all": "npm run lint && cd hpms-landing && npm run lint && cd ../onehealth && npm run lint",
     "preview": "vite preview",
-    "services:status": "node check-services-status.js"
+    "services:status": "node check-services-status.js",
+    "kill-ports": "node check-and-kill-ports.js",
+    "start": "npm run kill-ports && npm run dev"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
