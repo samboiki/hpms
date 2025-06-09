@@ -88,330 +88,173 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
 
   const PrintableInvoice = () => (
     <div className="print-content" style={{ display: showPrintPreview ? 'block' : 'none' }}>
-      <style jsx>{`
+      <style>{`
         @media print {
-          .print-content {
-            display: block !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-          body * {
-            visibility: hidden;
-          }
-          .print-content, .print-content * {
-            visibility: visible;
-          }
+          * { box-sizing: border-box; }
+          body * { visibility: hidden; }
+          .print-content, .print-content * { visibility: visible; }
           .print-content {
             position: absolute;
             left: 0;
             top: 0;
-            width: 100%;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 20px !important;
+            background: white !important;
           }
+          .no-print { display: none !important; }
         }
       `}</style>
       
-      {/* Modern Invoice Design */}
-      <div className="bg-white p-8 max-w-4xl mx-auto shadow-2xl">
-        {/* Header with Logo and Company Info */}
-        <div className="flex items-start justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-[#01b9d4] to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-              <Receipt className="w-8 h-8 text-white" />
-            </div>
+      {/* Clean Print Layout */}
+      <div className="bg-white p-8 max-w-none mx-auto"
+           style={{ fontFamily: 'system-ui, -apple-system, sans-serif', lineHeight: '1.4' }}>
+        {/* Clean Header */}
+        <div style={{ marginBottom: '40px', borderBottom: '2px solid #000', paddingBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+              <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#000' }}>
                 HPMS
               </h1>
-              <p className="text-gray-600">Healthcare Practice Management</p>
-              <p className="text-sm text-gray-500">Windhoek, Namibia</p>
+              <p style={{ margin: '0', fontSize: '14px', color: '#666' }}>Healthcare Practice Management</p>
+              <p style={{ margin: '0', fontSize: '12px', color: '#666' }}>Windhoek, Namibia</p>
             </div>
-          </div>
-          
-          <div className="text-right">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">INVOICE</h2>
-            <div className="text-sm text-gray-600 space-y-1">
-              <p><span className="font-medium">Invoice #:</span> {invoice.invoice_number}</p>
-              <p><span className="font-medium">Date:</span> {invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'N/A'}</p>
-              <p><span className="font-medium">Status:</span> 
-                <span className={`ml-2 px-2 py-1 rounded-full text-xs ${statusColors[invoice.payment_status]}`}>
-                  {invoice.payment_status.charAt(0).toUpperCase() + invoice.payment_status.slice(1)}
-                </span>
-              </p>
+            
+            <div style={{ textAlign: 'right' }}>
+              <h2 style={{ fontSize: '28px', fontWeight: 'bold', margin: '0 0 16px 0', color: '#000' }}>INVOICE</h2>
+              <div style={{ fontSize: '14px', color: '#333' }}>
+                <p style={{ margin: '0 0 4px 0' }}><strong>Invoice #:</strong> {invoice.invoice_number}</p>
+                <p style={{ margin: '0 0 4px 0' }}><strong>Date:</strong> {invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'N/A'}</p>
+                <p style={{ margin: '0' }}><strong>Status:</strong> {invoice.payment_status.charAt(0).toUpperCase() + invoice.payment_status.slice(1)}</p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Patient Information */}
-        <div className="grid grid-cols-2 gap-8 mb-8">
-          <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 rounded-xl border border-blue-100">
-            <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-3" style={{ fontFamily: 'Poppins, sans-serif' }}>
-              <div className="p-2 bg-gradient-to-r from-[#01b9d4] to-purple-600 rounded-lg">
-                <User className="w-5 h-5 text-white" />
-              </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', marginBottom: '40px' }}>
+          <div>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 16px 0', color: '#000' }}>
               Patient Information
             </h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-gray-400" />
-                <span className="font-medium text-gray-600">Name:</span> 
-                <span className="font-semibold text-gray-900">{invoice.patient_name || 'N/A'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-gray-400" />
-                <span className="font-medium text-gray-600">Phone:</span> 
-                <span className="font-semibold text-gray-900">{invoice.patient_phone || 'N/A'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-gray-400" />
-                <span className="font-medium text-gray-600">Email:</span> 
-                <span className="font-semibold text-gray-900">{invoice.patient_email || 'N/A'}</span>
-              </div>
+            <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
+              <p style={{ margin: '0 0 8px 0' }}><strong>Name:</strong> {invoice.patient_name || 'N/A'}</p>
+              <p style={{ margin: '0 0 8px 0' }}><strong>Phone:</strong> {invoice.patient_phone || 'N/A'}</p>
+              <p style={{ margin: '0 0 8px 0' }}><strong>Email:</strong> {invoice.patient_email || 'N/A'}</p>
               {invoice.medical_aid_provider && (
-                <div className="flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-gray-400" />
-                  <span className="font-medium text-gray-600">Medical Aid:</span> 
-                  <span className="font-semibold text-emerald-600">{invoice.medical_aid_provider}</span>
-                </div>
+                <p style={{ margin: '0 0 8px 0' }}><strong>Medical Aid:</strong> {invoice.medical_aid_provider}</p>
               )}
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-xl border border-amber-100">
-            <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-3" style={{ fontFamily: 'Poppins, sans-serif' }}>
-              <div className="p-2 bg-gradient-to-r from-amber-500 to-orange-600 rounded-lg">
-                <Calendar className="w-5 h-5 text-white" />
-              </div>
+          <div>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 16px 0', color: '#000' }}>
               Visit Information
             </h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-gray-400" />
-                <span className="font-medium text-gray-600">Date:</span> 
-                <span className="font-semibold text-gray-900">{invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'N/A'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-gray-400" />
-                <span className="font-medium text-gray-600">Time:</span> 
-                <span className="font-semibold text-gray-900">{invoice.visit_time || 'N/A'}</span>
-              </div>
+            <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
+              <p style={{ margin: '0 0 8px 0' }}><strong>Date:</strong> {invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'N/A'}</p>
+              <p style={{ margin: '0 0 8px 0' }}><strong>Time:</strong> {invoice.visit_time || 'N/A'}</p>
               {invoice.chief_complaint && (
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-gray-400 mt-0.5" />
-                  <div>
-                    <span className="font-medium text-gray-600">Chief Complaint:</span> 
-                    <p className="font-semibold text-gray-900 mt-1">{invoice.chief_complaint}</p>
-                  </div>
-                </div>
+                <p style={{ margin: '0 0 8px 0' }}><strong>Chief Complaint:</strong> {invoice.chief_complaint}</p>
               )}
               {invoice.payment_method && (
-                <div className="flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-gray-400" />
-                  <span className="font-medium text-gray-600">Payment Method:</span> 
-                  <span className="font-semibold text-gray-900">{invoice.payment_method}</span>
-                </div>
+                <p style={{ margin: '0' }}><strong>Payment Method:</strong> {invoice.payment_method}</p>
               )}
             </div>
           </div>
         </div>
 
-        {/* Services Section - Enhanced Design */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-3 bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl">
-              <Receipt className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h3 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                Services Provided
-              </h3>
-              <p className="text-sm text-gray-600">Detailed breakdown of all services and procedures</p>
-            </div>
-          </div>
+        {/* Services Table */}
+        <div style={{ marginBottom: '40px' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 20px 0', color: '#000' }}>
+            Services Provided
+          </h3>
           
-          {/* Services Cards for Better Visual Appeal */}
-          <div className="space-y-4 mb-6">
-            {invoice.services.map((service, index) => (
-              <div key={service.id} className="bg-gradient-to-r from-white to-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-[#01b9d4] to-purple-600 rounded-xl flex items-center justify-center text-white font-bold text-lg" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                      {index + 1}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-lg font-bold text-gray-900 px-3 py-1 bg-gray-100 rounded-lg" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                          {service.code}
-                        </span>
-                        <span className="text-sm font-medium text-gray-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                          Qty: {service.quantity}
-                        </span>
-                      </div>
-                      <p className="text-gray-700 font-medium">{service.description}</p>
-                      <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                        <span style={{ fontFamily: 'Rubik, sans-serif' }}>
-                          Unit Price: <span className="font-semibold text-gray-700">N$ {service.unit_price.toFixed(2)}</span>
-                        </span>
-                        {service.medical_aid_covered && (
-                          <span style={{ fontFamily: 'Rubik, sans-serif' }}>
-                            Medical Aid: <span className="font-semibold text-emerald-600">N$ {service.medical_aid_covered.toFixed(2)}</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-[#01b9d4]" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                      N$ {service.total_price.toFixed(2)}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {service.quantity} × N$ {service.unit_price.toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          {/* Services Summary Table for Print */}
-          <div className="overflow-hidden border border-gray-200 rounded-xl shadow-sm">
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-gray-50 to-blue-50">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Code</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Service Description</th>
-                  <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">Qty</th>
-                  <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Unit Price</th>
-                  <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">Total</th>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #000' }}>
+                <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 'bold' }}>Code</th>
+                <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 'bold' }}>Description</th>
+                <th style={{ textAlign: 'center', padding: '12px 8px', fontWeight: 'bold' }}>Qty</th>
+                <th style={{ textAlign: 'right', padding: '12px 8px', fontWeight: 'bold' }}>Unit Price</th>
+                <th style={{ textAlign: 'right', padding: '12px 8px', fontWeight: 'bold' }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoice.services.map((service, index) => (
+                <tr key={service.id} style={{ borderBottom: '1px solid #ddd' }}>
+                  <td style={{ padding: '12px 8px', fontFamily: 'monospace', fontWeight: 'bold' }}>{service.code}</td>
+                  <td style={{ padding: '12px 8px' }}>{service.description}</td>
+                  <td style={{ padding: '12px 8px', textAlign: 'center' }}>{service.quantity}</td>
+                  <td style={{ padding: '12px 8px', textAlign: 'right' }}>N$ {service.unit_price.toFixed(2)}</td>
+                  <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 'bold' }}>N$ {service.total_price.toFixed(2)}</td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {invoice.services.map((service, index) => (
-                  <tr key={service.id} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-900" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                      {service.code}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 font-medium">
-                      {service.description}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-center font-semibold" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                      {service.quantity}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-right font-semibold" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                      N$ {service.unit_price.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-right font-bold text-[#01b9d4]" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                      N$ {service.total_price.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
 
-        {/* Financial Summary */}
-        <div className="flex justify-end">
-          <div className="w-80">
-            <div className="bg-gray-50 p-4 rounded-lg space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Subtotal:</span>
-                <span className="font-semibold" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                  N$ {invoice.total.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Medical Aid Covered:</span>
-                <span className="font-semibold text-emerald-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                  N$ {invoice.medical_aid_covered.toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Patient Portion:</span>
-                <span className="font-semibold text-blue-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                  N$ {invoice.patient_portion.toFixed(2)}
-                </span>
-              </div>
-              <div className="border-t border-gray-200 pt-3">
-                <div className="flex justify-between text-lg font-bold">
+        {/* Payment Summary */}
+        <div style={{ marginTop: '40px', borderTop: '2px solid #000', paddingTop: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ width: '300px' }}>
+              <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span>Subtotal:</span>
+                  <span>N$ {invoice.total.toFixed(2)}</span>
+                </div>
+                
+                {invoice.medical_aid_covered > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span>Medical Aid Covered:</span>
+                    <span>N$ {invoice.medical_aid_covered.toFixed(2)}</span>
+                  </div>
+                )}
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', paddingBottom: '8px', borderBottom: '1px solid #ddd' }}>
+                  <span>Patient Portion:</span>
+                  <span>N$ {invoice.patient_portion.toFixed(2)}</span>
+                </div>
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 'bold' }}>
                   <span>Total Amount:</span>
-                  <span className="text-[#01b9d4]" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                    N$ {invoice.total.toFixed(2)}
-                  </span>
+                  <span>N$ {invoice.total.toFixed(2)}</span>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-8 pt-4 border-t border-gray-200 text-center text-xs text-gray-500">
-          <p>Thank you for choosing our healthcare services!</p>
-          <p className="mt-1">For questions about this invoice, please contact us at your convenience.</p>
+          
+          <div style={{ marginTop: '40px', fontSize: '12px', color: '#666', textAlign: 'center' }}>
+            <p style={{ margin: '0' }}>Thank you for choosing HPMS Healthcare Services</p>
+            <p style={{ margin: '8px 0 0 0' }}>For questions about this invoice, please contact us at your convenience.</p>
+          </div>
         </div>
       </div>
     </div>
   );
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 no-print">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative bg-gradient-to-br from-white via-gray-50/30 to-blue-50/20 rounded-2xl shadow-2xl overflow-hidden max-w-4xl w-full max-h-[90vh] overflow-y-auto no-print"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Premium Header */}
-            <div className="relative bg-gradient-to-r from-[#01b9d5] to-blue-600 p-6 text-white">
-              <div className="absolute inset-0 bg-gradient-to-r from-[#01b9d5]/20 to-blue-600/20 backdrop-blur-sm"></div>
-              <div className="relative flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                    <Receipt className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-semibold" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                      Invoice #{invoice.invoice_number}
-                    </h2>
-                    <p className="text-blue-100 text-sm">
-                      {invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'No date available'}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleDownloadPDF}
-                    className="px-4 py-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors flex items-center gap-2 text-sm font-medium backdrop-blur-sm"
-                  >
-                    <Download className="w-4 h-4" />
-                    Download
-                  </motion.button>
-                  
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handlePrint}
-                    className="px-4 py-2 bg-white text-[#01b9d5] rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2 text-sm font-medium"
-                  >
-                    <Printer className="w-4 h-4" />
-                    Print
-                  </motion.button>
-                  
-                  <button
-                    onClick={onClose}
-                    className="p-2 text-white/70 hover:text-white transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            </div>
+            <h2 className="text-lg font-medium text-gray-900">Invoice #{invoice.invoice_number}</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              {invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'No date available'}
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2 text-sm font-medium"
+            >
+              <Printer className="w-4 h-4" />
+              Print
+            </button>
+            
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
 
               {/* Content */}
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
@@ -555,15 +398,11 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                         </div>
                       )}
                     </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
           </div>
-          <PrintableInvoice />
-        </>
-      )}
-    </AnimatePresence>
+        </div>
+      </motion.div>
+      <PrintableInvoice />
+    </div>
   );
 };
 
