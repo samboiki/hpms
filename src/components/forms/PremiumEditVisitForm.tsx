@@ -442,21 +442,18 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
         // Fetch existing services from invoice
         const { data: invoiceData } = await supabase
           .from('invoices_enhanced')
-          .select(`
-            *,
-            invoice_services(
-              id,
-              code,
-              description,
-              quantity,
-              unit_price,
-              total_price,
-              tariff_id,
-              notes
-            )
-          `)
+          .select('*')
           .eq('visit_id', visitId)
           .limit(1);
+
+        let invoiceServices: any[] = [];
+        if (invoiceData && invoiceData.length > 0) {
+          const { data: services } = await supabase
+            .from('invoice_services')
+            .select('*')
+            .eq('invoice_id', invoiceData[0].id);
+          invoiceServices = services || [];
+        }
 
         // Populate form with existing data
         const formData = {
@@ -483,8 +480,8 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
         reset(formData);
 
         // Load existing services
-        if (invoiceData?.[0]?.invoice_services) {
-          const existingServices = invoiceData[0].invoice_services.map((service: any) => ({
+        if (invoiceServices.length > 0) {
+          const existingServices = invoiceServices.map((service: any) => ({
             id: service.id,
             tariffId: service.tariff_id,
             code: service.code,
@@ -563,8 +560,7 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
           const { error: vitalsError } = await supabase
             .from('vitals')
             .update({
-              ...data.vitals,
-              updated_at: new Date().toISOString()
+              ...data.vitals
             })
             .eq('id', existingVitals[0].id);
 

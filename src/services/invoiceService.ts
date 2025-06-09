@@ -560,46 +560,46 @@ export class InvoiceService {
     try {
       const { data, error } = await supabase
         .from('invoices_enhanced')
-        .select(`
-          *,
-          invoice_services(
-            id,
-            code,
-            description,
-            quantity,
-            unit_price,
-            total_price,
-            medical_aid_covered,
-            patient_portion
-          )
-        `)
+        .select('*')
         .eq('patient_id', patientId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      return (data || []).map(invoice => ({
-        id: invoice.id,
-        invoiceNumber: invoice.invoice_number,
-        patientId: invoice.patient_id,
-        visitId: invoice.visit_id,
-        practiceId: invoice.practice_id,
-        issueDate: invoice.issue_date,
-        dueDate: invoice.due_date,
-        subtotal: invoice.subtotal,
-        tax: invoice.tax,
-        total: invoice.total,
-        paymentStatus: invoice.payment_status,
-        paymentMethod: invoice.payment_method,
-        medicalAidClaimNumber: invoice.medical_aid_claim_number,
-        medicalAidStatus: invoice.medical_aid_status,
-        medicalAidAmount: invoice.medical_aid_total,
-        patientAmount: invoice.patient_total,
-        notes: invoice.notes,
-        createdAt: invoice.created_at,
-        updatedAt: invoice.updated_at,
-        services: invoice.invoice_services || []
-      }));
+      // Get services for each invoice separately
+      const invoicesWithServices = await Promise.all(
+        (data || []).map(async (invoice) => {
+          const { data: services } = await supabase
+            .from('invoice_services')
+            .select('*')
+            .eq('invoice_id', invoice.id);
+
+          return {
+            id: invoice.id,
+            invoiceNumber: invoice.invoice_number,
+            patientId: invoice.patient_id,
+            visitId: invoice.visit_id,
+            practiceId: invoice.practice_id,
+            issueDate: invoice.issue_date,
+            dueDate: invoice.due_date,
+            subtotal: invoice.subtotal,
+            tax: invoice.tax,
+            total: invoice.total,
+            paymentStatus: invoice.payment_status,
+            paymentMethod: invoice.payment_method,
+            medicalAidClaimNumber: invoice.medical_aid_claim_number,
+            medicalAidStatus: invoice.medical_aid_status,
+            medicalAidAmount: invoice.medical_aid_total,
+            patientAmount: invoice.patient_total,
+            notes: invoice.notes,
+            createdAt: invoice.created_at,
+            updatedAt: invoice.updated_at,
+            services: services || []
+          };
+        })
+      );
+
+      return invoicesWithServices;
     } catch (error) {
       console.error('Error fetching patient invoices:', error);
       return [];
@@ -676,8 +676,9 @@ export class InvoiceService {
    */
   async getPatientTransactions(patientId: string, limit: number = 10): Promise<any[]> {
     try {
+      // Use the invoices directly since the view might not have patient_id
       const { data, error } = await supabase
-        .from('invoice_services_view')
+        .from('invoices_enhanced')
         .select('*')
         .eq('patient_id', patientId)
         .order('created_at', { ascending: false })
