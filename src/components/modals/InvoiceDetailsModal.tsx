@@ -232,6 +232,21 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
       </div>
     </div>
   );
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        className="relative bg-white rounded-2xl shadow-2xl overflow-hidden max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Minimalist Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <div>
             <h2 className="text-lg font-medium text-gray-900">Invoice #{invoice.invoice_number}</h2>
             <p className="text-sm text-gray-500 mt-1">
               {invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'No date available'}
@@ -256,8 +271,8 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
           </div>
         </div>
 
-              {/* Content */}
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
                 {/* Patient & Visit Info */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                   <div className="space-y-4">
@@ -398,7 +413,8 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                         </div>
                       )}
                     </div>
-          </div>
+                  </div>
+                </div>
         </div>
       </motion.div>
       <PrintableInvoice />
