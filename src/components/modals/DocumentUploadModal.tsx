@@ -88,18 +88,19 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const checkAuthentication = async () => {
     console.log('🔐 Checking authentication for document upload...');
     try {
-      const { data: { user }, error } = await supabase.auth.getUser();
+      const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.error('❌ Auth check failed:', error);
+        console.error('❌ Session check failed:', error);
         setIsAuthenticated(false);
         setCurrentUser(null);
-      } else if (user) {
-        console.log('✅ User authenticated:', user.email);
+      } else if (session && session.user) {
+        console.log('✅ User authenticated:', session.user.email);
+        console.log('🎫 Session valid until:', new Date(session.expires_at * 1000).toLocaleString());
         setIsAuthenticated(true);
-        setCurrentUser(user);
+        setCurrentUser(session.user);
       } else {
-        console.log('⚠️ No authenticated user');
+        console.log('⚠️ No authenticated session');
         setIsAuthenticated(false);
         setCurrentUser(null);
       }
@@ -146,38 +147,25 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const uploadFileToStorage = async (file: File, uploadFile: UploadedFile): Promise<string> => {
     console.log('📤 Starting upload to storage for:', file.name);
     
-    // Check authentication first
+    // Check authentication and get session
     console.log('🔐 Checking authentication status...');
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (authError) {
-      console.error('❌ Auth check failed:', authError);
+    if (sessionError) {
+      console.error('❌ Session check failed:', sessionError);
       throw new Error('Authentication error. Please log in and try again.');
     }
     
-    if (!user) {
+    if (!session || !session.user) {
       console.error('🚨 USER NOT AUTHENTICATED - Login required for uploads');
       throw new Error('You must be logged in to upload documents. Please log in and try again.');
     }
     
-    console.log('✅ User authenticated:', user.email);
+    console.log('✅ User authenticated:', session.user.email);
+    console.log('🎫 Session token available:', !!session.access_token);
     
-    // Check if bucket exists
-    console.log('🪣 Checking if documents bucket exists...');
-    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
-    
-    if (bucketsError) {
-      console.error('❌ Failed to list buckets:', bucketsError);
-    } else {
-      console.log('📋 Available buckets:', buckets.map(b => b.name));
-      const documentsBucket = buckets.find(b => b.name === 'documents');
-      if (!documentsBucket) {
-        console.error('🚨 DOCUMENTS BUCKET NOT FOUND - Create it in Supabase Storage!');
-        throw new Error('Documents storage bucket not found. Please contact administrator.');
-      } else {
-        console.log('✅ Documents bucket found');
-      }
-    }
+    // Skip bucket listing check - just try to upload directly
+    console.log('📁 Proceeding with upload to documents bucket...');
     
     const fileExt = file.name.split('.').pop();
     const fileName = `${patientId}/${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
@@ -213,8 +201,13 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
         });
         
         if (error.message.includes('row-level security')) {
-          console.error('🚨 RLS ERROR IN STORAGE - Try running EMERGENCY_DISABLE_RLS.sql');
-          throw new Error('Storage access denied. Database permissions need to be fixed.');
+          console.error('🚨 RLS ERROR IN STORAGE - Storage policies need to be configured');
+          throw new Error('Storage access denied. Please ensure you are logged in and have proper permissions.');
+        }
+        
+        if (error.message.includes('bucket') && error.message.includes('not found')) {
+          console.error('🚨 BUCKET ACCESS ERROR - documents bucket may not be accessible');
+          throw new Error('documents storage bucket is not accessible. Please contact administrator.');
         }
         
         throw new Error(error.message);
@@ -232,19 +225,20 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const saveFileMetadata = async (file: File, storagePath: string) => {
     console.log('💾 Saving file metadata to database...');
     
-    // Check authentication
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Check authentication and get session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (userError) {
-      console.error('❌ User fetch error:', userError);
+    if (sessionError) {
+      console.error('❌ Session fetch error:', sessionError);
       throw new Error('Authentication error while saving metadata.');
     }
     
-    if (!user) {
+    if (!session || !session.user) {
       console.error('🚨 USER NOT AUTHENTICATED - Cannot save metadata');
       throw new Error('You must be logged in to save document metadata.');
     }
     
+    const user = session.user;
     console.log('👤 Authenticated user:', user.id, user.email);
     
     // Debug: Check user's practice relationship
