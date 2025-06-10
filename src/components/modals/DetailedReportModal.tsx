@@ -14,7 +14,7 @@ import {
   PieChart,
   Filter,
   Download,
-  Print
+  Printer
 } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 
@@ -207,7 +207,7 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
                 <Download className="w-5 h-5" />
               </button>
               <button className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
-                <Print className="w-5 h-5" />
+                <Printer className="w-5 h-5" />
               </button>
               <button
                 onClick={onClose}
