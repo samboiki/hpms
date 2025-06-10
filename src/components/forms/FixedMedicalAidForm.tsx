@@ -19,9 +19,9 @@ interface MedicalAidFormData {
 interface MedicalAidProvider {
   id: string;
   name: string;
-  provider_code: string;
+  short_name: string;
   logo_url?: string;
-  is_active: boolean;
+  medical_aid_reference: string;
 }
 
 interface Props {
@@ -153,7 +153,7 @@ const FixedMedicalAidForm: React.FC<Props> = ({ patientId, initialData, onSucces
           <option value="">Select Medical Aid Provider</option>
           {providers.map((provider) => (
             <option key={provider.id} value={provider.id}>
-              {provider.name} ({provider.provider_code})
+              {provider.name} ({provider.short_name})
             </option>
           ))}
         </select>
