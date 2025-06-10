@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, 
@@ -236,8 +237,8 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]" onClick={onClose}>
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -419,7 +420,8 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
         </div>
       </motion.div>
       <PrintableInvoice />
-    </div>
+    </div>,
+    document.body
   );
 };
 
