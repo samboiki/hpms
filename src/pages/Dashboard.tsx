@@ -11,7 +11,10 @@ import {
   UserCheck,
   MessageSquare,
   Zap,
-  ChevronRight
+  ChevronRight,
+  Bell,
+  DollarSign,
+  TrendingUp
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +32,9 @@ import { motion } from 'framer-motion';
 import { useRealtimeAppointments } from '../hooks/useRealtimeAppointments';
 import { toast } from 'react-hot-toast';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
+import PremiumStatCard from '../components/dashboard/PremiumStatCard';
+import DetailedReportModal from '../components/modals/DetailedReportModal';
+import { dashboardStatsService, DashboardStats } from '../services/dashboardStatsService';
 
 interface Appointment {
   id: string;
@@ -99,6 +105,11 @@ function Dashboard() {
   const [showGridView, setShowGridView] = useState(false);
   const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress'>('pending');
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [selectedReportModal, setSelectedReportModal] = useState<{
+    isOpen: boolean;
+    type: 'patients' | 'notifications' | 'encounters' | 'finance' | null;
+  }>({ isOpen: false, type: null });
   const navigate = useNavigate();
 
   // Real-time appointment updates
@@ -378,6 +389,16 @@ function Dashboard() {
       });
 
       setNotifications(newNotifications);
+
+      // Fetch comprehensive dashboard stats
+      try {
+        const stats = await dashboardStatsService.getComprehensiveStats(authContext.practiceId);
+        setDashboardStats(stats);
+        console.log('✅ [Dashboard] Stats loaded:', stats);
+      } catch (statsError) {
+        console.error('❌ [Dashboard] Error loading stats:', statsError);
+        // Continue without stats if there's an error
+      }
 
       console.log('✅ [Dashboard] Data fetch complete:', {
         appointmentsSet: practiceAppointments.length,
@@ -789,104 +810,136 @@ function Dashboard() {
               </motion.button>
             </div>
 
-            {/* Premium Stats - Next of Kin and Total Investment card style */}
+            {/* Premium Dashboard Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-4">
-              {stats.map((stat, index) => {
-                // Use premium card style for "In Progress" and "Completed Today"
-                const isPremiumCard = stat.id === 'in-progress' || stat.id === 'completed';
+              {dashboardStats ? [
+                // Patients Card
+                <PremiumStatCard
+                  key="patients"
+                  title="Patients"
+                  mainValue={dashboardStats.patients.total}
+                  subtitle="Total registered patients"
+                  icon={Users}
+                  gradient="from-blue-500 to-cyan-600"
+                  stats={[
+                    { label: 'Male', value: dashboardStats.patients.male, color: '#3B82F6' },
+                    { label: 'Female', value: dashboardStats.patients.female, color: '#06B6D4' },
+                    { label: 'New This Month', value: dashboardStats.patients.newThisMonth, color: '#10B981' },
+                    { label: 'Avg Age', value: `${dashboardStats.patients.averageAge}y`, color: '#8B5CF6' }
+                  ]}
+                  miniChart={{
+                    type: 'line',
+                    data: dashboardStats.patients.growthData
+                  }}
+                  trend={{
+                    value: `+${dashboardStats.patients.newThisMonth}`,
+                    isPositive: dashboardStats.patients.newThisMonth > 0
+                  }}
+                  onClick={() => setSelectedReportModal({ isOpen: true, type: 'patients' })}
+                />,
                 
-                if (isPremiumCard) {
-                  return (
-                    <motion.div
-                      key={stat.label}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      whileHover={{ y: -8, scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="relative group cursor-pointer"
-                      onClick={stat.onClick}
-                    >
-                      {/* Gorgeous gradient background like next of kin card - lighter */}
-                      <div className={`absolute inset-0 bg-gradient-to-br ${stat.id === 'completed' ? 'from-purple-300 via-purple-400 to-indigo-400 group-hover:from-purple-500 group-hover:via-purple-400 group-hover:to-indigo-500' : 'from-blue-300 via-blue-400 to-cyan-400 group-hover:from-blue-500 group-hover:via-blue-400 group-hover:to-cyan-500'} rounded-3xl transform ${stat.id === 'completed' ? 'rotate-1 group-hover:rotate-2' : '-rotate-1 group-hover:-rotate-2'} transition-transform duration-500`}></div>
-                      
-                      {/* Main card */}
-                      <div className={`relative bg-gradient-to-br ${stat.id === 'completed' ? 'from-purple-300 to-indigo-400 group-hover:from-purple-400 group-hover:to-indigo-500' : 'from-blue-300 to-cyan-400 group-hover:from-blue-400 group-hover:to-cyan-500'} rounded-3xl p-1 shadow-2xl transition-all duration-500`}>
-                        <div className="relative bg-white rounded-[1.25rem] overflow-hidden">
-                          {/* Subtle pattern overlay */}
-                          <div className="absolute inset-0 opacity-[0.02]" style={{
-                            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23${stat.id === 'completed' ? 'A855F7' : '0EA5E9'}' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-                          }}></div>
-                          
-                          <div className="relative p-6">
-                            {/* Icon and trend indicator */}
-                            <div className="flex items-start justify-between mb-4">
-                              <div className="relative">
-                                <div className={`absolute inset-0 bg-gradient-to-br ${stat.id === 'completed' ? 'from-purple-200 to-indigo-300 group-hover:from-purple-300 group-hover:to-indigo-400' : 'from-blue-200 to-cyan-300 group-hover:from-blue-300 group-hover:to-cyan-400'} blur-xl opacity-50 transition-all duration-500`}></div>
-                                <div className={`relative p-3 bg-gradient-to-br ${stat.id === 'completed' ? 'from-purple-300 to-indigo-400 group-hover:from-purple-400 group-hover:to-indigo-500' : 'from-blue-300 to-cyan-400 group-hover:from-blue-400 group-hover:to-cyan-500'} rounded-2xl shadow-lg transition-all duration-500`}>
-                                  <stat.icon className="w-5 h-5 text-white" />
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1 text-gray-400 group-hover:text-gray-600 transition-colors">
-                                <span className="text-xs font-medium">{stat.change}</span>
-                                <ChevronRight className="w-3 h-3" />
-                              </div>
-                            </div>
-                            
-                            {/* Content */}
-                            <div className="space-y-1">
-                              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">{stat.label}</p>
-                              <p className="text-2xl font-black text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                                {stat.value}
-                              </p>
-                              <p className="text-sm text-gray-600 font-medium">
-                                {stat.id === 'completed' ? 'Visits completed' : 'Active visits'}
-                              </p>
-                            </div>
-                            
-                            {/* Bottom accent */}
-                            <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${stat.id === 'completed' ? 'from-purple-400 to-indigo-500 opacity-60 group-hover:opacity-100' : 'from-blue-400 to-cyan-500 opacity-60 group-hover:opacity-100'} transition-opacity duration-300`}></div>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                }
+                // Notifications Card
+                <PremiumStatCard
+                  key="notifications"
+                  title="Notifications"
+                  mainValue={dashboardStats.notifications.total}
+                  subtitle="Active notifications"
+                  icon={Bell}
+                  gradient="from-amber-500 to-orange-600"
+                  stats={[
+                    { label: 'Unread', value: dashboardStats.notifications.unread, color: '#F59E0B' },
+                    { label: 'Urgent', value: dashboardStats.notifications.urgent, color: '#EF4444' },
+                    { label: 'Today', value: dashboardStats.notifications.weeklyData[6], color: '#10B981' },
+                    { label: 'Types', value: dashboardStats.notifications.types.length, color: '#8B5CF6' }
+                  ]}
+                  miniChart={{
+                    type: 'bar',
+                    data: dashboardStats.notifications.weeklyData
+                  }}
+                  trend={{
+                    value: `${dashboardStats.notifications.unread} unread`,
+                    isPositive: false
+                  }}
+                  onClick={() => setSelectedReportModal({ isOpen: true, type: 'notifications' })}
+                />,
                 
-                // Regular card style for other stats
-                return (
+                // Encounters Card
+                <PremiumStatCard
+                  key="encounters"
+                  title="Encounters"
+                  mainValue={dashboardStats.encounters.total}
+                  subtitle="Total patient visits"
+                  icon={Activity}
+                  gradient="from-emerald-500 to-green-600"
+                  stats={[
+                    { label: 'This Month', value: dashboardStats.encounters.thisMonth, color: '#10B981' },
+                    { label: 'Completed', value: dashboardStats.encounters.completed, color: '#059669' },
+                    { label: 'Pending', value: dashboardStats.encounters.pending, color: '#F59E0B' },
+                    { label: 'Types', value: dashboardStats.encounters.types.length, color: '#8B5CF6' }
+                  ]}
+                  miniChart={{
+                    type: 'line',
+                    data: dashboardStats.encounters.monthlyData
+                  }}
+                  trend={{
+                    value: `+${dashboardStats.encounters.thisMonth}`,
+                    isPositive: dashboardStats.encounters.thisMonth > 0
+                  }}
+                  onClick={() => setSelectedReportModal({ isOpen: true, type: 'encounters' })}
+                />,
+                
+                // Finance Card
+                <PremiumStatCard
+                  key="finance"
+                  title="Finance"
+                  mainValue={`N$${(dashboardStats.finance.totalRevenue / 1000).toFixed(1)}k`}
+                  subtitle="Total revenue"
+                  icon={DollarSign}
+                  gradient="from-purple-500 to-indigo-600"
+                  stats={[
+                    { label: 'This Month', value: `N$${(dashboardStats.finance.thisMonth / 1000).toFixed(1)}k`, color: '#8B5CF6' },
+                    { label: 'Outstanding', value: `N$${(dashboardStats.finance.outstanding / 1000).toFixed(1)}k`, color: '#EF4444' },
+                    { label: 'Paid', value: dashboardStats.finance.paidInvoices, color: '#10B981' },
+                    { label: 'Unpaid', value: dashboardStats.finance.unpaidInvoices, color: '#F59E0B' }
+                  ]}
+                  miniChart={{
+                    type: 'bar',
+                    data: dashboardStats.finance.revenueData.map(v => v / 1000)
+                  }}
+                  trend={{
+                    value: `N$${(dashboardStats.finance.thisMonth / 1000).toFixed(1)}k`,
+                    isPositive: dashboardStats.finance.thisMonth > 0
+                  }}
+                  onClick={() => setSelectedReportModal({ isOpen: true, type: 'finance' })}
+                />
+              ] : (
+                // Loading skeleton
+                Array.from({ length: 4 }, (_, index) => (
                   <motion.div
-                    key={stat.label}
+                    key={index}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    whileHover={{ y: -1, scale: 1.01 }}
-                    className="relative group cursor-pointer"
-                    onClick={stat.onClick}
+                    className="bg-white/80 backdrop-blur-sm border rounded-xl p-6 border-gray-200/40"
                   >
-                    {/* Subtle Gradient Glow */}
-                    <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} rounded-xl blur-md opacity-5 group-hover:opacity-15 transition-opacity duration-200`}></div>
-                    
-                    {/* Glass Card */}
-                    <div className="relative bg-white/80 backdrop-blur-sm border rounded-xl p-3 transition-all duration-200 shadow-sm border-gray-200/40 hover:border-gray-300/50 hover:shadow-md">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className={`p-2 bg-gradient-to-br ${stat.gradient} rounded-lg shadow-md`}>
-                          <stat.icon className="w-4 h-4 text-white" />
+                    <div className="animate-pulse">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 bg-gray-200 rounded-lg"></div>
+                        <div className="flex-1">
+                          <div className="h-4 bg-gray-200 rounded w-20 mb-2"></div>
+                          <div className="h-6 bg-gray-200 rounded w-16"></div>
                         </div>
-                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                          stat.trend === 'up' ? 'bg-emerald-100 text-emerald-700' : 
-                          stat.trend === 'down' ? 'bg-rose-100 text-rose-700' : 
-                          'bg-gray-100 text-gray-600'
-                        }`}>
-                          {stat.change}
-                        </span>
                       </div>
-                      <p className="text-3xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-1">{stat.value}</p>
-                      <p className="text-sm text-gray-600 font-medium">{stat.label}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="h-8 bg-gray-200 rounded"></div>
+                        <div className="h-8 bg-gray-200 rounded"></div>
+                        <div className="h-8 bg-gray-200 rounded"></div>
+                        <div className="h-8 bg-gray-200 rounded"></div>
+                      </div>
                     </div>
                   </motion.div>
-                );
-              })}
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -1237,8 +1290,201 @@ function Dashboard() {
           onClose={() => setShowGridView(false)}
         />
       )}
+
+      {/* Detailed Report Modal */}
+      {selectedReportModal.isOpen && selectedReportModal.type && dashboardStats && (
+        <DetailedReportModal
+          isOpen={selectedReportModal.isOpen}
+          onClose={() => setSelectedReportModal({ isOpen: false, type: null })}
+          data={generateReportData(selectedReportModal.type, dashboardStats)}
+        />
+      )}
     </div>
   );
+
+  // Helper function to generate report data
+  function generateReportData(type: 'patients' | 'notifications' | 'encounters' | 'finance', stats: DashboardStats) {
+    switch (type) {
+      case 'patients':
+        return {
+          type: 'patients' as const,
+          title: 'Patient Analytics',
+          subtitle: 'Comprehensive patient demographics and growth analysis',
+          overview: {
+            total: stats.patients.total,
+            change: `+${stats.patients.newThisMonth}`,
+            isPositive: stats.patients.newThisMonth > 0,
+            period: 'This Month'
+          },
+          breakdown: [
+            { label: 'Male Patients', value: stats.patients.male, percentage: Math.round((stats.patients.male / stats.patients.total) * 100), color: '#3B82F6' },
+            { label: 'Female Patients', value: stats.patients.female, percentage: Math.round((stats.patients.female / stats.patients.total) * 100), color: '#06B6D4' },
+            { label: 'New This Month', value: stats.patients.newThisMonth, percentage: Math.round((stats.patients.newThisMonth / stats.patients.total) * 100), color: '#10B981' },
+            { label: 'Top Medical Aid', value: stats.patients.topMedicalAids[0]?.count || 0, percentage: Math.round(((stats.patients.topMedicalAids[0]?.count || 0) / stats.patients.total) * 100), color: '#8B5CF6' }
+          ],
+          chartData: {
+            labels: ['Male', 'Female', 'New This Month', 'Average Age'],
+            datasets: [{
+              label: 'Patient Statistics',
+              data: [stats.patients.male, stats.patients.female, stats.patients.newThisMonth, stats.patients.averageAge]
+            }]
+          },
+          timeSeriesData: {
+            labels: ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'],
+            datasets: [{
+              label: 'Patient Growth',
+              data: stats.patients.growthData
+            }]
+          },
+          insights: [
+            `You have ${stats.patients.total} total patients with an average age of ${stats.patients.averageAge} years`,
+            `${stats.patients.newThisMonth} new patients registered this month, showing ${stats.patients.newThisMonth > 0 ? 'positive' : 'stable'} growth`,
+            `Gender distribution: ${Math.round((stats.patients.male / stats.patients.total) * 100)}% male, ${Math.round((stats.patients.female / stats.patients.total) * 100)}% female`,
+            stats.patients.topMedicalAids.length > 0 ? `Top medical aid provider: ${stats.patients.topMedicalAids[0].name} (${stats.patients.topMedicalAids[0].count} patients)` : 'No medical aid data available'
+          ],
+          actionItems: [
+            'Review patient demographics for targeted care programs',
+            'Follow up with new patients for satisfaction surveys',
+            'Analyze medical aid coverage for billing optimization'
+          ]
+        };
+
+      case 'notifications':
+        return {
+          type: 'notifications' as const,
+          title: 'Notifications Dashboard',
+          subtitle: 'Active alerts and communication overview',
+          overview: {
+            total: stats.notifications.total,
+            change: `${stats.notifications.unread} unread`,
+            isPositive: false,
+            period: 'Active Now'
+          },
+          breakdown: stats.notifications.types.map(type => ({
+            label: type.type,
+            value: type.count,
+            percentage: Math.round((type.count / stats.notifications.total) * 100),
+            color: type.color
+          })),
+          chartData: {
+            labels: stats.notifications.types.map(t => t.type),
+            datasets: [{
+              label: 'Notification Types',
+              data: stats.notifications.types.map(t => t.count)
+            }]
+          },
+          timeSeriesData: {
+            labels: ['6d ago', '5d ago', '4d ago', '3d ago', '2d ago', 'Yesterday', 'Today'],
+            datasets: [{
+              label: 'Daily Notifications',
+              data: stats.notifications.weeklyData
+            }]
+          },
+          insights: [
+            `${stats.notifications.unread} unread notifications require attention`,
+            `${stats.notifications.urgent} urgent notifications need immediate action`,
+            `Peak notification day this week: ${Math.max(...stats.notifications.weeklyData)} notifications`,
+            `Most common notification type: ${stats.notifications.types[0]?.type || 'None'}`
+          ],
+          actionItems: [
+            'Review and clear unread notifications',
+            'Address urgent notifications immediately',
+            'Set up notification filters to reduce noise'
+          ]
+        };
+
+      case 'encounters':
+        return {
+          type: 'encounters' as const,
+          title: 'Patient Encounters',
+          subtitle: 'Visit analytics and encounter management',
+          overview: {
+            total: stats.encounters.total,
+            change: `+${stats.encounters.thisMonth}`,
+            isPositive: stats.encounters.thisMonth > 0,
+            period: 'This Month'
+          },
+          breakdown: [
+            { label: 'Total Encounters', value: stats.encounters.total, percentage: 100, color: '#10B981' },
+            { label: 'This Month', value: stats.encounters.thisMonth, percentage: Math.round((stats.encounters.thisMonth / stats.encounters.total) * 100), color: '#059669' },
+            { label: 'Completed', value: stats.encounters.completed, percentage: Math.round((stats.encounters.completed / stats.encounters.total) * 100), color: '#047857' },
+            { label: 'Pending', value: stats.encounters.pending, percentage: Math.round((stats.encounters.pending / stats.encounters.total) * 100), color: '#F59E0B' }
+          ],
+          chartData: {
+            labels: stats.encounters.types.map(t => t.type),
+            datasets: [{
+              label: 'Encounter Types',
+              data: stats.encounters.types.map(t => t.count)
+            }]
+          },
+          timeSeriesData: {
+            labels: ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'],
+            datasets: [{
+              label: 'Monthly Encounters',
+              data: stats.encounters.monthlyData
+            }]
+          },
+          insights: [
+            `${stats.encounters.completed} encounters completed with ${stats.encounters.pending} still pending`,
+            `Average encounters per month: ${Math.round(stats.encounters.total / 6)}`,
+            `Most common encounter type: ${stats.encounters.types[0]?.type || 'Consultation'}`,
+            `Completion rate: ${Math.round((stats.encounters.completed / stats.encounters.total) * 100)}%`
+          ],
+          actionItems: [
+            'Follow up on pending encounters',
+            'Review encounter efficiency metrics',
+            'Schedule follow-up appointments as needed'
+          ]
+        };
+
+      case 'finance':
+        return {
+          type: 'finance' as const,
+          title: 'Financial Overview',
+          subtitle: 'Revenue analysis and payment tracking',
+          overview: {
+            total: stats.finance.totalRevenue,
+            change: `N$${(stats.finance.thisMonth / 1000).toFixed(1)}k`,
+            isPositive: stats.finance.thisMonth > 0,
+            period: 'This Month'
+          },
+          breakdown: [
+            { label: 'Total Revenue', value: stats.finance.totalRevenue, percentage: 100, color: '#8B5CF6' },
+            { label: 'This Month', value: stats.finance.thisMonth, percentage: Math.round((stats.finance.thisMonth / stats.finance.totalRevenue) * 100), color: '#7C3AED' },
+            { label: 'Outstanding', value: stats.finance.outstanding, percentage: Math.round((stats.finance.outstanding / stats.finance.totalRevenue) * 100), color: '#EF4444' },
+            { label: 'Collection Rate', value: Math.round(((stats.finance.totalRevenue - stats.finance.outstanding) / stats.finance.totalRevenue) * 100), percentage: Math.round(((stats.finance.totalRevenue - stats.finance.outstanding) / stats.finance.totalRevenue) * 100), color: '#10B981' }
+          ],
+          chartData: {
+            labels: stats.finance.paymentMethods.map(p => p.method),
+            datasets: [{
+              label: 'Payment Methods',
+              data: stats.finance.paymentMethods.map(p => p.amount)
+            }]
+          },
+          timeSeriesData: {
+            labels: ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'],
+            datasets: [{
+              label: 'Monthly Revenue',
+              data: stats.finance.revenueData
+            }]
+          },
+          insights: [
+            `N$${(stats.finance.outstanding / 1000).toFixed(1)}k in outstanding payments needs collection`,
+            `Average monthly revenue: N$${(stats.finance.totalRevenue / 6 / 1000).toFixed(1)}k`,
+            `${stats.finance.paidInvoices} invoices paid vs ${stats.finance.unpaidInvoices} unpaid`,
+            `Most popular payment method: ${stats.finance.paymentMethods[0]?.method || 'Cash'}`
+          ],
+          actionItems: [
+            'Follow up on outstanding payments',
+            'Send payment reminders to overdue accounts',
+            'Review and optimize payment processes'
+          ]
+        };
+
+      default:
+        throw new Error(`Unknown report type: ${type}`);
+    }
+  }
 }
 
 export default Dashboard;
