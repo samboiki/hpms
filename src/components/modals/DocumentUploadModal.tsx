@@ -109,6 +109,23 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const uploadFileToStorage = async (file: File, uploadFile: UploadedFile): Promise<string> => {
     console.log('📤 Starting upload to storage for:', file.name);
     
+    // Check if bucket exists first
+    console.log('🪣 Checking if documents bucket exists...');
+    const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+    
+    if (bucketsError) {
+      console.error('❌ Failed to list buckets:', bucketsError);
+    } else {
+      console.log('📋 Available buckets:', buckets.map(b => b.name));
+      const documentsBucket = buckets.find(b => b.name === 'documents');
+      if (!documentsBucket) {
+        console.error('🚨 DOCUMENTS BUCKET NOT FOUND - Create it in Supabase Storage!');
+        throw new Error('Documents storage bucket not found. Please create "documents" bucket in Supabase Storage.');
+      } else {
+        console.log('✅ Documents bucket found');
+      }
+    }
+    
     const fileExt = file.name.split('.').pop();
     const fileName = `${patientId}/${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
     
@@ -124,6 +141,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     }, 100);
     
     try {
+      console.log('🔄 Uploading to Supabase Storage...');
       const { data, error } = await supabase.storage
         .from('documents')
         .upload(fileName, file, {
@@ -135,13 +153,25 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
 
       if (error) {
         console.error('❌ Storage upload failed:', error);
+        console.error('❌ Error details:', {
+          message: error.message,
+          statusCode: error.statusCode,
+          error: error.error
+        });
+        
+        if (error.message.includes('row-level security')) {
+          console.error('🚨 RLS ERROR IN STORAGE - Try running EMERGENCY_DISABLE_RLS.sql');
+          throw new Error('Storage access denied. Database permissions need to be fixed.');
+        }
+        
         throw new Error(error.message);
       }
 
-      console.log('✅ File uploaded to storage:', data.path);
+      console.log('✅ File uploaded to storage successfully:', data.path);
       return data.path;
     } catch (error) {
       clearInterval(progressInterval);
+      console.error('❌ Upload exception:', error);
       throw error;
     }
   };

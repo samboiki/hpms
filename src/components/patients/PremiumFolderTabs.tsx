@@ -31,7 +31,8 @@ import {
   Sparkles,
   MessageSquare,
   X,
-  Code
+  Code,
+  Upload
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import PremiumVisitModal from '../modals/PremiumVisitModal';
@@ -912,6 +913,7 @@ const ResultsContent: React.FC = () => (
 const DocumentsContent: React.FC<{ patientId: string; visitId?: string; onCountChange?: () => void }> = ({ patientId, visitId, onCountChange }) => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleUploadSuccess = () => {
     console.log('📊 Document upload successful - refreshing list');
@@ -921,8 +923,57 @@ const DocumentsContent: React.FC<{ patientId: string; visitId?: string; onCountC
     }
   };
 
+  const handleFileSelect = (files: FileList) => {
+    console.log('📂 Files selected via drop area:', files.length);
+    // Open modal and pass files
+    setIsUploadModalOpen(true);
+    // We'll handle file passing in the modal
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    console.log('🎯 Files dropped on main area');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileSelect(files);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
   return (
-    <div className="space-y-6">
+    <div 
+      className="space-y-6 relative"
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+    >
+      {/* Drag overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 bg-[#01b9d4]/10 border-2 border-dashed border-[#01b9d4] rounded-xl z-10 flex items-center justify-center">
+          <div className="text-center">
+            <div className="p-4 bg-[#01b9d4]/20 rounded-full mx-auto mb-4 w-16 h-16 flex items-center justify-center">
+              <Upload className="w-8 h-8 text-[#01b9d4]" />
+            </div>
+            <h3 className="text-lg font-semibold text-[#01b9d4] mb-2">Drop files here to upload</h3>
+            <p className="text-sm text-gray-600">Release to start uploading documents</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xl font-bold text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>Clinical Documents</h3>
@@ -939,6 +990,28 @@ const DocumentsContent: React.FC<{ patientId: string; visitId?: string; onCountC
           Upload Documents
         </motion.button>
       </div>
+
+      {/* Quick Drop Area */}
+      <motion.div
+        className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-[#01b9d4]/50 hover:bg-[#01b9d4]/5 transition-all duration-200 cursor-pointer"
+        onClick={() => setIsUploadModalOpen(true)}
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.99 }}
+      >
+        <div className="flex flex-col items-center gap-3">
+          <div className="p-3 bg-gray-100 rounded-full">
+            <Upload className="w-6 h-6 text-gray-400" />
+          </div>
+          <div>
+            <h4 className="text-sm font-medium text-gray-700 mb-1">
+              Drop files here or click to upload
+            </h4>
+            <p className="text-xs text-gray-500">
+              PDF, Images, Word docs, Excel files • Max 50MB
+            </p>
+          </div>
+        </div>
+      </motion.div>
       
       {/* Document List Section */}
       <DocumentList 
