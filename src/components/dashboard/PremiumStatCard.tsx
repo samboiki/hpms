@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { LucideIcon, ChevronRight } from 'lucide-react';
+import PremiumTrendChart from '../ui/PremiumTrendChart';
 
 interface StatItem {
   label: string;
@@ -43,7 +44,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
   trend,
   unsplashQuery
 }) => {
-  const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   
   // Convert title to camelCase
   const camelCaseTitle = title.replace(/\s+(.)/g, (match, letter) => letter.toUpperCase()).replace(/^\w/, c => c.toLowerCase());
@@ -62,242 +63,12 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
 
     switch (miniChart.type) {
       case 'line':
-        // Extract primary and secondary colors from gradient
-        const lineColorMap = {
-          'from-blue-500': { primary: '#3B82F6', secondary: '#60A5FA', light: '#DBEAFE' },
-          'from-amber-500': { primary: '#F59E0B', secondary: '#FBBF24', light: '#FEF3C7' },
-          'from-emerald-500': { primary: '#10B981', secondary: '#34D399', light: '#D1FAE5' },
-          'from-purple-500': { primary: '#8B5CF6', secondary: '#A78BFA', light: '#EDE9FE' }
-        };
-        
-        const lineGradientKey = Object.keys(lineColorMap).find(key => gradient.includes(key.replace('from-', ''))) || 'from-blue-500';
-        const lineColors = lineColorMap[lineGradientKey as keyof typeof lineColorMap];
-        
-        // Create smooth curve path that passes exactly through each data point
-        const createSmoothPath = (points: number[]) => {
-          if (points.length < 2) return { path: '', coordinates: [] };
-          
-          const scaledPoints = points.map((value, index) => ({
-            x: (index / (points.length - 1)) * 100,
-            y: 28 - ((value - minValue) / (maxValue - minValue)) * 24
-          }));
-          
-          if (scaledPoints.length === 2) {
-            // Simple line for 2 points
-            const path = `M ${scaledPoints[0].x} ${scaledPoints[0].y} L ${scaledPoints[1].x} ${scaledPoints[1].y}`;
-            return { path, coordinates: scaledPoints };
-          }
-          
-          let path = `M ${scaledPoints[0].x} ${scaledPoints[0].y}`;
-          
-          // Create smooth curves that pass through each point
-          for (let i = 1; i < scaledPoints.length; i++) {
-            const prev = scaledPoints[i - 1];
-            const curr = scaledPoints[i];
-            const next = scaledPoints[i + 1];
-            const prevPrev = scaledPoints[i - 2];
-            
-            // Calculate control points that ensure the curve passes through the current point
-            let cp1x, cp1y, cp2x, cp2y;
-            
-            if (i === 1) {
-              // First curve: start point -> current point
-              cp1x = prev.x + (curr.x - prev.x) * 0.3;
-              cp1y = prev.y + (curr.y - prev.y) * 0.1;
-              cp2x = curr.x - (curr.x - prev.x) * 0.3;
-              cp2y = curr.y - (curr.y - prev.y) * 0.1;
-            } else if (i === scaledPoints.length - 1) {
-              // Last curve: previous point -> end point
-              cp1x = prev.x + (curr.x - prev.x) * 0.3;
-              cp1y = prev.y + (curr.y - prev.y) * 0.1;
-              cp2x = curr.x - (curr.x - prev.x) * 0.3;
-              cp2y = curr.y - (curr.y - prev.y) * 0.1;
-            } else {
-              // Middle curves: create smooth transitions
-              const tension = 0.25;
-              const prevDeltaX = curr.x - (prevPrev?.x || prev.x);
-              const prevDeltaY = curr.y - (prevPrev?.y || prev.y);
-              const nextDeltaX = (next?.x || curr.x) - prev.x;
-              const nextDeltaY = (next?.y || curr.y) - prev.y;
-              
-              cp1x = prev.x + prevDeltaX * tension;
-              cp1y = prev.y + prevDeltaY * tension;
-              cp2x = curr.x - nextDeltaX * tension;
-              cp2y = curr.y - nextDeltaY * tension;
-            }
-            
-            path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`;
-          }
-          
-          return { path, coordinates: scaledPoints };
-        };
-        
-        const lineData = createSmoothPath(chartData);
-        const linePath = lineData.path;
-        const lineCoordinates = lineData.coordinates;
-        const areaPath = linePath + ` L 100 28 L 0 28 Z`;
-        
-        // Dynamic labels based on card type
-        const getLineLabels = () => {
-          if (title === 'Finance' || title === 'Encounters') return ['6mo', '5mo', '4mo', '3mo', '2mo', '1mo'];
-          return ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'];
-        };
-        
-        const lineLabels = getLineLabels();
-        
         return (
-          <div className="mt-4 relative">
-            {/* Premium line chart container */}
-            <div className="relative p-4 bg-gradient-to-br from-white/90 to-gray-50/80 rounded-xl border border-gray-200/60 backdrop-blur-sm shadow-sm">
-              {/* Chart title */}
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-xs font-semibold text-gray-700">Performance Trend</h4>
-                <div className="text-xs text-gray-500">Last {lineLabels.length} periods</div>
-              </div>
-              
-              {/* Line chart area */}
-              <div className="relative h-16">
-                {/* SVG for smooth curved line */}
-                <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 32" preserveAspectRatio="none">
-                  <defs>
-                    <linearGradient id={`lineGradient-${camelCaseTitle}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor={lineColors.primary} stopOpacity="0.9" />
-                      <stop offset="50%" stopColor={lineColors.secondary} stopOpacity="0.7" />
-                      <stop offset="100%" stopColor={lineColors.primary} stopOpacity="0.9" />
-                    </linearGradient>
-                    <linearGradient id={`areaGradient-${camelCaseTitle}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor={lineColors.primary} stopOpacity="0.3" />
-                      <stop offset="50%" stopColor={lineColors.secondary} stopOpacity="0.15" />
-                      <stop offset="100%" stopColor={lineColors.primary} stopOpacity="0.05" />
-                    </linearGradient>
-                    <filter id={`glow-${camelCaseTitle}`}>
-                      <feGaussianBlur stdDeviation="1" result="coloredBlur"/>
-                      <feMerge> 
-                        <feMergeNode in="coloredBlur"/>
-                        <feMergeNode in="SourceGraphic"/>
-                      </feMerge>
-                    </filter>
-                  </defs>
-                  
-                  {/* Area fill under curve */}
-                  <motion.path
-                    initial={{ pathLength: 0, opacity: 0 }}
-                    animate={{ pathLength: 1, opacity: 1 }}
-                    transition={{ duration: 1.2, ease: "easeInOut" }}
-                    d={areaPath}
-                    fill={`url(#areaGradient-${camelCaseTitle})`}
-                  />
-                  
-                  {/* Main curved line */}
-                  <motion.path
-                    initial={{ pathLength: 0, opacity: 0 }}
-                    animate={{ pathLength: 1, opacity: 1 }}
-                    transition={{ duration: 1.5, ease: "easeInOut", delay: 0.2 }}
-                    d={linePath}
-                    stroke={`url(#lineGradient-${camelCaseTitle})`}
-                    strokeWidth="2.5"
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    filter={`url(#glow-${camelCaseTitle})`}
-                  />
-                  
-                  {/* Glow effect */}
-                  <motion.path
-                    initial={{ pathLength: 0, opacity: 0 }}
-                    animate={{ pathLength: 1, opacity: 0.4 }}
-                    transition={{ duration: 1.5, ease: "easeInOut", delay: 0.4 }}
-                    d={linePath}
-                    stroke={lineColors.primary}
-                    strokeWidth="4"
-                    fill="none"
-                    strokeOpacity="0.3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    filter="blur(2px)"
-                  />
-                </svg>
-                
-                {/* Data points positioned exactly on the line */}
-                {chartData.map((value, index) => {
-                  // Use exact coordinates from the curve calculation
-                  const x = lineCoordinates[index]?.x || (index / (chartData.length - 1)) * 100;
-                  const y = lineCoordinates[index]?.y || 28 - ((value - minValue) / (maxValue - minValue)) * 24;
-                  const yPercent = (y / 32) * 100;
-                  
-                  return (
-                    <motion.div
-                      key={index}
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ 
-                        duration: 0.4, 
-                        delay: 0.8 + index * 0.1,
-                        type: "spring",
-                        stiffness: 300
-                      }}
-                      className="absolute group cursor-pointer"
-                      style={{ 
-                        left: `${x}%`, 
-                        top: `${yPercent}%`,
-                        transform: 'translate(-50%, -50%)'
-                      }}
-                      onMouseEnter={() => setHoveredIndex(index)}
-                      onMouseLeave={() => setHoveredIndex(null)}
-                    >
-                      {/* Premium tooltip */}
-                      {hoveredIndex === index && (
-                        <motion.div 
-                          initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 z-30"
-                        >
-                          <div className="bg-gray-900/95 backdrop-blur-sm text-white text-xs rounded-lg px-3 py-2 shadow-xl border border-gray-700/50">
-                            <div className="font-medium text-gray-200">{lineLabels[index]}</div>
-                            <div className="font-bold" style={{ color: lineColors.secondary }}>
-                              {title === 'Finance' ? `N$${value.toLocaleString()}` : 
-                               title === 'Encounters' ? `${value} visits` : value}
-                            </div>
-                          </div>
-                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-gray-900"></div>
-                        </motion.div>
-                      )}
-                      
-                      {/* Premium dot on line */}
-                      <div
-                        className="w-3 h-3 rounded-full shadow-lg transition-all duration-300 group-hover:scale-150 group-hover:shadow-xl relative"
-                        style={{ 
-                          background: `radial-gradient(circle, ${lineColors.secondary}, ${lineColors.primary})`,
-                          boxShadow: hoveredIndex === index 
-                            ? `0 0 12px ${lineColors.primary}60, 0 0 0 2px white, 0 0 0 3px ${lineColors.primary}40`
-                            : `0 2px 4px ${lineColors.primary}40, 0 0 0 2px white`
-                        }}
-                      >
-                        {/* Inner glow */}
-                        <div 
-                          className="absolute inset-0.5 rounded-full"
-                          style={{ background: `radial-gradient(circle, ${lineColors.secondary}80, transparent)` }}
-                        />
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-              
-              {/* Premium labels */}
-              <div className="flex items-center justify-between mt-3 px-1">
-                {lineLabels.map((label, index) => (
-                  <div key={index} className="flex-1 text-center">
-                    <span className={`text-[10px] font-medium transition-colors ${
-                      hoveredIndex === index ? 'text-gray-800' : 'text-gray-500'
-                    }`}>
-                      {label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <PremiumTrendChart
+            data={chartData}
+            title={title}
+            gradient={gradient}
+          />
         );
       
       case 'bar':
