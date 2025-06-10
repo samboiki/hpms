@@ -27,6 +27,7 @@ interface Visit {
   id: string;
   visit_date: string;
   visit_time?: string;
+  encounter_date?: string;
   chief_complaint?: string;
   diagnosis?: string;
   treatment_plan?: string;
@@ -278,9 +279,12 @@ const PremiumVisitModal: React.FC<PremiumVisitModalProps> = ({
               </div>
               <div>
                 <h2 className="text-xl font-bold" style={{ fontFamily: 'Poppins, sans-serif' }}>Visit Details</h2>
-                <p className="text-blue-100 text-sm">
-                  {format(new Date(visit.visit_date), 'MMMM dd, yyyy')} • {visit.visit_time}
-                </p>
+                <div className="text-blue-100 text-sm space-y-1">
+                  <p>Visit: {format(new Date(visit.visit_date), 'MMMM dd, yyyy')} • {visit.visit_time}</p>
+                  {visit.encounter_date && (
+                    <p>Encounter: {format(new Date(visit.encounter_date), 'MMMM dd, yyyy HH:mm')}</p>
+                  )}
+                </div>
               </div>
             </div>
             

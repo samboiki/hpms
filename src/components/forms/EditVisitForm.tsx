@@ -8,9 +8,11 @@ import MediaUpload from '../visits/MediaUpload';
 import ServiceSelector from '../billing/ServiceSelector';
 import { ServiceSelection } from '../../types/billing';
 import { invoiceService } from '../../services/invoiceService';
+import ModernDateTimePicker from '../ui/ModernDateTimePicker';
 
 interface EditVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
+  encounter_date: Date;
   chief_complaint: string;
   diagnosis: string;
   treatment_plan: string;
@@ -63,6 +65,7 @@ const EnhancedEditVisitForm: React.FC<Props> = ({ visitId, patientId, initialDat
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<EditVisitFormData>({
     defaultValues: {
       ...initialData,
+      encounter_date: initialData.encounter_date || new Date(),
       lab_results: initialData.lab_results?.map(result => ({
         ...result,
         id: result.id || crypto.randomUUID()
@@ -76,6 +79,7 @@ const EnhancedEditVisitForm: React.FC<Props> = ({ visitId, patientId, initialDat
   });
   
   const followUpRequired = watch('follow_up_required');
+  const encounterDate = watch('encounter_date');
   const weight = watch('vitals.weight');
   const height = watch('vitals.height');
   const labResults = watch('lab_results');
@@ -479,6 +483,9 @@ const EnhancedEditVisitForm: React.FC<Props> = ({ visitId, patientId, initialDat
         .from('visits')
         .update({
           visit_type: data.visit_type,
+          encounter_date: data.encounter_date.toISOString(),
+          visit_date: data.encounter_date.toISOString().split('T')[0],
+          visit_time: data.encounter_date.toLocaleTimeString('en-US', { hour12: false }),
           chief_complaint: data.chief_complaint,
           diagnosis: data.diagnosis,
           treatment_plan: data.treatment_plan,
@@ -619,6 +626,49 @@ const EnhancedEditVisitForm: React.FC<Props> = ({ visitId, patientId, initialDat
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {/* Encounter Date Section */}
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100 space-y-4">
+        <h3 className="text-lg font-semibold text-blue-900 flex items-center gap-2">
+          <DollarSign className="w-5 h-5" />
+          Encounter Information
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Encounter Date & Time *
+            </label>
+            <ModernDateTimePicker
+              value={encounterDate}
+              onChange={(date) => setValue('encounter_date', date)}
+              placeholder="Select encounter date and time"
+              showTime={true}
+              className="w-full"
+            />
+            {errors.encounter_date && (
+              <p className="mt-1 text-sm text-red-600">Encounter date is required</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Visit Type *
+            </label>
+            <select
+              {...register('visit_type', { required: 'Visit type is required' })}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+            >
+              <option value="">Select type</option>
+              <option value="consultation">Consultation</option>
+              <option value="follow-up">Follow-up</option>
+              <option value="procedure">Procedure</option>
+              <option value="emergency">Emergency</option>
+            </select>
+            {errors.visit_type && (
+              <p className="mt-1 text-sm text-red-600">{errors.visit_type.message}</p>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Vitals Section - First like AddVisitForm */}
       <div className="bg-gray-50 p-6 rounded-lg border border-gray-100 space-y-4">
         <h3 className="text-lg font-medium text-gray-900">Vitals</h3>
@@ -941,22 +991,6 @@ const EnhancedEditVisitForm: React.FC<Props> = ({ visitId, patientId, initialDat
         )}
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Visit Type</label>
-        <select
-          {...register('visit_type', { required: 'Visit type is required' })}
-          className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
-        >
-          <option value="">Select type</option>
-          <option value="consultation">Consultation</option>
-          <option value="follow-up">Follow-up</option>
-          <option value="procedure">Procedure</option>
-          <option value="emergency">Emergency</option>
-        </select>
-        {errors.visit_type && (
-          <p className="mt-1 text-sm text-red-600">{errors.visit_type.message}</p>
-        )}
-      </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-700">Chief Complaint</label>
