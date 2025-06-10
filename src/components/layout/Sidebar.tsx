@@ -8,7 +8,6 @@ import {
   ChevronLeft,
   X,
   Wallet,
-  Microscope,
   UserRound,
   Cog,
   Package2,
@@ -17,7 +16,6 @@ import {
   Building2,
   DollarSign,
   Crown,
-  Calendar,
   Receipt
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
@@ -40,8 +38,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Users, label: 'Patients', path: '/patients' },
-    { icon: Calendar, label: 'Appointments', path: '/appointments' },
-    { icon: Microscope, label: 'Requests', path: '/requests' },
     { icon: Package2, label: 'Inventory', path: '/inventory' },
     { icon: Bell, label: 'Messages', path: '/messages' },
     { icon: Receipt, label: 'Billing', path: '/billing' },
