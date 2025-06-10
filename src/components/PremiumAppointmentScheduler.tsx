@@ -424,11 +424,11 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   const GridView = () => {
     // Card-based grid view for day/week/month/all
     return (
-      <div className="p-4 max-h-[600px] overflow-y-auto">
+      <div className="p-4 max-h-[600px] overflow-y-auto bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg">
         <div className="grid grid-cols-1 gap-3">
         {filteredAppointments.length === 0 ? (
           <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center mx-auto mb-4 shadow-md">
               <CalendarIcon className="w-8 h-8 text-gray-400" />
             </div>
             <p className="text-gray-600 font-medium">No appointments found</p>
@@ -606,11 +606,11 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     const displayDates = viewMode === 'week' ? weekDates : [selectedDate];
 
     return (
-      <div className="flex flex-col h-[600px] bg-gray-50/50 rounded-xl overflow-hidden">
+      <div className="flex flex-col h-[600px] bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl overflow-hidden shadow-inner border border-gray-300">
         {/* Premium Timeline Header */}
-        <div className="bg-white border-b border-gray-200/60 shadow-sm">
+        <div className="bg-gradient-to-r from-white to-gray-50 border-b border-gray-300 shadow-md">
           <div className="flex">
-            <div className="w-20 p-3 border-r border-gray-200 bg-gray-50">
+            <div className="w-20 p-3 border-r border-gray-300 bg-gradient-to-br from-gray-100 to-gray-200">
               <span className="text-xs font-semibold text-gray-600">Time</span>
             </div>
             <div className="flex-1 flex">
@@ -657,7 +657,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
         {/* Timeline Body with premium styling */}
         <div className="flex-1 overflow-y-auto" ref={scrollContainerRef}>
           <div className="flex">
-            <div className="w-20 bg-white border-r border-gray-200">
+            <div className="w-20 bg-gradient-to-b from-gray-50 to-gray-100 border-r border-gray-300 shadow-sm">
               {timeSlots.map((slot, index) => (
                 <div
                   key={slot}
@@ -670,7 +670,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               ))}
             </div>
             
-            <div className="flex-1 relative bg-white" ref={timelineRef}>
+            <div className="flex-1 relative bg-gradient-to-br from-white to-gray-50" ref={timelineRef}>
               {/* Current time indicator with premium style */}
               {isToday(selectedDate) && viewMode === 'day' && (
                 <div
@@ -912,24 +912,24 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   }
 
   return (
-    <div className="flex flex-col h-full bg-white/50">
+    <div className="flex flex-col h-full bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Premium Header Section */}
-      <div className="p-4 bg-white border-b border-gray-200/60">
+      <div className="p-4 bg-gradient-to-r from-white to-gray-50 border-b border-gray-300">
         {/* Appointment Status Filters - Full Width */}
         <div className="mb-4">
-          <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-lg w-full">
+          <div className="flex items-center gap-2 p-1 bg-gradient-to-r from-gray-100 to-gray-200 rounded-lg w-full shadow-sm">
             {[
-              { status: 'total', label: 'Total', count: filteredAppointments.length },
-              { status: 'completed', label: 'Completed', count: filteredAppointments.filter(a => a.status === 'completed').length },
-              { status: 'pending', label: 'Pending', count: filteredAppointments.filter(a => ['scheduled', 'confirmed'].includes(a.status)).length },
-              { status: 'cancelled', label: 'Cancelled', count: filteredAppointments.filter(a => a.status === 'cancelled').length }
+              { status: 'total', label: 'Total', count: filteredAppointments.length, gradient: 'from-blue-500 to-blue-600', bg: 'bg-blue-50', text: 'text-blue-800' },
+              { status: 'completed', label: 'Completed', count: filteredAppointments.filter(a => a.status === 'completed').length, gradient: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50', text: 'text-emerald-800' },
+              { status: 'pending', label: 'Pending', count: filteredAppointments.filter(a => ['scheduled', 'confirmed'].includes(a.status)).length, gradient: 'from-amber-500 to-amber-600', bg: 'bg-amber-50', text: 'text-amber-800' },
+              { status: 'cancelled', label: 'Cancelled', count: filteredAppointments.filter(a => a.status === 'cancelled').length, gradient: 'from-red-500 to-red-600', bg: 'bg-red-50', text: 'text-red-800' }
             ].map((filter) => (
               <button
                 key={filter.status}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all capitalize text-gray-600 hover:text-gray-900 hover:bg-white/50"
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all capitalize ${filter.bg} ${filter.text} hover:shadow-md border border-transparent hover:border-gray-300`}
               >
                 <span>{filter.label}</span>
-                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-gray-200 text-gray-700">
+                <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r ${filter.gradient} text-white shadow-sm`}>
                   {filter.count}
                 </span>
               </button>
