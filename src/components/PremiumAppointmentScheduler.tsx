@@ -915,44 +915,23 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     <div className="flex flex-col h-full bg-white/50">
       {/* Premium Header Section */}
       <div className="p-4 bg-white border-b border-gray-200/60">
-        {/* Stats with glassmorphism */}
-        <div className="grid grid-cols-4 gap-3 mb-4">
-          {stats.map((stat, index) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-              className="relative group"
-            >
-              <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} rounded-lg blur-md opacity-20 
-                group-hover:opacity-30 transition-opacity`} />
-              <div className="relative bg-white/80 backdrop-blur-sm rounded-lg p-3 border border-gray-200/50">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                      {stat.value}
-                    </p>
-                    <p className="text-xs text-gray-600 font-medium">{stat.label}</p>
-                  </div>
-                  <div className={`p-2 bg-gradient-to-br ${stat.gradient} rounded-lg shadow-sm`}>
-                    <stat.icon className="w-4 h-4 text-white" />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Appointment Status Filters */}
-        <div className="flex items-center justify-center mb-4">
-          <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-lg">
-            {['total', 'completed', 'pending', 'cancelled'].map((status) => (
+        {/* Appointment Status Filters - Full Width */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-lg w-full">
+            {[
+              { status: 'total', label: 'Total', count: filteredAppointments.length },
+              { status: 'completed', label: 'Completed', count: filteredAppointments.filter(a => a.status === 'completed').length },
+              { status: 'pending', label: 'Pending', count: filteredAppointments.filter(a => ['scheduled', 'confirmed'].includes(a.status)).length },
+              { status: 'cancelled', label: 'Cancelled', count: filteredAppointments.filter(a => a.status === 'cancelled').length }
+            ].map((filter) => (
               <button
-                key={status}
-                className="px-3 py-1.5 text-xs font-medium rounded-md transition-all capitalize text-gray-600 hover:text-gray-900 hover:bg-white/50"
+                key={filter.status}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all capitalize text-gray-600 hover:text-gray-900 hover:bg-white/50"
               >
-                {status}
+                <span>{filter.label}</span>
+                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-gray-200 text-gray-700">
+                  {filter.count}
+                </span>
               </button>
             ))}
           </div>
