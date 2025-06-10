@@ -1824,244 +1824,151 @@ const AIIntelligenceContent: React.FC<{
         </div>
       </div>
       
-      {/* Ultra Premium Medical Aid Section */}
+      {/* Professional Medical Aid Section */}
       {medicalAid && (
         <motion.div
-          initial={{ opacity: 0, y: 30, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-8 relative group"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-6"
         >
-          {/* Animated floating orbs for depth */}
-          <div className="absolute -top-8 -left-8 w-32 h-32 bg-gradient-to-br from-blue-400/30 to-purple-500/30 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-gradient-to-br from-indigo-400/20 to-cyan-500/20 rounded-full blur-3xl animate-pulse delay-700"></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-          
-          {/* Main card container with glassmorphism */}
-          <div className="relative overflow-hidden">
-            {/* Animated rainbow border */}
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 via-pink-500 via-red-500 via-yellow-500 via-green-500 to-blue-600 rounded-3xl p-[3px] animate-pulse bg-[length:400%_400%] animate-gradient-x">
-              <div className="bg-white/95 backdrop-blur-xl rounded-[calc(1.5rem-3px)] h-full shadow-inner"></div>
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
+            {/* Medical aid logo watermark */}
+            {medicalAidLogo && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div 
+                  className="w-96 h-96 opacity-[0.02] bg-contain bg-no-repeat bg-center"
+                  style={{ backgroundImage: `url(${medicalAidLogo})` }}
+                ></div>
+              </div>
+            )}
+            
+            {/* Header */}
+            <div className="relative p-6 pb-4 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-[#01b9d4] to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Shield className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                      Medical Aid Coverage
+                    </h3>
+                    <p className="text-sm text-gray-500 font-medium">Active Insurance Plan</p>
+                  </div>
+                </div>
+                
+                {/* Provider Logo */}
+                {medicalAidLogo && (
+                  <div className="w-16 h-16 bg-white rounded-xl shadow-lg border border-gray-200 p-2 flex items-center justify-center">
+                    <img 
+                      src={medicalAidLogo} 
+                      alt={medicalAid.provider}
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = '/images/medical-aids/default-medical-aid.svg';
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             
-            {/* Ultra-premium glassmorphism card */}
-            <div className="relative bg-gradient-to-br from-white/90 via-white/95 to-white/90 backdrop-blur-2xl rounded-3xl border border-white/50 shadow-2xl overflow-hidden">
-              {/* Subtle animated mesh gradient overlay */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-purple-50/30 via-pink-50/20 to-cyan-50/40 opacity-60"></div>
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(120,119,198,0.1),transparent_40%)] opacity-80"></div>
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_80%,rgba(236,72,153,0.08),transparent_40%)] opacity-70"></div>
-              
-              {/* Medical aid logo as sophisticated watermark */}
-              {medicalAidLogo && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div 
-                    className="w-64 h-64 opacity-[0.03] bg-contain bg-no-repeat bg-center grayscale"
-                    style={{ backgroundImage: `url(${medicalAidLogo})` }}
-                  ></div>
+            {/* Content Grid */}
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                {/* Provider */}
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative bg-gray-50 rounded-xl p-4 border border-gray-200 group-hover:border-blue-200 transition-colors">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Provider</p>
+                    </div>
+                    <p className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                      {medicalAid.provider}
+                    </p>
+                  </div>
                 </div>
-              )}
+                
+                {/* Scheme */}
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative bg-gray-50 rounded-xl p-4 border border-gray-200 group-hover:border-purple-200 transition-colors">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                      <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Scheme</p>
+                    </div>
+                    <p className="text-lg font-bold text-gray-900 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                      {medicalAid.scheme}
+                    </p>
+                    {medicalAid.plan_type && (
+                      <p className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded-md inline-block">
+                        {medicalAid.plan_type}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Membership */}
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative bg-gray-50 rounded-xl p-4 border border-gray-200 group-hover:border-emerald-200 transition-colors">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                      <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Member Number</p>
+                    </div>
+                    <div className="bg-gray-900 rounded-lg p-3">
+                      <p className="text-sm font-mono font-bold text-white tracking-widest">
+                        {medicalAid.membership_number}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
               
-              {/* Content with premium spacing */}
-              <div className="relative p-8">
-                {/* Premium header with floating logo */}
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-4">
-                    {/* Animated icon with multiple glowing layers */}
-                    <div className="relative">
-                      <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-purple-600 rounded-2xl blur-xl opacity-50 group-hover:opacity-70 animate-pulse"></div>
-                      <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-2xl blur-lg opacity-30 group-hover:opacity-50 animate-pulse delay-300"></div>
-                      <motion.div 
-                        whileHover={{ scale: 1.1, rotate: 5 }}
-                        className="relative p-4 bg-gradient-to-br from-blue-500 via-purple-600 to-indigo-700 rounded-2xl shadow-2xl"
-                      >
-                        <Shield className="w-6 h-6 text-white" />
-                      </motion.div>
+              {/* Footer */}
+              <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <div className="flex flex-wrap items-center gap-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-gradient-to-br from-[#01b9d4] to-blue-600 rounded-lg flex items-center justify-center">
+                      <User className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                      <motion.h3 
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.3 }}
-                        className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-800 via-gray-900 to-gray-800" 
-                        style={{ fontFamily: 'Poppins, sans-serif' }}
-                      >
-                        Medical Aid Coverage
-                      </motion.h3>
-                      <motion.p 
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.4 }}
-                        className="text-sm font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600"
-                      >
-                        Premium Healthcare Protection
-                      </motion.p>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Relationship</p>
+                      <p className="text-sm font-bold text-gray-900 capitalize">
+                        {medicalAid.relationship_to_main}
+                      </p>
                     </div>
                   </div>
                   
-                  {/* Floating provider logo with premium effects */}
-                  {medicalAidLogo && (
-                    <motion.div 
-                      initial={{ opacity: 0, scale: 0, rotate: -180 }}
-                      animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                      transition={{ delay: 0.5, duration: 1, ease: [0.16, 1, 0.3, 1] }}
-                      whileHover={{ scale: 1.1, y: -5 }}
-                      className="relative group/logo"
-                    >
-                      {/* Multiple glowing rings */}
-                      <div className="absolute -inset-4 bg-gradient-to-br from-blue-400/30 to-purple-500/30 rounded-2xl blur-xl group-hover/logo:blur-2xl opacity-50 group-hover/logo:opacity-80 transition-all"></div>
-                      <div className="absolute -inset-2 bg-gradient-to-br from-cyan-400/40 to-indigo-500/40 rounded-xl blur-lg opacity-40 group-hover/logo:opacity-70 transition-all"></div>
-                      <div className="relative w-16 h-16 bg-white/90 backdrop-blur-xl rounded-xl shadow-2xl border border-white/50 p-2 group-hover/logo:shadow-3xl transition-all">
-                        <img 
-                          src={medicalAidLogo} 
-                          alt={medicalAid.provider}
-                          className="w-full h-full object-contain filter group-hover/logo:brightness-110 transition-all"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = '/images/medical-aids/default-medical-aid.svg';
-                          }}
-                        />
+                  {medicalAid.main_member_name && medicalAid.relationship_to_main !== 'self' && (
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <Heart className="w-4 h-4 text-white" />
                       </div>
-                    </motion.div>
+                      <div>
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Main Member</p>
+                        <p className="text-sm font-bold text-gray-900">
+                          {medicalAid.main_member_name}
+                        </p>
+                      </div>
+                    </div>
                   )}
                 </div>
                 
-                {/* Ultra-premium information cards with staggered animations */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  {/* Provider Card - Sophisticated Blue */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 20, rotateX: -15 }}
-                    animate={{ opacity: 1, y: 0, rotateX: 0 }}
-                    transition={{ delay: 0.6, duration: 0.8 }}
-                    whileHover={{ y: -8, scale: 1.02, rotateX: 5 }}
-                    className="relative group/card overflow-hidden"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 rounded-2xl"></div>
-                    <div className="relative bg-gradient-to-br from-white/95 to-blue-50/80 backdrop-blur-xl rounded-2xl p-6 border border-white/30 shadow-xl">
-                      <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-blue-400/20 to-transparent rounded-full -translate-y-10 translate-x-10"></div>
-                      <div className="relative">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full animate-pulse"></div>
-                          <p className="text-xs font-bold text-blue-700 uppercase tracking-[0.15em]">Provider Network</p>
-                        </div>
-                        <p className="text-lg font-black text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                          {medicalAid.provider}
-                        </p>
-                        <div className="w-12 h-0.5 bg-gradient-to-r from-blue-500 to-transparent rounded"></div>
-                      </div>
-                    </div>
-                  </motion.div>
-                  
-                  {/* Scheme Card - Elegant Purple */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 20, rotateX: -15 }}
-                    animate={{ opacity: 1, y: 0, rotateX: 0 }}
-                    transition={{ delay: 0.8, duration: 0.8 }}
-                    whileHover={{ y: -8, scale: 1.02, rotateX: 5 }}
-                    className="relative group/card overflow-hidden"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-600 via-purple-500 to-indigo-600 rounded-2xl"></div>
-                    <div className="relative bg-gradient-to-br from-white/95 to-purple-50/80 backdrop-blur-xl rounded-2xl p-6 border border-white/30 shadow-xl">
-                      <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-400/20 to-transparent rounded-full -translate-y-10 translate-x-10"></div>
-                      <div className="relative">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full animate-pulse delay-200"></div>
-                          <p className="text-xs font-bold text-purple-700 uppercase tracking-[0.15em]">Coverage Plan</p>
-                        </div>
-                        <p className="text-lg font-black text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                          {medicalAid.scheme}
-                        </p>
-                        {medicalAid.plan_type && (
-                          <p className="text-xs font-semibold text-purple-600 bg-purple-100/80 px-2 py-1 rounded-full inline-block">
-                            {medicalAid.plan_type} Tier
-                          </p>
-                        )}
-                        <div className="w-12 h-0.5 bg-gradient-to-r from-purple-500 to-transparent rounded mt-2"></div>
-                      </div>
-                    </div>
-                  </motion.div>
-                  
-                  {/* Membership Card - Premium Emerald */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 20, rotateX: -15 }}
-                    animate={{ opacity: 1, y: 0, rotateX: 0 }}
-                    transition={{ delay: 1.0, duration: 0.8 }}
-                    whileHover={{ y: -8, scale: 1.02, rotateX: 5 }}
-                    className="relative group/card overflow-hidden"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-600 rounded-2xl"></div>
-                    <div className="relative bg-gradient-to-br from-white/95 to-emerald-50/80 backdrop-blur-xl rounded-2xl p-6 border border-white/30 shadow-xl">
-                      <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-emerald-400/20 to-transparent rounded-full -translate-y-10 translate-x-10"></div>
-                      <div className="relative">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="w-2 h-2 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-full animate-pulse delay-400"></div>
-                          <p className="text-xs font-bold text-emerald-700 uppercase tracking-[0.15em]">Member ID</p>
-                        </div>
-                        <div className="relative bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl p-3 shadow-inner">
-                          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-xl"></div>
-                          <p className="text-sm font-mono font-bold text-white/90 tracking-wider relative">
-                            {medicalAid.membership_number}
-                          </p>
-                        </div>
-                        <div className="w-12 h-0.5 bg-gradient-to-r from-emerald-500 to-transparent rounded mt-3"></div>
-                      </div>
-                    </div>
-                  </motion.div>
-                </div>
-                
-                {/* Premium footer with relationship details and action button */}
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.2 }}
-                  className="flex flex-wrap items-center justify-between gap-4 p-6 bg-gradient-to-r from-gray-50/80 via-white/60 to-gray-50/80 backdrop-blur-xl rounded-2xl border border-white/50"
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={onMedicalAidClick}
+                  className="px-6 py-3 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-xl font-semibold text-sm shadow-lg hover:shadow-xl transition-all duration-200"
                 >
-                  <div className="flex flex-wrap items-center gap-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
-                        <User className="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Relationship</p>
-                        <p className="text-sm font-bold text-gray-800 capitalize">
-                          {medicalAid.relationship_to_main}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {medicalAid.main_member_name && medicalAid.relationship_to_main !== 'self' && (
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center shadow-lg">
-                          <Heart className="w-4 h-4 text-white" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Main Member</p>
-                          <p className="text-sm font-bold text-gray-800">
-                            {medicalAid.main_member_name}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <motion.button
-                    whileHover={{ scale: 1.05, y: -2 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={onMedicalAidClick}
-                    className="px-6 py-3 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white rounded-xl font-bold text-sm shadow-xl hover:shadow-2xl transition-all duration-300 border border-white/20"
-                  >
-                    <span className="flex items-center gap-2">
-                      <span>Manage Coverage</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </span>
-                  </motion.button>
-                </motion.div>
-              </div>
-              
-              {/* Subtle animated particles */}
-              <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute top-1/4 left-1/4 w-1 h-1 bg-blue-400/40 rounded-full animate-ping"></div>
-                <div className="absolute top-3/4 right-1/3 w-1 h-1 bg-purple-400/40 rounded-full animate-ping delay-1000"></div>
-                <div className="absolute bottom-1/4 left-2/3 w-1 h-1 bg-emerald-400/40 rounded-full animate-ping delay-2000"></div>
+                  <span className="flex items-center gap-2">
+                    <span>Edit Details</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </span>
+                </motion.button>
               </div>
             </div>
           </div>
