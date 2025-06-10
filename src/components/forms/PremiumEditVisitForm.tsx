@@ -21,9 +21,11 @@ import { invoiceService } from '../../services/invoiceService';
 import LabResultUpload from '../visits/LabResultUpload';
 import MediaUpload from '../visits/MediaUpload';
 import EnhancedDentalServiceSelector from '../billing/EnhancedDentalServiceSelector';
+import ModernDateTimePicker from '../ui/ModernDateTimePicker';
 
 interface PremiumEditVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
+  encounter_date: Date;
   chief_complaint: string;
   diagnosis: string;
   treatment_plan: string;
@@ -114,6 +116,7 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
   const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm<PremiumEditVisitFormData>({
     defaultValues: {
       visit_type: 'consultation',
+      encounter_date: new Date(),
       vitals: {},
       selectedServices: [],
       generateInvoice: false
@@ -162,6 +165,9 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
         // Populate form with existing data
         const formData = {
           visit_type: visit.visit_type,
+          encounter_date: visit.encounter_date ? new Date(visit.encounter_date) : 
+            (visit.visit_date && visit.visit_time ? 
+              new Date(`${visit.visit_date}T${visit.visit_time}`) : new Date()),
           chief_complaint: visit.chief_complaint,
           diagnosis: visit.diagnosis,
           treatment_plan: visit.treatment_plan,
@@ -233,6 +239,9 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
       // Update the visit record
       const visitData = {
         visit_type: data.visit_type,
+        encounter_date: data.encounter_date.toISOString(),
+        visit_date: data.encounter_date.toISOString().split('T')[0],
+        visit_time: data.encounter_date.toLocaleTimeString('en-US', { hour12: false }),
         chief_complaint: data.chief_complaint,
         diagnosis: data.diagnosis,
         treatment_plan: data.treatment_plan,
@@ -466,6 +475,23 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
                 <h3 className="text-xl font-semibold text-gray-900 mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
                   Encounter Information
                 </h3>
+
+                {/* Encounter Date & Time */}
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-3" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                    Encounter Date & Time
+                  </label>
+                  <ModernDateTimePicker
+                    value={watch('encounter_date')}
+                    onChange={(date) => setValue('encounter_date', date)}
+                    placeholder="Select encounter date and time"
+                    showTime={true}
+                    className="w-full max-w-md"
+                  />
+                  {errors.encounter_date && (
+                    <p className="text-sm text-red-600 mt-1">Encounter date is required</p>
+                  )}
+                </div>
 
                 {/* Visit Type & Chief Complaint */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

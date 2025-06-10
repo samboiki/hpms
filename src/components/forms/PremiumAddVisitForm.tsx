@@ -24,9 +24,11 @@ import LabResultUpload from '../visits/LabResultUpload';
 import MediaUpload from '../visits/MediaUpload';
 import { usePracticeTariffs } from '../../contexts/PracticeTariffsContext';
 import EnhancedDentalServiceSelector from '../billing/EnhancedDentalServiceSelector';
+import ModernDateTimePicker from '../ui/ModernDateTimePicker';
 
 interface PremiumAddVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
+  encounter_date: Date;
   chief_complaint: string;
   diagnosis: string;
   treatment_plan: string;
@@ -115,6 +117,7 @@ const PremiumAddVisitForm: React.FC<Props> = ({ patientId, onSuccess, onCancel }
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<PremiumAddVisitFormData>({
     defaultValues: {
       visit_type: 'consultation',
+      encounter_date: new Date(),
       vitals: {},
       selectedServices: [],
       generateInvoice: true
@@ -141,8 +144,9 @@ const PremiumAddVisitForm: React.FC<Props> = ({ patientId, onSuccess, onCancel }
       // Create the visit record
       const visitData = {
         patient_id: patientId,
-        visit_date: new Date().toISOString().split('T')[0],
-        visit_time: new Date().toLocaleTimeString('en-GB', { hour12: false }),
+        encounter_date: data.encounter_date.toISOString(),
+        visit_date: data.encounter_date.toISOString().split('T')[0],
+        visit_time: data.encounter_date.toLocaleTimeString('en-US', { hour12: false }),
         visit_type: data.visit_type,
         chief_complaint: data.chief_complaint,
         diagnosis: data.diagnosis,
@@ -287,6 +291,23 @@ const PremiumAddVisitForm: React.FC<Props> = ({ patientId, onSuccess, onCancel }
                 <h3 className="text-xl font-semibold text-gray-900 mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
                   Encounter Information
                 </h3>
+
+                {/* Encounter Date & Time */}
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-3" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+                    Encounter Date & Time
+                  </label>
+                  <ModernDateTimePicker
+                    value={watch('encounter_date')}
+                    onChange={(date) => setValue('encounter_date', date)}
+                    placeholder="Select encounter date and time"
+                    showTime={true}
+                    className="w-full max-w-md"
+                  />
+                  {errors.encounter_date && (
+                    <p className="text-sm text-red-600 mt-1">Encounter date is required</p>
+                  )}
+                </div>
 
                 {/* Visit Type & Chief Complaint */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
