@@ -251,12 +251,12 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
           .insert([{
             patient_id: patientData.id,
             provider: selectedProviderData?.name || data.medicalAid.provider,
-            scheme_name: data.medicalAid.scheme,
+            scheme: data.medicalAid.scheme,
             medical_aid_provider_id: data.medicalAid.provider,
-            member_number: data.medicalAid.membershipNumber,
+            membership_number: data.medicalAid.membershipNumber,
             main_member_name: data.medicalAid.mainMemberName,
             main_member_id_number: data.medicalAid.mainMemberIdNumber,
-            relationship_to_main_member: data.medicalAid.relationship
+            relationship_to_main: data.medicalAid.relationship
           }]);
 
         if (medicalAidError) throw medicalAidError;
