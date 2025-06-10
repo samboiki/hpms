@@ -246,7 +246,7 @@ const DayTimelineView: React.FC<DayTimelineViewProps> = ({
                 className={`
                   px-3 py-1 rounded-full text-sm font-medium transition-all
                   ${selectedDoctorIds.includes(doctor.id)
-                    ? 'bg-blue-500 text-white shadow-sm'
+                    ? 'bg-gray-600 text-white shadow-sm'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }
                 `}
@@ -436,7 +436,7 @@ const DayTimelineView: React.FC<DayTimelineViewProps> = ({
               <span className="text-gray-600">Requested</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-gradient-to-br from-blue-500 to-blue-600" />
+              <div className="w-3 h-3 rounded bg-gradient-to-br from-gray-500 to-gray-600" />
               <span className="text-gray-600">Scheduled</span>
             </div>
             <div className="flex items-center gap-2">

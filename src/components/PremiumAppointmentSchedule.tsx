@@ -122,10 +122,10 @@ const statusConfig: Record<Appointment['status'], {
   icon: React.ComponentType<{ size: number; className?: string }>;
 }> = {
   scheduled: { 
-    bgGradient: 'bg-gradient-to-br from-blue-50 to-blue-100', 
-    borderColor: 'border-blue-500', 
-    textColor: 'text-blue-900',
-    hoverBg: 'hover:from-blue-100 hover:to-blue-200',
+    bgGradient: 'bg-gradient-to-br from-gray-50 to-gray-100', 
+    borderColor: 'border-gray-500', 
+    textColor: 'text-gray-900',
+    hoverBg: 'hover:from-gray-100 hover:to-gray-200',
     badgeVariant: 'azure',
     icon: Clock
   },
