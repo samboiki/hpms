@@ -162,6 +162,7 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
             patient_id: patientData.id,
             provider: selectedProviderData?.name || data.medicalAid.provider,
             scheme: data.medicalAid.scheme,
+            plan_type: data.medicalAid.scheme,
             medical_aid_provider_id: data.medicalAid.provider,
             membership_number: data.medicalAid.membershipNumber,
             main_member_name: data.medicalAid.mainMemberName,

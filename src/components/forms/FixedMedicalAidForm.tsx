@@ -85,8 +85,8 @@ const FixedMedicalAidForm: React.FC<Props> = ({ patientId, initialData, onSucces
       const medicalAidData = {
         patient_id: patientId,
         medical_aid_provider_id: data.medical_aid_provider_id,
-        scheme_name: data.scheme_name || '',
-        scheme_type: data.scheme_type || '',
+        scheme: data.scheme_name || '',
+        plan_type: data.scheme_type || data.scheme_name || 'Standard',
         membership_number: data.member_number,
         main_member_name: data.main_member_name || '',
         main_member_id_number: data.main_member_id_number || '',
