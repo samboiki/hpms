@@ -44,36 +44,117 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
   const renderMiniChart = () => {
     if (!miniChart) return null;
 
+    const maxValue = Math.max(...miniChart.data);
+    const minValue = Math.min(...miniChart.data);
+
     switch (miniChart.type) {
       case 'line':
         return (
-          <div className="flex items-end justify-between h-12 mt-3">
-            {miniChart.data.map((value, index) => {
-              const height = (value / Math.max(...miniChart.data)) * 100;
-              return (
-                <div
-                  key={index}
-                  className="bg-gradient-to-t from-white/30 to-white/10 rounded-sm flex-1 mx-0.5"
-                  style={{ height: `${height}%` }}
+          <div className="mt-4">
+            <div className="flex items-end justify-between h-8 relative">
+              {/* Smooth line path */}
+              <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 32" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="white" stopOpacity="0.8" />
+                    <stop offset="50%" stopColor="white" stopOpacity="0.6" />
+                    <stop offset="100%" stopColor="white" stopOpacity="0.4" />
+                  </linearGradient>
+                  <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="white" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="white" stopOpacity="0.05" />
+                  </linearGradient>
+                </defs>
+                
+                {/* Area fill */}
+                <path
+                  d={`M 0 32 ${miniChart.data.map((value, index) => {
+                    const x = (index / (miniChart.data.length - 1)) * 100;
+                    const y = 32 - ((value - minValue) / (maxValue - minValue)) * 24;
+                    return `L ${x} ${y}`;
+                  }).join(' ')} L 100 32 Z`}
+                  fill="url(#areaGradient)"
                 />
-              );
-            })}
+                
+                {/* Line */}
+                <path
+                  d={`M ${miniChart.data.map((value, index) => {
+                    const x = (index / (miniChart.data.length - 1)) * 100;
+                    const y = 32 - ((value - minValue) / (maxValue - minValue)) * 24;
+                    return index === 0 ? `${x} ${y}` : `L ${x} ${y}`;
+                  }).join(' ')}`}
+                  stroke="url(#lineGradient)"
+                  strokeWidth="2"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                
+                {/* Glow effect */}
+                <path
+                  d={`M ${miniChart.data.map((value, index) => {
+                    const x = (index / (miniChart.data.length - 1)) * 100;
+                    const y = 32 - ((value - minValue) / (maxValue - minValue)) * 24;
+                    return index === 0 ? `${x} ${y}` : `L ${x} ${y}`;
+                  }).join(' ')}`}
+                  stroke="white"
+                  strokeWidth="4"
+                  fill="none"
+                  strokeOpacity="0.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  filter="blur(1px)"
+                />
+              </svg>
+              
+              {/* Data points */}
+              {miniChart.data.map((value, index) => {
+                const height = ((value - minValue) / (maxValue - minValue)) * 75;
+                return (
+                  <div
+                    key={index}
+                    className="relative flex-1 flex justify-center"
+                    style={{ height: '32px' }}
+                  >
+                    <div
+                      className="absolute bottom-0 w-1 h-1 bg-white rounded-full shadow-lg opacity-80"
+                      style={{ bottom: `${height}%` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
         );
       
       case 'bar':
         return (
-          <div className="flex items-end justify-between h-12 mt-3 gap-1">
-            {miniChart.data.map((value, index) => {
-              const height = (value / Math.max(...miniChart.data)) * 100;
-              return (
-                <div
-                  key={index}
-                  className="bg-white/20 rounded-sm flex-1"
-                  style={{ height: `${height}%` }}
-                />
-              );
-            })}
+          <div className="mt-4">
+            <div className="flex items-end justify-between h-8 gap-0.5">
+              {miniChart.data.map((value, index) => {
+                const height = (value / maxValue) * 100;
+                return (
+                  <div
+                    key={index}
+                    className="relative flex-1 flex flex-col justify-end"
+                  >
+                    {/* Glow effect */}
+                    <div
+                      className="absolute bottom-0 left-0 right-0 bg-white rounded-t-sm opacity-20 blur-sm"
+                      style={{ height: `${height}%` }}
+                    />
+                    {/* Main bar */}
+                    <div
+                      className="bg-gradient-to-t from-white/60 via-white/40 to-white/20 rounded-t-sm relative overflow-hidden"
+                      style={{ height: `${height}%` }}
+                    >
+                      {/* Shimmer effect */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent transform skew-x-12 animate-pulse" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         );
       
@@ -82,40 +163,61 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         let cumulativeAngle = 0;
         
         return (
-          <div className="relative w-16 h-16 mt-2">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 42 42">
-              <circle
-                cx="21"
-                cy="21"
-                r="15.91549430918954"
-                fill="transparent"
-                stroke="white"
-                strokeOpacity="0.1"
-                strokeWidth="3"
-              />
-              {miniChart.data.map((value, index) => {
-                const angle = (value / total) * 360;
-                const strokeDasharray = `${(angle / 360) * 100} ${100 - (angle / 360) * 100}`;
-                const strokeDashoffset = -cumulativeAngle / 360 * 100;
-                cumulativeAngle += angle;
+          <div className="mt-3 flex justify-center">
+            <div className="relative w-12 h-12">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 42 42">
+                <defs>
+                  <filter id="glow">
+                    <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                    <feMerge> 
+                      <feMergeNode in="coloredBlur"/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+                </defs>
                 
-                return (
-                  <circle
-                    key={index}
-                    cx="21"
-                    cy="21"
-                    r="15.91549430918954"
-                    fill="transparent"
-                    stroke="white"
-                    strokeOpacity={0.8 - index * 0.2}
-                    strokeWidth="3"
-                    strokeDasharray={strokeDasharray}
-                    strokeDashoffset={strokeDashoffset}
-                    strokeLinecap="round"
-                  />
-                );
-              })}
-            </svg>
+                {/* Background circle */}
+                <circle
+                  cx="21"
+                  cy="21"
+                  r="15.91549430918954"
+                  fill="transparent"
+                  stroke="white"
+                  strokeOpacity="0.1"
+                  strokeWidth="2"
+                />
+                
+                {/* Data segments */}
+                {miniChart.data.map((value, index) => {
+                  const angle = (value / total) * 360;
+                  const strokeDasharray = `${(angle / 360) * 100} ${100 - (angle / 360) * 100}`;
+                  const strokeDashoffset = -cumulativeAngle / 360 * 100;
+                  cumulativeAngle += angle;
+                  
+                  return (
+                    <circle
+                      key={index}
+                      cx="21"
+                      cy="21"
+                      r="15.91549430918954"
+                      fill="transparent"
+                      stroke="white"
+                      strokeOpacity={0.9 - index * 0.15}
+                      strokeWidth="2"
+                      strokeDasharray={strokeDasharray}
+                      strokeDashoffset={strokeDashoffset}
+                      strokeLinecap="round"
+                      filter="url(#glow)"
+                    />
+                  );
+                })}
+              </svg>
+              
+              {/* Center value */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-xs font-bold text-white/80">{total}</span>
+              </div>
+            </div>
           </div>
         );
       
@@ -128,79 +230,63 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -8, scale: 1.02 }}
+      whileHover={{ y: -4, scale: 1.01 }}
       whileTap={{ scale: 0.98 }}
       className="relative group cursor-pointer"
       onClick={onClick}
     >
-      {/* Background gradient glow */}
-      <div className={`absolute inset-0 bg-gradient-to-br ${gradient} rounded-3xl transform rotate-1 group-hover:rotate-2 transition-transform duration-500 opacity-90`}></div>
-      
-      {/* Main card */}
-      <div className={`relative bg-gradient-to-br ${gradient} rounded-3xl p-1 shadow-2xl transition-all duration-500 group-hover:shadow-3xl`}>
-        <div className="relative bg-white rounded-[1.25rem] overflow-hidden">
-          {/* Subtle pattern overlay */}
-          <div className="absolute inset-0 opacity-[0.02]" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-          }}></div>
-          
-          <div className="relative p-6">
-            {/* Header with icon and trend */}
-            <div className="flex items-start justify-between mb-4">
-              <div className="relative">
-                <div className={`absolute inset-0 bg-gradient-to-br ${gradient} blur-xl opacity-50 transition-all duration-500`}></div>
-                <div className={`relative p-3 bg-gradient-to-br ${gradient} rounded-2xl shadow-lg transition-all duration-500`}>
-                  <Icon className="w-5 h-5 text-white" />
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {trend && (
-                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${
-                    trend.isPositive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    <span>{trend.isPositive ? '↗' : '↘'}</span>
-                    <span>{trend.value}</span>
-                  </div>
-                )}
-                <div className="flex items-center text-gray-400 group-hover:text-gray-600 transition-colors">
-                  <ChevronRight className="w-4 h-4" />
-                </div>
+      {/* Main card - compact and borderless */}
+      <div className={`relative bg-gradient-to-br ${gradient} rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden`}>
+        {/* Subtle glow effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+        
+        <div className="relative p-4">
+          {/* Compact header */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="relative">
+              <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                <Icon className="w-4 h-4 text-white" />
               </div>
             </div>
-            
-            {/* Main content */}
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{title}</p>
-                <p className="text-3xl font-black text-gray-900 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                  {mainValue}
-                </p>
-                <p className="text-sm text-gray-600 font-medium">{subtitle}</p>
-              </div>
-
-              {/* Stats breakdown */}
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
-                {stats.map((stat, index) => (
-                  <div key={index} className="text-center">
-                    <p className="text-sm font-bold text-gray-900" style={{ color: stat.color }}>
-                      {stat.value}
-                    </p>
-                    <p className="text-xs text-gray-500 font-medium">{stat.label}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Mini chart */}
-              {miniChart && (
-                <div className="pt-2">
-                  {renderMiniChart()}
+            <div className="flex items-center gap-1">
+              {trend && (
+                <div className="text-xs text-white/80 font-medium">
+                  <span className="opacity-60">{trend.isPositive ? '↗' : '↘'}</span>
+                  <span className="ml-1">{trend.value}</span>
                 </div>
               )}
+              <ChevronRight className="w-3 h-3 text-white/60 group-hover:text-white/80 transition-colors" />
             </div>
-            
-            {/* Bottom accent gradient */}
-            <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${gradient.replace('from-', 'from-').replace('to-', 'to-')} opacity-60 group-hover:opacity-100 transition-opacity duration-300`}></div>
           </div>
+          
+          {/* Main content - more compact */}
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs font-medium text-white/70 uppercase tracking-wide mb-1">{title}</p>
+              <p className="text-2xl font-bold text-white mb-1" style={{ fontFamily: 'Inter, sans-serif' }}>
+                {mainValue}
+              </p>
+              <p className="text-xs text-white/80">{subtitle}</p>
+            </div>
+
+            {/* Compact stats grid */}
+            <div className="grid grid-cols-2 gap-2">
+              {stats.slice(0, 4).map((stat, index) => (
+                <div key={index} className="text-center bg-white/10 rounded-lg py-1 px-2 backdrop-blur-sm">
+                  <p className="text-xs font-bold text-white">
+                    {stat.value}
+                  </p>
+                  <p className="text-[10px] text-white/70 font-medium leading-tight">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Enhanced mini chart */}
+            {miniChart && renderMiniChart()}
+          </div>
+          
+          {/* Subtle bottom accent */}
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 opacity-60 group-hover:opacity-100 transition-opacity duration-300"></div>
         </div>
       </div>
     </motion.div>

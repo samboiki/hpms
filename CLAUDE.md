@@ -53,6 +53,100 @@ node execute-migrations-like-bolt.js    # Execute any database operations with d
 
 **This is the ONLY method that works - direct PostgreSQL connection bypasses ALL restrictions**
 
+### Document Upload System (PRODUCTION READY) ✅
+
+**Working Solution for Supabase Storage:**
+
+The document upload system is fully functional with the following setup:
+
+#### **Database Setup**
+- `patient_documents` table exists with proper structure
+- RLS policies configured for authenticated users
+- Storage bucket `documents` created and accessible
+
+#### **Authentication Requirements**
+```javascript
+// CRITICAL: Always use session-based authentication for uploads
+const { data: { session }, error } = await supabase.auth.getSession();
+
+// Check session validity
+if (!session || !session.user) {
+  throw new Error('Authentication required for uploads');
+}
+
+// Session provides access token for S3 authentication
+console.log('Session token:', session.access_token);
+```
+
+#### **Storage Configuration**
+- **Bucket Name**: `documents` (lowercase, exact spelling)
+- **Bucket Type**: Public bucket for listing visibility
+- **File Size Limit**: 50MB
+- **Supported Types**: PDF, Images, Word docs, Excel, Text files
+
+#### **Required Storage Policies**
+Execute these in Supabase Dashboard > Authentication > Policies:
+
+**For storage.buckets table:**
+```sql
+-- Allow authenticated users to see buckets
+CREATE POLICY "Allow bucket listing" ON storage.buckets 
+FOR SELECT USING (auth.role() = 'authenticated');
+```
+
+**For storage.objects table:**
+```sql
+-- Upload policy
+CREATE POLICY "Allow document uploads" ON storage.objects 
+FOR INSERT WITH CHECK (bucket_id = 'documents' AND auth.role() = 'authenticated');
+
+-- Read policy  
+CREATE POLICY "Allow document reads" ON storage.objects 
+FOR SELECT USING (bucket_id = 'documents' AND auth.role() = 'authenticated');
+
+-- Delete policy
+CREATE POLICY "Allow document deletes" ON storage.objects 
+FOR DELETE USING (bucket_id = 'documents' AND auth.role() = 'authenticated');
+
+-- Update policy
+CREATE POLICY "Allow document updates" ON storage.objects 
+FOR UPDATE USING (bucket_id = 'documents' AND auth.role() = 'authenticated');
+```
+
+#### **Upload Implementation**
+```javascript
+// Correct upload flow
+const fileExt = file.name.split('.').pop();
+const fileName = `${patientId}/${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+
+const { data, error } = await supabase.storage
+  .from('documents')
+  .upload(fileName, file, {
+    cacheControl: '3600',
+    upsert: false
+  });
+```
+
+#### **Key Success Factors**
+1. **Session Authentication**: Use `getSession()` not `getUser()`
+2. **Bucket Visibility**: Storage policies must allow bucket listing
+3. **Skip Bucket Checks**: Don't verify bucket existence, just upload
+4. **Error Handling**: Specific error messages for different failure types
+5. **User Login**: Ensure users are properly authenticated before upload
+
+#### **Testing Procedure**
+1. Log in with: `admin@onehealth.local` / `admin123`
+2. Navigate to PatientModernDetail > Documents tab
+3. Upload any supported file type
+4. Verify file appears in storage and database
+5. Check browser console for detailed logs
+
+#### **Troubleshooting**
+- **"Bucket not found"**: Check storage policies on storage.buckets
+- **"RLS violation"**: Check storage policies on storage.objects  
+- **"Auth required"**: Verify user session is valid
+- **"Upload failed"**: Check file size and type restrictions
+
 ### Database Operation Methods (MANDATORY APPROACH)
 1. **ALWAYS use direct PostgreSQL connection** with password
 2. **Use execute-migrations-like-bolt.js** for all database operations  
