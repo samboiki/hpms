@@ -73,9 +73,9 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         const lineGradientKey = Object.keys(lineColorMap).find(key => gradient.includes(key.replace('from-', ''))) || 'from-blue-500';
         const lineColors = lineColorMap[lineGradientKey as keyof typeof lineColorMap];
         
-        // Create smooth curve path using bezier curves
+        // Create smooth curve path using bezier curves and get exact coordinates
         const createSmoothPath = (points: number[]) => {
-          if (points.length < 2) return '';
+          if (points.length < 2) return { path: '', coordinates: [] };
           
           const scaledPoints = points.map((value, index) => ({
             x: (index / (points.length - 1)) * 100,
@@ -114,10 +114,12 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
             }
           }
           
-          return path;
+          return { path, coordinates: scaledPoints };
         };
         
-        const linePath = createSmoothPath(chartData);
+        const lineData = createSmoothPath(chartData);
+        const linePath = lineData.path;
+        const lineCoordinates = lineData.coordinates;
         const areaPath = linePath + ` L 100 28 L 0 28 Z`;
         
         // Dynamic labels based on card type
@@ -203,8 +205,9 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                 
                 {/* Data points positioned exactly on the line */}
                 {chartData.map((value, index) => {
-                  const x = (index / (chartData.length - 1)) * 100;
-                  const y = 28 - ((value - minValue) / (maxValue - minValue)) * 24;
+                  // Use exact coordinates from the curve calculation
+                  const x = lineCoordinates[index]?.x || (index / (chartData.length - 1)) * 100;
+                  const y = lineCoordinates[index]?.y || 28 - ((value - minValue) / (maxValue - minValue)) * 24;
                   const yPercent = (y / 32) * 100;
                   
                   return (

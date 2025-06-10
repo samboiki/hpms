@@ -1,6 +1,6 @@
 // Medical Aid Logo Mapping for Namibian Medical Aid Providers
 export const medicalAidLogos: Record<string, string> = {
-  // Namibian Medical Aid Providers
+  // Database providers with available logos
   'Namibia Medical Care': '/images/medical-aids/nmc-logo.png',
   'NMC': '/images/medical-aids/nmc-logo.png',
   'Namibia Health Plan': '/images/medical-aids/nhp-logo.png',
@@ -11,23 +11,23 @@ export const medicalAidLogos: Record<string, string> = {
   'Gemhealth': '/images/medical-aids/gemhealth-logo.png',
   'GemHealth': '/images/medical-aids/gemhealth-logo.png',
   
-  // South African Medical Aids operating in Namibia
+  // Database providers without specific logos (will use default)
+  'Renaissance Health Medical Aid Fund': '/images/medical-aids/default-medical-aid.svg',
+  'Renaissance': '/images/medical-aids/default-medical-aid.svg',
+  'Napotel Medical Aid': '/images/medical-aids/default-medical-aid.svg',
+  'Napotel': '/images/medical-aids/default-medical-aid.svg',
+  'Bankmed Namibia': '/images/medical-aids/default-medical-aid.svg',
+  'Bankmed': '/images/medical-aids/default-medical-aid.svg',
+  'Methealth Namibia': '/images/medical-aids/default-medical-aid.svg',
+  'Methealth': '/images/medical-aids/default-medical-aid.svg',
+  
+  // Additional South African Medical Aids (available logos)
   'Bonitas Medical Fund': '/images/medical-aids/bonitas-logo.png',
   'Bonitas': '/images/medical-aids/bonitas-logo.png',
   'Discovery Health': '/images/medical-aids/discovery-logo.png',
   'Discovery': '/images/medical-aids/discovery-logo.png',
   'Old Mutual Health': '/images/medical-aids/old-mutual-logo.png',
   'Old Mutual': '/images/medical-aids/old-mutual-logo.png',
-  
-  // Additional providers (using generic fallback)
-  'Momentum Health': '/images/medical-aids/momentum-logo.png',
-  'Momentum': '/images/medical-aids/momentum-logo.png',
-  'Medshield': '/images/medical-aids/medshield-logo.png',
-  'Renaissance Health': '/images/medical-aids/renaissance-logo.png',
-  'Heritage Health': '/images/medical-aids/heritage-logo.png',
-  'Napotel': '/images/medical-aids/napotel-logo.png',
-  'Namdeb Medical Scheme': '/images/medical-aids/namdeb-logo.png',
-  'Prosperity Health': '/images/medical-aids/prosperity-logo.png',
 };
 
 // Fallback logo for unknown medical aids
@@ -51,16 +51,36 @@ export const getMedicalAidLogo = (provider: string): string => {
   return defaultMedicalAidLogo;
 };
 
-// Common Namibian Medical Aid Schemes/Options
+// Common Namibian Medical Aid Schemes/Options (based on database migration)
 export const commonMedicalAidSchemes: Record<string, string[]> = {
-  'Namibia Medical Care': ['Diamond', 'Emerald', 'Gold', 'Silver', 'Bronze'],
-  'NMC': ['Diamond', 'Emerald', 'Gold', 'Silver', 'Bronze'],
-  'Namibia Health Plan': ['Comprehensive', 'Executive', 'Standard', 'Essential'],
-  'NHP': ['Comprehensive', 'Executive', 'Standard', 'Essential'],
+  // NMC schemes from database
+  'Namibia Medical Care': ['Diamond', 'Platinum', 'Gold', 'Silver'],
+  'NMC': ['Diamond', 'Platinum', 'Gold', 'Silver'],
+  
+  // NHP schemes from database
+  'Namibia Health Plan': ['Executive', 'Comprehensive'],
+  'NHP': ['Executive', 'Comprehensive'],
+  
+  // Standard schemes for other providers
+  'Nammed Medical Aid Fund': ['Comprehensive', 'Standard', 'Essential'],
+  'Nammed': ['Comprehensive', 'Standard', 'Essential'],
+  'Gemhealth Medical Aid': ['Premium', 'Standard', 'Basic'],
+  'Gemhealth': ['Premium', 'Standard', 'Basic'],
+  
+  // Default schemes for providers without specific data
+  'Renaissance Health Medical Aid Fund': ['Comprehensive', 'Standard', 'Essential'],
+  'Renaissance': ['Comprehensive', 'Standard', 'Essential'],
+  'Napotel Medical Aid': ['Premium', 'Standard', 'Basic'],
+  'Napotel': ['Premium', 'Standard', 'Basic'],
+  'Bankmed Namibia': ['Comprehensive', 'Standard', 'Essential'],
+  'Bankmed': ['Comprehensive', 'Standard', 'Essential'],
+  'Methealth Namibia': ['Premium', 'Standard', 'Basic'],
+  'Methealth': ['Premium', 'Standard', 'Basic'],
+  
+  // South African schemes
   'Discovery Health': ['Executive Plan', 'Comprehensive', 'Essential', 'Smart Plan'],
   'Bonitas Medical Fund': ['BonComprehensive', 'BonEssential', 'BonCap', 'BonStart'],
-  'Nammed': ['Comprehensive', 'Standard', 'Essential'],
-  'Gemhealth': ['Premium', 'Standard', 'Basic'],
+  'Old Mutual Health': ['Comprehensive', 'Standard', 'Essential'],
 };
 
 // Function to get schemes for a provider
