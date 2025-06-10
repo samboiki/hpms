@@ -460,7 +460,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                   exit={{ opacity: 0, y: -20, scale: 0.95 }}
                   whileHover={{ scale: 1.02, y: -2 }}
                   className={`
-                    relative bg-white rounded-xl shadow-sm hover:shadow-lg
+                    relative bg-gray-50 rounded-xl shadow-sm hover:shadow-lg
                     border border-gray-200/60 transition-all cursor-pointer
                     ${getTypeAccent(appointment.type)}
                     overflow-hidden
@@ -730,7 +730,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                               initial={{ opacity: 0, scale: 0.9 }}
                               animate={{ opacity: 1, scale: 1 }}
                               whileHover={{ scale: 1.05, zIndex: 30 }}
-                              className={`absolute left-1 right-1 bg-white rounded-lg shadow-md hover:shadow-xl 
+                              className={`absolute left-1 right-1 bg-gray-50 rounded-lg shadow-md hover:shadow-xl 
                                 border transition-all cursor-pointer overflow-hidden
                                 ${getTypeAccent(appointment.type)}`}
                               style={{ top: `${top}px`, height: `${height}px` }}
@@ -807,7 +807,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                               initial={{ opacity: 0, scale: 0.9 }}
                               animate={{ opacity: 1, scale: 1 }}
                               whileHover={{ scale: 1.05, zIndex: 30 }}
-                              className={`absolute left-2 right-2 bg-white rounded-lg shadow-md hover:shadow-xl 
+                              className={`absolute left-2 right-2 bg-gray-50 rounded-lg shadow-md hover:shadow-xl 
                                 border transition-all cursor-pointer overflow-hidden
                                 ${getTypeAccent(appointment.type)}`}
                               style={{ top: `${top}px`, height: `${height}px` }}
