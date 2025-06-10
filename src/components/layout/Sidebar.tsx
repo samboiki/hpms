@@ -156,6 +156,29 @@ const Sidebar: React.FC<SidebarProps> = ({
           {(!collapsed || isMobile) && <span className="ml-3 text-sm">Settings</span>}
         </NavLink>
 
+        {/* Fullscreen Toggle */}
+        {onToggleFullscreen && (
+          <button
+            onClick={onToggleFullscreen}
+            className={cn(
+              "w-full flex items-center px-3 py-2 rounded-lg text-white/80 hover:bg-white/10",
+              collapsed && !isMobile && "justify-center"
+            )}
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+          >
+            {isFullscreen ? (
+              <Minimize size={18} />
+            ) : (
+              <Expand size={18} />
+            )}
+            {(!collapsed || isMobile) && (
+              <span className="ml-3 text-sm">
+                {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+              </span>
+            )}
+          </button>
+        )}
+
         <button
           onClick={onToggle}
           className={cn(

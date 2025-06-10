@@ -15,8 +15,6 @@ import {
   Bell,
   DollarSign,
   TrendingUp,
-  Expand,
-  Minimize,
   Building2,
   XCircle,
   Moon,
@@ -119,7 +117,6 @@ function Dashboard() {
     type: 'patients' | 'notifications' | 'encounters' | 'finance' | null;
   }>({ isOpen: false, type: null });
   const [isEnhancedFinancialModalOpen, setIsEnhancedFinancialModalOpen] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [appointmentStatusFilter, setAppointmentStatusFilter] = useState<'all' | 'total' | 'completed' | 'pending' | 'cancelled'>('all');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [practiceDetails, setPracticeDetails] = useState<PracticeDetails | null>(null);
@@ -441,25 +438,6 @@ function Dashboard() {
     fetchData();
   }, []);
 
-  // Fullscreen functionality
-  const toggleFullscreen = () => {
-    if (!isFullscreen) {
-      document.documentElement.requestFullscreen?.();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen?.();
-      setIsFullscreen(false);
-    }
-  };
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
 
 
   const handleEditAppointment = (appointment: Appointment) => {
@@ -847,20 +825,7 @@ function Dashboard() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="p-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-all duration-200"
-                  onClick={toggleFullscreen}
-                  title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-                >
-                  {isFullscreen ? (
-                    <Minimize className="w-4 h-4 text-gray-700" />
-                  ) : (
-                    <Expand className="w-4 h-4 text-gray-700" />
-                  )}
-                </motion.button>
+              <div className="flex items-center justify-end">
                 {/* Practice Logo */}
                 {practiceDetails?.logo_url ? (
                   <motion.div
@@ -1415,7 +1380,7 @@ function Dashboard() {
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsDarkMode(!isDarkMode)}
-        className="fixed bottom-6 right-20 w-12 h-12 bg-white/90 backdrop-blur-sm border border-gray-200 text-gray-700 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center group z-50"
+        className="fixed bottom-6 right-6 w-12 h-12 bg-white/90 backdrop-blur-sm border border-gray-200 text-gray-700 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center group z-50"
         title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
       >
         {isDarkMode ? (
