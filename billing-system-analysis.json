@@ -1,0 +1,831 @@
+{
+  "timestamp": "2025-06-10T19:13:05.223Z",
+  "medicalAidProviders": [
+    {
+      "id": "b763f347-bc31-4992-ab12-cd4a49a48789",
+      "name": "Nammed Medical Aid Fund",
+      "short_name": "Nammed",
+      "logo_url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/medical-aid-logos/NAMM.png",
+      "contact_number": "+264 61 270 9300",
+      "email": "info@nammed.com.na",
+      "website": "www.nammed.com.na",
+      "address": "Windhoek, Namibia",
+      "created_at": "2025-06-01T23:11:23.705528+00:00",
+      "updated_at": "2025-06-10T14:13:53.441+00:00",
+      "medical_aid_reference": "NAMM"
+    },
+    {
+      "id": "794b73d7-18c9-4752-93af-f239835c7702",
+      "name": "Namibia Medical Care",
+      "short_name": "NMC",
+      "logo_url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/medical-aid-logos//NMC1.png",
+      "contact_number": "+264 61 285 5400",
+      "email": "info@nmc.com.na",
+      "website": "www.nmc.com.na",
+      "address": "Windhoek, Namibia",
+      "created_at": "2025-06-01T23:11:23.705528+00:00",
+      "updated_at": "2025-06-10T14:13:52.655+00:00",
+      "medical_aid_reference": "NMC1"
+    },
+    {
+      "id": "472cf1b4-cce0-47bb-b674-5874e01c1eb9",
+      "name": "Namibia Health Plan",
+      "short_name": "NHP",
+      "logo_url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/medical-aid-logos//NHPM.png",
+      "contact_number": "+264 61 285 5600",
+      "email": "info@nhp.com.na",
+      "website": "www.nhp.com.na",
+      "address": "Windhoek, Namibia",
+      "created_at": "2025-06-01T23:11:23.705528+00:00",
+      "updated_at": "2025-06-10T14:13:53.124+00:00",
+      "medical_aid_reference": "NHPM"
+    },
+    {
+      "id": "2d172f06-a899-48f9-88d0-1d10792fdea4",
+      "name": "Methealth Namibia",
+      "short_name": "Methealth",
+      "logo_url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/medical-aid-logos//MAG1.png",
+      "contact_number": "+264 61 222 3300",
+      "email": "info@methealth.com.na",
+      "website": "www.methealth.com.na",
+      "address": "Windhoek, Namibia",
+      "created_at": "2025-06-01T23:11:23.705528+00:00",
+      "updated_at": "2025-06-10T14:13:55.044+00:00",
+      "medical_aid_reference": "MAG1"
+    },
+    {
+      "id": "80c1c8ec-448e-4190-b373-177ffbfe82fd",
+      "name": "Prosperity Health",
+      "short_name": "PROS",
+      "logo_url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/medical-aid-logos//PROS.png",
+      "contact_number": "+264 61 287 5400",
+      "email": "info@renaissance.com.na",
+      "website": "www.renaissancehealth.com.na",
+      "address": "Windhoek, Namibia",
+      "created_at": "2025-06-01T23:11:23.705528+00:00",
+      "updated_at": "2025-06-10T14:13:55.044+00:00",
+      "medical_aid_reference": "PROS"
+    }
+  ],
+  "practices": [
+    {
+      "id": "e0716e54-f808-4905-a1f8-85090dd3d9e2",
+      "slug": "coastalmed",
+      "name": "Coastal Medical Center",
+      "domain": "coastalmed.vercel.app",
+      "logo_url": null,
+      "primary_color": "#01b9d5",
+      "secondary_color": "#0196be",
+      "contact_email": "hello@coastalmed.com",
+      "contact_phone": "+264 64 987 6543",
+      "address": "45 Beach Road",
+      "city": "Swakopmund",
+      "country": "Namibia",
+      "postal_code": null,
+      "business_hours": {
+        "friday": {
+          "open": "08:00",
+          "close": "17:00"
+        },
+        "monday": {
+          "open": "08:00",
+          "close": "17:00"
+        },
+        "sunday": {
+          "closed": true
+        },
+        "tuesday": {
+          "open": "08:00",
+          "close": "17:00"
+        },
+        "saturday": {
+          "open": "08:00",
+          "close": "13:00"
+        },
+        "thursday": {
+          "open": "08:00",
+          "close": "17:00"
+        },
+        "wednesday": {
+          "open": "08:00",
+          "close": "17:00"
+        }
+      },
+      "features": {
+        "lab_results": true,
+        "telemedicine": false,
+        "online_booking": true,
+        "online_payments": true
+      },
+      "settings": {},
+      "hero_title": "Excellence in Healthcare by the Sea",
+      "hero_subtitle": "Where compassionate care meets medical excellence",
+      "hero_image_url": null,
+      "about_text": "Coastal Medical Center is Swakopmund's premier healthcare facility, offering state-of-the-art medical services in a serene coastal setting.",
+      "services": [
+        {
+          "id": "1",
+          "icon": "users",
+          "name": "Family Medicine",
+          "description": "Comprehensive care for the whole family"
+        },
+        {
+          "id": "2",
+          "icon": "user-md",
+          "name": "Specialist Consultations",
+          "description": "Access to various medical specialists"
+        },
+        {
+          "id": "3",
+          "icon": "heart",
+          "name": "Wellness Programs",
+          "description": "Preventive health and wellness services"
+        },
+        {
+          "id": "4",
+          "icon": "plane",
+          "name": "Travel Medicine",
+          "description": "Vaccinations and travel health advice"
+        }
+      ],
+      "social_links": {},
+      "created_at": "2025-05-26T06:55:55.843602+00:00",
+      "updated_at": "2025-06-09T08:51:55.514252+00:00",
+      "status": "active",
+      "subscription_tier": "standard",
+      "subscription_expires_at": null,
+      "max_users": 10,
+      "max_patients": 1000,
+      "timezone": "Africa/Windhoek",
+      "currency": "NAD",
+      "tax_number": null,
+      "license_number": null,
+      "admin_user_id": null,
+      "practice_type": "medical",
+      "practice_subtypes": [
+        "General Practice"
+      ],
+      "testimonials": [],
+      "metadata": {},
+      "practice_type_id": "0ca4a368-6e28-4ee6-b9e1-e183fc765e16",
+      "practice_number": null
+    },
+    {
+      "id": "9f9966b9-d515-470a-b6c5-c15330bbe7b7",
+      "slug": "cityclinic",
+      "name": "City Clinic Windhoek",
+      "domain": "cityclinic.vercel.app",
+      "logo_url": null,
+      "primary_color": "#01b9d5",
+      "secondary_color": "#0196be",
+      "contact_email": "info@cityclinic.com",
+      "contact_phone": "+264 61 123 4567",
+      "address": "123 Independence Avenue",
+      "city": "Windhoek",
+      "country": "Namibia",
+      "postal_code": null,
+      "business_hours": {
+        "friday": {
+          "open": "08:00",
+          "close": "17:00"
+        },
+        "monday": {
+          "open": "08:00",
+          "close": "17:00"
+        },
+        "sunday": {
+          "closed": true
+        },
+        "tuesday": {
+          "open": "08:00",
+          "close": "17:00"
+        },
+        "saturday": {
+          "open": "08:00",
+          "close": "13:00"
+        },
+        "thursday": {
+          "open": "08:00",
+          "close": "17:00"
+        },
+        "wednesday": {
+          "open": "08:00",
+          "close": "17:00"
+        }
+      },
+      "features": {
+        "lab_results": true,
+        "telemedicine": false,
+        "online_booking": true,
+        "online_payments": true
+      },
+      "settings": {},
+      "hero_title": "Your Health, Our Priority",
+      "hero_subtitle": "Modern healthcare facility in the heart of Windhoek",
+      "hero_image_url": null,
+      "about_text": "City Clinic has been serving the Windhoek community for over 20 years. We pride ourselves on providing comprehensive healthcare services with a personal touch.",
+      "services": [
+        {
+          "id": "1",
+          "icon": "stethoscope",
+          "name": "General Consultation",
+          "description": "Comprehensive health checkups and consultations"
+        },
+        {
+          "id": "2",
+          "icon": "microscope",
+          "name": "Laboratory Services",
+          "description": "Full range of diagnostic tests"
+        },
+        {
+          "id": "3",
+          "icon": "baby",
+          "name": "Pediatric Care",
+          "description": "Specialized care for children"
+        },
+        {
+          "id": "4",
+          "icon": "ambulance",
+          "name": "Emergency Services",
+          "description": "24/7 emergency medical care"
+        }
+      ],
+      "social_links": {},
+      "created_at": "2025-05-26T06:55:55.843602+00:00",
+      "updated_at": "2025-06-09T08:51:55.514252+00:00",
+      "status": "active",
+      "subscription_tier": "standard",
+      "subscription_expires_at": null,
+      "max_users": 10,
+      "max_patients": 1000,
+      "timezone": "Africa/Windhoek",
+      "currency": "NAD",
+      "tax_number": null,
+      "license_number": null,
+      "admin_user_id": null,
+      "practice_type": "medical",
+      "practice_subtypes": [
+        "General Practice"
+      ],
+      "testimonials": [],
+      "metadata": {},
+      "practice_type_id": "0ca4a368-6e28-4ee6-b9e1-e183fc765e16",
+      "practice_number": null
+    },
+    {
+      "id": "5da3896d-b9f3-4b0a-996a-3adca867cb30",
+      "slug": "dr-polina",
+      "name": "Dr. Polina Aesthetic Clinic",
+      "domain": "drpolina.com",
+      "logo_url": null,
+      "primary_color": "#01b9d5",
+      "secondary_color": "#0196be",
+      "contact_email": "info@drpolina.com",
+      "contact_phone": "+264 61 555 0123",
+      "address": "123 Aesthetic Avenue",
+      "city": "Windhoek",
+      "country": "Namibia",
+      "postal_code": null,
+      "business_hours": {
+        "friday": {
+          "open": "08:00",
+          "close": "17:00"
+        },
+        "monday": {
+          "open": "08:00",
+          "close": "17:00"
+        },
+        "sunday": {
+          "closed": true
+        },
+        "tuesday": {
+          "open": "08:00",
+          "close": "17:00"
+        },
+        "saturday": {
+          "open": "08:00",
+          "close": "13:00"
+        },
+        "thursday": {
+          "open": "08:00",
+          "close": "17:00"
+        },
+        "wednesday": {
+          "open": "08:00",
+          "close": "17:00"
+        }
+      },
+      "features": {
+        "lab_results": true,
+        "telemedicine": false,
+        "online_booking": true,
+        "online_payments": true
+      },
+      "settings": {},
+      "hero_title": "Transform Your Beauty with Expert Care",
+      "hero_subtitle": "Leading aesthetic treatments in Namibia",
+      "hero_image_url": null,
+      "about_text": "Dr. Polina brings years of experience in aesthetic medicine to help you achieve your beauty goals with safe, effective treatments.",
+      "services": [
+        {
+          "id": "1",
+          "icon": "sparkles",
+          "name": "Botox",
+          "description": "Anti-aging wrinkle treatments"
+        },
+        {
+          "id": "2",
+          "icon": "heart",
+          "name": "Dermal Fillers",
+          "description": "Facial volume restoration"
+        },
+        {
+          "id": "3",
+          "icon": "refresh",
+          "name": "Chemical Peels",
+          "description": "Skin renewal treatments"
+        },
+        {
+          "id": "4",
+          "icon": "sun",
+          "name": "Skin Rejuvenation",
+          "description": "Advanced skin therapy"
+        }
+      ],
+      "social_links": {},
+      "created_at": "2025-06-04T05:10:48.843514+00:00",
+      "updated_at": "2025-06-09T08:51:55.514252+00:00",
+      "status": "active",
+      "subscription_tier": "premium",
+      "subscription_expires_at": null,
+      "max_users": 10,
+      "max_patients": 1000,
+      "timezone": "Africa/Windhoek",
+      "currency": "NAD",
+      "tax_number": null,
+      "license_number": null,
+      "admin_user_id": null,
+      "practice_type": "aesthetic",
+      "practice_subtypes": [
+        "Aesthetic Medicine",
+        "Cosmetic Procedures"
+      ],
+      "testimonials": [],
+      "metadata": {},
+      "practice_type_id": "29c37b6c-c19b-4b4c-8e41-dc71f5ded65c",
+      "practice_number": null
+    },
+    {
+      "id": "b64632c2-3a56-44cf-a2c9-0e42be03a2d3",
+      "slug": "dr-polina-aesthetics",
+      "name": "Dr. Polina Aesthetics",
+      "domain": "healthpractice.vercel.app",
+      "logo_url": "/images/dr-polina-logo.png",
+      "primary_color": "#E91E63",
+      "secondary_color": "#9C27B0",
+      "contact_email": "info@drpolinaaesthetics.com",
+      "contact_phone": "+264 81 435 8844",
+      "address": "Feld Street 4, Ausspannplatz",
+      "city": "Windhoek",
+      "country": "Namibia",
+      "postal_code": "10001",
+      "business_hours": {
+        "friday": {
+          "open": "09:00",
+          "close": "18:00"
+        },
+        "monday": {
+          "open": "09:00",
+          "close": "18:00"
+        },
+        "sunday": {
+          "closed": true
+        },
+        "tuesday": {
+          "open": "09:00",
+          "close": "18:00"
+        },
+        "saturday": {
+          "open": "09:00",
+          "close": "14:00"
+        },
+        "thursday": {
+          "open": "09:00",
+          "close": "18:00"
+        },
+        "wednesday": {
+          "open": "09:00",
+          "close": "18:00"
+        }
+      },
+      "features": {
+        "lab_results": true,
+        "telemedicine": false,
+        "online_booking": true,
+        "online_payments": true
+      },
+      "settings": {},
+      "hero_title": "Reveal Your Natural Beauty",
+      "hero_subtitle": "Premier medical aesthetic center specializing in personalized skin, hair, and body treatments",
+      "hero_image_url": null,
+      "about_text": "Dr. Polina Aesthetics is Namibia's premier medical aesthetic center, founded by Dr. Teopolina N. Tileinge.",
+      "services": [
+        {
+          "id": "skin-analysis",
+          "icon": "Microscope",
+          "name": "Advanced Skin Analysis",
+          "description": "Comprehensive skin evaluation using cutting-edge diagnostic technology"
+        },
+        {
+          "id": "acne-treatment",
+          "icon": "Sparkles",
+          "name": "Acne Treatment Program",
+          "description": "Medical-grade solutions for acne and acne scarring"
+        },
+        {
+          "id": "chemical-peels",
+          "icon": "Droplets",
+          "name": "Chemical Peels",
+          "description": "Professional peels for skin rejuvenation and pigmentation"
+        }
+      ],
+      "social_links": {
+        "facebook": "https://facebook.com/drpolinaaesthetics",
+        "whatsapp": "+26481435844",
+        "instagram": "https://instagram.com/drpolinaaesthetics"
+      },
+      "created_at": "2025-05-26T08:28:39.097463+00:00",
+      "updated_at": "2025-06-09T08:51:55.514252+00:00",
+      "status": "active",
+      "subscription_tier": "standard",
+      "subscription_expires_at": null,
+      "max_users": 10,
+      "max_patients": 1000,
+      "timezone": "Africa/Windhoek",
+      "currency": "NAD",
+      "tax_number": null,
+      "license_number": null,
+      "admin_user_id": null,
+      "practice_type": "dental",
+      "practice_subtypes": [
+        "General Practice"
+      ],
+      "testimonials": [],
+      "metadata": {},
+      "practice_type_id": "73a45bcb-b68a-4746-8c96-a6d081fc690f",
+      "practice_number": null
+    },
+    {
+      "id": "ffed1160-00ec-4c4f-8810-913a24348d90",
+      "slug": "newcharm-dental",
+      "name": "NewCharm Dental Practice",
+      "domain": "newcharm.vercel.app",
+      "logo_url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/logo.png",
+      "primary_color": "#00BCD4",
+      "secondary_color": "#0097A7",
+      "contact_email": "info@newcharmdental.na",
+      "contact_phone": "+264 61 234 567",
+      "address": "123 Independence Avenue",
+      "city": "Windhoek",
+      "country": "Namibia",
+      "postal_code": "10001",
+      "business_hours": {
+        "friday": {
+          "open": "08:00",
+          "close": "16:00"
+        },
+        "monday": {
+          "open": "08:00",
+          "close": "17:00"
+        },
+        "sunday": {
+          "closed": true
+        },
+        "tuesday": {
+          "open": "08:00",
+          "close": "17:00"
+        },
+        "saturday": {
+          "open": "09:00",
+          "close": "13:00"
+        },
+        "thursday": {
+          "open": "08:00",
+          "close": "17:00"
+        },
+        "wednesday": {
+          "open": "08:00",
+          "close": "17:00"
+        }
+      },
+      "features": {
+        "lab_results": false,
+        "telemedicine": true,
+        "digital_xrays": true,
+        "emergency_care": true,
+        "online_booking": true,
+        "laser_dentistry": true,
+        "online_payments": true
+      },
+      "settings": {
+        "languages": [
+          "English",
+          "Afrikaans",
+          "German"
+        ],
+        "payment_methods": [
+          "cash",
+          "card",
+          "medical_aid"
+        ],
+        "specializations": [
+          "General Dentistry",
+          "Cosmetic Dentistry",
+          "Orthodontics",
+          "Oral Surgery"
+        ],
+        "cancellation_hours": 24,
+        "insurance_accepted": [
+          "Discovery",
+          "Old Mutual",
+          "Bonitas",
+          "Momentum"
+        ],
+        "advance_booking_days": 30,
+        "appointment_duration": 60
+      },
+      "hero_title": "Your Smile, Our Passion",
+      "hero_subtitle": "Modern dental care with a personal touch. Experience comfort, quality, and the latest in dental technology at NewCharm Dental Practice.",
+      "hero_image_url": "https://images.unsplash.com/photo-1629909613654-28e377c37b09?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80",
+      "about_text": "At NewCharm Dental Practice, we believe that everyone deserves a healthy, beautiful smile. Our state-of-the-art facility in the heart of Windhoek combines cutting-edge dental technology with compassionate, personalized care.",
+      "services": [
+        {
+          "id": "general-dentistry",
+          "icon": "Shield",
+          "name": "General Dentistry",
+          "description": "Comprehensive dental care for your entire family"
+        },
+        {
+          "id": "cosmetic-dentistry",
+          "icon": "Sparkles",
+          "name": "Cosmetic Dentistry",
+          "description": "Enhance your smile with our advanced cosmetic procedures"
+        },
+        {
+          "id": "orthodontics",
+          "icon": "Smile",
+          "name": "Orthodontics",
+          "description": "Straighten your teeth with modern orthodontic solutions"
+        },
+        {
+          "id": "oral-surgery",
+          "icon": "Activity",
+          "name": "Oral Surgery",
+          "description": "Specialized surgical procedures for complex dental needs"
+        },
+        {
+          "id": "emergency-care",
+          "icon": "AlertTriangle",
+          "name": "Emergency Dental Care",
+          "description": "Immediate dental care when you need it most"
+        },
+        {
+          "id": "preventive-care",
+          "icon": "Heart",
+          "name": "Preventive Care",
+          "description": "Proactive care to maintain optimal oral health"
+        }
+      ],
+      "social_links": {
+        "twitter": "https://twitter.com/newcharmdental",
+        "facebook": "https://facebook.com/newcharmdental",
+        "linkedin": "https://linkedin.com/company/newcharm-dental",
+        "instagram": "https://instagram.com/newcharmdental"
+      },
+      "created_at": "2025-06-05T08:28:43.739197+00:00",
+      "updated_at": "2025-06-10T14:20:01.834849+00:00",
+      "status": "active",
+      "subscription_tier": "standard",
+      "subscription_expires_at": null,
+      "max_users": 10,
+      "max_patients": 1000,
+      "timezone": "Africa/Windhoek",
+      "currency": "NAD",
+      "tax_number": null,
+      "license_number": null,
+      "admin_user_id": null,
+      "practice_type": "dental",
+      "practice_subtypes": [
+        "General Practice"
+      ],
+      "testimonials": [
+        {
+          "date": "2024-12-01",
+          "text": "I had my teeth whitened at NewCharm and the results were amazing! The staff was so professional and made me feel comfortable throughout the entire process. My smile has never looked better!",
+          "author": "Sarah Williams",
+          "rating": 5,
+          "treatment": "Teeth Whitening"
+        },
+        {
+          "date": "2024-11-28",
+          "text": "Dr. Smith and the team at NewCharm saved my tooth with an excellent root canal treatment. What I expected to be painful was actually quite comfortable. Their technology and skill are impressive.",
+          "author": "Michael Johnson",
+          "rating": 5,
+          "treatment": "Root Canal Treatment"
+        },
+        {
+          "date": "2024-11-25",
+          "text": "My daughter got her braces at NewCharm and we could not be happier with the results. The orthodontist explained everything clearly and the staff was wonderful with kids. Highly recommended!",
+          "author": "Emma van der Merwe",
+          "rating": 5,
+          "treatment": "Orthodontics"
+        },
+        {
+          "date": "2024-11-20",
+          "text": "I had a dental emergency on a Saturday and NewCharm fit me in immediately. They relieved my pain and fixed my broken tooth beautifully. Their emergency care is exceptional.",
+          "author": "David Nakamhela",
+          "rating": 5,
+          "treatment": "Emergency Care"
+        },
+        {
+          "date": "2024-11-15",
+          "text": "The complete smile makeover I received at NewCharm has changed my life. I finally have the confidence to smile freely. The results exceeded all my expectations!",
+          "author": "Lisa Thompson",
+          "rating": 5,
+          "treatment": "Smile Makeover"
+        }
+      ],
+      "metadata": {
+        "gallery_images": [
+          "https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/before-after/after1.png",
+          "https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/before-after/after2.png"
+        ],
+        "before_after_gallery": [
+          {
+            "id": "1",
+            "after": "https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/before-after/after1.png",
+            "title": "Complete Smile Transformation",
+            "before": "https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/before-after/before1.png",
+            "duration": "3 weeks",
+            "treatment": "Custom Veneers & Whitening"
+          },
+          {
+            "id": "2",
+            "after": "https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/before-after/after2.png",
+            "title": "Cosmetic Dental Enhancement",
+            "before": "https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/before-after/before2.png",
+            "duration": "2 weeks",
+            "treatment": "Cosmetic Bonding"
+          }
+        ]
+      },
+      "practice_type_id": "73a45bcb-b68a-4746-8c96-a6d081fc690f",
+      "practice_number": "540001133241"
+    }
+  ],
+  "billingTables": {
+    "invoices": {
+      "sampleData": [],
+      "totalCount": 0
+    },
+    "invoice_items": {
+      "sampleData": [],
+      "totalCount": 0
+    },
+    "visit_services": {
+      "sampleData": [],
+      "totalCount": 0
+    },
+    "billing_transactions": {
+      "sampleData": [],
+      "totalCount": 0
+    }
+  },
+  "patientMedicalAids": {
+    "count": 24,
+    "sampleData": [
+      {
+        "id": "29b01fc0-9e24-4b84-9b66-d6e6ed3124c8",
+        "patient_id": "2a2136ad-7af7-47d0-b431-7dcef3411859",
+        "provider": "Discovery Health",
+        "scheme": "Executive Plan",
+        "membership_number": "DH789012",
+        "plan_type": "Premium",
+        "main_member_name": "Sarah Johnson",
+        "main_member_id_number": "9208210123456",
+        "relationship_to_main": "Self",
+        "created_at": "2025-05-12T16:24:48.914538+00:00",
+        "updated_at": "2025-05-12T16:24:48.914538+00:00",
+        "patients": {
+          "id_number": "8508121234567",
+          "last_name": "Shilongo",
+          "first_name": "Maria"
+        }
+      },
+      {
+        "id": "2f379a66-8555-4cae-98bd-15109a5ccb7e",
+        "patient_id": "327925ed-6d7d-4464-8581-5a6fae75931e",
+        "provider": "Bonitas",
+        "scheme": "BonComprehensive",
+        "membership_number": "BON345678",
+        "plan_type": "Standard",
+        "main_member_name": "Michael Brown",
+        "main_member_id_number": "7506125034089",
+        "relationship_to_main": "Self",
+        "created_at": "2025-05-12T16:24:48.914538+00:00",
+        "updated_at": "2025-05-12T16:24:48.914538+00:00",
+        "patients": {
+          "id_number": "9002198765432",
+          "last_name": "Amukwaya",
+          "first_name": "Thomas"
+        }
+      },
+      {
+        "id": "58da87e9-f6f0-4e1b-bb67-b86bd901a940",
+        "patient_id": "d09ad54c-b7df-4c1f-b11b-994048aa730b",
+        "provider": "Momentum Health",
+        "scheme": "Extender",
+        "membership_number": "MH901234",
+        "plan_type": "Elite",
+        "main_member_name": "Emily Wilson",
+        "main_member_id_number": "8912150067234",
+        "relationship_to_main": "Self",
+        "created_at": "2025-05-12T16:24:48.914538+00:00",
+        "updated_at": "2025-05-12T16:24:48.914538+00:00",
+        "patients": {
+          "id_number": "8005155012087",
+          "last_name": "van der Merwe",
+          "first_name": "Johannes"
+        }
+      }
+    ]
+  },
+  "practiceTariffs": {
+    "count": 179,
+    "sampleData": [
+      {
+        "id": "cd3d4e57-18ce-4039-841b-846b2fcf9a2f",
+        "code": "8113",
+        "price": 234.5,
+        "unit": "per visit",
+        "is_active": true,
+        "effective_from": "2025-01-01",
+        "effective_to": null,
+        "created_at": "2025-06-09T01:44:45.274981+00:00",
+        "updated_at": "2025-06-09T01:44:45.274981+00:00",
+        "description": "Occlusal radiographs",
+        "official_2025_price_nad": 234.5,
+        "on_2025_list": "YES",
+        "found_in_claims": "NO",
+        "requires_tooth_number": "NO",
+        "can_be_multiplied": "NO",
+        "business_rule_formula": "Fixed price",
+        "example_calculation": "234.5 NAD",
+        "notes": "",
+        "practice_type_id": "73a45bcb-b68a-4746-8c96-a6d081fc690f"
+      },
+      {
+        "id": "14878822-4b14-41a7-9f65-de3e1de94ae7",
+        "code": "8114",
+        "price": 549.8,
+        "unit": "per visit",
+        "is_active": true,
+        "effective_from": "2025-01-01",
+        "effective_to": null,
+        "created_at": "2025-06-09T01:44:45.274981+00:00",
+        "updated_at": "2025-06-09T01:44:45.274981+00:00",
+        "description": "Hand-wrist radiograph",
+        "official_2025_price_nad": 549.8,
+        "on_2025_list": "YES",
+        "found_in_claims": "NO",
+        "requires_tooth_number": "NO",
+        "can_be_multiplied": "NO",
+        "business_rule_formula": "Fixed price",
+        "example_calculation": "549.8 NAD",
+        "notes": "",
+        "practice_type_id": "73a45bcb-b68a-4746-8c96-a6d081fc690f"
+      },
+      {
+        "id": "244aac7b-8030-4620-9d4d-3aea68edf003",
+        "code": "8115",
+        "price": 549.8,
+        "unit": "per item",
+        "is_active": true,
+        "effective_from": "2025-01-01",
+        "effective_to": null,
+        "created_at": "2025-06-09T01:44:45.274981+00:00",
+        "updated_at": "2025-06-09T01:44:45.274981+00:00",
+        "description": "Extra-oral radiograph, per film",
+        "official_2025_price_nad": 549.8,
+        "on_2025_list": "YES",
+        "found_in_claims": "NO",
+        "requires_tooth_number": "NO",
+        "can_be_multiplied": "YES",
+        "business_rule_formula": "Base price � number of films/photos",
+        "example_calculation": "549.8 � quantity",
+        "notes": "Multiply by number of films or photographs taken",
+        "practice_type_id": "73a45bcb-b68a-4746-8c96-a6d081fc690f"
+      }
+    ]
+  }
+}

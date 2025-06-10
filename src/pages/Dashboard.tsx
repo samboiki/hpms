@@ -40,6 +40,7 @@ import { toast } from 'react-hot-toast';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
 import PremiumStatCard from '../components/dashboard/PremiumStatCard';
 import DetailedReportModal from '../components/modals/DetailedReportModal';
+import EnhancedFinancialModal from '../components/modals/EnhancedFinancialModal';
 import PracticeOverviewTile from '../components/dashboard/PracticeOverviewTile';
 import { dashboardStatsService, DashboardStats } from '../services/dashboardStatsService';
 
@@ -117,6 +118,7 @@ function Dashboard() {
     isOpen: boolean;
     type: 'patients' | 'notifications' | 'encounters' | 'finance' | null;
   }>({ isOpen: false, type: null });
+  const [isEnhancedFinancialModalOpen, setIsEnhancedFinancialModalOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [appointmentStatusFilter, setAppointmentStatusFilter] = useState<'all' | 'total' | 'completed' | 'pending' | 'cancelled'>('all');
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -968,7 +970,7 @@ function Dashboard() {
                     isPositive: true
                   }}
                   unsplashQuery="money-finance-calculator"
-                  onClick={() => setSelectedReportModal({ isOpen: true, type: 'finance' })}
+                  onClick={() => setIsEnhancedFinancialModalOpen(true)}
                 />
               ] : (
                 // Loading skeleton
@@ -1368,6 +1370,15 @@ function Dashboard() {
           isOpen={selectedReportModal.isOpen}
           onClose={() => setSelectedReportModal({ isOpen: false, type: null })}
           data={generateReportData(selectedReportModal.type, dashboardStats)}
+        />
+      )}
+
+      {/* Enhanced Financial Modal */}
+      {isEnhancedFinancialModalOpen && dashboardStats && (
+        <EnhancedFinancialModal
+          isOpen={isEnhancedFinancialModalOpen}
+          onClose={() => setIsEnhancedFinancialModalOpen(false)}
+          data={generateReportData('finance', dashboardStats)}
         />
       )}
 
