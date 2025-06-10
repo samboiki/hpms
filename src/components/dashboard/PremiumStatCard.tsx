@@ -172,7 +172,9 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
             <div className="relative p-3 bg-white/40 rounded-lg border border-gray-200/30 backdrop-blur-sm">
               <div className="flex items-end justify-between h-16 gap-1 mb-4">
                 {miniChart.data.map((value, index) => {
-                  const height = maxValue > 0 ? Math.max((value / maxValue) * 90, 10) : 10; // Ensure visible bars
+                  // Calculate height as percentage of container, but ensure minimum visibility
+                  const heightPercentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                  const height = Math.max(heightPercentage, value > 0 ? 15 : 0); // 15% minimum for visible bars, 0% for zero values
                   return (
                     <div
                       key={index}
@@ -204,12 +206,11 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                         }}
                       />
                       
-                      {/* Enhanced main bar with fixed height */}
+                      {/* Enhanced main bar with proportional height */}
                       <div
                         className="rounded-t-md relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg w-full"
                         style={{ 
                           height: `${height}%`,
-                          minHeight: '8px', // Ensure minimum visible height
                           backgroundColor: barColor,
                           background: `linear-gradient(to top, ${barColor}, ${barColor}CC, ${barColor}99)`,
                           boxShadow: `0 2px 4px ${barColor}40`
