@@ -859,46 +859,39 @@ function Dashboard() {
               </div>
             </div>
 
-            {/* Appointment Stats - Scheduler Style */}
+            {/* Practice Summary */}
             <div className="mt-6 mb-4">
-              <div className="grid grid-cols-5 gap-3">
-                {[
-                  { label: 'Total', value: todayAppointments.length, gradient: 'from-[#01b9d5] to-[#0196be]', icon: Calendar, status: 'scheduled' },
-                  { label: 'Completed', value: completedToday, gradient: 'from-emerald-500 to-emerald-600', icon: CheckCircle2, status: 'completed' },
-                  { label: 'Pending', value: pendingAppointments.length, gradient: 'from-amber-500 to-amber-600', icon: AlertCircle, status: 'pending' },
-                  { label: 'Cancelled', value: appointments.filter(apt => apt.status === 'cancelled').length, gradient: 'from-red-500 to-red-600', icon: XCircle, status: 'cancelled' },
-                  { label: format(new Date(), 'EEEE'), value: format(new Date(), 'd'), gradient: 'from-purple-500 to-purple-600', icon: Calendar, status: null }
-                ].map((stat, index) => (
-                  <motion.div
-                    key={stat.label}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="relative group cursor-pointer"
-                    onClick={() => {
-                      if (stat.status) {
-                        setGridViewStatus(stat.status as any);
-                        setShowGridView(true);
-                      }
-                    }}
-                  >
-                    <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} rounded-lg blur-md opacity-20 
-                      group-hover:opacity-30 transition-opacity`} />
-                    <div className="relative bg-white/80 backdrop-blur-sm rounded-lg p-3 border border-gray-200/50 hover:border-gray-300/60 transition-all">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                            {stat.value}
-                          </p>
-                          <p className="text-xs text-gray-600 font-medium">{stat.label}</p>
-                        </div>
-                        <div className={`p-2 bg-gradient-to-br ${stat.gradient} rounded-lg shadow-sm`}>
-                          <stat.icon className="w-4 h-4 text-white" />
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
+              <div className="bg-gradient-to-r from-gray-50 via-white to-gray-50 rounded-lg p-4 border border-gray-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-800">Practice Overview</h2>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Today: {todayAppointments.length} appointments • {completedToday} completed • {pendingAppointments.length} pending
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-lg">
+                    {['total', 'completed', 'pending', 'cancelled'].map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => {
+                          const statusMap: Record<string, any> = {
+                            total: 'scheduled',
+                            completed: 'completed',
+                            pending: 'pending',
+                            cancelled: 'cancelled'
+                          };
+                          setGridViewStatus(statusMap[status] || 'pending');
+                          setShowGridView(true);
+                        }}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all capitalize ${
+                          'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
