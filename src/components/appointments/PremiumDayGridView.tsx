@@ -285,15 +285,15 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
           {/* Doctor Columns */}
           <div className="flex-1 flex bg-gradient-to-br from-gray-50 to-gray-100">
             {doctors.map((doctor) => (
-              <div key={doctor.id} className="flex-1 min-w-[200px] border-r border-gray-500 last:border-r-0">
+              <div key={doctor.id} className="flex-1 min-w-[200px] border-r border-gray-200 last:border-r-0">
                 {/* Doctor Header */}
-                <div className="sticky top-0 bg-gradient-to-r from-gray-700 to-gray-800 z-20 h-12 border-b border-gray-600 px-3 py-2">
+                <div className="sticky top-0 bg-gradient-to-r from-white to-gray-50 z-20 h-12 border-b border-gray-200 px-3 py-2">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-gradient-to-br from-[#01b9d5] to-[#0197a4] rounded-full flex items-center justify-center">
                       <User className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-100 truncate">
+                      <p className="text-sm font-medium text-gray-800 truncate">
                         {doctor.user_metadata.full_name}
                       </p>
                     </div>
