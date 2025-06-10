@@ -117,7 +117,6 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<any>(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [medicalAidLogo, setMedicalAidLogo] = useState<string>('');
 
   // Fetch counts when component mounts
   React.useEffect(() => {
@@ -157,23 +156,6 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
 
     fetchCounts();
   }, [patientId, visits]);
-
-  // Fetch medical aid logo when medical aid data changes
-  React.useEffect(() => {
-    const fetchMedicalAidLogo = async () => {
-      if (medicalAid?.provider) {
-        try {
-          const logoUrl = await medicalAidService.getProviderLogo(medicalAid.provider);
-          setMedicalAidLogo(logoUrl);
-        } catch (error) {
-          console.error('Error fetching medical aid logo:', error);
-          setMedicalAidLogo('/images/medical-aids/default-medical-aid.svg');
-        }
-      }
-    };
-
-    fetchMedicalAidLogo();
-  }, [medicalAid]);
 
   const refreshDocumentsCount = async () => {
     if (!patientId) return;
@@ -1801,8 +1783,27 @@ const AIIntelligenceContent: React.FC<{
   setShowDetails: (show: boolean) => void;
 }> = ({ visits, vitals, patientId, patient, nextOfKin, medicalAid, onSendSms, onMedicalAidClick, onBillingClick, selectedInvoice, setSelectedInvoice, isInvoiceModalOpen, setIsInvoiceModalOpen, selectedService, setSelectedService, showDetails, setShowDetails }) => {
   const navigate = useNavigate();
+  const [medicalAidLogo, setMedicalAidLogo] = React.useState<string>('');
+  
   // Calculate total spent (mock calculation based on visits)
   const totalSpent = visits.length * 450 + vitals.length * 75 + 1250;
+
+  // Fetch medical aid logo when medical aid data changes
+  React.useEffect(() => {
+    const fetchMedicalAidLogo = async () => {
+      if (medicalAid?.provider) {
+        try {
+          const logoUrl = await medicalAidService.getProviderLogo(medicalAid.provider);
+          setMedicalAidLogo(logoUrl);
+        } catch (error) {
+          console.error('Error fetching medical aid logo:', error);
+          setMedicalAidLogo('/images/medical-aids/default-medical-aid.svg');
+        }
+      }
+    };
+
+    fetchMedicalAidLogo();
+  }, [medicalAid]);
 
   return (
     <>
