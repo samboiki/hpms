@@ -16,6 +16,8 @@ import {
   Building2,
   DollarSign,
   Crown,
+  Expand,
+  Minimize,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -24,13 +26,17 @@ interface SidebarProps {
   onToggle: () => void;
   isMobile: boolean;
   onMobileClose?: () => void;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
   collapsed, 
   onToggle, 
   isMobile,
-  onMobileClose 
+  onMobileClose,
+  isFullscreen = false,
+  onToggleFullscreen
 }) => {
   const { logout, isSuperAdmin, canManagePractices } = useAuthStore();
 

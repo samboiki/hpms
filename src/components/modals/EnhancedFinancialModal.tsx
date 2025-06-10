@@ -251,7 +251,21 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
 
     const { data: batchDetails } = await supabase
       .from('batch_details')
-      .select('*')
+      .select(`
+        *,
+        invoices_enhanced (
+          invoice_number,
+          issue_date,
+          patient_id,
+          patients (
+            first_name,
+            last_name,
+            id_number,
+            date_of_birth,
+            gender
+          )
+        )
+      `)
       .eq('batch_header_id', batch.id)
       .order('transaction_number_in_batch');
 
