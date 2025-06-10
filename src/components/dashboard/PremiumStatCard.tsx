@@ -28,6 +28,7 @@ interface PremiumStatCardProps {
     value: string;
     isPositive: boolean;
   };
+  unsplashQuery?: string;
 }
 
 const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
@@ -39,8 +40,11 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
   stats,
   miniChart,
   onClick,
-  trend
+  trend,
+  unsplashQuery
 }) => {
+  // Convert title to camelCase
+  const camelCaseTitle = title.replace(/\s+(.)/g, (match, letter) => letter.toUpperCase()).replace(/^\w/, c => c.toLowerCase());
   const renderMiniChart = () => {
     if (!miniChart) return null;
 
@@ -49,20 +53,24 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
 
     switch (miniChart.type) {
       case 'line':
+        const lineColor = gradient.includes('blue') ? '#3B82F6' : 
+                         gradient.includes('amber') ? '#F59E0B' :
+                         gradient.includes('emerald') ? '#10B981' : '#8B5CF6';
+        
         return (
-          <div className="mt-4">
+          <div className="mt-2">
             <div className="flex items-end justify-between h-8 relative">
               {/* Smooth line path */}
               <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 32" preserveAspectRatio="none">
                 <defs>
-                  <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="white" stopOpacity="0.8" />
-                    <stop offset="50%" stopColor="white" stopOpacity="0.6" />
-                    <stop offset="100%" stopColor="white" stopOpacity="0.4" />
+                  <linearGradient id={`lineGradient-${camelCaseTitle}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor={lineColor} stopOpacity="0.8" />
+                    <stop offset="50%" stopColor={lineColor} stopOpacity="0.6" />
+                    <stop offset="100%" stopColor={lineColor} stopOpacity="0.4" />
                   </linearGradient>
-                  <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="white" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="white" stopOpacity="0.05" />
+                  <linearGradient id={`areaGradient-${camelCaseTitle}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor={lineColor} stopOpacity="0.3" />
+                    <stop offset="100%" stopColor={lineColor} stopOpacity="0.05" />
                   </linearGradient>
                 </defs>
                 
@@ -73,7 +81,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                     const y = 32 - ((value - minValue) / (maxValue - minValue)) * 24;
                     return `L ${x} ${y}`;
                   }).join(' ')} L 100 32 Z`}
-                  fill="url(#areaGradient)"
+                  fill={`url(#areaGradient-${camelCaseTitle})`}
                 />
                 
                 {/* Line */}
@@ -83,7 +91,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                     const y = 32 - ((value - minValue) / (maxValue - minValue)) * 24;
                     return index === 0 ? `${x} ${y}` : `L ${x} ${y}`;
                   }).join(' ')}`}
-                  stroke="url(#lineGradient)"
+                  stroke={`url(#lineGradient-${camelCaseTitle})`}
                   strokeWidth="2"
                   fill="none"
                   strokeLinecap="round"
@@ -97,7 +105,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                     const y = 32 - ((value - minValue) / (maxValue - minValue)) * 24;
                     return index === 0 ? `${x} ${y}` : `L ${x} ${y}`;
                   }).join(' ')}`}
-                  stroke="white"
+                  stroke={lineColor}
                   strokeWidth="4"
                   fill="none"
                   strokeOpacity="0.2"
@@ -117,8 +125,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                     style={{ height: '32px' }}
                   >
                     <div
-                      className="absolute bottom-0 w-1 h-1 bg-white rounded-full shadow-lg opacity-80"
-                      style={{ bottom: `${height}%` }}
+                      className="absolute bottom-0 w-1 h-1 rounded-full shadow-lg opacity-80"
+                      style={{ bottom: `${height}%`, backgroundColor: lineColor }}
                     />
                   </div>
                 );
@@ -128,8 +136,12 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         );
       
       case 'bar':
+        const barColor = gradient.includes('blue') ? '#3B82F6' : 
+                        gradient.includes('amber') ? '#F59E0B' :
+                        gradient.includes('emerald') ? '#10B981' : '#8B5CF6';
+        
         return (
-          <div className="mt-4">
+          <div className="mt-2">
             <div className="flex items-end justify-between h-8 gap-0.5">
               {miniChart.data.map((value, index) => {
                 const height = (value / maxValue) * 100;
@@ -140,16 +152,22 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                   >
                     {/* Glow effect */}
                     <div
-                      className="absolute bottom-0 left-0 right-0 bg-white rounded-t-sm opacity-20 blur-sm"
-                      style={{ height: `${height}%` }}
+                      className="absolute bottom-0 left-0 right-0 rounded-t-sm opacity-20 blur-sm"
+                      style={{ height: `${height}%`, backgroundColor: barColor }}
                     />
                     {/* Main bar */}
                     <div
-                      className="bg-gradient-to-t from-white/60 via-white/40 to-white/20 rounded-t-sm relative overflow-hidden"
-                      style={{ height: `${height}%` }}
+                      className="rounded-t-sm relative overflow-hidden"
+                      style={{ 
+                        height: `${height}%`,
+                        background: `linear-gradient(to top, ${barColor}80, ${barColor}40, ${barColor}20)`
+                      }}
                     >
                       {/* Shimmer effect */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent transform skew-x-12 animate-pulse" />
+                      <div 
+                        className="absolute inset-0 bg-gradient-to-r from-transparent to-transparent transform skew-x-12 animate-pulse"
+                        style={{ background: `linear-gradient(to right, transparent, ${barColor}30, transparent)` }}
+                      />
                     </div>
                   </div>
                 );
@@ -159,15 +177,18 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         );
       
       case 'donut':
+        const donutColor = gradient.includes('blue') ? '#3B82F6' : 
+                          gradient.includes('amber') ? '#F59E0B' :
+                          gradient.includes('emerald') ? '#10B981' : '#8B5CF6';
         const total = miniChart.data.reduce((sum, value) => sum + value, 0);
         let cumulativeAngle = 0;
         
         return (
-          <div className="mt-3 flex justify-center">
+          <div className="mt-2 flex justify-center">
             <div className="relative w-12 h-12">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 42 42">
                 <defs>
-                  <filter id="glow">
+                  <filter id={`glow-${camelCaseTitle}`}>
                     <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
                     <feMerge> 
                       <feMergeNode in="coloredBlur"/>
@@ -182,7 +203,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                   cy="21"
                   r="15.91549430918954"
                   fill="transparent"
-                  stroke="white"
+                  stroke={donutColor}
                   strokeOpacity="0.1"
                   strokeWidth="2"
                 />
@@ -201,13 +222,13 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                       cy="21"
                       r="15.91549430918954"
                       fill="transparent"
-                      stroke="white"
+                      stroke={donutColor}
                       strokeOpacity={0.9 - index * 0.15}
                       strokeWidth="2"
                       strokeDasharray={strokeDasharray}
                       strokeDashoffset={strokeDashoffset}
                       strokeLinecap="round"
-                      filter="url(#glow)"
+                      filter={`url(#glow-${camelCaseTitle})`}
                     />
                   );
                 })}
@@ -215,7 +236,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
               
               {/* Center value */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-xs font-bold text-white/80">{total}</span>
+                <span className="text-xs font-bold" style={{ color: donutColor }}>{total}</span>
               </div>
             </div>
           </div>
@@ -235,58 +256,99 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
       className="relative group cursor-pointer"
       onClick={onClick}
     >
-      {/* Main card - compact and borderless */}
-      <div className={`relative bg-gradient-to-br ${gradient} rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden`}>
-        {/* Subtle glow effect */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+      {/* Main card with light grey background */}
+      <div className="relative bg-gray-100 rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200/50">
+        {/* Unsplash background image */}
+        {unsplashQuery && (
+          <div className="absolute inset-0 opacity-10 group-hover:opacity-15 transition-opacity duration-300">
+            <img
+              src={(() => {
+                const imageMap: { [key: string]: string } = {
+                  'medical-patients-healthcare': 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=400&h=300&fit=crop&auto=format&q=80',
+                  'notification-bell-communication': 'https://images.unsplash.com/photo-1558021211-91e129c0e983?w=400&h=300&fit=crop&auto=format&q=80',
+                  'medical-consultation-stethoscope': 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=300&fit=crop&auto=format&q=80',
+                  'money-finance-calculator': 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&h=300&fit=crop&auto=format&q=80'
+                };
+                return imageMap[unsplashQuery] || imageMap['medical-patients-healthcare'];
+              })()}
+              alt=""
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          </div>
+        )}
         
-        <div className="relative p-4">
-          {/* Compact header */}
+        {/* Background icon pattern */}
+        <div className="absolute top-2 right-2 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
+          <Icon className="w-20 h-20 text-gray-400" />
+        </div>
+        
+        {/* Subtle gradient overlay */}
+        <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-300`}></div>
+        
+        <div className="relative p-4 z-10">
+          {/* Header with icon and title side by side */}
           <div className="flex items-center justify-between mb-3">
-            <div className="relative">
-              <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                <Icon className="w-4 h-4 text-white" />
+            <div className="flex items-center gap-3">
+              <div className={`p-2 bg-gradient-to-br ${gradient} rounded-xl shadow-md`}>
+                <Icon className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                  {camelCaseTitle}
+                </h3>
               </div>
             </div>
             <div className="flex items-center gap-1">
               {trend && (
-                <div className="text-xs text-white/80 font-medium">
+                <div className="text-xs text-gray-600 font-medium">
                   <span className="opacity-60">{trend.isPositive ? '↗' : '↘'}</span>
                   <span className="ml-1">{trend.value}</span>
                 </div>
               )}
-              <ChevronRight className="w-3 h-3 text-white/60 group-hover:text-white/80 transition-colors" />
+              <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
             </div>
           </div>
           
-          {/* Main content - more compact */}
-          <div className="space-y-3">
+          {/* Main content */}
+          <div className="space-y-4">
             <div>
-              <p className="text-xs font-medium text-white/70 uppercase tracking-wide mb-1">{title}</p>
-              <p className="text-2xl font-bold text-white mb-1" style={{ fontFamily: 'Inter, sans-serif' }}>
+              <p className="text-3xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Rubik, sans-serif' }}>
                 {mainValue}
               </p>
-              <p className="text-xs text-white/80">{subtitle}</p>
+              <p className="text-sm text-gray-600 font-medium">{subtitle}</p>
             </div>
 
-            {/* Compact stats grid */}
+            {/* Compact stats grid with colored backgrounds */}
             <div className="grid grid-cols-2 gap-2">
               {stats.slice(0, 4).map((stat, index) => (
-                <div key={index} className="text-center bg-white/10 rounded-lg py-1 px-2 backdrop-blur-sm">
-                  <p className="text-xs font-bold text-white">
+                <div 
+                  key={index} 
+                  className="text-center rounded-lg py-2 px-2 border border-gray-200/50 bg-white/60 backdrop-blur-sm"
+                  style={{ backgroundColor: `${stat.color}15` }}
+                >
+                  <p className="text-sm font-bold text-gray-800" style={{ color: stat.color }}>
                     {stat.value}
                   </p>
-                  <p className="text-[10px] text-white/70 font-medium leading-tight">{stat.label}</p>
+                  <p className="text-[11px] text-gray-600 font-medium leading-tight">{stat.label}</p>
                 </div>
               ))}
             </div>
 
-            {/* Enhanced mini chart */}
-            {miniChart && renderMiniChart()}
+            {/* Enhanced mini chart with colored theme */}
+            {miniChart && (
+              <div className="mt-4">
+                <div className="p-3 bg-white/50 rounded-lg border border-gray-200/30">
+                  {renderMiniChart()}
+                </div>
+              </div>
+            )}
           </div>
           
-          {/* Subtle bottom accent */}
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-white/20 via-white/40 to-white/20 opacity-60 group-hover:opacity-100 transition-opacity duration-300"></div>
+          {/* Colored bottom accent */}
+          <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${gradient} opacity-40 group-hover:opacity-60 transition-opacity duration-300`}></div>
         </div>
       </div>
     </motion.div>

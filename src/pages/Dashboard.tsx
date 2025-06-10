@@ -835,6 +835,7 @@ function Dashboard() {
                     value: `+${dashboardStats.patients.newThisMonth}`,
                     isPositive: dashboardStats.patients.newThisMonth > 0
                   }}
+                  unsplashQuery="medical-patients-healthcare"
                   onClick={() => setSelectedReportModal({ isOpen: true, type: 'patients' })}
                 />,
                 
@@ -860,6 +861,7 @@ function Dashboard() {
                     value: `${dashboardStats.notifications.unread} unread`,
                     isPositive: false
                   }}
+                  unsplashQuery="notification-bell-communication"
                   onClick={() => setSelectedReportModal({ isOpen: true, type: 'notifications' })}
                 />,
                 
@@ -885,6 +887,7 @@ function Dashboard() {
                     value: `+${dashboardStats.encounters.thisMonth}`,
                     isPositive: dashboardStats.encounters.thisMonth > 0
                   }}
+                  unsplashQuery="medical-consultation-stethoscope"
                   onClick={() => setSelectedReportModal({ isOpen: true, type: 'encounters' })}
                 />,
                 
@@ -910,6 +913,7 @@ function Dashboard() {
                     value: `N$${(dashboardStats.finance.thisMonth / 1000).toFixed(1)}k`,
                     isPositive: dashboardStats.finance.thisMonth > 0
                   }}
+                  unsplashQuery="money-finance-calculator"
                   onClick={() => setSelectedReportModal({ isOpen: true, type: 'finance' })}
                 />
               ] : (
