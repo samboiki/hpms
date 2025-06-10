@@ -76,11 +76,8 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
   };
 
   const handlePrint = () => {
-    setShowPrintPreview(true);
-    // Small delay to ensure the print content is rendered
-    setTimeout(() => {
-      window.print();
-    }, 100);
+    // Directly call window.print() without showing preview
+    window.print();
   };
 
   const handleDownloadPDF = () => {
@@ -89,7 +86,7 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
   };
 
   const PrintableInvoice = () => (
-    <div className="print-content" style={{ display: showPrintPreview ? 'block' : 'none' }}>
+    <div className="print-content" style={{ display: 'none' }}>
       <style>{`
         @media print {
           * { box-sizing: border-box; }
@@ -101,32 +98,33 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
             top: 0;
             width: 100% !important;
             margin: 0 !important;
-            padding: 20px !important;
+            padding: 15px !important;
             background: white !important;
+            display: block !important;
           }
           .no-print { display: none !important; }
         }
       `}</style>
       
-      {/* Clean Print Layout */}
-      <div className="bg-white p-8 max-w-none mx-auto"
-           style={{ fontFamily: 'system-ui, -apple-system, sans-serif', lineHeight: '1.4' }}>
-        {/* Clean Header */}
-        <div style={{ marginBottom: '40px', borderBottom: '2px solid #000', paddingBottom: '20px' }}>
+      {/* Compact Print Layout */}
+      <div className="bg-white p-4 max-w-none mx-auto"
+           style={{ fontFamily: 'system-ui, -apple-system, sans-serif', lineHeight: '1.3' }}>
+        {/* Compact Header */}
+        <div style={{ marginBottom: '20px', borderBottom: '2px solid #000', paddingBottom: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#000' }}>
+              <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 4px 0', color: '#000' }}>
                 HPMS
               </h1>
-              <p style={{ margin: '0', fontSize: '14px', color: '#666' }}>Healthcare Practice Management</p>
-              <p style={{ margin: '0', fontSize: '12px', color: '#666' }}>Windhoek, Namibia</p>
+              <p style={{ margin: '0', fontSize: '12px', color: '#666' }}>Healthcare Practice Management</p>
+              <p style={{ margin: '0', fontSize: '11px', color: '#666' }}>Windhoek, Namibia</p>
             </div>
             
             <div style={{ textAlign: 'right' }}>
-              <h2 style={{ fontSize: '28px', fontWeight: 'bold', margin: '0 0 16px 0', color: '#000' }}>INVOICE</h2>
-              <div style={{ fontSize: '14px', color: '#333' }}>
-                <p style={{ margin: '0 0 4px 0' }}><strong>Invoice #:</strong> {invoice.invoice_number}</p>
-                <p style={{ margin: '0 0 4px 0' }}><strong>Date:</strong> {invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'N/A'}</p>
+              <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#000' }}>INVOICE</h2>
+              <div style={{ fontSize: '12px', color: '#333' }}>
+                <p style={{ margin: '0 0 2px 0' }}><strong>Invoice #:</strong> {invoice.invoice_number}</p>
+                <p style={{ margin: '0 0 2px 0' }}><strong>Date:</strong> {invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'N/A'}</p>
                 <p style={{ margin: '0' }}><strong>Status:</strong> {invoice.payment_status.charAt(0).toUpperCase() + invoice.payment_status.slice(1)}</p>
               </div>
             </div>
@@ -134,30 +132,30 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
         </div>
 
         {/* Patient Information */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', marginBottom: '40px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
           <div>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 16px 0', color: '#000' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#000' }}>
               Patient Information
             </h3>
-            <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
-              <p style={{ margin: '0 0 8px 0' }}><strong>Name:</strong> {invoice.patient_name || 'N/A'}</p>
-              <p style={{ margin: '0 0 8px 0' }}><strong>Phone:</strong> {invoice.patient_phone || 'N/A'}</p>
-              <p style={{ margin: '0 0 8px 0' }}><strong>Email:</strong> {invoice.patient_email || 'N/A'}</p>
+            <div style={{ fontSize: '12px', lineHeight: '1.4' }}>
+              <p style={{ margin: '0 0 4px 0' }}><strong>Name:</strong> {invoice.patient_name || 'N/A'}</p>
+              <p style={{ margin: '0 0 4px 0' }}><strong>Phone:</strong> {invoice.patient_phone || 'N/A'}</p>
+              <p style={{ margin: '0 0 4px 0' }}><strong>Email:</strong> {invoice.patient_email || 'N/A'}</p>
               {invoice.medical_aid_provider && (
-                <p style={{ margin: '0 0 8px 0' }}><strong>Medical Aid:</strong> {invoice.medical_aid_provider}</p>
+                <p style={{ margin: '0' }}><strong>Medical Aid:</strong> {invoice.medical_aid_provider}</p>
               )}
             </div>
           </div>
 
           <div>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 16px 0', color: '#000' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#000' }}>
               Visit Information
             </h3>
-            <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
-              <p style={{ margin: '0 0 8px 0' }}><strong>Date:</strong> {invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'N/A'}</p>
-              <p style={{ margin: '0 0 8px 0' }}><strong>Time:</strong> {invoice.visit_time || 'N/A'}</p>
+            <div style={{ fontSize: '12px', lineHeight: '1.4' }}>
+              <p style={{ margin: '0 0 4px 0' }}><strong>Date:</strong> {invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'N/A'}</p>
+              <p style={{ margin: '0 0 4px 0' }}><strong>Time:</strong> {invoice.visit_time || 'N/A'}</p>
               {invoice.chief_complaint && (
-                <p style={{ margin: '0 0 8px 0' }}><strong>Chief Complaint:</strong> {invoice.chief_complaint}</p>
+                <p style={{ margin: '0 0 4px 0' }}><strong>Chief Complaint:</strong> {invoice.chief_complaint}</p>
               )}
               {invoice.payment_method && (
                 <p style={{ margin: '0' }}><strong>Payment Method:</strong> {invoice.payment_method}</p>
@@ -167,29 +165,29 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
         </div>
 
         {/* Services Table */}
-        <div style={{ marginBottom: '40px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 20px 0', color: '#000' }}>
+        <div style={{ marginBottom: '20px' }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#000' }}>
             Services Provided
           </h3>
           
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid #000' }}>
-                <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 'bold' }}>Code</th>
-                <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 'bold' }}>Description</th>
-                <th style={{ textAlign: 'center', padding: '12px 8px', fontWeight: 'bold' }}>Qty</th>
-                <th style={{ textAlign: 'right', padding: '12px 8px', fontWeight: 'bold' }}>Unit Price</th>
-                <th style={{ textAlign: 'right', padding: '12px 8px', fontWeight: 'bold' }}>Total</th>
+                <th style={{ textAlign: 'left', padding: '6px 4px', fontWeight: 'bold' }}>Code</th>
+                <th style={{ textAlign: 'left', padding: '6px 4px', fontWeight: 'bold' }}>Description</th>
+                <th style={{ textAlign: 'center', padding: '6px 4px', fontWeight: 'bold' }}>Qty</th>
+                <th style={{ textAlign: 'right', padding: '6px 4px', fontWeight: 'bold' }}>Unit Price</th>
+                <th style={{ textAlign: 'right', padding: '6px 4px', fontWeight: 'bold' }}>Total</th>
               </tr>
             </thead>
             <tbody>
               {invoice.services.map((service, index) => (
                 <tr key={service.id} style={{ borderBottom: '1px solid #ddd' }}>
-                  <td style={{ padding: '12px 8px', fontFamily: 'monospace', fontWeight: 'bold' }}>{service.code}</td>
-                  <td style={{ padding: '12px 8px' }}>{service.description}</td>
-                  <td style={{ padding: '12px 8px', textAlign: 'center' }}>{service.quantity}</td>
-                  <td style={{ padding: '12px 8px', textAlign: 'right' }}>N$ {service.unit_price.toFixed(2)}</td>
-                  <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 'bold' }}>N$ {service.total_price.toFixed(2)}</td>
+                  <td style={{ padding: '6px 4px', fontFamily: 'monospace', fontWeight: 'bold' }}>{service.code}</td>
+                  <td style={{ padding: '6px 4px' }}>{service.description}</td>
+                  <td style={{ padding: '6px 4px', textAlign: 'center' }}>{service.quantity}</td>
+                  <td style={{ padding: '6px 4px', textAlign: 'right' }}>N$ {service.unit_price.toFixed(2)}</td>
+                  <td style={{ padding: '6px 4px', textAlign: 'right', fontWeight: 'bold' }}>N$ {service.total_price.toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
@@ -197,28 +195,28 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
         </div>
 
         {/* Payment Summary */}
-        <div style={{ marginTop: '40px', borderTop: '2px solid #000', paddingTop: '20px' }}>
+        <div style={{ marginTop: '20px', borderTop: '2px solid #000', paddingTop: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <div style={{ width: '300px' }}>
-              <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <div style={{ width: '250px' }}>
+              <div style={{ fontSize: '12px', lineHeight: '1.4' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                   <span>Subtotal:</span>
                   <span>N$ {invoice.total.toFixed(2)}</span>
                 </div>
                 
                 {invoice.medical_aid_covered > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                     <span>Medical Aid Covered:</span>
                     <span>N$ {invoice.medical_aid_covered.toFixed(2)}</span>
                   </div>
                 )}
                 
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', paddingBottom: '8px', borderBottom: '1px solid #ddd' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '4px', borderBottom: '1px solid #ddd' }}>
                   <span>Patient Portion:</span>
                   <span>N$ {invoice.patient_portion.toFixed(2)}</span>
                 </div>
                 
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 'bold' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 'bold' }}>
                   <span>Total Amount:</span>
                   <span>N$ {invoice.total.toFixed(2)}</span>
                 </div>
@@ -226,9 +224,42 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
             </div>
           </div>
           
-          <div style={{ marginTop: '40px', fontSize: '12px', color: '#666', textAlign: 'center' }}>
+          {/* Banking Details */}
+          <div style={{ marginTop: '20px', padding: '12px', backgroundColor: '#f8f9fa', border: '1px solid #ddd' }}>
+            <h4 style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#000' }}>Banking Details</h4>
+            <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
+              <p style={{ margin: '0 0 3px 0' }}><strong>Bank:</strong> First National Bank</p>
+              <p style={{ margin: '0 0 3px 0' }}><strong>Account Name:</strong> HPMS Healthcare Services</p>
+              <p style={{ margin: '0 0 3px 0' }}><strong>Account Number:</strong> 123456789</p>
+              <p style={{ margin: '0 0 3px 0' }}><strong>Branch Code:</strong> 280172</p>
+              <p style={{ margin: '0' }}><strong>Reference:</strong> Invoice #{invoice.invoice_number}</p>
+            </div>
+          </div>
+          
+          {/* Signature Section */}
+          <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px' }}>
+            <div>
+              <h4 style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 20px 0', color: '#000' }}>Patient Signature</h4>
+              <div style={{ borderBottom: '1px solid #000', height: '40px', marginBottom: '8px' }}></div>
+              <div style={{ fontSize: '10px', textAlign: 'center' }}>
+                <p style={{ margin: '0' }}>Signature</p>
+                <p style={{ margin: '4px 0 0 0' }}>Date: _____________</p>
+              </div>
+            </div>
+            
+            <div>
+              <h4 style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 20px 0', color: '#000' }}>Doctor Signature</h4>
+              <div style={{ borderBottom: '1px solid #000', height: '40px', marginBottom: '8px' }}></div>
+              <div style={{ fontSize: '10px', textAlign: 'center' }}>
+                <p style={{ margin: '0' }}>Dr. [Doctor Name]</p>
+                <p style={{ margin: '4px 0 0 0' }}>Date: _____________</p>
+              </div>
+            </div>
+          </div>
+          
+          <div style={{ marginTop: '20px', fontSize: '11px', color: '#666', textAlign: 'center' }}>
             <p style={{ margin: '0' }}>Thank you for choosing HPMS Healthcare Services</p>
-            <p style={{ margin: '8px 0 0 0' }}>For questions about this invoice, please contact us at your convenience.</p>
+            <p style={{ margin: '4px 0 0 0' }}>For questions about this invoice, please contact us at your convenience.</p>
           </div>
         </div>
       </div>
