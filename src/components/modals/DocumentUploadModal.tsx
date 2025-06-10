@@ -74,6 +74,43 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const [tags, setTags] = useState<string[]>([]);
   const [currentTag, setCurrentTag] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Check authentication when modal opens
+  React.useEffect(() => {
+    if (isOpen && !authChecked) {
+      checkAuthentication();
+    }
+  }, [isOpen]);
+
+  const checkAuthentication = async () => {
+    console.log('🔐 Checking authentication for document upload...');
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        console.error('❌ Auth check failed:', error);
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+      } else if (user) {
+        console.log('✅ User authenticated:', user.email);
+        setIsAuthenticated(true);
+        setCurrentUser(user);
+      } else {
+        console.log('⚠️ No authenticated user');
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+      }
+    } catch (error) {
+      console.error('💥 Auth check failed:', error);
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+    } finally {
+      setAuthChecked(true);
+    }
+  };
 
   const validateFile = (file: File): string | null => {
     console.log('🔍 Validating file:', file.name, 'Size:', file.size, 'Type:', file.type);
@@ -109,7 +146,23 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const uploadFileToStorage = async (file: File, uploadFile: UploadedFile): Promise<string> => {
     console.log('📤 Starting upload to storage for:', file.name);
     
-    // Check if bucket exists first
+    // Check authentication first
+    console.log('🔐 Checking authentication status...');
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError) {
+      console.error('❌ Auth check failed:', authError);
+      throw new Error('Authentication error. Please log in and try again.');
+    }
+    
+    if (!user) {
+      console.error('🚨 USER NOT AUTHENTICATED - Login required for uploads');
+      throw new Error('You must be logged in to upload documents. Please log in and try again.');
+    }
+    
+    console.log('✅ User authenticated:', user.email);
+    
+    // Check if bucket exists
     console.log('🪣 Checking if documents bucket exists...');
     const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
     
@@ -120,7 +173,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       const documentsBucket = buckets.find(b => b.name === 'documents');
       if (!documentsBucket) {
         console.error('🚨 DOCUMENTS BUCKET NOT FOUND - Create it in Supabase Storage!');
-        throw new Error('Documents storage bucket not found. Please create "documents" bucket in Supabase Storage.');
+        throw new Error('Documents storage bucket not found. Please contact administrator.');
       } else {
         console.log('✅ Documents bucket found');
       }
@@ -179,22 +232,30 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
   const saveFileMetadata = async (file: File, storagePath: string) => {
     console.log('💾 Saving file metadata to database...');
     
-    // Debug: Check current user info
-    const { data: user, error: userError } = await supabase.auth.getUser();
-    console.log('👤 Current user:', user?.user?.id, user?.user?.email);
-    if (userError) console.error('❌ User fetch error:', userError);
+    // Check authentication
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError) {
+      console.error('❌ User fetch error:', userError);
+      throw new Error('Authentication error while saving metadata.');
+    }
+    
+    if (!user) {
+      console.error('🚨 USER NOT AUTHENTICATED - Cannot save metadata');
+      throw new Error('You must be logged in to save document metadata.');
+    }
+    
+    console.log('👤 Authenticated user:', user.id, user.email);
     
     // Debug: Check user's practice relationship
-    if (user?.user?.id) {
-      const { data: userInfo, error: userInfoError } = await supabase
-        .from('users')
-        .select('id, email, practice_id, role')
-        .eq('id', user.user.id)
-        .single();
-      
-      console.log('🏥 User practice info:', userInfo);
-      if (userInfoError) console.error('❌ User info error:', userInfoError);
-    }
+    const { data: userInfo, error: userInfoError } = await supabase
+      .from('users')
+      .select('id, email, practice_id, role')
+      .eq('id', user.id)
+      .single();
+    
+    console.log('🏥 User practice info:', userInfo);
+    if (userInfoError) console.error('❌ User info error:', userInfoError);
     
     // Debug: Check patient accessibility
     const { data: patientCheck, error: patientError } = await supabase
@@ -218,7 +279,7 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       description: description.trim() || null,
       category: selectedCategory,
       tags: tags.length > 0 ? tags : null,
-      uploaded_by: user.user?.id
+      uploaded_by: user.id
     };
     
     console.log('📝 Metadata to save:', metadata);
@@ -421,6 +482,9 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
     setTags([]);
     setCurrentTag('');
     setIsUploading(false);
+    setAuthChecked(false);
+    setIsAuthenticated(false);
+    setCurrentUser(null);
     onClose();
   };
 
@@ -433,8 +497,32 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
       title="Upload Documents"
     >
       <div className="space-y-6">
-        {/* Upload Drop Zone */}
-        <motion.div
+        {/* Authentication Check */}
+        {authChecked && !isAuthenticated && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+              <div>
+                <h3 className="font-medium text-red-800">Authentication Required</h3>
+                <p className="text-sm text-red-600 mt-1">
+                  You must be logged in to upload documents. Please log in and try again.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Loading Authentication */}
+        {!authChecked && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-[#01b9d4]" />
+            <span className="ml-2 text-gray-600">Checking authentication...</span>
+          </div>
+        )}
+
+        {/* Upload Drop Zone - Only show if authenticated */}
+        {authChecked && isAuthenticated && (
+          <motion.div
           className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${
             isDragging 
               ? 'border-[#01b9d4] bg-cyan-50/50' 
@@ -477,10 +565,11 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
               </p>
             </div>
           </div>
-        </motion.div>
+          </motion.div>
+        )}
 
-        {/* Document Details */}
-        {uploadedFiles.length > 0 && (
+        {/* Document Details - Only show if authenticated and files uploaded */}
+        {authChecked && isAuthenticated && uploadedFiles.length > 0 && (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -560,8 +649,8 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           </div>
         )}
 
-        {/* File List */}
-        {uploadedFiles.length > 0 && (
+        {/* File List - Only show if authenticated and files uploaded */}
+        {authChecked && isAuthenticated && uploadedFiles.length > 0 && (
           <div className="space-y-3">
             <h3 className="text-sm font-medium text-gray-700">Files to Upload</h3>
             <div className="max-h-60 overflow-y-auto space-y-2">
@@ -641,20 +730,32 @@ const DocumentUploadModal: React.FC<DocumentUploadModalProps> = ({
           >
             {isUploading ? 'Uploading...' : 'Cancel'}
           </button>
-          <button
-            onClick={processUploads}
-            disabled={!canUpload}
-            className="flex-1 px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {isUploading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Uploading...
-              </>
-            ) : (
-              `Upload ${uploadedFiles.filter(f => f.status === 'pending').length} File${uploadedFiles.filter(f => f.status === 'pending').length !== 1 ? 's' : ''}`
-            )}
-          </button>
+          
+          {authChecked && isAuthenticated && (
+            <button
+              onClick={processUploads}
+              disabled={!canUpload}
+              className="flex-1 px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                `Upload ${uploadedFiles.filter(f => f.status === 'pending').length} File${uploadedFiles.filter(f => f.status === 'pending').length !== 1 ? 's' : ''}`
+              )}
+            </button>
+          )}
+          
+          {authChecked && !isAuthenticated && (
+            <button
+              disabled
+              className="flex-1 px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
+            >
+              Login Required
+            </button>
+          )}
         </div>
       </div>
     </FormModal>
