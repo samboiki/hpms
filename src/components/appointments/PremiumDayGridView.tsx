@@ -235,19 +235,6 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-br from-gray-50 to-white rounded-xl shadow-sm">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-[#01b9d5] to-purple-600 text-white">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-white" />
-            {format(selectedDate, 'EEEE, MMMM d, yyyy')}
-          </h3>
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-500" />
-            <span className="text-sm text-blue-100">Drag appointments to reschedule</span>
-          </div>
-        </div>
-      </div>
 
       {/* Grid Container */}
       <div className="flex-1 overflow-auto custom-scrollbar" ref={gridRef}>
