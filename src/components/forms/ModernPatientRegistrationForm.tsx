@@ -66,12 +66,6 @@ interface MedicalAidProvider {
   short_name: string;
 }
 
-interface MedicalAidScheme {
-  id: string;
-  provider_id: string;
-  name: string;
-  description: string;
-}
 
 interface Props {
   onSuccess?: () => void;
@@ -108,9 +102,7 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [providers, setProviders] = useState<MedicalAidProvider[]>([]);
-  const [schemes, setSchemes] = useState<MedicalAidScheme[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(true);
-  const [loadingSchemes, setLoadingSchemes] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [allowSubmit, setAllowSubmit] = useState(false);
@@ -147,32 +139,6 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
     fetchProviders();
   }, []);
 
-  // Fetch schemes when provider changes
-  useEffect(() => {
-    if (selectedProvider) {
-      const fetchSchemes = async () => {
-        setLoadingSchemes(true);
-        try {
-          const { data, error } = await supabase
-            .from('medical_aid_schemes')
-            .select('id, name, description')
-            .eq('provider_id', selectedProvider)
-            .order('name');
-
-          if (error) throw error;
-          setSchemes(data || []);
-        } catch (error) {
-          console.error('Error fetching schemes:', error);
-        } finally {
-          setLoadingSchemes(false);
-        }
-      };
-
-      fetchSchemes();
-    } else {
-      setSchemes([]);
-    }
-  }, [selectedProvider]);
 
   const nextStep = async () => {
     const fieldsToValidate = getFieldsForStep(currentStep);
@@ -279,20 +245,18 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
       // Insert medical aid details if provided
       if (data.medicalAid.provider) {
         const selectedProviderData = providers.find(p => p.id === data.medicalAid.provider);
-        const selectedSchemeData = schemes.find(s => s.id === data.medicalAid.scheme);
 
         const { error: medicalAidError } = await supabase
           .from('medical_aid_details')
           .insert([{
             patient_id: patientData.id,
             provider: selectedProviderData?.name || data.medicalAid.provider,
-            scheme_name: selectedSchemeData?.name || data.medicalAid.scheme,
-            provider_id: data.medicalAid.provider,
-            scheme_id: data.medicalAid.scheme,
-            membership_number: data.medicalAid.membershipNumber,
+            scheme_name: data.medicalAid.scheme,
+            medical_aid_provider_id: data.medicalAid.provider,
+            member_number: data.medicalAid.membershipNumber,
             main_member_name: data.medicalAid.mainMemberName,
             main_member_id_number: data.medicalAid.mainMemberIdNumber,
-            relationship_to_main: data.medicalAid.relationship
+            relationship_to_main_member: data.medicalAid.relationship
           }]);
 
         if (medicalAidError) throw medicalAidError;
