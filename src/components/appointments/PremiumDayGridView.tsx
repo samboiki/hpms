@@ -234,17 +234,17 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl shadow-sm">
+    <div className="h-full flex flex-col bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-sm">
       {/* Header */}
-      <div className="p-4 border-b border-gray-300 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200">
+      <div className="p-4 border-b border-gray-600 bg-gradient-to-r from-gray-700 via-gray-800 to-gray-700">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-gray-100 flex items-center gap-2">
             <Calendar className="w-5 h-5 text-[#01b9d5]" />
             {format(selectedDate, 'EEEE, MMMM d, yyyy')}
           </h3>
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-amber-500" />
-            <span className="text-sm text-gray-600">Drag appointments to reschedule</span>
+            <span className="text-sm text-gray-300">Drag appointments to reschedule</span>
           </div>
         </div>
       </div>
@@ -253,14 +253,14 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
       <div className="flex-1 overflow-auto custom-scrollbar" ref={gridRef}>
         <div className="flex">
           {/* Time Column */}
-          <div className="flex-shrink-0 w-20 bg-gradient-to-b from-gray-200 to-gray-300 border-r border-gray-300">
-            <div className="sticky top-0 bg-gradient-to-r from-gray-200 to-gray-300 z-20 h-12 border-b border-gray-300" />
+          <div className="flex-shrink-0 w-20 bg-gradient-to-b from-gray-700 to-gray-800 border-r border-gray-600">
+            <div className="sticky top-0 bg-gradient-to-r from-gray-700 to-gray-800 z-20 h-12 border-b border-gray-600" />
             {timeSlots.map((time, index) => (
               <div
                 key={index}
-                className="h-[60px] border-b border-gray-100 px-2 py-1 relative"
+                className="h-[60px] border-b border-gray-600 px-2 py-1 relative"
               >
-                <span className="text-xs text-gray-500 font-medium">
+                <span className="text-xs text-gray-300 font-medium">
                   {format(time, 'h:mm a')}
                 </span>
                 {/* Current time indicator */}
@@ -283,17 +283,17 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
           </div>
 
           {/* Doctor Columns */}
-          <div className="flex-1 flex bg-gradient-to-br from-gray-50 to-gray-100">
+          <div className="flex-1 flex bg-gradient-to-br from-gray-600 to-gray-700">
             {doctors.map((doctor) => (
-              <div key={doctor.id} className="flex-1 min-w-[200px] border-r border-gray-200 last:border-r-0">
+              <div key={doctor.id} className="flex-1 min-w-[200px] border-r border-gray-500 last:border-r-0">
                 {/* Doctor Header */}
-                <div className="sticky top-0 bg-gradient-to-r from-gray-100 to-gray-200 z-20 h-12 border-b border-gray-300 px-3 py-2">
+                <div className="sticky top-0 bg-gradient-to-r from-gray-700 to-gray-800 z-20 h-12 border-b border-gray-600 px-3 py-2">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-gradient-to-br from-[#01b9d5] to-[#0197a4] rounded-full flex items-center justify-center">
                       <User className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-800 truncate">
+                      <p className="text-sm font-medium text-gray-100 truncate">
                         {doctor.user_metadata.full_name}
                       </p>
                     </div>
@@ -312,9 +312,9 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                       <div
                         key={index}
                         className={cn(
-                          "h-[60px] border-b border-gray-100 relative transition-all duration-200",
+                          "h-[60px] border-b border-gray-600 relative transition-all duration-200",
                           isDropTarget && isDragging && "bg-[#01b9d5]/10 border-[#01b9d5]",
-                          !appointment && isAvailable && "hover:bg-gray-50 cursor-pointer"
+                          !appointment && isAvailable && "hover:bg-gray-500 cursor-pointer"
                         )}
                         onDragOver={(e) => handleDragOver(e, time, doctor.id)}
                         onDrop={(e) => handleDrop(e, time, doctor.id)}
@@ -326,8 +326,8 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                             className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
                             whileHover={{ scale: 1.1 }}
                           >
-                            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-                              <Zap className="w-4 h-4 text-gray-400" />
+                            <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
+                              <Zap className="w-4 h-4 text-gray-300" />
                             </div>
                           </motion.div>
                         )}
@@ -348,7 +348,7 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                         <motion.div
                           key={appointment.id}
                           className={cn(
-                            "absolute left-1 right-1 bg-white rounded-lg shadow-lg border cursor-move overflow-hidden",
+                            "absolute left-1 right-1 bg-gray-700 rounded-lg shadow-lg border border-gray-500 cursor-move overflow-hidden",
                             "hover:shadow-xl hover:z-30 transition-shadow",
                             draggedAppointment?.id === appointment.id && "opacity-50"
                           )}
@@ -375,12 +375,12 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                           <div className="p-2 pl-3">
                             <div className="flex items-start justify-between gap-1">
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">
+                                <p className="text-sm font-medium text-gray-100 truncate">
                                   {appointment.patient?.first_name} {appointment.patient?.last_name}
                                 </p>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <TypeIcon className="w-3 h-3 text-gray-400" />
-                                  <span className="text-xs text-gray-500">{appointment.type}</span>
+                                  <TypeIcon className="w-3 h-3 text-gray-300" />
+                                  <span className="text-xs text-gray-300">{appointment.type}</span>
                                   <span className="text-xs text-gray-400">
                                     {appointment.duration}min
                                   </span>
@@ -392,10 +392,10 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                                     e.stopPropagation();
                                     onAppointmentClick?.(appointment);
                                   }}
-                                  className="p-1 hover:bg-[#01b9d5]/10 rounded transition-all group"
+                                  className="p-1 hover:bg-[#01b9d5]/20 rounded transition-all group"
                                   title="View details"
                                 >
-                                  <Eye className="w-3 h-3 text-gray-400 group-hover:text-[#01b9d5]" />
+                                  <Eye className="w-3 h-3 text-gray-300 group-hover:text-[#01b9d5]" />
                                 </button>
                                 <button
                                   onClick={(e) => {

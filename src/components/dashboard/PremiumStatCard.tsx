@@ -50,8 +50,15 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
   const renderMiniChart = () => {
     if (!miniChart) return null;
 
-    const maxValue = Math.max(...miniChart.data);
-    const minValue = Math.min(...miniChart.data);
+    // Ensure we have valid data, use fallback if needed
+    const chartData = miniChart.data && miniChart.data.length > 0 
+      ? miniChart.data 
+      : [1, 3, 2, 5, 4, 6]; // Fallback demo data
+
+    const maxValue = Math.max(...chartData);
+    const minValue = Math.min(...chartData);
+
+    console.log('Chart data:', chartData, 'Max value:', maxValue);
 
     switch (miniChart.type) {
       case 'line':
@@ -78,8 +85,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                 
                 {/* Area fill */}
                 <path
-                  d={`M 0 32 ${miniChart.data.map((value, index) => {
-                    const x = (index / (miniChart.data.length - 1)) * 100;
+                  d={`M 0 32 ${chartData.map((value, index) => {
+                    const x = (index / (chartData.length - 1)) * 100;
                     const y = 32 - ((value - minValue) / (maxValue - minValue)) * 24;
                     return `L ${x} ${y}`;
                   }).join(' ')} L 100 32 Z`}
@@ -88,8 +95,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                 
                 {/* Line */}
                 <path
-                  d={`M ${miniChart.data.map((value, index) => {
-                    const x = (index / (miniChart.data.length - 1)) * 100;
+                  d={`M ${chartData.map((value, index) => {
+                    const x = (index / (chartData.length - 1)) * 100;
                     const y = 32 - ((value - minValue) / (maxValue - minValue)) * 24;
                     return index === 0 ? `${x} ${y}` : `L ${x} ${y}`;
                   }).join(' ')}`}
@@ -102,8 +109,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                 
                 {/* Glow effect */}
                 <path
-                  d={`M ${miniChart.data.map((value, index) => {
-                    const x = (index / (miniChart.data.length - 1)) * 100;
+                  d={`M ${chartData.map((value, index) => {
+                    const x = (index / (chartData.length - 1)) * 100;
                     const y = 32 - ((value - minValue) / (maxValue - minValue)) * 24;
                     return index === 0 ? `${x} ${y}` : `L ${x} ${y}`;
                   }).join(' ')}`}
@@ -118,7 +125,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
               </svg>
               
               {/* Data points */}
-              {miniChart.data.map((value, index) => {
+              {chartData.map((value, index) => {
                 const height = ((value - minValue) / (maxValue - minValue)) * 75;
                 const monthLabels = ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'];
                 return (
@@ -171,7 +178,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
             {/* Enhanced bar chart container */}
             <div className="relative p-3 bg-white/40 rounded-lg border border-gray-200/30 backdrop-blur-sm">
               <div className="flex items-end justify-between h-16 gap-1 mb-4">
-                {miniChart.data.map((value, index) => {
+                {chartData.map((value, index) => {
                   // Calculate height as percentage of container, but ensure minimum visibility
                   const heightPercentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
                   const height = Math.max(heightPercentage, value > 0 ? 15 : 0); // 15% minimum for visible bars, 0% for zero values
@@ -247,7 +254,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         const donutColor = gradient.includes('blue') ? '#3B82F6' : 
                           gradient.includes('amber') ? '#F59E0B' :
                           gradient.includes('emerald') ? '#10B981' : '#8B5CF6';
-        const total = miniChart.data.reduce((sum, value) => sum + value, 0);
+        const total = chartData.reduce((sum, value) => sum + value, 0);
         let cumulativeAngle = 0;
         
         return (
@@ -276,7 +283,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                 />
                 
                 {/* Data segments */}
-                {miniChart.data.map((value, index) => {
+                {chartData.map((value, index) => {
                   const angle = (value / total) * 360;
                   const strokeDasharray = `${(angle / 360) * 100} ${100 - (angle / 360) * 100}`;
                   const strokeDashoffset = -cumulativeAngle / 360 * 100;

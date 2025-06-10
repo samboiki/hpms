@@ -1012,12 +1012,12 @@ function Dashboard() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-gradient-to-br from-white to-gray-50 backdrop-blur-sm rounded-xl shadow-lg border border-gray-300 overflow-hidden h-[800px] flex flex-col"
+              className="bg-gradient-to-br from-gray-800 to-gray-900 backdrop-blur-sm rounded-xl shadow-lg border border-gray-600 overflow-hidden h-[800px] flex flex-col"
             >
               {/* Header */}
-              <div className="p-4 border-b border-gray-300 bg-gradient-to-r from-gray-100 to-gray-200">
+              <div className="p-4 border-b border-gray-600 bg-gradient-to-r from-gray-700 to-gray-800">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-gray-100 flex items-center gap-2">
                     <Calendar className="w-5 h-5 text-[#01b9d5]" />
                     Appointment Schedule
                   </h3>
