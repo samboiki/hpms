@@ -234,9 +234,9 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-white rounded-xl shadow-sm">
+    <div className="h-full flex flex-col bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl shadow-sm">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 via-white to-gray-50">
+      <div className="p-4 border-b border-gray-300 bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
             <Calendar className="w-5 h-5 text-[#01b9d5]" />
@@ -253,8 +253,8 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
       <div className="flex-1 overflow-auto custom-scrollbar" ref={gridRef}>
         <div className="flex">
           {/* Time Column */}
-          <div className="flex-shrink-0 w-20 bg-gray-50 border-r border-gray-200">
-            <div className="sticky top-0 bg-gray-50 z-20 h-12 border-b border-gray-200" />
+          <div className="flex-shrink-0 w-20 bg-gradient-to-b from-gray-200 to-gray-300 border-r border-gray-300">
+            <div className="sticky top-0 bg-gradient-to-r from-gray-200 to-gray-300 z-20 h-12 border-b border-gray-300" />
             {timeSlots.map((time, index) => (
               <div
                 key={index}
@@ -283,11 +283,11 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
           </div>
 
           {/* Doctor Columns */}
-          <div className="flex-1 flex">
+          <div className="flex-1 flex bg-gradient-to-br from-gray-50 to-gray-100">
             {doctors.map((doctor) => (
               <div key={doctor.id} className="flex-1 min-w-[200px] border-r border-gray-200 last:border-r-0">
                 {/* Doctor Header */}
-                <div className="sticky top-0 bg-white z-20 h-12 border-b border-gray-200 px-3 py-2">
+                <div className="sticky top-0 bg-gradient-to-r from-gray-100 to-gray-200 z-20 h-12 border-b border-gray-300 px-3 py-2">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-gradient-to-br from-[#01b9d5] to-[#0197a4] rounded-full flex items-center justify-center">
                       <User className="w-4 h-4 text-white" />
