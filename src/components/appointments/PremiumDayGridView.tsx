@@ -335,7 +335,7 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                         <motion.div
                           key={appointment.id}
                           className={cn(
-                            "absolute left-1 right-1 bg-gray-700 rounded-lg shadow-lg border border-gray-500 cursor-move overflow-hidden",
+                            "absolute left-1 right-1 bg-gradient-to-r from-white to-gray-50 rounded-lg shadow-lg border border-gray-200 cursor-move overflow-hidden",
                             "hover:shadow-xl hover:z-30 transition-shadow",
                             draggedAppointment?.id === appointment.id && "opacity-50"
                           )}
@@ -362,13 +362,13 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                           <div className="p-2 pl-3">
                             <div className="flex items-start justify-between gap-1">
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-100 truncate">
+                                <p className="text-sm font-medium text-gray-900 truncate">
                                   {appointment.patient?.first_name} {appointment.patient?.last_name}
                                 </p>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <TypeIcon className="w-3 h-3 text-gray-300" />
-                                  <span className="text-xs text-gray-300">{appointment.type}</span>
-                                  <span className="text-xs text-gray-400">
+                                  <TypeIcon className="w-3 h-3 text-gray-700" />
+                                  <span className="text-xs text-gray-700">{appointment.type}</span>
+                                  <span className="text-xs text-gray-600">
                                     {appointment.duration}min
                                   </span>
                                 </div>
@@ -389,10 +389,10 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                                     e.stopPropagation();
                                     setExpandedAppointment(isExpanded ? null : appointment.id);
                                   }}
-                                  className="p-1 hover:bg-gray-600 rounded transition-colors"
+                                  className="p-1 hover:bg-gray-200 rounded transition-colors"
                                 >
                                   <ChevronDown className={cn(
-                                    "w-3 h-3 text-gray-400 transition-transform",
+                                    "w-3 h-3 text-gray-600 transition-transform",
                                     isExpanded && "rotate-180"
                                   )} />
                                 </button>
