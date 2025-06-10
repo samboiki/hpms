@@ -46,12 +46,6 @@ interface MedicalAidProvider {
   short_name: string;
 }
 
-interface MedicalAidScheme {
-  id: string;
-  provider_id: string;
-  name: string;
-  description: string;
-}
 
 interface Props {
   onSuccess?: () => void;
@@ -60,9 +54,7 @@ interface Props {
 const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
   const { register, handleSubmit, watch, formState: { errors } } = useForm<PatientRegistrationFormData>();
   const [providers, setProviders] = useState<MedicalAidProvider[]>([]);
-  const [schemes, setSchemes] = useState<MedicalAidScheme[]>([]);
   const [loadingProviders, setLoadingProviders] = useState(true);
-  const [loadingSchemes, setLoadingSchemes] = useState(false);
 
   const selectedProvider = watch('medicalAid.provider');
 
@@ -70,10 +62,22 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
   useEffect(() => {
     const fetchProviders = async () => {
       try {
-        const { data, error } = await supabase
-          .from('medical_aid_providers')
-          .select('id, name, short_name')
-          .order('name');
+        // Try the new function first, fallback to direct table access
+        let data, error;
+        
+        try {
+          const result = await supabase.rpc('get_medical_aid_providers');
+          data = result.data;
+          error = result.error;
+        } catch (funcError) {
+          // Function doesn't exist yet, use direct table access
+          const result = await supabase
+            .from('medical_aid_providers')
+            .select('id, name, short_name')
+            .order('name');
+          data = result.data;
+          error = result.error;
+        }
 
         if (error) throw error;
         setProviders(data || []);
@@ -87,32 +91,6 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
     fetchProviders();
   }, []);
 
-  // Fetch schemes when provider changes
-  useEffect(() => {
-    if (selectedProvider) {
-      const fetchSchemes = async () => {
-        setLoadingSchemes(true);
-        try {
-          const { data, error } = await supabase
-            .from('medical_aid_schemes')
-            .select('id, name, description')
-            .eq('provider_id', selectedProvider)
-            .order('name');
-
-          if (error) throw error;
-          setSchemes(data || []);
-        } catch (error) {
-          console.error('Error fetching schemes:', error);
-        } finally {
-          setLoadingSchemes(false);
-        }
-      };
-
-      fetchSchemes();
-    } else {
-      setSchemes([]);
-    }
-  }, [selectedProvider]);
 
   const onSubmit = async (data: PatientRegistrationFormData) => {
     try {
@@ -175,22 +153,20 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
 
       // Insert medical aid details
       if (data.medicalAid.provider) {
-        // Get provider and scheme names for storing in medical_aid_details
+        // Get provider name for storing in medical_aid_details
         const selectedProviderData = providers.find(p => p.id === data.medicalAid.provider);
-        const selectedSchemeData = schemes.find(s => s.id === data.medicalAid.scheme);
 
         const { error: medicalAidError } = await supabase
           .from('medical_aid_details')
           .insert([{
             patient_id: patientData.id,
             provider: selectedProviderData?.name || data.medicalAid.provider,
-            scheme_name: selectedSchemeData?.name || data.medicalAid.scheme,
-            provider_id: data.medicalAid.provider,
-            scheme_id: data.medicalAid.scheme,
-            membership_number: data.medicalAid.membershipNumber,
+            scheme_name: data.medicalAid.scheme,
+            medical_aid_provider_id: data.medicalAid.provider,
+            member_number: data.medicalAid.membershipNumber,
             main_member_name: data.medicalAid.mainMemberName,
             main_member_id_number: data.medicalAid.mainMemberIdNumber,
-            relationship_to_main: data.medicalAid.relationship
+            relationship_to_main_member: data.medicalAid.relationship
           }]);
 
         if (medicalAidError) throw medicalAidError;
@@ -402,25 +378,13 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Scheme</label>
-            <select
+            <label className="block text-sm font-medium text-gray-700">Scheme/Plan</label>
+            <input
+              type="text"
               {...register('medicalAid.scheme')}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
-              disabled={!selectedProvider || loadingSchemes}
-            >
-              <option value="">Select scheme</option>
-              {schemes.map((scheme) => (
-                <option key={scheme.id} value={scheme.id}>
-                  {scheme.name} {scheme.description && `- ${scheme.description}`}
-                </option>
-              ))}
-            </select>
-            {loadingSchemes && (
-              <p className="mt-1 text-sm text-gray-500">Loading schemes...</p>
-            )}
-            {!selectedProvider && (
-              <p className="mt-1 text-sm text-gray-500">Please select a provider first</p>
-            )}
+              placeholder="e.g., Family Plan, Executive Plan"
+            />
           </div>
 
           <div>
