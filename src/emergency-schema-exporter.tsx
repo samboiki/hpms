@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase } from './lib/supabase';
 
 const EmergencySchemaExporter: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
