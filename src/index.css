@@ -20,6 +20,20 @@
     background: #f3f4f6 !important;
   }
 
+  /* Premium gradient animations */
+  @keyframes gradient-x {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  .animate-gradient-x {
+    animation: gradient-x 6s ease infinite;
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Rubik', sans-serif;
     font-weight: 500;
