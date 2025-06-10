@@ -212,7 +212,8 @@ class MedicalAidService {
       // Return database logo URL if matched
       if (matchedProvider) {
         console.log(`✅ Matched "${providerName}" to provider "${matchedProvider.name}" with logo: ${matchedProvider.logo_url}`);
-        return matchedProvider.logo_url;
+        // Fix double slash issue in logo URLs
+        return matchedProvider.logo_url.replace('/storage/v1/object/public/medical-aid-logos//', '/storage/v1/object/public/medical-aid-logos/');
       }
 
       // Fallback to local images based on common providers
