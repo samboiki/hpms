@@ -169,10 +169,10 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         return (
           <div className="mt-3 relative">
             {/* Enhanced bar chart container */}
-            <div className="relative p-3 bg-white/20 rounded-lg border border-gray-200/30 backdrop-blur-sm">
-              <div className="flex items-end justify-between h-12 gap-1">
+            <div className="relative p-3 bg-white/40 rounded-lg border border-gray-200/30 backdrop-blur-sm">
+              <div className="flex items-end justify-between h-16 gap-1 mb-4">
                 {miniChart.data.map((value, index) => {
-                  const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                  const height = maxValue > 0 ? Math.max((value / maxValue) * 90, 10) : 10; // Ensure visible bars
                   return (
                     <div
                       key={index}
@@ -197,41 +197,47 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                       
                       {/* Enhanced glow effect */}
                       <div
-                        className="absolute bottom-0 left-0 right-0 rounded-t-md opacity-30 blur-sm"
-                        style={{ height: `${height}%`, backgroundColor: barColor }}
+                        className="absolute bottom-0 left-0 right-0 rounded-t-md opacity-20 blur-sm"
+                        style={{ 
+                          height: `${height}%`, 
+                          backgroundColor: barColor 
+                        }}
                       />
                       
-                      {/* Enhanced main bar */}
+                      {/* Enhanced main bar with fixed height */}
                       <div
-                        className="rounded-t-md relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg"
+                        className="rounded-t-md relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg w-full"
                         style={{ 
-                          height: `${Math.max(height, 8)}%`, // Minimum height for visibility
-                          background: `linear-gradient(to top, ${barColor}90, ${barColor}60, ${barColor}40)`,
-                          boxShadow: `0 0 8px ${barColor}40`
+                          height: `${height}%`,
+                          minHeight: '8px', // Ensure minimum visible height
+                          backgroundColor: barColor,
+                          background: `linear-gradient(to top, ${barColor}, ${barColor}CC, ${barColor}99)`,
+                          boxShadow: `0 2px 4px ${barColor}40`
                         }}
                       >
                         {/* Enhanced shimmer effect */}
                         <div 
-                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent transform skew-x-12 animate-pulse"
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent transform skew-x-12 animate-pulse opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                         />
-                        
-                        {/* Value indicator for small bars */}
-                        {height < 20 && value > 0 && (
-                          <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full" style={{ backgroundColor: barColor }}></div>
-                        )}
-                      </div>
-                      
-                      {/* Bar labels */}
-                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-[9px] font-medium text-gray-600 whitespace-nowrap">
-                        {labels[index]}
                       </div>
                     </div>
                   );
                 })}
               </div>
               
+              {/* Bar labels with better positioning */}
+              <div className="flex items-center justify-between -mt-2">
+                {labels.map((label, index) => (
+                  <div key={index} className="flex-1 text-center">
+                    <span className="text-[10px] font-medium text-gray-600 block truncate px-0.5">
+                      {label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              
               {/* Chart baseline */}
-              <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-300/50"></div>
+              <div className="absolute bottom-8 left-3 right-3 h-px bg-gray-300/50"></div>
             </div>
           </div>
         );

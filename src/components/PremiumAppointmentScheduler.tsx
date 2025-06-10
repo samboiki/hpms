@@ -670,7 +670,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               ))}
             </div>
             
-            <div className="flex-1 relative bg-gradient-to-br from-white to-gray-50" ref={timelineRef}>
+            <div className="flex-1 relative bg-gradient-to-br from-gray-100 to-gray-200" ref={timelineRef}>
               {/* Current time indicator with premium style */}
               {isToday(selectedDate) && viewMode === 'day' && (
                 <div
