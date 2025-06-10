@@ -260,7 +260,7 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                 key={index}
                 className="h-[60px] border-b border-gray-200 px-2 py-1 relative"
               >
-                <span className="text-base text-gray-900 font-bold">
+                <span className="text-sm text-gray-900 font-bold">
                   {format(time, 'h:mm a')}
                 </span>
                 {/* Current time indicator */}
