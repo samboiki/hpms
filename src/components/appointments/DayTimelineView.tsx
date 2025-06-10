@@ -200,7 +200,7 @@ const DayTimelineView: React.FC<DayTimelineViewProps> = ({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-2xl p-8">
+      <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl shadow-2xl p-8">
         <div className="flex justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
         </div>
@@ -211,9 +211,9 @@ const DayTimelineView: React.FC<DayTimelineViewProps> = ({
   const columnWidth = selectedDoctorIds.length > 0 ? `${100 / selectedDoctorIds.length}%` : '100%';
 
   return (
-    <div className="bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-200">
+    <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl shadow-2xl overflow-hidden border border-gray-300">
       {/* Header with Doctor Selection */}
-      <div className="bg-gradient-to-r from-gray-50 to-white border-b border-gray-200 p-4">
+      <div className="bg-gradient-to-r from-gray-200 to-gray-100 border-b border-gray-300 p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">
             {format(selectedDate, 'EEEE, MMMM d, yyyy')}
@@ -279,7 +279,7 @@ const DayTimelineView: React.FC<DayTimelineViewProps> = ({
         </div>
 
         {/* Doctor columns */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative bg-gradient-to-br from-gray-50 to-gray-100">
           {selectedDoctorIds.length === 0 ? (
             <div className="flex items-center justify-center h-full p-8">
               <div className="text-center">
@@ -300,7 +300,7 @@ const DayTimelineView: React.FC<DayTimelineViewProps> = ({
                     style={{ width: columnWidth }}
                   >
                     {/* Doctor name header */}
-                    <div className="absolute top-0 left-0 right-0 bg-white/90 backdrop-blur-sm z-10 p-2 border-b border-gray-200">
+                    <div className="absolute top-0 left-0 right-0 bg-gray-100/90 backdrop-blur-sm z-10 p-2 border-b border-gray-300">
                       <p className="text-sm font-medium text-gray-700 text-center truncate">
                         {doctor?.full_name || 'Unknown'}
                       </p>
