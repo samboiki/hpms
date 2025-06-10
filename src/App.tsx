@@ -19,6 +19,7 @@ import TariffManagement from './pages/admin/TariffManagement';
 import BillingWorkflow from './pages/BillingWorkflow';
 import { Toaster } from 'react-hot-toast';
 import { PracticeTariffsProvider } from './contexts/PracticeTariffsContext';
+import EmergencySchemaExporter from './emergency-schema-exporter';
 
 function App() {
   const { isAuthenticated, login } = useAuthStore();
@@ -86,6 +87,7 @@ function App() {
           <Route path="admin/practices" element={<PracticesManagement />} />
           <Route path="admin/tariffs" element={<TariffManagement />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="emergency-export" element={<EmergencySchemaExporter />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
