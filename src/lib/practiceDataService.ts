@@ -184,6 +184,36 @@ class PracticeDataService {
     }
   }
 
+  // Get practice details including logo
+  async getPracticeDetails(practiceId: string): Promise<any | null> {
+    this.logWithContext(`Fetching practice details for: ${practiceId}`);
+    
+    try {
+      const { data: practice, error } = await supabase
+        .from('practices')
+        .select('id, name, logo_url, primary_color, secondary_color, slug')
+        .eq('id', practiceId)
+        .single();
+
+      if (error) {
+        this.logError('Failed to fetch practice details', error);
+        return null;
+      }
+
+      this.logWithContext(`Found practice details for ${practiceId}:`, {
+        name: practice?.name,
+        hasLogo: !!practice?.logo_url,
+        logoUrl: practice?.logo_url
+      });
+
+      return practice;
+
+    } catch (error) {
+      this.logError('Exception fetching practice details', error);
+      return null;
+    }
+  }
+
   // Debug function to check all data
   async debugPracticeData(practiceId: string) {
     this.logWithContext(`🐛 DEBUG: Starting comprehensive data check for practice ${practiceId}`);
@@ -234,3 +264,12 @@ class PracticeDataService {
 }
 
 export const practiceDataService = new PracticeDataService();
+
+export interface PracticeDetails {
+  id: string;
+  name: string;
+  logo_url?: string;
+  primary_color?: string;
+  secondary_color?: string;
+  slug: string;
+}

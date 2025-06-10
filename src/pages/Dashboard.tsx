@@ -25,7 +25,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { practiceDataService } from '../lib/practiceDataService';
+import { practiceDataService, PracticeDetails } from '../lib/practiceDataService';
 import FormModal from '../components/modals/FormModal';
 import AddAppointmentForm from '../components/forms/AddAppointmentForm';
 import PremiumAppointmentScheduler from '../components/PremiumAppointmentScheduler';
@@ -122,6 +122,7 @@ function Dashboard() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [appointmentStatusFilter, setAppointmentStatusFilter] = useState<'all' | 'total' | 'completed' | 'pending' | 'cancelled'>('all');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [practiceDetails, setPracticeDetails] = useState<PracticeDetails | null>(null);
   const navigate = useNavigate();
 
   // Real-time appointment updates
@@ -199,6 +200,13 @@ function Dashboard() {
       setCurrentUserId(authContext.userId);
       setCurrentUserRole(authContext.userRole as any);
       setCurrentPracticeId(authContext.practiceId);
+
+      // Fetch practice details including logo
+      const practiceData = await practiceDataService.getPracticeDetails(authContext.practiceId);
+      if (practiceData) {
+        setPracticeDetails(practiceData);
+        console.log('✅ [Dashboard] Practice details loaded:', practiceData);
+      }
 
       // Debug practice data
       const debugData = await practiceDataService.debugPracticeData(authContext.practiceId);
@@ -853,15 +861,35 @@ function Dashboard() {
                     <Expand className="w-5 h-5 text-gray-700" />
                   )}
                 </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="bg-[#01b9d5] text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#01b9d5]/20 transition-all duration-200 font-medium text-sm"
-                  onClick={() => setIsAddAppointmentModalOpen(true)}
-                >
-                  <Plus className="w-4 h-4" />
-                  New Appointment
-                </motion.button>
+                {/* Practice Logo */}
+                {practiceDetails?.logo_url ? (
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex items-center justify-center"
+                  >
+                    <img
+                      src={practiceDetails.logo_url}
+                      alt={`${practiceDetails.name} logo`}
+                      className="h-12 w-auto max-w-[120px] object-contain rounded-lg shadow-md border border-gray-200/50 bg-white p-1"
+                      onError={(e) => {
+                        console.error('Failed to load practice logo:', practiceDetails.logo_url);
+                        // Hide image on error and show fallback
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="bg-[#01b9d5] text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#01b9d5]/20 transition-all duration-200 font-medium text-sm"
+                    onClick={() => setIsAddAppointmentModalOpen(true)}
+                  >
+                    <Plus className="w-4 h-4" />
+                    New Appointment
+                  </motion.button>
+                )}
               </div>
             </div>
 
