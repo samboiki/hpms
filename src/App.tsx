@@ -16,7 +16,6 @@ import Inventory from './pages/Inventory';
 import Messages from './pages/Messages';
 import PracticesManagement from './pages/admin/PracticesManagement';
 import TariffManagement from './pages/admin/TariffManagement';
-import Billing from './pages/Billing';
 import BillingWorkflow from './pages/BillingWorkflow';
 import { Toaster } from 'react-hot-toast';
 import { PracticeTariffsProvider } from './contexts/PracticeTariffsContext';
@@ -81,7 +80,6 @@ function App() {
           <Route path="patients/:id" element={<PatientModernDetail />} />
           <Route path="inventory" element={<Inventory />} />
           <Route path="messages" element={<Messages />} />
-          <Route path="billing" element={<Billing />} />
           <Route path="billing/workflow" element={<BillingWorkflow />} />
           <Route path="finance" element={<Finance />} />
           <Route path="practice-profile" element={<EnhancedPracticeProfile />} />

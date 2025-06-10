@@ -16,7 +16,6 @@ import {
   Building2,
   DollarSign,
   Crown,
-  Receipt
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -40,7 +39,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: Users, label: 'Patients', path: '/patients' },
     { icon: Package2, label: 'Inventory', path: '/inventory' },
     { icon: Bell, label: 'Messages', path: '/messages' },
-    { icon: Receipt, label: 'Billing', path: '/billing' },
     { icon: Wallet, label: 'Finance', path: '/finance' },
   ];
 
