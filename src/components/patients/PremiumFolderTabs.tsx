@@ -39,7 +39,7 @@ import PremiumVisitModal from '../modals/PremiumVisitModal';
 import FormModal from '../modals/FormModal';
 import InvoiceDetailsModal from '../modals/InvoiceDetailsModal';
 import DocumentList from '../documents/DocumentList';
-import DocumentUploadModal from '../modals/DocumentUploadModal';
+import EnhancedDocumentUploadModal from '../modals/EnhancedDocumentUploadModal';
 import { supabase } from '../../lib/supabase';
 
 interface Visit {
@@ -1020,7 +1020,7 @@ const DocumentsContent: React.FC<{ patientId: string; visitId?: string; onCountC
       />
       
       {/* Document Upload Modal */}
-      <DocumentUploadModal
+      <EnhancedDocumentUploadModal
         isOpen={isUploadModalOpen}
         onClose={() => setIsUploadModalOpen(false)}
         patientId={patientId}

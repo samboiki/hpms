@@ -27,14 +27,18 @@ interface Document {
   visit_id?: string;
   file_name: string;
   original_name: string;
+  title?: string; // New field for custom title
   file_type: string;
   file_size: number;
   mime_type: string;
   storage_path: string;
+  thumbnail_url?: string; // New field for thumbnail
   description?: string;
   category: string;
   tags?: string[];
   uploaded_by?: string;
+  is_processed?: boolean; // New field for processing status
+  processing_metadata?: any; // New field for processing metadata
   created_at: string;
   updated_at: string;
 }
@@ -260,10 +264,18 @@ const DocumentList: React.FC<DocumentListProps> = ({ patientId, refreshTrigger }
         className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all duration-200 group"
       >
         <div className="space-y-3">
-          {/* File Icon and Actions */}
+          {/* File Icon/Thumbnail and Actions */}
           <div className="flex items-start justify-between">
-            <div className={`p-3 rounded-xl ${getFileBg(document.mime_type)}`}>
-              <Icon className={`w-6 h-6 ${getFileColor(document.mime_type)}`} />
+            <div className={`p-3 rounded-xl ${getFileBg(document.mime_type)} relative overflow-hidden`}>
+              {document.thumbnail_url ? (
+                <img 
+                  src={document.thumbnail_url} 
+                  alt="Thumbnail" 
+                  className="w-6 h-6 object-cover rounded"
+                />
+              ) : (
+                <Icon className={`w-6 h-6 ${getFileColor(document.mime_type)}`} />
+              )}
             </div>
             
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -293,8 +305,8 @@ const DocumentList: React.FC<DocumentListProps> = ({ patientId, refreshTrigger }
 
           {/* File Info */}
           <div>
-            <h4 className="font-medium text-gray-800 text-sm truncate" title={document.original_name}>
-              {document.original_name}
+            <h4 className="font-medium text-gray-800 text-sm truncate" title={document.title || document.original_name}>
+              {document.title || document.original_name}
             </h4>
             <p className="text-xs text-gray-500 mt-1">
               {formatFileSize(document.file_size)} • {CATEGORIES[document.category as keyof typeof CATEGORIES]}
@@ -348,15 +360,23 @@ const DocumentList: React.FC<DocumentListProps> = ({ patientId, refreshTrigger }
         className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 group"
       >
         <div className="flex items-center gap-4">
-          <div className={`p-2 rounded-lg ${getFileBg(document.mime_type)}`}>
-            <Icon className={`w-5 h-5 ${getFileColor(document.mime_type)}`} />
+          <div className={`p-2 rounded-lg ${getFileBg(document.mime_type)} relative overflow-hidden`}>
+            {document.thumbnail_url ? (
+              <img 
+                src={document.thumbnail_url} 
+                alt="Thumbnail" 
+                className="w-5 h-5 object-cover rounded"
+              />
+            ) : (
+              <Icon className={`w-5 h-5 ${getFileColor(document.mime_type)}`} />
+            )}
           </div>
           
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between">
               <div className="min-w-0 flex-1">
                 <h4 className="font-medium text-gray-800 truncate">
-                  {document.original_name}
+                  {document.title || document.original_name}
                 </h4>
                 <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
                   <span>{formatFileSize(document.file_size)}</span>
