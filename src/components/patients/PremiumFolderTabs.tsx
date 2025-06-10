@@ -1824,159 +1824,8 @@ const AIIntelligenceContent: React.FC<{
         </div>
       </div>
       
-      {/* Professional Medical Aid Section */}
-      {medicalAid && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-6"
-        >
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
-            {/* Medical aid logo watermark */}
-            {medicalAidLogo && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div 
-                  className="w-96 h-96 opacity-[0.02] bg-contain bg-no-repeat bg-center"
-                  style={{ backgroundImage: `url(${medicalAidLogo})` }}
-                ></div>
-              </div>
-            )}
-            
-            {/* Header */}
-            <div className="relative p-6 pb-4 border-b border-gray-100">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#01b9d4] to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <Shield className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                      Medical Aid Coverage
-                    </h3>
-                    <p className="text-sm text-gray-500 font-medium">Active Insurance Plan</p>
-                  </div>
-                </div>
-                
-                {/* Provider Logo */}
-                {medicalAidLogo && (
-                  <div className="w-16 h-16 bg-white rounded-xl shadow-lg border border-gray-200 p-2 flex items-center justify-center">
-                    <img 
-                      src={medicalAidLogo} 
-                      alt={medicalAid.provider}
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = '/images/medical-aids/default-medical-aid.svg';
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Content Grid */}
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                {/* Provider */}
-                <div className="relative group">
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <div className="relative bg-gray-50 rounded-xl p-4 border border-gray-200 group-hover:border-blue-200 transition-colors">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Provider</p>
-                    </div>
-                    <p className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                      {medicalAid.provider}
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Scheme */}
-                <div className="relative group">
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <div className="relative bg-gray-50 rounded-xl p-4 border border-gray-200 group-hover:border-purple-200 transition-colors">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                      <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Scheme</p>
-                    </div>
-                    <p className="text-lg font-bold text-gray-900 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                      {medicalAid.scheme}
-                    </p>
-                    {medicalAid.plan_type && (
-                      <p className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded-md inline-block">
-                        {medicalAid.plan_type}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Membership */}
-                <div className="relative group">
-                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                  <div className="relative bg-gray-50 rounded-xl p-4 border border-gray-200 group-hover:border-emerald-200 transition-colors">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                      <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Member Number</p>
-                    </div>
-                    <div className="bg-gray-900 rounded-lg p-3">
-                      <p className="text-sm font-mono font-bold text-white tracking-widest">
-                        {medicalAid.membership_number}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Footer */}
-              <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                <div className="flex flex-wrap items-center gap-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-[#01b9d4] to-blue-600 rounded-lg flex items-center justify-center">
-                      <User className="w-4 h-4 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Relationship</p>
-                      <p className="text-sm font-bold text-gray-900 capitalize">
-                        {medicalAid.relationship_to_main}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {medicalAid.main_member_name && medicalAid.relationship_to_main !== 'self' && (
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
-                        <Heart className="w-4 h-4 text-white" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Main Member</p>
-                        <p className="text-sm font-bold text-gray-900">
-                          {medicalAid.main_member_name}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={onMedicalAidClick}
-                  className="px-6 py-3 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white rounded-xl font-semibold text-sm shadow-lg hover:shadow-xl transition-all duration-200"
-                >
-                  <span className="flex items-center gap-2">
-                    <span>Edit Details</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </span>
-                </motion.button>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Patient Journey and AI Insights Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Patient Journey and Medical Aid Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Patient Journey */}
         <motion.div
           whileHover={{ scale: 1.02 }}
@@ -2020,61 +1869,159 @@ const AIIntelligenceContent: React.FC<{
           </div>
         </motion.div>
         
-        {/* AI Insights */}
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="relative group cursor-pointer"
-        >
-          {/* Animated gradient border wrapper */}
-          <div className="relative bg-gradient-to-br from-gray-100 to-gray-200 group-hover:from-[#01b9d5] group-hover:to-purple-600 rounded-2xl p-1 shadow-lg group-hover:shadow-2xl transition-all duration-500">
-            <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-[0.875rem] overflow-hidden border border-gray-100">
-              <div className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl shadow-md">
-                    <Sparkles className="w-5 h-5 text-white" />
+        {/* Compact Medical Aid Card */}
+        {medicalAid && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="relative group cursor-pointer"
+            onClick={onMedicalAidClick}
+          >
+            {/* Premium card design */}
+            <div className="relative bg-white rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+              {/* Subtle brand accent */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#01b9d4] to-blue-600"></div>
+              
+              {/* Logo watermark */}
+              {medicalAidLogo && (
+                <div className="absolute top-4 right-4 w-24 h-24 opacity-[0.04] bg-contain bg-no-repeat bg-center"
+                     style={{ backgroundImage: `url(${medicalAidLogo})` }}>
+                </div>
+              )}
+              
+              <div className="p-5">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-gradient-to-br from-[#01b9d4] to-blue-600 rounded-lg flex items-center justify-center">
+                      <Shield className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        Medical Aid
+                      </h4>
+                      <p className="text-xs text-gray-500">Coverage Details</p>
+                    </div>
+                  </div>
+                  
+                  {/* Provider logo */}
+                  {medicalAidLogo && (
+                    <div className="w-10 h-10 bg-gray-50 rounded-lg border border-gray-200 p-1.5 flex items-center justify-center">
+                      <img 
+                        src={medicalAidLogo} 
+                        alt={medicalAid.provider}
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = '/images/medical-aids/default-medical-aid.svg';
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+                
+                {/* Provider name */}
+                <div className="mb-3">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Provider</p>
+                  <p className="text-lg font-bold text-gray-900 leading-tight" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                    {medicalAid.provider}
+                  </p>
+                </div>
+                
+                {/* Compact info grid */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Plan</p>
+                    <p className="text-sm font-semibold text-gray-800">{medicalAid.scheme}</p>
+                    {medicalAid.plan_type && (
+                      <p className="text-xs text-blue-600 mt-0.5">{medicalAid.plan_type}</p>
+                    )}
                   </div>
                   <div>
-                    <h4 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>AI Insights</h4>
-                    <p className="text-xs text-gray-500">Smart Health Recommendations</p>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Member</p>
+                    <div className="bg-gray-900 rounded-md px-2 py-1">
+                      <p className="text-xs font-mono text-white tracking-wide">
+                        {medicalAid.membership_number}
+                      </p>
+                    </div>
                   </div>
                 </div>
                 
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-bold text-blue-700">1</span>
+                {/* Relationship */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center">
+                      <User className="w-3 h-3 text-blue-600" />
                     </div>
-                    <div className="text-sm text-gray-600">
-                      <strong className="text-gray-800">Health Status:</strong> Stable clinical parameters with consistent improvement patterns observed.
-                    </div>
+                    <span className="text-xs text-gray-600 capitalize">
+                      {medicalAid.relationship_to_main}
+                    </span>
                   </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-green-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-bold text-green-700">2</span>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <strong className="text-gray-800">Recommendations:</strong> Continue current treatment plan with quarterly follow-ups for monitoring.
-                    </div>
+                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </div>
+      
+      {/* AI Insights - Full Width */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+        whileHover={{ scale: 1.02 }}
+        className="relative group cursor-pointer"
+      >
+        {/* Animated gradient border wrapper */}
+        <div className="relative bg-gradient-to-br from-gray-100 to-gray-200 group-hover:from-[#01b9d5] group-hover:to-purple-600 rounded-2xl p-1 shadow-lg group-hover:shadow-2xl transition-all duration-500">
+          <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-[0.875rem] overflow-hidden border border-gray-100">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl shadow-md">
+                  <Sparkles className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>AI Insights</h4>
+                  <p className="text-xs text-gray-500">Smart Health Recommendations</p>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm font-bold text-blue-700">1</span>
                   </div>
-                  
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-purple-100 to-purple-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-bold text-purple-700">3</span>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <strong className="text-gray-800">Prevention:</strong> Consider annual health screenings and lifestyle modifications for long-term wellness.
-                    </div>
+                  <div className="text-sm text-gray-600">
+                    <strong className="text-gray-800">Health Status:</strong> Stable clinical parameters with consistent improvement patterns observed.
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-green-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm font-bold text-green-700">2</span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    <strong className="text-gray-800">Recommendations:</strong> Continue current treatment plan with quarterly follow-ups for monitoring.
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-purple-100 to-purple-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm font-bold text-purple-700">3</span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    <strong className="text-gray-800">Prevention:</strong> Consider annual health screenings and lifestyle modifications for long-term wellness.
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </motion.div>
-      </div>
+        </div>
+      </motion.div>
       
     </div>
-
     </>
   );
 };
