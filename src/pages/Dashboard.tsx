@@ -18,7 +18,9 @@ import {
   Expand,
   Minimize,
   Building2,
-  XCircle
+  XCircle,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -116,6 +118,7 @@ function Dashboard() {
   }>({ isOpen: false, type: null });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [appointmentStatusFilter, setAppointmentStatusFilter] = useState<'all' | 'total' | 'completed' | 'pending' | 'cancelled'>('all');
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const navigate = useNavigate();
 
   // Real-time appointment updates
@@ -829,7 +832,9 @@ function Dashboard() {
                   </div>
                   <div>
                     <h1 className="text-2xl font-semibold text-gray-800">Dashboard</h1>
-                    <p className="text-sm text-gray-500 mt-0.5">Welcome back! Here's your practice overview</p>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      Welcome back! Here's your practice overview. Today: {todayAppointments.length} appointments • {completedToday} completed • {pendingAppointments.length} pending
+                    </p>
                   </div>
                 </div>
               </div>
@@ -859,19 +864,6 @@ function Dashboard() {
               </div>
             </div>
 
-            {/* Practice Summary */}
-            <div className="mt-6 mb-4">
-              <div className="bg-gradient-to-r from-gray-50 via-white to-gray-50 rounded-lg p-4 border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-gray-800">Practice Overview</h2>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Today: {todayAppointments.length} appointments • {completedToday} completed • {pendingAppointments.length} pending
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             {/* Premium Dashboard Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
@@ -902,110 +894,31 @@ function Dashboard() {
                   onClick={() => setSelectedReportModal({ isOpen: true, type: 'patients' })}
                 />,
                 
-                // Notifications Card (Dark Theme)
-                <div
-                  key="notifications"
-                  className="relative group cursor-pointer"
+                // Communication Card (Light Mode)
+                <PremiumStatCard
+                  key="communication"
+                  title="Communication"
+                  mainValue={dashboardStats.notifications.total}
+                  subtitle="Active communications"
+                  icon={MessageSquare}
+                  gradient="from-amber-500 to-orange-600"
+                  stats={[
+                    { label: 'Unread', value: dashboardStats.notifications.unread, color: '#F59E0B' },
+                    { label: 'Urgent', value: dashboardStats.notifications.urgent, color: '#EF4444' },
+                    { label: 'Today', value: dashboardStats.notifications.weeklyData[6], color: '#10B981' },
+                    { label: 'Types', value: dashboardStats.notifications.types.length, color: '#8B5CF6' }
+                  ]}
+                  miniChart={{
+                    type: 'bar',
+                    data: dashboardStats.notifications.weeklyData
+                  }}
+                  trend={{
+                    value: `${dashboardStats.notifications.unread} unread`,
+                    isPositive: false
+                  }}
+                  unsplashQuery="notification-bell-communication"
                   onClick={() => setSelectedReportModal({ isOpen: true, type: 'notifications' })}
-                >
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    whileHover={{ y: -4, scale: 1.01 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="relative bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-700/50"
-                  >
-                    {/* Background Pattern */}
-                    <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity duration-300">
-                      <Bell className="w-20 h-20 text-white" />
-                    </div>
-                    
-                    {/* Background Image */}
-                    <div className="absolute inset-0 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
-                      <img
-                        src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop&auto=format&q=80"
-                        alt=""
-                        className="w-full h-full object-cover"
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      />
-                    </div>
-                    
-                    <div className="relative p-4 z-10">
-                      {/* Header */}
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-md">
-                            <Bell className="w-5 h-5 text-white" />
-                          </div>
-                          <h3 className="text-lg font-semibold text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                            notifications
-                          </h3>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <div className="text-xs text-gray-400 font-medium">
-                            <span className="opacity-60">↗</span>
-                            <span className="ml-1">{dashboardStats.notifications.unread} unread</span>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-300 transition-colors" />
-                        </div>
-                      </div>
-                      
-                      {/* Main Value */}
-                      <div>
-                        <p className="text-3xl font-bold text-white mb-1" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                          {dashboardStats.notifications.total}
-                        </p>
-                        <p className="text-sm text-gray-400 font-medium">Active notifications</p>
-                      </div>
-
-                      {/* Stats Grid */}
-                      <div className="grid grid-cols-2 gap-2 mt-4">
-                        {[
-                          { label: 'Unread', value: dashboardStats.notifications.unread, color: '#F59E0B' },
-                          { label: 'Urgent', value: dashboardStats.notifications.urgent, color: '#EF4444' },
-                          { label: 'Today', value: dashboardStats.notifications.weeklyData[6], color: '#10B981' },
-                          { label: 'Types', value: dashboardStats.notifications.types.length, color: '#8B5CF6' }
-                        ].map((stat, index) => (
-                          <div 
-                            key={index} 
-                            className="text-center rounded-lg py-2 px-2 border border-gray-600/50 bg-black/20 backdrop-blur-sm"
-                            style={{ backgroundColor: `${stat.color}15` }}
-                          >
-                            <p className="text-sm font-bold text-white" style={{ color: stat.color }}>
-                              {stat.value}
-                            </p>
-                            <p className="text-[11px] text-gray-400 font-medium leading-tight">{stat.label}</p>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Mini Chart */}
-                      <div className="mt-4">
-                        <div className="p-3 bg-black/20 rounded-lg border border-gray-600/30">
-                          <div className="flex items-end justify-between h-8 gap-0.5">
-                            {dashboardStats.notifications.weeklyData.map((value, index) => {
-                              const height = (value / Math.max(...dashboardStats.notifications.weeklyData)) * 100;
-                              return (
-                                <div
-                                  key={index}
-                                  className="flex-1 flex flex-col justify-end"
-                                >
-                                  <div
-                                    className="rounded-t-sm bg-gradient-to-t from-amber-500 to-orange-600 opacity-80"
-                                    style={{ height: `${height}%` }}
-                                  />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Bottom accent */}
-                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-600 opacity-60 group-hover:opacity-80 transition-opacity duration-300"></div>
-                  </motion.div>
-                </div>,
+                />,
                 
                 // Encounters Card
                 <PremiumStatCard
@@ -1447,6 +1360,21 @@ function Dashboard() {
           data={generateReportData(selectedReportModal.type, dashboardStats)}
         />
       )}
+
+      {/* Floating Theme Toggle */}
+      <motion.button
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setIsDarkMode(!isDarkMode)}
+        className="fixed bottom-6 right-20 w-12 h-12 bg-white/90 backdrop-blur-sm border border-gray-200 text-gray-700 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center group z-50"
+        title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+      >
+        {isDarkMode ? (
+          <Sun className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+        ) : (
+          <Moon className="w-5 h-5 group-hover:-rotate-12 transition-transform" />
+        )}
+      </motion.button>
     </div>
   );
 
