@@ -73,7 +73,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         const lineGradientKey = Object.keys(lineColorMap).find(key => gradient.includes(key.replace('from-', ''))) || 'from-blue-500';
         const lineColors = lineColorMap[lineGradientKey as keyof typeof lineColorMap];
         
-        // Create smooth curve path using bezier curves and get exact coordinates
+        // Create smooth curve path that passes exactly through each data point
         const createSmoothPath = (points: number[]) => {
           if (points.length < 2) return { path: '', coordinates: [] };
           
@@ -82,36 +82,51 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
             y: 28 - ((value - minValue) / (maxValue - minValue)) * 24
           }));
           
+          if (scaledPoints.length === 2) {
+            // Simple line for 2 points
+            const path = `M ${scaledPoints[0].x} ${scaledPoints[0].y} L ${scaledPoints[1].x} ${scaledPoints[1].y}`;
+            return { path, coordinates: scaledPoints };
+          }
+          
           let path = `M ${scaledPoints[0].x} ${scaledPoints[0].y}`;
           
+          // Create smooth curves that pass through each point
           for (let i = 1; i < scaledPoints.length; i++) {
             const prev = scaledPoints[i - 1];
             const curr = scaledPoints[i];
             const next = scaledPoints[i + 1];
+            const prevPrev = scaledPoints[i - 2];
+            
+            // Calculate control points that ensure the curve passes through the current point
+            let cp1x, cp1y, cp2x, cp2y;
             
             if (i === 1) {
-              // First curve
-              const cp1x = prev.x + (curr.x - prev.x) * 0.4;
-              const cp1y = prev.y;
-              const cp2x = curr.x - (curr.x - prev.x) * 0.4;
-              const cp2y = curr.y;
-              path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`;
+              // First curve: start point -> current point
+              cp1x = prev.x + (curr.x - prev.x) * 0.3;
+              cp1y = prev.y + (curr.y - prev.y) * 0.1;
+              cp2x = curr.x - (curr.x - prev.x) * 0.3;
+              cp2y = curr.y - (curr.y - prev.y) * 0.1;
             } else if (i === scaledPoints.length - 1) {
-              // Last curve
-              const cp1x = prev.x + (curr.x - prev.x) * 0.4;
-              const cp1y = prev.y;
-              const cp2x = curr.x - (curr.x - prev.x) * 0.4;
-              const cp2y = curr.y;
-              path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`;
+              // Last curve: previous point -> end point
+              cp1x = prev.x + (curr.x - prev.x) * 0.3;
+              cp1y = prev.y + (curr.y - prev.y) * 0.1;
+              cp2x = curr.x - (curr.x - prev.x) * 0.3;
+              cp2y = curr.y - (curr.y - prev.y) * 0.1;
             } else {
-              // Middle curves with smoother control points
-              const prevPoint = scaledPoints[i - 2] || prev;
-              const cp1x = prev.x + (curr.x - prevPoint.x) * 0.2;
-              const cp1y = prev.y + (curr.y - prevPoint.y) * 0.2;
-              const cp2x = curr.x - (next.x - prev.x) * 0.2;
-              const cp2y = curr.y - (next.y - prev.y) * 0.2;
-              path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`;
+              // Middle curves: create smooth transitions
+              const tension = 0.25;
+              const prevDeltaX = curr.x - (prevPrev?.x || prev.x);
+              const prevDeltaY = curr.y - (prevPrev?.y || prev.y);
+              const nextDeltaX = (next?.x || curr.x) - prev.x;
+              const nextDeltaY = (next?.y || curr.y) - prev.y;
+              
+              cp1x = prev.x + prevDeltaX * tension;
+              cp1y = prev.y + prevDeltaY * tension;
+              cp2x = curr.x - nextDeltaX * tension;
+              cp2y = curr.y - nextDeltaY * tension;
             }
+            
+            path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${curr.x} ${curr.y}`;
           }
           
           return { path, coordinates: scaledPoints };
