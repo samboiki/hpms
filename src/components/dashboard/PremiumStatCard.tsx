@@ -179,12 +179,11 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
               Bar Chart Debug: Data={JSON.stringify(chartData)}, Max={maxValue}
             </div>
             {/* Enhanced bar chart container */}
-            <div className="relative p-3 bg-white/80 rounded-lg border-2 border-blue-300 backdrop-blur-sm">
+            <div className="relative p-3 bg-white/80 rounded-lg border border-gray-200/30 backdrop-blur-sm">
               <div className="flex items-end justify-between h-20 gap-1 mb-4 bg-gray-100 rounded">
                 {chartData.map((value, index) => {
-                  // Calculate height as percentage of container, but ensure minimum visibility
-                  const heightPercentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
-                  const height = Math.max(heightPercentage, value > 0 ? 20 : 5); // 20% minimum for visible bars, 5% for zero values
+                  // Calculate height as percentage of container - highest value gets 100% height
+                  const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
                   return (
                     <div
                       key={index}
@@ -214,10 +213,10 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                       
                       {/* Enhanced main bar with proportional height */}
                       <div
-                        className="rounded-t-md relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg w-full border-2 border-red-500"
+                        className="rounded-t-md relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg w-full"
                         style={{ 
                           height: `${height}%`,
-                          minHeight: '10px',
+                          minHeight: height > 0 ? '4px' : '0px',
                           backgroundColor: barColor,
                           background: `linear-gradient(to top, ${barColor}, ${barColor}CC, ${barColor}99)`,
                           boxShadow: `0 2px 4px ${barColor}40`

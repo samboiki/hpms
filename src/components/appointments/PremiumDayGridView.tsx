@@ -234,17 +234,17 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl shadow-sm">
+    <div className="h-full flex flex-col bg-gradient-to-br from-gray-50 to-white rounded-xl shadow-sm">
       {/* Header */}
-      <div className="p-4 border-b border-gray-600 bg-gradient-to-r from-gray-700 via-gray-800 to-gray-700">
+      <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-white via-gray-50 to-white">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-100 flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
             <Calendar className="w-5 h-5 text-[#01b9d5]" />
             {format(selectedDate, 'EEEE, MMMM d, yyyy')}
           </h3>
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-amber-500" />
-            <span className="text-sm text-gray-300">Drag appointments to reschedule</span>
+            <span className="text-sm text-gray-600">Drag appointments to reschedule</span>
           </div>
         </div>
       </div>
@@ -253,14 +253,14 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
       <div className="flex-1 overflow-auto custom-scrollbar" ref={gridRef}>
         <div className="flex">
           {/* Time Column */}
-          <div className="flex-shrink-0 w-20 bg-gradient-to-b from-gray-700 to-gray-800 border-r border-gray-600">
-            <div className="sticky top-0 bg-gradient-to-r from-gray-700 to-gray-800 z-20 h-12 border-b border-gray-600" />
+          <div className="flex-shrink-0 w-20 bg-gradient-to-b from-gray-100 to-gray-200 border-r border-gray-300">
+            <div className="sticky top-0 bg-gradient-to-r from-gray-100 to-gray-200 z-20 h-12 border-b border-gray-300" />
             {timeSlots.map((time, index) => (
               <div
                 key={index}
-                className="h-[60px] border-b border-gray-600 px-2 py-1 relative"
+                className="h-[60px] border-b border-gray-200 px-2 py-1 relative"
               >
-                <span className="text-xs text-gray-300 font-medium">
+                <span className="text-lg text-gray-900 font-extrabold">
                   {format(time, 'h:mm a')}
                 </span>
                 {/* Current time indicator */}
@@ -283,7 +283,7 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
           </div>
 
           {/* Doctor Columns */}
-          <div className="flex-1 flex bg-gradient-to-br from-gray-600 to-gray-700">
+          <div className="flex-1 flex bg-gradient-to-br from-gray-50 to-gray-100">
             {doctors.map((doctor) => (
               <div key={doctor.id} className="flex-1 min-w-[200px] border-r border-gray-500 last:border-r-0">
                 {/* Doctor Header */}
