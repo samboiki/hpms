@@ -856,9 +856,9 @@ function Dashboard() {
                   title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
                 >
                   {isFullscreen ? (
-                    <Minimize className="w-5 h-5 text-gray-700" />
+                    <Minimize className="w-4 h-4 text-gray-700" />
                   ) : (
-                    <Expand className="w-5 h-5 text-gray-700" />
+                    <Expand className="w-4 h-4 text-gray-700" />
                   )}
                 </motion.button>
                 {/* Practice Logo */}
@@ -871,7 +871,7 @@ function Dashboard() {
                     <img
                       src={practiceDetails.logo_url}
                       alt={`${practiceDetails.name} logo`}
-                      className="h-12 w-auto max-w-[120px] object-contain rounded-lg shadow-md border border-gray-200/50 bg-white p-1"
+                      className="h-16 w-auto max-w-[160px] object-contain rounded-lg shadow-md border border-gray-200/50 bg-white p-2"
                       onError={(e) => {
                         console.error('Failed to load practice logo:', practiceDetails.logo_url);
                         // Hide image on error and show fallback

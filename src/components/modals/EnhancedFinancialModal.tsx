@@ -164,41 +164,44 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
   const fetchInvoiceData = async () => {
     setIsLoading(true);
     try {
-      // For now, we'll create sample invoice data since the invoice system isn't fully implemented
-      const sampleInvoices: Invoice[] = [
-        {
-          id: '1',
-          invoice_number: 'INV-2025-001',
-          patient_name: 'John Doe',
-          amount: 850.50,
-          status: 'paid',
-          created_at: '2025-06-01',
-          due_date: '2025-06-15',
-          medical_aid: 'Discovery Health'
-        },
-        {
-          id: '2',
-          invoice_number: 'INV-2025-002',
-          patient_name: 'Jane Smith',
-          amount: 1250.00,
-          status: 'unpaid',
-          created_at: '2025-06-05',
-          due_date: '2025-06-20',
-          medical_aid: 'Nammed'
-        },
-        {
-          id: '3',
-          invoice_number: 'INV-2025-003',
-          patient_name: 'Mike Johnson',
-          amount: 650.75,
-          status: 'partial',
-          created_at: '2025-06-08',
-          due_date: '2025-06-22',
-          medical_aid: 'NMC'
-        }
-      ];
+      // Fetch real invoice data from invoices_enhanced table
+      const { data: invoiceData, error } = await supabase
+        .from('invoices_enhanced')
+        .select(`
+          id,
+          invoice_number,
+          patient_id,
+          total,
+          payment_status,
+          medical_aid_status,
+          issue_date,
+          due_date,
+          patients (
+            first_name,
+            last_name
+          ),
+          medical_aid_details (
+            provider
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      const formattedInvoices: Invoice[] = (invoiceData || []).map(inv => ({
+        id: inv.id,
+        invoice_number: inv.invoice_number,
+        patient_name: `${inv.patients?.first_name || ''} ${inv.patients?.last_name || ''}`.trim(),
+        amount: parseFloat(inv.total || '0'),
+        status: inv.payment_status === 'paid' ? 'paid' : 
+                inv.payment_status === 'partial' ? 'partial' : 'unpaid',
+        created_at: inv.issue_date,
+        due_date: inv.due_date,
+        medical_aid: inv.medical_aid_details?.[0]?.provider || 'Self Pay'
+      }));
       
-      setInvoices(sampleInvoices);
+      setInvoices(formattedInvoices);
     } catch (error) {
       console.error('Error fetching invoice data:', error);
     } finally {
