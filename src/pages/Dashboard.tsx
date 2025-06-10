@@ -869,28 +869,6 @@ function Dashboard() {
                       Today: {todayAppointments.length} appointments • {completedToday} completed • {pendingAppointments.length} pending
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-lg">
-                    {['total', 'completed', 'pending', 'cancelled'].map((status) => (
-                      <button
-                        key={status}
-                        onClick={() => {
-                          const statusMap: Record<string, any> = {
-                            total: 'scheduled',
-                            completed: 'completed',
-                            pending: 'pending',
-                            cancelled: 'cancelled'
-                          };
-                          setGridViewStatus(statusMap[status] || 'pending');
-                          setShowGridView(true);
-                        }}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all capitalize ${
-                          'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-                        }`}
-                      >
-                        {status}
-                      </button>
-                    ))}
-                  </div>
                 </div>
               </div>
             </div>

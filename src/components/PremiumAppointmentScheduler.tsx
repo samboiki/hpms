@@ -944,6 +944,20 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
           ))}
         </div>
 
+        {/* Appointment Status Filters */}
+        <div className="flex items-center justify-center mb-4">
+          <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-lg">
+            {['total', 'completed', 'pending', 'cancelled'].map((status) => (
+              <button
+                key={status}
+                className="px-3 py-1.5 text-xs font-medium rounded-md transition-all capitalize text-gray-600 hover:text-gray-900 hover:bg-white/50"
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Navigation and filters */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
