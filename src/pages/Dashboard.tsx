@@ -14,7 +14,10 @@ import {
   ChevronRight,
   Bell,
   DollarSign,
-  TrendingUp
+  TrendingUp,
+  Expand,
+  Minimize,
+  Building2
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -110,6 +113,8 @@ function Dashboard() {
     isOpen: boolean;
     type: 'patients' | 'notifications' | 'encounters' | 'finance' | null;
   }>({ isOpen: false, type: null });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [appointmentStatusFilter, setAppointmentStatusFilter] = useState<'all' | 'total' | 'completed' | 'pending' | 'cancelled'>('all');
   const navigate = useNavigate();
 
   // Real-time appointment updates
@@ -419,6 +424,26 @@ function Dashboard() {
 
   useEffect(() => {
     fetchData();
+  }, []);
+
+  // Fullscreen functionality
+  const toggleFullscreen = () => {
+    if (!isFullscreen) {
+      document.documentElement.requestFullscreen?.();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen?.();
+      setIsFullscreen(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
 
@@ -795,19 +820,86 @@ function Dashboard() {
         <div className="bg-white/60 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">
           <div className="p-4 md:p-5">
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
-              <div>
-                <h1 className="text-2xl font-semibold text-gray-800">Dashboard</h1>
-                <p className="text-sm text-gray-500 mt-0.5">Welcome back! Here's your practice overview</p>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                  {/* Practice Logo */}
+                  <div className="p-2 bg-gradient-to-br from-[#01b9d5] to-cyan-600 rounded-xl shadow-md">
+                    <Building2 className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-semibold text-gray-800">Dashboard</h1>
+                    <p className="text-sm text-gray-500 mt-0.5">Welcome back! Here's your practice overview</p>
+                  </div>
+                </div>
               </div>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full lg:w-auto bg-[#01b9d5] text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#01b9d5]/20 transition-all duration-200 font-medium text-sm"
-                onClick={() => setIsAddAppointmentModalOpen(true)}
-              >
-                <Plus className="w-4 h-4" />
-                New Appointment
-              </motion.button>
+              <div className="flex items-center gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="p-2 bg-gray-200 hover:bg-gray-300 rounded-lg transition-all duration-200"
+                  onClick={toggleFullscreen}
+                  title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                >
+                  {isFullscreen ? (
+                    <Minimize className="w-5 h-5 text-gray-700" />
+                  ) : (
+                    <Expand className="w-5 h-5 text-gray-700" />
+                  )}
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="bg-[#01b9d5] text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#01b9d5]/20 transition-all duration-200 font-medium text-sm"
+                  onClick={() => setIsAddAppointmentModalOpen(true)}
+                >
+                  <Plus className="w-4 h-4" />
+                  New Appointment
+                </motion.button>
+              </div>
+            </div>
+
+            {/* Appointment Status Tabs */}
+            <div className="mt-6 mb-4">
+              <div className="flex items-center gap-2 p-1 bg-gray-100 rounded-lg inline-flex">
+                {[
+                  { id: 'all', label: 'All', count: appointments.length },
+                  { id: 'total', label: 'Total', count: todayAppointments.length },
+                  { id: 'completed', label: 'Completed', count: completedToday },
+                  { id: 'pending', label: 'Pending', count: pendingAppointments.length },
+                  { id: 'cancelled', label: 'Cancelled', count: appointments.filter(apt => apt.status === 'cancelled').length }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setAppointmentStatusFilter(tab.id as any);
+                      if (tab.id !== 'all') {
+                        const statusMap: Record<string, any> = {
+                          total: 'scheduled',
+                          completed: 'completed',
+                          pending: 'pending',
+                          cancelled: 'cancelled'
+                        };
+                        setGridViewStatus(statusMap[tab.id] || 'pending');
+                        setShowGridView(true);
+                      }
+                    }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md transition-all text-sm font-medium ${
+                      appointmentStatusFilter === tab.id
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                      appointmentStatusFilter === tab.id
+                        ? 'bg-[#01b9d5] text-white'
+                        : 'bg-gray-200 text-gray-700'
+                    }`}>
+                      {tab.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Premium Dashboard Stats */}
@@ -839,31 +931,110 @@ function Dashboard() {
                   onClick={() => setSelectedReportModal({ isOpen: true, type: 'patients' })}
                 />,
                 
-                // Notifications Card
-                <PremiumStatCard
+                // Notifications Card (Dark Theme)
+                <div
                   key="notifications"
-                  title="Notifications"
-                  mainValue={dashboardStats.notifications.total}
-                  subtitle="Active notifications"
-                  icon={Bell}
-                  gradient="from-amber-500 to-orange-600"
-                  stats={[
-                    { label: 'Unread', value: dashboardStats.notifications.unread, color: '#F59E0B' },
-                    { label: 'Urgent', value: dashboardStats.notifications.urgent, color: '#EF4444' },
-                    { label: 'Today', value: dashboardStats.notifications.weeklyData[6], color: '#10B981' },
-                    { label: 'Types', value: dashboardStats.notifications.types.length, color: '#8B5CF6' }
-                  ]}
-                  miniChart={{
-                    type: 'bar',
-                    data: dashboardStats.notifications.weeklyData
-                  }}
-                  trend={{
-                    value: `${dashboardStats.notifications.unread} unread`,
-                    isPositive: false
-                  }}
-                  unsplashQuery="notification-bell-communication"
+                  className="relative group cursor-pointer"
                   onClick={() => setSelectedReportModal({ isOpen: true, type: 'notifications' })}
-                />,
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    whileHover={{ y: -4, scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="relative bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-700/50"
+                  >
+                    {/* Background Pattern */}
+                    <div className="absolute top-2 right-2 opacity-10 group-hover:opacity-20 transition-opacity duration-300">
+                      <Bell className="w-20 h-20 text-white" />
+                    </div>
+                    
+                    {/* Background Image */}
+                    <div className="absolute inset-0 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
+                      <img
+                        src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop&auto=format&q=80"
+                        alt=""
+                        className="w-full h-full object-cover"
+                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                      />
+                    </div>
+                    
+                    <div className="relative p-4 z-10">
+                      {/* Header */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-md">
+                            <Bell className="w-5 h-5 text-white" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-white" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                            notifications
+                          </h3>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="text-xs text-gray-400 font-medium">
+                            <span className="opacity-60">↗</span>
+                            <span className="ml-1">{dashboardStats.notifications.unread} unread</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-300 transition-colors" />
+                        </div>
+                      </div>
+                      
+                      {/* Main Value */}
+                      <div>
+                        <p className="text-3xl font-bold text-white mb-1" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                          {dashboardStats.notifications.total}
+                        </p>
+                        <p className="text-sm text-gray-400 font-medium">Active notifications</p>
+                      </div>
+
+                      {/* Stats Grid */}
+                      <div className="grid grid-cols-2 gap-2 mt-4">
+                        {[
+                          { label: 'Unread', value: dashboardStats.notifications.unread, color: '#F59E0B' },
+                          { label: 'Urgent', value: dashboardStats.notifications.urgent, color: '#EF4444' },
+                          { label: 'Today', value: dashboardStats.notifications.weeklyData[6], color: '#10B981' },
+                          { label: 'Types', value: dashboardStats.notifications.types.length, color: '#8B5CF6' }
+                        ].map((stat, index) => (
+                          <div 
+                            key={index} 
+                            className="text-center rounded-lg py-2 px-2 border border-gray-600/50 bg-black/20 backdrop-blur-sm"
+                            style={{ backgroundColor: `${stat.color}15` }}
+                          >
+                            <p className="text-sm font-bold text-white" style={{ color: stat.color }}>
+                              {stat.value}
+                            </p>
+                            <p className="text-[11px] text-gray-400 font-medium leading-tight">{stat.label}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Mini Chart */}
+                      <div className="mt-4">
+                        <div className="p-3 bg-black/20 rounded-lg border border-gray-600/30">
+                          <div className="flex items-end justify-between h-8 gap-0.5">
+                            {dashboardStats.notifications.weeklyData.map((value, index) => {
+                              const height = (value / Math.max(...dashboardStats.notifications.weeklyData)) * 100;
+                              return (
+                                <div
+                                  key={index}
+                                  className="flex-1 flex flex-col justify-end"
+                                >
+                                  <div
+                                    className="rounded-t-sm bg-gradient-to-t from-amber-500 to-orange-600 opacity-80"
+                                    style={{ height: `${height}%` }}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Bottom accent */}
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 to-orange-600 opacity-60 group-hover:opacity-80 transition-opacity duration-300"></div>
+                  </motion.div>
+                </div>,
                 
                 // Encounters Card
                 <PremiumStatCard
@@ -880,7 +1051,7 @@ function Dashboard() {
                     { label: 'Types', value: dashboardStats.encounters.types.length, color: '#8B5CF6' }
                   ]}
                   miniChart={{
-                    type: 'line',
+                    type: 'bar',
                     data: dashboardStats.encounters.monthlyData
                   }}
                   trend={{
@@ -895,22 +1066,22 @@ function Dashboard() {
                 <PremiumStatCard
                   key="finance"
                   title="Finance"
-                  mainValue={`N$${(dashboardStats.finance.totalRevenue / 1000).toFixed(1)}k`}
+                  mainValue={`N$${dashboardStats.finance.totalRevenue.toLocaleString()}`}
                   subtitle="Total revenue"
                   icon={DollarSign}
                   gradient="from-purple-500 to-indigo-600"
                   stats={[
-                    { label: 'This Month', value: `N$${(dashboardStats.finance.thisMonth / 1000).toFixed(1)}k`, color: '#8B5CF6' },
-                    { label: 'Outstanding', value: `N$${(dashboardStats.finance.outstanding / 1000).toFixed(1)}k`, color: '#EF4444' },
+                    { label: 'This Month', value: `N$${dashboardStats.finance.thisMonth.toLocaleString()}`, color: '#8B5CF6' },
+                    { label: 'Outstanding', value: `N$${dashboardStats.finance.outstanding.toLocaleString()}`, color: '#EF4444' },
                     { label: 'Paid', value: dashboardStats.finance.paidInvoices, color: '#10B981' },
                     { label: 'Unpaid', value: dashboardStats.finance.unpaidInvoices, color: '#F59E0B' }
                   ]}
                   miniChart={{
                     type: 'bar',
-                    data: dashboardStats.finance.revenueData.map(v => v / 1000)
+                    data: dashboardStats.finance.revenueData
                   }}
                   trend={{
-                    value: `N$${(dashboardStats.finance.thisMonth / 1000).toFixed(1)}k`,
+                    value: `N$${dashboardStats.finance.thisMonth.toLocaleString()}`,
                     isPositive: dashboardStats.finance.thisMonth > 0
                   }}
                   unsplashQuery="money-finance-calculator"

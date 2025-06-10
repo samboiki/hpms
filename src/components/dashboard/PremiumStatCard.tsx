@@ -43,6 +43,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
   trend,
   unsplashQuery
 }) => {
+  const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
+  
   // Convert title to camelCase
   const camelCaseTitle = title.replace(/\s+(.)/g, (match, letter) => letter.toUpperCase()).replace(/^\w/, c => c.toLowerCase());
   const renderMiniChart = () => {
@@ -118,14 +120,28 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
               {/* Data points */}
               {miniChart.data.map((value, index) => {
                 const height = ((value - minValue) / (maxValue - minValue)) * 75;
+                const monthLabels = ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'];
                 return (
                   <div
                     key={index}
-                    className="relative flex-1 flex justify-center"
+                    className="relative flex-1 flex justify-center group"
                     style={{ height: '32px' }}
+                    onMouseEnter={() => setHoveredIndex(index)}
+                    onMouseLeave={() => setHoveredIndex(null)}
                   >
+                    {/* Tooltip */}
+                    {hoveredIndex === index && (
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-10">
+                        <div className="bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap">
+                          <div className="font-medium">{monthLabels[index]}</div>
+                          <div>{value} {title === 'Patients' ? 'new patients' : 'visits'}</div>
+                        </div>
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-gray-900"></div>
+                      </div>
+                    )}
+                    
                     <div
-                      className="absolute bottom-0 w-1 h-1 rounded-full shadow-lg opacity-80"
+                      className="absolute bottom-0 w-2 h-2 rounded-full shadow-lg opacity-80 cursor-pointer transition-all duration-200 hover:w-3 hover:h-3"
                       style={{ bottom: `${height}%`, backgroundColor: lineColor }}
                     />
                   </div>
@@ -140,16 +156,31 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                         gradient.includes('amber') ? '#F59E0B' :
                         gradient.includes('emerald') ? '#10B981' : '#8B5CF6';
         
+        const monthLabels = ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'];
+        
         return (
-          <div className="mt-2">
+          <div className="mt-2 relative">
             <div className="flex items-end justify-between h-8 gap-0.5">
               {miniChart.data.map((value, index) => {
                 const height = (value / maxValue) * 100;
                 return (
                   <div
                     key={index}
-                    className="relative flex-1 flex flex-col justify-end"
+                    className="relative flex-1 flex flex-col justify-end group"
+                    onMouseEnter={() => setHoveredIndex(index)}
+                    onMouseLeave={() => setHoveredIndex(null)}
                   >
+                    {/* Tooltip */}
+                    {hoveredIndex === index && (
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-10">
+                        <div className="bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap">
+                          <div className="font-medium">{monthLabels[index]}</div>
+                          <div>{title === 'Finance' ? `N$${value.toLocaleString()}` : value}</div>
+                        </div>
+                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-gray-900"></div>
+                      </div>
+                    )}
+                    
                     {/* Glow effect */}
                     <div
                       className="absolute bottom-0 left-0 right-0 rounded-t-sm opacity-20 blur-sm"
@@ -157,7 +188,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                     />
                     {/* Main bar */}
                     <div
-                      className="rounded-t-sm relative overflow-hidden"
+                      className="rounded-t-sm relative overflow-hidden cursor-pointer transition-all duration-200 hover:opacity-80"
                       style={{ 
                         height: `${height}%`,
                         background: `linear-gradient(to top, ${barColor}80, ${barColor}40, ${barColor}20)`
@@ -264,8 +295,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
             <img
               src={(() => {
                 const imageMap: { [key: string]: string } = {
-                  'medical-patients-healthcare': 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=400&h=300&fit=crop&auto=format&q=80',
-                  'notification-bell-communication': 'https://images.unsplash.com/photo-1558021211-91e129c0e983?w=400&h=300&fit=crop&auto=format&q=80',
+                  'medical-patients-healthcare': 'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=400&h=300&fit=crop&auto=format&q=80',
+                  'notification-bell-communication': 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop&auto=format&q=80',
                   'medical-consultation-stethoscope': 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=300&fit=crop&auto=format&q=80',
                   'money-finance-calculator': 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&h=300&fit=crop&auto=format&q=80'
                 };
