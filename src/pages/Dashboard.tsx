@@ -833,7 +833,9 @@ function Dashboard() {
                   <div>
                     <h1 className="text-2xl font-semibold text-gray-800">Dashboard</h1>
                     <p className="text-sm text-gray-500 mt-0.5">
-                      Welcome back! Here's your practice overview. Today: {todayAppointments.length} appointments • {completedToday} completed • {pendingAppointments.length} pending
+                      Welcome back! Here's your practice overview. Today you have {todayAppointments.length} appointments scheduled with {completedToday} already completed and {pendingAppointments.length} still pending approval. 
+                      Your practice currently manages {patients.length} active patients with {labRequests.length} pending lab requests and {mediaRequests.length} media uploads awaiting review. 
+                      Overall, you have {inProgressAppointments.length} patients currently in consultation and {appointments.filter(apt => apt.status === 'cancelled').length} cancelled appointments requiring follow-up.
                     </p>
                   </div>
                 </div>
