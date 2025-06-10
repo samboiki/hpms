@@ -546,27 +546,27 @@ const PremiumAppointmentSchedule: React.FC<PremiumAppointmentScheduleProps> = ({
           {/* Quick Stats */}
           {stats && (
             <div className="grid grid-cols-5 gap-2">
-              <div className="bg-white/50 rounded-lg px-3 py-1.5 text-center">
-                <p className="text-xs text-gray-500">Total</p>
-                <p className="text-lg font-bold text-gray-900">{stats.total}</p>
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg px-3 py-1.5 text-center">
+                <p className="text-xs text-blue-600 font-medium">Total</p>
+                <p className="text-lg font-bold text-blue-800">{stats.total}</p>
               </div>
-              <div className="bg-blue-50 rounded-lg px-3 py-1.5 text-center">
-                <p className="text-xs text-blue-600">Scheduled</p>
-                <p className="text-lg font-bold text-blue-700">{stats.pending}</p>
+              <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200 rounded-lg px-3 py-1.5 text-center">
+                <p className="text-xs text-emerald-600 font-medium">Completed</p>
+                <p className="text-lg font-bold text-emerald-800">{stats.completed}</p>
               </div>
-              <div className="bg-purple-50 rounded-lg px-3 py-1.5 text-center">
-                <p className="text-xs text-purple-600">In Progress</p>
-                <p className="text-lg font-bold text-purple-700">
-                  {appointments.filter(a => a.status === 'in-progress').length}
+              <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-lg px-3 py-1.5 text-center">
+                <p className="text-xs text-amber-600 font-medium">Pending</p>
+                <p className="text-lg font-bold text-amber-800">{stats.pending}</p>
+              </div>
+              <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-lg px-3 py-1.5 text-center">
+                <p className="text-xs text-red-600 font-medium">Cancelled</p>
+                <p className="text-lg font-bold text-red-800">
+                  {appointments.filter(a => a.status === 'cancelled').length}
                 </p>
               </div>
-              <div className="bg-green-50 rounded-lg px-3 py-1.5 text-center">
-                <p className="text-xs text-green-600">Completed</p>
-                <p className="text-lg font-bold text-green-700">{stats.completed}</p>
-              </div>
-              <div className="bg-gray-50 rounded-lg px-3 py-1.5 text-center">
-                <p className="text-xs text-gray-600">Completion</p>
-                <p className="text-lg font-bold text-gray-700">{stats.completionRate}%</p>
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg px-3 py-1.5 text-center">
+                <p className="text-xs text-purple-600 font-medium">Rate</p>
+                <p className="text-lg font-bold text-purple-800">{stats.completionRate}%</p>
               </div>
             </div>
           )}
@@ -596,14 +596,14 @@ const PremiumAppointmentSchedule: React.FC<PremiumAppointmentScheduleProps> = ({
         </div>
 
         {/* Appointments Area - Completely separated */}
-        <div className="flex-1 relative overflow-y-auto bg-white" ref={scheduleRef}>
+        <div className="flex-1 relative overflow-y-auto bg-gradient-to-b from-gray-50 to-gray-100" ref={scheduleRef}>
           {/* Hour grid lines */}
           {timeSlots.map((slot, index) => (
             <div
               key={`grid-${slot.time}`}
               className={`absolute w-full ${
-                slot.minute === 0 ? 'border-b border-gray-200' : 
-                slot.minute === 30 ? 'border-b border-gray-100' : ''
+                slot.minute === 0 ? 'border-b border-gray-300' : 
+                slot.minute === 30 ? 'border-b border-gray-200' : ''
               }`}
               style={{ 
                 top: `${index * (HOUR_HEIGHT / 4)}px`, 

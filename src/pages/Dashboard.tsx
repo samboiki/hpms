@@ -40,6 +40,7 @@ import { toast } from 'react-hot-toast';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
 import PremiumStatCard from '../components/dashboard/PremiumStatCard';
 import DetailedReportModal from '../components/modals/DetailedReportModal';
+import PracticeOverviewTile from '../components/dashboard/PracticeOverviewTile';
 import { dashboardStatsService, DashboardStats } from '../services/dashboardStatsService';
 
 interface Appointment {
@@ -832,11 +833,7 @@ function Dashboard() {
                   </div>
                   <div>
                     <h1 className="text-2xl font-semibold text-gray-800">Dashboard</h1>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      Welcome back! Here's your practice overview. Today you have {todayAppointments.length} appointments scheduled with {completedToday} already completed and {pendingAppointments.length} still pending approval. 
-                      Your practice currently manages {patients.length} active patients with {labRequests.length} pending lab requests and {mediaRequests.length} media uploads awaiting review. 
-                      Overall, you have {inProgressAppointments.length} patients currently in consultation and {appointments.filter(apt => apt.status === 'cancelled').length} cancelled appointments requiring follow-up.
-                    </p>
+                    <p className="text-sm text-gray-500 mt-0.5">Welcome back! Here's your practice dashboard</p>
                   </div>
                 </div>
               </div>
@@ -1113,7 +1110,18 @@ function Dashboard() {
 
           {/* Right Section (4 columns) */}
           <div className="col-span-12 lg:col-span-4 space-y-4 md:space-y-6">
-            {/* Notifications - FIRST */}
+            {/* Practice Overview - FIRST */}
+            <PracticeOverviewTile
+              practiceStats={{
+                totalPatients: patients.length,
+                todayAppointments: todayAppointments.length,
+                completedToday: completedToday,
+                pendingAppointments: pendingAppointments.length,
+                revenue: dashboardStats?.finance.thisMonth
+              }}
+            />
+
+            {/* Notifications - SECOND */}
             <NotificationsPanel
               notifications={notifications}
               onNotificationAction={(notificationId, action) => {
@@ -1131,7 +1139,7 @@ function Dashboard() {
               }}
             />
 
-            {/* Quick Actions - SECOND */}
+            {/* Quick Actions - THIRD */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
