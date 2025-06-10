@@ -154,55 +154,84 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
       case 'bar':
         const barColor = gradient.includes('blue') ? '#3B82F6' : 
                         gradient.includes('amber') ? '#F59E0B' :
-                        gradient.includes('emerald') ? '#10B981' : '#8B5CF6';
+                        gradient.includes('emerald') ? '#10B981' : 
+                        gradient.includes('purple') ? '#8B5CF6' : '#3B82F6';
         
-        const monthLabels = ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'];
+        // Dynamic labels based on card type
+        const getLabels = () => {
+          if (title === 'Communication') return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+          if (title === 'Finance' || title === 'Encounters') return ['6mo', '5mo', '4mo', '3mo', '2mo', '1mo'];
+          return ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'];
+        };
+        
+        const labels = getLabels();
         
         return (
-          <div className="mt-2 relative">
-            <div className="flex items-end justify-between h-8 gap-0.5">
-              {miniChart.data.map((value, index) => {
-                const height = (value / maxValue) * 100;
-                return (
-                  <div
-                    key={index}
-                    className="relative flex-1 flex flex-col justify-end group"
-                    onMouseEnter={() => setHoveredIndex(index)}
-                    onMouseLeave={() => setHoveredIndex(null)}
-                  >
-                    {/* Tooltip */}
-                    {hoveredIndex === index && (
-                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-10">
-                        <div className="bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap">
-                          <div className="font-medium">{monthLabels[index]}</div>
-                          <div>{title === 'Finance' ? `N$${value.toLocaleString()}` : value}</div>
-                        </div>
-                        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-gray-900"></div>
-                      </div>
-                    )}
-                    
-                    {/* Glow effect */}
+          <div className="mt-3 relative">
+            {/* Enhanced bar chart container */}
+            <div className="relative p-3 bg-white/20 rounded-lg border border-gray-200/30 backdrop-blur-sm">
+              <div className="flex items-end justify-between h-12 gap-1">
+                {miniChart.data.map((value, index) => {
+                  const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
+                  return (
                     <div
-                      className="absolute bottom-0 left-0 right-0 rounded-t-sm opacity-20 blur-sm"
-                      style={{ height: `${height}%`, backgroundColor: barColor }}
-                    />
-                    {/* Main bar */}
-                    <div
-                      className="rounded-t-sm relative overflow-hidden cursor-pointer transition-all duration-200 hover:opacity-80"
-                      style={{ 
-                        height: `${height}%`,
-                        background: `linear-gradient(to top, ${barColor}80, ${barColor}40, ${barColor}20)`
-                      }}
+                      key={index}
+                      className="relative flex-1 flex flex-col justify-end group"
+                      onMouseEnter={() => setHoveredIndex(index)}
+                      onMouseLeave={() => setHoveredIndex(null)}
                     >
-                      {/* Shimmer effect */}
-                      <div 
-                        className="absolute inset-0 bg-gradient-to-r from-transparent to-transparent transform skew-x-12 animate-pulse"
-                        style={{ background: `linear-gradient(to right, transparent, ${barColor}30, transparent)` }}
+                      {/* Enhanced tooltip */}
+                      {hoveredIndex === index && (
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-3 z-20">
+                          <div className="bg-gray-900/95 backdrop-blur-sm text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-xl border border-gray-700">
+                            <div className="font-semibold text-gray-100">{labels[index]}</div>
+                            <div className="font-bold" style={{ color: barColor }}>
+                              {title === 'Finance' ? `N$${value.toLocaleString()}` : 
+                               title === 'Communication' ? `${value} messages` :
+                               title === 'Encounters' ? `${value} visits` : value}
+                            </div>
+                          </div>
+                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-gray-900"></div>
+                        </div>
+                      )}
+                      
+                      {/* Enhanced glow effect */}
+                      <div
+                        className="absolute bottom-0 left-0 right-0 rounded-t-md opacity-30 blur-sm"
+                        style={{ height: `${height}%`, backgroundColor: barColor }}
                       />
+                      
+                      {/* Enhanced main bar */}
+                      <div
+                        className="rounded-t-md relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg"
+                        style={{ 
+                          height: `${Math.max(height, 8)}%`, // Minimum height for visibility
+                          background: `linear-gradient(to top, ${barColor}90, ${barColor}60, ${barColor}40)`,
+                          boxShadow: `0 0 8px ${barColor}40`
+                        }}
+                      >
+                        {/* Enhanced shimmer effect */}
+                        <div 
+                          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent transform skew-x-12 animate-pulse"
+                        />
+                        
+                        {/* Value indicator for small bars */}
+                        {height < 20 && value > 0 && (
+                          <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-1 h-1 rounded-full" style={{ backgroundColor: barColor }}></div>
+                        )}
+                      </div>
+                      
+                      {/* Bar labels */}
+                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-[9px] font-medium text-gray-600 whitespace-nowrap">
+                        {labels[index]}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+              
+              {/* Chart baseline */}
+              <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-300/50"></div>
             </div>
           </div>
         );
