@@ -106,6 +106,7 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'camera'>('upload');
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isCameraLoading, setIsCameraLoading] = useState(false);
   const [selectedDocumentType, setSelectedDocumentType] = useState('general_photo');
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -155,25 +156,68 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
   };
 
   const startCamera = async () => {
+    setIsCameraLoading(true);
     try {
       console.log('📷 Starting camera...');
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-          facingMode: 'environment' // Prefer back camera for document scanning
-        } 
-      });
+      
+      // Check if mediaDevices is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera API not supported in this browser');
+      }
+      
+      // Try with back camera first, fallback to any camera
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 },
+            facingMode: 'environment' // Prefer back camera for document scanning
+          } 
+        });
+      } catch (backCameraError) {
+        console.log('⚠️ Back camera not available, trying any camera...');
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            width: { ideal: 1280, max: 1920 },
+            height: { ideal: 720, max: 1080 }
+          } 
+        });
+      }
       
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
-        setIsCameraActive(true);
+        
+        // Wait for video to load
+        videoRef.current.onloadedmetadata = () => {
+          console.log('✅ Camera stream loaded');
+          setIsCameraActive(true);
+          setIsCameraLoading(false);
+        };
+        
+        // Play the video
+        await videoRef.current.play();
         console.log('✅ Camera started successfully');
       }
     } catch (error) {
+      setIsCameraLoading(false);
       console.error('❌ Camera access failed:', error);
-      toast.error('Camera access denied. Please allow camera permissions.');
+      
+      let errorMessage = 'Camera access failed. ';
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          errorMessage += 'Please allow camera permissions in your browser.';
+        } else if (error.name === 'NotFoundError') {
+          errorMessage += 'No camera found on this device.';
+        } else if (error.name === 'NotSupportedError') {
+          errorMessage += 'Camera is not supported in this browser.';
+        } else {
+          errorMessage += error.message;
+        }
+      }
+      
+      toast.error(errorMessage);
     }
   };
 
@@ -183,6 +227,7 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
       streamRef.current = null;
     }
     setIsCameraActive(false);
+    setIsCameraLoading(false);
     console.log('🔌 Camera stopped');
   };
 
@@ -231,7 +276,7 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
 
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      const img = new Image();
+      const img = document.createElement('img'); // Fix: Use document.createElement instead of new Image()
 
       img.onload = () => {
         // Set thumbnail size
@@ -259,6 +304,15 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
         } else {
           resolve('');
         }
+        
+        // Clean up object URL
+        URL.revokeObjectURL(img.src);
+      };
+
+      img.onerror = () => {
+        console.error('Failed to load image for thumbnail generation');
+        URL.revokeObjectURL(img.src);
+        resolve('');
       };
 
       img.src = URL.createObjectURL(file);
@@ -664,6 +718,7 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
     setIsAuthenticated(false);
     setCurrentUser(null);
     setActiveTab('upload');
+    setIsCameraLoading(false);
     onClose();
   };
 
@@ -801,15 +856,24 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
 
                 {/* Camera Interface */}
                 <div className="bg-black rounded-lg overflow-hidden relative">
-                  {!isCameraActive ? (
+                  {!isCameraActive && !isCameraLoading ? (
                     <div className="aspect-video flex items-center justify-center">
                       <button
                         onClick={startCamera}
-                        className="px-6 py-3 bg-[#01b9d4] text-white rounded-lg hover:bg-[#01a5c4] transition-colors flex items-center gap-2"
+                        disabled={isCameraLoading}
+                        className="px-6 py-3 bg-[#01b9d4] text-white rounded-lg hover:bg-[#01a5c4] transition-colors flex items-center gap-2 disabled:opacity-50"
                       >
                         <Camera className="w-5 h-5" />
                         Start Camera
                       </button>
+                    </div>
+                  ) : isCameraLoading ? (
+                    <div className="aspect-video flex items-center justify-center">
+                      <div className="text-white text-center">
+                        <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                        <p>Starting camera...</p>
+                        <p className="text-sm text-gray-300 mt-1">Please allow camera permissions</p>
+                      </div>
                     </div>
                   ) : (
                     <div className="relative">
