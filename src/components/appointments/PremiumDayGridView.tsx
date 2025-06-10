@@ -402,7 +402,7 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                                     e.stopPropagation();
                                     setExpandedAppointment(isExpanded ? null : appointment.id);
                                   }}
-                                  className="p-1 hover:bg-gray-100 rounded transition-colors"
+                                  className="p-1 hover:bg-gray-600 rounded transition-colors"
                                 >
                                   <ChevronDown className={cn(
                                     "w-3 h-3 text-gray-400 transition-transform",
@@ -420,16 +420,16 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                                   animate={{ height: 'auto', opacity: 1 }}
                                   exit={{ height: 0, opacity: 0 }}
                                   transition={{ duration: 0.2 }}
-                                  className="mt-2 pt-2 border-t border-gray-100"
+                                  className="mt-2 pt-2 border-t border-gray-500"
                                 >
                                   {appointment.patient?.cell_number && (
-                                    <div className="flex items-center gap-1 text-xs text-gray-600 mb-1">
+                                    <div className="flex items-center gap-1 text-xs text-gray-300 mb-1">
                                       <Phone className="w-3 h-3" />
                                       {appointment.patient.cell_number}
                                     </div>
                                   )}
                                   {appointment.patient?.medical_aid_details && (
-                                    <div className="flex items-center gap-1 text-xs text-gray-600 mb-1">
+                                    <div className="flex items-center gap-1 text-xs text-gray-300 mb-1">
                                       <Shield className="w-3 h-3" />
                                       <span className="font-medium">
                                         {appointment.patient.medical_aid_details.provider}
@@ -442,14 +442,14 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                                     </div>
                                   )}
                                   {appointment.notes && (
-                                    <p className="text-xs text-gray-500 line-clamp-2 mt-1">
+                                    <p className="text-xs text-gray-300 line-clamp-2 mt-1">
                                       {appointment.notes}
                                     </p>
                                   )}
                                   
                                   {/* Mark Ready button for scheduled appointments */}
                                   {appointment.status === 'scheduled' && onMarkReady && (
-                                    <div className="mt-2 pt-2 border-t border-gray-100">
+                                    <div className="mt-2 pt-2 border-t border-gray-600">
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();

@@ -175,13 +175,16 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         
         return (
           <div className="mt-3 relative">
+            <div className="text-xs text-red-500 mb-2">
+              Bar Chart Debug: Data={JSON.stringify(chartData)}, Max={maxValue}
+            </div>
             {/* Enhanced bar chart container */}
-            <div className="relative p-3 bg-white/40 rounded-lg border border-gray-200/30 backdrop-blur-sm">
-              <div className="flex items-end justify-between h-16 gap-1 mb-4">
+            <div className="relative p-3 bg-white/80 rounded-lg border-2 border-blue-300 backdrop-blur-sm">
+              <div className="flex items-end justify-between h-20 gap-1 mb-4 bg-gray-100 rounded">
                 {chartData.map((value, index) => {
                   // Calculate height as percentage of container, but ensure minimum visibility
                   const heightPercentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
-                  const height = Math.max(heightPercentage, value > 0 ? 15 : 0); // 15% minimum for visible bars, 0% for zero values
+                  const height = Math.max(heightPercentage, value > 0 ? 20 : 5); // 20% minimum for visible bars, 5% for zero values
                   return (
                     <div
                       key={index}
@@ -204,20 +207,17 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                         </div>
                       )}
                       
-                      {/* Enhanced glow effect */}
-                      <div
-                        className="absolute bottom-0 left-0 right-0 rounded-t-md opacity-20 blur-sm"
-                        style={{ 
-                          height: `${height}%`, 
-                          backgroundColor: barColor 
-                        }}
-                      />
+                      {/* Debug info */}
+                      <div className="absolute -top-4 left-0 text-[8px] text-red-500">
+                        {value}→{height.toFixed(0)}%
+                      </div>
                       
                       {/* Enhanced main bar with proportional height */}
                       <div
-                        className="rounded-t-md relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg w-full"
+                        className="rounded-t-md relative overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 hover:shadow-lg w-full border-2 border-red-500"
                         style={{ 
                           height: `${height}%`,
+                          minHeight: '10px',
                           backgroundColor: barColor,
                           background: `linear-gradient(to top, ${barColor}, ${barColor}CC, ${barColor}99)`,
                           boxShadow: `0 2px 4px ${barColor}40`
@@ -415,6 +415,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
             {miniChart && (
               <div className="mt-4">
                 <div className="p-3 bg-white/50 rounded-lg border border-gray-200/30">
+                  <div className="text-xs text-gray-500 mb-2">Chart: {miniChart.type}</div>
                   {renderMiniChart()}
                 </div>
               </div>
