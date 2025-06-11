@@ -916,7 +916,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
         <div className="space-y-4">
           {/* Header with controls */}
           <div className="flex items-start justify-between mb-8">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
                 <Package className="w-6 h-6 text-gray-600" />
               </div>
@@ -1010,7 +1010,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
       <div className="space-y-4">
         {/* Header with controls */}
         <div className="flex items-start justify-between mb-8">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
               <Package className="w-6 h-6 text-gray-600" />
             </div>
