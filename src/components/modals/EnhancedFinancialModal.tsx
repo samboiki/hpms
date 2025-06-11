@@ -142,6 +142,20 @@ const COLORS = {
 
 const PIE_COLORS = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#EC4899'];
 
+// Heartbeat animation styles
+const heartbeatStyles = `
+  @keyframes heartbeat {
+    0% { transform: scale(1); }
+    14% { transform: scale(1.15); }
+    28% { transform: scale(1); }
+    42% { transform: scale(1.15); }
+    70% { transform: scale(1); }
+  }
+  .heartbeat-ring {
+    animation: heartbeat 1.5s infinite;
+  }
+`;
+
 // Medical aid theme colors mapping
 const MEDICAL_AID_THEMES: Record<string, string> = {
   'MAG1': '#76a5af',
@@ -192,6 +206,23 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
   onClose,
   data
 }) => {
+  // Inject heartbeat animation styles
+  React.useEffect(() => {
+    const styleId = 'heartbeat-animation-styles';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = heartbeatStyles;
+      document.head.appendChild(style);
+    }
+    
+    return () => {
+      const existingStyle = document.getElementById(styleId);
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+    };
+  }, []);
   const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'insights' | 'batch-management'>('overview');
   const [dateRange, setDateRange] = useState<'30d' | '3m' | '6m' | '12m'>('30d');
   const [kpis, setKpis] = useState<FinancialKPIs | null>(null);
@@ -199,8 +230,11 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [batchLoading, setBatchLoading] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
-  const [showAllBatches, setShowAllBatches] = useState(false);
-  const [batchFilter, setBatchFilter] = useState<'all' | 'paid' | 'unpaid' | 'active'>('all');
+  const [batchFilters, setBatchFilters] = useState<{paid: boolean, unpaid: boolean, active: boolean}>({
+    paid: false,
+    unpaid: false, 
+    active: true
+  });
   
   const { user, selectedPracticeId } = useAuthStore();
 
@@ -500,17 +534,12 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
       
       // Fetch batch data using practice identifier
       console.log('🔍 Querying batches with practice_number:', practiceIdentifier);
-      console.log('🔄 Show all batches toggle:', showAllBatches);
+      console.log('🔄 Batch filters:', batchFilters);
       
       let query = supabase
         .from('batch_management_view')
         .select('*')
         .eq('practice_number', practiceIdentifier);
-      
-      // Only filter by 'active' status if showAllBatches is false
-      if (!showAllBatches) {
-        query = query.eq('status', 'active');
-      }
       
       const { data: batchData, error: batchError } = await query
         .order('created_at', { ascending: false });
@@ -565,7 +594,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     } finally {
       setBatchLoading(false);
     }
-  }, [selectedPracticeId, user, showAllBatches]);
+  }, [selectedPracticeId, user, batchFilters]);
 
   useEffect(() => {
     if (isOpen) {
@@ -595,7 +624,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
       console.log('🔄 Filter changed, refetching batch data');
       fetchBatchData();
     }
-  }, [batchFilter, activeTab, isOpen, fetchBatchData]);
+  }, [batchFilters, activeTab, isOpen, fetchBatchData]);
 
   if (!isOpen) return null;
 
@@ -871,25 +900,27 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
       );
     }
 
-    // Filter batches based on the selected filter
+    // Filter batches based on multiple selected filters
     const filteredBatches = batches.filter(batch => {
-      if (batchFilter === 'all') return true;
-      if (batchFilter === 'paid') return batch.status === 'paid';
-      if (batchFilter === 'unpaid') return batch.status === 'unpaid';
-      if (batchFilter === 'active') return batch.status === 'active';
-      return true;
+      // If no filters are active, show nothing
+      if (!batchFilters.paid && !batchFilters.unpaid && !batchFilters.active) return false;
+      
+      // Show if any of the active filters match
+      return (batchFilters.paid && batch.status === 'paid') ||
+             (batchFilters.unpaid && batch.status === 'unpaid') ||
+             (batchFilters.active && batch.status === 'active');
     });
 
     if (filteredBatches.length === 0) {
       return (
         <div className="space-y-4">
           {/* Header with controls */}
-          <div className="flex items-start justify-between mb-6">
-            <div className="flex items-center gap-4">
+          <div className="flex items-start justify-between mb-8">
+            <div className="flex items-center gap-2">
               <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
                 <Package className="w-6 h-6 text-gray-600" />
               </div>
-              <h3 className="text-xl font-bold text-[#4f575e]">
+              <h3 className="text-2xl font-bold text-[#4f575e]">
                 Batches ({filteredBatches.length})
               </h3>
             </div>
@@ -897,38 +928,19 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
             <div className="flex items-center gap-6">
               {/* Filter Toggles */}
               <div className="flex items-center gap-4">
-                {/* Show All Toggle */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600 font-medium">Show All</span>
-                  <div 
-                    className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300 ${
-                      batchFilter === 'all' 
-                        ? 'bg-gradient-to-r from-gray-400 to-gray-500' 
-                        : 'bg-gradient-to-r from-gray-300 to-gray-400'
-                    }`}
-                    onClick={() => setBatchFilter('all')}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
-                        batchFilter === 'all' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
-                      }`}
-                    />
-                  </div>
-                </div>
-
                 {/* Paid Toggle */}
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium" style={{ color: '#01b9d5' }}>Paid</span>
+                  <span className="text-sm font-bold font-rubik" style={{ color: '#01b9d5' }}>Paid</span>
                   <div 
                     className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300`}
                     style={{
-                      backgroundColor: batchFilter === 'paid' ? '#01b9d5' : '#e5e7eb'
+                      backgroundColor: batchFilters.paid ? '#01b9d5' : '#e5e7eb'
                     }}
-                    onClick={() => setBatchFilter('paid')}
+                    onClick={() => setBatchFilters(prev => ({ ...prev, paid: !prev.paid }))}
                   >
                     <span
                       className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
-                        batchFilter === 'paid' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
+                        batchFilters.paid ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
                       }`}
                     />
                   </div>
@@ -936,17 +948,17 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
 
                 {/* Unpaid Toggle */}
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium" style={{ color: '#ec8222' }}>Unpaid</span>
+                  <span className="text-sm font-bold font-rubik" style={{ color: '#ec8222' }}>Unpaid</span>
                   <div 
                     className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300`}
                     style={{
-                      backgroundColor: batchFilter === 'unpaid' ? '#ec8222' : '#e5e7eb'
+                      backgroundColor: batchFilters.unpaid ? '#ec8222' : '#e5e7eb'
                     }}
-                    onClick={() => setBatchFilter('unpaid')}
+                    onClick={() => setBatchFilters(prev => ({ ...prev, unpaid: !prev.unpaid }))}
                   >
                     <span
                       className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
-                        batchFilter === 'unpaid' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
+                        batchFilters.unpaid ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
                       }`}
                     />
                   </div>
@@ -954,17 +966,17 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
 
                 {/* Active Toggle */}
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium" style={{ color: '#6c67f0' }}>Active</span>
+                  <span className="text-sm font-bold font-rubik" style={{ color: '#6c67f0' }}>Active</span>
                   <div 
                     className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300`}
                     style={{
-                      backgroundColor: batchFilter === 'active' ? '#6c67f0' : '#e5e7eb'
+                      backgroundColor: batchFilters.active ? '#6c67f0' : '#e5e7eb'
                     }}
-                    onClick={() => setBatchFilter('active')}
+                    onClick={() => setBatchFilters(prev => ({ ...prev, active: !prev.active }))}
                   >
                     <span
                       className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
-                        batchFilter === 'active' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
+                        batchFilters.active ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
                       }`}
                     />
                   </div>
@@ -973,7 +985,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
               
               {/* Submit All Button */}
               <button 
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-full hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
                 onClick={() => {
                   console.log('🚀 Submit all batches triggered');
                   // Add submit all logic here
@@ -987,7 +999,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
 
           <div className="text-center py-12">
             <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 mb-4">No {batchFilter !== 'all' ? batchFilter : ''} batches found</p>
+            <p className="text-gray-500 mb-4">No batches found for selected filters</p>
             <p className="text-sm text-gray-400">Batches will appear here when they are created</p>
           </div>
         </div>
@@ -997,12 +1009,12 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     return (
       <div className="space-y-4">
         {/* Header with controls */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center gap-4">
+        <div className="flex items-start justify-between mb-8">
+          <div className="flex items-center gap-2">
             <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
               <Package className="w-6 h-6 text-gray-600" />
             </div>
-            <h3 className="text-xl font-bold text-[#4f575e]">
+            <h3 className="text-2xl font-bold text-[#4f575e]">
               Batches ({filteredBatches.length})
             </h3>
           </div>
@@ -1010,38 +1022,19 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
           <div className="flex items-center gap-6">
             {/* Filter Toggles */}
             <div className="flex items-center gap-4">
-              {/* Show All Toggle */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600 font-medium">Show All</span>
-                <div 
-                  className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300 ${
-                    batchFilter === 'all' 
-                      ? 'bg-gradient-to-r from-gray-400 to-gray-500' 
-                      : 'bg-gradient-to-r from-gray-300 to-gray-400'
-                  }`}
-                  onClick={() => setBatchFilter('all')}
-                >
-                  <span
-                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
-                      batchFilter === 'all' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
-                    }`}
-                  />
-                </div>
-              </div>
-
               {/* Paid Toggle */}
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium" style={{ color: '#01b9d5' }}>Paid</span>
+                <span className="text-sm font-bold font-rubik" style={{ color: '#01b9d5' }}>Paid</span>
                 <div 
                   className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300`}
                   style={{
-                    backgroundColor: batchFilter === 'paid' ? '#01b9d5' : '#e5e7eb'
+                    backgroundColor: batchFilters.paid ? '#01b9d5' : '#e5e7eb'
                   }}
-                  onClick={() => setBatchFilter('paid')}
+                  onClick={() => setBatchFilters(prev => ({ ...prev, paid: !prev.paid }))}
                 >
                   <span
                     className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
-                      batchFilter === 'paid' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
+                      batchFilters.paid ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
                     }`}
                   />
                 </div>
@@ -1049,17 +1042,17 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
 
               {/* Unpaid Toggle */}
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium" style={{ color: '#ec8222' }}>Unpaid</span>
+                <span className="text-sm font-bold font-rubik" style={{ color: '#ec8222' }}>Unpaid</span>
                 <div 
                   className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300`}
                   style={{
-                    backgroundColor: batchFilter === 'unpaid' ? '#ec8222' : '#e5e7eb'
+                    backgroundColor: batchFilters.unpaid ? '#ec8222' : '#e5e7eb'
                   }}
-                  onClick={() => setBatchFilter('unpaid')}
+                  onClick={() => setBatchFilters(prev => ({ ...prev, unpaid: !prev.unpaid }))}
                 >
                   <span
                     className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
-                      batchFilter === 'unpaid' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
+                      batchFilters.unpaid ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
                     }`}
                   />
                 </div>
@@ -1067,17 +1060,17 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
 
               {/* Active Toggle */}
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium" style={{ color: '#6c67f0' }}>Active</span>
+                <span className="text-sm font-bold font-rubik" style={{ color: '#6c67f0' }}>Active</span>
                 <div 
                   className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300`}
                   style={{
-                    backgroundColor: batchFilter === 'active' ? '#6c67f0' : '#e5e7eb'
+                    backgroundColor: batchFilters.active ? '#6c67f0' : '#e5e7eb'
                   }}
-                  onClick={() => setBatchFilter('active')}
+                  onClick={() => setBatchFilters(prev => ({ ...prev, active: !prev.active }))}
                 >
                   <span
                     className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
-                      batchFilter === 'active' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
+                      batchFilters.active ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
                     }`}
                   />
                 </div>
@@ -1086,7 +1079,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
             
             {/* Submit All Button */}
             <button 
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-full hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
               onClick={() => {
                 console.log('🚀 Submit all batches triggered');
                 // Add submit all logic here
@@ -1106,6 +1099,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                 <tr className="bg-white border-b border-gray-200">
                   <th className="text-center py-4 px-6 text-sm font-medium text-gray-600">Batch #</th>
                   <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Medical Aid</th>
+                  <th className="py-4 px-4"></th>
                   <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Created Date</th>
                   <th className="text-center py-4 px-6 text-sm font-medium text-gray-600">Invoices & Services</th>
                   <th className="text-right py-4 px-6 text-sm font-medium text-gray-600">Total Amount</th>
@@ -1126,52 +1120,56 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                       className="border-b border-gray-100 hover:bg-gray-25 transition-colors group"
                       style={{ backgroundColor: index % 2 === 0 ? 'white' : '#fafafa' }}
                     >
-                      {/* Batch Number Badge */}
+                      {/* Batch Number Badge with Heartbeat Animation */}
                       <td className="py-4 px-6 text-center">
-                        <div 
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-xs shadow-sm"
-                          style={{ backgroundColor: themeColor }}
-                        >
-                          {batch.batch_number}
+                        <div className="relative inline-flex items-center justify-center">
+                          {/* Heartbeat ring for active batches only */}
+                          {batch.status === 'active' && (
+                            <div 
+                              className="absolute inset-0 rounded-full heartbeat-ring"
+                              style={{ 
+                                background: `linear-gradient(45deg, ${themeColor}40, ${lightenColor(themeColor, 0.3)}60)`,
+                                transform: 'scale(1.4)'
+                              }}
+                            />
+                          )}
+                          <div 
+                            className="relative inline-flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-xs shadow-sm z-10"
+                            style={{ backgroundColor: themeColor }}
+                          >
+                            {batch.batch_number}
+                          </div>
                         </div>
                       </td>
 
                       {/* Medical Aid Info */}
                       <td className="py-4 px-6">
-                        <div className="flex items-center gap-4">
-                          <div className="relative">
-                            {batch.medical_aid_logo_url ? (
-                              <img 
-                                src={batch.medical_aid_logo_url} 
-                                alt={batch.medical_aid_name}
-                                className={`w-16 h-16 rounded-lg object-contain bg-white p-2 shadow-sm ${
-                                  batch.status === 'active' 
-                                    ? 'ring-2 ring-[#6c67f0] animate-pulse' 
-                                    : 'border border-gray-200'
-                                }`}
-                              />
-                            ) : (
-                              <div 
-                                className={`w-16 h-16 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-sm ${
-                                  batch.status === 'active' 
-                                    ? 'ring-2 ring-[#6c67f0] animate-pulse' 
-                                    : ''
-                                }`}
-                                style={{ backgroundColor: themeColor }}
-                              >
-                                {batch.medical_aid_short_name.substring(0, 2)}
-                              </div>
-                            )}
+                        <div>
+                          <div className="text-sm text-gray-600 font-medium">
+                            {batch.medical_aid_name}
                           </div>
-                          <div>
-                            <div className="text-sm text-gray-600 font-medium">
-                              {batch.medical_aid_name}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {batch.medical_aid_reference}
-                            </div>
+                          <div className="text-xs text-gray-500">
+                            {batch.medical_aid_reference}
                           </div>
                         </div>
+                      </td>
+
+                      {/* Medical Aid Logo Column */}
+                      <td className="py-4 px-4 text-center">
+                        {batch.medical_aid_logo_url ? (
+                          <img 
+                            src={batch.medical_aid_logo_url} 
+                            alt={batch.medical_aid_name}
+                            className="w-12 h-12 rounded-lg object-contain bg-white p-1 shadow-sm mx-auto"
+                          />
+                        ) : (
+                          <div 
+                            className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-sm mx-auto"
+                            style={{ backgroundColor: themeColor }}
+                          >
+                            {batch.medical_aid_short_name.substring(0, 2)}
+                          </div>
+                        )}
                       </td>
 
                       {/* Created Date */}
@@ -1239,7 +1237,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                       <td className="py-4 px-6">
                         <div className="flex justify-end">
                           <button
-                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-full hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
                             onClick={() => {
                               console.log('🚀 Submit batch triggered for:', batch.batch_id);
                               // Add individual batch submit logic here

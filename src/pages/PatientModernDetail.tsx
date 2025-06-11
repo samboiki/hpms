@@ -826,8 +826,6 @@ Medical Team`;
             <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d4]/20 via-purple-500/20 to-indigo-600/20 rounded-xl blur-xl opacity-0 group-hover:opacity-50 transition-all duration-500 -z-10"></div>
             
             <div className="relative bg-white/95 backdrop-blur-xl rounded-xl shadow-xl border border-gray-200/50 overflow-hidden">
-              {/* Clean header stripe */}
-              <div className="h-2 bg-gradient-to-r from-[#01b9d4] via-purple-500 to-indigo-600"></div>
               
               {/* Main content */}
               <div className="p-4 md:p-6">
