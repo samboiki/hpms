@@ -14,7 +14,9 @@ import {
   Target,
   CreditCard,
   Clock,
-  Users
+  Users,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { 
@@ -118,6 +120,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
   const [dateRange, setDateRange] = useState<'30d' | '3m' | '6m' | '12m'>('30d');
   const [kpis, setKpis] = useState<FinancialKPIs | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
 
   // Optimized data fetching with minimal queries
   const fetchFinancialKPIs = useCallback(async () => {
@@ -387,7 +390,9 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     ];
 
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className={`grid gap-4 mb-6 ${
+        isMaximized ? 'grid-cols-4' : 'grid-cols-2 md:grid-cols-4'
+      }`}>
         {kpiData.map((kpi, index) => (
           <motion.div
             key={kpi.title}
@@ -423,7 +428,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
             <TrendingUp className="w-5 h-5" />
             Monthly Revenue Trend
           </h4>
-          <div className="h-64">
+          <div className={isMaximized ? "h-96" : "h-64"}>
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={kpis.monthlyRevenueTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -467,14 +472,16 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
         </div>
 
         {/* Revenue by Status & Top Services */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className={`grid gap-6 ${
+          isMaximized ? 'grid-cols-3' : 'grid-cols-1 lg:grid-cols-2'
+        }`}>
           {/* Revenue by Payment Status */}
           <div className="bg-gray-50 rounded-xl p-6">
             <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <PieChart className="w-5 h-5" />
               Revenue by Payment Status
             </h4>
-            <div className="h-48">
+            <div className={isMaximized ? "h-80" : "h-48"}>
               <ResponsiveContainer width="100%" height="100%">
                 <RechartsPieChart>
                   <Tooltip 
@@ -511,7 +518,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
               <BarChart3 className="w-5 h-5" />
               Invoice Volume Trend
             </h4>
-            <div className="h-48">
+            <div className={isMaximized ? "h-80" : "h-48"}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={kpis.invoiceVolumeTrend}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -539,10 +546,40 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
               </ResponsiveContainer>
             </div>
           </div>
+
+          {/* Top Services Table - Show in third column when maximized */}
+          {isMaximized && (
+            <div className="bg-gray-50 rounded-xl p-6">
+              <h4 className="text-lg font-semibold text-gray-800 mb-4">Top Services</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-2 px-3 text-sm font-medium text-gray-600">Service</th>
+                      <th className="text-left py-2 px-3 text-sm font-medium text-gray-600">Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {kpis.topServices.slice(0, 6).map((service, index) => (
+                      <tr key={service.name} className="border-b border-gray-100">
+                        <td className="py-2 px-3 text-sm font-medium text-gray-800">
+                          {service.name.length > 20 ? service.name.substring(0, 20) + '...' : service.name}
+                        </td>
+                        <td className="py-2 px-3 text-sm font-semibold text-gray-900 font-rubik">
+                          N${service.revenue.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Top Services Table */}
-        <div className="bg-gray-50 rounded-xl p-6">
+        {/* Top Services Table - Show below when not maximized */}
+        {!isMaximized && (
+          <div className="bg-gray-50 rounded-xl p-6">
           <h4 className="text-lg font-semibold text-gray-800 mb-4">Top 5 Services by Revenue</h4>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -572,18 +609,31 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
               </tbody>
             </table>
           </div>
-        </div>
+          </div>
+        )}
       </div>
     );
   };
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]" onClick={onClose}>
+    <div 
+      className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] ${
+        isMaximized ? 'p-0' : 'p-4'
+      }`} 
+      onClick={onClose}
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
+        animate={{ 
+          opacity: 1, 
+          scale: 1, 
+          y: 0
+        }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="relative bg-white rounded-2xl shadow-2xl overflow-hidden max-w-7xl w-full max-h-[90vh] overflow-y-auto"
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+        className={`relative bg-white shadow-2xl overflow-hidden w-full overflow-y-auto ${
+          isMaximized ? 'rounded-none h-full' : 'rounded-2xl max-w-7xl max-h-[90vh]'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -618,6 +668,13 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
               </button>
               <button className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
                 <Printer className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setIsMaximized(!isMaximized)}
+                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                title={isMaximized ? "Minimize" : "Maximize"}
+              >
+                {isMaximized ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
               </button>
               <button
                 onClick={onClose}
