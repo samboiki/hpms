@@ -432,21 +432,28 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     console.log('🔍 fetchBatchData called');
     console.log('📍 selectedPracticeId:', selectedPracticeId);
     console.log('👤 user:', user);
+    console.log('🏥 user.practice_id:', user?.practice_id);
     
-    if (!selectedPracticeId) {
-      console.warn('❌ No selectedPracticeId found');
+    // Use selectedPracticeId or fallback to user's practice_id
+    const practiceId = selectedPracticeId || user?.practice_id;
+    
+    if (!practiceId) {
+      console.warn('❌ No practice ID found (neither selectedPracticeId nor user.practice_id)');
+      console.log('🔧 Available user fields:', user ? Object.keys(user) : 'No user');
       return;
     }
     
+    console.log('✅ Using practice ID:', practiceId);
+    
     setBatchLoading(true);
     try {
-      console.log('🏥 Fetching practice data for ID:', selectedPracticeId);
+      console.log('🏥 Fetching practice data for ID:', practiceId);
       
       // First try to get practice details to check what fields are available
       const { data: practiceData, error: practiceError } = await supabase
         .from('practices')
         .select('*')
-        .eq('id', selectedPracticeId)
+        .eq('id', practiceId)
         .single();
 
       console.log('🏥 Practice query result:', { practiceData, practiceError });
@@ -460,7 +467,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
       console.log('🔎 Available practice fields:', Object.keys(practiceData || {}));
       
       // Try practice_number first, then fallback to practice id or other identifier
-      let practiceIdentifier = practiceData?.practice_number || practiceData?.id || selectedPracticeId;
+      let practiceIdentifier = practiceData?.practice_number || practiceData?.id || practiceId;
       console.log('🔑 Using practice identifier:', practiceIdentifier);
       
       // Test if batch_management_view exists and what columns it has
@@ -518,6 +525,27 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
       
       if (allBatchData && allBatchData.length > 0) {
         console.log('📋 Available batch statuses:', [...new Set(allBatchData.map(b => b.status))]);
+      }
+
+      // If no batches found with our identifier, let's see what practice numbers exist
+      if (!allBatchData || allBatchData.length === 0) {
+        console.log('🔍 No batches found with practice identifier:', practiceIdentifier);
+        console.log('🔍 Let me check what practice numbers exist in the batch view...');
+        
+        const { data: allPracticeNumbers, error: practiceNumbersError } = await supabase
+          .from('batch_management_view')
+          .select('practice_number, practice_name')
+          .limit(10);
+        
+        console.log('📋 Available practice numbers in batch view:', allPracticeNumbers);
+        
+        // Also check if there are any batches at all
+        const { data: anyBatches, error: anyBatchesError } = await supabase
+          .from('batch_management_view')
+          .select('practice_number, practice_name, status')
+          .limit(5);
+        
+        console.log('📋 Sample batches from view:', anyBatches);
       }
 
       setBatches(batchData || []);
@@ -867,130 +895,161 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
           </div>
         </div>
 
-        <div className={`grid gap-4 ${isMaximized ? 'grid-cols-2' : 'grid-cols-1'}`}>
-          {batches.map((batch, index) => {
-            const themeColor = batch.medical_aid_theme_color || MEDICAL_AID_THEMES[batch.medical_aid_reference] || '#6B7280';
-            const matteColor = createMatteColor(themeColor);
-            const lightColor = lightenColor(themeColor, 0.2);
-            
-            return (
-              <motion.div
-                key={batch.batch_id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="relative overflow-hidden rounded-xl shadow-sm hover:shadow-md transition-shadow"
-                style={{ 
-                  background: `linear-gradient(135deg, ${matteColor} 0%, ${lightenColor(matteColor, 0.1)} 100%)`
-                }}
-              >
-                <div className="p-6">
-                  {/* Header with status badge */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      {batch.medical_aid_logo_url ? (
-                        <img 
-                          src={batch.medical_aid_logo_url} 
-                          alt={batch.medical_aid_name}
-                          className="w-10 h-10 rounded-lg object-contain bg-white p-1"
-                        />
-                      ) : (
-                        <div 
-                          className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+        {/* Professional table-style batch cards */}
+        <div className="bg-gray-50 rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-white border-b border-gray-200">
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Medical Aid & Batch</th>
+                  <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Dates</th>
+                  <th className="text-center py-4 px-6 text-sm font-medium text-gray-600">Invoices</th>
+                  <th className="text-center py-4 px-6 text-sm font-medium text-gray-600">Transactions</th>
+                  <th className="text-right py-4 px-6 text-sm font-medium text-gray-600">Total Amount</th>
+                  <th className="text-center py-4 px-6 text-sm font-medium text-gray-600">Status</th>
+                  <th className="text-center py-4 px-6 text-sm font-medium text-gray-600">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batches.map((batch, index) => {
+                  const themeColor = batch.medical_aid_theme_color || MEDICAL_AID_THEMES[batch.medical_aid_reference] || '#6B7280';
+                  const lightColor = lightenColor(themeColor, 0.85);
+                  
+                  return (
+                    <motion.tr
+                      key={batch.batch_id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="border-b border-gray-100 hover:bg-gray-25 transition-colors group"
+                      style={{ backgroundColor: index % 2 === 0 ? 'white' : '#fafafa' }}
+                    >
+                      {/* Medical Aid & Batch Info */}
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-3">
+                          {batch.medical_aid_logo_url ? (
+                            <img 
+                              src={batch.medical_aid_logo_url} 
+                              alt={batch.medical_aid_name}
+                              className="w-10 h-10 rounded-lg object-contain bg-white p-1 border border-gray-200"
+                            />
+                          ) : (
+                            <div 
+                              className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-sm"
+                              style={{ backgroundColor: themeColor }}
+                            >
+                              {batch.medical_aid_short_name.substring(0, 2)}
+                            </div>
+                          )}
+                          <div>
+                            <div className="font-semibold text-gray-900 text-sm">
+                              Batch #{batch.batch_number}
+                            </div>
+                            <div className="text-sm text-gray-600 font-medium">
+                              {batch.medical_aid_name}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {batch.medical_aid_reference}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Dates */}
+                      <td className="py-4 px-6">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <Calendar className="w-3 h-3" style={{ color: themeColor }} />
+                            <span className="font-medium">Created:</span>
+                            <span>{format(new Date(batch.created_at), 'MMM dd, yyyy')}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <FileText className="w-3 h-3" style={{ color: themeColor }} />
+                            <span className="font-medium">Batch:</span>
+                            <span>{format(new Date(batch.batch_date), 'MMM dd, yyyy')}</span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Invoices Count */}
+                      <td className="py-4 px-6 text-center">
+                        <div className="flex flex-col items-center">
+                          <div 
+                            className="text-2xl font-bold font-rubik"
+                            style={{ color: themeColor }}
+                          >
+                            {batch.total_invoices}
+                          </div>
+                          <div className="text-xs text-gray-500 uppercase tracking-wide">
+                            Invoices
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Transactions Count */}
+                      <td className="py-4 px-6 text-center">
+                        <div className="flex flex-col items-center">
+                          <div 
+                            className="text-2xl font-bold font-rubik"
+                            style={{ color: lightenColor(themeColor, -0.15) }}
+                          >
+                            {batch.detail_transactions}
+                          </div>
+                          <div className="text-xs text-gray-500 uppercase tracking-wide">
+                            Details
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Total Amount */}
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex flex-col items-end">
+                          <div className="text-2xl font-bold text-gray-900 font-rubik">
+                            N${parseFloat(batch.total_amount).toLocaleString()}
+                          </div>
+                          <div className="text-xs text-gray-500 uppercase tracking-wide">
+                            Total
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-4 px-6 text-center">
+                        <span 
+                          className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium text-white shadow-sm"
                           style={{ backgroundColor: themeColor }}
                         >
-                          {batch.medical_aid_short_name.substring(0, 2)}
-                        </div>
-                      )}
-                      <div>
-                        <h4 className="font-semibold text-gray-800 text-lg">
-                          Batch #{batch.batch_number}
-                        </h4>
-                        <p className="text-sm text-gray-600">{batch.medical_aid_name}</p>
-                      </div>
-                    </div>
-                    
-                    <span 
-                      className="px-3 py-1 rounded-full text-xs font-medium text-white"
-                      style={{ backgroundColor: themeColor }}
-                    >
-                      {batch.status.toUpperCase()}
-                    </span>
-                  </div>
+                          <div className="w-1.5 h-1.5 bg-white rounded-full mr-2 opacity-75"></div>
+                          {batch.status.toUpperCase()}
+                        </span>
+                      </td>
 
-                  {/* Batch details */}
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <Calendar className="w-4 h-4" style={{ color: themeColor }} />
-                      <span>Created: {format(new Date(batch.created_at), 'MMM dd, yyyy')}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                      <FileText className="w-4 h-4" style={{ color: themeColor }} />
-                      <span>Batch Date: {format(new Date(batch.batch_date), 'MMM dd, yyyy')}</span>
-                    </div>
-                  </div>
-
-                  {/* Invoice and transaction counts */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-4">
-                      <div className="text-center">
-                        <div 
-                          className="text-2xl font-bold"
-                          style={{ color: themeColor }}
+                      {/* Actions */}
+                      <td className="py-4 px-6 text-center">
+                        <button
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+                          style={{ 
+                            backgroundColor: lightenColor(themeColor, 0.1),
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = themeColor;
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = lightenColor(themeColor, 0.1);
+                            e.currentTarget.style.transform = 'translateY(0)';
+                          }}
                         >
-                          {batch.total_invoices}
-                        </div>
-                        <div className="text-xs text-gray-600">Invoices</div>
-                      </div>
-                      <div className="text-center">
-                        <div 
-                          className="text-2xl font-bold"
-                          style={{ color: lightenColor(themeColor, -0.2) }}
-                        >
-                          {batch.detail_transactions}
-                        </div>
-                        <div className="text-xs text-gray-600">Transactions</div>
-                      </div>
-                    </div>
-                    
-                    {/* Total amount - aligned far right */}
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-gray-800 font-rubik">
-                        N${parseFloat(batch.total_amount).toLocaleString()}
-                      </div>
-                      <div className="text-xs text-gray-600">Total Amount</div>
-                    </div>
-                  </div>
-
-                  {/* Submit button */}
-                  <div className="flex justify-end">
-                    <button
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white transition-colors"
-                      style={{ 
-                        backgroundColor: lightColor,
-                        ':hover': { backgroundColor: themeColor }
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = themeColor;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = lightColor;
-                      }}
-                    >
-                      <Send className="w-4 h-4" />
-                      Submit Batch
-                    </button>
-                  </div>
-                </div>
-
-                {/* Medical aid reference accent */}
-                <div 
-                  className="absolute top-0 right-0 w-1 h-full"
-                  style={{ backgroundColor: themeColor }}
-                />
-              </motion.div>
-            );
-          })}
+                          <Send className="w-4 h-4" />
+                          Submit
+                        </button>
+                      </td>
+                    </motion.tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     );
