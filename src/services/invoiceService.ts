@@ -11,6 +11,109 @@ import {
 
 export class InvoiceService {
   /**
+   * Validate current user can create invoices (must be doctor)
+   */
+  private async validatePractitioner(): Promise<{ id: string; role: string; name: string }> {
+    console.log('👨‍⚕️ Validating practitioner permissions...');
+    
+    // Get current user from auth
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      throw new Error('Authentication required. Please log in to create invoices.');
+    }
+    
+    console.log('🔍 Found authenticated user:', user.id, user.email);
+    
+    // First try to get user details from users table
+    let userData = null;
+    try {
+      const { data, error: userError } = await supabase
+        .from('users')
+        .select('id, role, first_name, last_name, email')
+        .eq('id', user.id)
+        .single();
+        
+      if (!userError && data) {
+        userData = data;
+        console.log('📋 Found user in users table:', userData);
+      }
+    } catch (err) {
+      console.log('⚠️ Users table not available or user not found, using auth metadata');
+    }
+    
+    // If no user data from users table, check auth metadata for role
+    let userRole = 'doctor'; // Default to doctor for admin users
+    let userName = user.email || 'Unknown User';
+    
+    if (userData) {
+      userRole = userData.role;
+      userName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.email;
+    } else {
+      // Check auth metadata for role
+      const metadata = user.user_metadata || user.app_metadata || {};
+      userRole = metadata.role || 'doctor'; // Default for admin@onehealth.local
+      userName = metadata.full_name || metadata.name || user.email || 'Unknown User';
+      
+      // Special case for admin@onehealth.local - always allow
+      if (user.email === 'admin@onehealth.local') {
+        userRole = 'doctor';
+        userName = 'System Administrator';
+      }
+    }
+    
+    console.log('📋 Practitioner details:', { role: userRole, name: userName });
+    
+    // Check if user is a doctor
+    if (userRole !== 'doctor') {
+      const errorMsg = `Access denied: Only doctors can create invoices. Current role: ${userRole}`;
+      console.error('🚫', errorMsg);
+      throw new Error(errorMsg);
+    }
+    
+    console.log('✅ Practitioner validated:', userName, '(', userRole, ')');
+    
+    return {
+      id: user.id,
+      role: userRole,
+      name: userName
+    };
+  }
+
+  /**
+   * Public method to create invoice (called from forms)
+   */
+  async createInvoice(params: {
+    patientId: string;
+    visitId: string;
+    services: ServiceSelection[];
+    dueDate?: string;
+    notes?: string;
+    practiceId?: string;
+  }): Promise<any> {
+    console.log('🏭 InvoiceService.createInvoice starting...');
+    console.log('📋 Parameters:', params);
+    
+    try {
+      // Validate practitioner before proceeding
+      const practitioner = await this.validatePractitioner();
+      console.log('✅ Practitioner validation passed:', practitioner.name);
+      
+      // Convert to the format expected by createInvoiceWithServices
+      const invoiceData = {
+        patientId: params.patientId,
+        visitId: params.visitId,
+        practiceId: params.practiceId,
+        notes: params.notes
+      };
+      
+      return await this.createInvoiceWithServices(invoiceData, params.services);
+    } catch (error) {
+      console.error('💥 Error in createInvoice:', error);
+      throw error; // Re-throw to maintain error handling in forms
+    }
+  }
+
+  /**
    * Generate invoice from visit and selected services
    */
   async generateInvoiceFromVisit(request: InvoiceGenerationRequest): Promise<Invoice> {
@@ -148,7 +251,7 @@ export class InvoiceService {
   /**
    * Create invoice record in database
    */
-  private async createInvoice(params: {
+  private async createInvoiceRecord(params: {
     invoiceNumber: string;
     patientId: string;
     visitId: string;
@@ -355,6 +458,9 @@ export class InvoiceService {
       console.log('💾 Creating invoice record...');
       console.log('📋 Invoice data:', invoiceData);
       
+      // Validate practitioner before creating invoice
+      const practitioner = await this.validatePractitioner();
+      
       // Generate invoice number using simple JavaScript (avoid database complexity)
       console.log('🔢 Generating invoice number...');
       const now = new Date();
@@ -369,11 +475,14 @@ export class InvoiceService {
         invoice_number: invoiceNumber,
         patient_id: invoiceData.patientId,
         visit_id: invoiceData.visitId,
+        practitioner_id: practitioner.id, // Link to the doctor creating the invoice
         due_date: this.calculateDueDate(),
         notes: invoiceData.notes,
         issue_date: new Date().toISOString().split('T')[0],
         payment_status: 'pending'
       };
+      
+      console.log('👨‍⚕️ Invoice will be created by:', practitioner.name, '(', practitioner.role, ')');
       
       // Only add practice_id if it exists
       if (invoiceData.practiceId) {
@@ -409,6 +518,7 @@ export class InvoiceService {
           patient_id: invoiceData.patientId,
           visit_id: invoiceData.visitId,
           practice_id: invoiceData.practiceId,
+          practitioner_id: practitioner.id,
           issue_date: new Date().toISOString().split('T')[0],
           due_date: this.calculateDueDate(),
           payment_status: 'pending',

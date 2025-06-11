@@ -172,13 +172,13 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
     // Auto-add 8346 restorative material factor for applicable codes
     if (RESTORATIVE_MATERIAL_CODES.includes(code.code)) {
       // Find the actual 8346 tariff in practice tariffs
-      const materialFactorTariff = practiceTariffs.find(t => t.code === '8346');
+      const materialFactorTariff = allTariffs.find(t => t.code === '8346');
       
       if (!materialFactorTariff) {
         console.error('❌ Code 8346 (Restorative Material Factor) not found in practice tariffs');
         alert('Warning: Restorative Material Factor (8346) not found in tariffs. Please add this code to your practice tariffs.');
         // Skip adding the material factor service if tariff not found
-        setSelectedServices(updatedServices);
+        onServiceChange(updatedServices);
         return;
       }
       
