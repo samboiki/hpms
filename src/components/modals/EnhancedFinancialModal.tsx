@@ -622,7 +622,26 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
 
     } catch (error) {
       console.error(`❌ Failed to send batch ${batchId}:`, error);
-      alert(`Error submitting batch: ${(error as any).message}`);
+      
+      // Try to get more detailed error information
+      let errorMessage = 'Unknown error occurred';
+      if (error && typeof error === 'object') {
+        if ('message' in error) {
+          errorMessage = (error as any).message;
+        } else if ('error' in error) {
+          errorMessage = (error as any).error;
+        } else {
+          errorMessage = JSON.stringify(error);
+        }
+      }
+      
+      console.log('📋 Full error details:', {
+        error,
+        message: errorMessage,
+        batchId
+      });
+      
+      alert(`Error submitting batch: ${errorMessage}\n\nCheck the browser console for detailed error information.`);
     } finally {
       // Remove the loading spinner for this button
       setSubmittingBatches(prev => {
