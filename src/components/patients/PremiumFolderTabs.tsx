@@ -1158,14 +1158,20 @@ const BillingContent: React.FC<{
       servicesData?.forEach(service => {
         const invoice = invoiceMap.get(service.invoice_id);
         if (invoice) {
-          // Default medical aid coverage logic: all expenses covered unless specified
-          const serviceMedicalAid = service.medical_aid_covered !== null && service.medical_aid_covered !== undefined 
-            ? service.medical_aid_covered 
-            : service.total_price; // Default: all covered by medical aid
+          // CORRECT medical aid coverage logic: depends on if patient has medical aid
+          let serviceMedicalAid = 0;
+          let servicePatientPortion = service.total_price; // Default: patient pays everything
           
-          const servicePatientPortion = service.patient_portion !== null && service.patient_portion !== undefined
-            ? service.patient_portion
-            : 0; // Default: patient pays nothing if medical aid covers all
+          // If medical aid values are explicitly set in database, use them
+          if (service.medical_aid_covered !== null && service.medical_aid_covered !== undefined) {
+            serviceMedicalAid = service.medical_aid_covered;
+            servicePatientPortion = service.patient_portion || (service.total_price - serviceMedicalAid);
+          } else if (medicalAid) {
+            // If patient has medical aid but values not set, assume medical aid covers everything
+            serviceMedicalAid = service.total_price;
+            servicePatientPortion = 0;
+          }
+          // If no medical aid, patient pays everything (default values already set)
           
           invoice.services.push({
             ...service,
@@ -1713,16 +1719,16 @@ const ServiceDetailsModal: React.FC<{
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Medical Aid Covered:</span>
               <span className="text-green-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                N$ {(service.medical_aid_covered || service.total_price).toFixed(2)}
+                N$ {(service.medical_aid_covered || 0).toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between text-sm font-semibold border-t pt-2">
               <span className="text-gray-600">Patient Portion:</span>
               <span className="font-medium text-[#01b9d4]" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                N$ {(service.patient_portion || 0).toFixed(2)}
+                N$ {(service.patient_portion || service.total_price).toFixed(2)}
               </span>
             </div>
-            {(service.medical_aid_covered || service.total_price) === service.total_price && (
+            {service.medical_aid_covered >= service.total_price && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-2 mt-2">
                 <p className="text-xs text-green-700 font-medium">
                   ✓ Fully covered by Medical Aid

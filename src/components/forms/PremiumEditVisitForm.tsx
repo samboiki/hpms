@@ -330,7 +330,16 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
               throw deleteError;
             }
 
-            // Add new services
+            // Add new services with medical aid logic
+            // Check if patient has medical aid
+            const { data: medicalAidData } = await supabase
+              .from('medical_aid_details')
+              .select('provider')
+              .eq('patient_id', patientId)
+              .single();
+            
+            const hasMedicalAid = !!medicalAidData;
+            
             const invoiceServices = selectedServices.map(service => ({
               invoice_id: existingInvoice[0].id,
               tariff_id: service.tariffId,
@@ -339,8 +348,8 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
               quantity: service.quantity,
               unit_price: service.unitPrice,
               total_price: service.totalPrice,
-              medical_aid_covered: 0,
-              patient_portion: service.totalPrice,
+              medical_aid_covered: hasMedicalAid ? service.totalPrice : 0,
+              patient_portion: hasMedicalAid ? 0 : service.totalPrice,
               notes: service.notes || ''
             }));
 

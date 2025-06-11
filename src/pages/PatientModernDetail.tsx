@@ -35,7 +35,7 @@ import PremiumAddVisitForm from '../components/forms/PremiumAddVisitForm';
 import PremiumEditVisitForm from '../components/forms/PremiumEditVisitForm';
 import VisitModal from '../components/visits/VisitModal';
 import MedicalAidForm from '../components/forms/MedicalAidForm';
-import MedicalAidLimitUpdateForm from '../components/forms/MedicalAidLimitUpdateForm';
+// import MedicalAidLimitUpdateForm from '../components/forms/MedicalAidLimitUpdateForm';
 import EditPatientForm from '../components/forms/EditPatientForm';
 import SendMessageModal from '../components/modals/SendMessageModal';
 import PatientDataTabs from '../components/patients/PatientDataTabs';

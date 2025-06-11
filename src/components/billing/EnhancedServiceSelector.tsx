@@ -643,7 +643,7 @@ const EnhancedServiceSelector = forwardRef<any, EnhancedServiceSelectorProps>(({
                   
                   {hasMedicalAid ? (
                     <>
-                      <div className="flex justify-between text-green-600">
+                      <div className="flex justify-between text-green-600 font-semibold">
                         <span className="flex items-center gap-1">
                           <Shield className="w-4 h-4" />
                           Medical Aid Covers:
@@ -651,16 +651,16 @@ const EnhancedServiceSelector = forwardRef<any, EnhancedServiceSelectorProps>(({
                         <span>N$ {totals.medicalAidTotal.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Patient Pays:</span>
+                        <span>Patient Portion:</span>
                         <span>N$ {totals.patientTotal.toFixed(2)}</span>
                       </div>
                       <div className="border-t pt-2 flex justify-between font-medium text-lg">
-                        <span>Patient Total:</span>
-                        <span className="text-green-600">N$ 0.00</span>
+                        <span>Total Due from Patient:</span>
+                        <span className="text-green-600">N$ {totals.patientTotal.toFixed(2)}</span>
                       </div>
                       <div className="bg-green-50 border border-green-200 rounded p-2 mt-2">
                         <p className="text-xs text-green-700 text-center">
-                          ✅ Medical aid covers 100% of all services
+                          ✅ {medicalAidProvider} covers N$ {totals.medicalAidTotal.toFixed(2)} - Patient pays N$ {totals.patientTotal.toFixed(2)}
                         </p>
                       </div>
                     </>
