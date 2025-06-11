@@ -483,6 +483,7 @@ const EnhancedAddVisitForm: React.FC<Props> = ({ patientId, onSuccess, onCancel 
                     selectedServices={selectedServices}
                     onServiceChange={handleServiceChange}
                     readOnly={false}
+                    patientId={patientId}
                   />
                 </div>
 

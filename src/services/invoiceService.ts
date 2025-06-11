@@ -182,6 +182,7 @@ export class InvoiceService {
 
   /**
    * Calculate billing totals including medical aid coverage
+   * SIMPLIFIED LOGIC: If patient has medical aid, medical aid covers 100% of services
    */
   async calculateBilling(services: ServiceSelection[], medicalAidId?: string): Promise<BillingCalculation> {
     let subtotal = 0;
@@ -190,50 +191,38 @@ export class InvoiceService {
     const preAuthServices: ServiceSelection[] = [];
     let hasUncoveredServices = false;
 
-    // Get medical aid coverage if applicable
-    let coverageMap: Map<string, MedicalAidCoverage> = new Map();
-    if (medicalAidId) {
-      const { data: coverage } = await supabase
-        .from('medical_aid_coverage')
-        .select('*')
-        .eq('medical_aid_id', medicalAidId)
-        .eq('is_active', true);
-
-      if (coverage) {
-        coverage.forEach(c => coverageMap.set(c.tariff_code, c));
-      }
-    }
-
-    // Calculate totals for each service
+    // Calculate subtotal
     for (const service of services) {
       const serviceTotal = service.unitPrice * service.quantity;
       subtotal += serviceTotal;
-
-      const coverage = coverageMap.get(service.code);
-      if (coverage && medicalAidId) {
-        // Calculate medical aid portion
-        const coverageAmount = Math.min(
-          serviceTotal * (coverage.coverage_percentage / 100),
-          coverage.max_amount || serviceTotal
-        );
-        medicalAidTotal += coverageAmount;
-        patientTotal += serviceTotal - coverageAmount;
-
-        // Check for pre-authorization requirement
-        if (coverage.requires_pre_auth) {
-          preAuthServices.push(service);
-        }
-      } else {
-        // No coverage - patient pays full amount
-        patientTotal += serviceTotal;
-        hasUncoveredServices = true;
-      }
     }
 
-    // Apply tax (15% VAT in Namibia - configurable)
+    // Apply tax (15% VAT in Namibia)
     const taxRate = await this.getTaxRate();
     const tax = subtotal * (taxRate / 100);
     const total = subtotal + tax;
+
+    // SIMPLIFIED MEDICAL AID LOGIC: If patient has medical aid, it covers 100%
+    if (medicalAidId) {
+      console.log('💳 Patient has medical aid - medical aid covers 100% of services');
+      medicalAidTotal = total; // Medical aid covers everything including tax
+      patientTotal = 0; // Patient pays nothing
+      hasUncoveredServices = false;
+    } else {
+      console.log('💰 No medical aid - patient pays full amount');
+      medicalAidTotal = 0;
+      patientTotal = total; // Patient pays everything
+      hasUncoveredServices = true;
+    }
+
+    console.log('🧮 Billing calculation:', {
+      subtotal,
+      tax,
+      total,
+      medicalAidTotal,
+      patientTotal,
+      hasMedicalAid: !!medicalAidId
+    });
 
     return {
       services,
@@ -241,10 +230,10 @@ export class InvoiceService {
       tax,
       total,
       medicalAidTotal,
-      patientTotal: patientTotal + tax, // Tax typically paid by patient
+      patientTotal,
       hasUncoveredServices,
-      requiresPreAuthorization: preAuthServices.length > 0,
-      preAuthServices
+      requiresPreAuthorization: false, // Simplified - no pre-auth required
+      preAuthServices: []
     };
   }
 
@@ -552,6 +541,21 @@ export class InvoiceService {
         throw new Error('No valid services found. All services have invalid tariff IDs. Please ensure services are selected from the tariff database.');
       }
 
+      // Check if patient has medical aid by looking for medical_aid_details
+      let hasMedicalAid = false;
+      try {
+        const { data: medicalAidData } = await supabase
+          .from('medical_aid_details')
+          .select('id')
+          .eq('patient_id', invoiceData.patientId)
+          .single();
+        
+        hasMedicalAid = !!medicalAidData;
+        console.log('🔍 Patient medical aid status:', hasMedicalAid ? 'HAS MEDICAL AID' : 'NO MEDICAL AID');
+      } catch (err) {
+        console.log('⚠️ Could not check medical aid status, assuming no medical aid');
+      }
+
       const invoiceServices = validServices.map(service => ({
         invoice_id: invoice.id,
         tariff_id: service.tariffId,
@@ -560,8 +564,8 @@ export class InvoiceService {
         quantity: service.quantity,
         unit_price: service.unitPrice,
         total_price: service.totalPrice,
-        medical_aid_covered: 0, // Default to no medical aid coverage
-        patient_portion: service.totalPrice, // Patient pays full amount initially
+        medical_aid_covered: hasMedicalAid ? service.totalPrice : 0, // Medical aid covers 100% or nothing
+        patient_portion: hasMedicalAid ? 0 : service.totalPrice, // Patient pays nothing if medical aid covers it
         notes: service.notes || ''
       }));
 

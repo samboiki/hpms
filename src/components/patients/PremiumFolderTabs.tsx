@@ -80,6 +80,7 @@ interface PremiumFolderTabsProps {
   medicalAid?: any;
   onSendSms?: () => void;
   onMedicalAidClick?: () => void;
+  onMedicalAidLimitClick?: () => void;
   onBillingClick?: () => void;
 }
 
@@ -105,6 +106,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
   medicalAid,
   onSendSms,
   onMedicalAidClick,
+  onMedicalAidLimitClick,
   onBillingClick
 }) => {
   const navigate = useNavigate();
@@ -232,6 +234,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
           medicalAid={medicalAid}
           onSendSms={onSendSms}
           onMedicalAidClick={onMedicalAidClick}
+          onMedicalAidLimitClick={onMedicalAidLimitClick}
           onBillingClick={onBillingClick}
           selectedInvoice={selectedInvoice}
           setSelectedInvoice={setSelectedInvoice}
@@ -1772,6 +1775,7 @@ const AIIntelligenceContent: React.FC<{
   medicalAid?: any;
   onSendSms?: () => void;
   onMedicalAidClick?: () => void;
+  onMedicalAidLimitClick?: () => void;
   onBillingClick?: () => void;
   selectedInvoice: any;
   setSelectedInvoice: (invoice: any) => void;
@@ -1781,7 +1785,7 @@ const AIIntelligenceContent: React.FC<{
   setSelectedService: (service: any) => void;
   showDetails: boolean;
   setShowDetails: (show: boolean) => void;
-}> = ({ visits, vitals, patientId, patient, nextOfKin, medicalAid, onSendSms, onMedicalAidClick, onBillingClick, selectedInvoice, setSelectedInvoice, isInvoiceModalOpen, setIsInvoiceModalOpen, selectedService, setSelectedService, showDetails, setShowDetails }) => {
+}> = ({ visits, vitals, patientId, patient, nextOfKin, medicalAid, onSendSms, onMedicalAidClick, onMedicalAidLimitClick, onBillingClick, selectedInvoice, setSelectedInvoice, isInvoiceModalOpen, setIsInvoiceModalOpen, selectedService, setSelectedService, showDetails, setShowDetails }) => {
   const navigate = useNavigate();
   const [medicalAidLogo, setMedicalAidLogo] = React.useState<string>('');
   
@@ -1949,7 +1953,7 @@ const AIIntelligenceContent: React.FC<{
                 </div>
                 
                 {/* Relationship */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center">
                       <User className="w-3 h-3 text-blue-600" />
@@ -1959,6 +1963,29 @@ const AIIntelligenceContent: React.FC<{
                     </span>
                   </div>
                   <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMedicalAidLimitClick?.();
+                    }}
+                    className="flex-1 px-3 py-2 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white text-xs font-medium rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+                  >
+                    <CreditCard className="w-3 h-3" />
+                    Update Limits
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMedicalAidClick?.();
+                    }}
+                    className="px-3 py-2 bg-gray-100 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-200 transition-all duration-200"
+                  >
+                    Edit
+                  </button>
                 </div>
               </div>
             </div>

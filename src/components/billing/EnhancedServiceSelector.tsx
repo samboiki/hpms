@@ -27,6 +27,7 @@ interface EnhancedServiceSelectorProps {
   onServiceChange: (services: ServiceSelection[]) => void;
   medicalAidId?: string;
   readOnly?: boolean;
+  patientId?: string; // Add patientId to check medical aid status
 }
 
 interface DentalTariff {
@@ -74,7 +75,8 @@ const EnhancedServiceSelector = forwardRef<any, EnhancedServiceSelectorProps>(({
   selectedServices,
   onServiceChange,
   medicalAidId,
-  readOnly = false
+  readOnly = false,
+  patientId
 }, ref) => {
   const [availableTariffs, setAvailableTariffs] = useState<DentalTariff[]>([]);
   const [filteredTariffs, setFilteredTariffs] = useState<TariffWithValidation[]>([]);
@@ -85,6 +87,8 @@ const EnhancedServiceSelector = forwardRef<any, EnhancedServiceSelectorProps>(({
   const [showCalculator, setShowCalculator] = useState(true);
   const [selectedTariff, setSelectedTariff] = useState<DentalTariff | null>(null);
   const [showBusinessRules, setShowBusinessRules] = useState(false);
+  const [hasMedicalAid, setHasMedicalAid] = useState(false);
+  const [medicalAidProvider, setMedicalAidProvider] = useState<string>('');
 
   // Business rules state
   const [toothNumber, setToothNumber] = useState('');
@@ -233,6 +237,49 @@ const EnhancedServiceSelector = forwardRef<any, EnhancedServiceSelectorProps>(({
 
     fetchDentalTariffs();
   }, []);
+
+  // Check patient's medical aid status
+  useEffect(() => {
+    const checkMedicalAidStatus = async () => {
+      if (!patientId) {
+        setHasMedicalAid(false);
+        setMedicalAidProvider('');
+        return;
+      }
+
+      try {
+        console.log('🔍 Checking medical aid status for patient:', patientId);
+        const { data: medicalAidData, error } = await supabase
+          .from('medical_aid_details')
+          .select('provider, scheme, membership_number')
+          .eq('patient_id', patientId)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error checking medical aid:', error);
+          setHasMedicalAid(false);
+          setMedicalAidProvider('');
+          return;
+        }
+
+        if (medicalAidData) {
+          setHasMedicalAid(true);
+          setMedicalAidProvider(medicalAidData.provider || 'Unknown Provider');
+          console.log('💳 Patient has medical aid:', medicalAidData.provider, '-', medicalAidData.scheme);
+        } else {
+          setHasMedicalAid(false);
+          setMedicalAidProvider('');
+          console.log('💰 Patient has no medical aid');
+        }
+      } catch (err) {
+        console.error('Error checking medical aid status:', err);
+        setHasMedicalAid(false);
+        setMedicalAidProvider('');
+      }
+    };
+
+    checkMedicalAidStatus();
+  }, [patientId]);
 
   // Filter tariffs based on search
   useEffect(() => {
@@ -418,11 +465,20 @@ const EnhancedServiceSelector = forwardRef<any, EnhancedServiceSelectorProps>(({
     onServiceChange(selectedServices.filter(s => s.code !== code));
   };
 
-  // Calculate totals
+  // Calculate totals with medical aid logic
   const totals = selectedServices.reduce(
     (acc, service) => {
       acc.subtotal += service.totalPrice;
-      acc.patientTotal += service.totalPrice; // All patient for now
+      
+      // SIMPLIFIED LOGIC: If patient has medical aid, medical aid covers 100%
+      if (hasMedicalAid) {
+        acc.medicalAidTotal += service.totalPrice; // Medical aid covers everything
+        acc.patientTotal += 0; // Patient pays nothing
+      } else {
+        acc.medicalAidTotal += 0; // No medical aid coverage
+        acc.patientTotal += service.totalPrice; // Patient pays everything
+      }
+      
       return acc;
     },
     { subtotal: 0, medicalAidTotal: 0, patientTotal: 0 }
@@ -569,16 +625,62 @@ const EnhancedServiceSelector = forwardRef<any, EnhancedServiceSelectorProps>(({
                 exit={{ opacity: 0, height: 0 }}
                 className="mt-4 bg-gray-50 p-4 rounded-lg"
               >
-                <h5 className="font-medium text-gray-900 mb-3">Cost Breakdown</h5>
+                <h5 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                  <Calculator className="w-4 h-4" />
+                  Cost Breakdown
+                  {hasMedicalAid && (
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full flex items-center gap-1">
+                      <Shield className="w-3 h-3" />
+                      {medicalAidProvider}
+                    </span>
+                  )}
+                </h5>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span>Subtotal:</span>
                     <span>N$ {totals.subtotal.toFixed(2)}</span>
                   </div>
-                  <div className="border-t pt-2 flex justify-between font-medium text-lg">
-                    <span>Total:</span>
-                    <span className="text-[#01b9d4]">N$ {totals.subtotal.toFixed(2)}</span>
-                  </div>
+                  
+                  {hasMedicalAid ? (
+                    <>
+                      <div className="flex justify-between text-green-600">
+                        <span className="flex items-center gap-1">
+                          <Shield className="w-4 h-4" />
+                          Medical Aid Covers:
+                        </span>
+                        <span>N$ {totals.medicalAidTotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Patient Pays:</span>
+                        <span>N$ {totals.patientTotal.toFixed(2)}</span>
+                      </div>
+                      <div className="border-t pt-2 flex justify-between font-medium text-lg">
+                        <span>Patient Total:</span>
+                        <span className="text-green-600">N$ 0.00</span>
+                      </div>
+                      <div className="bg-green-50 border border-green-200 rounded p-2 mt-2">
+                        <p className="text-xs text-green-700 text-center">
+                          ✅ Medical aid covers 100% of all services
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between">
+                        <span>Patient Pays:</span>
+                        <span>N$ {totals.patientTotal.toFixed(2)}</span>
+                      </div>
+                      <div className="border-t pt-2 flex justify-between font-medium text-lg">
+                        <span>Patient Total:</span>
+                        <span className="text-[#01b9d4]">N$ {totals.patientTotal.toFixed(2)}</span>
+                      </div>
+                      <div className="bg-blue-50 border border-blue-200 rounded p-2 mt-2">
+                        <p className="text-xs text-blue-700 text-center">
+                          💰 No medical aid - patient pays full amount
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </motion.div>
             )}

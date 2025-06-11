@@ -296,6 +296,7 @@ const PatientModernDetail = () => {
   const [isEditPatientModalOpen, setIsEditPatientModalOpen] = useState(false);
   const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
   const [isMedicalAidModalOpen, setIsMedicalAidModalOpen] = useState(false);
+  const [isMedicalAidLimitModalOpen, setIsMedicalAidLimitModalOpen] = useState(false);
   const [smsContent, setSmsContent] = useState('');
   const [smsPhone, setSmsPhone] = useState('');
   const [isSendingSms, setIsSendingSms] = useState(false);
@@ -803,6 +804,7 @@ Medical Team`;
                     setSelectedVisit(visit);
                     setIsEditVisitModalOpen(true);
                   }}
+                  onMedicalAidLimitClick={() => setIsMedicalAidLimitModalOpen(true)}
                   onVisitStatusChange={(visitId, status) => handleVisitStatusChange(visitId, status)}
                   patient={patient}
                   nextOfKin={nextOfKin}
@@ -1596,6 +1598,23 @@ Medical Team`;
         totalSpent={visits.length * 450 + vitals.length * 75 + 1250}
         billingItems={[]}
       />
+
+      {/* Medical Aid Limit Update Modal */}
+      <FormModal
+        isOpen={isMedicalAidLimitModalOpen}
+        onClose={() => setIsMedicalAidLimitModalOpen(false)}
+        title="Update Medical Aid Limits"
+      >
+        {patient && (
+          <MedicalAidLimitUpdateForm
+            patientId={patient.id}
+            onUpdate={() => {
+              fetchData();
+            }}
+            onClose={() => setIsMedicalAidLimitModalOpen(false)}
+          />
+        )}
+      </FormModal>
       </div>
     </div>
   );
