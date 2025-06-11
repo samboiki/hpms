@@ -50,7 +50,12 @@ vi.mock('chart.js', () => ({
 vi.mock('react-chartjs-2', () => ({
   Line: ({ data }: any) => <div data-testid="line-chart">{JSON.stringify(data)}</div>,
   Bar: ({ data }: any) => <div data-testid="bar-chart">{JSON.stringify(data)}</div>,
-  Doughnut: ({ data }: any) => <div data-testid="doughnut-chart">{JSON.stringify(data)}</div>
+  Doughnut: ({ data }: any) => <div data-testid="doughnut-chart">{JSON.stringify(data)}</div>,
+  Radar: ({ data }: any) => <div data-testid="radar-chart">{JSON.stringify(data)}</div>,
+  Bubble: ({ data }: any) => <div data-testid="bubble-chart">{JSON.stringify(data)}</div>,
+  Scatter: ({ data }: any) => <div data-testid="scatter-chart">{JSON.stringify(data)}</div>,
+  PolarArea: ({ data }: any) => <div data-testid="polar-chart">{JSON.stringify(data)}</div>,
+  Chart: ({ data }: any) => <div data-testid="mixed-chart">{JSON.stringify(data)}</div>
 }));
 
 const mockFinancialData = {
