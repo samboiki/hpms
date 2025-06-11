@@ -21,7 +21,8 @@ import {
   Send,
   Calendar,
   FileText,
-  CheckCircle
+  CheckCircle,
+  Loader2
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { 
@@ -235,6 +236,8 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     unpaid: false, 
     active: true
   });
+  const [submittingBatches, setSubmittingBatches] = useState<Set<string>>(new Set());
+  const [isSubmittingAll, setIsSubmittingAll] = useState(false);
   
   const { user, selectedPracticeId } = useAuthStore();
 
@@ -595,6 +598,64 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
       setBatchLoading(false);
     }
   }, [selectedPracticeId, user, batchFilters]);
+
+  // --- Function to handle individual batch submission ---
+  const handleIndividualSubmit = async (batchId: string) => {
+    // Show a loading spinner for this specific button
+    setSubmittingBatches(prev => new Set(prev).add(batchId));
+    try {
+      console.log(`🚀 Invoking Edge Function 'send-batch-email' for batch: ${batchId}`);
+      
+      const { data, error } = await supabase.functions.invoke('send-batch-email', {
+        body: { batch_id: batchId },
+      });
+
+      if (error) {
+        throw new Error((error as any).message);
+      }
+      
+      console.log('✅ Success:', data.message);
+      alert(`Success: ${data.message}`);
+
+      // Refresh the batch list to show the new 'sent' status
+      fetchBatchData();
+
+    } catch (error) {
+      console.error(`❌ Failed to send batch ${batchId}:`, error);
+      alert(`Error submitting batch: ${(error as any).message}`);
+    } finally {
+      // Remove the loading spinner for this button
+      setSubmittingBatches(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(batchId);
+        return newSet;
+      });
+    }
+  };
+
+  // --- Function to handle submitting all active batches ---
+  const handleSubmitAll = async () => {
+    const activeBatchesToSubmit = batches.filter(batch => batch.status === 'active');
+
+    if (activeBatchesToSubmit.length === 0) {
+      alert("No active batches to submit.");
+      return;
+    }
+
+    setIsSubmittingAll(true);
+    
+    // Attempt all submissions, even if some fail
+    await Promise.allSettled(
+      activeBatchesToSubmit.map(batch => handleIndividualSubmit(batch.batch_id))
+    );
+
+    setIsSubmittingAll(false);
+
+    alert(`"Submit All" process complete. Please check the status of individual batches.`);
+    
+    // Refresh data after all submissions are attempted
+    fetchBatchData();
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -986,13 +1047,20 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
               {/* Submit All Button */}
               <button 
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
-                onClick={() => {
-                  console.log('🚀 Submit all batches triggered');
-                  // Add submit all logic here
-                }}
+                onClick={handleSubmitAll}
+                disabled={isSubmittingAll || batches.filter(b => b.status === 'active').length === 0}
               >
-                <Send className="w-4 h-4" />
-                Submit All
+                {isSubmittingAll ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    Submit All Active
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -1080,13 +1148,20 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
             {/* Submit All Button */}
             <button 
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
-              onClick={() => {
-                console.log('🚀 Submit all batches triggered');
-                // Add submit all logic here
-              }}
+              onClick={handleSubmitAll}
+              disabled={isSubmittingAll || batches.filter(b => b.status === 'active').length === 0}
             >
-              <Send className="w-4 h-4" />
-              Submit All
+              {isSubmittingAll ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  Submit All Active
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -1110,6 +1185,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                 {filteredBatches.map((batch, index) => {
                   const themeColor = batch.medical_aid_theme_color || MEDICAL_AID_THEMES[batch.medical_aid_reference] || '#6B7280';
                   const lightColor = lightenColor(themeColor, 0.85);
+                  const isSubmitting = submittingBatches.has(batch.batch_id);
                   
                   return (
                     <motion.tr
@@ -1238,13 +1314,17 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                         <div className="flex justify-end">
                           <button
                             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
-                            onClick={() => {
-                              console.log('🚀 Submit batch triggered for:', batch.batch_id);
-                              // Add individual batch submit logic here
-                            }}
+                            onClick={() => handleIndividualSubmit(batch.batch_id)}
+                            disabled={isSubmitting || isSubmittingAll || batch.status !== 'active'}
                           >
-                            <Send className="w-4 h-4" />
-                            Submit
+                            {isSubmitting ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Send className="w-4 h-4" />
+                                Submit
+                              </>
+                            )}
                           </button>
                         </div>
                       </td>
