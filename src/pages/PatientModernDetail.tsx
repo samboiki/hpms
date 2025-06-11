@@ -1599,19 +1599,29 @@ Medical Team`;
         billingItems={[]}
       />
 
-      {/* Medical Aid Limit Update Modal */}
+      {/* Medical Aid Update Modal */}
       <FormModal
         isOpen={isMedicalAidLimitModalOpen}
         onClose={() => setIsMedicalAidLimitModalOpen(false)}
-        title="Update Medical Aid Limits"
+        title="Update Medical Aid Information"
       >
         {patient && (
-          <MedicalAidLimitUpdateForm
+          <MedicalAidForm
             patientId={patient.id}
-            onUpdate={() => {
+            initialData={medicalAid ? {
+              provider: medicalAid.provider,
+              scheme: medicalAid.scheme,
+              provider_id: medicalAid.provider_id || '',
+              scheme_id: medicalAid.scheme_id || '',
+              membership_number: medicalAid.membership_number,
+              main_member_name: medicalAid.main_member_name,
+              main_member_id_number: medicalAid.main_member_id_number,
+              relationship_to_main: medicalAid.relationship_to_main_member
+            } : undefined}
+            onSuccess={() => {
               fetchData();
+              setIsMedicalAidLimitModalOpen(false);
             }}
-            onClose={() => setIsMedicalAidLimitModalOpen(false)}
           />
         )}
       </FormModal>
