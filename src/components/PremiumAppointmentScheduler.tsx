@@ -179,6 +179,27 @@ const getStatusIcon = (status: Appointment['status']) => {
   }
 };
 
+const getStatusColorClasses = (status: Appointment['status']) => {
+  switch (status) {
+    case 'pending':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'scheduled':
+      return 'bg-blue-100 text-blue-800';
+    case 'ready':
+      return 'bg-green-100 text-green-800';
+    case 'in-progress':
+      return 'bg-orange-100 text-orange-800';
+    case 'completed':
+      return 'bg-gray-100 text-gray-800';
+    case 'cancelled':
+      return 'bg-red-100 text-red-800';
+    case 'no-show':
+      return 'bg-red-100 text-red-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
 const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = (props) => {
   const {
     appointments,
@@ -424,8 +445,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   const GridView = () => {
     // Card-based grid view for day/week/month/all
     return (
-      <div className="p-4 max-h-[600px] overflow-y-auto bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg">
-        <div className="grid grid-cols-1 gap-3">
+      <div className="p-6 max-h-[600px] overflow-y-auto bg-gray-50 rounded-lg">
+        <div className="grid grid-cols-1 gap-4">
         {filteredAppointments.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-gradient-to-br from-gray-200 to-gray-300 rounded-full flex items-center justify-center mx-auto mb-4 shadow-md">
@@ -460,41 +481,37 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                   exit={{ opacity: 0, y: -20, scale: 0.95 }}
                   whileHover={{ scale: 1.02, y: -2 }}
                   className={`
-                    relative bg-gray-50 rounded-xl shadow-sm hover:shadow-lg
-                    border border-gray-200/60 transition-all cursor-pointer
-                    ${getTypeAccent(appointment.type)}
+                    relative bg-white rounded-lg shadow-sm hover:shadow-md
+                    border border-gray-200 transition-shadow cursor-pointer
                     overflow-hidden
                   `}
                   onClick={() => onAppointmentClick(appointment)}
                 >
-                  {/* Gradient overlay */}
-                  <div className={`absolute inset-0 bg-gradient-to-r ${getStatusGradient(appointment.status)} opacity-5`} />
+                  {/* Status accent */}
+                  <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${getStatusGradient(appointment.status)}`} />
                   
-                  <div className="relative p-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${getStatusGradient(appointment.status)} 
-                          flex items-center justify-center shadow-md`}>
-                          <StatusIcon className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">
+                  <div className="relative p-5">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-lg font-medium text-gray-900">
                             {appointment.patient.first_name} {appointment.patient.last_name}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-gray-500">
-                              {format(aptDate, 'MMM d')} • {time ? format(parseISO(`2000-01-01T${time}`), 'h:mm a') : 'No time'}
+                          </h3>
+                          <StatusIcon className="w-5 h-5 text-gray-400" />
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-gray-600">
+                          <span className="font-medium">
+                            {format(aptDate, 'MMM d')} • {time ? format(parseISO(`2000-01-01T${time}`), 'h:mm a') : 'No time'}
+                          </span>
+                          {appointment.patient.gender && (
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              appointment.patient.gender === 'Female' 
+                                ? 'bg-pink-100 text-pink-700' 
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {appointment.patient.gender}
                             </span>
-                            {appointment.patient.gender && (
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                appointment.patient.gender === 'Female' 
-                                  ? 'bg-pink-100 text-pink-700' 
-                                  : 'bg-blue-100 text-blue-700'
-                              }`}>
-                                {appointment.patient.gender}
-                              </span>
-                            )}
-                          </div>
+                          )}
                         </div>
                       </div>
                       
@@ -549,23 +566,27 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-4 text-sm">
-                        <div className="flex items-center gap-1.5 text-gray-600">
-                          <Clock className="h-3.5 w-3.5" />
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-6 text-sm text-gray-600">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
                           <span>{appointment.duration} min</span>
                         </div>
                         {appointment.patient.cell_number && (
-                          <div className="flex items-center gap-1.5 text-gray-600">
-                            <Phone className="h-3.5 w-3.5" />
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4" />
                             <span>{appointment.patient.cell_number}</span>
                           </div>
                         )}
+                        <div className="flex items-center gap-2">
+                          <Stethoscope className="h-4 w-4" />
+                          <span className="capitalize">{appointment.type}</span>
+                        </div>
                       </div>
                       
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-xs px-3 py-1 rounded-full font-medium bg-gradient-to-r ${getStatusGradient(appointment.status)} text-white`}>
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <span className={`px-3 py-1.5 rounded-lg text-sm font-medium ${getStatusColorClasses(appointment.status)}`}>
                             {appointment.status}
                           </span>
                           {appointment.status === 'scheduled' && (
@@ -574,16 +595,12 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                 e.stopPropagation();
                                 handleMarkReady(appointment.id);
                               }}
-                              className="px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded-full font-medium shadow-md transition-all hover:shadow-lg"
+                              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg font-medium transition-colors"
                             >
                               Mark Ready
                             </button>
                           )}
                         </div>
-                        <span className="text-sm text-gray-600 capitalize flex items-center gap-1.5">
-                          <Stethoscope className="h-3.5 w-3.5" />
-                          {appointment.type}
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -597,7 +614,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     );
   };
 
-  // Premium Timeline/Week View Component
+  // Professional Timeline/Week View Component
   const TimelineView = () => {
     const visibleDoctors = selectedDoctorId
       ? doctors.filter((d) => d.id === selectedDoctorId)
@@ -606,12 +623,12 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     const displayDates = viewMode === 'week' ? weekDates : [selectedDate];
 
     return (
-      <div className="flex flex-col h-[600px] bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl overflow-hidden shadow-inner border border-gray-300">
-        {/* Premium Timeline Header */}
-        <div className="bg-gradient-to-r from-white to-gray-50 border-b border-gray-300 shadow-md">
+      <div className="flex flex-col h-[600px] bg-white rounded-lg overflow-hidden border border-gray-200">
+        {/* Professional Timeline Header */}
+        <div className="bg-gray-50 border-b border-gray-200">
           <div className="flex">
-            <div className="w-20 p-3 border-r border-gray-300 bg-gradient-to-br from-gray-100 to-gray-200">
-              <span className="text-xs font-semibold text-gray-600">Time</span>
+            <div className="w-20 p-3 border-r border-gray-200 bg-gray-100">
+              <span className="text-xs font-medium text-gray-700">Time</span>
             </div>
             <div className="flex-1 flex">
               {viewMode === 'week' ? (
@@ -619,11 +636,11 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                   <div
                     key={index}
                     className={`flex-1 p-3 border-r border-gray-200 last:border-r-0 text-center
-                      ${isSameDay(date, new Date()) ? 'bg-[#01b9d5]/5' : ''}`}
+                      ${isSameDay(date, new Date()) ? 'bg-blue-50 border-blue-200' : ''}`}
                   >
-                    <p className="text-xs font-medium text-gray-500">{format(date, 'EEE')}</p>
+                    <p className="text-xs font-medium text-gray-600">{format(date, 'EEE')}</p>
                     <p className={`text-sm font-semibold ${
-                      isSameDay(date, new Date()) ? 'text-[#01b9d5]' : 'text-gray-700'
+                      isSameDay(date, new Date()) ? 'text-blue-600' : 'text-gray-800'
                     }`}>
                       {format(date, 'd')}
                     </p>
@@ -636,15 +653,14 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                     className="flex-1 p-3 border-r border-gray-200 last:border-r-0"
                   >
                     <div className="flex items-center justify-center gap-2">
-                      <div className="w-10 h-10 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-xl 
-                        flex items-center justify-center text-white text-sm font-bold shadow-md">
+                      <div className="w-8 h-8 bg-[#01b9d5] rounded-lg flex items-center justify-center text-white text-sm font-semibold">
                         {doctor.user_metadata?.full_name?.charAt(0) || 'D'}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-gray-800">
+                        <p className="text-sm font-medium text-gray-800">
                           {doctor.user_metadata?.full_name || doctor.email.split('@')[0]}
                         </p>
-                        <p className="text-xs text-gray-500">Available</p>
+                        <p className="text-xs text-green-600">Available</p>
                       </div>
                     </div>
                   </div>
@@ -654,15 +670,14 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
           </div>
         </div>
 
-        {/* Timeline Body with premium styling */}
+        {/* Professional Timeline Body */}
         <div className="flex-1 overflow-y-auto" ref={scrollContainerRef}>
           <div className="flex">
-            <div className="w-20 bg-gradient-to-b from-gray-50 to-gray-100 border-r border-gray-300 shadow-sm">
+            <div className="w-20 bg-gray-50 border-r border-gray-200">
               {timeSlots.map((slot, index) => (
                 <div
                   key={slot}
-                  className={`h-[${HOUR_HEIGHT}px] border-b border-gray-100 p-2 text-xs 
-                    ${index % 2 === 0 ? 'font-medium text-gray-700' : 'text-gray-400'}`}
+                  className="h-[60px] border-b border-gray-100 p-2 text-xs font-medium text-gray-600 flex items-center"
                   style={{ height: `${HOUR_HEIGHT}px` }}
                 >
                   {format(parseISO(`2000-01-01T${slot}`), 'h:mm a')}
@@ -670,7 +685,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               ))}
             </div>
             
-            <div className="flex-1 relative bg-gradient-to-br from-gray-100 to-gray-200" ref={timelineRef}>
+            <div className="flex-1 relative bg-white" ref={timelineRef}>
               {/* Current time indicator with premium style */}
               {isToday(selectedDate) && viewMode === 'day' && (
                 <div
@@ -688,13 +703,11 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                 </div>
               )}
 
-              {/* Time grid with subtle styling */}
+              {/* Clean time grid */}
               {timeSlots.map((slot, index) => (
                 <div
                   key={slot}
-                  className={`absolute left-0 right-0 border-b ${
-                    index % 2 === 0 ? 'border-gray-200' : 'border-gray-100'
-                  }`}
+                  className="absolute left-0 right-0 border-b border-gray-100"
                   style={{ 
                     top: `${index * HOUR_HEIGHT}px`,
                     height: `${HOUR_HEIGHT}px`
@@ -730,24 +743,24 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                               initial={{ opacity: 0, scale: 0.9 }}
                               animate={{ opacity: 1, scale: 1 }}
                               whileHover={{ scale: 1.05, zIndex: 30 }}
-                              className={`absolute left-1 right-1 bg-gray-50 rounded-lg shadow-md hover:shadow-xl 
-                                border transition-all cursor-pointer overflow-hidden
+                              className={`absolute left-1 right-1 bg-white rounded-md shadow-sm hover:shadow-md 
+                                border border-gray-200 transition-shadow cursor-pointer overflow-hidden
                                 ${getTypeAccent(appointment.type)}`}
                               style={{ top: `${top}px`, height: `${height}px` }}
                               onClick={() => onAppointmentClick(appointment)}
                             >
-                              <div className={`absolute inset-0 bg-gradient-to-r ${getStatusGradient(appointment.status)} opacity-10`} />
+                              <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${getStatusGradient(appointment.status)}`} />
                               <div className="relative p-2 h-full flex flex-col">
                                 <div className="flex items-center justify-between mb-1">
-                                  <StatusIcon className="h-3 w-3 text-gray-600" />
-                                  <span className="text-[10px] font-medium text-gray-700">
+                                  <span className="text-xs font-medium text-gray-900">
                                     {format(parseISO(`2000-01-01T${appointment.time}`), 'h:mm a')}
                                   </span>
+                                  <StatusIcon className="h-3 w-3 text-gray-500" />
                                 </div>
-                                <p className="text-xs font-semibold text-gray-800 truncate">
+                                <p className="text-sm font-medium text-gray-900 truncate leading-tight">
                                   {appointment.patient.first_name} {appointment.patient.last_name}
                                 </p>
-                                <p className="text-[10px] text-gray-600 truncate">{appointment.type}</p>
+                                <p className="text-xs text-gray-600 truncate capitalize">{appointment.type}</p>
                                 {/* Mark Ready Button for Week View */}
                                 {appointment.status === 'scheduled' && height >= 60 && (
                                   <button
@@ -807,29 +820,27 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                               initial={{ opacity: 0, scale: 0.9 }}
                               animate={{ opacity: 1, scale: 1 }}
                               whileHover={{ scale: 1.05, zIndex: 30 }}
-                              className={`absolute left-2 right-2 bg-gray-50 rounded-lg shadow-md hover:shadow-xl 
-                                border transition-all cursor-pointer overflow-hidden
+                              className={`absolute left-2 right-2 bg-white rounded-md shadow-sm hover:shadow-md 
+                                border border-gray-200 transition-shadow cursor-pointer overflow-hidden
                                 ${getTypeAccent(appointment.type)}`}
                               style={{ top: `${top}px`, height: `${height}px` }}
                               onClick={() => onAppointmentClick(appointment)}
                             >
-                              <div className={`absolute inset-0 bg-gradient-to-r ${getStatusGradient(appointment.status)} opacity-10`} />
+                              <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${getStatusGradient(appointment.status)}`} />
                               <div className="relative p-3 h-full">
                                 <div className="flex items-center justify-between mb-2">
-                                  <div className="flex items-center gap-2">
-                                    <StatusIcon className="h-4 w-4 text-gray-600" />
-                                    <span className="text-xs font-medium text-gray-700">
-                                      {format(parseISO(`2000-01-01T${appointment.time}`), 'h:mm a')}
-                                    </span>
-                                  </div>
-                                  <span className={`text-[10px] px-2 py-0.5 rounded-full bg-gradient-to-r ${getStatusGradient(appointment.status)} text-white`}>
-                                    {appointment.status}
+                                  <span className="text-sm font-medium text-gray-900">
+                                    {format(parseISO(`2000-01-01T${appointment.time}`), 'h:mm a')}
                                   </span>
+                                  <StatusIcon className="h-4 w-4 text-gray-500" />
                                 </div>
-                                <p className="text-sm font-semibold text-gray-800">
+                                <p className="text-base font-medium text-gray-900 mb-1">
                                   {appointment.patient.first_name} {appointment.patient.last_name}
                                 </p>
-                                <p className="text-xs text-gray-600 mt-1">{appointment.type}</p>
+                                <p className="text-sm text-gray-600 capitalize">{appointment.type}</p>
+                                <div className={`inline-block px-2 py-1 mt-2 text-xs font-medium rounded ${getStatusColorClasses(appointment.status)}`}>
+                                  {appointment.status}
+                                </div>
                                 {appointment.duration >= 60 && appointment.notes && (
                                   <p className="text-[10px] text-gray-500 mt-2 truncate">{appointment.notes}</p>
                                 )}

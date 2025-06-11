@@ -1007,13 +1007,13 @@ function Dashboard() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-white backdrop-blur-sm rounded-xl shadow-lg border border-gray-200 overflow-hidden h-[800px] flex flex-col"
+              className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden h-[800px] flex flex-col"
             >
               {/* Header */}
-              <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-[#01b9d5] to-purple-600">
+              <div className="p-4 border-b border-gray-200 bg-white">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-white" />
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-[#01b9d5]" />
                     Appointment Schedule
                   </h3>
                   <div className="flex items-center gap-3">
@@ -1025,8 +1025,8 @@ function Dashboard() {
                           onClick={() => setViewMode(mode as any)}
                           className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all capitalize ${
                             viewMode === mode
-                              ? 'bg-white/90 text-gray-900 shadow-sm'
-                              : 'text-gray-600 hover:text-gray-900'
+                              ? 'bg-white text-gray-900 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                           }`}
                         >
                           {mode}
@@ -1041,8 +1041,8 @@ function Dashboard() {
                           onClick={() => setInternalViewMode('timeline')}
                           className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
                             internalViewMode === 'timeline'
-                              ? 'bg-white/90 text-gray-900 shadow-sm'
-                              : 'text-gray-600 hover:text-gray-900'
+                              ? 'bg-white text-gray-900 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                           }`}
                         >
                           <Calendar className="h-3 w-3" />
@@ -1052,8 +1052,8 @@ function Dashboard() {
                           onClick={() => setInternalViewMode('grid')}
                           className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
                             internalViewMode === 'grid'
-                              ? 'bg-white/90 text-gray-900 shadow-sm'
-                              : 'text-gray-600 hover:text-gray-900'
+                              ? 'bg-white text-gray-900 shadow-sm'
+                              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                           }`}
                         >
                           <Activity className="h-3 w-3" />

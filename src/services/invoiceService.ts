@@ -601,7 +601,8 @@ export class InvoiceService {
           total_price: service.totalPrice,
           medical_aid_covered: hasMedicalAid ? service.totalPrice : 0, // Medical aid covers 100% or nothing
           patient_portion: hasMedicalAid ? 0 : service.totalPrice, // Patient pays nothing if medical aid covers it
-          notes: service.notes || ''
+          notes: service.notes || '',
+          tooth_number: service.teethNumbers ? service.teethNumbers.join(',') : null // <<<< NEW: Store tooth numbers as comma-separated string
         };
 
         console.log('🔍 INVOICE SERVICE - STEP 3: Mapped service for database:', {

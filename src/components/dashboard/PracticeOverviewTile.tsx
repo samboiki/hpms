@@ -46,16 +46,17 @@ const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({ practiceStats }
       initial={{ opacity: 0, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ delay: 0.2, type: "spring", stiffness: 300, damping: 24 }}
-      className="relative overflow-hidden mb-4 group"
+      className="relative overflow-hidden group"
     >
-      {/* Simple grey container */}
-      <div className="relative bg-gray-600 rounded-2xl shadow-lg border border-gray-500 overflow-hidden">
-        {/* Header */}
-        <div className="relative p-5 border-b border-gray-500 bg-gray-700">
+      {/* Modern white container matching dashboard styling */}
+      <div className="relative bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {/* Modern gradient header */}
+        <div className="relative p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 via-white to-gray-50">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-white flex items-center gap-3">
-              <div className="p-2 bg-gray-500 rounded-xl">
-                <Building2 className="w-6 h-6 text-white" />
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <div className="relative">
+                <div className="absolute inset-0 bg-[#01b9d5] blur-xl opacity-20 animate-pulse" />
+                <Building2 className="relative w-5 h-5 text-[#01b9d5]" />
               </div>
               Practice Overview
             </h3>
@@ -63,11 +64,11 @@ const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({ practiceStats }
         </div>
         
         {/* Content area */}
-        <div className="relative p-5">
+        <div className="relative p-4">
           {/* Practice status text */}
-          <div className="relative mb-6">
-            <div className="relative p-4 bg-gray-500/20 rounded-xl border border-gray-400">
-              <p className="text-sm text-gray-100 leading-relaxed font-medium">
+          <div className="relative mb-4">
+            <div className="relative p-4 bg-slate-50/70 rounded-lg border border-slate-200/50 shadow-sm">
+              <p className="text-sm text-slate-700 leading-relaxed">
                 {generateOverviewText()}
               </p>
             </div>
@@ -75,17 +76,17 @@ const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({ practiceStats }
 
           {/* Performance indicator */}
           <div className="relative">
-            <div className="relative p-4 bg-gray-500/20 rounded-xl border border-gray-400">
+            <div className="relative p-4 bg-slate-50/70 rounded-lg border border-slate-200/50 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-gray-200" />
-                  <span className="text-sm font-bold text-gray-100">
+                  <Zap className="w-4 h-4 text-[#01b9d5]" />
+                  <span className="text-sm font-medium text-slate-800">
                     Today's Performance
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-green-400" />
-                  <span className="text-sm font-bold text-green-300">
+                  <TrendingUp className="w-4 h-4 text-green-500" />
+                  <span className="text-sm font-medium text-green-600">
                     {practiceStats?.todayAppointments ? 
                       Math.round(((practiceStats.completedToday || 0) / practiceStats.todayAppointments) * 100) : 0}% Complete
                   </span>
@@ -94,7 +95,7 @@ const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({ practiceStats }
               
               {/* Progress bar */}
               <div className="relative">
-                <div className="h-3 bg-gray-800 rounded-full overflow-hidden border border-gray-500">
+                <div className="h-2 bg-slate-200 rounded-full overflow-hidden shadow-inner">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ 
