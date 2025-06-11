@@ -885,66 +885,201 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
         <div className="space-y-4">
           {/* Header with controls */}
           <div className="flex items-start justify-between mb-6">
-            <div className="flex items-start gap-6">
+            <div className="flex items-center gap-4">
               <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
                 <Package className="w-6 h-6 text-gray-600" />
               </div>
-              <div>
-                <h3 className="text-xl font-bold text-[#4f575e] mb-2">
-                  Batches ({filteredBatches.length})
-                </h3>
-                
-                {/* Filter Toggles */}
+              <h3 className="text-xl font-bold text-[#4f575e]">
+                Batches ({filteredBatches.length})
+              </h3>
+            </div>
+            
+            <div className="flex items-center gap-6">
+              {/* Filter Toggles */}
+              <div className="flex items-center gap-4">
+                {/* Show All Toggle */}
                 <div className="flex items-center gap-2">
-                  <button
+                  <span className="text-sm text-gray-600 font-medium">Show All</span>
+                  <div 
+                    className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300 ${
+                      batchFilter === 'all' 
+                        ? 'bg-gradient-to-r from-gray-400 to-gray-500' 
+                        : 'bg-gradient-to-r from-gray-300 to-gray-400'
+                    }`}
                     onClick={() => setBatchFilter('all')}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                      batchFilter === 'all'
-                        ? 'bg-gray-200 text-gray-800'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
                   >
-                    Show All
-                  </button>
-                  <button
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
+                        batchFilter === 'all' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {/* Paid Toggle */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium" style={{ color: '#01b9d5' }}>Paid</span>
+                  <div 
+                    className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300`}
+                    style={{
+                      backgroundColor: batchFilter === 'paid' ? '#01b9d5' : '#e5e7eb'
+                    }}
                     onClick={() => setBatchFilter('paid')}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                      batchFilter === 'paid'
-                        ? 'text-white'
-                        : 'text-[#01b9d5] hover:bg-[#01b9d5]/10'
-                    }`}
-                    style={{
-                      backgroundColor: batchFilter === 'paid' ? '#01b9d5' : 'transparent'
-                    }}
                   >
-                    Paid
-                  </button>
-                  <button
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
+                        batchFilter === 'paid' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {/* Unpaid Toggle */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium" style={{ color: '#ec8222' }}>Unpaid</span>
+                  <div 
+                    className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300`}
+                    style={{
+                      backgroundColor: batchFilter === 'unpaid' ? '#ec8222' : '#e5e7eb'
+                    }}
                     onClick={() => setBatchFilter('unpaid')}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                      batchFilter === 'unpaid'
-                        ? 'text-white'
-                        : 'text-[#ec8222] hover:bg-[#ec8222]/10'
-                    }`}
-                    style={{
-                      backgroundColor: batchFilter === 'unpaid' ? '#ec8222' : 'transparent'
-                    }}
                   >
-                    Unpaid
-                  </button>
-                  <button
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
+                        batchFilter === 'unpaid' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {/* Active Toggle */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium" style={{ color: '#6c67f0' }}>Active</span>
+                  <div 
+                    className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300`}
+                    style={{
+                      backgroundColor: batchFilter === 'active' ? '#6c67f0' : '#e5e7eb'
+                    }}
                     onClick={() => setBatchFilter('active')}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                      batchFilter === 'active'
-                        ? 'text-white'
-                        : 'text-[#6c67f0] hover:bg-[#6c67f0]/10'
-                    }`}
-                    style={{
-                      backgroundColor: batchFilter === 'active' ? '#6c67f0' : 'transparent'
-                    }}
                   >
-                    Active
-                  </button>
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
+                        batchFilter === 'active' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Submit All Button */}
+              <button 
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-full hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
+                onClick={() => {
+                  console.log('🚀 Submit all batches triggered');
+                  // Add submit all logic here
+                }}
+              >
+                <Send className="w-4 h-4" />
+                Submit All
+              </button>
+            </div>
+          </div>
+
+          <div className="text-center py-12">
+            <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 mb-4">No {batchFilter !== 'all' ? batchFilter : ''} batches found</p>
+            <p className="text-sm text-gray-400">Batches will appear here when they are created</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {/* Header with controls */}
+        <div className="flex items-start justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+              <Package className="w-6 h-6 text-gray-600" />
+            </div>
+            <h3 className="text-xl font-bold text-[#4f575e]">
+              Batches ({filteredBatches.length})
+            </h3>
+          </div>
+          
+          <div className="flex items-center gap-6">
+            {/* Filter Toggles */}
+            <div className="flex items-center gap-4">
+              {/* Show All Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600 font-medium">Show All</span>
+                <div 
+                  className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300 ${
+                    batchFilter === 'all' 
+                      ? 'bg-gradient-to-r from-gray-400 to-gray-500' 
+                      : 'bg-gradient-to-r from-gray-300 to-gray-400'
+                  }`}
+                  onClick={() => setBatchFilter('all')}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
+                      batchFilter === 'all' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {/* Paid Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium" style={{ color: '#01b9d5' }}>Paid</span>
+                <div 
+                  className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300`}
+                  style={{
+                    backgroundColor: batchFilter === 'paid' ? '#01b9d5' : '#e5e7eb'
+                  }}
+                  onClick={() => setBatchFilter('paid')}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
+                      batchFilter === 'paid' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {/* Unpaid Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium" style={{ color: '#ec8222' }}>Unpaid</span>
+                <div 
+                  className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300`}
+                  style={{
+                    backgroundColor: batchFilter === 'unpaid' ? '#ec8222' : '#e5e7eb'
+                  }}
+                  onClick={() => setBatchFilter('unpaid')}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
+                      batchFilter === 'unpaid' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {/* Active Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium" style={{ color: '#6c67f0' }}>Active</span>
+                <div 
+                  className={`relative inline-flex h-6 w-12 cursor-pointer rounded-full transition-colors duration-300`}
+                  style={{
+                    backgroundColor: batchFilter === 'active' ? '#6c67f0' : '#e5e7eb'
+                  }}
+                  onClick={() => setBatchFilter('active')}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 mt-0.5 ${
+                      batchFilter === 'active' ? 'translate-x-6 ml-0.5' : 'translate-x-0.5'
+                    }`}
+                  />
                 </div>
               </div>
             </div>
@@ -961,95 +1096,6 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
               Submit All
             </button>
           </div>
-
-          <div className="text-center py-12">
-            <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 mb-4">No {batchFilter !== 'all' ? batchFilter : ''} batches found</p>
-            <p className="text-sm text-gray-400">Batches will appear here when they are created</p>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-4">
-        {/* Header with controls */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex items-start gap-6">
-            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-              <Package className="w-6 h-6 text-gray-600" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-[#4f575e] mb-2">
-                Batches ({filteredBatches.length})
-              </h3>
-              
-              {/* Filter Toggles */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setBatchFilter('all')}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                    batchFilter === 'all'
-                      ? 'bg-gray-200 text-gray-800'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                >
-                  Show All
-                </button>
-                <button
-                  onClick={() => setBatchFilter('paid')}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                    batchFilter === 'paid'
-                      ? 'text-white'
-                      : 'text-[#01b9d5] hover:bg-[#01b9d5]/10'
-                  }`}
-                  style={{
-                    backgroundColor: batchFilter === 'paid' ? '#01b9d5' : 'transparent'
-                  }}
-                >
-                  Paid
-                </button>
-                <button
-                  onClick={() => setBatchFilter('unpaid')}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                    batchFilter === 'unpaid'
-                      ? 'text-white'
-                      : 'text-[#ec8222] hover:bg-[#ec8222]/10'
-                  }`}
-                  style={{
-                    backgroundColor: batchFilter === 'unpaid' ? '#ec8222' : 'transparent'
-                  }}
-                >
-                  Unpaid
-                </button>
-                <button
-                  onClick={() => setBatchFilter('active')}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
-                    batchFilter === 'active'
-                      ? 'text-white'
-                      : 'text-[#6c67f0] hover:bg-[#6c67f0]/10'
-                  }`}
-                  style={{
-                    backgroundColor: batchFilter === 'active' ? '#6c67f0' : 'transparent'
-                  }}
-                >
-                  Active
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          {/* Submit All Button */}
-          <button 
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-full hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
-            onClick={() => {
-              console.log('🚀 Submit all batches triggered');
-              // Add submit all logic here
-            }}
-          >
-            <Send className="w-4 h-4" />
-            Submit All
-          </button>
         </div>
 
         {/* Professional table-style batch cards */}
@@ -1063,7 +1109,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                   <th className="text-left py-4 px-6 text-sm font-medium text-gray-600">Created Date</th>
                   <th className="text-center py-4 px-6 text-sm font-medium text-gray-600">Invoices & Services</th>
                   <th className="text-right py-4 px-6 text-sm font-medium text-gray-600">Total Amount</th>
-                  <th className="text-center py-4 px-6 text-sm font-medium text-gray-600">Actions</th>
+                  <th className="text-right py-4 px-6 text-sm font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1083,7 +1129,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                       {/* Batch Number Badge */}
                       <td className="py-4 px-6 text-center">
                         <div 
-                          className="inline-flex items-center justify-center w-10 h-10 rounded-full text-white font-bold text-sm shadow-sm"
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-full text-white font-bold text-xs shadow-sm"
                           style={{ backgroundColor: themeColor }}
                         >
                           {batch.batch_number}
@@ -1092,13 +1138,13 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
 
                       {/* Medical Aid Info */}
                       <td className="py-4 px-6">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-4">
                           <div className="relative">
                             {batch.medical_aid_logo_url ? (
                               <img 
                                 src={batch.medical_aid_logo_url} 
                                 alt={batch.medical_aid_name}
-                                className={`w-12 h-12 rounded-lg object-contain bg-white p-2 shadow-sm ${
+                                className={`w-16 h-16 rounded-lg object-contain bg-white p-2 shadow-sm ${
                                   batch.status === 'active' 
                                     ? 'ring-2 ring-[#6c67f0] animate-pulse' 
                                     : 'border border-gray-200'
@@ -1106,7 +1152,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                               />
                             ) : (
                               <div 
-                                className={`w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-sm ${
+                                className={`w-16 h-16 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-sm ${
                                   batch.status === 'active' 
                                     ? 'ring-2 ring-[#6c67f0] animate-pulse' 
                                     : ''
@@ -1190,17 +1236,19 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                       </td>
 
                       {/* Actions */}
-                      <td className="py-4 px-6 text-center">
-                        <button
-                          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-full hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
-                          onClick={() => {
-                            console.log('🚀 Submit batch triggered for:', batch.batch_id);
-                            // Add individual batch submit logic here
-                          }}
-                        >
-                          <Send className="w-4 h-4" />
-                          Submit
-                        </button>
+                      <td className="py-4 px-6">
+                        <div className="flex justify-end">
+                          <button
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-full hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
+                            onClick={() => {
+                              console.log('🚀 Submit batch triggered for:', batch.batch_id);
+                              // Add individual batch submit logic here
+                            }}
+                          >
+                            <Send className="w-4 h-4" />
+                            Submit
+                          </button>
+                        </div>
                       </td>
                     </motion.tr>
                   );
