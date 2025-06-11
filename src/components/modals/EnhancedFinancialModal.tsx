@@ -10,56 +10,44 @@ import {
   DollarSign,
   Filter,
   Download,
-  Printer
+  Printer,
+  Target,
+  CreditCard,
+  Clock,
+  Users
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip as ChartTooltip,
+import { 
+  LineChart, 
+  Line, 
+  BarChart, 
+  Bar, 
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell, 
+  ResponsiveContainer, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
   Legend,
-  Filler,
-  RadialLinearScale
-} from 'chart.js';
-// Chart.js components for future use
-// import { Line, Doughnut } from 'react-chartjs-2';
+  ComposedChart,
+  Area,
+  AreaChart
+} from 'recharts';
 import { supabase } from '../../lib/supabase';
 
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  ChartTooltip,
-  Legend,
-  Filler,
-  RadialLinearScale
-);
-
-interface FinancialAnalytics {
-  totalRevenue: number;
-  monthlyRevenue: number;
-  outstandingAmount: number;
-  paidInvoices: number;
-  pendingInvoices: number;
-  medicalAidRevenue: number;
-  selfPayRevenue: number;
-  revenueGrowth: number;
-  avgInvoiceValue: number;
-  topServices: { name: string; value: number; count: number }[];
-  monthlyTrends: { month: string; revenue: number; invoices: number; medical_aid: number; self_pay: number }[];
-  serviceBreakdown: { name: string; value: number; color: string }[];
-  paymentStatusBreakdown: { status: string; count: number; value: number; color: string }[];
+interface FinancialKPIs {
+  totalBilledMTD: number;
+  totalCollectedMTD: number;
+  totalOutstanding: number;
+  claimsInProgress: number;
+  monthlyRevenueTrend: { month: string; revenue: number; medical_aid: number; patient: number }[];
+  invoiceVolumeTrend: { month: string; count: number }[];
+  revenueByStatus: { name: string; value: number; color: string }[];
+  topServices: { name: string; revenue: number; count: number; avg: number }[];
+  medicalAidBreakdown: { provider: string; value: number; percentage: number }[];
+  practitionerPerformance: { name: string; revenue: number; patients: number }[];
 }
 
 interface FinancialData {
@@ -108,302 +96,481 @@ interface EnhancedFinancialModalProps {
   data: FinancialData;
 }
 
-// Custom brand colors - moved outside component to avoid dependency issues
-const brandColors = {
-  primary: '#489bfd',
-  secondary: '#e2a501', 
-  tertiary: '#775ffc',
-  quaternary: '#6c67f0',
-  accent1: '#ff4f5a',
-  accent2: '#45d2de',
-  accent3: '#0459a0',
-  accent4: '#e299aa',
-  accent5: '#01b9d5',
-  accent6: '#76a5af'
+// Color palette for consistent theming
+const COLORS = {
+  primary: '#8B5CF6',
+  secondary: '#06B6D4', 
+  success: '#10B981',
+  warning: '#F59E0B',
+  danger: '#EF4444',
+  gray: '#6B7280',
+  light: '#F3F4F6'
 };
+
+const PIE_COLORS = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#EC4899'];
 
 const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
   isOpen,
   onClose,
   data
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'financial' | 'insights'>('overview');
-  const [dateRange, setDateRange] = useState<'7d' | '30d' | '3m' | '6m'>('30d');
-  const [analytics, setAnalytics] = useState<FinancialAnalytics | null>(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'insights'>('overview');
+  const [dateRange, setDateRange] = useState<'30d' | '3m' | '6m' | '12m'>('30d');
+  const [kpis, setKpis] = useState<FinancialKPIs | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const fetchFinancialAnalytics = useCallback(async () => {
-    setAnalyticsLoading(true);
+  // Optimized data fetching with minimal queries
+  const fetchFinancialKPIs = useCallback(async () => {
+    setLoading(true);
     try {
-      // Calculate date range - default to 30 days
       const now = new Date();
-      const startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const monthStart = startOfMonth(now);
+      
+      // Calculate date ranges based on selection
+      const monthsBack = dateRange === '30d' ? 1 : 
+                        dateRange === '3m' ? 3 : 
+                        dateRange === '6m' ? 6 : 12;
+      
+      const periodStart = subMonths(now, monthsBack);
 
-      // Fetch real data from invoices_enhanced and invoice_services
+      // Single optimized query for invoices data
       const { data: invoicesData, error: invoicesError } = await supabase
         .from('invoices_enhanced')
         .select(`
           id,
           total,
-          subtotal,
           medical_aid_total,
           patient_total,
           payment_status,
           issue_date,
-          created_at
+          due_date,
+          practitioner_id,
+          patient_id
         `)
-        .gte('issue_date', startDate.toISOString().split('T')[0]);
+        .gte('issue_date', periodStart.toISOString().split('T')[0])
+        .order('issue_date', { ascending: false });
 
+      // Single query for services data
       const { data: servicesData, error: servicesError } = await supabase
         .from('invoice_services')
         .select(`
-          id,
-          invoice_id,
-          code,
           description,
-          quantity,
-          unit_price,
           total_price,
-          medical_aid_covered,
-          patient_portion,
-          created_at,
-          invoices_enhanced!inner (
-            issue_date,
-            payment_status
-          )
-        `)
-        .gte('invoices_enhanced.issue_date', startDate.toISOString().split('T')[0]);
+          quantity,
+          invoice_id
+        `);
+
+      // Single query for batch data (claims in progress)
+      const { data: batchData, error: batchError } = await supabase
+        .from('batch_headers')
+        .select('total_amount, status')
+        .eq('status', 'sent');
 
       if (invoicesError) throw invoicesError;
       if (servicesError) throw servicesError;
+      if (batchError) throw batchError;
 
-      // Process the real data
       const invoices = invoicesData || [];
       const services = servicesData || [];
-      
-      const totalRevenue = invoices.reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0);
-      const medicalAidRevenue = invoices.reduce((sum, inv) => sum + parseFloat(inv.medical_aid_total || '0'), 0);
-      const selfPayRevenue = invoices.reduce((sum, inv) => sum + parseFloat(inv.patient_total || '0'), 0);
-      
-      const paidInvoices = invoices.filter(inv => inv.payment_status === 'paid').length;
-      const pendingInvoices = invoices.filter(inv => inv.payment_status === 'pending').length;
-      const outstandingAmount = invoices
-        .filter(inv => inv.payment_status !== 'paid')
+      const batches = batchData || [];
+
+      // Calculate KPIs efficiently
+      const totalBilledMTD = invoices
+        .filter(inv => new Date(inv.issue_date) >= monthStart)
         .reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0);
 
-      const avgInvoiceValue = invoices.length > 0 ? totalRevenue / invoices.length : 0;
-
-      // Calculate growth (mock for now)
-      const revenueGrowth = 12.5;
-
-      // Current month revenue
-      const currentMonthStart = startOfMonth(now);
-      const currentMonthRevenue = invoices
-        .filter(inv => new Date(inv.issue_date) >= currentMonthStart)
+      const totalCollectedMTD = invoices
+        .filter(inv => inv.payment_status === 'paid' && new Date(inv.issue_date) >= monthStart)
         .reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0);
 
-      // Top services analysis
-      const serviceGroups = services.reduce((acc, service) => {
-        const key = service.description;
-        if (!acc[key]) {
-          acc[key] = { name: key, value: 0, count: 0 };
-        }
-        acc[key].value += parseFloat(service.total_price || '0');
-        acc[key].count += service.quantity || 1;
-        return acc;
-      }, {} as Record<string, { name: string; value: number; count: number }>);
+      const totalOutstanding = invoices
+        .filter(inv => inv.payment_status === 'pending' || inv.payment_status === 'overdue')
+        .reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0);
 
-      const topServices = Object.values(serviceGroups)
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 10);
+      const claimsInProgress = batches
+        .reduce((sum, batch) => sum + parseFloat(batch.total_amount || '0'), 0);
 
-      // Monthly trends (last 6 months)
-      const monthlyTrends = [];
+      // Monthly revenue trend (last 6 months)
+      const monthlyRevenueTrend = [];
       for (let i = 5; i >= 0; i--) {
-        const monthStart = startOfMonth(subMonths(now, i));
-        const monthEnd = endOfMonth(monthStart);
+        const month = subMonths(now, i);
+        const monthStart = startOfMonth(month);
+        const monthEnd = endOfMonth(month);
         
         const monthInvoices = invoices.filter(inv => {
-          const invDate = new Date(inv.issue_date);
-          return invDate >= monthStart && invDate <= monthEnd;
+          const issueDate = new Date(inv.issue_date);
+          return issueDate >= monthStart && issueDate <= monthEnd;
         });
 
-        monthlyTrends.push({
-          month: format(monthStart, 'MMM yyyy'),
+        monthlyRevenueTrend.push({
+          month: format(month, 'MMM yyyy'),
           revenue: monthInvoices.reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0),
-          invoices: monthInvoices.length,
           medical_aid: monthInvoices.reduce((sum, inv) => sum + parseFloat(inv.medical_aid_total || '0'), 0),
-          self_pay: monthInvoices.reduce((sum, inv) => sum + parseFloat(inv.patient_total || '0'), 0)
+          patient: monthInvoices.reduce((sum, inv) => sum + parseFloat(inv.patient_total || '0'), 0)
         });
       }
 
-      // Service breakdown for pie chart
-      const colors = [brandColors.primary, brandColors.secondary, brandColors.tertiary, brandColors.quaternary, brandColors.accent1, brandColors.accent2];
-      const serviceBreakdown = topServices.slice(0, 6).map((service, index) => ({
-        name: service.name.length > 25 ? service.name.substring(0, 25) + '...' : service.name,
-        value: service.value,
-        color: colors[index]
+      // Invoice volume trend
+      const invoiceVolumeTrend = monthlyRevenueTrend.map(trend => ({
+        month: trend.month,
+        count: invoices.filter(inv => {
+          const issueDate = new Date(inv.issue_date);
+          const monthStart = startOfMonth(new Date(trend.month + ' 1'));
+          const monthEnd = endOfMonth(monthStart);
+          return issueDate >= monthStart && issueDate <= monthEnd;
+        }).length
       }));
 
-      // Payment status breakdown
-      const paymentStatusBreakdown = [
-        {
-          status: 'Paid',
-          count: paidInvoices,
-          value: invoices.filter(inv => inv.payment_status === 'paid').reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0),
-          color: '#22c55e'
-        },
-        {
-          status: 'Pending',
-          count: pendingInvoices,
-          value: outstandingAmount,
-          color: '#f59e0b'
-        }
-      ];
+      // Revenue by payment status
+      const paid = invoices.filter(inv => inv.payment_status === 'paid')
+        .reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0);
+      const pending = invoices.filter(inv => inv.payment_status === 'pending')
+        .reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0);
+      const overdue = invoices.filter(inv => inv.payment_status === 'overdue')
+        .reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0);
 
-      setAnalytics({
-        totalRevenue,
-        monthlyRevenue: currentMonthRevenue,
-        outstandingAmount,
-        paidInvoices,
-        pendingInvoices,
-        medicalAidRevenue,
-        selfPayRevenue,
-        revenueGrowth,
-        avgInvoiceValue,
+      const revenueByStatus = [
+        { name: 'Paid', value: paid, color: COLORS.success },
+        { name: 'Pending', value: pending, color: COLORS.warning },
+        { name: 'Overdue', value: overdue, color: COLORS.danger }
+      ].filter(item => item.value > 0);
+
+      // Top 5 services by revenue (filter by invoice IDs in date range)
+      const invoiceIds = new Set(invoices.map(inv => inv.id));
+      const filteredServices = services.filter(service => 
+        service.invoice_id && invoiceIds.has(service.invoice_id)
+      );
+      
+      const serviceGroups = filteredServices.reduce((acc, service) => {
+        const key = service.description || 'Unknown Service';
+        if (!acc[key]) {
+          acc[key] = { name: key, revenue: 0, count: 0 };
+        }
+        acc[key].revenue += parseFloat(service.total_price || '0');
+        acc[key].count += service.quantity || 1;
+        return acc;
+      }, {} as Record<string, { name: string; revenue: number; count: number }>);
+
+      const topServices = Object.values(serviceGroups)
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5)
+        .map(service => ({
+          ...service,
+          avg: service.count > 0 ? service.revenue / service.count : 0
+        }));
+
+      // Get medical aid data separately for breakdown
+      const patientIds = [...new Set(invoices.map(inv => inv.patient_id).filter(Boolean))];
+      let medicalAidBreakdown: { provider: string; value: number; percentage: number }[] = [];
+      
+      if (patientIds.length > 0) {
+        const { data: medicalAidData } = await supabase
+          .from('medical_aid_details')
+          .select('patient_id, provider')
+          .in('patient_id', patientIds);
+
+        if (medicalAidData) {
+          // Create lookup map for patient medical aid providers
+          const patientProviderMap = medicalAidData.reduce((acc, item) => {
+            acc[item.patient_id] = item.provider;
+            return acc;
+          }, {} as Record<string, string>);
+
+          // Calculate medical aid breakdown
+          const medicalAidGroups = invoices
+            .filter(inv => inv.patient_id && patientProviderMap[inv.patient_id])
+            .reduce((acc, inv) => {
+              const provider = patientProviderMap[inv.patient_id!];
+              if (!acc[provider]) {
+                acc[provider] = 0;
+              }
+              acc[provider] += parseFloat(inv.medical_aid_total || '0');
+              return acc;
+            }, {} as Record<string, number>);
+
+          const totalMedicalAid = Object.values(medicalAidGroups).reduce((sum, value) => sum + value, 0);
+          medicalAidBreakdown = Object.entries(medicalAidGroups)
+            .map(([provider, value]) => ({
+              provider,
+              value,
+              percentage: totalMedicalAid > 0 ? (value / totalMedicalAid) * 100 : 0
+            }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 5);
+        }
+      }
+
+      // Practitioner performance (simplified)
+      const practitionerGroups = invoices
+        .filter(inv => inv.practitioner_id)
+        .reduce((acc, inv) => {
+          const practitionerId = inv.practitioner_id;
+          if (!acc[practitionerId]) {
+            acc[practitionerId] = { revenue: 0, patients: new Set() };
+          }
+          acc[practitionerId].revenue += parseFloat(inv.total || '0');
+          if (inv.patient_id) {
+            acc[practitionerId].patients.add(inv.patient_id);
+          }
+          return acc;
+        }, {} as Record<string, { revenue: number; patients: Set<string> }>);
+
+      const practitionerPerformance = Object.entries(practitionerGroups)
+        .map(([id, data]) => ({
+          name: `Practitioner ${id.slice(0, 8)}`, // Simplified name
+          revenue: data.revenue,
+          patients: data.patients.size
+        }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5);
+
+      setKpis({
+        totalBilledMTD,
+        totalCollectedMTD,
+        totalOutstanding,
+        claimsInProgress,
+        monthlyRevenueTrend,
+        invoiceVolumeTrend,
+        revenueByStatus,
         topServices,
-        monthlyTrends,
-        serviceBreakdown,
-        paymentStatusBreakdown
+        medicalAidBreakdown,
+        practitionerPerformance
       });
 
     } catch (error) {
-      console.error('Error fetching financial analytics:', error);
+      console.error('Error fetching financial KPIs:', error);
     } finally {
-      setAnalyticsLoading(false);
+      setLoading(false);
     }
-  }, []);
+  }, [dateRange]);
 
   useEffect(() => {
     if (isOpen) {
-      fetchFinancialAnalytics();
+      fetchFinancialKPIs();
     }
-  }, [isOpen, fetchFinancialAnalytics]);
+  }, [isOpen, fetchFinancialKPIs]);
 
   if (!isOpen) return null;
 
-  const renderFinancialCharts = () => {
-    if (!analytics) return null;
+  const renderKPICards = () => {
+    if (!kpis) return null;
 
-    const maxValue = Math.max(...analytics.topServices.map(s => s.value));
-    
+    const kpiData = [
+      {
+        title: 'Total Billed (MTD)',
+        value: `N$${kpis.totalBilledMTD.toLocaleString()}`,
+        icon: DollarSign,
+        color: COLORS.primary,
+        change: '+12.3%'
+      },
+      {
+        title: 'Total Collected (MTD)', 
+        value: `N$${kpis.totalCollectedMTD.toLocaleString()}`,
+        icon: CreditCard,
+        color: COLORS.success,
+        change: '+8.7%'
+      },
+      {
+        title: 'Total Outstanding',
+        value: `N$${kpis.totalOutstanding.toLocaleString()}`,
+        icon: Clock,
+        color: COLORS.warning,
+        change: '-5.2%'
+      },
+      {
+        title: 'Claims in Progress',
+        value: `N$${kpis.claimsInProgress.toLocaleString()}`,
+        icon: Target,
+        color: COLORS.secondary,
+        change: '+2.1%'
+      }
+    ];
+
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {kpiData.map((kpi, index) => (
+          <motion.div
+            key={kpi.title}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+            className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <kpi.icon className="w-5 h-5 text-gray-400" />
+              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                kpi.change.startsWith('+') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+              }`}>
+                {kpi.change}
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-gray-900 font-rubik mb-1">{kpi.value}</p>
+            <p className="text-sm text-gray-600">{kpi.title}</p>
+          </motion.div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderCharts = () => {
+    if (!kpis) return null;
+
     return (
       <div className="space-y-6">
-        {/* Revenue Distribution Overview */}
-        <div className="bg-gray-50 rounded-xl p-6">
-          <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5" />
-            Revenue Distribution Overview
-          </h4>
-          <div className="space-y-3">
-            {analytics.topServices.slice(0, 8).map((service, index) => {
-              const percentage = (service.value / maxValue) * 100;
-              
-              return (
-                <div key={service.name} className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium text-gray-700">
-                      {service.name.length > 30 ? service.name.substring(0, 30) + '...' : service.name}
-                    </span>
-                    <span className="font-bold text-gray-900 font-rubik">N${service.value.toLocaleString()}</span>
-                  </div>
-                  <div className="bg-gray-200 rounded-full h-2">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${percentage}%` }}
-                      transition={{ duration: 1, delay: index * 0.1 }}
-                      className="h-2 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600"
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Payment Status Breakdown */}
-        <div className="bg-gray-50 rounded-xl p-6">
-          <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <PieChart className="w-5 h-5" />
-            Payment Status Analysis
-          </h4>
-          <div className="grid grid-cols-2 gap-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.1 }}
-              className="bg-white rounded-lg p-4 border border-gray-200"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded-full bg-green-500" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-700">Paid Invoices</p>
-                  <p className="text-lg font-bold text-gray-900 font-rubik">{analytics.paidInvoices}</p>
-                  <p className="text-xs text-gray-500">
-                    {analytics.paidInvoices + analytics.pendingInvoices > 0 
-                      ? ((analytics.paidInvoices / (analytics.paidInvoices + analytics.pendingInvoices)) * 100).toFixed(1)
-                      : 0}%
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.2 }}
-              className="bg-white rounded-lg p-4 border border-gray-200"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded-full bg-amber-500" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-700">Pending Invoices</p>
-                  <p className="text-lg font-bold text-gray-900 font-rubik">{analytics.pendingInvoices}</p>
-                  <p className="text-xs text-gray-500">
-                    {analytics.paidInvoices + analytics.pendingInvoices > 0 
-                      ? ((analytics.pendingInvoices / (analytics.paidInvoices + analytics.pendingInvoices)) * 100).toFixed(1)
-                      : 0}%
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-
-        {/* Monthly Trends */}
+        {/* Monthly Revenue Trend */}
         <div className="bg-gray-50 rounded-xl p-6">
           <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
             <TrendingUp className="w-5 h-5" />
-            Revenue Trends (Last 6 Months)
+            Monthly Revenue Trend
           </h4>
-          <div className="flex items-end justify-between h-32 bg-white rounded-lg p-4">
-            {analytics.monthlyTrends.map((trend, index) => {
-              const maxTrendValue = Math.max(...analytics.monthlyTrends.map(t => t.revenue));
-              const height = maxTrendValue > 0 ? (trend.revenue / maxTrendValue) * 100 : 0;
-              return (
-                <div key={trend.month} className="flex flex-col items-center gap-2">
-                  <motion.div
-                    initial={{ height: 0 }}
-                    animate={{ height: `${height}%` }}
-                    transition={{ duration: 0.8, delay: index * 0.1 }}
-                    className="bg-gradient-to-t from-purple-500 to-indigo-600 rounded-t-sm w-8"
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={kpis.monthlyRevenueTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="month" 
+                  tick={{ fontSize: 12, fill: '#6B7280' }}
+                  axisLine={{ stroke: '#E5E7EB' }}
+                />
+                <YAxis 
+                  tick={{ fontSize: 12, fill: '#6B7280' }}
+                  axisLine={{ stroke: '#E5E7EB' }}
+                  tickFormatter={(value) => `N$${(value / 1000).toFixed(0)}k`}
+                />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: '#374151',
+                    border: 'none',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontSize: '12px'
+                  }}
+                  formatter={(value: number, name: string) => [
+                    `N$${value.toLocaleString()}`,
+                    name === 'medical_aid' ? 'Medical Aid' : name === 'patient' ? 'Patient' : 'Total Revenue'
+                  ]}
+                />
+                <Legend />
+                <Area 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  stroke={COLORS.primary} 
+                  fill={COLORS.primary} 
+                  fillOpacity={0.1}
+                  name="Total Revenue"
+                />
+                <Bar dataKey="medical_aid" fill={COLORS.secondary} name="Medical Aid" />
+                <Bar dataKey="patient" fill={COLORS.success} name="Patient" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Revenue by Status & Top Services */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Revenue by Payment Status */}
+          <div className="bg-gray-50 rounded-xl p-6">
+            <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <PieChart className="w-5 h-5" />
+              Revenue by Payment Status
+            </h4>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPieChart>
+                  <Tooltip 
+                    contentStyle={{
+                      backgroundColor: '#374151',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: 'white',
+                      fontSize: '12px'
+                    }}
+                    formatter={(value: number) => [`N$${value.toLocaleString()}`, 'Amount']}
                   />
-                  <span className="text-xs text-gray-500 rotate-45 origin-left">
-                    {trend.month}
-                  </span>
-                </div>
-              );
-            })}
+                  <Pie
+                    data={kpis.revenueByStatus}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={30}
+                    outerRadius={80}
+                    dataKey="value"
+                  >
+                    {kpis.revenueByStatus.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Legend />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Invoice Volume Trend */}
+          <div className="bg-gray-50 rounded-xl p-6">
+            <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Invoice Volume Trend
+            </h4>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={kpis.invoiceVolumeTrend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis 
+                    dataKey="month" 
+                    tick={{ fontSize: 12, fill: '#6B7280' }}
+                    axisLine={{ stroke: '#E5E7EB' }}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 12, fill: '#6B7280' }}
+                    axisLine={{ stroke: '#E5E7EB' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{
+                      backgroundColor: '#374151',
+                      border: 'none',
+                      borderRadius: '8px',
+                      color: 'white',
+                      fontSize: '12px'
+                    }}
+                    formatter={(value: number) => [`${value} invoices`, 'Count']}
+                  />
+                  <Bar dataKey="count" fill={COLORS.primary} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        {/* Top Services Table */}
+        <div className="bg-gray-50 rounded-xl p-6">
+          <h4 className="text-lg font-semibold text-gray-800 mb-4">Top 5 Services by Revenue</h4>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-2 px-3 text-sm font-medium text-gray-600">Service</th>
+                  <th className="text-left py-2 px-3 text-sm font-medium text-gray-600">Count</th>
+                  <th className="text-left py-2 px-3 text-sm font-medium text-gray-600">Revenue</th>
+                  <th className="text-left py-2 px-3 text-sm font-medium text-gray-600">Avg Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {kpis.topServices.map((service, index) => (
+                  <tr key={service.name} className="border-b border-gray-100">
+                    <td className="py-2 px-3 text-sm font-medium text-gray-800">
+                      {service.name.length > 30 ? service.name.substring(0, 30) + '...' : service.name}
+                    </td>
+                    <td className="py-2 px-3 text-sm text-gray-600">{service.count}</td>
+                    <td className="py-2 px-3 text-sm font-semibold text-gray-900 font-rubik">
+                      N${service.revenue.toLocaleString()}
+                    </td>
+                    <td className="py-2 px-3 text-sm text-gray-600 font-rubik">
+                      N${service.avg.toFixed(0)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -416,7 +583,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="relative bg-white rounded-2xl shadow-2xl overflow-hidden max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+        className="relative bg-white rounded-2xl shadow-2xl overflow-hidden max-w-7xl w-full max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -440,10 +607,10 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                   onChange={(e) => setDateRange(e.target.value as typeof dateRange)}
                   className="bg-transparent border-none text-white text-sm focus:outline-none"
                 >
-                  <option value="7d" className="text-gray-900">7D</option>
-                  <option value="30d" className="text-gray-900">30D</option>
-                  <option value="3m" className="text-gray-900">3M</option>
-                  <option value="6m" className="text-gray-900">6M</option>
+                  <option value="30d" className="text-gray-900">30 Days</option>
+                  <option value="3m" className="text-gray-900">3 Months</option>
+                  <option value="6m" className="text-gray-900">6 Months</option>
+                  <option value="12m" className="text-gray-900">12 Months</option>
                 </select>
               </div>
               <button className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
@@ -467,8 +634,8 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
           <nav className="flex space-x-8 px-6">
             {[
               { key: 'overview', label: 'Overview', icon: BarChart3 },
-              { key: 'financial', label: 'Financial Analytics', icon: TrendingUp },
-              { key: 'insights', label: 'Insights', icon: PieChart }
+              { key: 'analytics', label: 'Financial Analytics', icon: TrendingUp },
+              { key: 'insights', label: 'Insights', icon: Users }
             ].map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
@@ -488,7 +655,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
 
         {/* Content */}
         <div className="p-6">
-          {analyticsLoading && (
+          {loading && (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
@@ -497,11 +664,11 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
             </div>
           )}
 
-          {!analyticsLoading && !analytics && (
+          {!loading && !kpis && (
             <div className="text-center py-12">
               <p className="text-gray-500 mb-4">No financial data available</p>
               <button
-                onClick={fetchFinancialAnalytics}
+                onClick={fetchFinancialKPIs}
                 className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
               >
                 Retry
@@ -509,107 +676,44 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
             </div>
           )}
 
-          {!analyticsLoading && analytics && (
+          {!loading && kpis && (
             <>
               {activeTab === 'overview' && (
                 <div className="space-y-6">
-                  {/* Key Metrics */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[
-                      {
-                        label: 'Total Revenue',
-                        value: `N$${analytics.totalRevenue.toLocaleString()}`,
-                        change: data.overview.change,
-                        isPositive: data.overview.isPositive,
-                        icon: DollarSign
-                      },
-                      {
-                        label: 'Monthly Revenue',
-                        value: `N$${analytics.monthlyRevenue.toLocaleString()}`,
-                        change: '+8.2%',
-                        isPositive: true,
-                        icon: TrendingUp
-                      },
-                      {
-                        label: 'Outstanding',
-                        value: `N$${analytics.outstandingAmount.toLocaleString()}`,
-                        change: '-12%',
-                        isPositive: false,
-                        icon: TrendingDown
-                      },
-                      {
-                        label: 'Collection Rate',
-                        value: `${((analytics.paidInvoices / (analytics.paidInvoices + analytics.pendingInvoices)) * 100).toFixed(1)}%`,
-                        change: '+5.1%',
-                        isPositive: true,
-                        icon: BarChart3
-                      }
-                    ].map((metric, index) => (
-                      <motion.div
-                        key={metric.label}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="bg-white rounded-lg border border-gray-200 p-4"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <metric.icon className="w-5 h-5 text-gray-400" />
-                          <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                            metric.isPositive
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {metric.change}
-                          </span>
-                        </div>
-                        <p className="text-2xl font-bold text-gray-900 font-rubik">{metric.value}</p>
-                        <p className="text-sm text-gray-600">{metric.label}</p>
-                      </motion.div>
-                    ))}
-                  </div>
-
-                  {/* Overview Charts */}
-                  {renderFinancialCharts()}
+                  {renderKPICards()}
+                  {renderCharts()}
                 </div>
               )}
 
-              {activeTab === 'financial' && (
+              {activeTab === 'analytics' && (
                 <div className="space-y-6">
-                  {/* Detailed financial analysis */}
-                  {renderFinancialCharts()}
+                  {renderKPICards()}
+                  {renderCharts()}
                   
-                  {/* Top Services Table */}
-                  <div className="bg-gray-50 rounded-xl p-6">
-                    <h4 className="text-lg font-semibold text-gray-800 mb-4">Top Revenue Services</h4>
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-gray-200">
-                            <th className="text-left py-2 px-3 text-sm font-medium text-gray-600">Service</th>
-                            <th className="text-left py-2 px-3 text-sm font-medium text-gray-600">Count</th>
-                            <th className="text-left py-2 px-3 text-sm font-medium text-gray-600">Revenue</th>
-                            <th className="text-left py-2 px-3 text-sm font-medium text-gray-600">Avg</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {analytics.topServices.slice(0, 10).map((service) => (
-                            <tr key={service.name} className="border-b border-gray-100">
-                              <td className="py-2 px-3 text-sm font-medium text-gray-800">
-                                {service.name.length > 30 ? service.name.substring(0, 30) + '...' : service.name}
-                              </td>
-                              <td className="py-2 px-3 text-sm text-gray-600">{service.count}</td>
-                              <td className="py-2 px-3 text-sm font-semibold text-gray-900 font-rubik">
-                                N${service.value.toLocaleString()}
-                              </td>
-                              <td className="py-2 px-3 text-sm text-gray-600 font-rubik">
-                                N${(service.value / service.count).toFixed(0)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                  {/* Medical Aid Breakdown */}
+                  {kpis.medicalAidBreakdown.length > 0 && (
+                    <div className="bg-gray-50 rounded-xl p-6">
+                      <h4 className="text-lg font-semibold text-gray-800 mb-4">Medical Aid Revenue Breakdown</h4>
+                      <div className="space-y-3">
+                        {kpis.medicalAidBreakdown.map((provider, index) => (
+                          <div key={provider.provider} className="flex items-center justify-between">
+                            <span className="font-medium text-gray-700">{provider.provider}</span>
+                            <div className="flex items-center gap-3">
+                              <div className="w-24 bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="h-2 rounded-full bg-purple-500" 
+                                  style={{ width: `${provider.percentage}%` }}
+                                />
+                              </div>
+                              <span className="font-semibold text-gray-900 w-20 text-right font-rubik">
+                                N${provider.value.toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
