@@ -16,7 +16,12 @@ import {
   Clock,
   Users,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Package,
+  Send,
+  Calendar,
+  FileText,
+  CheckCircle
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { 
@@ -38,6 +43,32 @@ import {
   AreaChart
 } from 'recharts';
 import { supabase } from '../../lib/supabase';
+import { useAuthStore } from '../../stores/authStore';
+
+interface BatchData {
+  batch_id: string;
+  practice_number: string;
+  batch_number: string;
+  batch_date: string;
+  medical_aid_reference: string;
+  status: string;
+  total_invoices: number;
+  total_amount: number;
+  created_at: string;
+  sent_at: string | null;
+  confirmed_at: string | null;
+  medical_aid_name: string;
+  medical_aid_short_name: string;
+  medical_aid_email: string;
+  medical_aid_logo_url: string;
+  medical_aid_theme_color: string;
+  practice_name: string;
+  practice_email: string;
+  detail_transactions: number;
+  total_detail_transactions: number;
+  total_amount_detail_transactions: number;
+  dat_filename: string;
+}
 
 interface FinancialKPIs {
   totalBilledMTD: number;
@@ -111,16 +142,65 @@ const COLORS = {
 
 const PIE_COLORS = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#EC4899'];
 
+// Medical aid theme colors mapping
+const MEDICAL_AID_THEMES: Record<string, string> = {
+  'MAG1': '#76a5af',
+  'NAMM': '#ee5a60', 
+  'NHPM': '#50caf0',
+  'NMC1': '#1f97d5',
+  'PROS': '#9c8f6c'
+};
+
+// Utility functions for color manipulation
+const hexToRgb = (hex: string) => {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : null;
+};
+
+const lightenColor = (hex: string, percent: number) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  
+  const r = Math.min(255, Math.floor(rgb.r + (255 - rgb.r) * percent));
+  const g = Math.min(255, Math.floor(rgb.g + (255 - rgb.g) * percent));
+  const b = Math.min(255, Math.floor(rgb.b + (255 - rgb.b) * percent));
+  
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+};
+
+const createMatteColor = (hex: string) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  
+  // Mix with grey to create matte effect
+  const greyMix = 0.3;
+  const grey = 128;
+  
+  const r = Math.floor(rgb.r * (1 - greyMix) + grey * greyMix);
+  const g = Math.floor(rgb.g * (1 - greyMix) + grey * greyMix);
+  const b = Math.floor(rgb.b * (1 - greyMix) + grey * greyMix);
+  
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+};
+
 const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
   isOpen,
   onClose,
   data
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'insights'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'insights' | 'batch-management'>('overview');
   const [dateRange, setDateRange] = useState<'30d' | '3m' | '6m' | '12m'>('30d');
   const [kpis, setKpis] = useState<FinancialKPIs | null>(null);
+  const [batches, setBatches] = useState<BatchData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [batchLoading, setBatchLoading] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+  
+  const { user, selectedPracticeId } = useAuthStore();
 
   // Optimized data fetching with minimal queries
   const fetchFinancialKPIs = useCallback(async () => {
@@ -347,11 +427,52 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     }
   }, [dateRange]);
 
+  // Fetch batch management data
+  const fetchBatchData = useCallback(async () => {
+    if (!selectedPracticeId) return;
+    
+    setBatchLoading(true);
+    try {
+      // For now, let's use practice ID directly if practice_number doesn't exist
+      // First try to get practice details to check what fields are available
+      const { data: practiceData, error: practiceError } = await supabase
+        .from('practices')
+        .select('*')
+        .eq('id', selectedPracticeId)
+        .single();
+
+      if (practiceError) throw practiceError;
+      
+      // Try practice_number first, then fallback to practice id or other identifier
+      let practiceIdentifier = practiceData?.practice_number || practiceData?.id || selectedPracticeId;
+      
+      // Fetch batch data using practice identifier
+      const { data: batchData, error: batchError } = await supabase
+        .from('batch_management_view')
+        .select('*')
+        .eq('practice_number', practiceIdentifier)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      if (batchError) throw batchError;
+
+      setBatches(batchData || []);
+    } catch (error) {
+      console.error('Error fetching batch data:', error);
+      setBatches([]);
+    } finally {
+      setBatchLoading(false);
+    }
+  }, [selectedPracticeId]);
+
   useEffect(() => {
     if (isOpen) {
       fetchFinancialKPIs();
+      if (activeTab === 'batch-management') {
+        fetchBatchData();
+      }
     }
-  }, [isOpen, fetchFinancialKPIs]);
+  }, [isOpen, activeTab, fetchFinancialKPIs, fetchBatchData]);
 
   if (!isOpen) return null;
 
@@ -615,6 +736,172 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     );
   };
 
+  const renderBatchManagement = () => {
+    if (batchLoading) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading batch data...</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (batches.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500 mb-4">No active batches found</p>
+          <p className="text-sm text-gray-400">Batches will appear here when they are created</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            <Package className="w-5 h-5" />
+            Active Batches ({batches.length})
+          </h3>
+          <button 
+            onClick={fetchBatchData}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div className={`grid gap-4 ${isMaximized ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          {batches.map((batch, index) => {
+            const themeColor = batch.medical_aid_theme_color || MEDICAL_AID_THEMES[batch.medical_aid_reference] || '#6B7280';
+            const matteColor = createMatteColor(themeColor);
+            const lightColor = lightenColor(themeColor, 0.2);
+            
+            return (
+              <motion.div
+                key={batch.batch_id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="relative overflow-hidden rounded-xl shadow-sm hover:shadow-md transition-shadow"
+                style={{ 
+                  background: `linear-gradient(135deg, ${matteColor} 0%, ${lightenColor(matteColor, 0.1)} 100%)`
+                }}
+              >
+                <div className="p-6">
+                  {/* Header with status badge */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      {batch.medical_aid_logo_url ? (
+                        <img 
+                          src={batch.medical_aid_logo_url} 
+                          alt={batch.medical_aid_name}
+                          className="w-10 h-10 rounded-lg object-contain bg-white p-1"
+                        />
+                      ) : (
+                        <div 
+                          className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                          style={{ backgroundColor: themeColor }}
+                        >
+                          {batch.medical_aid_short_name.substring(0, 2)}
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="font-semibold text-gray-800 text-lg">
+                          Batch #{batch.batch_number}
+                        </h4>
+                        <p className="text-sm text-gray-600">{batch.medical_aid_name}</p>
+                      </div>
+                    </div>
+                    
+                    <span 
+                      className="px-3 py-1 rounded-full text-xs font-medium text-white"
+                      style={{ backgroundColor: themeColor }}
+                    >
+                      {batch.status.toUpperCase()}
+                    </span>
+                  </div>
+
+                  {/* Batch details */}
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <Calendar className="w-4 h-4" style={{ color: themeColor }} />
+                      <span>Created: {format(new Date(batch.created_at), 'MMM dd, yyyy')}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                      <FileText className="w-4 h-4" style={{ color: themeColor }} />
+                      <span>Batch Date: {format(new Date(batch.batch_date), 'MMM dd, yyyy')}</span>
+                    </div>
+                  </div>
+
+                  {/* Invoice and transaction counts */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                      <div className="text-center">
+                        <div 
+                          className="text-2xl font-bold"
+                          style={{ color: themeColor }}
+                        >
+                          {batch.total_invoices}
+                        </div>
+                        <div className="text-xs text-gray-600">Invoices</div>
+                      </div>
+                      <div className="text-center">
+                        <div 
+                          className="text-2xl font-bold"
+                          style={{ color: lightenColor(themeColor, -0.2) }}
+                        >
+                          {batch.detail_transactions}
+                        </div>
+                        <div className="text-xs text-gray-600">Transactions</div>
+                      </div>
+                    </div>
+                    
+                    {/* Total amount - aligned far right */}
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-gray-800 font-rubik">
+                        N${parseFloat(batch.total_amount).toLocaleString()}
+                      </div>
+                      <div className="text-xs text-gray-600">Total Amount</div>
+                    </div>
+                  </div>
+
+                  {/* Submit button */}
+                  <div className="flex justify-end">
+                    <button
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white transition-colors"
+                      style={{ 
+                        backgroundColor: lightColor,
+                        ':hover': { backgroundColor: themeColor }
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = themeColor;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = lightColor;
+                      }}
+                    >
+                      <Send className="w-4 h-4" />
+                      Submit Batch
+                    </button>
+                  </div>
+                </div>
+
+                {/* Medical aid reference accent */}
+                <div 
+                  className="absolute top-0 right-0 w-1 h-full"
+                  style={{ backgroundColor: themeColor }}
+                />
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return createPortal(
     <div 
       className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] ${
@@ -692,7 +979,8 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
             {[
               { key: 'overview', label: 'Overview', icon: BarChart3 },
               { key: 'analytics', label: 'Financial Analytics', icon: TrendingUp },
-              { key: 'insights', label: 'Insights', icon: Users }
+              { key: 'insights', label: 'Insights', icon: Users },
+              { key: 'batch-management', label: 'Batch Management', icon: Package }
             ].map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
@@ -811,6 +1099,12 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {activeTab === 'batch-management' && (
+                <div className="space-y-6">
+                  {renderBatchManagement()}
                 </div>
               )}
             </>
