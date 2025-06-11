@@ -243,6 +243,21 @@ const EnhancedAddVisitForm: React.FC<Props> = ({ patientId, onSuccess, onCancel 
       onSuccess();
     } catch (error) {
       console.error('Error creating visit:', error);
+      
+      // Show user-friendly error message
+      let errorMessage = 'Failed to create visit. Please try again.';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('invalid input syntax for type uuid')) {
+          errorMessage = 'Invalid service selection. Please ensure all services are properly selected from the tariff database.';
+        } else if (error.message.includes('tariff')) {
+          errorMessage = 'Service tariff error: ' + error.message;
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

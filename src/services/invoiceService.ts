@@ -424,7 +424,25 @@ export class InvoiceService {
 
       // Then create invoice services
       console.log('💼 Creating invoice services...');
-      const invoiceServices = services.map(service => ({
+      console.log('🔍 Input services data:', services);
+      
+      // Validate and filter services with proper tariff IDs
+      const validServices = services.filter(service => {
+        const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(service.tariffId);
+        if (!isValidUuid) {
+          console.error(`❌ Invalid tariff ID for service ${service.code}: "${service.tariffId}" - not a valid UUID`);
+          return false;
+        }
+        return true;
+      });
+
+      console.log(`✅ Valid services: ${validServices.length} out of ${services.length}`);
+
+      if (validServices.length === 0) {
+        throw new Error('No valid services found. All services have invalid tariff IDs. Please ensure services are selected from the tariff database.');
+      }
+
+      const invoiceServices = validServices.map(service => ({
         invoice_id: invoice.id,
         tariff_id: service.tariffId,
         code: service.code,
@@ -437,7 +455,7 @@ export class InvoiceService {
         notes: service.notes || ''
       }));
 
-      console.log('📦 Services to insert:', invoiceServices);
+      console.log('📦 Valid services to insert:', invoiceServices);
       
       try {
         const { error: servicesError } = await supabase
@@ -446,13 +464,13 @@ export class InvoiceService {
 
         if (servicesError) {
           console.error('❌ Services creation error:', servicesError);
-          console.log('⚠️ Continuing without services for testing...');
+          throw new Error(`Failed to create invoice services: ${servicesError.message}. Please check that all selected services have valid tariff codes.`);
         } else {
           console.log('✅ Services created successfully');
         }
       } catch (err) {
         console.error('❌ Services insert failed:', err);
-        console.log('⚠️ Continuing without services for testing...');
+        throw new Error(`Failed to insert invoice services: ${err.message}`);
       }
 
       // Return the complete invoice with updated totals (calculated by triggers)
