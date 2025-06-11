@@ -501,6 +501,19 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
           try {
             setIsGeneratingInvoice(true);
             
+            console.log('🔍 ADD VISIT FORM - STEP 5: About to generate invoice');
+            console.log('🔍 ADD VISIT FORM - STEP 5: Patient ID:', patientId);
+            console.log('🔍 ADD VISIT FORM - STEP 5: Medical Aid ID:', medicalAidId);
+            console.log('🔍 ADD VISIT FORM - STEP 5: Services being sent to invoice service:');
+            data.selectedServices.forEach((service, i) => {
+              console.log(`🔍 ADD VISIT FORM - STEP 5: Service ${i+1}:`, {
+                code: service.code,
+                medicalAidCovered: service.medicalAidCovered,
+                coveragePercentage: service.coveragePercentage,
+                totalPrice: service.totalPrice
+              });
+            });
+            
             const invoice = await invoiceService.generateInvoiceFromVisit({
               visitId: visitData.id,
               patientId: patientId,

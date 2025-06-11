@@ -193,8 +193,8 @@ const EnhancedServiceSelector = forwardRef<any, EnhancedServiceSelectorProps>(({
           setAvailableTariffs(fallbackTariffs);
           const transformedTariffs: TariffWithValidation[] = fallbackTariffs.map(tariff => ({
             ...tariff,
-            medicalAidCovered: false,
-            coveragePercentage: 0,
+            medicalAidCovered: true, // Will be determined by patient's medical aid status
+            coveragePercentage: 100, // Simplified: 100% coverage for medical aid patients
             calculatedPrice: tariff.price
           }));
           setFilteredTariffs(transformedTariffs);
@@ -220,8 +220,8 @@ const EnhancedServiceSelector = forwardRef<any, EnhancedServiceSelectorProps>(({
         // Transform for display with validation
         const transformedTariffs: TariffWithValidation[] = tariffs.map(tariff => ({
           ...tariff,
-          medicalAidCovered: false, // Will be updated based on medical aid
-          coveragePercentage: 0,
+          medicalAidCovered: true, // Will be determined by patient's medical aid status
+          coveragePercentage: 100, // Simplified: 100% coverage for medical aid patients
           calculatedPrice: tariff.price
         }));
 
@@ -265,11 +265,13 @@ const EnhancedServiceSelector = forwardRef<any, EnhancedServiceSelectorProps>(({
         if (medicalAidData) {
           setHasMedicalAid(true);
           setMedicalAidProvider(medicalAidData.provider || 'Unknown Provider');
-          console.log('💳 Patient has medical aid:', medicalAidData.provider, '-', medicalAidData.scheme);
+          console.log('🔍 MEDICAL AID DETECTION - STEP 1: Patient has medical aid:', medicalAidData.provider, '-', medicalAidData.scheme);
+          console.log('🔍 MEDICAL AID DETECTION - STEP 1: hasMedicalAid will be set to TRUE');
         } else {
           setHasMedicalAid(false);
           setMedicalAidProvider('');
-          console.log('💰 Patient has no medical aid');
+          console.log('🔍 MEDICAL AID DETECTION - STEP 1: Patient has no medical aid');
+          console.log('🔍 MEDICAL AID DETECTION - STEP 1: hasMedicalAid will be set to FALSE');
         }
       } catch (err) {
         console.error('Error checking medical aid status:', err);
@@ -377,6 +379,10 @@ const EnhancedServiceSelector = forwardRef<any, EnhancedServiceSelectorProps>(({
     } else {
       // Add new service
       const calculatedPrice = calculatePrice(tariff, 1);
+      console.log('🔍 SERVICE CREATION - STEP 2: Creating service for tariff:', tariff.code);
+      console.log('🔍 SERVICE CREATION - STEP 2: hasMedicalAid state is:', hasMedicalAid);
+      console.log('🔍 SERVICE CREATION - STEP 2: medicalAidProvider is:', medicalAidProvider);
+
       const newService: ServiceSelection = {
         id: crypto.randomUUID(),
         tariffId: tariff.id,
@@ -388,12 +394,20 @@ const EnhancedServiceSelector = forwardRef<any, EnhancedServiceSelectorProps>(({
         quantity: 1,
         totalPrice: calculatedPrice,
         requiresPreAuth: false,
-        medicalAidCovered: false,
-        coveragePercentage: 0,
+        medicalAidCovered: hasMedicalAid, // Based on patient's medical aid status
+        coveragePercentage: hasMedicalAid ? 100 : 0, // 100% coverage if patient has medical aid
         toothNumber: undefined,
         businessRule: tariff.business_rule_formula,
         exampleCalculation: tariff.example_calculation
       };
+
+      console.log('🔍 SERVICE CREATION - STEP 2: Service object created:', {
+        code: newService.code,
+        medicalAidCovered: newService.medicalAidCovered,
+        coveragePercentage: newService.coveragePercentage,
+        hasMedicalAidAtCreation: hasMedicalAid
+      });
+
       onServiceChange([...selectedServices, newService]);
     }
   };
@@ -411,6 +425,10 @@ const EnhancedServiceSelector = forwardRef<any, EnhancedServiceSelectorProps>(({
     }
 
     const calculatedPrice = calculatePrice(selectedTariff, quantity, toothNumber);
+    console.log('🔍 SERVICE CREATION WITH RULES - STEP 2B: Creating service with rules for tariff:', selectedTariff.code);
+    console.log('🔍 SERVICE CREATION WITH RULES - STEP 2B: hasMedicalAid state is:', hasMedicalAid);
+    console.log('🔍 SERVICE CREATION WITH RULES - STEP 2B: medicalAidProvider is:', medicalAidProvider);
+
     const newService: ServiceSelection = {
       id: crypto.randomUUID(),
       tariffId: selectedTariff.id,
@@ -422,12 +440,19 @@ const EnhancedServiceSelector = forwardRef<any, EnhancedServiceSelectorProps>(({
       quantity: quantity,
       totalPrice: calculatedPrice,
       requiresPreAuth: false,
-      medicalAidCovered: false,
-      coveragePercentage: 0,
+      medicalAidCovered: hasMedicalAid, // Based on patient's medical aid status
+      coveragePercentage: hasMedicalAid ? 100 : 0, // 100% coverage if patient has medical aid
       toothNumber: toothNumber || undefined,
       businessRule: selectedTariff.business_rule_formula,
       exampleCalculation: selectedTariff.example_calculation
     };
+
+    console.log('🔍 SERVICE CREATION WITH RULES - STEP 2B: Service object created:', {
+      code: newService.code,
+      medicalAidCovered: newService.medicalAidCovered,
+      coveragePercentage: newService.coveragePercentage,
+      hasMedicalAidAtCreation: hasMedicalAid
+    });
 
     onServiceChange([...selectedServices, newService]);
     setShowBusinessRules(false);

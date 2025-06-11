@@ -30,20 +30,27 @@ vi.mock('framer-motion', () => ({
   AnimatePresence: ({ children }: any) => children
 }));
 
-// Mock Recharts
-vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
-  AreaChart: ({ children }: any) => <div data-testid="area-chart">{children}</div>,
-  BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
-  PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
-  Area: () => <div data-testid="area" />,
-  Bar: () => <div data-testid="bar" />,
-  Pie: () => <div data-testid="pie" />,
-  Cell: () => <div data-testid="cell" />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  CartesianGrid: () => <div data-testid="cartesian-grid" />,
-  Tooltip: () => <div data-testid="tooltip" />
+// Mock Chart.js and react-chartjs-2
+vi.mock('chart.js', () => ({
+  Chart: {
+    register: vi.fn()
+  },
+  CategoryScale: vi.fn(),
+  LinearScale: vi.fn(),
+  PointElement: vi.fn(),
+  LineElement: vi.fn(),
+  BarElement: vi.fn(),
+  ArcElement: vi.fn(),
+  Title: vi.fn(),
+  Tooltip: vi.fn(),
+  Legend: vi.fn(),
+  Filler: vi.fn()
+}));
+
+vi.mock('react-chartjs-2', () => ({
+  Line: ({ data }: any) => <div data-testid="line-chart">{JSON.stringify(data)}</div>,
+  Bar: ({ data }: any) => <div data-testid="bar-chart">{JSON.stringify(data)}</div>,
+  Doughnut: ({ data }: any) => <div data-testid="doughnut-chart">{JSON.stringify(data)}</div>
 }));
 
 const mockFinancialData = {
@@ -329,10 +336,9 @@ describe('EnhancedFinancialModal', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getAllByTestId('responsive-container')).toHaveLength(4);
-      expect(screen.getByTestId('area-chart')).toBeInTheDocument();
+      expect(screen.getByTestId('line-chart')).toBeInTheDocument();
       expect(screen.getAllByTestId('bar-chart')).toHaveLength(2);
-      expect(screen.getByTestId('pie-chart')).toBeInTheDocument();
+      expect(screen.getByTestId('doughnut-chart')).toBeInTheDocument();
     });
   });
 

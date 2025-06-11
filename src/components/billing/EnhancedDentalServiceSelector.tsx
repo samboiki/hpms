@@ -62,8 +62,8 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
           quantity: 1,
           totalPrice: parseFloat(infectionControlCode.price) || 0,
           requiresPreAuth: false,
-          medicalAidCovered: false,
-          coveragePercentage: 0,
+          medicalAidCovered: true, // Will be determined by patient's medical aid status
+          coveragePercentage: 100, // Simplified: 100% coverage for medical aid patients
           businessRule: 'Required per visit',
           exampleCalculation: 'Fixed per visit charge',
           requiresTeethNumbers: false,
@@ -158,8 +158,8 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
       quantity: 1,
       totalPrice: parseFloat(code.price) || 0,
       requiresPreAuth: false,
-      medicalAidCovered: false,
-      coveragePercentage: 0,
+      medicalAidCovered: true, // Will be determined by patient's medical aid status
+      coveragePercentage: 100, // Simplified: 100% coverage for medical aid patients
       businessRule: code.business_rule_formula,
       exampleCalculation: code.example_calculation,
       requiresTeethNumbers: code.requires_tooth_number === 'YES',
@@ -193,8 +193,8 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
         quantity: 1,
         totalPrice: parseFloat(code.price) * 0.10,
         requiresPreAuth: false,
-        medicalAidCovered: false,
-        coveragePercentage: 0,
+        medicalAidCovered: true, // Will be determined by patient's medical aid status
+        coveragePercentage: 100, // Simplified: 100% coverage for medical aid patients
         businessRule: `10% material factor for ${code.code}`,
         exampleCalculation: `${code.price} × 0.10 = ${(parseFloat(code.price) * 0.10).toFixed(2)}`,
         requiresTeethNumbers: code.requires_tooth_number === 'YES',

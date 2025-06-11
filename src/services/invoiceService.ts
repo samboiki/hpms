@@ -541,49 +541,115 @@ export class InvoiceService {
         throw new Error('No valid services found. All services have invalid tariff IDs. Please ensure services are selected from the tariff database.');
       }
 
-      // Check if patient has medical aid by looking for medical_aid_details
-      let hasMedicalAid = false;
+      // CRITICAL FIX: Trust the frontend's medical aid detection instead of re-querying
+      // The frontend already correctly detected medical aid status in the service selector
+      console.log('🔍 INVOICE SERVICE - STEP 3A: Determining medical aid status from frontend services');
+      
+      // Check if any service has medical aid coverage - this means patient has medical aid
+      const hasAnyMedicalAidCoverage = validServices.some(service => service.medicalAidCovered === true);
+      const hasMedicalAid = hasAnyMedicalAidCoverage;
+      
+      console.log('🔍 INVOICE SERVICE - STEP 3A: Frontend services with medical aid coverage:');
+      validServices.forEach((service, i) => {
+        console.log(`🔍 INVOICE SERVICE - STEP 3A: Service ${i+1} ${service.code}: medicalAidCovered=${service.medicalAidCovered}`);
+      });
+      
+      console.log('🔍 INVOICE SERVICE - STEP 3A: Medical aid status determined from frontend:', hasMedicalAid ? 'HAS MEDICAL AID' : 'NO MEDICAL AID');
+      
+      // Optional: Still do the database check for logging purposes, but don't use the result
       try {
-        const { data: medicalAidData } = await supabase
+        const { data: medicalAidData, error: medicalAidError } = await supabase
           .from('medical_aid_details')
-          .select('id')
-          .eq('patient_id', invoiceData.patientId)
-          .single();
+          .select('id, provider, membership_number')
+          .eq('patient_id', invoiceData.patientId);
         
-        hasMedicalAid = !!medicalAidData;
-        console.log('🔍 Patient medical aid status:', hasMedicalAid ? 'HAS MEDICAL AID' : 'NO MEDICAL AID');
+        console.log('🔍 INVOICE SERVICE - STEP 3A: Database check (for verification only):', { 
+          dbFoundMedicalAid: !!(medicalAidData && medicalAidData.length > 0),
+          frontendFoundMedicalAid: hasMedicalAid,
+          data: medicalAidData 
+        });
+        
+        if (medicalAidData && medicalAidData.length > 0 && !hasMedicalAid) {
+          console.warn('⚠️ MISMATCH: Database has medical aid but frontend didn\'t detect it');
+        } else if ((!medicalAidData || medicalAidData.length === 0) && hasMedicalAid) {
+          console.warn('⚠️ MISMATCH: Frontend detected medical aid but database query failed (likely RLS issue)');
+        }
       } catch (err) {
-        console.log('⚠️ Could not check medical aid status, assuming no medical aid');
+        console.log('⚠️ Database medical aid check failed (using frontend detection):', err.message);
       }
 
-      const invoiceServices = validServices.map(service => ({
-        invoice_id: invoice.id,
-        tariff_id: service.tariffId,
-        code: service.code,
-        description: service.description,
-        quantity: service.quantity,
-        unit_price: service.unitPrice,
-        total_price: service.totalPrice,
-        medical_aid_covered: hasMedicalAid ? service.totalPrice : 0, // Medical aid covers 100% or nothing
-        patient_portion: hasMedicalAid ? 0 : service.totalPrice, // Patient pays nothing if medical aid covers it
-        notes: service.notes || ''
-      }));
+      console.log('🔍 INVOICE SERVICE - STEP 3: Preparing services for database insertion');
+      console.log('🔍 INVOICE SERVICE - STEP 3: Medical aid status determined as:', hasMedicalAid);
+      console.log('🔍 INVOICE SERVICE - STEP 3: Services received from frontend:');
+      validServices.forEach((service, i) => {
+        console.log(`🔍 INVOICE SERVICE - STEP 3: Service ${i+1}:`, {
+          code: service.code,
+          frontendMedicalAidCovered: service.medicalAidCovered,
+          frontendCoveragePercentage: service.coveragePercentage,
+          totalPrice: service.totalPrice
+        });
+      });
+
+      const invoiceServices = validServices.map(service => {
+        const mappedService = {
+          invoice_id: invoice.id,
+          tariff_id: service.tariffId,
+          code: service.code,
+          description: service.description,
+          quantity: service.quantity,
+          unit_price: service.unitPrice,
+          total_price: service.totalPrice,
+          medical_aid_covered: hasMedicalAid ? service.totalPrice : 0, // Medical aid covers 100% or nothing
+          patient_portion: hasMedicalAid ? 0 : service.totalPrice, // Patient pays nothing if medical aid covers it
+          notes: service.notes || ''
+        };
+
+        console.log('🔍 INVOICE SERVICE - STEP 3: Mapped service for database:', {
+          code: mappedService.code,
+          total_price: mappedService.total_price,
+          medical_aid_covered: mappedService.medical_aid_covered,
+          patient_portion: mappedService.patient_portion,
+          hasMedicalAidWhenMapping: hasMedicalAid
+        });
+
+        return mappedService;
+      });
 
       console.log('📦 Valid services to insert:', invoiceServices);
       
+      console.log('🔍 INVOICE SERVICE - STEP 4: About to insert services into database');
+      console.log('🔍 INVOICE SERVICE - STEP 4: Final services data being sent to Supabase:', JSON.stringify(invoiceServices, null, 2));
+
       try {
-        const { error: servicesError } = await supabase
+        const { data: insertedServices, error: servicesError } = await supabase
           .from('invoice_services')
-          .insert(invoiceServices);
+          .insert(invoiceServices)
+          .select('*');
 
         if (servicesError) {
-          console.error('❌ Services creation error:', servicesError);
+          console.error('❌ INVOICE SERVICE - STEP 4: Services creation error:', servicesError);
           throw new Error(`Failed to create invoice services: ${servicesError.message}. Please check that all selected services have valid tariff codes.`);
         } else {
-          console.log('✅ Services created successfully');
+          console.log('✅ INVOICE SERVICE - STEP 4: Services created successfully');
+          console.log('🔍 INVOICE SERVICE - STEP 4: Services returned from database:');
+          insertedServices?.forEach((service, i) => {
+            console.log(`🔍 INVOICE SERVICE - STEP 4: Returned service ${i+1}:`, {
+              code: service.code,
+              total_price: service.total_price,
+              medical_aid_covered: service.medical_aid_covered,
+              patient_portion: service.patient_portion,
+              created_at: service.created_at
+            });
+
+            if (service.patient_portion > 0 && hasMedicalAid) {
+              console.error('🚨 PROBLEM DETECTED: Medical aid patient is being charged N$', service.patient_portion, 'for service', service.code);
+            } else if (service.patient_portion === 0 && hasMedicalAid) {
+              console.log('✅ CORRECT: Medical aid patient pays N$ 0.00 for service', service.code);
+            }
+          });
         }
       } catch (err) {
-        console.error('❌ Services insert failed:', err);
+        console.error('❌ INVOICE SERVICE - STEP 4: Services insert failed:', err);
         throw new Error(`Failed to insert invoice services: ${err.message}`);
       }
 

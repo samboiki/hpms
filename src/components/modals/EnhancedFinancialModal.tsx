@@ -31,22 +31,34 @@ import {
   Target
 } from 'lucide-react';
 import { format, parseISO, startOfMonth, endOfMonth, subMonths } from 'date-fns';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  PieChart as RechartsPieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  Area,
-  AreaChart
-} from 'recharts';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip as ChartTooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  ChartTooltip,
+  Legend,
+  Filler
+);
 import { supabase } from '../../lib/supabase';
 
 interface ChartData {
@@ -985,26 +997,190 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
       info: '#06b6d4'
     };
 
-    // Custom tooltip styles
-    const CustomTooltip = ({ active, payload, label }: any) => {
-      if (active && payload && payload.length) {
-        return (
-          <motion.div 
-            className="bg-white/95 backdrop-blur-sm p-4 rounded-lg shadow-xl border border-gray-200"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.15 }}
-          >
-            <p className="font-semibold text-gray-800 mb-2">{label}</p>
-            {payload.map((entry: any, index: number) => (
-              <p key={index} className="text-sm font-rubik" style={{ color: entry.color }}>
-                {entry.name}: N${entry.value?.toFixed(2)}
-              </p>
-            ))}
-          </motion.div>
-        );
+    // Chart.js options for beautiful styling
+    const chartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          titleColor: '#1f2937',
+          bodyColor: '#374151',
+          borderColor: '#e5e7eb',
+          borderWidth: 1,
+          cornerRadius: 12,
+          padding: 16,
+          displayColors: true,
+          callbacks: {
+            label: function(context: any) {
+              return `${context.dataset.label}: N$${context.parsed.y?.toFixed(2) || 0}`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(243, 244, 246, 0.8)',
+            borderDash: [5, 5]
+          },
+          ticks: {
+            color: '#6b7280',
+            font: {
+              size: 12
+            },
+            callback: function(value: any) {
+              return 'N$' + value.toLocaleString();
+            }
+          }
+        },
+        x: {
+          grid: {
+            display: false
+          },
+          ticks: {
+            color: '#6b7280',
+            font: {
+              size: 12
+            }
+          }
+        }
       }
-      return null;
+    };
+
+    // Revenue trend chart data
+    const revenueChartData = {
+      labels: analytics.monthlyTrends.map(trend => trend.month),
+      datasets: [
+        {
+          label: 'Revenue',
+          data: analytics.monthlyTrends.map(trend => trend.revenue),
+          borderColor: 'rgba(139, 92, 246, 1)',
+          backgroundColor: 'rgba(139, 92, 246, 0.1)',
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#8b5cf6',
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+          pointRadius: 6,
+          pointHoverRadius: 8
+        }
+      ]
+    };
+
+    // Payment sources chart data
+    const paymentSourcesData = {
+      labels: analytics.monthlyTrends.map(trend => trend.month),
+      datasets: [
+        {
+          label: 'Medical Aid',
+          data: analytics.monthlyTrends.map(trend => trend.medical_aid),
+          backgroundColor: 'rgba(139, 92, 246, 0.8)',
+          borderColor: 'rgba(139, 92, 246, 1)',
+          borderWidth: 2,
+          borderRadius: 8,
+          borderSkipped: false
+        },
+        {
+          label: 'Self Pay',
+          data: analytics.monthlyTrends.map(trend => trend.self_pay),
+          backgroundColor: 'rgba(6, 182, 212, 0.8)',
+          borderColor: 'rgba(6, 182, 212, 1)',
+          borderWidth: 2,
+          borderRadius: 8,
+          borderSkipped: false
+        }
+      ]
+    };
+
+    // Top services chart data
+    const topServicesData = {
+      labels: analytics.topServices.slice(0, 5).map(service => 
+        service.name.length > 20 ? service.name.substring(0, 20) + '...' : service.name
+      ),
+      datasets: [
+        {
+          label: 'Revenue',
+          data: analytics.topServices.slice(0, 5).map(service => service.value),
+          backgroundColor: [
+            'rgba(16, 185, 129, 0.8)',
+            'rgba(52, 211, 153, 0.8)',
+            'rgba(110, 231, 183, 0.8)',
+            'rgba(167, 243, 208, 0.8)',
+            'rgba(209, 250, 229, 0.8)'
+          ],
+          borderColor: [
+            'rgba(16, 185, 129, 1)',
+            'rgba(52, 211, 153, 1)',
+            'rgba(110, 231, 183, 1)',
+            'rgba(167, 243, 208, 1)',
+            'rgba(209, 250, 229, 1)'
+          ],
+          borderWidth: 2,
+          borderRadius: 6,
+          borderSkipped: false
+        }
+      ]
+    };
+
+    // Service distribution donut chart
+    const serviceDistributionData = {
+      labels: analytics.serviceBreakdown.map(service => service.name),
+      datasets: [
+        {
+          data: analytics.serviceBreakdown.map(service => service.value),
+          backgroundColor: [
+            '#8b5cf6',
+            '#06b6d4', 
+            '#10b981',
+            '#f59e0b',
+            '#ef4444',
+            '#8b5a2b'
+          ],
+          borderColor: '#ffffff',
+          borderWidth: 3,
+          hoverOffset: 8
+        }
+      ]
+    };
+
+    const doughnutOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom' as const,
+          labels: {
+            padding: 20,
+            font: {
+              size: 12
+            },
+            color: '#6b7280'
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          titleColor: '#1f2937',
+          bodyColor: '#374151',
+          borderColor: '#e5e7eb',
+          borderWidth: 1,
+          cornerRadius: 12,
+          padding: 16,
+          callbacks: {
+            label: function(context: any) {
+              const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
+              const percentage = ((context.parsed / total) * 100).toFixed(1);
+              return `${context.label}: N$${context.parsed?.toFixed(2)} (${percentage}%)`;
+            }
+          }
+        }
+      },
+      cutout: '60%'
     };
 
     return (
@@ -1053,102 +1229,22 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
           </motion.div>
         </div>
 
-        {/* Premium Metrics Cards */}
-        <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
-          initial={{ y: 40, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.3, duration: 0.6 }}
-        >
-          {[
-            {
-              title: 'Total Revenue',
-              value: `N$${analytics.totalRevenue.toFixed(2)}`,
-              change: analytics.revenueGrowth,
-              icon: DollarSign,
-              gradient: 'from-emerald-500 to-green-600',
-              bg: 'from-emerald-50 to-green-50',
-              border: 'border-emerald-200'
-            },
-            {
-              title: 'Monthly Revenue',
-              value: `N$${analytics.monthlyRevenue.toFixed(2)}`,
-              subtitle: `Avg: N$${analytics.avgInvoiceValue.toFixed(2)}`,
-              icon: Activity,
-              gradient: 'from-blue-500 to-cyan-600',
-              bg: 'from-blue-50 to-cyan-50',
-              border: 'border-blue-200'
-            },
-            {
-              title: 'Medical Aid Revenue',
-              value: `N$${analytics.medicalAidRevenue.toFixed(2)}`,
-              subtitle: `${analytics.totalRevenue > 0 ? ((analytics.medicalAidRevenue / analytics.totalRevenue) * 100).toFixed(1) : 0}% of total`,
-              icon: CreditCard,
-              gradient: 'from-purple-500 to-indigo-600',
-              bg: 'from-purple-50 to-indigo-50',
-              border: 'border-purple-200'
-            },
-            {
-              title: 'Outstanding',
-              value: `N$${analytics.outstandingAmount.toFixed(2)}`,
-              subtitle: `${analytics.pendingInvoices} pending`,
-              icon: AlertTriangle,
-              gradient: 'from-orange-500 to-red-600',
-              bg: 'from-orange-50 to-red-50',
-              border: 'border-orange-200'
-            }
-          ].map((metric, index) => (
-            <motion.div
-              key={metric.title}
-              className={`relative p-6 rounded-2xl bg-gradient-to-br ${metric.bg} border ${metric.border} overflow-hidden group hover:shadow-xl transition-all duration-300`}
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.4 + index * 0.1 }}
-              whileHover={{ y: -4, scale: 1.02 }}
-            >
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-medium text-gray-600">{metric.title}</p>
-                  <div className={`p-2 rounded-xl bg-gradient-to-r ${metric.gradient}`}>
-                    <metric.icon className="w-5 h-5 text-white" />
-                  </div>
-                </div>
-                <p className="text-2xl font-bold text-gray-800 mb-1 font-rubik">{metric.value}</p>
-                {metric.change !== undefined && (
-                  <div className="flex items-center gap-1">
-                    {metric.change >= 0 ? (
-                      <TrendingUp className="w-4 h-4 text-emerald-600" />
-                    ) : (
-                      <TrendingDown className="w-4 h-4 text-red-600" />
-                    )}
-                    <span className={`text-sm font-medium font-rubik ${metric.change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {Math.abs(metric.change).toFixed(1)}%
-                    </span>
-                  </div>
-                )}
-                {metric.subtitle && (
-                  <p className="text-sm text-gray-600 mt-1">{metric.subtitle}</p>
-                )}
-              </div>
-              <div className={`absolute inset-0 bg-gradient-to-r ${metric.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
-            </motion.div>
-          ))}
-        </motion.div>
+        {/* Skip duplicate metrics - they're in the header */}
 
-        {/* Premium Charts Grid */}
+        {/* Beautiful Chart.js Charts Grid */}
         <motion.div 
           className="grid grid-cols-1 xl:grid-cols-2 gap-8"
           initial={{ y: 60, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.8, duration: 0.6 }}
+          transition={{ delay: 0.3, duration: 0.6 }}
         >
-          {/* Revenue Trend Chart - Premium Style */}
+          {/* Revenue Trend Chart - Beautiful Line Chart */}
           <motion.div 
             className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden"
             whileHover={{ y: -2, boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)" }}
             transition={{ duration: 0.3 }}
           >
-            <div className="p-8 pb-4">
+            <div className="p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-3 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-600">
                   <TrendingUp className="w-6 h-6 text-white" />
@@ -1158,48 +1254,19 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                   <p className="text-gray-500 text-sm">Last 6 months performance</p>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={320}>
-                <AreaChart data={analytics.monthlyTrends} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" strokeWidth={1} />
-                  <XAxis 
-                    dataKey="month" 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                  />
-                  <YAxis 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Area 
-                    type="monotone" 
-                    dataKey="revenue" 
-                    stroke="#8b5cf6" 
-                    strokeWidth={3}
-                    fill="url(#revenueGradient)"
-                    dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 6 }}
-                    activeDot={{ r: 8, stroke: '#8b5cf6', strokeWidth: 2, fill: 'white' }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <div className="h-80">
+                <Line data={revenueChartData} options={chartOptions} />
+              </div>
             </div>
           </motion.div>
 
-          {/* Medical Aid vs Self Pay - Modern Bars */}
+          {/* Payment Sources - Beautiful Bar Chart */}
           <motion.div 
             className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden"
             whileHover={{ y: -2, boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)" }}
             transition={{ duration: 0.3 }}
           >
-            <div className="p-8 pb-4">
+            <div className="p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-3 rounded-2xl bg-gradient-to-r from-blue-500 to-cyan-600">
                   <BarChart3 className="w-6 h-6 text-white" />
@@ -1209,55 +1276,35 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                   <p className="text-gray-500 text-sm">Medical Aid vs Self Pay breakdown</p>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={analytics.monthlyTrends} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="medicalAidGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={1}/>
-                      <stop offset="95%" stopColor="#a78bfa" stopOpacity={1}/>
-                    </linearGradient>
-                    <linearGradient id="selfPayGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={1}/>
-                      <stop offset="95%" stopColor="#67e8f9" stopOpacity={1}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" strokeWidth={1} />
-                  <XAxis 
-                    dataKey="month" 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                  />
-                  <YAxis 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar 
-                    dataKey="medical_aid" 
-                    fill="url(#medicalAidGradient)" 
-                    name="Medical Aid"
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar 
-                    dataKey="self_pay" 
-                    fill="url(#selfPayGradient)" 
-                    name="Self Pay"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="h-80">
+                <Bar data={paymentSourcesData} options={{
+                  ...chartOptions,
+                  plugins: {
+                    ...chartOptions.plugins,
+                    legend: {
+                      display: true,
+                      position: 'top' as const,
+                      labels: {
+                        padding: 20,
+                        font: {
+                          size: 12
+                        },
+                        color: '#6b7280'
+                      }
+                    }
+                  }
+                }} />
+              </div>
             </div>
           </motion.div>
 
-          {/* Top Services - Elegant Horizontal Bars */}
+          {/* Top Services - Beautiful Horizontal Bar Chart */}
           <motion.div 
             className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden"
             whileHover={{ y: -2, boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)" }}
             transition={{ duration: 0.3 }}
           >
-            <div className="p-8 pb-4">
+            <div className="p-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600">
                   <Target className="w-6 h-6 text-white" />
@@ -1267,41 +1314,45 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                   <p className="text-gray-500 text-sm">Highest revenue generating services</p>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={analytics.topServices.slice(0, 5)} layout="horizontal" margin={{ top: 10, right: 30, left: 100, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="servicesGradient" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={1}/>
-                      <stop offset="95%" stopColor="#34d399" stopOpacity={1}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" strokeWidth={1} />
-                  <XAxis 
-                    type="number" 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: '#6b7280' }}
-                  />
-                  <YAxis 
-                    dataKey="name" 
-                    type="category" 
-                    width={100}
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 11, fill: '#6b7280' }}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar 
-                    dataKey="value" 
-                    fill="url(#servicesGradient)"
-                    radius={[0, 8, 8, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="h-80">
+                <Bar data={topServicesData} options={{
+                  ...chartOptions,
+                  indexAxis: 'y' as const,
+                  scales: {
+                    y: {
+                      grid: {
+                        display: false
+                      },
+                      ticks: {
+                        color: '#6b7280',
+                        font: {
+                          size: 12
+                        }
+                      }
+                    },
+                    x: {
+                      beginAtZero: true,
+                      grid: {
+                        color: 'rgba(243, 244, 246, 0.8)',
+                        borderDash: [5, 5]
+                      },
+                      ticks: {
+                        color: '#6b7280',
+                        font: {
+                          size: 12
+                        },
+                        callback: function(value: any) {
+                          return 'N$' + value.toLocaleString();
+                        }
+                      }
+                    }
+                  }
+                }} />
+              </div>
             </div>
           </motion.div>
 
-          {/* Service Distribution - Modern Donut */}
+          {/* Service Distribution - Beautiful Doughnut Chart */}
           <motion.div 
             className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden"
             whileHover={{ y: -2, boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.15)" }}
@@ -1317,29 +1368,9 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                   <p className="text-gray-500 text-sm">Revenue by service category</p>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={320}>
-                <RechartsPieChart>
-                  <Pie
-                    data={analytics.serviceBreakdown}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={110}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {analytics.serviceBreakdown.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.color}
-                        stroke="white"
-                        strokeWidth={2}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomTooltip />} />
-                </RechartsPieChart>
-              </ResponsiveContainer>
+              <div className="h-80">
+                <Doughnut data={serviceDistributionData} options={doughnutOptions} />
+              </div>
             </div>
           </motion.div>
         </motion.div>
