@@ -429,11 +429,19 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
 
   // Fetch batch management data
   const fetchBatchData = useCallback(async () => {
-    if (!selectedPracticeId) return;
+    console.log('🔍 fetchBatchData called');
+    console.log('📍 selectedPracticeId:', selectedPracticeId);
+    console.log('👤 user:', user);
+    
+    if (!selectedPracticeId) {
+      console.warn('❌ No selectedPracticeId found');
+      return;
+    }
     
     setBatchLoading(true);
     try {
-      // For now, let's use practice ID directly if practice_number doesn't exist
+      console.log('🏥 Fetching practice data for ID:', selectedPracticeId);
+      
       // First try to get practice details to check what fields are available
       const { data: practiceData, error: practiceError } = await supabase
         .from('practices')
@@ -441,12 +449,48 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
         .eq('id', selectedPracticeId)
         .single();
 
-      if (practiceError) throw practiceError;
+      console.log('🏥 Practice query result:', { practiceData, practiceError });
+
+      if (practiceError) {
+        console.error('❌ Practice query error:', practiceError);
+        throw practiceError;
+      }
+      
+      // Log available practice fields
+      console.log('🔎 Available practice fields:', Object.keys(practiceData || {}));
       
       // Try practice_number first, then fallback to practice id or other identifier
       let practiceIdentifier = practiceData?.practice_number || practiceData?.id || selectedPracticeId;
+      console.log('🔑 Using practice identifier:', practiceIdentifier);
+      
+      // Test if batch_management_view exists and what columns it has
+      console.log('📊 Testing batch_management_view access...');
+      const { data: testData, error: testError } = await supabase
+        .from('batch_management_view')
+        .select('*')
+        .limit(1);
+      
+      console.log('📊 Batch view test result:', { testData, testError });
+      
+      if (testError) {
+        console.error('❌ Batch view access error:', testError);
+        // Try the actual batch_headers table instead
+        console.log('🔄 Trying batch_headers table instead...');
+        const { data: headersData, error: headersError } = await supabase
+          .from('batch_headers')
+          .select('*')
+          .limit(5);
+        
+        console.log('📋 Batch headers result:', { headersData, headersError });
+        setBatches([]);
+        return;
+      }
+      
+      // Log all available data in the view
+      console.log('📋 Sample batch data structure:', testData?.[0] ? Object.keys(testData[0]) : 'No data');
       
       // Fetch batch data using practice identifier
+      console.log('🔍 Querying batches with practice_number:', practiceIdentifier);
       const { data: batchData, error: batchError } = await supabase
         .from('batch_management_view')
         .select('*')
@@ -454,25 +498,58 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
         .eq('status', 'active')
         .order('created_at', { ascending: false });
 
-      if (batchError) throw batchError;
+      console.log('📊 Batch query result:', { batchData, batchError });
+      console.log('📊 Found batches count:', batchData?.length || 0);
+      
+      if (batchError) {
+        console.error('❌ Batch query error:', batchError);
+        throw batchError;
+      }
+
+      // Also try without status filter to see if there are any batches at all
+      console.log('🔍 Checking for any batches (without status filter)...');
+      const { data: allBatchData, error: allBatchError } = await supabase
+        .from('batch_management_view')
+        .select('*')
+        .eq('practice_number', practiceIdentifier);
+      
+      console.log('📊 All batches result:', { allBatchData, allBatchError });
+      console.log('📊 All batches count:', allBatchData?.length || 0);
+      
+      if (allBatchData && allBatchData.length > 0) {
+        console.log('📋 Available batch statuses:', [...new Set(allBatchData.map(b => b.status))]);
+      }
 
       setBatches(batchData || []);
     } catch (error) {
-      console.error('Error fetching batch data:', error);
+      console.error('❌ Error fetching batch data:', error);
       setBatches([]);
     } finally {
       setBatchLoading(false);
     }
-  }, [selectedPracticeId]);
+  }, [selectedPracticeId, user]);
 
   useEffect(() => {
     if (isOpen) {
+      console.log('🚀 Modal opened - activeTab:', activeTab);
+      console.log('🏥 selectedPracticeId:', selectedPracticeId);
+      console.log('👤 user:', user);
+      
       fetchFinancialKPIs();
       if (activeTab === 'batch-management') {
+        console.log('📊 Batch management tab active - triggering fetch');
         fetchBatchData();
       }
     }
   }, [isOpen, activeTab, fetchFinancialKPIs, fetchBatchData]);
+
+  // Add debug logging when tab changes
+  useEffect(() => {
+    if (activeTab === 'batch-management' && isOpen) {
+      console.log('📊 Switched to batch management tab');
+      fetchBatchData();
+    }
+  }, [activeTab, isOpen, fetchBatchData]);
 
   if (!isOpen) return null;
 
@@ -765,12 +842,29 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
             <Package className="w-5 h-5" />
             Active Batches ({batches.length})
           </h3>
-          <button 
-            onClick={fetchBatchData}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
-          >
-            Refresh
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => {
+                console.log('🔄 Manual refresh triggered');
+                fetchBatchData();
+              }}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm"
+            >
+              Refresh & Debug
+            </button>
+            <button 
+              onClick={() => {
+                console.log('📋 Current state debug:');
+                console.log('selectedPracticeId:', selectedPracticeId);
+                console.log('user:', user);
+                console.log('batches:', batches);
+                console.log('batchLoading:', batchLoading);
+              }}
+              className="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm"
+            >
+              Debug State
+            </button>
+          </div>
         </div>
 
         <div className={`grid gap-4 ${isMaximized ? 'grid-cols-2' : 'grid-cols-1'}`}>
