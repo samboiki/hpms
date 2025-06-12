@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import Modal from 'react-modal';
 import { X } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { useTheme } from '../../stores/themeStore';
 
 interface FormModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ const FormModal: React.FC<FormModalProps> = ({
   className,
   hideHeader = false
 }) => {
+  const { currentTheme } = useTheme();
   // Handle modal open/close effects
   useEffect(() => {
     if (isOpen) {
@@ -63,8 +65,8 @@ const FormModal: React.FC<FormModalProps> = ({
     >
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] pointer-events-auto flex flex-col overflow-hidden animate-scale-in">
         {!hideHeader && (
-          <div className="relative bg-gradient-to-r from-[#01b9d5] to-purple-600 p-6 text-white">
-            <div className="absolute inset-0 bg-gradient-to-r from-[#01b9d5]/20 to-purple-600/20 backdrop-blur-sm"></div>
+          <div className={`relative bg-gradient-to-r ${currentTheme.gradients.sidebar} p-6 text-white`}>
+            <div className={`absolute inset-0 bg-gradient-to-r ${currentTheme.gradients.sidebar} opacity-20 backdrop-blur-sm`}></div>
             <div className="relative flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">

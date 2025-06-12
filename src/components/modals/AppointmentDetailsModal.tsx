@@ -3,6 +3,7 @@ import { X, Phone, Mail, Calendar, Clock, User, FileText, MapPin, Activity, Chec
 import { format, parseISO } from 'date-fns';
 import Badge from '../ui/Badge';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '../../stores/themeStore';
 
 interface AppointmentDetailsModalProps {
   appointment: {
@@ -68,6 +69,7 @@ const AppointmentDetailsModal: React.FC<AppointmentDetailsModalProps> = ({
   onCompleteVisit,
   canEdit = false,
 }) => {
+  const { currentTheme } = useTheme();
   if (!isOpen) return null;
 
   const getAge = (dateOfBirth?: string) => {
@@ -93,15 +95,8 @@ const AppointmentDetailsModal: React.FC<AppointmentDetailsModalProps> = ({
             transition={{ duration: 0.2 }}
             className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
           >
-            {/* Gradient Header */}
-            <div className={`bg-gradient-to-r ${
-              appointment.status === 'pending' ? 'from-amber-500 to-amber-600' :
-              appointment.status === 'scheduled' ? 'from-blue-500 to-blue-600' :
-              appointment.status === 'in-progress' ? 'from-orange-500 to-orange-600' :
-              appointment.status === 'completed' ? 'from-green-500 to-green-600' :
-              appointment.status === 'cancelled' ? 'from-red-500 to-red-600' :
-              'from-gray-500 to-gray-600'
-            } text-white p-6 rounded-t-lg`}>
+            {/* Themed Header */}
+            <div className={`bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white p-6 rounded-t-lg`}>
               <div className="flex justify-between items-start">
                 <div>
                   <h2 className="text-2xl font-bold">Appointment Details</h2>

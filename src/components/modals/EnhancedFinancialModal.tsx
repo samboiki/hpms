@@ -45,6 +45,7 @@ import {
 } from 'recharts';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
+import { useTheme } from '../../stores/themeStore';
 
 interface BatchData {
   batch_id: string;
@@ -207,6 +208,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
   onClose,
   data
 }) => {
+  const { currentTheme } = useTheme();
   // Inject heartbeat animation styles
   React.useEffect(() => {
     const styleId = 'heartbeat-animation-styles';
@@ -1380,7 +1382,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 p-6 text-white">
+        <div className={`bg-gradient-to-r ${currentTheme.gradients.sidebar} p-6 text-white`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
