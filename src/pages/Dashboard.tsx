@@ -1079,8 +1079,8 @@ function Dashboard() {
                   </div>
                 </div>
 
-                {/* Notifications Panel - 4 columns */}
-                <div className="relative col-span-4">
+                {/* Notifications Panel and Practice Overview - 4 columns */}
+                <div className="relative col-span-4 space-y-4">
                   <NotificationsPanel
                     notifications={notifications}
                     onNotificationAction={(notificationId, action) => {
@@ -1102,63 +1102,57 @@ function Dashboard() {
                       );
                     }}
                   />
+
+                  {/* Practice Overview */}
+                  <PracticeOverviewTile
+                    totalPatients={patientsData.length}
+                    todayAppointments={todayAppointments.length}
+                    pendingAppointments={pendingAppointments.length}
+                    completedToday={completedToday}
+                    practiceStatus={pendingAppointments.length > 5 ? 'busy' : todayAppointments.length === 0 ? 'quiet' : 'operational'}
+                  />
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Section - Practice Overview and Activity */}
-        <div className="grid grid-cols-12 gap-4 md:gap-6">
-          <div className="col-span-12 space-y-4 md:space-y-6">
-            {/* Practice Overview */}
-            <PracticeOverviewTile
-              totalPatients={patientsData.length}
-              todayAppointments={todayAppointments.length}
-              pendingAppointments={pendingAppointments.length}
-              completedToday={completedToday}
-              practiceStatus={pendingAppointments.length > 5 ? 'busy' : todayAppointments.length === 0 ? 'quiet' : 'operational'}
-            />
-
-
-            {/* Recent Activity */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4 }}
-              className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 p-4 md:p-5"
-            >
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-[#01b9d5]" />
-                Recent Activity
-              </h3>
-              <div className="space-y-3">
-                {recentActivities.length > 0 ? (
-                  recentActivities.map((activity, index) => (
-                    <motion.div
-                      key={activity.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.5 + index * 0.05 }}
-                      className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <div className={`p-2 rounded-lg bg-gray-100`}>
-                        <activity.icon className={`w-4 h-4 ${activity.color}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{activity.message}</p>
-                        <p className="text-xs text-gray-500">{activity.details}</p>
-                      </div>
-                      <span className="text-xs text-gray-400">{activity.time}</span>
-                    </motion.div>
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-500 text-center py-8">No recent activity</p>
-                )}
-              </div>
-            </motion.div>
+        {/* Recent Activity */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 p-4 md:p-5"
+        >
+          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <Activity className="w-5 h-5 text-[#01b9d5]" />
+            Recent Activity
+          </h3>
+          <div className="space-y-3">
+            {recentActivities.length > 0 ? (
+              recentActivities.map((activity, index) => (
+                <motion.div
+                  key={activity.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.5 + index * 0.05 }}
+                  className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className={`p-2 rounded-lg bg-gray-100`}>
+                    <activity.icon className={`w-4 h-4 ${activity.color}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{activity.message}</p>
+                    <p className="text-xs text-gray-500">{activity.details}</p>
+                  </div>
+                  <span className="text-xs text-gray-400">{activity.time}</span>
+                </motion.div>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-8">No recent activity</p>
+            )}
           </div>
-        </div>
+        </motion.div>
 
       </div>
 

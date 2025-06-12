@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, Search, ChevronDown, LogOut, Settings, User } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, Settings, User } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
@@ -29,18 +29,7 @@ const Header: React.FC = () => {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-gray-100 px-6 flex items-center justify-between">
-      <div className="flex items-center flex-1 max-w-xl">
-        <div className="relative w-full">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search patients, appointments..."
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue"
-          />
-        </div>
-      </div>
-
+    <header className="h-16 bg-white border-b border-gray-100 px-6 flex items-center justify-end">
       <div className="flex items-center space-x-4">
         {/* Practice Switcher - only show for super admins or multi-practice users */}
         <PracticeSwitcher />
