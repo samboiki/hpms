@@ -323,9 +323,9 @@ const DayTimelineView: React.FC<DayTimelineViewProps> = ({
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: 10 }}
-                          className={`absolute bg-gradient-to-br ${getAppointmentColor(apt.status)} 
-                            text-white rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] 
-                            transition-all duration-200 cursor-pointer overflow-hidden border-l-4 p-2`}
+                          className={`absolute bg-white/70 backdrop-blur-sm 
+                            text-gray-900 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] 
+                            transition-all duration-200 cursor-pointer overflow-hidden border border-white/30 p-2`}
                           style={{
                             top: `${apt.top}px`,
                             height: `${apt.height}px`,

@@ -16,9 +16,7 @@ import {
   DollarSign,
   TrendingUp,
   Building2,
-  XCircle,
-  Moon,
-  Sun
+  XCircle
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -118,7 +116,6 @@ function Dashboard() {
   }>({ isOpen: false, type: null });
   const [isEnhancedFinancialModalOpen, setIsEnhancedFinancialModalOpen] = useState(false);
   const [appointmentStatusFilter, setAppointmentStatusFilter] = useState<'all' | 'total' | 'completed' | 'pending' | 'cancelled'>('all');
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [practiceDetails, setPracticeDetails] = useState<PracticeDetails | null>(null);
   const navigate = useNavigate();
 
@@ -798,13 +795,6 @@ function Dashboard() {
     }
   ];
 
-  // Quick actions data
-  const quickActions = [
-    { label: 'New Patient', icon: UserCheck, onClick: () => navigate('/patients') },
-    { label: 'Lab Request', icon: Microscope, onClick: () => navigate('/requests') },
-    { label: 'Prescription', icon: Pill, onClick: () => navigate('/patients') },
-    { label: 'Messages', icon: MessageSquare, onClick: () => navigate('/messages') }
-  ];
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -827,7 +817,7 @@ function Dashboard() {
               </div>
               <div className="flex items-center justify-end">
                 {/* Practice Logo */}
-                {practiceDetails?.logo_url ? (
+                {practiceDetails?.logo_url && (
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
@@ -844,16 +834,6 @@ function Dashboard() {
                       }}
                     />
                   </motion.div>
-                ) : (
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="bg-[#01b9d5] text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-[#01b9d5]/20 transition-all duration-200 font-medium text-sm"
-                    onClick={() => setIsAddAppointmentModalOpen(true)}
-                  >
-                    <Plus className="w-4 h-4" />
-                    New Appointment
-                  </motion.button>
                 )}
               </div>
             </div>
@@ -872,9 +852,7 @@ function Dashboard() {
                   gradient="from-blue-500 to-cyan-600"
                   stats={[
                     { label: 'Male', value: 120, color: '#3B82F6' },
-                    { label: 'Female', value: 130, color: '#06B6D4' },
-                    { label: 'New This Month', value: 15, color: '#10B981' },
-                    { label: 'Avg Age', value: '42y', color: '#8B5CF6' }
+                    { label: 'Female', value: 130, color: '#06B6D4' }
                   ]}
                   miniChart={{
                     type: 'line',
@@ -884,7 +862,6 @@ function Dashboard() {
                     value: '+15',
                     isPositive: true
                   }}
-                  unsplashQuery="medical-patients-healthcare"
                   onClick={() => setSelectedReportModal({ isOpen: true, type: 'patients' })}
                 />,
                 
@@ -898,9 +875,7 @@ function Dashboard() {
                   gradient="from-amber-500 to-orange-600"
                   stats={[
                     { label: 'Unread', value: 5, color: '#F59E0B' },
-                    { label: 'Urgent', value: 2, color: '#EF4444' },
-                    { label: 'Today', value: 8, color: '#10B981' },
-                    { label: 'Types', value: 4, color: '#8B5CF6' }
+                    { label: 'Urgent', value: 2, color: '#EF4444' }
                   ]}
                   miniChart={{
                     type: 'bar',
@@ -910,7 +885,6 @@ function Dashboard() {
                     value: '5 unread',
                     isPositive: false
                   }}
-                  unsplashQuery="notification-bell-communication"
                   onClick={() => setSelectedReportModal({ isOpen: true, type: 'notifications' })}
                 />,
                 
@@ -924,9 +898,7 @@ function Dashboard() {
                   gradient="from-emerald-500 to-green-600"
                   stats={[
                     { label: 'This Month', value: 23, color: '#10B981' },
-                    { label: 'Completed', value: 142, color: '#059669' },
-                    { label: 'Pending', value: 14, color: '#F59E0B' },
-                    { label: 'Types', value: 3, color: '#8B5CF6' }
+                    { label: 'Completed', value: 142, color: '#059669' }
                   ]}
                   miniChart={{
                     type: 'line',
@@ -936,7 +908,6 @@ function Dashboard() {
                     value: '+23',
                     isPositive: true
                   }}
-                  unsplashQuery="medical-consultation-stethoscope"
                   onClick={() => setSelectedReportModal({ isOpen: true, type: 'encounters' })}
                 />,
                 
@@ -950,9 +921,7 @@ function Dashboard() {
                   gradient="from-purple-500 to-indigo-600"
                   stats={[
                     { label: 'This Month', value: 'N$18,500', color: '#8B5CF6' },
-                    { label: 'Outstanding', value: 'N$5,200', color: '#EF4444' },
-                    { label: 'Paid', value: 45, color: '#10B981' },
-                    { label: 'Unpaid', value: 8, color: '#F59E0B' }
+                    { label: 'Outstanding', value: 'N$5,200', color: '#EF4444' }
                   ]}
                   miniChart={{
                     type: 'line',
@@ -962,7 +931,6 @@ function Dashboard() {
                     value: 'N$18,500',
                     isPositive: true
                   }}
-                  unsplashQuery="money-finance-calculator"
                   onClick={() => setIsEnhancedFinancialModalOpen(true)}
                 />
               ] : (
@@ -1010,7 +978,7 @@ function Dashboard() {
               className="bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden h-[800px] flex flex-col"
             >
               {/* Header */}
-              <div className="p-4 border-b border-gray-200 bg-white">
+              <div className="p-4 border-b border-gray-200 bg-transparent">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                     <Calendar className="w-5 h-5 text-[#01b9d5]" />
@@ -1018,7 +986,7 @@ function Dashboard() {
                   </h3>
                   <div className="flex items-center gap-3">
                     {/* View Mode Filters */}
-                    <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                    <div className="flex items-center bg-white/20 backdrop-blur-sm rounded-lg p-1">
                       {['day', 'week', 'month'].map((mode) => (
                         <button
                           key={mode}
@@ -1036,7 +1004,7 @@ function Dashboard() {
                     
                     {/* Timeline/Grid Filters - Show only for day and week views */}
                     {(viewMode === 'day' || viewMode === 'week') && (
-                      <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                      <div className="flex items-center bg-white/20 backdrop-blur-sm rounded-lg p-1">
                         <button
                           onClick={() => setInternalViewMode('timeline')}
                           className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
@@ -1061,6 +1029,7 @@ function Dashboard() {
                         </button>
                       </div>
                     )}
+                    
                   </div>
                 </div>
               </div>
@@ -1134,79 +1103,6 @@ function Dashboard() {
               }}
             />
 
-            {/* Quick Actions - THIRD */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 overflow-hidden"
-            >
-              {/* Modern gradient header */}
-              <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 via-white to-gray-50">
-                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-[#01b9d5] blur-xl opacity-20 animate-pulse" />
-                    <Zap className="relative w-5 h-5 text-[#01b9d5]" />
-                  </div>
-                  Quick Actions
-                </h3>
-              </div>
-              
-              {/* Compact modern button grid */}
-              <div className="p-4">
-                <div className="grid grid-cols-4 gap-2">
-                  {quickActions.map((action, index) => (
-                    <motion.button
-                      key={action.label}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ 
-                        delay: 0.4 + index * 0.05,
-                        type: "spring",
-                        stiffness: 300,
-                        damping: 24
-                      }}
-                      whileHover={{ y: -2 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={action.onClick}
-                      className="relative group"
-                    >
-                      {/* Modern glass card effect */}
-                      <div className="relative p-3 rounded-xl bg-gradient-to-br from-white/80 to-gray-50/50 backdrop-blur-sm border border-gray-200/50 hover:border-[#01b9d5]/30 transition-all duration-300 overflow-hidden">
-                        {/* Animated gradient background */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5]/0 via-[#01b9d5]/0 to-[#01b9d5]/0 group-hover:from-[#01b9d5]/5 group-hover:via-[#01b9d5]/10 group-hover:to-[#01b9d5]/5 transition-all duration-500" />
-                        
-                        {/* Floating orb effect */}
-                        <div className="absolute -top-4 -right-4 w-16 h-16 bg-[#01b9d5]/10 rounded-full blur-2xl group-hover:bg-[#01b9d5]/20 transition-all duration-500 group-hover:scale-150" />
-                        
-                        {/* Icon container with modern styling */}
-                        <div className="relative mb-2">
-                          <div className="w-10 h-10 mx-auto relative">
-                            {/* Icon glow effect */}
-                            <div className="absolute inset-0 bg-[#01b9d5]/20 rounded-lg blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                            {/* Icon background */}
-                            <div className="relative w-full h-full bg-gradient-to-br from-gray-100 to-gray-50 rounded-lg flex items-center justify-center group-hover:from-[#01b9d5]/10 group-hover:to-[#01b9d5]/5 transition-all duration-300">
-                              <action.icon className="w-4 h-4 text-gray-500 group-hover:text-[#01b9d5] transition-all duration-300 group-hover:scale-110" />
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* Compact label */}
-                        <p className="relative text-[11px] font-medium text-gray-600 group-hover:text-gray-800 transition-colors duration-300 leading-tight">
-                          {action.label}
-                        </p>
-                        
-                        {/* Modern hover indicator */}
-                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-gradient-to-r from-transparent via-[#01b9d5]/0 to-transparent group-hover:via-[#01b9d5]/40 transition-all duration-300" />
-                      </div>
-                      
-                      {/* Subtle shadow on hover */}
-                      <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg shadow-[#01b9d5]/10 pointer-events-none" />
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
 
             {/* Recent Activity */}
             <motion.div
@@ -1375,20 +1271,6 @@ function Dashboard() {
         />
       )}
 
-      {/* Floating Theme Toggle */}
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setIsDarkMode(!isDarkMode)}
-        className="fixed bottom-6 right-6 w-12 h-12 bg-white/90 backdrop-blur-sm border border-gray-200 text-gray-700 rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center group z-50"
-        title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-      >
-        {isDarkMode ? (
-          <Sun className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-        ) : (
-          <Moon className="w-5 h-5 group-hover:-rotate-12 transition-transform" />
-        )}
-      </motion.button>
     </div>
   );
 

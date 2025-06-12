@@ -335,15 +335,14 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                         <motion.div
                           key={appointment.id}
                           className={cn(
-                            "absolute left-1 right-1 bg-gradient-to-r from-white to-gray-50 rounded-lg shadow-lg border border-gray-200 cursor-move overflow-hidden",
+                            "absolute left-1 right-1 bg-white/70 backdrop-blur-sm rounded-lg shadow-lg border border-white/30 cursor-move overflow-hidden",
                             "hover:shadow-xl hover:z-30 transition-shadow",
                             draggedAppointment?.id === appointment.id && "opacity-50"
                           )}
                           style={{
                             height: isExpanded ? 'auto' : `${height - 8}px`,
                             minHeight: `${height - 8}px`,
-                            top: `${top + 4}px`,
-                            borderColor: appointment.status === 'pending' ? '#818cf8' : '#e5e7eb'
+                            top: `${top + 4}px`
                           }}
                           draggable
                           onDragStart={(e) => handleDragStart(e, appointment)}
@@ -442,7 +441,7 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                                           e.stopPropagation();
                                           onMarkReady(appointment.id);
                                         }}
-                                        className="w-full px-2 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded-md font-medium shadow-sm transition-colors flex items-center justify-center gap-1"
+                                        className="w-full px-2 py-1 bg-[#01b8d8] hover:bg-[#01a8c7] text-white text-xs rounded-md font-medium shadow-sm transition-colors flex items-center justify-center gap-1"
                                       >
                                         <CheckCircle2 className="w-3 h-3" />
                                         Mark Ready

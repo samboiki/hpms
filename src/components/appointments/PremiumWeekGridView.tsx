@@ -197,8 +197,8 @@ export const PremiumWeekGridView: React.FC<PremiumWeekGridViewProps> = ({
                               }}
                             >
                               <div className={cn(
-                                "p-1.5 rounded-lg border text-xs overflow-hidden",
-                                "bg-white hover:shadow-md transition-all",
+                                "p-1.5 rounded-lg border border-white/30 text-xs overflow-hidden",
+                                "bg-white/70 backdrop-blur-sm hover:shadow-md transition-all",
                                 appointment.status === 'pending' && "border-purple-300 bg-purple-50",
                                 appointment.status === 'scheduled' && "border-blue-200 bg-blue-50",
                                 appointment.status === 'completed' && "border-gray-200 bg-gray-50"
@@ -255,7 +255,7 @@ export const PremiumWeekGridView: React.FC<PremiumWeekGridViewProps> = ({
                                         e.stopPropagation();
                                         onMarkReady(appointment.id);
                                       }}
-                                      className="px-1.5 py-0.5 bg-green-500 hover:bg-green-600 text-white text-[10px] rounded shadow-sm transition-colors font-medium"
+                                      className="px-1.5 py-0.5 bg-[#01b8d8] hover:bg-[#01a8c7] text-white text-[10px] rounded shadow-sm transition-colors font-medium"
                                       title="Mark Ready"
                                     >
                                       Ready
