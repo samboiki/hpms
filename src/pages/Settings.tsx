@@ -157,154 +157,153 @@ const Settings: React.FC = () => {
                 </CardContent>
               </Card>
             </div>
-          </motion.div>
+          </div>
 
           {/* Content */}
           <div className="lg:col-span-3">
             <div className="min-h-[600px]">
-          {activeTab === 'account' && (
-            <div className="space-y-6">
-              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <User className="w-5 h-5 text-gray-600" />
-                    Profile Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-col sm:flex-row sm:items-center mb-6">
-                    <div className="mb-4 sm:mb-0 sm:mr-6">
-                      {user?.avatar ? (
-                        <img 
-                          src={user.avatar} 
-                          alt={user.name} 
-                          className="w-20 h-20 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
-                          <User size={32} className="text-gray-500" />
+              {activeTab === 'account' && (
+                <div className="space-y-6">
+                  <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <User className="w-5 h-5 text-gray-600" />
+                        Profile Information
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex flex-col sm:flex-row sm:items-center mb-6">
+                        <div className="mb-4 sm:mb-0 sm:mr-6">
+                          {user?.avatar ? (
+                            <img 
+                              src={user.avatar} 
+                              alt={user.name} 
+                              className="w-20 h-20 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
+                              <User size={32} className="text-gray-500" />
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">{user?.name}</h3>
-                      <p className="text-gray-500">{user?.email}</p>
-                      <p className="text-sm text-gray-500 capitalize">{user?.role}</p>
-                      <Button variant="outline" size="sm" className="mt-2">
-                        Change Avatar
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                        Full Name
-                      </label>
-                      <input
-                        type="text"
-                        id="name"
-                        className="px-3 py-2 w-full rounded-md border border-gray-300 focus:ring-primary-500 focus:border-primary-500"
-                        defaultValue={user?.name}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                        Email Address
-                      </label>
-                      <input
-                        type="email"
-                        id="email"
-                        className="px-3 py-2 w-full rounded-md border border-gray-300 focus:ring-primary-500 focus:border-primary-500"
-                        defaultValue={user?.email}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
-                        Role
-                      </label>
-                      <select
-                        id="role"
-                        className="px-3 py-2 w-full rounded-md border border-gray-300 focus:ring-primary-500 focus:border-primary-500"
-                        defaultValue={user?.role}
-                        disabled
-                      >
-                        <option value="admin">Admin</option>
-                        <option value="doctor">Doctor</option>
-                        <option value="nurse">Nurse</option>
-                        <option value="receptionist">Receptionist</option>
-                      </select>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6">
-                    <Button>Save Changes</Button>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <SettingsIcon className="w-5 h-5 text-gray-600" />
-                    Preferences
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-900">Dark Mode</h4>
-                        <p className="text-xs text-gray-500">Switch between light and dark mode</p>
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900">{user?.name}</h3>
+                          <p className="text-gray-500">{user?.email}</p>
+                          <p className="text-sm text-gray-500 capitalize">{user?.role}</p>
+                          <Button variant="outline" size="sm" className="mt-2">
+                            Change Avatar
+                          </Button>
+                        </div>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                      </label>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-900">Show Online Status</h4>
-                        <p className="text-xs text-gray-500">Allow others to see when you're online</p>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                            Full Name
+                          </label>
+                          <input
+                            type="text"
+                            id="name"
+                            className="px-3 py-2 w-full rounded-md border border-gray-300 focus:ring-primary-500 focus:border-primary-500"
+                            defaultValue={user?.name}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                            Email Address
+                          </label>
+                          <input
+                            type="email"
+                            id="email"
+                            className="px-3 py-2 w-full rounded-md border border-gray-300 focus:ring-primary-500 focus:border-primary-500"
+                            defaultValue={user?.email}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
+                            Role
+                          </label>
+                          <select
+                            id="role"
+                            className="px-3 py-2 w-full rounded-md border border-gray-300 focus:ring-primary-500 focus:border-primary-500"
+                            defaultValue={user?.role}
+                            disabled
+                          >
+                            <option value="admin">Admin</option>
+                            <option value="doctor">Doctor</option>
+                            <option value="nurse">Nurse</option>
+                            <option value="receptionist">Receptionist</option>
+                          </select>
+                        </div>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                      </label>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-900">Appointment Notification Sounds</h4>
-                        <p className="text-xs text-gray-500">Play sounds for appointment notifications</p>
+                      
+                      <div className="mt-6">
+                        <Button>Save Changes</Button>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                      </label>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                   
-                  <div className="mt-6">
-                    <Button>Save Preferences</Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-            </div>
-          )}
+                  <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <SettingsIcon className="w-5 h-5 text-gray-600" />
+                        Preferences
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-900">Dark Mode</h4>
+                            <p className="text-xs text-gray-500">Switch between light and dark mode</p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" className="sr-only peer" />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                          </label>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-900">Show Online Status</h4>
+                            <p className="text-xs text-gray-500">Allow others to see when you're online</p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" className="sr-only peer" defaultChecked />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                          </label>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-900">Appointment Notification Sounds</h4>
+                            <p className="text-xs text-gray-500">Play sounds for appointment notifications</p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" className="sr-only peer" defaultChecked />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                          </label>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-6">
+                        <Button>Save Preferences</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
           
-          {activeTab === 'security' && (
-            <div className="space-y-6">
-              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Lock className="w-5 h-5 text-gray-600" />
-                    Change Password
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+              {activeTab === 'security' && (
+                <div className="space-y-6">
+                  <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Lock className="w-5 h-5 text-gray-600" />
+                        Change Password
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
                   <div className="space-y-4">
                     <div>
                       <label htmlFor="current-password" className="block text-sm font-medium text-gray-700 mb-1">
