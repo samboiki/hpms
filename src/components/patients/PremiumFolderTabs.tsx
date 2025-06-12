@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../../stores/themeStore';
 import {
   Calendar,
   Pill,
@@ -109,6 +110,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
   onMedicalAidLimitClick,
   onBillingClick
 }) => {
+  const { currentTheme } = useTheme();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('ai-intelligence');
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
@@ -333,12 +335,12 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
             const getTabColors = () => {
               switch(tab.id) {
                 case 'ai-intelligence': return {
-                  gradient: 'from-purple-500 to-pink-600',
+                  gradient: currentTheme.gradients.sidebar,
                   textColor: isActive ? 'text-purple-700' : 'text-gray-600',
                   borderColor: 'border-purple-200/50'
                 };
                 case 'encounters': return {
-                  gradient: 'from-blue-500 to-indigo-600', 
+                  gradient: currentTheme.gradients.button, 
                   textColor: isActive ? 'text-blue-700' : 'text-gray-600',
                   borderColor: 'border-blue-200/50'
                 };
@@ -358,7 +360,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                   borderColor: 'border-amber-200/50'
                 };
                 case 'billing': return {
-                  gradient: 'from-teal-500 to-cyan-600',
+                  gradient: currentTheme.gradients.sidebar,
                   textColor: isActive ? 'text-teal-700' : 'text-gray-600',
                   borderColor: 'border-teal-200/50'
                 };
