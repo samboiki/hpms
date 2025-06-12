@@ -228,8 +228,11 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           </div>
         </div>
       );
+    } else if (cardType === 'communication') {
+      // No mini stats for communication card
+      return null;
     } else {
-      // Mini donut chart for other cards
+      // Mini donut chart for other cards (encounters, finance)
       if (!settings.donutData || settings.donutData.length === 0) return null;
 
       return (
