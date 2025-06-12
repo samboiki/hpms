@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { LucideIcon, ChevronRight } from 'lucide-react';
-import PremiumTrendChart from '../ui/PremiumTrendChart';
 
 interface StatItem {
   label: string;
@@ -9,11 +8,13 @@ interface StatItem {
   color?: string;
 }
 
-interface MiniChartData {
-  type: 'line' | 'bar' | 'donut';
-  data: number[];
-  labels?: string[];
-  colors?: string[];
+interface ComparisonData {
+  label1: string;
+  value1: number;
+  label2: string;
+  value2: number;
+  color1: string;
+  color2: string;
 }
 
 interface PremiumStatCardProps {
@@ -23,7 +24,7 @@ interface PremiumStatCardProps {
   icon: LucideIcon;
   gradient: string;
   stats: StatItem[];
-  miniChart?: MiniChartData;
+  comparison?: ComparisonData;
   onClick: () => void;
   trend?: {
     value: string;
@@ -39,238 +40,62 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
   icon: Icon,
   gradient,
   stats,
-  miniChart,
+  comparison,
   onClick,
   trend,
   unsplashQuery
 }) => {
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  
-  // Convert title to camelCase
-  const camelCaseTitle = title.replace(/\s+(.)/g, (match, letter) => letter.toUpperCase()).replace(/^\w/, c => c.toLowerCase());
-  const renderMiniChart = () => {
-    if (!miniChart) return null;
+  const renderComparisonChart = () => {
+    if (!comparison) return null;
 
-    // Ensure we have valid data, use fallback if needed
-    const chartData = miniChart.data && miniChart.data.length > 0 
-      ? miniChart.data 
-      : [1, 3, 2, 5, 4, 6]; // Fallback demo data
+    const total = comparison.value1 + comparison.value2;
+    const percentage1 = total > 0 ? (comparison.value1 / total) * 100 : 0;
+    const percentage2 = total > 0 ? (comparison.value2 / total) * 100 : 0;
 
-    const maxValue = Math.max(...chartData);
-    const minValue = Math.min(...chartData);
-
-    console.log('Chart data:', chartData, 'Max value:', maxValue);
-
-    switch (miniChart.type) {
-      case 'line':
-        return (
-          <PremiumTrendChart
-            data={chartData}
-            title={title}
-            gradient={gradient}
+    return (
+      <div className="mt-3">
+        {/* Compact Horizontal Stacked Bar */}
+        <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden mb-2">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${percentage1}%` }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="absolute left-0 top-0 h-full"
+            style={{ backgroundColor: comparison.color1 }}
           />
-        );
-      
-      case 'bar':
-        // Extract primary and secondary colors from gradient
-        const colorMap = {
-          'from-blue-500': { primary: '#3B82F6', secondary: '#60A5FA', light: '#DBEAFE' },
-          'from-amber-500': { primary: '#F59E0B', secondary: '#FBBF24', light: '#FEF3C7' },
-          'from-emerald-500': { primary: '#10B981', secondary: '#34D399', light: '#D1FAE5' },
-          'from-purple-500': { primary: '#8B5CF6', secondary: '#A78BFA', light: '#EDE9FE' }
-        };
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${percentage2}%` }}
+            transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+            className="absolute right-0 top-0 h-full"
+            style={{ backgroundColor: comparison.color2 }}
+          />
+        </div>
         
-        const gradientKey = Object.keys(colorMap).find(key => gradient.includes(key.replace('from-', ''))) || 'from-blue-500';
-        const colors = colorMap[gradientKey as keyof typeof colorMap];
-        
-        // Dynamic labels based on card type
-        const getLabels = () => {
-          if (title === 'Communication') return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-          if (title === 'Finance' || title === 'Encounters') return ['6mo', '5mo', '4mo', '3mo', '2mo', '1mo'];
-          return ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'];
-        };
-        
-        const labels = getLabels();
-        
-        return (
-          <div className="mt-4 relative">
-            {/* Premium bar chart container */}
-            <div className="relative p-4 bg-gradient-to-br from-white/90 to-gray-50/80 rounded-xl border border-gray-200/60 backdrop-blur-sm shadow-sm">
-              {/* Chart title */}
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-xs font-semibold text-gray-700">Trend Analysis</h4>
-                <div className="text-xs text-gray-500">Last {labels.length} periods</div>
-              </div>
-              
-              {/* Bar chart area */}
-              <div className="relative">
-                <div className="flex items-end justify-between h-16 gap-2 mb-3 px-1">
-                  {chartData.map((value, index) => {
-                    // Calculate height as percentage of container - highest value gets 100% height
-                    const height = maxValue > 0 ? (value / maxValue) * 100 : 0;
-                    const isHighest = value === maxValue;
-                    
-                    return (
-                      <motion.div
-                        key={index}
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: `${height}%`, opacity: 1 }}
-                        transition={{ 
-                          duration: 0.6, 
-                          delay: index * 0.1,
-                          ease: [0.25, 0.46, 0.45, 0.94]
-                        }}
-                        className="relative flex-1 flex flex-col justify-end group cursor-pointer"
-                        onMouseEnter={() => setHoveredIndex(index)}
-                        onMouseLeave={() => setHoveredIndex(null)}
-                        style={{ minHeight: height > 0 ? '3px' : '0px' }}
-                      >
-                        {/* Premium tooltip */}
-                        {hoveredIndex === index && (
-                          <motion.div 
-                            initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-30"
-                          >
-                            <div className="bg-gray-900/95 backdrop-blur-sm text-white text-xs rounded-lg px-3 py-2 shadow-xl border border-gray-700/50">
-                              <div className="font-medium text-gray-200">{labels[index]}</div>
-                              <div className="font-bold" style={{ color: colors.secondary }}>
-                                {title === 'Finance' ? `N$${value.toLocaleString()}` : 
-                                 title === 'Communication' ? `${value} messages` :
-                                 title === 'Encounters' ? `${value} visits` : value}
-                              </div>
-                            </div>
-                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-2 border-r-2 border-t-4 border-transparent border-t-gray-900"></div>
-                          </motion.div>
-                        )}
-                        
-                        {/* Premium bar with gradient and glow */}
-                        <div
-                          className="relative rounded-t-lg overflow-hidden transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg"
-                          style={{ 
-                            height: '100%',
-                            background: `linear-gradient(to top, ${colors.primary}, ${colors.secondary})`,
-                            boxShadow: hoveredIndex === index 
-                              ? `0 4px 12px ${colors.primary}40, 0 0 0 1px ${colors.primary}20`
-                              : `0 2px 4px ${colors.primary}30`,
-                            opacity: hoveredIndex === null || hoveredIndex === index ? 1 : 0.7
-                          }}
-                        >
-                          {/* Shimmer effect */}
-                          <div 
-                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[200%] transition-transform duration-700"
-                          />
-                          
-                          {/* Highlight for highest value */}
-                          {isHighest && (
-                            <div className="absolute -top-1 left-1/2 transform -translate-x-1/2">
-                              <div className="w-1 h-1 bg-yellow-400 rounded-full shadow-sm"></div>
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-                
-                {/* Premium labels */}
-                <div className="flex items-center justify-between px-1">
-                  {labels.map((label, index) => (
-                    <div key={index} className="flex-1 text-center">
-                      <span className={`text-[10px] font-medium transition-colors ${
-                        hoveredIndex === index ? 'text-gray-800' : 'text-gray-500'
-                      }`}>
-                        {label}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Subtle grid lines */}
-                <div className="absolute inset-x-4 top-0 bottom-6 pointer-events-none">
-                  {[25, 50, 75].map((percent) => (
-                    <div 
-                      key={percent}
-                      className="absolute left-0 right-0 border-t border-gray-200/40"
-                      style={{ bottom: `${percent}%` }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
+        {/* Compact Labels in Single Row */}
+        <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center gap-1">
+            <div 
+              className="w-2 h-2 rounded-full" 
+              style={{ backgroundColor: comparison.color1 }}
+            />
+            <span className="font-medium text-gray-700">{comparison.label1}</span>
+            <span className="text-gray-500">{percentage1.toFixed(0)}%</span>
           </div>
-        );
-      
-      case 'donut':
-        const donutColor = gradient.includes('blue') ? '#3B82F6' : 
-                          gradient.includes('amber') ? '#F59E0B' :
-                          gradient.includes('emerald') ? '#10B981' : '#8B5CF6';
-        const total = chartData.reduce((sum, value) => sum + value, 0);
-        let cumulativeAngle = 0;
-        
-        return (
-          <div className="mt-2 flex justify-center">
-            <div className="relative w-12 h-12">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 42 42">
-                <defs>
-                  <filter id={`glow-${camelCaseTitle}`}>
-                    <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
-                    <feMerge> 
-                      <feMergeNode in="coloredBlur"/>
-                      <feMergeNode in="SourceGraphic"/>
-                    </feMerge>
-                  </filter>
-                </defs>
-                
-                {/* Background circle */}
-                <circle
-                  cx="21"
-                  cy="21"
-                  r="15.91549430918954"
-                  fill="transparent"
-                  stroke={donutColor}
-                  strokeOpacity="0.1"
-                  strokeWidth="2"
-                />
-                
-                {/* Data segments */}
-                {chartData.map((value, index) => {
-                  const angle = (value / total) * 360;
-                  const strokeDasharray = `${(angle / 360) * 100} ${100 - (angle / 360) * 100}`;
-                  const strokeDashoffset = -cumulativeAngle / 360 * 100;
-                  cumulativeAngle += angle;
-                  
-                  return (
-                    <circle
-                      key={index}
-                      cx="21"
-                      cy="21"
-                      r="15.91549430918954"
-                      fill="transparent"
-                      stroke={donutColor}
-                      strokeOpacity={0.9 - index * 0.15}
-                      strokeWidth="2"
-                      strokeDasharray={strokeDasharray}
-                      strokeDashoffset={strokeDashoffset}
-                      strokeLinecap="round"
-                      filter={`url(#glow-${camelCaseTitle})`}
-                    />
-                  );
-                })}
-              </svg>
-              
-              {/* Center value */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-xs font-bold" style={{ color: donutColor }}>{total}</span>
-              </div>
-            </div>
+          
+          <div className="flex items-center gap-1">
+            <div 
+              className="w-2 h-2 rounded-full" 
+              style={{ backgroundColor: comparison.color2 }}
+            />
+            <span className="font-medium text-gray-700">{comparison.label2}</span>
+            <span className="text-gray-500">{percentage2.toFixed(0)}%</span>
           </div>
-        );
-      
-      default:
-        return null;
-    }
+        </div>
+      </div>
+    );
   };
+
 
   return (
     <motion.div
@@ -362,8 +187,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
               ))}
             </div>
 
-            {/* Enhanced mini chart with colored theme */}
-            {miniChart && renderMiniChart()}
+            {/* Compact comparison chart */}
+            {renderComparisonChart()}
           </div>
           
           {/* Colored bottom accent */}
