@@ -14,7 +14,7 @@ interface AppointmentDetailsModalProps {
     time: string;
     duration: number;
     type: string;
-    status: 'pending' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
+    status: 'pending' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'no-show' | 'ready';
     notes?: string;
     patient: {
       id: string;

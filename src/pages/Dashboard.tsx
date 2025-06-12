@@ -11,7 +11,6 @@ import {
   ChevronRight,
   DollarSign,
   Building2,
-  Search,
   ChevronLeft
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -36,6 +35,7 @@ import EnhancedFinancialModal from '../components/modals/EnhancedFinancialModal'
 import PracticeOverviewTile from '../components/dashboard/PracticeOverviewTile';
 import { dashboardStatsService, DashboardStats } from '../services/dashboardStatsService';
 import { useAuthStore } from '../stores/authStore';
+import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
 
 interface Appointment {
   id: string;
@@ -117,7 +117,7 @@ function Dashboard() {
     type: 'patients' | 'notifications' | 'encounters' | 'finance' | null;
   }>({ isOpen: false, type: null });
   const [isEnhancedFinancialModalOpen, setIsEnhancedFinancialModalOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const navigate = useNavigate();
 
   // Real-time appointment updates
@@ -333,6 +333,68 @@ function Dashboard() {
 
       // Fetch patient statistics
       await fetchPatientStats();
+
+      // Generate sample notifications
+      const sampleNotifications: Notification[] = [
+        {
+          id: '1',
+          type: 'booking',
+          priority: 'high',
+          title: 'New Appointment Request',
+          description: 'John Smith has requested an appointment for tomorrow at 2:00 PM',
+          time: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
+          actionRequired: true,
+          read: false,
+          actions: {
+            primary: { label: 'Approve', onClick: () => {}, variant: 'approve' },
+            secondary: { label: 'Reschedule', onClick: () => {} }
+          }
+        },
+        {
+          id: '2',
+          type: 'lab-result',
+          priority: 'urgent',
+          title: 'Lab Results Ready',
+          description: 'Blood test results for Mary Johnson are ready for review',
+          time: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+          actionRequired: true,
+          read: false,
+          actions: {
+            primary: { label: 'Review', onClick: () => {}, variant: 'neutral' }
+          }
+        },
+        {
+          id: '3',
+          type: 'follow-up',
+          priority: 'normal',
+          title: 'Follow-up Reminder',
+          description: 'Patient David Wilson needs follow-up appointment in 2 weeks',
+          time: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+          actionRequired: false,
+          read: true
+        },
+        {
+          id: '4',
+          type: 'message',
+          priority: 'normal',
+          title: 'New Message',
+          description: 'Dr. Sarah received a message from a patient regarding medication',
+          time: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
+          actionRequired: false,
+          read: false
+        },
+        {
+          id: '5',
+          type: 'reminder',
+          priority: 'low',
+          title: 'System Reminder',
+          description: 'Monthly backup scheduled for tonight at 11:00 PM',
+          time: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
+          actionRequired: false,
+          read: true
+        }
+      ];
+      setNotifications(sampleNotifications);
       
     } catch (error) {
       console.error('❌ [Dashboard] Error fetching data:', error);
@@ -788,39 +850,12 @@ function Dashboard() {
               )}
             </div>
 
-            {/* Premium Search Bar and Week Calendar */}
+            {/* Week Calendar and Notifications */}
             <div className="mt-6">
-              {/* Search Bar and Week Calendar Row */}
+              {/* Week Calendar and Notifications Row */}
               <div className="grid grid-cols-12 gap-4">
-                {/* Premium Search Bar - 8 columns */}
+                {/* Premium Week Calendar - Glassmorphic - 8 columns */}
                 <div className="relative col-span-8">
-                  <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-white to-gray-100 rounded-xl opacity-80"></div>
-                  <div 
-                    className="relative bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-lg border-2 transition-all duration-300 hover:shadow-xl"
-                    style={{ borderColor: `${currentTheme.colors.primary.from}30` }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="p-2 rounded-lg shadow-sm"
-                        style={{ backgroundColor: `${currentTheme.colors.primary.from}15` }}
-                      >
-                        <Search className="w-4 h-4" style={{ color: currentTheme.colors.primary.from }} />
-                      </div>
-                      <div className="flex-1">
-                        <input
-                          type="text"
-                          placeholder="Search patients, appointments, or records..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full bg-transparent outline-none text-gray-700 placeholder-gray-500 text-sm font-medium"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Premium Week Calendar - Glassmorphic - 4 columns */}
-                <div className="relative col-span-4">
                   {/* Glassmorphic background */}
                   <div className="bg-white/20 backdrop-blur-xl rounded-2xl p-4 shadow-2xl border border-white/30">
                     {/* Week Navigation Header */}
@@ -924,6 +959,31 @@ function Dashboard() {
                       })}
                     </div>
                   </div>
+                </div>
+
+                {/* Notifications Panel - 4 columns */}
+                <div className="relative col-span-4">
+                  <NotificationsPanel
+                    notifications={notifications}
+                    onNotificationAction={(notificationId, action) => {
+                      console.log('Notification action:', notificationId, action);
+                      // Handle notification actions here
+                    }}
+                    onMarkAsRead={(notificationId) => {
+                      setNotifications(prev => 
+                        prev.map(notif => 
+                          notif.id === notificationId 
+                            ? { ...notif, read: true }
+                            : notif
+                        )
+                      );
+                    }}
+                    onMarkAllAsRead={() => {
+                      setNotifications(prev => 
+                        prev.map(notif => ({ ...notif, read: true }))
+                      );
+                    }}
+                  />
                 </div>
               </div>
             </div>

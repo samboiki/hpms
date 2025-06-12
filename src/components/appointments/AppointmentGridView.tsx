@@ -11,7 +11,7 @@ import RescheduleAppointmentModal from '../modals/RescheduleAppointmentModal';
 import { motion } from 'framer-motion';
 
 interface AppointmentGridViewProps {
-  status: 'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress';
+  status: 'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress' | 'ready';
   practiceId: string;
   onClose: () => void;
 }
