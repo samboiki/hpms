@@ -230,6 +230,80 @@ const Settings: React.FC = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Theme Selection Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Color Theme</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-3">Choose your preferred color theme</h4>
+                      <p className="text-xs text-gray-500 mb-4">
+                        Select a color theme to personalize the appearance of your dashboard and sidebar
+                      </p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {themes.map((theme) => (
+                        <div
+                          key={theme.id}
+                          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:scale-105 ${
+                            currentTheme.id === theme.id
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}
+                          onClick={() => setTheme(theme.id)}
+                        >
+                          {/* Theme Preview */}
+                          <div className="space-y-3">
+                            {/* Gradient Preview */}
+                            <div className={`h-8 rounded-lg bg-gradient-to-r ${theme.gradients.sidebar}`}></div>
+                            
+                            {/* Theme Info */}
+                            <div>
+                              <h5 className="text-sm font-semibold text-gray-900">{theme.name}</h5>
+                              <p className="text-xs text-gray-500 mt-1">{theme.description}</p>
+                            </div>
+                            
+                            {/* Color Dots */}
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-4 h-4 rounded-full border border-gray-200"
+                                style={{ backgroundColor: theme.colors.primary.from }}
+                              ></div>
+                              <div
+                                className="w-4 h-4 rounded-full border border-gray-200"
+                                style={{ backgroundColor: theme.colors.primary.to }}
+                              ></div>
+                              {theme.colors.primary.via && (
+                                <div
+                                  className="w-4 h-4 rounded-full border border-gray-200"
+                                  style={{ backgroundColor: theme.colors.primary.via }}
+                                ></div>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Selected Indicator */}
+                          {currentTheme.id === theme.id && (
+                            <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                              <CheckCircle2 className="w-3 h-3 text-white" />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="pt-4 border-t border-gray-200">
+                      <p className="text-xs text-gray-500">
+                        Theme changes are applied immediately and will be saved automatically.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
           
