@@ -16,102 +16,186 @@ import {
   Calendar,
   Users,
   Edit3,
-  Image
+  Image,
+  Sparkles,
+  Palette,
+  Save,
+  Camera
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { useAuthStore } from '../stores/authStore';
 import { useTheme } from '../stores/themeStore';
+import { motion } from 'framer-motion';
 
 const Settings: React.FC = () => {
   const { user } = useAuthStore();
   const { currentTheme, themes, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'account' | 'security' | 'notifications' | 'system' | 'practice'>('account');
 
+  const tabIcons = {
+    account: User,
+    security: Shield,
+    notifications: Bell,
+    system: Globe,
+    practice: Building2
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
-      <div className="animate-fade-in">
-      <div className="flex items-center mb-6">
-        <SettingsIcon size={28} className="text-primary-600 mr-3" />
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-600">Manage your account and application preferences</p>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gray-100">
+      <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+        {/* Premium Header with Glassmorphic Design */}
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white/60 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50"
+        >
+          <div className="p-4 md:p-6">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-gradient-to-br from-[#01b9d5] to-cyan-600 rounded-xl shadow-md">
+                  <SettingsIcon className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-semibold text-gray-800">Settings</h1>
+                  <p className="text-sm text-gray-500 mt-0.5">Manage your account and application preferences</p>
+                </div>
+              </div>
+              {user && (
+                <div className="relative group">
+                  <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
+                  <div className={`absolute -inset-1 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full opacity-50`}></div>
+                  <div className="relative h-14 w-14 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                    <img 
+                      src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
+                      alt={user.name}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Sidebar */}
-        <div className="md:col-span-1">
-          <Card>
-            <CardContent className="p-4">
-              <nav className="space-y-1">
-                <button
-                  onClick={() => setActiveTab('account')}
-                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md w-full ${
-                    activeTab === 'account'
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-700 hover:bg-gray-100'
+        {/* Premium Navigation Tabs */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50 overflow-hidden"
+        >
+          <div className="flex overflow-x-auto">
+            {(['account', 'security', 'notifications', 'system', 'practice'] as const).map((tab, index) => {
+              const Icon = tabIcons[tab];
+              const isActive = activeTab === tab;
+              return (
+                <motion.button
+                  key={tab}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setActiveTab(tab)}
+                  className={`relative flex-1 flex items-center justify-center gap-2 px-6 py-4 text-sm font-medium transition-all duration-300 capitalize min-w-0 ${
+                    isActive
+                      ? `text-white`
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
                   }`}
                 >
-                  <User size={18} className="mr-3" />
-                  Account
-                </button>
-                <button
-                  onClick={() => setActiveTab('security')}
-                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md w-full ${
-                    activeTab === 'security'
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <Shield size={18} className="mr-3" />
-                  Security
-                </button>
-                <button
-                  onClick={() => setActiveTab('notifications')}
-                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md w-full ${
-                    activeTab === 'notifications'
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <Bell size={18} className="mr-3" />
-                  Notifications
-                </button>
-                <button
-                  onClick={() => setActiveTab('system')}
-                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md w-full ${
-                    activeTab === 'system'
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <Globe size={18} className="mr-3" />
-                  System
-                </button>
-                <button
-                  onClick={() => setActiveTab('practice')}
-                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-md w-full ${
-                    activeTab === 'practice'
-                      ? 'bg-primary-50 text-primary-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <Building2 size={18} className="mr-3" />
-                  Practice
-                </button>
-              </nav>
-            </CardContent>
-          </Card>
-        </div>
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeTab"
+                      className={`absolute inset-0 bg-gradient-to-r ${currentTheme.gradients.sidebar} rounded-lg shadow-lg`}
+                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                    />
+                  )}
+                  <Icon className={`w-4 h-4 relative z-10 ${isActive ? 'text-white' : ''}`} />
+                  <span className="relative z-10 hidden sm:inline">{tab}</span>
+                </motion.button>
+              );
+            })}
+          </div>
+        </motion.div>
 
-        {/* Content */}
-        <div className="md:col-span-3">
+        {/* Main Content Area */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Sidebar - Now shows additional info */}
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="lg:col-span-1"
+          >
+            <div className="space-y-4">
+              {/* User Quick Info Card */}
+              {user && (
+                <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+                  <CardContent className="p-4">
+                    <div className="flex flex-col items-center text-center">
+                      <div className="relative group">
+                        <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-md opacity-30`}></div>
+                        <div className="relative h-16 w-16 rounded-full overflow-hidden border-3 border-white shadow-lg">
+                          <img 
+                            src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
+                            alt={user.name}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <button className="absolute -bottom-1 -right-1 p-1.5 bg-white rounded-full shadow-md hover:shadow-lg transition-all">
+                          <Camera className="w-3 h-3 text-gray-600" />
+                        </button>
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mt-3">{user.name}</h3>
+                      <p className="text-sm text-gray-500">{user.email}</p>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-2 bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white`}>
+                        {user.role}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Quick Actions Card */}
+              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Quick Actions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-0">
+                  <div className="space-y-2">
+                    <button className="w-full text-left p-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all flex items-center gap-2">
+                      <Save className="w-4 h-4" />
+                      Export Settings
+                    </button>
+                    <button className="w-full text-left p-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all flex items-center gap-2">
+                      <Palette className="w-4 h-4" />
+                      Theme Preview
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </motion.div>
+
+          {/* Content */}
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="lg:col-span-3"
+          >
           {activeTab === 'account' && (
             <div className="space-y-6">
-              <Card>
+              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
                 <CardHeader>
-                  <CardTitle>Profile Information</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="w-5 h-5 text-gray-600" />
+                    Profile Information
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-col sm:flex-row sm:items-center mb-6">
@@ -185,9 +269,12 @@ const Settings: React.FC = () => {
                 </CardContent>
               </Card>
               
-              <Card>
+              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
                 <CardHeader>
-                  <CardTitle>Preferences</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <SettingsIcon className="w-5 h-5 text-gray-600" />
+                    Preferences
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -231,10 +318,13 @@ const Settings: React.FC = () => {
                 </CardContent>
               </Card>
 
-              {/* Theme Selection Card */}
-              <Card>
+              {/* Premium Theme Selection Card */}
+              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
                 <CardHeader>
-                  <CardTitle>Color Theme</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Palette className="w-5 h-5 text-gray-600" />
+                    Color Theme
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -246,20 +336,25 @@ const Settings: React.FC = () => {
                     </div>
                     
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {themes.map((theme) => (
-                        <div
+                      {themes.map((theme, index) => (
+                        <motion.div
                           key={theme.id}
-                          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-200 hover:scale-105 ${
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: index * 0.05 }}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-300 ${
                             currentTheme.id === theme.id
-                              ? 'border-blue-500 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
+                              ? 'border-blue-500 bg-blue-50 shadow-lg'
+                              : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
                           }`}
                           onClick={() => setTheme(theme.id)}
                         >
                           {/* Theme Preview */}
                           <div className="space-y-3">
-                            {/* Gradient Preview */}
-                            <div className={`h-8 rounded-lg bg-gradient-to-r ${theme.gradients.sidebar}`}></div>
+                            {/* Enhanced Gradient Preview */}
+                            <div className={`h-8 rounded-lg bg-gradient-to-r ${theme.gradients.sidebar} shadow-inner`}></div>
                             
                             {/* Theme Info */}
                             <div>
@@ -286,13 +381,17 @@ const Settings: React.FC = () => {
                             </div>
                           </div>
                           
-                          {/* Selected Indicator */}
+                          {/* Enhanced Selected Indicator */}
                           {currentTheme.id === theme.id && (
-                            <div className="absolute top-2 right-2 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                              <CheckCircle2 className="w-3 h-3 text-white" />
-                            </div>
+                            <motion.div 
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="absolute top-2 right-2 w-6 h-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg"
+                            >
+                              <CheckCircle2 className="w-4 h-4 text-white" />
+                            </motion.div>
                           )}
-                        </div>
+                        </motion.div>
                       ))}
                     </div>
                     
@@ -309,9 +408,12 @@ const Settings: React.FC = () => {
           
           {activeTab === 'security' && (
             <div className="space-y-6">
-              <Card>
+              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
                 <CardHeader>
-                  <CardTitle>Change Password</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Lock className="w-5 h-5 text-gray-600" />
+                    Change Password
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -353,9 +455,12 @@ const Settings: React.FC = () => {
                 </CardContent>
               </Card>
               
-              <Card>
+              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
                 <CardHeader>
-                  <CardTitle>Two-Factor Authentication</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-gray-600" />
+                    Two-Factor Authentication
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-start">
@@ -379,9 +484,12 @@ const Settings: React.FC = () => {
                 </CardContent>
               </Card>
               
-              <Card>
+              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
                 <CardHeader>
-                  <CardTitle>Login Sessions</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <HardDrive className="w-5 h-5 text-gray-600" />
+                    Login Sessions
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -427,9 +535,12 @@ const Settings: React.FC = () => {
           )}
           
           {activeTab === 'notifications' && (
-            <Card>
+            <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
               <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-gray-600" />
+                  Notification Preferences
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
@@ -575,9 +686,12 @@ const Settings: React.FC = () => {
           
           {activeTab === 'system' && (
             <div className="space-y-6">
-              <Card>
+              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
                 <CardHeader>
-                  <CardTitle>System Information</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-gray-600" />
+                    System Information
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -613,9 +727,12 @@ const Settings: React.FC = () => {
                 </CardContent>
               </Card>
               
-              <Card>
+              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
                 <CardHeader>
-                  <CardTitle>Data Management</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <HardDrive className="w-5 h-5 text-gray-600" />
+                    Data Management
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -659,9 +776,12 @@ const Settings: React.FC = () => {
                 </CardContent>
               </Card>
               
-              <Card>
+              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
                 <CardHeader>
-                  <CardTitle>Compliance Settings</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-gray-600" />
+                    Compliance Settings
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -714,8 +834,8 @@ const Settings: React.FC = () => {
           {activeTab === 'practice' && (
             <PracticeProfileContent />
           )}
+          </motion.div>
         </div>
-      </div>
       </div>
     </div>
   );
@@ -786,17 +906,19 @@ const PracticeProfileContent: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Practice Profile Header */}
-      <Card>
+      <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <Building2 size={24} className="text-primary-600 mr-3" />
-              <div>
+              <div className="p-2 bg-gradient-to-br from-[#01b9d5] to-cyan-600 rounded-lg shadow-md">
+                <Building2 size={20} className="text-white" />
+              </div>
+              <div className="ml-3">
                 <CardTitle>Practice Management</CardTitle>
                 <p className="text-sm text-gray-600">Manage your practice information, staff, and settings</p>
               </div>
             </div>
-            <Button variant="outline">
+            <Button variant="outline" className="hover:bg-white/50">
               <Globe size={16} className="mr-2" />
               Preview Website
             </Button>
@@ -805,7 +927,7 @@ const PracticeProfileContent: React.FC = () => {
       </Card>
 
       {/* Practice Tabs */}
-      <Card>
+      <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
         <CardContent className="p-0">
           <div className="flex border-b border-gray-200">
             <button
@@ -845,7 +967,7 @@ const PracticeProfileContent: React.FC = () => {
             {practiceTab === 'profile' && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1">
-                  <Card>
+                  <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
                     <CardContent className="p-6">
                       <div className="flex flex-col items-center text-center">
                         {practiceData.logo ? (
@@ -888,7 +1010,7 @@ const PracticeProfileContent: React.FC = () => {
                     </CardContent>
                   </Card>
                   
-                  <Card className="mt-6">
+                  <Card className="mt-6 bg-white/90 backdrop-blur-md border border-gray-100/50">
                     <CardHeader>
                       <CardTitle>Hours of Operation</CardTitle>
                     </CardHeader>
@@ -910,7 +1032,7 @@ const PracticeProfileContent: React.FC = () => {
                 </div>
                 
                 <div className="lg:col-span-2">
-                  <Card className="mb-6">
+                  <Card className="mb-6 bg-white/90 backdrop-blur-md border border-gray-100/50">
                     <CardHeader>
                       <div className="flex justify-between items-center">
                         <CardTitle>Practice Description</CardTitle>
@@ -924,7 +1046,7 @@ const PracticeProfileContent: React.FC = () => {
                     </CardContent>
                   </Card>
                   
-                  <Card className="mb-6">
+                  <Card className="mb-6 bg-white/90 backdrop-blur-md border border-gray-100/50">
                     <CardHeader>
                       <div className="flex justify-between items-center">
                         <CardTitle>Specialties & Services</CardTitle>
@@ -950,7 +1072,7 @@ const PracticeProfileContent: React.FC = () => {
                     </CardContent>
                   </Card>
                   
-                  <Card>
+                  <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
                     <CardHeader>
                       <div className="flex justify-between items-center">
                         <CardTitle>Website Appearance</CardTitle>
@@ -1008,7 +1130,7 @@ const PracticeProfileContent: React.FC = () => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {practiceData.staff.map((staff) => (
-                    <Card key={staff.id}>
+                    <Card key={staff.id} className="bg-white/90 backdrop-blur-md border border-gray-100/50 hover:shadow-lg transition-all duration-300">
                       <CardContent className="p-6">
                         <div className="flex flex-col items-center text-center">
                           {staff.avatar ? (
@@ -1045,7 +1167,7 @@ const PracticeProfileContent: React.FC = () => {
                   ))}
                   
                   {/* Add New Staff Card */}
-                  <Card className="border-2 border-dashed border-gray-300 bg-gray-50">
+                  <Card className="border-2 border-dashed border-gray-300 bg-gray-50/50 backdrop-blur-md hover:bg-gray-100/50 transition-all duration-300">
                     <CardContent className="p-6">
                       <div className="flex flex-col items-center justify-center text-center h-full py-8">
                         <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-3">
@@ -1070,7 +1192,7 @@ const PracticeProfileContent: React.FC = () => {
             {/* Hours Tab */}
             {practiceTab === 'hours' && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
+                <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
                   <CardHeader>
                     <div className="flex justify-between items-center">
                       <CardTitle>Hours of Operation</CardTitle>
@@ -1096,7 +1218,7 @@ const PracticeProfileContent: React.FC = () => {
                   </CardContent>
                 </Card>
                 
-                <Card>
+                <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
                   <CardHeader>
                     <div className="flex items-center">
                       <Users className="w-5 h-5 text-primary-600 mr-2" />
