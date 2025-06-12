@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday, isSameDay, addWeeks, subWeeks, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday, isSameDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { practiceDataService, PracticeDetails } from '../lib/practiceDataService';
 import FormModal from '../components/modals/FormModal';
 import AddAppointmentForm from '../components/forms/AddAppointmentForm';
