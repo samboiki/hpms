@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Building2, Sparkles, TrendingUp, Star, Zap } from 'lucide-react';
+import { useTheme } from '../../stores/themeStore';
 
 interface PracticeOverviewProps {
   practiceStats?: {
@@ -13,6 +14,8 @@ interface PracticeOverviewProps {
 }
 
 const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({ practiceStats }) => {
+  const { currentTheme } = useTheme();
+  
   // Generate comprehensive practice overview text
   const generateOverviewText = () => {
     const stats = practiceStats || {
@@ -48,68 +51,17 @@ const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({ practiceStats }
       transition={{ delay: 0.2, type: "spring", stiffness: 300, damping: 24 }}
       className="relative overflow-hidden group"
     >
-      {/* Modern white container matching dashboard styling */}
-      <div className="relative bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {/* Modern gradient header */}
-        <div className="relative p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 via-white to-gray-50">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-              <div className="relative">
-                <div className="absolute inset-0 bg-[#01b9d5] blur-xl opacity-20 animate-pulse" />
-                <Building2 className="relative w-5 h-5 text-[#01b9d5]" />
-              </div>
-              Practice Overview
-            </h3>
-          </div>
-        </div>
+      {/* Sidebar-themed container */}
+      <div className={`relative bg-gradient-to-b ${currentTheme.gradients.sidebar} backdrop-blur-md rounded-xl shadow-lg border border-white/10 overflow-hidden`}>
         
         {/* Content area */}
         <div className="relative p-4">
           {/* Practice status text */}
-          <div className="relative mb-4">
-            <div className="relative p-4 bg-slate-50/70 rounded-lg border border-slate-200/50 shadow-sm">
-              <p className="text-sm text-slate-700 leading-relaxed">
+          <div className="relative">
+            <div className="relative p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 shadow-sm">
+              <p className="text-sm text-white/90 leading-relaxed">
                 {generateOverviewText()}
               </p>
-            </div>
-          </div>
-
-          {/* Performance indicator */}
-          <div className="relative">
-            <div className="relative p-4 bg-slate-50/70 rounded-lg border border-slate-200/50 shadow-sm">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-[#01b9d5]" />
-                  <span className="text-sm font-medium text-slate-800">
-                    Today's Performance
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-4 h-4 text-green-500" />
-                  <span className="text-sm font-medium text-green-600">
-                    {practiceStats?.todayAppointments ? 
-                      Math.round(((practiceStats.completedToday || 0) / practiceStats.todayAppointments) * 100) : 0}% Complete
-                  </span>
-                </div>
-              </div>
-              
-              {/* Progress bar */}
-              <div className="relative">
-                <div className="h-2 bg-slate-200 rounded-full overflow-hidden shadow-inner">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ 
-                      width: `${practiceStats?.todayAppointments ? 
-                        Math.round(((practiceStats.completedToday || 0) / practiceStats.todayAppointments) * 100) : 0}%`
-                    }}
-                    transition={{ duration: 1.5, delay: 0.5, ease: "easeOut" }}
-                    className={`h-full bg-gradient-to-r ${getStatusColor()} relative overflow-hidden rounded-full`}
-                  >
-                    {/* Shimmer effect */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 animate-pulse"></div>
-                  </motion.div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
