@@ -185,7 +185,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       label: 'Encounters',
       icon: <Stethoscope className="w-3.5 h-3.5" />,
       count: visits.length,
-      color: 'from-blue-500 to-indigo-600'
+      color: currentTheme.gradients.button
     },
     {
       id: 'vitals',
@@ -344,8 +344,8 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                 };
                 case 'encounters': return {
                   gradient: currentTheme.gradients.button, 
-                  textColor: isActive ? 'text-blue-700' : 'text-gray-600',
-                  borderColor: 'border-blue-200/50'
+                  textColor: isActive ? 'text-white' : 'text-gray-600',
+                  borderColor: isActive ? `border-${currentTheme.colors.primary.from}/50` : 'border-gray-200/50'
                 };
                 case 'vitals': return {
                   gradient: 'from-red-500 to-rose-600',
@@ -504,12 +504,12 @@ const EncountersContent: React.FC<{
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4 hover:shadow-md transition-all duration-200 cursor-pointer"
+            className="bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-xl p-4 hover:shadow-md transition-all duration-200 cursor-pointer"
             onClick={() => onEditVisit && onEditVisit(visit)}
           >
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg">
+                <div className={`p-2 bg-gradient-to-r ${currentTheme.gradients.button} rounded-lg`}>
                   <Stethoscope className="w-4 h-4 text-white" />
                 </div>
                 <div>
@@ -521,7 +521,7 @@ const EncountersContent: React.FC<{
               </div>
               <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                 visit.status === 'completed' ? 'bg-green-100 text-green-700' :
-                visit.status === 'in-progress' ? 'bg-blue-100 text-blue-700' :
+                visit.status === 'in-progress' ? `bg-${currentTheme.colors.primary.from}/10 text-${currentTheme.colors.primary.from}` :
                 'bg-gray-100 text-gray-700'
               }`}>
                 {visit.status}
@@ -538,13 +538,17 @@ const EncountersContent: React.FC<{
             </div>
             
             {/* Quick Actions for this visit */}
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-blue-100">
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200">
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
                   onVisitClick && onVisitClick(visit);
                 }}
-                className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                className="text-xs font-medium flex items-center gap-1 transition-colors"
+                style={{ 
+                  color: currentTheme.colors.primary.from,
+                  ':hover': { color: currentTheme.colors.primary.to }
+                }}
               >
                 <FileText className="w-3 h-3" />
                 View Details
@@ -565,7 +569,7 @@ const EncountersContent: React.FC<{
       </div>
     ) : (
       <div className="text-center py-12">
-        <div className="p-4 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+        <div className={`p-4 bg-gradient-to-r ${currentTheme.gradients.button} rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center`}>
           <Stethoscope className="w-8 h-8 text-white" />
         </div>
         <h4 className="text-lg font-semibold text-gray-800 mb-2">No encounters recorded</h4>
@@ -678,7 +682,7 @@ const AuditTrailContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
   const getActionColor = (action: string) => {
     switch (action) {
       case 'create': return 'bg-green-100 text-green-700 border-green-200';
-      case 'update': return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'update': return `bg-${currentTheme.colors.primary.from}/10 text-${currentTheme.colors.primary.from} border-${currentTheme.colors.primary.from}/20`;
       case 'delete': return 'bg-red-100 text-red-700 border-red-200';
       case 'login': return 'bg-purple-100 text-purple-700 border-purple-200';
       default: return 'bg-gray-100 text-gray-700 border-gray-200';
@@ -908,7 +912,7 @@ const ResultsContent: React.FC = () => (
       </div>
       
       <div className="text-center py-8 bg-indigo-50 rounded-xl border border-indigo-100">
-        <div className="p-3 bg-gradient-to-r from-indigo-500 to-blue-600 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+        <div className={`p-3 bg-gradient-to-r ${currentTheme.gradients.button} rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center`}>
           <ImageIcon className="w-6 h-6 text-white" />
         </div>
         <h4 className="font-semibold text-gray-800 mb-1">Medical Imaging</h4>
@@ -1515,7 +1519,7 @@ const BillingContent: React.FC<{
                 }}
               >
                 {/* Premium gradient border wrapper */}
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-2xl transform group-hover:scale-102 transition-transform duration-300 blur-lg"></div>
+                <div className={`absolute inset-0 bg-gradient-to-r ${currentTheme.gradients.sidebar}/10 rounded-2xl transform group-hover:scale-102 transition-transform duration-300 blur-lg`}></div>
                 
                 {/* Main invoice card */}
                 <div className="relative bg-white border border-gray-200/50 rounded-2xl p-6 shadow-lg group-hover:shadow-2xl transition-all duration-300 backdrop-blur-sm">
@@ -1523,8 +1527,8 @@ const BillingContent: React.FC<{
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex items-center gap-4">
                       <div className="relative">
-                        <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-xl blur-md opacity-30 group-hover:opacity-50 transition-opacity"></div>
-                        <div className="relative p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl shadow-lg">
+                        <div className={`absolute inset-0 bg-gradient-to-r ${currentTheme.gradients.sidebar} rounded-xl blur-md opacity-30 group-hover:opacity-50 transition-opacity`}></div>
+                        <div className={`relative p-3 bg-gradient-to-r ${currentTheme.gradients.button} rounded-xl shadow-lg`}>
                           <Receipt className="w-6 h-6 text-white" />
                         </div>
                       </div>
@@ -1563,7 +1567,7 @@ const BillingContent: React.FC<{
                   </div>
 
                   {/* Services summary with elegant styling */}
-                  <div className="bg-gradient-to-r from-gray-50 to-blue-50/30 rounded-xl p-4 mb-4">
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-100/30 rounded-xl p-4 mb-4">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="font-semibold text-gray-800">Services Included</h4>
                       <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded-full" style={{ fontFamily: 'Rubik, sans-serif' }}>
@@ -1603,7 +1607,7 @@ const BillingContent: React.FC<{
                     </div>
                     <div className="text-center">
                       <p className="text-xs text-gray-500 uppercase tracking-wider">Patient Portion</p>
-                      <p className="text-lg font-bold text-blue-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                      <p className="text-lg font-bold" style={{ fontFamily: 'Rubik, sans-serif', color: currentTheme.colors.primary.from }}>
                         <span>N$ {Math.floor(invoice.patient_portion)}</span>
                         <span className="opacity-60">.{String(invoice.patient_portion.toFixed(2)).split('.')[1]}</span>
                       </p>
@@ -1751,7 +1755,7 @@ const ServiceDetailsModal: React.FC<{
         {/* Payment Status */}
         <div>
           <h4 className="font-semibold text-gray-900 mb-3">Payment Status</h4>
-          <div className="bg-blue-50 rounded-lg p-4 space-y-2">
+          <div className="bg-gray-50 rounded-lg p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Status:</span>
               <span className={`font-medium ${
@@ -1901,7 +1905,7 @@ const AIIntelligenceContent: React.FC<{
             {/* Premium card design */}
             <div className="relative bg-white rounded-2xl border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
               {/* Subtle brand accent */}
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#01b9d4] to-blue-600"></div>
+              <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${currentTheme.gradients.button}`}></div>
               
               {/* Logo watermark */}
               {medicalAidLogo && (
@@ -1914,7 +1918,7 @@ const AIIntelligenceContent: React.FC<{
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-[#01b9d4] to-blue-600 rounded-lg flex items-center justify-center">
+                    <div className={`w-8 h-8 bg-gradient-to-br ${currentTheme.gradients.button} rounded-lg flex items-center justify-center`}>
                       <Shield className="w-4 h-4 text-white" />
                     </div>
                     <div>
@@ -1955,7 +1959,7 @@ const AIIntelligenceContent: React.FC<{
                     <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Plan</p>
                     <p className="text-sm font-semibold text-gray-800">{medicalAid.scheme}</p>
                     {medicalAid.plan_type && (
-                      <p className="text-xs text-blue-600 mt-0.5">{medicalAid.plan_type}</p>
+                      <p className="text-xs mt-0.5" style={{ color: currentTheme.colors.primary.from }}>{medicalAid.plan_type}</p>
                     )}
                   </div>
                   <div>
@@ -1971,8 +1975,8 @@ const AIIntelligenceContent: React.FC<{
                 {/* Relationship */}
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center">
-                      <User className="w-3 h-3 text-blue-600" />
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center`} style={{ backgroundColor: `${currentTheme.colors.primary.from}15` }}>
+                      <User className="w-3 h-3" style={{ color: currentTheme.colors.primary.from }} />
                     </div>
                     <span className="text-xs text-gray-600 capitalize">
                       {medicalAid.relationship_to_main}
@@ -1988,7 +1992,7 @@ const AIIntelligenceContent: React.FC<{
                       e.stopPropagation();
                       onMedicalAidLimitClick?.();
                     }}
-                    className="flex-1 px-3 py-2 bg-gradient-to-r from-[#01b9d4] to-blue-600 text-white text-xs font-medium rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+                    className={`flex-1 px-3 py-2 bg-gradient-to-r ${currentTheme.gradients.button} text-white text-xs font-medium rounded-lg hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2`}
                   >
                     <CreditCard className="w-3 h-3" />
                     Update Limits
@@ -2033,8 +2037,8 @@ const AIIntelligenceContent: React.FC<{
               
               <div className="space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-bold text-blue-700">1</span>
+                  <div className={`w-8 h-8 bg-gradient-to-br rounded-lg flex items-center justify-center flex-shrink-0`} style={{ backgroundColor: `${currentTheme.colors.primary.from}15` }}>
+                    <span className="text-sm font-bold" style={{ color: currentTheme.colors.primary.from }}>1</span>
                   </div>
                   <div className="text-sm text-gray-600">
                     <strong className="text-gray-800">Health Status:</strong> Stable clinical parameters with consistent improvement patterns observed.
