@@ -37,29 +37,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // If no password provided, assume we're restoring a session
       if (!password) {
         console.log('📌 Restoring session for:', email);
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('id, email, full_name, role, avatar, practice_id')
-          .eq('email', email)
-          .single();
-
-        if (userError) {
-          console.error('❌ Error fetching user data:', userError);
+        
+        // Get current auth session first
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session?.user) {
+          console.error('❌ No valid session found');
           return false;
         }
 
-        if (!userData) {
-          console.error('❌ No user profile found');
-          return false;
-        }
-
+        // Use auth user data as fallback
+        const authUser = session.user;
         const user: User = {
-          id: userData.id,
-          email: userData.email,
-          name: userData.full_name,
-          role: userData.role,
-          avatar: userData.avatar || null,
-          practice_id: userData.practice_id
+          id: authUser.id,
+          email: authUser.email || email,
+          name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+          role: (authUser.user_metadata?.role as any) || 'admin',
+          avatar: authUser.user_metadata?.avatar || null,
+          practice_id: authUser.user_metadata?.practice_id || null,
+          is_super_admin: authUser.user_metadata?.is_super_admin || false,
+          can_manage_practices: authUser.user_metadata?.can_manage_practices || false
         };
 
         set({ isAuthenticated: true, user });
@@ -92,103 +89,56 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.log('✅ Auth successful, user ID:', authUser.id);
       console.log('📊 Auth user metadata:', authUser.user_metadata);
 
-      // Fetch the user profile data with admin capabilities
-      console.log('🔍 Fetching user profile from users table...');
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, email, full_name, role, avatar, practice_id, is_super_admin, can_manage_practices, permissions, last_active_at')
-        .eq('id', authUser.id)
-        .single();
-
-      if (userError) {
-        console.error('❌ Error fetching user profile:', {
-          message: userError.message,
-          details: userError.details,
-          hint: userError.hint,
-          code: userError.code
-        });
-        
-        // Try to fetch by email as fallback
-        console.log('🔄 Trying to fetch by email as fallback...');
-        const { data: userByEmail, error: emailError } = await supabase
+      // Try to fetch user profile from users table, but use auth metadata as fallback
+      console.log('🔍 Trying to fetch user profile from users table...');
+      let userData = null;
+      let userError = null;
+      
+      try {
+        const result = await supabase
           .from('users')
-          .select('id, email, full_name, role, avatar, practice_id, is_super_admin, can_manage_practices, permissions')
-          .eq('email', email)
+          .select('id, email, full_name, role, avatar, practice_id, is_super_admin, can_manage_practices, permissions, last_active_at')
+          .eq('id', authUser.id)
           .single();
           
-        if (emailError || !userByEmail) {
-          console.error('❌ Fallback also failed:', emailError);
-          
-          // For Dr. Polina users, use metadata from auth
-          if (email.includes('drpolina') && authUser.user_metadata) {
-            console.log('🔧 Using auth metadata for Dr. Polina user');
-            const user: User = {
-              id: authUser.id,
-              email: authUser.email || email,
-              name: authUser.user_metadata.full_name || 'Admin User',
-              role: (authUser.user_metadata.role as any) || 'admin',
-              avatar: null,
-              practice_id: authUser.user_metadata.practice_id
-            };
-            set({ isAuthenticated: true, user });
-            console.log('✅ Login complete with metadata!');
-            return true;
-          }
-          
-          return false;
-        }
-        
-        console.log('⚠️ Found user by email, but IDs do not match!');
-        console.log('Auth ID:', authUser.id);
-        console.log('User table ID:', userByEmail.id);
+        userData = result.data;
+        userError = result.error;
+      } catch (e) {
+        console.log('⚠️ Users table query failed, using auth metadata');
+        userError = e;
       }
 
-      if (!userData) {
-        console.error('❌ No user profile found in users table');
-        
-        // For Dr. Polina users, use metadata from auth
-        if (email.includes('drpolina') && authUser.user_metadata) {
-          console.log('🔧 Using auth metadata for Dr. Polina user (no user table entry)');
-          const user: User = {
-            id: authUser.id,
-            email: authUser.email || email,
-            name: authUser.user_metadata.full_name || 'Admin User',
-            role: (authUser.user_metadata.role as any) || 'admin',
-            avatar: null,
-            practice_id: authUser.user_metadata.practice_id
-          };
-          set({ isAuthenticated: true, user });
-          console.log('✅ Login complete with metadata!');
-          return true;
-        }
-        
-        return false;
-      }
+      let user: User;
 
-      const user: User = {
-        id: userData.id,
-        email: userData.email,
-        name: userData.full_name,
-        role: userData.role,
-        avatar: userData.avatar || null,
-        practice_id: userData.practice_id,
-        is_super_admin: userData.is_super_admin || false,
-        can_manage_practices: userData.can_manage_practices || false,
-        permissions: userData.permissions || {},
-        last_active_at: userData.last_active_at
-      };
-
-      console.log('✅ User profile loaded:', user);
-
-      // Update last login timestamp
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ last_login: new Date().toISOString() })
-        .eq('id', user.id);
-
-      if (updateError) {
-        console.error('⚠️ Error updating last login:', updateError.message);
-        // Don't fail the login if this update fails
+      if (userError || !userData) {
+        console.log('🔧 Using auth metadata as primary user source');
+        // Use auth metadata as the primary source
+        user = {
+          id: authUser.id,
+          email: authUser.email || email,
+          name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+          role: (authUser.user_metadata?.role as any) || 'admin',
+          avatar: authUser.user_metadata?.avatar || null,
+          practice_id: authUser.user_metadata?.practice_id || null,
+          is_super_admin: authUser.user_metadata?.is_super_admin || false,
+          can_manage_practices: authUser.user_metadata?.can_manage_practices || false,
+          permissions: authUser.user_metadata?.permissions || {},
+          last_active_at: authUser.last_sign_in_at
+        };
+      } else {
+        console.log('✅ User profile loaded from users table');
+        user = {
+          id: userData.id,
+          email: userData.email,
+          name: userData.full_name,
+          role: userData.role,
+          avatar: userData.avatar || null,
+          practice_id: userData.practice_id,
+          is_super_admin: userData.is_super_admin || false,
+          can_manage_practices: userData.can_manage_practices || false,
+          permissions: userData.permissions || {},
+          last_active_at: userData.last_active_at
+        };
       }
 
       // Set selected practice ID to user's practice or null if super admin
