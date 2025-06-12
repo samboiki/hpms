@@ -991,6 +991,139 @@ function Dashboard() {
                       })}
                     </div>
                   </div>
+
+                  {/* Appointment Schedule - moved under calendar */}
+                  <div className="mt-4">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50 overflow-hidden h-[600px] flex flex-col"
+                    >
+                      {/* Premium Header with Gradient */}
+                      <div className="relative p-4 border-b border-gray-100/50">
+                        {/* Background gradient */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-[#01b9d5]/5 via-cyan-50/30 to-blue-50/20" />
+                        
+                        {/* Content */}
+                        <div className="relative flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {/* Icon with glow effect */}
+                            <div className="relative">
+                              <div className="absolute inset-0 bg-[#01b9d5]/20 blur-xl rounded-xl animate-pulse" />
+                              <div className="relative p-2 bg-gradient-to-br from-[#01b9d5] to-cyan-600 rounded-xl shadow-lg">
+                                <Calendar className="w-5 h-5 text-white" />
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <h3 className="text-lg font-bold text-gray-900 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text">
+                                Appointment Schedule
+                              </h3>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                Manage your practice appointments and scheduling
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-2">
+                            {/* View Mode Filters */}
+                            <div className="flex items-center bg-white/60 backdrop-blur-sm rounded-lg p-0.5 shadow-sm border border-gray-200/50">
+                              {['day', 'week', 'month'].map((mode) => (
+                                <button
+                                  key={mode}
+                                  onClick={() => setViewMode(mode as any)}
+                                  className={`px-2 py-1 text-xs font-medium rounded-md transition-all capitalize ${
+                                    viewMode === mode
+                                      ? 'bg-gray-200 text-gray-800 shadow-md'
+                                      : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
+                                  }`}
+                                >
+                                  {mode}
+                                </button>
+                              ))}
+                            </div>
+                            
+                            {/* Timeline/Grid Filters */}
+                            {(viewMode === 'day' || viewMode === 'week') && (
+                              <div className="flex items-center bg-white/60 backdrop-blur-sm rounded-lg p-0.5 shadow-sm border border-gray-200/50">
+                                <button
+                                  onClick={() => setInternalViewMode('timeline')}
+                                  className={`px-2 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
+                                    internalViewMode === 'timeline'
+                                      ? 'bg-gray-200 text-gray-800 shadow-md'
+                                      : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
+                                  }`}
+                                >
+                                  <Calendar className="h-3 w-3" />
+                                  Timeline
+                                </button>
+                                <button
+                                  onClick={() => setInternalViewMode('grid')}
+                                  className={`px-2 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
+                                    internalViewMode === 'grid'
+                                      ? 'bg-gray-200 text-gray-800 shadow-md'
+                                      : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
+                                  }`}
+                                >
+                                  <Activity className="h-3 w-3" />
+                                  Grid
+                                </button>
+                              </div>
+                            )}
+                            
+                            {/* Premium New Appointment Button */}
+                            <motion.button
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => setIsAddAppointmentModalOpen(true)}
+                              className={`bg-gradient-to-r ${currentTheme.gradients.button} text-white px-3 py-1.5 rounded-xl flex items-center gap-2 hover:shadow-lg hover:shadow-[${currentTheme.colors.primary.from}]/20 transition-all duration-200 font-medium text-xs`}
+                              title="Schedule New Appointment"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span className="hidden sm:inline">New</span>
+                            </motion.button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Appointment Scheduler */}
+                      <div className="flex-1 overflow-hidden">
+                        <PremiumAppointmentScheduler
+                          appointments={appointments}
+                          doctors={doctors}
+                          blockedTimes={[]}
+                          isLoading={isLoading}
+                          error={error}
+                          selectedDate={selectedDate}
+                          onDateChange={setSelectedDate}
+                          onAppointmentClick={(apt) => {
+                            setSelectedAppointment(apt);
+                            if (apt.status === 'pending') {
+                              setIsApprovalModalOpen(true);
+                            } else {
+                              setIsActionModalOpen(true);
+                            }
+                          }}
+                          onEditAppointment={handleEditAppointment}
+                          onCreateAppointment={handleCreateAppointment}
+                          viewMode={viewMode}
+                          onBlockTime={(doctorId, startTime, endTime, reason) => {
+                            console.log('Block time:', { doctorId, startTime, endTime, reason });
+                          }}
+                          onDeleteAppointment={handleDeleteAppointment}
+                          currentUserRole={currentUserRole}
+                          currentUserId={currentUserId}
+                          onRefresh={() => {
+                            console.log('🔄 Manual refresh triggered from scheduler');
+                            fetchData();
+                          }}
+                          internalViewMode={internalViewMode}
+                          onInternalViewModeChange={setInternalViewMode}
+                        />
+                      </div>
+                    </motion.div>
+                  </div>
                 </div>
 
                 {/* Notifications Panel - 4 columns */}
@@ -1022,144 +1155,9 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Main Content Grid */}
+        {/* Right Section - Practice Overview and Activity */}
         <div className="grid grid-cols-12 gap-4 md:gap-6">
-          {/* Left Section - Appointment Schedule (8 columns) */}
-          <div className="col-span-12 lg:col-span-8">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50 overflow-hidden h-[800px] flex flex-col"
-            >
-              {/* Premium Header with Gradient */}
-              <div className="relative p-6 border-b border-gray-100/50">
-                {/* Background gradient */}
-                <div className="absolute inset-0 bg-gradient-to-r from-[#01b9d5]/5 via-cyan-50/30 to-blue-50/20" />
-                
-                {/* Content */}
-                <div className="relative flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    {/* Icon with glow effect */}
-                    <div className="relative">
-                      <div className="absolute inset-0 bg-[#01b9d5]/20 blur-xl rounded-xl animate-pulse" />
-                      <div className="relative p-3 bg-gradient-to-br from-[#01b9d5] to-cyan-600 rounded-xl shadow-lg">
-                        <Calendar className="w-6 h-6 text-white" />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text">
-                        Appointment Schedule
-                      </h3>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        Manage your practice appointments and scheduling
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    {/* View Mode Filters */}
-                    <div className="flex items-center bg-white/60 backdrop-blur-sm rounded-lg p-0.5 shadow-sm border border-gray-200/50">
-                      {['day', 'week', 'month'].map((mode) => (
-                        <button
-                          key={mode}
-                          onClick={() => setViewMode(mode as any)}
-                          className={`px-2 py-1 text-xs font-medium rounded-md transition-all capitalize ${
-                            viewMode === mode
-                              ? 'bg-gray-200 text-gray-800 shadow-md'
-                              : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
-                          }`}
-                        >
-                          {mode}
-                        </button>
-                      ))}
-                    </div>
-                    
-                    {/* Timeline/Grid Filters */}
-                    {(viewMode === 'day' || viewMode === 'week') && (
-                      <div className="flex items-center bg-white/60 backdrop-blur-sm rounded-lg p-0.5 shadow-sm border border-gray-200/50">
-                        <button
-                          onClick={() => setInternalViewMode('timeline')}
-                          className={`px-2 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
-                            internalViewMode === 'timeline'
-                              ? 'bg-gray-200 text-gray-800 shadow-md'
-                              : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
-                          }`}
-                        >
-                          <Calendar className="h-3 w-3" />
-                          Timeline
-                        </button>
-                        <button
-                          onClick={() => setInternalViewMode('grid')}
-                          className={`px-2 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
-                            internalViewMode === 'grid'
-                              ? 'bg-gray-200 text-gray-800 shadow-md'
-                              : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
-                          }`}
-                        >
-                          <Activity className="h-3 w-3" />
-                          Grid
-                        </button>
-                      </div>
-                    )}
-                    
-                    {/* Premium New Appointment Button */}
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => setIsAddAppointmentModalOpen(true)}
-                      className={`bg-gradient-to-r ${currentTheme.gradients.button} text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:shadow-lg hover:shadow-[${currentTheme.colors.primary.from}]/20 transition-all duration-200 font-medium text-sm`}
-                      title="Schedule New Appointment"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span className="hidden sm:inline">New Appointment</span>
-                      <span className="sm:hidden">New</span>
-                    </motion.button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Appointment Scheduler */}
-              <div className="flex-1 overflow-hidden">
-                <PremiumAppointmentScheduler
-                  appointments={appointments}
-                  doctors={doctors}
-                  blockedTimes={[]}
-                  isLoading={isLoading}
-                  error={error}
-                  selectedDate={selectedDate}
-                  onDateChange={setSelectedDate}
-                  onAppointmentClick={(apt) => {
-                    setSelectedAppointment(apt);
-                    if (apt.status === 'pending') {
-                      setIsApprovalModalOpen(true);
-                    } else {
-                      setIsActionModalOpen(true);
-                    }
-                  }}
-                  onEditAppointment={handleEditAppointment}
-                  onCreateAppointment={handleCreateAppointment}
-                  viewMode={viewMode}
-                  onBlockTime={(doctorId, startTime, endTime, reason) => {
-                    console.log('Block time:', { doctorId, startTime, endTime, reason });
-                  }}
-                  onDeleteAppointment={handleDeleteAppointment}
-                  currentUserRole={currentUserRole}
-                  currentUserId={currentUserId}
-                  onRefresh={() => {
-                    console.log('🔄 Manual refresh triggered from scheduler');
-                    fetchData();
-                  }}
-                  internalViewMode={internalViewMode}
-                  onInternalViewModeChange={setInternalViewMode}
-                />
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Right Section (4 columns) */}
-          <div className="col-span-12 lg:col-span-4 space-y-4 md:space-y-6">
+          <div className="col-span-12 space-y-4 md:space-y-6">
             {/* Practice Overview */}
             <PracticeOverviewTile
               totalPatients={patientsData.length}
