@@ -820,23 +820,23 @@ function Dashboard() {
               <div className="flex items-center justify-end">
                 {/* User Avatar */}
                 {user && (
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="flex items-center justify-center"
-                  >
-                    <div className="relative">
-                      <img
+                  <div className="relative group">
+                    {/* Pulsating outer ring */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
+                    <div className="absolute -inset-1 bg-gradient-to-br from-[#01b9d5] to-purple-600 rounded-full opacity-50"></div>
+                    
+                    {/* Avatar circle */}
+                    <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                      <img 
                         src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
                         alt={user.name}
-                        className="w-16 h-16 rounded-full object-cover border-4 border-white/40 shadow-xl ring-2 ring-white/20"
+                        className="h-full w-full object-cover"
                         onError={(e) => {
                           e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
                         }}
                       />
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-400 border-3 border-white rounded-full shadow-lg"></div>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
               </div>
             </div>
@@ -857,9 +857,13 @@ function Dashboard() {
                     { label: 'Male', value: 120, color: '#3B82F6' },
                     { label: 'Female', value: 130, color: '#06B6D4' }
                   ]}
-                  miniChart={{
-                    type: 'line',
-                    data: [45, 52, 48, 61, 55, 67]
+                  comparison={{
+                    label1: 'Male',
+                    value1: 120,
+                    label2: 'Female',
+                    value2: 130,
+                    color1: '#3B82F6',
+                    color2: '#06B6D4'
                   }}
                   trend={{
                     value: '+15',
@@ -878,11 +882,15 @@ function Dashboard() {
                   gradient="from-amber-500 to-orange-600"
                   stats={[
                     { label: 'Unread', value: 5, color: '#F59E0B' },
-                    { label: 'Urgent', value: 2, color: '#EF4444' }
+                    { label: 'Read', value: 23, color: '#059669' }
                   ]}
-                  miniChart={{
-                    type: 'bar',
-                    data: [12, 18, 15, 25, 20, 28, 22]
+                  comparison={{
+                    label1: 'Unread',
+                    value1: 5,
+                    label2: 'Read',
+                    value2: 23,
+                    color1: '#F59E0B',
+                    color2: '#059669'
                   }}
                   trend={{
                     value: '5 unread',
@@ -901,11 +909,15 @@ function Dashboard() {
                   gradient="from-emerald-500 to-green-600"
                   stats={[
                     { label: 'This Month', value: 23, color: '#10B981' },
-                    { label: 'Completed', value: 142, color: '#059669' }
+                    { label: 'Previous', value: 133, color: '#047857' }
                   ]}
-                  miniChart={{
-                    type: 'line',
-                    data: [18, 25, 20, 35, 28, 32]
+                  comparison={{
+                    label1: 'This Month',
+                    value1: 23,
+                    label2: 'Previous',
+                    value2: 133,
+                    color1: '#10B981',
+                    color2: '#047857'
                   }}
                   trend={{
                     value: '+23',
@@ -923,12 +935,16 @@ function Dashboard() {
                   icon={DollarSign}
                   gradient="from-purple-500 to-indigo-600"
                   stats={[
-                    { label: 'This Month', value: 'N$18,500', color: '#8B5CF6' },
+                    { label: 'Paid', value: 'N$119,800', color: '#8B5CF6' },
                     { label: 'Outstanding', value: 'N$5,200', color: '#EF4444' }
                   ]}
-                  miniChart={{
-                    type: 'line',
-                    data: [12000, 15000, 18000, 22000, 16000, 18500]
+                  comparison={{
+                    label1: 'Paid',
+                    value1: 119800,
+                    label2: 'Outstanding',
+                    value2: 5200,
+                    color1: '#8B5CF6',
+                    color2: '#EF4444'
                   }}
                   trend={{
                     value: 'N$18,500',
@@ -1007,13 +1023,13 @@ function Dashboard() {
                   </div>
                   
                   <div className="flex items-center gap-3">
-                    {/* Premium View Mode Filters */}
-                    <div className="flex items-center bg-white/60 backdrop-blur-sm rounded-xl p-1 shadow-sm border border-gray-200/50">
+                    {/* View Mode Filters */}
+                    <div className="flex items-center bg-white/60 backdrop-blur-sm rounded-lg p-0.5 shadow-sm border border-gray-200/50">
                       {['day', 'week', 'month'].map((mode) => (
                         <button
                           key={mode}
                           onClick={() => setViewMode(mode as any)}
-                          className={`px-4 py-2 text-sm font-medium rounded-lg transition-all capitalize ${
+                          className={`px-2 py-1 text-xs font-medium rounded-md transition-all capitalize ${
                             viewMode === mode
                               ? 'bg-gradient-to-r from-[#01b9d5] to-cyan-600 text-white shadow-md'
                               : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
@@ -1026,27 +1042,27 @@ function Dashboard() {
                     
                     {/* Timeline/Grid Filters */}
                     {(viewMode === 'day' || viewMode === 'week') && (
-                      <div className="flex items-center bg-white/60 backdrop-blur-sm rounded-xl p-1 shadow-sm border border-gray-200/50">
+                      <div className="flex items-center bg-white/60 backdrop-blur-sm rounded-lg p-0.5 shadow-sm border border-gray-200/50">
                         <button
                           onClick={() => setInternalViewMode('timeline')}
-                          className={`px-3 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${
+                          className={`px-2 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
                             internalViewMode === 'timeline'
                               ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-md'
                               : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
                           }`}
                         >
-                          <Calendar className="h-4 w-4" />
+                          <Calendar className="h-3 w-3" />
                           Timeline
                         </button>
                         <button
                           onClick={() => setInternalViewMode('grid')}
-                          className={`px-3 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${
+                          className={`px-2 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
                             internalViewMode === 'grid'
                               ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-md'
                               : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
                           }`}
                         >
-                          <Activity className="h-4 w-4" />
+                          <Activity className="h-3 w-3" />
                           Grid
                         </button>
                       </div>
