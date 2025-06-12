@@ -316,7 +316,10 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
               whileHover={{ scale: 1.05, y: -2 }}
               whileTap={{ scale: 0.95 }}
               onClick={onAddVisit}
-              className="px-4 py-2.5 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-2xl hover:shadow-[#01b9d5]/30 transition-all duration-300 font-semibold text-sm"
+              className={`px-4 py-2.5 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-2xl transition-all duration-300 font-semibold text-sm`}
+              style={{
+                boxShadow: `0 25px 50px -12px ${currentTheme.colors.primary.from}30`
+              }}
             >
               <Plus className="w-4 h-4" />
               Add New Visit

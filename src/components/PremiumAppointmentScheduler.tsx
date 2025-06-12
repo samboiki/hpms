@@ -52,6 +52,7 @@ import { PremiumDayGridView } from './appointments/PremiumDayGridView';
 import { PremiumWeekGridView } from './appointments/PremiumWeekGridView';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
+import { useTheme } from '../stores/themeStore';
 
 interface AppointmentPatient {
   id: string;

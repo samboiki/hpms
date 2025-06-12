@@ -109,31 +109,35 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
       {/* Premium card with Unsplash background */}
       <div className="relative rounded-2xl shadow-xl group-hover:shadow-2xl transition-all duration-500 overflow-hidden border border-white/20">
         <div className="relative rounded-2xl h-full w-full overflow-hidden">
-        {/* Premium Unsplash background image */}
+        {/* Premium medical Unsplash background image */}
         <div className="absolute inset-0">
           <img
             src={(() => {
               const imageMap: { [key: string]: string } = {
-                'patients': 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=600&h=400&fit=crop&auto=format&q=85',
-                'communication': 'https://images.unsplash.com/photo-1553484771-371a605b060b?w=600&h=400&fit=crop&auto=format&q=85',
-                'encounters': 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=600&h=400&fit=crop&auto=format&q=85',
-                'finance': 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&h=400&fit=crop&auto=format&q=85'
+                'patients': 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800&h=600&fit=crop&auto=format&q=90',
+                'communication': 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=800&h=600&fit=crop&auto=format&q=90',
+                'encounters': 'https://images.unsplash.com/photo-1584362917165-526a968579e8?w=800&h=600&fit=crop&auto=format&q=90',
+                'finance': 'https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=800&h=600&fit=crop&auto=format&q=90'
               };
-              return imageMap[title.toLowerCase()] || imageMap['patients'];
+              return imageMap[title.toLowerCase()] || 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800&h=600&fit=crop&auto=format&q=90';
             })()}
-            alt=""
+            alt="Medical background"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            onError={(e) => {
+              // Fallback to a known working medical image
+              e.currentTarget.src = 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800&h=600&fit=crop&auto=format&q=90';
+            }}
           />
         </div>
         
-        {/* Premium light theme overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-white/80 to-white/75 backdrop-blur-[0.5px]"></div>
+        {/* Much more transparent overlay to show images clearly */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/30 to-white/35"></div>
         
-        {/* Elegant glass overlay for depth */}
-        <div className="absolute inset-0 bg-gradient-to-t from-white/30 via-transparent to-white/20"></div>
+        {/* Very subtle glass overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-white/15 via-transparent to-white/10"></div>
         
-        {/* Subtle color accent */}
-        <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-8 group-hover:opacity-12 transition-opacity duration-300`}></div>
+        {/* Minimal color accent */}
+        <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-3 group-hover:opacity-5 transition-opacity duration-300`}></div>
         
         <div className="relative p-4 z-10">
           {/* Header with icon and title side by side */}
@@ -143,7 +147,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                 <Icon className="w-5 h-5 text-white drop-shadow-sm" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 drop-shadow-sm" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                <h3 className="text-lg font-semibold text-gray-900 drop-shadow-md" style={{ fontFamily: 'Rubik, sans-serif' }}>
                   {title}
                 </h3>
               </div>
@@ -162,10 +166,10 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           {/* Main content */}
           <div className="space-y-4">
             <div>
-              <p className="text-3xl font-bold text-gray-900 mb-1 drop-shadow-sm" style={{ fontFamily: 'Rubik, sans-serif' }}>
+              <p className="text-3xl font-bold text-gray-900 mb-1 drop-shadow-md" style={{ fontFamily: 'Rubik, sans-serif' }}>
                 {mainValue}
               </p>
-              <p className="text-sm text-gray-700 font-normal" style={{ fontFamily: 'Montserrat, sans-serif' }}>{subtitle}</p>
+              <p className="text-sm text-gray-800 font-normal drop-shadow-sm" style={{ fontFamily: 'Montserrat, sans-serif' }}>{subtitle}</p>
             </div>
 
             {/* Compact comparison chart */}
