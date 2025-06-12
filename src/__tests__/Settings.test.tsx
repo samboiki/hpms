@@ -99,7 +99,7 @@ describe('Settings Page', () => {
 
       expect(screen.getByText('Account')).toBeInTheDocument();
       expect(screen.getByText('Security')).toBeInTheDocument();
-      expect(screen.getByText('Notifications')).toBeInTheDocument();
+      expect(screen.getByText('Themes')).toBeInTheDocument();
       expect(screen.getByText('System')).toBeInTheDocument();
       expect(screen.getByText('Practice')).toBeInTheDocument();
     });
@@ -113,11 +113,11 @@ describe('Settings Page', () => {
 
       const accountTab = screen.getByRole('button', { name: /account/i });
       const securityTab = screen.getByRole('button', { name: /security/i });
-      const notificationsTab = screen.getByRole('button', { name: /notifications/i });
+      const themesTab = screen.getByRole('button', { name: /themes/i });
       
       expect(accountTab).toBeInTheDocument();
       expect(securityTab).toBeInTheDocument();
-      expect(notificationsTab).toBeInTheDocument();
+      expect(themesTab).toBeInTheDocument();
     });
   });
 
@@ -162,12 +162,59 @@ describe('Settings Page', () => {
       });
     });
 
+    test('displays preferences toggles', () => {
+      render(
+        <TestWrapper>
+          <Settings />
+        </TestWrapper>
+      );
+
+      expect(screen.getByText('Dark Mode')).toBeInTheDocument();
+      expect(screen.getByText('Show Online Status')).toBeInTheDocument();
+      expect(screen.getByText('Appointment Notification Sounds')).toBeInTheDocument();
+    });
+  });
+
+  describe('Themes Tab', () => {
+    test('switches to themes tab when clicked', () => {
+      render(
+        <TestWrapper>
+          <Settings />
+        </TestWrapper>
+      );
+
+      const themesTab = screen.getByRole('button', { name: /themes/i });
+      fireEvent.click(themesTab);
+
+      expect(screen.getByText('Color Themes')).toBeInTheDocument();
+      expect(screen.getByText('Choose your preferred color theme')).toBeInTheDocument();
+    });
+
+    test('displays theme selection with available themes', () => {
+      render(
+        <TestWrapper>
+          <Settings />
+        </TestWrapper>
+      );
+
+      const themesTab = screen.getByRole('button', { name: /themes/i });
+      fireEvent.click(themesTab);
+      
+      mockThemes.forEach(theme => {
+        expect(screen.getByText(theme.name)).toBeInTheDocument();
+        expect(screen.getByText(theme.description)).toBeInTheDocument();
+      });
+    });
+
     test('shows current theme as selected', () => {
       render(
         <TestWrapper>
           <Settings />
         </TestWrapper>
       );
+
+      const themesTab = screen.getByRole('button', { name: /themes/i });
+      fireEvent.click(themesTab);
 
       const currentThemeElement = screen.getByText(mockCurrentTheme.name).closest('div');
       expect(currentThemeElement).toHaveClass('border-blue-500');
@@ -187,22 +234,28 @@ describe('Settings Page', () => {
         </TestWrapper>
       );
 
+      const themesTab = screen.getByRole('button', { name: /themes/i });
+      fireEvent.click(themesTab);
+
       const purpleTheme = screen.getByText('Purple').closest('div');
       fireEvent.click(purpleTheme!);
 
       expect(mockSetTheme).toHaveBeenCalledWith('purple');
     });
 
-    test('displays preferences toggles', () => {
+    test('displays theme preview components', () => {
       render(
         <TestWrapper>
           <Settings />
         </TestWrapper>
       );
 
-      expect(screen.getByText('Dark Mode')).toBeInTheDocument();
-      expect(screen.getByText('Show Online Status')).toBeInTheDocument();
-      expect(screen.getByText('Appointment Notification Sounds')).toBeInTheDocument();
+      const themesTab = screen.getByRole('button', { name: /themes/i });
+      fireEvent.click(themesTab);
+
+      expect(screen.getByText('Theme Preview')).toBeInTheDocument();
+      expect(screen.getByText('Primary Button')).toBeInTheDocument();
+      expect(screen.getByText('Sidebar Style')).toBeInTheDocument();
     });
   });
 
@@ -265,53 +318,6 @@ describe('Settings Page', () => {
     });
   });
 
-  describe('Notifications Tab', () => {
-    test('switches to notifications tab when clicked', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const notificationsTab = screen.getByRole('button', { name: /notifications/i });
-      fireEvent.click(notificationsTab);
-
-      expect(screen.getByText('Notification Preferences')).toBeInTheDocument();
-      expect(screen.getByText('Appointment Notifications')).toBeInTheDocument();
-      expect(screen.getByText('Patient Notifications')).toBeInTheDocument();
-      expect(screen.getByText('System Notifications')).toBeInTheDocument();
-    });
-
-    test('displays notification checkboxes', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const notificationsTab = screen.getByRole('button', { name: /notifications/i });
-      fireEvent.click(notificationsTab);
-
-      expect(screen.getByLabelText('New appointment created')).toBeInTheDocument();
-      expect(screen.getByLabelText('Appointment reminders (1 day before)')).toBeInTheDocument();
-      expect(screen.getByLabelText('New patient registration')).toBeInTheDocument();
-    });
-
-    test('displays notification method toggles', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const notificationsTab = screen.getByRole('button', { name: /notifications/i });
-      fireEvent.click(notificationsTab);
-
-      expect(screen.getByText('Email Notifications')).toBeInTheDocument();
-      expect(screen.getByText('SMS Notifications')).toBeInTheDocument();
-      expect(screen.getByText('Browser Notifications')).toBeInTheDocument();
-    });
-  });
 
   describe('System Tab', () => {
     test('switches to system tab when clicked', () => {

@@ -31,12 +31,12 @@ import { motion } from 'framer-motion';
 const Settings: React.FC = () => {
   const { user } = useAuthStore();
   const { currentTheme, themes, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'account' | 'security' | 'notifications' | 'system' | 'practice'>('account');
+  const [activeTab, setActiveTab] = useState<'account' | 'security' | 'themes' | 'system' | 'practice'>('account');
 
   const tabIcons = {
     account: User,
     security: Shield,
-    notifications: Bell,
+    themes: Palette,
     system: Globe,
     practice: Building2
   };
@@ -89,7 +89,7 @@ const Settings: React.FC = () => {
           className="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50 overflow-hidden"
         >
           <div className="flex overflow-x-auto">
-            {(['account', 'security', 'notifications', 'system', 'practice'] as const).map((tab, index) => {
+            {(['account', 'security', 'themes', 'system', 'practice'] as const).map((tab, index) => {
               const Icon = tabIcons[tab];
               const isActive = activeTab === tab;
               return (
@@ -112,7 +112,7 @@ const Settings: React.FC = () => {
                     />
                   )}
                   <Icon className={`w-4 h-4 relative z-10 ${isActive ? 'text-white' : ''}`} />
-                  <span className="relative z-10 hidden sm:inline">{tab}</span>
+                  <span className="relative z-10 hidden sm:inline">{tab === 'themes' ? 'Themes' : tab}</span>
                 </motion.button>
               );
             })}
@@ -318,91 +318,6 @@ const Settings: React.FC = () => {
                 </CardContent>
               </Card>
 
-              {/* Premium Theme Selection Card */}
-              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Palette className="w-5 h-5 text-gray-600" />
-                    Color Theme
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-900 mb-3">Choose your preferred color theme</h4>
-                      <p className="text-xs text-gray-500 mb-4">
-                        Select a color theme to personalize the appearance of your dashboard and sidebar
-                      </p>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {themes.map((theme, index) => (
-                        <motion.div
-                          key={theme.id}
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: index * 0.05 }}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all duration-300 ${
-                            currentTheme.id === theme.id
-                              ? 'border-blue-500 bg-blue-50 shadow-lg'
-                              : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-                          }`}
-                          onClick={() => setTheme(theme.id)}
-                        >
-                          {/* Theme Preview */}
-                          <div className="space-y-3">
-                            {/* Enhanced Gradient Preview */}
-                            <div className={`h-8 rounded-lg bg-gradient-to-r ${theme.gradients.sidebar} shadow-inner`}></div>
-                            
-                            {/* Theme Info */}
-                            <div>
-                              <h5 className="text-sm font-semibold text-gray-900">{theme.name}</h5>
-                              <p className="text-xs text-gray-500 mt-1">{theme.description}</p>
-                            </div>
-                            
-                            {/* Color Dots */}
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-4 h-4 rounded-full border border-gray-200"
-                                style={{ backgroundColor: theme.colors.primary.from }}
-                              ></div>
-                              <div
-                                className="w-4 h-4 rounded-full border border-gray-200"
-                                style={{ backgroundColor: theme.colors.primary.to }}
-                              ></div>
-                              {theme.colors.primary.via && (
-                                <div
-                                  className="w-4 h-4 rounded-full border border-gray-200"
-                                  style={{ backgroundColor: theme.colors.primary.via }}
-                                ></div>
-                              )}
-                            </div>
-                          </div>
-                          
-                          {/* Enhanced Selected Indicator */}
-                          {currentTheme.id === theme.id && (
-                            <motion.div 
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              className="absolute top-2 right-2 w-6 h-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg"
-                            >
-                              <CheckCircle2 className="w-4 h-4 text-white" />
-                            </motion.div>
-                          )}
-                        </motion.div>
-                      ))}
-                    </div>
-                    
-                    <div className="pt-4 border-t border-gray-200">
-                      <p className="text-xs text-gray-500">
-                        Theme changes are applied immediately and will be saved automatically.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           )}
           
@@ -534,154 +449,150 @@ const Settings: React.FC = () => {
             </div>
           )}
           
-          {activeTab === 'notifications' && (
-            <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Bell className="w-5 h-5 text-gray-600" />
-                  Notification Preferences
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">Appointment Notifications</h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center">
-                        <input
-                          id="appointment-created"
-                          type="checkbox"
-                          className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                          defaultChecked
-                        />
-                        <label htmlFor="appointment-created" className="ml-3 text-sm text-gray-700">
-                          New appointment created
-                        </label>
-                      </div>
-                      <div className="flex items-center">
-                        <input
-                          id="appointment-reminder"
-                          type="checkbox"
-                          className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                          defaultChecked
-                        />
-                        <label htmlFor="appointment-reminder" className="ml-3 text-sm text-gray-700">
-                          Appointment reminders (1 day before)
-                        </label>
-                      </div>
-                      <div className="flex items-center">
-                        <input
-                          id="appointment-cancelled"
-                          type="checkbox"
-                          className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                          defaultChecked
-                        />
-                        <label htmlFor="appointment-cancelled" className="ml-3 text-sm text-gray-700">
-                          Cancelled appointments
-                        </label>
-                      </div>
+          {activeTab === 'themes' && (
+            <div className="space-y-6">
+              {/* Premium Theme Selection Card */}
+              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Palette className="w-5 h-5 text-gray-600" />
+                    Color Themes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="text-lg font-medium text-gray-900 mb-2">Choose your preferred color theme</h4>
+                      <p className="text-sm text-gray-500 mb-6">
+                        Select a color theme to personalize the appearance of your dashboard and sidebar. 
+                        Changes are applied immediately and saved automatically.
+                      </p>
                     </div>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">Patient Notifications</h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center">
-                        <input
-                          id="patient-new"
-                          type="checkbox"
-                          className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                          defaultChecked
-                        />
-                        <label htmlFor="patient-new" className="ml-3 text-sm text-gray-700">
-                          New patient registration
-                        </label>
-                      </div>
-                      <div className="flex items-center">
-                        <input
-                          id="patient-updated"
-                          type="checkbox"
-                          className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                        />
-                        <label htmlFor="patient-updated" className="ml-3 text-sm text-gray-700">
-                          Patient information updated
-                        </label>
-                      </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {themes.map((theme, index) => (
+                        <motion.div
+                          key={theme.id}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: index * 0.1 }}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          className={`relative cursor-pointer rounded-2xl border-2 p-6 transition-all duration-300 ${
+                            currentTheme.id === theme.id
+                              ? 'border-blue-500 bg-blue-50 shadow-xl'
+                              : 'border-gray-200 hover:border-gray-300 hover:shadow-lg'
+                          }`}
+                          onClick={() => setTheme(theme.id)}
+                        >
+                          {/* Theme Preview */}
+                          <div className="space-y-4">
+                            {/* Enhanced Gradient Preview */}
+                            <div className={`h-12 rounded-xl bg-gradient-to-r ${theme.gradients.sidebar} shadow-inner relative overflow-hidden`}>
+                              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
+                              <div className="absolute bottom-2 left-2 right-2 h-1 bg-white/30 rounded-full"></div>
+                            </div>
+                            
+                            {/* Theme Info */}
+                            <div>
+                              <h5 className="text-base font-semibold text-gray-900">{theme.name}</h5>
+                              <p className="text-sm text-gray-500 mt-1">{theme.description}</p>
+                            </div>
+                            
+                            {/* Color Palette */}
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-6 h-6 rounded-full border-2 border-white shadow-md"
+                                style={{ backgroundColor: theme.colors.primary.from }}
+                              ></div>
+                              <div
+                                className="w-6 h-6 rounded-full border-2 border-white shadow-md"
+                                style={{ backgroundColor: theme.colors.primary.to }}
+                              ></div>
+                              {theme.colors.primary.via && (
+                                <div
+                                  className="w-6 h-6 rounded-full border-2 border-white shadow-md"
+                                  style={{ backgroundColor: theme.colors.primary.via }}
+                                ></div>
+                              )}
+                              <div className="ml-auto">
+                                <span className="text-xs text-gray-400 font-medium">
+                                  {currentTheme.id === theme.id ? 'ACTIVE' : 'PREVIEW'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Enhanced Selected Indicator */}
+                          {currentTheme.id === theme.id && (
+                            <motion.div 
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="absolute top-3 right-3 w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg"
+                            >
+                              <CheckCircle2 className="w-5 h-5 text-white" />
+                            </motion.div>
+                          )}
+                        </motion.div>
+                      ))}
                     </div>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">System Notifications</h3>
-                    <div className="space-y-3">
-                      <div className="flex items-center">
-                        <input
-                          id="system-updates"
-                          type="checkbox"
-                          className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                          defaultChecked
-                        />
-                        <label htmlFor="system-updates" className="ml-3 text-sm text-gray-700">
-                          System updates and maintenance
-                        </label>
-                      </div>
-                      <div className="flex items-center">
-                        <input
-                          id="security-alerts"
-                          type="checkbox"
-                          className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                          defaultChecked
-                        />
-                        <label htmlFor="security-alerts" className="ml-3 text-sm text-gray-700">
-                          Security alerts
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-3">Notification Methods</h3>
-                    <div className="mt-2 space-y-5">
-                      <div className="flex items-center justify-between">
+                    
+                    {/* Theme Information */}
+                    <div className="bg-gray-50 rounded-xl p-4 mt-6">
+                      <div className="flex items-start gap-3">
+                        <Sparkles className="w-5 h-5 text-blue-500 mt-0.5" />
                         <div>
-                          <h4 className="text-sm font-medium text-gray-900">Email Notifications</h4>
-                          <p className="text-xs text-gray-500">Receive notifications via email</p>
+                          <h5 className="text-sm font-medium text-gray-900 mb-1">Current Theme: {currentTheme.name}</h5>
+                          <p className="text-xs text-gray-600">
+                            {currentTheme.description}. This theme affects the sidebar, buttons, and accent colors throughout the application.
+                          </p>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" className="sr-only peer" defaultChecked />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Theme Preview Card */}
+              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <SettingsIcon className="w-5 h-5 text-gray-600" />
+                    Theme Preview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-3">See how your theme looks</h4>
+                      <p className="text-xs text-gray-500 mb-4">
+                        Preview your selected theme with sample UI components
+                      </p>
+                    </div>
+                    
+                    {/* Theme Preview Components */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Sample Button */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-gray-600">Primary Button</label>
+                        <button className={`w-full px-4 py-2 rounded-lg bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white font-medium shadow-md hover:shadow-lg transition-all`}>
+                          Sample Button
+                        </button>
                       </div>
                       
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-900">SMS Notifications</h4>
-                          <p className="text-xs text-gray-500">Receive notifications via SMS</p>
+                      {/* Sample Sidebar */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-gray-600">Sidebar Style</label>
+                        <div className={`w-full h-12 rounded-lg bg-gradient-to-r ${currentTheme.gradients.sidebar} flex items-center px-3 shadow-md`}>
+                          <div className="w-6 h-6 bg-white/20 rounded-md mr-2"></div>
+                          <span className="text-white text-sm font-medium">Navigation</span>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" className="sr-only peer" />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                        </label>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-900">Browser Notifications</h4>
-                          <p className="text-xs text-gray-500">Receive notifications in browser</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" className="sr-only peer" defaultChecked />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                        </label>
                       </div>
                     </div>
                   </div>
-                  
-                  <div className="pt-4">
-                    <Button>Save Notification Settings</Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           )}
           
           {activeTab === 'system' && (
