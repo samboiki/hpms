@@ -325,6 +325,28 @@ function Dashboard() {
       // Get unique patient IDs for lab/media requests
       const uniquePatientIds = [...new Set(practiceAppointments.map(apt => apt.patient_id))];
 
+      // Fetch lab requests (only if we have patients)
+      let labRequestsData = [];
+      if (uniquePatientIds.length > 0) {
+        const { data } = await supabase
+          .from('lab_requests')
+          .select('*')
+          .eq('status', 'pending')
+          .in('patient_id', uniquePatientIds);
+        labRequestsData = data || [];
+      }
+
+      // Fetch media requests (only if we have patients)
+      let mediaRequestsData = [];
+      if (uniquePatientIds.length > 0) {
+        const { data } = await supabase
+          .from('media_requests')
+          .select('*')
+          .eq('status', 'pending')
+          .in('patient_id', uniquePatientIds);
+        mediaRequestsData = data || [];
+      }
+
       // Set state
       setAppointments(practiceAppointments);
       setPatientsData(practicePatients);
@@ -355,6 +377,18 @@ function Dashboard() {
         });
       });
 
+      labRequestsData.slice(0, 2).forEach((lab) => {
+        activities.push({
+          id: `lab-${lab.id}`,
+          type: 'lab',
+          message: 'Lab request pending',
+          details: lab.test_name || 'Blood test',
+          time: 'Pending',
+          icon: Microscope,
+          color: 'text-purple-500'
+        });
+      });
+
       setRecentActivities(activities);
 
       // Fetch comprehensive dashboard stats
@@ -366,12 +400,6 @@ function Dashboard() {
         console.error('❌ [Dashboard] Error loading stats:', statsError);
         // Continue without stats if there's an error
       }
-
-      console.log('✅ [Dashboard] Data fetch complete:', {
-        appointmentsSet: practiceAppointments.length,
-        patientsSet: practicePatients.length,
-        activitiesSet: activities.length
-      });
 
       // Fetch patient statistics
       await fetchPatientStats();
@@ -490,6 +518,15 @@ function Dashboard() {
       });
 
       setNotifications(newNotifications);
+
+      console.log('✅ [Dashboard] Data fetch complete:', {
+        appointmentsSet: practiceAppointments.length,
+        patientsSet: practicePatients.length,
+        labRequestsSet: labRequestsData.length,
+        mediaRequestsSet: mediaRequestsData.length,
+        activitiesSet: activities.length,
+        notificationsSet: newNotifications.length
+      });
       
     } catch (error) {
       console.error('❌ [Dashboard] Error fetching data:', error);
