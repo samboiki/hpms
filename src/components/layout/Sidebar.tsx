@@ -58,8 +58,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     <div 
       className={cn(
         isMobile 
-          ? "fixed left-0 top-0 h-full bg-gradient-to-br from-[#01b9d4] via-[#01a8c7] to-purple-600 transition-all duration-300 z-50 w-[280px]"
-          : "fixed left-4 top-4 h-[calc(100vh-32px)] bg-gradient-to-br from-[#01b9d4] via-[#01a8c7] to-purple-600 rounded-xl transition-all duration-300 z-30",
+          ? "fixed left-0 top-0 h-full bg-gradient-to-br from-slate-700 via-blue-700 via-cyan-600 to-teal-500 transition-all duration-300 z-50 w-[280px]"
+          : "fixed left-4 top-4 h-[calc(100vh-32px)] bg-gradient-to-br from-slate-700 via-blue-700 via-cyan-600 to-teal-500 rounded-xl transition-all duration-300 z-30",
         "shadow-[0_8px_30px_rgb(0,0,0,0.08)]",
         !isMobile && collapsed ? "w-[72px]" : !isMobile && "w-[240px]"
       )}
