@@ -910,7 +910,7 @@ function Dashboard() {
                   mainValue={156}
                   subtitle="Total patient visits"
                   icon={Activity}
-                  gradient="from-emerald-500 to-green-600"
+                  gradient="from-red-500 to-pink-500"
                   cardType="encounters"
                   stats={[
                     { label: 'This Month', value: 23, color: '#10B981' },
@@ -938,7 +938,7 @@ function Dashboard() {
                   mainValue="N$125,000"
                   subtitle="Total revenue"
                   icon={DollarSign}
-                  gradient="from-purple-500 to-indigo-600"
+                  gradient="from-cyan-500 to-blue-500"
                   cardType="finance"
                   stats={[
                     { label: 'Paid', value: 'N$119,800', color: '#8B5CF6' },
