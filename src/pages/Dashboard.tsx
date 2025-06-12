@@ -6,20 +6,13 @@ import {
   Microscope,
   AlertCircle,
   Plus,
-  Pill,
   CheckCircle2,
-  UserCheck,
   MessageSquare,
-  Zap,
   ChevronRight,
-  Bell,
   DollarSign,
-  TrendingUp,
   Building2,
-  XCircle,
   Search,
-  ChevronLeft,
-  Filter
+  ChevronLeft
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -37,7 +30,6 @@ import { motion } from 'framer-motion';
 import { useRealtimeAppointments } from '../hooks/useRealtimeAppointments';
 import { useTheme } from '../stores/themeStore';
 import { toast } from 'react-hot-toast';
-import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
 import PremiumStatCard from '../components/dashboard/PremiumStatCard';
 import DetailedReportModal from '../components/modals/DetailedReportModal';
 import EnhancedFinancialModal from '../components/modals/EnhancedFinancialModal';
@@ -53,7 +45,7 @@ interface Appointment {
   time: string;
   duration: number;
   type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
-  status: 'pending' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
+  status: 'pending' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'no-show' | 'ready';
   notes?: string;
   patient: {
     id: string;
@@ -95,9 +87,7 @@ function Dashboard() {
   const { currentTheme } = useTheme();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [patients, setPatients] = useState<any[]>([]);
-  const [labRequests, setLabRequests] = useState<any[]>([]);
-  const [mediaRequests, setMediaRequests] = useState<any[]>([]);
+  const [patientsData, setPatientsData] = useState<any[]>([]);
   const [isAddAppointmentModalOpen, setIsAddAppointmentModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
@@ -114,8 +104,7 @@ function Dashboard() {
   const [internalViewMode, setInternalViewMode] = useState<'timeline' | 'grid'>('timeline');
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
   const [showGridView, setShowGridView] = useState(false);
-  const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress'>('pending');
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress' | 'ready'>('pending');
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [patientStats, setPatientStats] = useState<{
     total: number;
@@ -128,10 +117,7 @@ function Dashboard() {
     type: 'patients' | 'notifications' | 'encounters' | 'finance' | null;
   }>({ isOpen: false, type: null });
   const [isEnhancedFinancialModalOpen, setIsEnhancedFinancialModalOpen] = useState(false);
-  const [appointmentStatusFilter, setAppointmentStatusFilter] = useState<'all' | 'total' | 'completed' | 'pending' | 'cancelled'>('all');
-  const [practiceDetails, setPracticeDetails] = useState<PracticeDetails | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [timeFilter, setTimeFilter] = useState<'this-week' | 'last-week' | 'this-month' | 'last-month'>('this-week');
   const navigate = useNavigate();
 
   // Real-time appointment updates
@@ -275,7 +261,6 @@ function Dashboard() {
       // Fetch practice details including logo
       const practiceData = await practiceDataService.getPracticeDetails(authContext.practiceId);
       if (practiceData) {
-        setPracticeDetails(practiceData);
         console.log('✅ [Dashboard] Practice details loaded:', practiceData);
       }
 
@@ -298,33 +283,9 @@ function Dashboard() {
       // Get unique patient IDs for lab/media requests
       const uniquePatientIds = [...new Set(practiceAppointments.map(apt => apt.patient_id))];
 
-      // Fetch lab requests (only if we have patients)
-      let labRequestsData = [];
-      if (uniquePatientIds.length > 0) {
-        const { data } = await supabase
-          .from('lab_requests')
-          .select('*')
-          .eq('status', 'pending')
-          .in('patient_id', uniquePatientIds);
-        labRequestsData = data || [];
-      }
-
-      // Fetch media requests (only if we have patients)
-      let mediaRequestsData = [];
-      if (uniquePatientIds.length > 0) {
-        const { data } = await supabase
-          .from('media_requests')
-          .select('*')
-          .eq('status', 'pending')
-          .in('patient_id', uniquePatientIds);
-        mediaRequestsData = data || [];
-      }
-
       // Set state
       setAppointments(practiceAppointments);
-      setPatients(practicePatients);
-      setLabRequests(labRequestsData);
-      setMediaRequests(mediaRequestsData);
+      setPatientsData(practicePatients);
 
       // Format doctors for dropdown
       const formattedDoctors = practiceDoctors.map(doctor => ({
@@ -352,134 +313,7 @@ function Dashboard() {
         });
       });
 
-      labRequestsData.slice(0, 2).forEach((lab) => {
-        activities.push({
-          id: `lab-${lab.id}`,
-          type: 'lab',
-          message: 'Lab request pending',
-          details: lab.test_name || 'Blood test',
-          time: 'Pending',
-          icon: Microscope,
-          color: 'text-purple-500'
-        });
-      });
-
       setRecentActivities(activities);
-
-      // Generate notifications
-      const newNotifications: Notification[] = [];
-
-      // Pending appointment bookings that need approval
-      const pendingBookings = practiceAppointments.filter(apt => apt.status === 'pending');
-      pendingBookings.forEach((apt) => {
-        newNotifications.push({
-          id: `booking-${apt.id}`,
-          type: 'booking',
-          priority: 'high',
-          title: 'New Booking Request',
-          description: `${apt.patient?.first_name} ${apt.patient?.last_name} requested a ${apt.type} appointment for ${format(new Date(apt.date + 'T' + apt.time), 'MMM d, h:mm a')}`,
-          time: new Date(apt.created_at || new Date()),
-          actionRequired: true,
-          read: false,
-          data: apt,
-          actions: {
-            primary: {
-              label: 'Approve',
-              variant: 'approve',
-              onClick: () => {
-                setSelectedAppointment(apt);
-                setIsApprovalModalOpen(true);
-              }
-            },
-            secondary: {
-              label: 'View Details',
-              onClick: () => {
-                setSelectedAppointment(apt);
-                setIsDetailsModalOpen(true);
-              }
-            }
-          }
-        });
-      });
-
-      // Lab results pending review
-      labRequestsData.forEach((lab) => {
-        newNotifications.push({
-          id: `lab-${lab.id}`,
-          type: 'lab-result',
-          priority: lab.is_urgent ? 'urgent' : 'normal',
-          title: 'Lab Results Ready',
-          description: `${lab.test_name || 'Lab test'} results are ready for review`,
-          time: new Date(lab.created_at || new Date()),
-          actionRequired: true,
-          read: false,
-          data: lab,
-          actions: {
-            primary: {
-              label: 'Review Results',
-              onClick: () => navigate('/requests')
-            }
-          }
-        });
-      });
-
-      // Upcoming follow-ups for today
-      const todayFollowUps = practiceAppointments.filter(apt => 
-        apt.type === 'follow-up' && 
-        apt.status === 'scheduled' &&
-        apt.date === format(new Date(), 'yyyy-MM-dd')
-      );
-      todayFollowUps.forEach((apt) => {
-        newNotifications.push({
-          id: `followup-${apt.id}`,
-          type: 'follow-up',
-          priority: 'normal',
-          title: 'Follow-up Reminder',
-          description: `${apt.patient?.first_name} ${apt.patient?.last_name} has a follow-up appointment at ${apt.time ? format(new Date(apt.date + 'T' + apt.time), 'h:mm a') : 'TBD'}`,
-          time: new Date(apt.date + 'T' + apt.time),
-          actionRequired: false,
-          read: false,
-          data: apt,
-          actions: {
-            primary: {
-              label: 'Start Visit',
-              onClick: () => handleStartVisit(apt.id)
-            }
-          }
-        });
-      });
-
-      // Media requests pending
-      mediaRequestsData.forEach((media) => {
-        newNotifications.push({
-          id: `media-${media.id}`,
-          type: 'system',
-          priority: 'normal',
-          title: 'Media Upload Pending',
-          description: `${media.request_type || 'Media'} upload requested for patient`,
-          time: new Date(media.created_at || new Date()),
-          actionRequired: true,
-          read: false,
-          data: media,
-          actions: {
-            primary: {
-              label: 'Upload Media',
-              onClick: () => navigate('/requests')
-            }
-          }
-        });
-      });
-
-      // Sort notifications by priority and time
-      newNotifications.sort((a, b) => {
-        const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 };
-        if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
-          return priorityOrder[a.priority] - priorityOrder[b.priority];
-        }
-        return b.time.getTime() - a.time.getTime();
-      });
-
-      setNotifications(newNotifications);
 
       // Fetch comprehensive dashboard stats
       try {
@@ -494,10 +328,7 @@ function Dashboard() {
       console.log('✅ [Dashboard] Data fetch complete:', {
         appointmentsSet: practiceAppointments.length,
         patientsSet: practicePatients.length,
-        labRequestsSet: labRequestsData.length,
-        mediaRequestsSet: mediaRequestsData.length,
-        activitiesSet: activities.length,
-        notificationsSet: newNotifications.length
+        activitiesSet: activities.length
       });
 
       // Fetch patient statistics
@@ -756,124 +587,15 @@ function Dashboard() {
     }
   };
 
-  const handleMarkReady = async (appointmentId: string) => {
-    try {
-      const appointment = appointments.find(apt => apt.id === appointmentId);
-      if (!appointment) {
-        toast.error('Appointment not found');
-        return;
-      }
-      
-      // Update appointment status to ready
-      const { error } = await supabase
-        .from('appointments')
-        .update({ 
-          status: 'ready',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', appointmentId);
-
-      if (error) {
-        console.error('Mark ready error:', error);
-        throw new Error('Failed to update appointment status');
-      }
-      
-      // Show success notification
-      toast.success(
-        `${appointment.patient?.first_name} ${appointment.patient?.last_name} is ready to be seen`,
-        { duration: 3000, icon: '🔔' }
-      );
-      
-      // Add to activity log
-      const newActivity: ActivityItem = {
-        id: `ready-${Date.now()}`,
-        type: 'appointment',
-        message: 'Patient ready',
-        details: `${appointment.patient?.first_name} ${appointment.patient?.last_name} - ${appointment.type}`,
-        time: 'Just now',
-        icon: AlertCircle,
-        color: 'text-green-600'
-      };
-      setRecentActivities(prev => [newActivity, ...prev.slice(0, 4)]);
-      
-      // Send notification to doctor if different from current user
-      if (appointment.doctor_id && appointment.doctor_id !== currentUserId) {
-        // This would trigger a real-time notification to the doctor
-        // For now, we'll just log it
-        console.log(`Notification sent to doctor ${appointment.doctor_id}`);
-      }
-      
-    } catch (error) {
-      console.error('Error marking patient ready:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to mark patient ready');
-    }
-  };
 
   // Calculate today's statistics
   const todayAppointments = appointments.filter(apt => 
     apt.date === format(new Date(), 'yyyy-MM-dd')
   );
   const pendingAppointments = appointments.filter(apt => apt.status === 'pending');
-  const pendingRequests = labRequests.length + mediaRequests.length;
   const completedToday = todayAppointments.filter(apt => apt.status === 'completed').length;
   const scheduledToday = todayAppointments.filter(apt => apt.status === 'scheduled').length;
   const inProgressAppointments = appointments.filter(apt => apt.status === 'in-progress');
-
-  // Stats data matching the Patients page design
-  const stats = [
-    { 
-      label: 'Pending Bookings', 
-      value: pendingAppointments.length.toString(),
-      change: pendingAppointments.length > 0 ? 'Need approval' : 'None pending',
-      trend: pendingAppointments.length > 0 ? 'down' : 'up',
-      icon: AlertCircle,
-      gradient: 'from-gray-400 to-gray-500',
-      id: 'pending-bookings',
-      onClick: () => {
-        setGridViewStatus('pending');
-        setShowGridView(true);
-      }
-    },
-    { 
-      label: "Today's Appointments", 
-      value: todayAppointments.length.toString(),
-      change: scheduledToday > 0 ? `${scheduledToday} scheduled` : 'All clear',
-      trend: scheduledToday > 0 ? 'neutral' : 'up',
-      icon: Calendar,
-      gradient: 'from-gray-400 to-gray-500',
-      id: 'appointments',
-      onClick: () => {
-        setGridViewStatus('scheduled');
-        setShowGridView(true);
-      }
-    },
-    { 
-      label: 'In Progress', 
-      value: inProgressAppointments.length.toString(),
-      change: inProgressAppointments.length > 0 ? 'Active visits' : 'None',
-      trend: 'neutral',
-      icon: Activity,
-      gradient: 'from-gray-400 to-gray-500',
-      id: 'in-progress',
-      onClick: () => {
-        setGridViewStatus('in-progress');
-        setShowGridView(true);
-      }
-    },
-    { 
-      label: 'Completed Today', 
-      value: completedToday.toString(),
-      change: completedToday > 0 ? 'View all' : 'None',
-      trend: 'up',
-      icon: CheckCircle2,
-      gradient: 'from-gray-400 to-gray-500',
-      id: 'completed',
-      onClick: () => {
-        setGridViewStatus('completed');
-        setShowGridView(true);
-      }
-    }
-  ];
 
 
   return (
@@ -1346,22 +1068,13 @@ function Dashboard() {
 
           {/* Right Section (4 columns) */}
           <div className="col-span-12 lg:col-span-4 space-y-4 md:space-y-6">
-            {/* Notifications Panel - FIRST */}
+            {/* Practice Overview */}
             <PracticeOverviewTile
-              notifications={notifications}
-              onNotificationAction={(notificationId, action) => {
-                console.log('Notification action:', notificationId, action);
-                // Remove notification after action
-                setNotifications(prev => prev.filter(n => n.id !== notificationId));
-              }}
-              onMarkAsRead={(notificationId) => {
-                setNotifications(prev => 
-                  prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-                );
-              }}
-              onMarkAllAsRead={() => {
-                setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-              }}
+              totalPatients={patientsData.length}
+              todayAppointments={todayAppointments.length}
+              pendingAppointments={pendingAppointments.length}
+              completedToday={completedToday}
+              practiceStatus={pendingAppointments.length > 5 ? 'busy' : todayAppointments.length === 0 ? 'quiet' : 'operational'}
             />
 
 
@@ -1479,7 +1192,7 @@ function Dashboard() {
             currentUserRole={currentUserRole}
             onStartVisit={handleStartVisit}
             onCompleteVisit={handleCompleteVisit}
-            onEditAppointment={(appointment) => {
+            onEditAppointment={(_appointment) => {
               setIsActionModalOpen(false);
               setIsRescheduleModalOpen(true);
             }}
@@ -1528,12 +1241,68 @@ function Dashboard() {
         <EnhancedFinancialModal
           isOpen={isEnhancedFinancialModalOpen}
           onClose={() => setIsEnhancedFinancialModalOpen(false)}
-          data={generateReportData('finance', dashboardStats)}
+          data={dashboardStats ? generateFinancialReportData(dashboardStats) : {
+            type: 'finance' as const,
+            title: 'Financial Overview',
+            subtitle: 'No data available',
+            overview: { total: 0, change: 'N/A', isPositive: false, period: 'N/A' },
+            breakdown: [],
+            chartData: { labels: [], datasets: [] },
+            timeSeriesData: { labels: [], datasets: [] },
+            insights: [],
+            actionItems: []
+          }}
         />
       )}
 
     </div>
   );
+
+  // Helper function to generate financial report data
+  function generateFinancialReportData(stats: DashboardStats) {
+    return {
+      type: 'finance' as const,
+      title: 'Financial Overview',
+      subtitle: 'Revenue analysis and payment tracking',
+      overview: {
+        total: stats.finance.totalRevenue,
+        change: `N$${(stats.finance.thisMonth / 1000).toFixed(1)}k`,
+        isPositive: stats.finance.thisMonth > 0,
+        period: 'This Month'
+      },
+      breakdown: [
+        { label: 'Total Revenue', value: stats.finance.totalRevenue, percentage: 100, color: '#8B5CF6' },
+        { label: 'This Month', value: stats.finance.thisMonth, percentage: Math.round((stats.finance.thisMonth / stats.finance.totalRevenue) * 100), color: '#7C3AED' },
+        { label: 'Outstanding', value: stats.finance.outstanding, percentage: Math.round((stats.finance.outstanding / stats.finance.totalRevenue) * 100), color: '#EF4444' },
+        { label: 'Collection Rate', value: Math.round(((stats.finance.totalRevenue - stats.finance.outstanding) / stats.finance.totalRevenue) * 100), percentage: Math.round(((stats.finance.totalRevenue - stats.finance.outstanding) / stats.finance.totalRevenue) * 100), color: '#10B981' }
+      ],
+      chartData: {
+        labels: stats.finance.paymentMethods.map(p => p.method),
+        datasets: [{
+          label: 'Payment Methods',
+          data: stats.finance.paymentMethods.map(p => p.amount)
+        }]
+      },
+      timeSeriesData: {
+        labels: ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'],
+        datasets: [{
+          label: 'Monthly Revenue',
+          data: stats.finance.revenueData
+        }]
+      },
+      insights: [
+        `N$${(stats.finance.outstanding / 1000).toFixed(1)}k in outstanding payments needs collection`,
+        `Average monthly revenue: N$${(stats.finance.totalRevenue / 6 / 1000).toFixed(1)}k`,
+        `${stats.finance.paidInvoices} invoices paid vs ${stats.finance.unpaidInvoices} unpaid`,
+        `Most popular payment method: ${stats.finance.paymentMethods[0]?.method || 'Cash'}`
+      ],
+      actionItems: [
+        'Follow up on outstanding payments',
+        'Send payment reminders to overdue accounts',
+        'Review and optimize payment processes'
+      ]
+    };
+  }
 
   // Helper function to generate report data
   function generateReportData(type: 'patients' | 'notifications' | 'encounters' | 'finance', stats: DashboardStats) {
@@ -1671,48 +1440,7 @@ function Dashboard() {
         };
 
       case 'finance':
-        return {
-          type: 'finance' as const,
-          title: 'Financial Overview',
-          subtitle: 'Revenue analysis and payment tracking',
-          overview: {
-            total: stats.finance.totalRevenue,
-            change: `N$${(stats.finance.thisMonth / 1000).toFixed(1)}k`,
-            isPositive: stats.finance.thisMonth > 0,
-            period: 'This Month'
-          },
-          breakdown: [
-            { label: 'Total Revenue', value: stats.finance.totalRevenue, percentage: 100, color: '#8B5CF6' },
-            { label: 'This Month', value: stats.finance.thisMonth, percentage: Math.round((stats.finance.thisMonth / stats.finance.totalRevenue) * 100), color: '#7C3AED' },
-            { label: 'Outstanding', value: stats.finance.outstanding, percentage: Math.round((stats.finance.outstanding / stats.finance.totalRevenue) * 100), color: '#EF4444' },
-            { label: 'Collection Rate', value: Math.round(((stats.finance.totalRevenue - stats.finance.outstanding) / stats.finance.totalRevenue) * 100), percentage: Math.round(((stats.finance.totalRevenue - stats.finance.outstanding) / stats.finance.totalRevenue) * 100), color: '#10B981' }
-          ],
-          chartData: {
-            labels: stats.finance.paymentMethods.map(p => p.method),
-            datasets: [{
-              label: 'Payment Methods',
-              data: stats.finance.paymentMethods.map(p => p.amount)
-            }]
-          },
-          timeSeriesData: {
-            labels: ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'],
-            datasets: [{
-              label: 'Monthly Revenue',
-              data: stats.finance.revenueData
-            }]
-          },
-          insights: [
-            `N$${(stats.finance.outstanding / 1000).toFixed(1)}k in outstanding payments needs collection`,
-            `Average monthly revenue: N$${(stats.finance.totalRevenue / 6 / 1000).toFixed(1)}k`,
-            `${stats.finance.paidInvoices} invoices paid vs ${stats.finance.unpaidInvoices} unpaid`,
-            `Most popular payment method: ${stats.finance.paymentMethods[0]?.method || 'Cash'}`
-          ],
-          actionItems: [
-            'Follow up on outstanding payments',
-            'Send payment reminders to overdue accounts',
-            'Review and optimize payment processes'
-          ]
-        };
+        return generateFinancialReportData(stats);
 
       default:
         throw new Error(`Unknown report type: ${type}`);
