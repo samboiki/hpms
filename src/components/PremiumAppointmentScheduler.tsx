@@ -625,9 +625,9 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     return (
       <div className="flex flex-col h-[600px] bg-white rounded-lg overflow-hidden border border-gray-200">
         {/* Professional Timeline Header */}
-        <div className="bg-gray-50 border-b border-gray-200">
+        <div className="bg-white/30 backdrop-blur-sm border-b border-dashed border-gray-300">
           <div className="flex">
-            <div className="w-20 p-3 border-r border-gray-200 bg-gray-100">
+            <div className="w-20 p-3 border-r border-dashed border-gray-300 bg-white/20 backdrop-blur-sm">
               <span className="text-xs font-medium text-gray-700">Time</span>
             </div>
             <div className="flex-1 flex">
@@ -635,8 +635,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                 displayDates.map((date, index) => (
                   <div
                     key={index}
-                    className={`flex-1 p-3 border-r border-gray-200 last:border-r-0 text-center
-                      ${isSameDay(date, new Date()) ? 'bg-blue-50 border-blue-200' : ''}`}
+                    className={`flex-1 p-3 border-r border-dashed border-gray-300 last:border-r-0 text-center
+                      ${isSameDay(date, new Date()) ? 'bg-blue-100/30 backdrop-blur-sm border-dashed border-blue-300' : ''}`}
                   >
                     <p className="text-xs font-medium text-gray-600">{format(date, 'EEE')}</p>
                     <p className={`text-sm font-semibold ${
@@ -673,11 +673,11 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
         {/* Professional Timeline Body */}
         <div className="flex-1 overflow-y-auto" ref={scrollContainerRef}>
           <div className="flex">
-            <div className="w-20 bg-gray-50 border-r border-gray-200">
+            <div className="w-20 bg-white/20 backdrop-blur-sm border-r border-dashed border-gray-300">
               {timeSlots.map((slot, index) => (
                 <div
                   key={slot}
-                  className="h-[60px] border-b border-gray-100 p-2 text-xs font-medium text-gray-600 flex items-center"
+                  className="h-[60px] border-b border-dashed border-gray-200 p-2 text-xs font-medium text-gray-600 flex items-center"
                   style={{ height: `${HOUR_HEIGHT}px` }}
                 >
                   {format(parseISO(`2000-01-01T${slot}`), 'h:mm a')}
@@ -707,7 +707,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               {timeSlots.map((slot, index) => (
                 <div
                   key={slot}
-                  className="absolute left-0 right-0 border-b border-gray-100"
+                  className="absolute left-0 right-0 border-b border-dotted border-gray-200"
                   style={{ 
                     top: `${index * HOUR_HEIGHT}px`,
                     height: `${HOUR_HEIGHT}px`
@@ -726,7 +726,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                     return (
                       <div
                         key={dayIndex}
-                        className="absolute border-r border-gray-200 last:border-r-0"
+                        className="absolute border-r border-dashed border-gray-300 last:border-r-0"
                         style={{
                           left: `${dayIndex * 14.285}%`,
                           width: '14.285%',
@@ -743,8 +743,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                               initial={{ opacity: 0, scale: 0.9 }}
                               animate={{ opacity: 1, scale: 1 }}
                               whileHover={{ scale: 1.05, zIndex: 30 }}
-                              className={`absolute left-1 right-1 bg-white rounded-md shadow-sm hover:shadow-md 
-                                border border-gray-200 transition-shadow cursor-pointer overflow-hidden
+                              className={`absolute left-1 right-1 bg-white/70 backdrop-blur-sm rounded-md shadow-sm hover:shadow-md 
+                                border border-white/30 transition-shadow cursor-pointer overflow-hidden
                                 ${getTypeAccent(appointment.type)}`}
                               style={{ top: `${top}px`, height: `${height}px` }}
                               onClick={() => onAppointmentClick(appointment)}
@@ -809,7 +809,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                     );
 
                     return (
-                      <div key={doctor.id} className="flex-1 relative border-r border-gray-200 last:border-r-0">
+                      <div key={doctor.id} className="flex-1 relative border-r border-dashed border-gray-300 last:border-r-0">
                         {doctorAppointments.map((appointment) => {
                           const { top, height } = calculateAppointmentPosition(appointment);
                           const StatusIcon = getStatusIcon(appointment.status);
@@ -820,8 +820,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                               initial={{ opacity: 0, scale: 0.9 }}
                               animate={{ opacity: 1, scale: 1 }}
                               whileHover={{ scale: 1.05, zIndex: 30 }}
-                              className={`absolute left-2 right-2 bg-white rounded-md shadow-sm hover:shadow-md 
-                                border border-gray-200 transition-shadow cursor-pointer overflow-hidden
+                              className={`absolute left-2 right-2 bg-white/70 backdrop-blur-sm rounded-md shadow-sm hover:shadow-md 
+                                border border-white/30 transition-shadow cursor-pointer overflow-hidden
                                 ${getTypeAccent(appointment.type)}`}
                               style={{ top: `${top}px`, height: `${height}px` }}
                               onClick={() => onAppointmentClick(appointment)}

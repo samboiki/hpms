@@ -109,19 +109,19 @@ export const PremiumWeekGridView: React.FC<PremiumWeekGridViewProps> = ({
   }
 
   return (
-    <div className="h-full flex flex-col bg-white rounded-xl shadow-sm overflow-hidden">
+    <div className="h-full flex flex-col bg-white/40 backdrop-blur-lg rounded-xl shadow-sm overflow-hidden border border-white/20">
       {/* Header */}
-      <div className="bg-gradient-to-r from-gray-50 via-white to-gray-50 border-b border-gray-200">
+      <div className="bg-white/50 backdrop-blur-lg border-b border-dotted border-gray-400/40">
         <div className="flex">
-          <div className="w-20 p-3 border-r border-gray-200 bg-gray-50">
-            <span className="text-xs font-semibold text-gray-600">Time</span>
+          <div className="w-20 p-3 border-r border-dotted border-gray-400/40 bg-white/30 backdrop-blur-md">
+            <span className="text-xs font-semibold text-gray-700">Time</span>
           </div>
           {weekDates.map((date, index) => (
             <div
               key={index}
               className={cn(
-                "flex-1 p-3 border-r border-gray-200 last:border-r-0 text-center",
-                isSameDay(date, new Date()) && "bg-[#01b9d5]/5"
+                "flex-1 p-3 border-r border-dotted border-gray-400/30 last:border-r-0 text-center",
+                isSameDay(date, new Date()) && "bg-[#01b9d5]/10 backdrop-blur-sm"
               )}
             >
               <p className="text-xs font-medium text-gray-500">{format(date, 'EEE')}</p>
@@ -140,11 +140,11 @@ export const PremiumWeekGridView: React.FC<PremiumWeekGridViewProps> = ({
       <div className="flex-1 overflow-auto custom-scrollbar">
         <div className="flex">
           {/* Time Column */}
-          <div className="flex-shrink-0 w-20 bg-gray-50">
+          <div className="flex-shrink-0 w-20 bg-white/20 backdrop-blur-sm">
             {timeSlots.map((time, index) => (
               <div
                 key={index}
-                className="h-20 border-b border-gray-100 px-2 py-1"
+                className="h-20 border-b border-dotted border-gray-200 px-2 py-1"
               >
                 <span className="text-xs text-gray-500 font-medium">
                   {format(parseISO(`2000-01-01T${time}`), 'h:mm a')}
@@ -159,7 +159,7 @@ export const PremiumWeekGridView: React.FC<PremiumWeekGridViewProps> = ({
             const dayAppointments = appointmentsByDate[dateStr] || [];
 
             return (
-              <div key={dayIndex} className="flex-1 border-r border-gray-200 last:border-r-0">
+              <div key={dayIndex} className="flex-1 border-r border-dotted border-gray-400/30 last:border-r-0 bg-white/20 backdrop-blur-sm">
                 {timeSlots.map((time, timeIndex) => {
                   const slotKey = `${dateStr}-${time}`;
                   const slotAppointments = dayAppointments.filter(apt => {
@@ -171,9 +171,9 @@ export const PremiumWeekGridView: React.FC<PremiumWeekGridViewProps> = ({
                     <div
                       key={timeIndex}
                       className={cn(
-                        "h-20 border-b border-gray-100 p-1 relative transition-colors",
-                        hoveredSlot === slotKey && "bg-gray-50",
-                        "hover:bg-gray-50 cursor-pointer"
+                        "h-20 border-b border-dotted border-gray-400/30 p-1 relative transition-colors",
+                        hoveredSlot === slotKey && "bg-white/30 backdrop-blur-md",
+                        "hover:bg-white/30 backdrop-blur-md cursor-pointer"
                       )}
                       onMouseEnter={() => setHoveredSlot(slotKey)}
                       onMouseLeave={() => setHoveredSlot(null)}
@@ -275,7 +275,7 @@ export const PremiumWeekGridView: React.FC<PremiumWeekGridViewProps> = ({
                           animate={{ opacity: 1 }}
                           className="absolute inset-0 flex items-center justify-center pointer-events-none"
                         >
-                          <div className="bg-gray-200/50 backdrop-blur-sm rounded-lg p-2">
+                          <div className="bg-white/40 backdrop-blur-lg rounded-lg p-2 border border-dotted border-gray-400/40">
                             <Calendar className="w-4 h-4 text-gray-400" />
                           </div>
                         </motion.div>

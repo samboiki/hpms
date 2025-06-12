@@ -244,7 +244,7 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
             >
               {/* Timeline connector */}
               {index < visits.length - 1 && (
-                <div className="absolute left-[11px] top-6 bottom-0 w-0.5 bg-gradient-to-b from-brand-primary/50 to-transparent" />
+                <div className="absolute left-[11px] top-6 bottom-0 w-0.5 border-l-2 border-dotted border-gray-400/60" />
               )}
               
               {/* Timeline node */}
@@ -259,12 +259,12 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
               </div>
 
               {/* Visit Card */}
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+              <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-white/30 shadow-sm hover:shadow-md transition-shadow">
                 {/* Header */}
-                <div className="p-4 border-b border-gray-100">
+                <div className="p-4 border-b border-dashed border-gray-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="p-2 rounded-lg bg-brand-light">
+                      <div className="p-2 rounded-lg bg-white/40 backdrop-blur-sm border border-dashed border-gray-300">
                         {getVisitTypeIcon(visit.visit_type)}
                       </div>
                       <div>
@@ -316,7 +316,7 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
 
                   {/* Stats */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
-                    <div className="p-3 bg-gray-50 rounded-lg">
+                    <div className="p-3 bg-white/30 backdrop-blur-sm rounded-lg border border-dashed border-gray-200">
                       <div className="flex items-center text-sm text-gray-600">
                         <FileText size={14} className="mr-2" />
                         Lab Results
@@ -324,7 +324,7 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
                       <p className="text-lg font-semibold mt-1">{visit.lab_results_count}</p>
                     </div>
 
-                    <div className="p-3 bg-gray-50 rounded-lg">
+                    <div className="p-3 bg-white/30 backdrop-blur-sm rounded-lg border border-dashed border-gray-200">
                       <div className="flex items-center text-sm text-gray-600">
                         <Image size={14} className="mr-2" />
                         Media
@@ -333,7 +333,7 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
                     </div>
 
                     {(visit.pending_lab_requests_count > 0 || visit.pending_media_requests_count > 0) && (
-                      <div className="p-3 bg-amber-50 rounded-lg">
+                      <div className="p-3 bg-amber-100/40 backdrop-blur-sm rounded-lg border border-dashed border-amber-200">
                         <div className="flex items-center text-sm text-amber-600">
                           <Clock size={14} className="mr-2" />
                           Pending
@@ -346,7 +346,7 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-between pt-4 border-t border-dotted border-gray-300">
                     <div className="space-x-2">
                       <Button
                         variant="outline"

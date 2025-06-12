@@ -234,20 +234,20 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
   };
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-gray-50 to-white rounded-xl shadow-sm">
+    <div className="h-full flex flex-col bg-white/40 backdrop-blur-lg rounded-xl shadow-sm border border-white/20">
 
       {/* Grid Container */}
       <div className="flex-1 overflow-auto custom-scrollbar" ref={gridRef}>
         <div className="flex">
           {/* Time Column */}
-          <div className="flex-shrink-0 w-20 bg-gradient-to-b from-gray-100 to-gray-200 border-r border-gray-300">
-            <div className="sticky top-0 bg-gradient-to-r from-gray-100 to-gray-200 z-20 h-12 border-b border-gray-300" />
+          <div className="flex-shrink-0 w-20 bg-white/30 backdrop-blur-md border-r border-dotted border-gray-400/40">
+            <div className="sticky top-0 bg-white/50 backdrop-blur-lg z-20 h-12 border-b border-dotted border-gray-400/40" />
             {timeSlots.map((time, index) => (
               <div
                 key={index}
-                className="h-[60px] border-b border-gray-200 px-2 py-1 relative"
+                className="h-[60px] border-b border-dotted border-gray-400/30 px-2 py-1 relative"
               >
-                <span className="text-sm text-gray-900 font-bold">
+                <span className="text-sm text-gray-800 font-medium">
                   {format(time, 'h:mm a')}
                 </span>
                 {/* Current time indicator */}
@@ -270,11 +270,11 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
           </div>
 
           {/* Doctor Columns */}
-          <div className="flex-1 flex bg-gradient-to-br from-gray-50 to-gray-100">
+          <div className="flex-1 flex bg-white/20 backdrop-blur-md">
             {doctors.map((doctor) => (
-              <div key={doctor.id} className="flex-1 min-w-[200px] border-r border-gray-200 last:border-r-0">
+              <div key={doctor.id} className="flex-1 min-w-[200px] border-r border-dotted border-gray-400/30 last:border-r-0">
                 {/* Doctor Header */}
-                <div className="sticky top-0 bg-gradient-to-r from-white to-gray-50 z-20 h-12 border-b border-gray-200 px-3 py-2">
+                <div className="sticky top-0 bg-white/60 backdrop-blur-lg z-20 h-12 border-b border-dotted border-gray-400/40 px-3 py-2">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-gradient-to-br from-[#01b9d5] to-[#0197a4] rounded-full flex items-center justify-center">
                       <User className="w-4 h-4 text-white" />
@@ -299,9 +299,9 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                       <div
                         key={index}
                         className={cn(
-                          "h-[60px] border-b border-gray-600 relative transition-all duration-200",
-                          isDropTarget && isDragging && "bg-[#01b9d5]/10 border-[#01b9d5]",
-                          !appointment && isAvailable && "hover:bg-gray-500 cursor-pointer"
+                          "h-[60px] border-b border-dotted border-gray-400/30 relative transition-all duration-200",
+                          isDropTarget && isDragging && "bg-[#01b9d5]/20 border-[#01b9d5] backdrop-blur-sm",
+                          !appointment && isAvailable && "hover:bg-white/30 backdrop-blur-sm cursor-pointer"
                         )}
                         onDragOver={(e) => handleDragOver(e, time, doctor.id)}
                         onDrop={(e) => handleDrop(e, time, doctor.id)}
@@ -313,8 +313,8 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                             className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
                             whileHover={{ scale: 1.1 }}
                           >
-                            <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
-                              <Zap className="w-4 h-4 text-gray-300" />
+                            <div className="w-8 h-8 bg-white/40 backdrop-blur-md rounded-full flex items-center justify-center border border-dotted border-gray-500/40">
+                              <Zap className="w-4 h-4 text-gray-400" />
                             </div>
                           </motion.div>
                         )}
@@ -335,8 +335,8 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                         <motion.div
                           key={appointment.id}
                           className={cn(
-                            "absolute left-1 right-1 bg-white/70 backdrop-blur-sm rounded-lg shadow-lg border border-white/30 cursor-move overflow-hidden",
-                            "hover:shadow-xl hover:z-30 transition-shadow",
+                            "absolute left-1 right-1 bg-white/60 backdrop-blur-lg rounded-lg shadow-sm border border-white/40 cursor-move overflow-hidden",
+                            "hover:shadow-lg hover:z-30 hover:bg-white/70 transition-all duration-200",
                             draggedAppointment?.id === appointment.id && "opacity-50"
                           )}
                           style={{
@@ -406,7 +406,7 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                                   animate={{ height: 'auto', opacity: 1 }}
                                   exit={{ height: 0, opacity: 0 }}
                                   transition={{ duration: 0.2 }}
-                                  className="mt-2 pt-2 border-t border-gray-500"
+                                  className="mt-2 pt-2 border-t border-dotted border-gray-400"
                                 >
                                   {appointment.patient?.cell_number && (
                                     <div className="flex items-center gap-1 text-xs text-gray-300 mb-1">
@@ -435,7 +435,7 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                                   
                                   {/* Mark Ready button for scheduled appointments */}
                                   {appointment.status === 'scheduled' && onMarkReady && (
-                                    <div className="mt-2 pt-2 border-t border-gray-600">
+                                    <div className="mt-2 pt-2 border-t border-dotted border-gray-400">
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
