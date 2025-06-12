@@ -6,7 +6,6 @@ import {
   Clock,
   User,
   Plus,
-  Search,
   RefreshCw,
   Grid3X3,
   List,
@@ -229,7 +228,6 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   );
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<{ doctorId: string; time: string; date: Date } | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [internalViewMode, setInternalViewMode] = useState<'timeline' | 'grid'>(externalInternalViewMode || 'grid');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
@@ -323,14 +321,6 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
       filtered = filtered.filter((apt) => apt.doctor_id === selectedDoctorId);
     }
 
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (apt) =>
-          apt.patient.first_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          apt.patient.last_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          apt.type.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
 
     // Sort by date for "all" view - most recent first
     if (viewMode === 'all') {
@@ -342,7 +332,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     }
 
     return filtered;
-  }, [appointments, selectedDate, selectedDoctorId, searchQuery, viewMode, weekDates]);
+  }, [appointments, selectedDate, selectedDoctorId, viewMode, weekDates]);
 
   // Generate time slots
   const timeSlots = useMemo(() => {
@@ -953,18 +943,6 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
         {/* Filters only - navigation moved to dashboard week calendar */}
         <div className="flex items-center justify-end gap-4">
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search appointments..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg 
-                  focus:outline-none focus:border-[#01b9d5] focus:ring-1 focus:ring-[#01b9d5]/20"
-              />
-            </div>
-            
             <select
               value={selectedDoctorId || ''}
               onChange={(e) => setSelectedDoctorId(e.target.value || null)}
@@ -978,7 +956,6 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                 </option>
               ))}
             </select>
-
 
             {onRefresh && (
               <button
