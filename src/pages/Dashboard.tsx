@@ -854,7 +854,7 @@ function Dashboard() {
                   mainValue={250}
                   subtitle="Total registered patients"
                   icon={Users}
-                  gradient="from-blue-500 to-cyan-600"
+                  gradient="from-[#489bfd] to-[#a4c8ff]"
                   cardType="patients"
                   stats={[
                     { label: 'Male', value: 120, color: '#3B82F6' },
