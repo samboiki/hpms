@@ -106,17 +106,9 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
       className="relative group cursor-pointer"
       onClick={onClick}
     >
-      {/* Clean card without background images */}
-      <div className="relative rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden p-[1px] bg-gradient-to-br from-gray-300/40 via-gray-400/30 to-gray-300/40">
-        <div className="relative rounded-2xl h-full w-full overflow-hidden" style={{ backgroundColor: '#edf1f4' }}>
-        
-        {/* Background icon pattern */}
-        <div className="absolute top-2 right-2 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
-          <Icon className="w-20 h-20 text-gray-400" />
-        </div>
-        
-        {/* Subtle gradient overlay */}
-        <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-300`}></div>
+      {/* Completely transparent card */}
+      <div className="relative rounded-2xl transition-all duration-300 overflow-hidden">
+        <div className="relative rounded-2xl h-full w-full overflow-hidden">
         
         <div className="relative p-4 z-10">
           {/* Header with icon and title side by side */}
@@ -154,9 +146,6 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
             {/* Compact comparison chart */}
             {renderComparisonChart()}
           </div>
-          
-          {/* Colored bottom accent */}
-          <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${gradient} opacity-40 group-hover:opacity-60 transition-opacity duration-300`}></div>
         </div>
         </div>
       </div>
