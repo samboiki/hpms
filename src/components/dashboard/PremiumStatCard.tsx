@@ -58,7 +58,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           secondaryColor: '#7db3fe',
           gradientFrom: 'from-[#489bfd]',
           gradientTo: 'to-[#7db3fe]',
-          bgImage: 'https://images.unsplash.com/pJ-72O3JNSQ?w=400&h=300&fit=crop&auto=format&q=80',
+          bgImage: 'https://plus.unsplash.com/premium_photo-1731410157801-dbea9a996cde?w=400&h=300&fit=crop&auto=format&q=80',
           bgOpacity: 'opacity-10 group-hover:opacity-15',
           comparisonData: [
             { label: 'Male', value: 120, color: '#489bfd' },
@@ -92,7 +92,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           secondaryColor: '#ff8a92',
           gradientFrom: 'from-red-500',
           gradientTo: 'to-pink-500',
-          bgImage: 'https://images.unsplash.com/2iL1QcQhygQ?w=400&h=300&fit=crop&auto=format&q=80',
+          bgImage: 'https://images.unsplash.com/photo-1609840114035-3c981960e833?w=400&h=300&fit=crop&auto=format&q=80',
           bgOpacity: 'opacity-10 group-hover:opacity-15',
           comparisonData: [
             { label: 'Completed', value: 142, color: '#ff4f5a' },
@@ -109,7 +109,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           secondaryColor: '#67e8f9',
           gradientFrom: 'from-cyan-500',
           gradientTo: 'to-blue-500',
-          bgImage: 'https://images.unsplash.com/lcJBV9R8agE?w=400&h=300&fit=crop&auto=format&q=80',
+          bgImage: 'https://plus.unsplash.com/premium_photo-1679922389798-8b38c78b5670?w=400&h=300&fit=crop&auto=format&q=80',
           bgOpacity: 'opacity-10 group-hover:opacity-15',
           comparisonData: [
             { label: 'Paid', value: 119800, color: '#01b9d5' },
