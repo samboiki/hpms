@@ -121,19 +121,24 @@ function Dashboard() {
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
   const navigate = useNavigate();
 
-  // Close calendar picker when clicking outside
+  // Close calendar picker when clicking backdrop or pressing Escape
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showCalendarPicker) {
-        const calendarElement = document.querySelector('.calendar-picker');
-        if (calendarElement && !calendarElement.contains(event.target as Node)) {
-          setShowCalendarPicker(false);
-        }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showCalendarPicker) {
+        setShowCalendarPicker(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    if (showCalendarPicker) {
+      document.addEventListener('keydown', handleKeyDown);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
   }, [showCalendarPicker]);
 
   // Real-time appointment updates
@@ -1105,70 +1110,99 @@ function Dashboard() {
                     
                     {/* Calendar Picker Modal */}
                     {showCalendarPicker && (
-                      <div className="calendar-picker absolute top-full left-1/2 transform -translate-x-1/2 z-50 mt-2 bg-white rounded-lg shadow-2xl border border-gray-200 p-4 min-w-[300px]">
-                        <div className="text-sm font-medium text-gray-700 mb-3">Select Date</div>
-                        
-                        {/* Month/Year Navigation */}
-                        <div className="flex items-center justify-between mb-4">
-                          <button
-                            onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
-                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                          >
-                            <ChevronLeft className="w-4 h-4" />
-                          </button>
-                          <div className="font-medium">
-                            {format(selectedDate, 'MMMM yyyy')}
-                          </div>
-                          <button
-                            onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
-                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                          >
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
-                        </div>
-                        
-                        {/* Calendar Grid */}
-                        <div className="grid grid-cols-7 gap-1 mb-4">
-                          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
-                            <div key={day} className="text-xs font-medium text-gray-500 text-center p-2">
-                              {day}
-                            </div>
-                          ))}
-                          {eachDayOfInterval({
-                            start: startOfMonth(selectedDate),
-                            end: endOfMonth(selectedDate)
-                          }).map((day) => {
-                            const dayIsToday = isToday(day);
-                            const dayIsSelected = isSameDay(day, selectedDate);
-                            
-                            return (
-                              <button
-                                key={day.toISOString()}
-                                onClick={() => {
-                                  setSelectedDate(day);
-                                  setShowCalendarPicker(false);
-                                }}
-                                className={`p-2 text-sm rounded-lg transition-all duration-200 ${
-                                  dayIsSelected
-                                    ? `bg-gradient-to-r ${currentTheme.gradients.button} text-white font-bold`
-                                    : dayIsToday
-                                    ? 'bg-blue-100 text-blue-800 font-medium'
-                                    : 'hover:bg-gray-100 text-gray-700'
-                                }`}
-                              >
-                                {format(day, 'd')}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        
-                        <button
+                      <>
+                        {/* Modal Backdrop */}
+                        <div 
+                          className="fixed inset-0 bg-black bg-opacity-20 backdrop-blur-sm z-[9998]"
                           onClick={() => setShowCalendarPicker(false)}
-                          className="w-full px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
+                        />
+                        
+                        {/* Calendar Modal */}
+                        <div className="calendar-picker fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] bg-white rounded-xl shadow-2xl border border-gray-200 p-6 min-w-[320px] max-w-[400px]">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="text-lg font-semibold text-gray-800">Select Date</div>
+                            <button
+                              onClick={() => setShowCalendarPicker(false)}
+                              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                              <span className="sr-only">Close</span>
+                              ✕
+                            </button>
+                          </div>
+                          
+                          {/* Month/Year Navigation */}
+                          <div className="flex items-center justify-between mb-6">
+                            <button
+                              onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
+                              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                              <ChevronLeft className="w-5 h-5" />
+                            </button>
+                            <div className="text-xl font-bold text-gray-800">
+                              {format(selectedDate, 'MMMM yyyy')}
+                            </div>
+                            <button
+                              onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
+                              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                              <ChevronRight className="w-5 h-5" />
+                            </button>
+                          </div>
+                          
+                          {/* Calendar Grid */}
+                          <div className="grid grid-cols-7 gap-2 mb-6">
+                            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                              <div key={day} className="text-sm font-semibold text-gray-500 text-center p-2">
+                                {day}
+                              </div>
+                            ))}
+                            {eachDayOfInterval({
+                              start: startOfMonth(selectedDate),
+                              end: endOfMonth(selectedDate)
+                            }).map((day) => {
+                              const dayIsToday = isToday(day);
+                              const dayIsSelected = isSameDay(day, selectedDate);
+                              
+                              return (
+                                <button
+                                  key={day.toISOString()}
+                                  onClick={() => {
+                                    setSelectedDate(day);
+                                    setShowCalendarPicker(false);
+                                  }}
+                                  className={`h-10 w-10 text-sm rounded-lg transition-all duration-200 font-medium ${
+                                    dayIsSelected
+                                      ? `bg-gradient-to-r ${currentTheme.gradients.button} text-white font-bold shadow-lg`
+                                      : dayIsToday
+                                      ? 'bg-blue-100 text-blue-800 font-bold border-2 border-blue-300'
+                                      : 'hover:bg-gray-100 text-gray-700 hover:scale-105'
+                                  }`}
+                                >
+                                  {format(day, 'd')}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => {
+                                setSelectedDate(new Date());
+                                setShowCalendarPicker(false);
+                              }}
+                              className="flex-1 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
+                            >
+                              Today
+                            </button>
+                            <button
+                              onClick={() => setShowCalendarPicker(false)}
+                              className="flex-1 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      </>
                     )}
                     
                     {/* Month Days - All days in one horizontal row */}
