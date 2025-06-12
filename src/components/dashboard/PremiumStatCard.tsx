@@ -189,34 +189,74 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
     );
   };
 
-  // Render mini donut chart
-  const renderMiniDonut = () => {
-    if (!settings.donutData || settings.donutData.length === 0) return null;
-
-    return (
-      <div className="flex items-center justify-center mt-2">
-        <div className="w-12 h-12 opacity-60">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={settings.donutData}
-                cx="50%"
-                cy="50%"
-                innerRadius={12}
-                outerRadius={20}
-                paddingAngle={2}
-                dataKey="value"
-                stroke="none"
-              >
-                {settings.donutData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
+  // Render mini donut chart or mini stat cards for patients
+  const renderMiniStats = () => {
+    if (cardType === 'patients') {
+      // Mini stat cards with engraved effect for patients
+      return (
+        <div className="flex gap-2 mt-3">
+          <div className="flex-1 relative">
+            {/* Engraved/Inset Effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-300 to-gray-400 rounded-lg opacity-20"></div>
+            <div className="relative bg-gradient-to-br from-gray-100 to-white rounded-lg p-2 shadow-inner border border-gray-200/50">
+              {/* Inner shadow for engraved effect */}
+              <div className="absolute inset-0 rounded-lg shadow-[inset_2px_2px_4px_rgba(0,0,0,0.1),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]"></div>
+              <div className="relative text-center">
+                <div className="flex items-center justify-center mb-1">
+                  <div className="w-2 h-2 rounded-full bg-green-500 shadow-sm"></div>
+                </div>
+                <p className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>15</p>
+                <p className="text-[10px] text-gray-600 font-medium leading-tight">New</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex-1 relative">
+            {/* Engraved/Inset Effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-300 to-gray-400 rounded-lg opacity-20"></div>
+            <div className="relative bg-gradient-to-br from-gray-100 to-white rounded-lg p-2 shadow-inner border border-gray-200/50">
+              {/* Inner shadow for engraved effect */}
+              <div className="absolute inset-0 rounded-lg shadow-[inset_2px_2px_4px_rgba(0,0,0,0.1),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]"></div>
+              <div className="relative text-center">
+                <div className="flex items-center justify-center mb-1">
+                  <div className="w-2 h-2 rounded-full bg-blue-500 shadow-sm"></div>
+                </div>
+                <p className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>42y</p>
+                <p className="text-[10px] text-gray-600 font-medium leading-tight">Avg Age</p>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    );
+      );
+    } else {
+      // Mini donut chart for other cards
+      if (!settings.donutData || settings.donutData.length === 0) return null;
+
+      return (
+        <div className="flex items-center justify-center mt-2">
+          <div className="w-12 h-12 opacity-60">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={settings.donutData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={12}
+                  outerRadius={20}
+                  paddingAngle={2}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {settings.donutData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      );
+    }
   };
 
   return (
@@ -282,8 +322,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
             {/* Horizontal Comparison Bar */}
             {renderComparisonBar()}
 
-            {/* Mini Donut Chart */}
-            {renderMiniDonut()}
+            {/* Mini Stats or Donut Chart */}
+            {renderMiniStats()}
           </div>
         </div>
 
