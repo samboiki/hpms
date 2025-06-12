@@ -54,19 +54,19 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
     switch (cardType) {
       case 'patients':
         return {
-          primaryColor: '#45d2de',
-          secondaryColor: '#8ee4ea',
-          gradientFrom: 'from-[#45d2de]',
-          gradientTo: 'to-[#8ee4ea]',
-          bgImage: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=400&h=300&fit=crop&auto=format&q=80',
+          primaryColor: '#0459a0',
+          secondaryColor: '#4a90d9',
+          gradientFrom: 'from-[#0459a0]',
+          gradientTo: 'to-[#4a90d9]',
+          bgImage: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=300&fit=crop&auto=format&q=80',
           bgOpacity: 'opacity-10 group-hover:opacity-15',
           comparisonData: [
-            { label: 'Male', value: 120, color: '#45d2de' },
-            { label: 'Female', value: 130, color: '#8ee4ea' }
+            { label: 'Male', value: 120, color: '#0459a0' },
+            { label: 'Female', value: 130, color: '#4a90d9' }
           ],
           donutData: [
             { label: 'New', value: 15, color: '#10B981' },
-            { label: 'Active', value: 235, color: '#45d2de' }
+            { label: 'Active', value: 235, color: '#0459a0' }
           ]
         };
       case 'communication':
@@ -259,7 +259,11 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
-              <div className={`p-2 bg-gradient-to-br ${settings.gradientFrom} ${settings.gradientTo} rounded-xl shadow-md`}>
+              <div className={cardType === 'patients' 
+                ? `p-2 rounded-xl shadow-md` 
+                : `p-2 bg-gradient-to-br ${settings.gradientFrom} ${settings.gradientTo} rounded-xl shadow-md`}
+                style={cardType === 'patients' ? { backgroundColor: settings.primaryColor } : {}}
+              >
                 <Icon className="w-5 h-5 text-white" />
               </div>
               <div>
