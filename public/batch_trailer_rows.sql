@@ -1,0 +1,1 @@
+INSERT INTO "public"."batch_trailer" ("id", "batch_header_id", "trailer_identifier", "total_detail_transactions", "total_amount_detail_transactions", "created_at") VALUES ('6458bcae-5b81-4e31-8ad3-c27953e7d78a', '782752c0-cb09-4c11-b43a-0365c2a0d152', 'Z', '41', '5391.50', '2025-06-11 00:09:27.883989+00');

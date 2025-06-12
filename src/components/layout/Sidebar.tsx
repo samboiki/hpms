@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../../utils/cn';
 import { 
@@ -7,17 +7,16 @@ import {
   ChevronRight,
   ChevronLeft,
   X,
-  Wallet,
   UserRound,
   Cog,
-  Package2,
   Bell,
-  LogOut,
   Building2,
   DollarSign,
   Crown,
   Expand,
   Minimize,
+  LogOut,
+  ChevronDown,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -38,14 +37,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   isFullscreen = false,
   onToggleFullscreen
 }) => {
-  const { logout, isSuperAdmin, canManagePractices } = useAuthStore();
+  const { logout, isSuperAdmin, canManagePractices, user } = useAuthStore();
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Users, label: 'Patients', path: '/patients' },
-    { icon: Package2, label: 'Inventory', path: '/inventory' },
     { icon: Bell, label: 'Messages', path: '/messages' },
-    { icon: Wallet, label: 'Finance', path: '/finance' },
   ];
 
   const adminItems = [
@@ -72,9 +70,60 @@ const Sidebar: React.FC<SidebarProps> = ({
             <X size={20} />
           </button>
         )}
-        {!collapsed && (
-          <div className="font-semibold text-lg text-white">
-            REMEDICA
+        
+        {/* User Avatar Section */}
+        {user && (
+          <div className="relative flex-1">
+            <button
+              onClick={() => setShowUserDropdown(!showUserDropdown)}
+              className={cn(
+                "w-full flex items-center px-3 py-2 rounded-lg hover:bg-white/10 transition-colors",
+                collapsed && !isMobile && "justify-center"
+              )}
+            >
+              <div className="relative">
+                <img
+                  src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face`}
+                  alt={user.name}
+                  className="w-8 h-8 rounded-full object-cover border-2 border-white/20"
+                  onError={(e) => {
+                    e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face`;
+                  }}
+                />
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
+              </div>
+              {(!collapsed || isMobile) && (
+                <>
+                  <div className="ml-3 flex-1 min-w-0 text-left">
+                    <p className="text-sm font-medium text-white truncate">{user.name}</p>
+                    <p className="text-xs text-white/60 capitalize">{user.role}</p>
+                  </div>
+                  <ChevronDown 
+                    size={16} 
+                    className={cn(
+                      "text-white/60 transition-transform",
+                      showUserDropdown && "rotate-180"
+                    )}
+                  />
+                </>
+              )}
+            </button>
+            
+            {/* Dropdown Menu */}
+            {showUserDropdown && (!collapsed || isMobile) && (
+              <div className="absolute top-full left-3 right-3 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                <button
+                  onClick={() => {
+                    logout();
+                    setShowUserDropdown(false);
+                  }}
+                  className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  <LogOut size={16} className="mr-2" />
+                  Logout
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -133,18 +182,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="mt-auto px-2 py-4 border-t border-white/15 space-y-1">
         <NavLink
-          to="/practice-profile"
-          className={({ isActive }) => cn(
-            "flex items-center px-3 py-2 rounded-lg text-white/80 hover:bg-white/10",
-            isActive ? "bg-white/20" : "",
-            collapsed && !isMobile && "justify-center"
-          )}
-        >
-          <Building2 size={18} />
-          {(!collapsed || isMobile) && <span className="ml-3 text-sm">Practice</span>}
-        </NavLink>
-
-        <NavLink
           to="/settings"
           className={({ isActive }) => cn(
             "flex items-center px-3 py-2 rounded-lg text-white/80 hover:bg-white/10",
@@ -194,17 +231,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               {!collapsed && <span className="ml-3 text-sm">Collapse</span>}
             </>
           )}
-        </button>
-
-        <button
-          onClick={logout}
-          className={cn(
-            "w-full flex items-center px-3 py-2 rounded-lg text-white/80 hover:bg-white/10",
-            collapsed && !isMobile && "justify-center"
-          )}
-        >
-          <LogOut size={18} />
-          {(!collapsed || isMobile) && <span className="ml-3 text-sm">Logout</span>}
         </button>
       </div>
     </div>
