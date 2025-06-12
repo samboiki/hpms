@@ -54,42 +54,42 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
 
     return (
       <div className="mt-3">
-        {/* Premium Horizontal Stacked Bar */}
-        <div className="relative h-2.5 bg-white/40 backdrop-blur-sm rounded-full overflow-hidden mb-2 shadow-inner border border-white/30">
+        {/* Compact Horizontal Stacked Bar */}
+        <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden mb-2">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${percentage1}%` }}
-            transition={{ duration: 1.2, ease: "easeOut" }}
-            className="absolute left-0 top-0 h-full shadow-sm"
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="absolute left-0 top-0 h-full"
             style={{ backgroundColor: comparison.color1 }}
           />
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${percentage2}%` }}
-            transition={{ duration: 1.2, delay: 0.3, ease: "easeOut" }}
-            className="absolute right-0 top-0 h-full shadow-sm"
+            transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+            className="absolute right-0 top-0 h-full"
             style={{ backgroundColor: comparison.color2 }}
           />
         </div>
         
-        {/* Premium Labels */}
+        {/* Compact Labels in Single Row */}
         <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1 bg-white/30 backdrop-blur-sm px-2 py-1 rounded-lg border border-white/40">
+          <div className="flex items-center gap-1">
             <div 
-              className="w-2 h-2 rounded-full shadow-sm" 
+              className="w-2 h-2 rounded-full" 
               style={{ backgroundColor: comparison.color1 }}
             />
-            <span className="font-medium text-gray-800" style={{ fontFamily: 'Montserrat, sans-serif' }}>{comparison.label1}</span>
-            <span className="text-gray-700 font-semibold" style={{ fontFamily: 'Montserrat, sans-serif' }}>{percentage1.toFixed(0)}%</span>
+            <span className="font-medium text-gray-700" style={{ fontFamily: 'Montserrat, sans-serif' }}>{comparison.label1}</span>
+            <span className="text-gray-500" style={{ fontFamily: 'Montserrat, sans-serif' }}>{percentage1.toFixed(0)}%</span>
           </div>
           
-          <div className="flex items-center gap-1 bg-white/30 backdrop-blur-sm px-2 py-1 rounded-lg border border-white/40">
+          <div className="flex items-center gap-1">
             <div 
-              className="w-2 h-2 rounded-full shadow-sm" 
+              className="w-2 h-2 rounded-full" 
               style={{ backgroundColor: comparison.color2 }}
             />
-            <span className="font-medium text-gray-800" style={{ fontFamily: 'Montserrat, sans-serif' }}>{comparison.label2}</span>
-            <span className="text-gray-700 font-semibold" style={{ fontFamily: 'Montserrat, sans-serif' }}>{percentage2.toFixed(0)}%</span>
+            <span className="font-medium text-gray-700" style={{ fontFamily: 'Montserrat, sans-serif' }}>{comparison.label2}</span>
+            <span className="text-gray-500" style={{ fontFamily: 'Montserrat, sans-serif' }}>{percentage2.toFixed(0)}%</span>
           </div>
         </div>
       </div>
@@ -106,48 +106,27 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
       className="relative group cursor-pointer"
       onClick={onClick}
     >
-      {/* Premium card with Unsplash background */}
-      <div className="relative rounded-2xl shadow-xl group-hover:shadow-2xl transition-all duration-500 overflow-hidden border border-white/20">
-        <div className="relative rounded-2xl h-full w-full overflow-hidden">
-        {/* Static white medical background images */}
-        <div className="absolute inset-0">
-          <img
-            src={(() => {
-              const imageMap: { [key: string]: string } = {
-                'patients': 'https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?w=800&h=600&fit=crop&auto=format&q=90',
-                'communication': 'https://images.unsplash.com/photo-1612277795421-9bc7706a4a34?w=800&h=600&fit=crop&auto=format&q=90',
-                'encounters': 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=800&h=600&fit=crop&auto=format&q=90',
-                'finance': 'https://images.unsplash.com/photo-1666214280391-8ff5929d87fd?w=800&h=600&fit=crop&auto=format&q=90'
-              };
-              return imageMap[title.toLowerCase()] || 'https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?w=800&h=600&fit=crop&auto=format&q=90';
-            })()}
-            alt="Medical background"
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              // Fallback to a clean white medical image
-              e.currentTarget.src = 'https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?w=800&h=600&fit=crop&auto=format&q=90';
-            }}
-          />
+      {/* Clean card without background images */}
+      <div className="relative rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden p-[1px] bg-gradient-to-br from-gray-300/40 via-gray-400/30 to-gray-300/40">
+        <div className="relative rounded-2xl h-full w-full overflow-hidden" style={{ backgroundColor: '#edf1f4' }}>
+        
+        {/* Background icon pattern */}
+        <div className="absolute top-2 right-2 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
+          <Icon className="w-20 h-20 text-gray-400" />
         </div>
         
-        {/* Much more transparent overlay to show images clearly */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-white/30 to-white/35"></div>
-        
-        {/* Very subtle glass overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-white/15 via-transparent to-white/10"></div>
-        
-        {/* Minimal color accent */}
-        <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-3 group-hover:opacity-5 transition-opacity duration-300`}></div>
+        {/* Subtle gradient overlay */}
+        <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-300`}></div>
         
         <div className="relative p-4 z-10">
           {/* Header with icon and title side by side */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
-              <div className={`p-3 bg-gradient-to-br ${gradient} rounded-xl shadow-lg backdrop-blur-sm border border-white/30`}>
-                <Icon className="w-5 h-5 text-white drop-shadow-sm" />
+              <div className={`p-2 bg-gradient-to-br ${gradient} rounded-xl shadow-md`}>
+                <Icon className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 drop-shadow-md" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                <h3 className="text-lg font-semibold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>
                   {title}
                 </h3>
               </div>
@@ -166,15 +145,18 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           {/* Main content */}
           <div className="space-y-4">
             <div>
-              <p className="text-3xl font-bold text-gray-900 mb-1 drop-shadow-md" style={{ fontFamily: 'Rubik, sans-serif' }}>
+              <p className="text-3xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Rubik, sans-serif' }}>
                 {mainValue}
               </p>
-              <p className="text-sm text-gray-800 font-normal drop-shadow-sm" style={{ fontFamily: 'Montserrat, sans-serif' }}>{subtitle}</p>
+              <p className="text-sm text-gray-600 font-normal" style={{ fontFamily: 'Montserrat, sans-serif' }}>{subtitle}</p>
             </div>
 
             {/* Compact comparison chart */}
             {renderComparisonChart()}
           </div>
+          
+          {/* Colored bottom accent */}
+          <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${gradient} opacity-40 group-hover:opacity-60 transition-opacity duration-300`}></div>
         </div>
         </div>
       </div>
