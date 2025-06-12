@@ -172,22 +172,6 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
               <p className="text-sm text-gray-600 font-medium" style={{ fontFamily: 'Rubik, sans-serif' }}>{subtitle}</p>
             </div>
 
-            {/* Compact stats grid with colored backgrounds */}
-            <div className="grid grid-cols-2 gap-2">
-              {stats.slice(0, 4).map((stat, index) => (
-                <div 
-                  key={index} 
-                  className="text-center rounded-lg py-2 px-2 border border-gray-200/50 bg-white/60 backdrop-blur-sm"
-                  style={{ backgroundColor: `${stat.color}15` }}
-                >
-                  <p className="text-sm font-bold text-gray-800" style={{ color: stat.color, fontFamily: 'Rubik, sans-serif' }}>
-                    {stat.value}
-                  </p>
-                  <p className="text-[11px] text-gray-600 font-medium leading-tight" style={{ fontFamily: 'Rubik, sans-serif' }}>{stat.label}</p>
-                </div>
-              ))}
-            </div>
-
             {/* Compact comparison chart */}
             {renderComparisonChart()}
           </div>
