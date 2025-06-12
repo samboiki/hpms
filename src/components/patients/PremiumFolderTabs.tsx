@@ -698,7 +698,7 @@ const AuditTrailContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#01b9d4]"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderBottomColor: currentTheme.colors.primary.from }}></div>
       </div>
     );
   }
@@ -972,12 +972,17 @@ const DocumentsContent: React.FC<{ patientId: string; visitId?: string; onCountC
     >
       {/* Drag overlay */}
       {isDragging && (
-        <div className="absolute inset-0 bg-[#01b9d4]/10 border-2 border-dashed border-[#01b9d4] rounded-xl z-10 flex items-center justify-center">
+        <div className="absolute inset-0 border-2 border-dashed rounded-xl z-10 flex items-center justify-center"
+             style={{ 
+               backgroundColor: `${currentTheme.colors.primary.from}10`,
+               borderColor: currentTheme.colors.primary.from
+             }}>
           <div className="text-center">
-            <div className="p-4 bg-[#01b9d4]/20 rounded-full mx-auto mb-4 w-16 h-16 flex items-center justify-center">
-              <Upload className="w-8 h-8 text-[#01b9d4]" />
+            <div className="p-4 rounded-full mx-auto mb-4 w-16 h-16 flex items-center justify-center"
+                 style={{ backgroundColor: `${currentTheme.colors.primary.from}20` }}>
+              <Upload className="w-8 h-8" style={{ color: currentTheme.colors.primary.from }} />
             </div>
-            <h3 className="text-lg font-semibold text-[#01b9d4] mb-2">Drop files here to upload</h3>
+            <h3 className="text-lg font-semibold mb-2" style={{ color: currentTheme.colors.primary.from }}>Drop files here to upload</h3>
             <p className="text-sm text-gray-600">Release to start uploading documents</p>
           </div>
         </div>
@@ -1235,7 +1240,7 @@ const BillingContent: React.FC<{
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#01b9d4]"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderBottomColor: currentTheme.colors.primary.from }}></div>
       </div>
     );
   }

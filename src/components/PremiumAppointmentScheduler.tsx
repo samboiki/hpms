@@ -223,6 +223,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     onInternalViewModeChange
   } = props;
 
+  const { currentTheme } = useTheme();
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(
     currentUserRole === 'doctor' ? currentUserId : null
   );
@@ -982,8 +983,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             
             <button
               onClick={goToToday}
-              className="px-3 py-2 text-sm font-medium bg-gradient-to-r from-[#01b9d5] to-purple-600 
-                text-white rounded-lg hover:shadow-md transition-all"
+              className={`px-3 py-2 text-sm font-medium bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-lg hover:shadow-md transition-all`}
             >
               Today
             </button>
