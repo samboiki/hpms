@@ -901,24 +901,14 @@ function Dashboard() {
                       </span>
                     </div>
                     
-                    {/* Weekday Headers */}
-                    <div className="grid grid-cols-7 gap-2 mb-2">
-                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                        <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
-                          {day}
-                        </div>
-                      ))}
-                    </div>
-                    
-                    {/* Month Days - All days in the month */}
-                    <div className="grid grid-cols-7 gap-2">
+                    {/* Month Days - All days in one horizontal row */}
+                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-transparent">
                       {eachDayOfInterval({
-                        start: startOfWeek(startOfMonth(selectedDate)),
-                        end: endOfWeek(endOfMonth(selectedDate))
+                        start: startOfMonth(selectedDate),
+                        end: endOfMonth(selectedDate)
                       }).map((day) => {
                         const dayIsToday = isToday(day);
                         const dayIsSelected = isSameDay(day, selectedDate);
-                        const isCurrentMonth = day.getMonth() === selectedDate.getMonth();
                         
                         // Check if day has appointments
                         const dayAppointments = appointments.filter(apt => 
@@ -930,29 +920,41 @@ function Dashboard() {
                           <button
                             key={day.toISOString()}
                             onClick={() => setSelectedDate(day)}
-                            className={`relative flex flex-col items-center p-2 rounded-xl transition-all duration-300 transform hover:scale-105 min-h-[3rem] ${
+                            className={`relative flex flex-col items-center p-3 rounded-2xl transition-all duration-300 transform hover:scale-105 min-w-[4rem] flex-shrink-0 ${
                               dayIsToday
                                 ? `bg-gradient-to-br ${currentTheme.gradients.sidebar} shadow-lg backdrop-blur-sm text-white`
                                 : dayIsSelected
                                 ? 'bg-white/40 backdrop-blur-sm shadow-md'
-                                : isCurrentMonth
-                                ? 'bg-white/20 backdrop-blur-sm hover:bg-white/30'
-                                : 'bg-white/10 backdrop-blur-sm hover:bg-white/20 opacity-50'
+                                : 'bg-white/20 backdrop-blur-sm hover:bg-white/30'
                             }`}
+                            style={{
+                              borderRadius: '20px',
+                            }}
                           >
                             {/* Date number */}
                             <div 
-                              className={`text-sm font-semibold ${
+                              className={`text-lg font-bold mb-1 ${
                                 dayIsToday 
                                   ? 'text-white' 
                                   : dayIsSelected
                                   ? 'text-gray-800'
-                                  : isCurrentMonth 
-                                  ? 'text-gray-700'
-                                  : 'text-gray-400'
+                                  : 'text-gray-700'
                               }`}
                             >
                               {format(day, 'd')}
+                            </div>
+                            
+                            {/* Day name */}
+                            <div 
+                              className={`text-xs font-medium mb-1 ${
+                                dayIsToday 
+                                  ? 'text-white/80'
+                                  : dayIsSelected
+                                  ? 'text-gray-600'
+                                  : 'text-gray-500/70'
+                              }`}
+                            >
+                              {format(day, 'EEE')}
                             </div>
                             
                             {/* Appointment indicators */}
@@ -982,7 +984,7 @@ function Dashboard() {
                             
                             {/* Today indicator */}
                             {dayIsToday && (
-                              <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full shadow-sm animate-pulse"></div>
+                              <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full shadow-sm animate-pulse"></div>
                             )}
                           </button>
                         );
