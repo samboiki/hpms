@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { LucideIcon, ChevronRight } from 'lucide-react';
-import { useTheme } from '../../stores/themeStore';
 
 interface StatItem {
   label: string;
@@ -46,7 +45,6 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
   trend,
   unsplashQuery
 }) => {
-  const { currentTheme } = useTheme();
   const renderComparisonChart = () => {
     if (!comparison) return null;
 
@@ -56,34 +54,42 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
 
     return (
       <div className="mt-3">
-        {/* Compact Horizontal Stacked Bar with glass morphism */}
-        <div className="relative h-2 bg-white/20 rounded-full overflow-hidden mb-2 backdrop-blur-sm">
+        {/* Compact Horizontal Stacked Bar */}
+        <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden mb-2">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${percentage1}%` }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className="absolute left-0 top-0 h-full bg-white/40"
+            className="absolute left-0 top-0 h-full"
+            style={{ backgroundColor: comparison.color1 }}
           />
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${percentage2}%` }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-            className="absolute right-0 top-0 h-full bg-white/60"
+            className="absolute right-0 top-0 h-full"
+            style={{ backgroundColor: comparison.color2 }}
           />
         </div>
         
         {/* Compact Labels in Single Row */}
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-white/40" />
-            <span className="font-medium text-white/90" style={{ fontFamily: 'Rubik, sans-serif' }}>{comparison.label1}</span>
-            <span className="text-white/70" style={{ fontFamily: 'Rubik, sans-serif' }}>{percentage1.toFixed(0)}%</span>
+            <div 
+              className="w-2 h-2 rounded-full" 
+              style={{ backgroundColor: comparison.color1 }}
+            />
+            <span className="font-medium text-gray-700" style={{ fontFamily: 'Rubik, sans-serif' }}>{comparison.label1}</span>
+            <span className="text-gray-500" style={{ fontFamily: 'Rubik, sans-serif' }}>{percentage1.toFixed(0)}%</span>
           </div>
           
           <div className="flex items-center gap-1">
-            <div className="w-2 h-2 rounded-full bg-white/60" />
-            <span className="font-medium text-white/90" style={{ fontFamily: 'Rubik, sans-serif' }}>{comparison.label2}</span>
-            <span className="text-white/70" style={{ fontFamily: 'Rubik, sans-serif' }}>{percentage2.toFixed(0)}%</span>
+            <div 
+              className="w-2 h-2 rounded-full" 
+              style={{ backgroundColor: comparison.color2 }}
+            />
+            <span className="font-medium text-gray-700" style={{ fontFamily: 'Rubik, sans-serif' }}>{comparison.label2}</span>
+            <span className="text-gray-500" style={{ fontFamily: 'Rubik, sans-serif' }}>{percentage2.toFixed(0)}%</span>
           </div>
         </div>
       </div>
@@ -100,65 +106,84 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
       className="relative group cursor-pointer"
       onClick={onClick}
     >
-      {/* Glass morphism card matching sidebar aesthetic */}
-      <div className={`relative rounded-2xl bg-gradient-to-br ${currentTheme.gradients.sidebar} backdrop-blur-md shadow-[0_20px_60px_rgb(0,0,0,0.15)] border border-white/10 group-hover:shadow-[0_25px_70px_rgb(0,0,0,0.2)] transition-all duration-300 overflow-hidden`}>
-        {/* Subtle pattern overlay */}
-        <div className="absolute inset-0 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
-          <div className="absolute top-4 right-4">
-            <Icon className="w-16 h-16 text-white/20" />
+      {/* Main card with light grey background and gradient border */}
+      <div className="relative rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden p-[1px] bg-gradient-to-br from-gray-300/40 via-gray-400/30 to-gray-300/40">
+        <div className="relative rounded-2xl h-full w-full overflow-hidden" style={{ backgroundColor: '#edf1f4' }}>
+        {/* Unsplash background image */}
+        {unsplashQuery && (
+          <div className="absolute inset-0 opacity-10 group-hover:opacity-15 transition-opacity duration-300">
+            <img
+              src={(() => {
+                const imageMap: { [key: string]: string } = {
+                  'medical-patients-healthcare': 'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=400&h=300&fit=crop&auto=format&q=80',
+                  'notification-bell-communication': 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop&auto=format&q=80',
+                  'medical-consultation-stethoscope': 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=300&fit=crop&auto=format&q=80',
+                  'money-finance-calculator': 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=400&h=300&fit=crop&auto=format&q=80'
+                };
+                return imageMap[unsplashQuery] || imageMap['medical-patients-healthcare'];
+              })()}
+              alt=""
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
           </div>
+        )}
+        
+        {/* Background icon pattern */}
+        <div className="absolute top-2 right-2 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
+          <Icon className="w-20 h-20 text-gray-400" />
         </div>
         
-        {/* Glass reflection effect */}
-        <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/10 to-transparent pointer-events-none"></div>
-        
-        {/* Bottom accent line */}
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-white/20 via-white/40 to-white/20"></div>
+        {/* Subtle gradient overlay */}
+        <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-5 group-hover:opacity-10 transition-opacity duration-300`}></div>
         
         <div className="relative p-4 z-10">
           {/* Header with icon and title side by side */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/15 backdrop-blur-sm rounded-xl shadow-lg border border-white/20">
+              <div className={`p-2 bg-gradient-to-br ${gradient} rounded-xl shadow-md`}>
                 <Icon className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                <h3 className="text-lg font-semibold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>
                   {title}
                 </h3>
               </div>
             </div>
             <div className="flex items-center gap-1">
               {trend && (
-                <div className="text-xs text-white/80 font-medium">
+                <div className="text-xs text-gray-600 font-medium">
                   <span className="opacity-60">{trend.isPositive ? '↗' : '↘'}</span>
                   <span className="ml-1">{trend.value}</span>
                 </div>
               )}
-              <ChevronRight className="w-4 h-4 text-white/60 group-hover:text-white transition-colors" />
+              <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
             </div>
           </div>
           
           {/* Main content */}
           <div className="space-y-4">
             <div>
-              <p className="text-3xl font-bold text-white mb-1" style={{ fontFamily: 'Rubik, sans-serif' }}>
+              <p className="text-3xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Rubik, sans-serif' }}>
                 {mainValue}
               </p>
-              <p className="text-sm text-white/80 font-medium" style={{ fontFamily: 'Rubik, sans-serif' }}>{subtitle}</p>
+              <p className="text-sm text-gray-600 font-medium" style={{ fontFamily: 'Rubik, sans-serif' }}>{subtitle}</p>
             </div>
 
-            {/* Compact stats grid with glass morphism */}
+            {/* Compact stats grid with colored backgrounds */}
             <div className="grid grid-cols-2 gap-2">
               {stats.slice(0, 4).map((stat, index) => (
                 <div 
                   key={index} 
-                  className="text-center rounded-lg py-2 px-2 bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/15 transition-all duration-200"
+                  className="text-center rounded-lg py-2 px-2 border border-gray-200/50 bg-white/60 backdrop-blur-sm"
+                  style={{ backgroundColor: `${stat.color}15` }}
                 >
-                  <p className="text-sm font-bold text-white" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                  <p className="text-sm font-bold text-gray-800" style={{ color: stat.color, fontFamily: 'Rubik, sans-serif' }}>
                     {stat.value}
                   </p>
-                  <p className="text-[11px] text-white/70 font-medium leading-tight" style={{ fontFamily: 'Rubik, sans-serif' }}>{stat.label}</p>
+                  <p className="text-[11px] text-gray-600 font-medium leading-tight" style={{ fontFamily: 'Rubik, sans-serif' }}>{stat.label}</p>
                 </div>
               ))}
             </div>
@@ -166,6 +191,10 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
             {/* Compact comparison chart */}
             {renderComparisonChart()}
           </div>
+          
+          {/* Colored bottom accent */}
+          <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${gradient} opacity-40 group-hover:opacity-60 transition-opacity duration-300`}></div>
+        </div>
         </div>
       </div>
     </motion.div>

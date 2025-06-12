@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '../../stores/themeStore';
 import {
   X,
   CreditCard,
@@ -49,6 +50,7 @@ const PremiumBillingModal: React.FC<PremiumBillingModalProps> = ({
   totalSpent = 0,
   billingItems = []
 }) => {
+  const { currentTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('summary');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -365,8 +367,8 @@ const PremiumBillingModal: React.FC<PremiumBillingModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Premium Header */}
-        <div className="relative bg-gradient-to-r from-emerald-600 to-teal-600 p-6 text-white">
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-600/20 to-teal-600/20 backdrop-blur-sm"></div>
+        <div className={`relative bg-gradient-to-r ${currentTheme.gradients.sidebar} p-6 text-white`}>
+          <div className={`absolute inset-0 bg-gradient-to-r ${currentTheme.gradients.sidebar} opacity-20 backdrop-blur-sm`}></div>
           <div className="relative flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">

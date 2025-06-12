@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '../../stores/themeStore';
 import {
   X,
   Stethoscope,
@@ -55,6 +56,7 @@ const PremiumVisitModal: React.FC<PremiumVisitModalProps> = ({
   onEdit,
   onStatusChange
 }) => {
+  const { currentTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('overview');
 
   if (!isOpen || !visit) return null;
@@ -270,7 +272,7 @@ const PremiumVisitModal: React.FC<PremiumVisitModalProps> = ({
         className="relative bg-gradient-to-br from-white via-blue-50/30 to-purple-50/20 rounded-2xl shadow-2xl overflow-hidden max-w-4xl w-full max-h-[90vh] overflow-y-auto"
       >
         {/* Premium Header */}
-        <div className="relative bg-gradient-to-r from-[#01b9d5] to-purple-600 p-6 text-white">
+        <div className={`relative bg-gradient-to-r ${currentTheme.gradients.sidebar} p-6 text-white`}>
           <div className="absolute inset-0 bg-gradient-to-r from-[#01b9d5]/20 to-purple-600/20 backdrop-blur-sm"></div>
           <div className="relative flex items-center justify-between">
             <div className="flex items-center gap-4">

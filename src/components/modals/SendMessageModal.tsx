@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, MessageSquare, Phone, User, Clock } from 'lucide-react';
 import Button from '../ui/Button';
 import { defaultSMSService } from '../../services/smsPortal';
+import { useTheme } from '../../stores/themeStore';
 
 interface SendMessageModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface SendMessageModalProps {
 }
 
 const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, patient }) => {
+  const { currentTheme } = useTheme();
   const [message, setMessage] = useState('');
   const [phoneNumber, setPhoneNumber] = useState(patient?.cell_number || '');
   const [isSending, setIsSending] = useState(false);
@@ -86,7 +88,7 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
             className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-200/50 overflow-hidden"
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
+            <div className={`bg-gradient-to-r ${currentTheme.gradients.sidebar} p-6 text-white`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-white/20 rounded-lg">

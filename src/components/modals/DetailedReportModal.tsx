@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
+import { useTheme } from '../../stores/themeStore';
 import { 
   X, 
   Users, 
@@ -62,6 +63,7 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
   onClose,
   data
 }) => {
+  const { currentTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'overview' | 'charts' | 'insights'>('overview');
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '3m' | '6m'>('30d');
 
@@ -191,7 +193,7 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`bg-gradient-to-r ${colorMap[data.type]} p-6 text-white`}>
+        <div className={`bg-gradient-to-r ${currentTheme.gradients.sidebar} p-6 text-white`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
