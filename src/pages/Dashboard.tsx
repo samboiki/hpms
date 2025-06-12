@@ -36,7 +36,6 @@ import PracticeOverviewTile from '../components/dashboard/PracticeOverviewTile';
 import { dashboardStatsService, DashboardStats } from '../services/dashboardStatsService';
 import { useAuthStore } from '../stores/authStore';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
-import PremiumCalendar from '../components/ui/PremiumCalendar';
 
 interface Appointment {
   id: string;
@@ -121,6 +120,21 @@ function Dashboard() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
   const navigate = useNavigate();
+
+  // Close calendar picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showCalendarPicker) {
+        const calendarElement = document.querySelector('.calendar-picker');
+        if (calendarElement && !calendarElement.contains(event.target as Node)) {
+          setShowCalendarPicker(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showCalendarPicker]);
 
   // Real-time appointment updates
   useRealtimeAppointments({
@@ -1091,17 +1105,69 @@ function Dashboard() {
                     
                     {/* Calendar Picker Modal */}
                     {showCalendarPicker && (
-                      <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white rounded-lg shadow-2xl border border-gray-200 p-4">
-                        <PremiumCalendar
-                          value={selectedDate}
-                          onChange={(date) => {
-                            if (date) {
-                              setSelectedDate(date);
-                              setShowCalendarPicker(false);
-                            }
-                          }}
-                          className="w-full"
-                        />
+                      <div className="calendar-picker absolute top-full left-1/2 transform -translate-x-1/2 z-50 mt-2 bg-white rounded-lg shadow-2xl border border-gray-200 p-4 min-w-[300px]">
+                        <div className="text-sm font-medium text-gray-700 mb-3">Select Date</div>
+                        
+                        {/* Month/Year Navigation */}
+                        <div className="flex items-center justify-between mb-4">
+                          <button
+                            onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
+                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <div className="font-medium">
+                            {format(selectedDate, 'MMMM yyyy')}
+                          </div>
+                          <button
+                            onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
+                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                        
+                        {/* Calendar Grid */}
+                        <div className="grid grid-cols-7 gap-1 mb-4">
+                          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                            <div key={day} className="text-xs font-medium text-gray-500 text-center p-2">
+                              {day}
+                            </div>
+                          ))}
+                          {eachDayOfInterval({
+                            start: startOfMonth(selectedDate),
+                            end: endOfMonth(selectedDate)
+                          }).map((day) => {
+                            const dayIsToday = isToday(day);
+                            const dayIsSelected = isSameDay(day, selectedDate);
+                            
+                            return (
+                              <button
+                                key={day.toISOString()}
+                                onClick={() => {
+                                  setSelectedDate(day);
+                                  setShowCalendarPicker(false);
+                                }}
+                                className={`p-2 text-sm rounded-lg transition-all duration-200 ${
+                                  dayIsSelected
+                                    ? `bg-gradient-to-r ${currentTheme.gradients.button} text-white font-bold`
+                                    : dayIsToday
+                                    ? 'bg-blue-100 text-blue-800 font-medium'
+                                    : 'hover:bg-gray-100 text-gray-700'
+                                }`}
+                              >
+                                {format(day, 'd')}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        
+                        <button
+                          onClick={() => setShowCalendarPicker(false)}
+                          className="w-full px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          Cancel
+                        </button>
                       </div>
                     )}
                     

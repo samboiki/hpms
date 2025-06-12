@@ -45,11 +45,7 @@ const Settings: React.FC = () => {
     <div className="min-h-screen bg-gray-100">
       <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
         {/* Premium Header with Glassmorphic Design */}
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white/60 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50"
-        >
+        <div className="bg-white/60 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">
           <div className="p-4 md:p-6">
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
@@ -79,55 +75,37 @@ const Settings: React.FC = () => {
               )}
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Premium Navigation Tabs */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50 overflow-hidden"
-        >
-          <div className="flex overflow-x-auto">
+        <div className="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50 overflow-hidden">
+          <div className="grid grid-cols-5 gap-0 w-full">
             {(['account', 'security', 'themes', 'system', 'practice'] as const).map((tab, index) => {
               const Icon = tabIcons[tab];
               const isActive = activeTab === tab;
+              const tabLabel = tab === 'themes' ? 'Themes' : tab;
               return (
-                <motion.button
+                <button
                   key={tab}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
                   onClick={() => setActiveTab(tab)}
-                  className={`relative flex-1 flex items-center justify-center gap-2 px-6 py-4 text-sm font-medium transition-all duration-300 capitalize min-w-0 ${
+                  className={`relative flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-all duration-200 capitalize min-h-[60px] ${
                     isActive
-                      ? `text-white`
+                      ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
                       : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
                   }`}
                 >
-                  {isActive && (
-                    <motion.div
-                      layoutId="activeTab"
-                      className={`absolute inset-0 bg-gradient-to-r ${currentTheme.gradients.sidebar} rounded-lg shadow-lg`}
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
-                  <Icon className={`w-4 h-4 relative z-10 ${isActive ? 'text-white' : ''}`} />
-                  <span className="relative z-10 hidden sm:inline">{tab === 'themes' ? 'Themes' : tab}</span>
-                </motion.button>
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
+                  <span className="truncate text-center sm:text-left">{tabLabel}</span>
+                </button>
               );
             })}
           </div>
-        </motion.div>
+        </div>
 
         {/* Main Content Area */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar - Now shows additional info */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="lg:col-span-1"
-          >
+          <div className="lg:col-span-1">
             <div className="space-y-4">
               {/* User Quick Info Card */}
               {user && (
@@ -182,12 +160,8 @@ const Settings: React.FC = () => {
           </motion.div>
 
           {/* Content */}
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="lg:col-span-3"
-          >
+          <div className="lg:col-span-3">
+            <div className="min-h-[600px]">
           {activeTab === 'account' && (
             <div className="space-y-6">
               <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
@@ -745,7 +719,8 @@ const Settings: React.FC = () => {
           {activeTab === 'practice' && (
             <PracticeProfileContent />
           )}
-          </motion.div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
