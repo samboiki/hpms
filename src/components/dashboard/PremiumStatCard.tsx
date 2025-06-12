@@ -54,19 +54,19 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
     switch (cardType) {
       case 'patients':
         return {
-          primaryColor: '#489bfd',
-          secondaryColor: '#a4c8ff',
-          gradientFrom: 'from-[#489bfd]',
-          gradientTo: 'to-[#a4c8ff]',
-          bgImage: 'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=400&h=300&fit=crop&auto=format&q=80',
+          primaryColor: '#45d2de',
+          secondaryColor: '#8ee4ea',
+          gradientFrom: 'from-[#45d2de]',
+          gradientTo: 'to-[#8ee4ea]',
+          bgImage: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=400&h=300&fit=crop&auto=format&q=80',
           bgOpacity: 'opacity-10 group-hover:opacity-15',
           comparisonData: [
-            { label: 'Male', value: 120, color: '#489bfd' },
-            { label: 'Female', value: 130, color: '#a4c8ff' }
+            { label: 'Male', value: 120, color: '#45d2de' },
+            { label: 'Female', value: 130, color: '#8ee4ea' }
           ],
           donutData: [
             { label: 'New', value: 15, color: '#10B981' },
-            { label: 'Active', value: 235, color: '#489bfd' }
+            { label: 'Active', value: 235, color: '#45d2de' }
           ]
         };
       case 'communication':
@@ -192,42 +192,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
   // Render mini donut chart or mini stat cards for patients
   const renderMiniStats = () => {
     if (cardType === 'patients') {
-      // Mini stat cards with engraved effect for patients
-      return (
-        <div className="flex gap-2 mt-3">
-          <div className="flex-1 relative">
-            {/* Engraved/Inset Effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-gray-300 to-gray-400 rounded-lg opacity-20"></div>
-            <div className="relative bg-gradient-to-br from-gray-100 to-white rounded-lg p-2 shadow-inner border border-gray-200/50">
-              {/* Inner shadow for engraved effect */}
-              <div className="absolute inset-0 rounded-lg shadow-[inset_2px_2px_4px_rgba(0,0,0,0.1),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]"></div>
-              <div className="relative text-center">
-                <div className="flex items-center justify-center mb-1">
-                  <div className="w-2 h-2 rounded-full bg-green-500 shadow-sm"></div>
-                </div>
-                <p className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>15</p>
-                <p className="text-[10px] text-gray-600 font-medium leading-tight">New</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex-1 relative">
-            {/* Engraved/Inset Effect */}
-            <div className="absolute inset-0 bg-gradient-to-br from-gray-300 to-gray-400 rounded-lg opacity-20"></div>
-            <div className="relative bg-gradient-to-br from-gray-100 to-white rounded-lg p-2 shadow-inner border border-gray-200/50">
-              {/* Inner shadow for engraved effect */}
-              <div className="absolute inset-0 rounded-lg shadow-[inset_2px_2px_4px_rgba(0,0,0,0.1),inset_-2px_-2px_4px_rgba(255,255,255,0.8)]"></div>
-              <div className="relative text-center">
-                <div className="flex items-center justify-center mb-1">
-                  <div className="w-2 h-2 rounded-full bg-blue-500 shadow-sm"></div>
-                </div>
-                <p className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>42y</p>
-                <p className="text-[10px] text-gray-600 font-medium leading-tight">Avg Age</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
+      // No mini stats for patients card
+      return null;
     } else if (cardType === 'communication') {
       // No mini stats for communication card
       return null;
