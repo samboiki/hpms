@@ -109,23 +109,23 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
       {/* Premium card with Unsplash background */}
       <div className="relative rounded-2xl shadow-xl group-hover:shadow-2xl transition-all duration-500 overflow-hidden border border-white/20">
         <div className="relative rounded-2xl h-full w-full overflow-hidden">
-        {/* Premium medical Unsplash background image */}
+        {/* Static white medical background images */}
         <div className="absolute inset-0">
           <img
             src={(() => {
               const imageMap: { [key: string]: string } = {
-                'patients': 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800&h=600&fit=crop&auto=format&q=90',
-                'communication': 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=800&h=600&fit=crop&auto=format&q=90',
-                'encounters': 'https://images.unsplash.com/photo-1584362917165-526a968579e8?w=800&h=600&fit=crop&auto=format&q=90',
-                'finance': 'https://images.unsplash.com/photo-1551601651-2a8555f1a136?w=800&h=600&fit=crop&auto=format&q=90'
+                'patients': 'https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?w=800&h=600&fit=crop&auto=format&q=90',
+                'communication': 'https://images.unsplash.com/photo-1612277795421-9bc7706a4a34?w=800&h=600&fit=crop&auto=format&q=90',
+                'encounters': 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=800&h=600&fit=crop&auto=format&q=90',
+                'finance': 'https://images.unsplash.com/photo-1666214280391-8ff5929d87fd?w=800&h=600&fit=crop&auto=format&q=90'
               };
-              return imageMap[title.toLowerCase()] || 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800&h=600&fit=crop&auto=format&q=90';
+              return imageMap[title.toLowerCase()] || 'https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?w=800&h=600&fit=crop&auto=format&q=90';
             })()}
             alt="Medical background"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            className="w-full h-full object-cover"
             onError={(e) => {
-              // Fallback to a known working medical image
-              e.currentTarget.src = 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800&h=600&fit=crop&auto=format&q=90';
+              // Fallback to a clean white medical image
+              e.currentTarget.src = 'https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?w=800&h=600&fit=crop&auto=format&q=90';
             }}
           />
         </div>
