@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Building2, Sparkles, TrendingUp, Star, Zap } from 'lucide-react';
+import { Building2, Users, Calendar, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react';
 import { useTheme } from '../../stores/themeStore';
 
 interface PracticeOverviewProps {
@@ -16,33 +16,16 @@ interface PracticeOverviewProps {
 const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({ practiceStats }) => {
   const { currentTheme } = useTheme();
   
-  // Generate comprehensive practice overview text
-  const generateOverviewText = () => {
-    const stats = practiceStats || {
-      totalPatients: 0,
-      todayAppointments: 0,
-      completedToday: 0,
-      pendingAppointments: 0
-    };
-
-    const currentHour = new Date().getHours();
-    const timeOfDay = currentHour < 12 ? 'morning' : currentHour < 17 ? 'afternoon' : 'evening';
-    
-    // Dynamic status based on data
-    const busyLevel = stats.todayAppointments > 10 ? 'busy' : stats.todayAppointments > 5 ? 'moderate' : 'quiet';
-    const efficiency = stats.todayAppointments > 0 ? Math.round((stats.completedToday / stats.todayAppointments) * 100) : 0;
-    
-    return `Your practice is having a ${busyLevel} ${timeOfDay} with ${stats.todayAppointments} appointments scheduled and ${stats.completedToday} already completed for a ${efficiency}% completion rate. You currently have ${stats.totalPatients} total patients in your system with ${stats.pendingAppointments} appointments awaiting approval. Operations are running ${efficiency > 80 ? 'smoothly' : efficiency > 60 ? 'efficiently' : 'steadily'} across all departments.`;
+  const stats = practiceStats || {
+    totalPatients: 0,
+    todayAppointments: 0,
+    completedToday: 0,
+    pendingAppointments: 0
   };
 
-  const getStatusColor = () => {
-    const stats = practiceStats || { todayAppointments: 0, completedToday: 0 };
-    const efficiency = stats.todayAppointments > 0 ? Math.round((stats.completedToday / stats.todayAppointments) * 100) : 0;
-    
-    if (efficiency > 80) return 'from-emerald-500 via-teal-500 to-cyan-500';
-    if (efficiency > 60) return 'from-[#01b9d5] via-cyan-500 to-teal-500';
-    return 'from-amber-500 via-orange-500 to-[#01b9d5]';
-  };
+  const currentHour = new Date().getHours();
+  const timeOfDay = currentHour < 12 ? 'morning' : currentHour < 17 ? 'afternoon' : 'evening';
+  const efficiency = stats.todayAppointments > 0 ? Math.round((stats.completedToday / stats.todayAppointments) * 100) : 0;
 
   return (
     <motion.div
@@ -54,15 +37,64 @@ const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({ practiceStats }
       {/* Sidebar-themed container */}
       <div className={`relative bg-gradient-to-b ${currentTheme.gradients.sidebar} backdrop-blur-md rounded-xl shadow-lg border border-white/10 overflow-hidden`}>
         
-        {/* Content area */}
-        <div className="relative p-4">
-          {/* Practice status text */}
-          <div className="relative">
-            <div className="relative p-4 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 shadow-sm">
-              <p className="text-sm text-white/90 leading-relaxed">
-                {generateOverviewText()}
-              </p>
+        {/* Header */}
+        <div className="relative p-4 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <div className="absolute inset-0 bg-white/20 blur-xl opacity-50 animate-pulse" />
+              <Building2 className="relative w-5 h-5 text-white" />
             </div>
+            <h3 className="text-lg font-semibold text-white">Practice Overview</h3>
+          </div>
+        </div>
+
+        {/* Content area */}
+        <div className="relative p-4 space-y-4">
+          {/* Quick Stats Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-2 p-2 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+              <Users className="w-4 h-4 text-white/80" />
+              <div>
+                <p className="text-xs text-white/60">Total Patients</p>
+                <p className="text-lg font-bold text-white">{stats.totalPatients}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2 p-2 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+              <Calendar className="w-4 h-4 text-white/80" />
+              <div>
+                <p className="text-xs text-white/60">Today's Visits</p>
+                <p className="text-lg font-bold text-white">{stats.todayAppointments}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2 p-2 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+              <CheckCircle className="w-4 h-4 text-green-400" />
+              <div>
+                <p className="text-xs text-white/60">Completed</p>
+                <p className="text-lg font-bold text-white">{stats.completedToday}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2 p-2 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+              <AlertCircle className="w-4 h-4 text-amber-400" />
+              <div>
+                <p className="text-xs text-white/60">Pending</p>
+                <p className="text-lg font-bold text-white">{stats.pendingAppointments}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Summary Status */}
+          <div className="relative p-3 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20">
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp className="w-4 h-4 text-white/80" />
+              <span className="text-sm font-medium text-white">Current Status</span>
+            </div>
+            <p className="text-xs text-white/80 leading-relaxed">
+              Good {timeOfDay}! You have {stats.todayAppointments} appointments today with {efficiency}% completion rate. 
+              {stats.pendingAppointments > 0 && ` ${stats.pendingAppointments} appointments need approval.`}
+            </p>
           </div>
         </div>
       </div>
