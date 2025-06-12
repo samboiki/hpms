@@ -1067,36 +1067,11 @@ function Dashboard() {
             </div>
 
             {/* Premium Search Bar and Week Calendar */}
-            <div className="mt-6 space-y-4">
-              {/* Time Filter */}
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-gray-600" />
-                <div className="flex items-center gap-1">
-                  {[
-                    { value: 'this-week', label: 'This Week' },
-                    { value: 'last-week', label: 'Last Week' },
-                    { value: 'this-month', label: 'This Month' },
-                    { value: 'last-month', label: 'Last Month' }
-                  ].map((filter) => (
-                    <button
-                      key={filter.value}
-                      onClick={() => setTimeFilter(filter.value as any)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                        timeFilter === filter.value
-                          ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-sm`
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      {filter.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
+            <div className="mt-6">
               {/* Search Bar and Week Calendar Row */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Premium Search Bar */}
-                <div className="relative">
+              <div className="grid grid-cols-12 gap-4">
+                {/* Premium Search Bar - 8 columns */}
+                <div className="relative col-span-8">
                   <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-white to-gray-100 rounded-xl opacity-80"></div>
                   <div 
                     className="relative bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-lg border-2 transition-all duration-300 hover:shadow-xl"
@@ -1122,35 +1097,55 @@ function Dashboard() {
                   </div>
                 </div>
 
-                {/* Premium Week Calendar */}
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-white to-gray-100 rounded-xl opacity-80"></div>
-                  <div className="relative bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-gray-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4" style={{ color: currentTheme.colors.primary.from }} />
-                        <span className="text-sm font-semibold text-gray-700">
-                          Week of {format(startOfWeek(selectedDate), 'MMM d')}
-                        </span>
+                {/* Premium Week Calendar - Glassmorphic - 4 columns */}
+                <div className="relative col-span-4">
+                  {/* Glassmorphic background */}
+                  <div className="bg-white/20 backdrop-blur-xl rounded-2xl p-4 shadow-2xl border border-white/30">
+                    {/* Week Navigation Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        {/* View Mode Toggles */}
+                        <div className="flex items-center bg-white/30 backdrop-blur-sm rounded-lg p-0.5 shadow-sm border border-white/20">
+                          {['day', 'week', 'month'].map((mode) => (
+                            <button
+                              key={mode}
+                              onClick={() => setViewMode(mode as any)}
+                              className={`px-2 py-1 text-xs font-medium rounded-md transition-all capitalize ${
+                                viewMode === mode
+                                  ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                              }`}
+                            >
+                              {mode}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => setSelectedDate(subWeeks(selectedDate, 1))}
-                          className="p-1 hover:bg-gray-100 rounded transition-colors"
+                          className="p-1.5 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
                         >
                           <ChevronLeft className="w-4 h-4 text-gray-600" />
                         </button>
                         <button
                           onClick={() => setSelectedDate(addWeeks(selectedDate, 1))}
-                          className="p-1 hover:bg-gray-100 rounded transition-colors"
+                          className="p-1.5 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
                         >
                           <ChevronRight className="w-4 h-4 text-gray-600" />
                         </button>
                       </div>
                     </div>
                     
-                    {/* Week Days */}
-                    <div className="grid grid-cols-7 gap-1">
+                    {/* Week Range Display */}
+                    <div className="text-center mb-4">
+                      <span className="text-sm font-semibold text-gray-700">
+                        {format(startOfWeek(selectedDate), 'MMM d')} - {format(endOfWeek(selectedDate), 'MMM d, yyyy')}
+                      </span>
+                    </div>
+                    
+                    {/* Week Days - All 7 days in one row */}
+                    <div className="grid grid-cols-7 gap-2">
                       {eachDayOfInterval({
                         start: startOfWeek(selectedDate),
                         end: endOfWeek(selectedDate)
@@ -1162,22 +1157,45 @@ function Dashboard() {
                           <button
                             key={day.toISOString()}
                             onClick={() => setSelectedDate(day)}
-                            className={`relative p-2 rounded-lg text-center transition-all duration-200 ${
-                              dayIsToday
-                                ? `bg-gradient-to-br ${currentTheme.gradients.sidebar} text-white shadow-md font-bold`
-                                : dayIsSelected
-                                ? 'bg-gray-200 text-gray-800 font-semibold'
-                                : 'hover:bg-gray-100 text-gray-600'
+                            className={`relative flex flex-col items-center p-3 rounded-2xl transition-all duration-300 transform hover:scale-105 ${
+                              dayIsToday || dayIsSelected
+                                ? `bg-gradient-to-br ${currentTheme.gradients.sidebar} shadow-lg backdrop-blur-sm`
+                                : 'bg-white/20 backdrop-blur-sm hover:bg-white/30'
                             }`}
+                            style={{
+                              borderRadius: '20px', // Bean shape
+                            }}
                           >
-                            <div className="text-xs font-medium">
-                              {format(day, 'EEE')}
-                            </div>
-                            <div className={`text-sm ${dayIsToday ? 'font-bold' : 'font-semibold'}`}>
+                            {/* Date number - prominently displayed at top with theme color */}
+                            <div 
+                              className={`text-lg font-bold mb-1 ${
+                                dayIsToday || dayIsSelected 
+                                  ? 'text-white' 
+                                  : ''
+                              }`}
+                              style={{ 
+                                color: dayIsToday || dayIsSelected 
+                                  ? 'white' 
+                                  : currentTheme.colors.primary.from 
+                              }}
+                            >
                               {format(day, 'd')}
                             </div>
+                            
+                            {/* Day name - lighter, matte, faded */}
+                            <div 
+                              className={`text-xs font-medium ${
+                                dayIsToday || dayIsSelected
+                                  ? 'text-white/80'
+                                  : 'text-gray-500/70'
+                              }`}
+                            >
+                              {format(day, 'EEE')}
+                            </div>
+                            
+                            {/* Today indicator */}
                             {dayIsToday && (
-                              <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full shadow-sm"></div>
+                              <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full shadow-sm animate-pulse"></div>
                             )}
                           </button>
                         );
@@ -1328,19 +1346,8 @@ function Dashboard() {
 
           {/* Right Section (4 columns) */}
           <div className="col-span-12 lg:col-span-4 space-y-4 md:space-y-6">
-            {/* Practice Overview - FIRST */}
+            {/* Notifications Panel - FIRST */}
             <PracticeOverviewTile
-              practiceStats={{
-                totalPatients: patients.length,
-                todayAppointments: todayAppointments.length,
-                completedToday: completedToday,
-                pendingAppointments: pendingAppointments.length,
-                revenue: dashboardStats?.finance.thisMonth
-              }}
-            />
-
-            {/* Notifications - SECOND */}
-            <NotificationsPanel
               notifications={notifications}
               onNotificationAction={(notificationId, action) => {
                 console.log('Notification action:', notificationId, action);

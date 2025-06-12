@@ -1,18 +1,20 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Simple, bulletproof configuration
+// Optimized configuration for large icon libraries
 export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
-    exclude: ['lucide-react'],
+    include: ['lucide-react'], // Include instead of exclude
+    force: true,
   },
   server: {
-    host: true, // Listen on all addresses
-    port: 5173,
-    open: true, // Auto-open browser
+    host: true,
+    port: 5000, // Set correct port
     cors: true,
-    hmr: true,
+    hmr: {
+      port: 5001, // Use different port for HMR
+    },
     watch: {
       usePolling: true,
       interval: 500,
@@ -20,6 +22,14 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
-    minify: false, // Faster builds
+    minify: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          icons: ['lucide-react'],
+        },
+      },
+    },
   },
 });

@@ -950,45 +950,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
           </div>
         </div>
 
-        {/* Navigation and filters */}
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigateDate('prev')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4 text-gray-600" />
-            </button>
-            
-            <div className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg">
-              <CalendarIcon className="h-4 w-4 text-[#01b9d5]" />
-              <span className="text-sm font-semibold text-gray-800">
-                {viewMode === 'all' 
-                  ? 'All Appointments'
-                  : viewMode === 'week' 
-                  ? `${format(weekDates[0], 'MMM d')} - ${format(weekDates[6], 'MMM d, yyyy')}`
-                  : viewMode === 'month'
-                  ? format(selectedDate, 'MMMM yyyy')
-                  : format(selectedDate, 'EEEE, MMMM d, yyyy')
-                }
-              </span>
-            </div>
-            
-            <button
-              onClick={() => navigateDate('next')}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ChevronRight className="h-4 w-4 text-gray-600" />
-            </button>
-            
-            <button
-              onClick={goToToday}
-              className={`px-3 py-2 text-sm font-medium bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-lg hover:shadow-md transition-all`}
-            >
-              Today
-            </button>
-          </div>
-
+        {/* Filters only - navigation moved to dashboard week calendar */}
+        <div className="flex items-center justify-end gap-4">
           <div className="flex items-center gap-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
