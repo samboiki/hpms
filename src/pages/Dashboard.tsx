@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Activity, 
   Users, 
@@ -11,7 +12,8 @@ import {
   ChevronRight,
   DollarSign,
   Building2,
-  ChevronLeft
+  ChevronLeft,
+  X
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -1108,102 +1110,6 @@ function Dashboard() {
                       </button>
                     </div>
                     
-                    {/* Calendar Picker Modal */}
-                    {showCalendarPicker && (
-                      <>
-                        {/* Modal Backdrop */}
-                        <div 
-                          className="fixed inset-0 bg-black bg-opacity-20 backdrop-blur-sm z-[9998]"
-                          onClick={() => setShowCalendarPicker(false)}
-                        />
-                        
-                        {/* Calendar Modal */}
-                        <div className="calendar-picker fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] bg-white rounded-xl shadow-2xl border border-gray-200 p-6 min-w-[320px] max-w-[400px]">
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="text-lg font-semibold text-gray-800">Select Date</div>
-                            <button
-                              onClick={() => setShowCalendarPicker(false)}
-                              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                            >
-                              <span className="sr-only">Close</span>
-                              ✕
-                            </button>
-                          </div>
-                          
-                          {/* Month/Year Navigation */}
-                          <div className="flex items-center justify-between mb-6">
-                            <button
-                              onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
-                              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                            >
-                              <ChevronLeft className="w-5 h-5" />
-                            </button>
-                            <div className="text-xl font-bold text-gray-800">
-                              {format(selectedDate, 'MMMM yyyy')}
-                            </div>
-                            <button
-                              onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
-                              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                            >
-                              <ChevronRight className="w-5 h-5" />
-                            </button>
-                          </div>
-                          
-                          {/* Calendar Grid */}
-                          <div className="grid grid-cols-7 gap-2 mb-6">
-                            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
-                              <div key={day} className="text-sm font-semibold text-gray-500 text-center p-2">
-                                {day}
-                              </div>
-                            ))}
-                            {eachDayOfInterval({
-                              start: startOfMonth(selectedDate),
-                              end: endOfMonth(selectedDate)
-                            }).map((day) => {
-                              const dayIsToday = isToday(day);
-                              const dayIsSelected = isSameDay(day, selectedDate);
-                              
-                              return (
-                                <button
-                                  key={day.toISOString()}
-                                  onClick={() => {
-                                    setSelectedDate(day);
-                                    setShowCalendarPicker(false);
-                                  }}
-                                  className={`h-10 w-10 text-sm rounded-lg transition-all duration-200 font-medium ${
-                                    dayIsSelected
-                                      ? `bg-gradient-to-r ${currentTheme.gradients.button} text-white font-bold shadow-lg`
-                                      : dayIsToday
-                                      ? 'bg-blue-100 text-blue-800 font-bold border-2 border-blue-300'
-                                      : 'hover:bg-gray-100 text-gray-700 hover:scale-105'
-                                  }`}
-                                >
-                                  {format(day, 'd')}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          
-                          <div className="flex gap-3">
-                            <button
-                              onClick={() => {
-                                setSelectedDate(new Date());
-                                setShowCalendarPicker(false);
-                              }}
-                              className="flex-1 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
-                            >
-                              Today
-                            </button>
-                            <button
-                              onClick={() => setShowCalendarPicker(false)}
-                              className="flex-1 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      </>
-                    )}
                     
                     {/* Month Days - All days in one horizontal row */}
                     <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-transparent">
@@ -1519,6 +1425,110 @@ function Dashboard() {
             actionItems: []
           }}
         />
+      )}
+
+      {/* Calendar Picker Modal - Rendered as Portal */}
+      {showCalendarPicker && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center">
+          {/* Modal Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => setShowCalendarPicker(false)}
+          />
+          
+          {/* Calendar Modal */}
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 mx-4 w-full max-w-[380px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-900">Select Date</h3>
+              <button
+                onClick={() => setShowCalendarPicker(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            {/* Month/Year Navigation */}
+            <div className="flex items-center justify-between mb-6">
+              <button
+                onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
+                className="p-3 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <ChevronLeft className="w-5 h-5 text-gray-700" />
+              </button>
+              <h4 className="text-2xl font-bold text-gray-800">
+                {format(selectedDate, 'MMMM yyyy')}
+              </h4>
+              <button
+                onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
+                className="p-3 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <ChevronRight className="w-5 h-5 text-gray-700" />
+              </button>
+            </div>
+            
+            {/* Calendar Grid */}
+            <div className="grid grid-cols-7 gap-2 mb-6">
+              {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                <div key={day} className="text-sm font-semibold text-gray-500 text-center py-3">
+                  {day}
+                </div>
+              ))}
+              {eachDayOfInterval({
+                start: startOfMonth(selectedDate),
+                end: endOfMonth(selectedDate)
+              }).map((day) => {
+                const dayIsToday = isToday(day);
+                const dayIsSelected = isSameDay(day, selectedDate);
+                
+                return (
+                  <button
+                    key={day.toISOString()}
+                    onClick={() => {
+                      setSelectedDate(day);
+                      setShowCalendarPicker(false);
+                    }}
+                    className={`h-12 w-12 text-sm rounded-xl transition-all duration-200 font-medium flex items-center justify-center ${
+                      dayIsSelected
+                        ? `bg-gradient-to-r ${currentTheme.gradients.button} text-white font-bold shadow-lg scale-110`
+                        : dayIsToday
+                        ? 'bg-blue-100 text-blue-800 font-bold border-2 border-blue-400'
+                        : 'hover:bg-gray-100 text-gray-700 hover:scale-105'
+                    }`}
+                  >
+                    {format(day, 'd')}
+                  </button>
+                );
+              })}
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setSelectedDate(new Date());
+                  setShowCalendarPicker(false);
+                }}
+                className={`flex-1 px-4 py-3 text-sm bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl transition-all font-semibold hover:shadow-lg`}
+              >
+                Today
+              </button>
+              <button
+                onClick={() => setShowCalendarPicker(false)}
+                className="flex-1 px-4 py-3 text-sm bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors font-semibold"
+              >
+                Cancel
+              </button>
+            </div>
+          </motion.div>
+        </div>,
+        document.body
       )}
 
     </div>
