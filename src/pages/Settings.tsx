@@ -443,83 +443,118 @@ const Settings: React.FC = () => {
                       </p>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
                       {themes.map((theme, index) => (
                         <motion.div
                           key={theme.id}
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: index * 0.1 }}
-                          whileHover={{ scale: 1.02 }}
+                          transition={{ delay: index * 0.05 }}
+                          whileHover={{ scale: 1.02, y: -2 }}
                           whileTap={{ scale: 0.98 }}
-                          className={`relative cursor-pointer rounded-2xl border-2 p-6 transition-all duration-300 ${
+                          className={`group relative cursor-pointer rounded-2xl border-2 p-5 transition-all duration-300 ${
                             currentTheme.id === theme.id
-                              ? 'border-blue-500 bg-blue-50 shadow-xl'
-                              : 'border-gray-200 hover:border-gray-300 hover:shadow-lg'
+                              ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-white shadow-2xl ring-4 ring-blue-100'
+                              : 'border-gray-200 hover:border-gray-300 hover:shadow-xl bg-gradient-to-br from-white to-gray-50'
                           }`}
                           onClick={() => setTheme(theme.id)}
                         >
                           {/* Theme Preview */}
-                          <div className="space-y-4">
-                            {/* Enhanced Gradient Preview */}
-                            <div className={`h-12 rounded-xl bg-gradient-to-r ${theme.gradients.sidebar} shadow-inner relative overflow-hidden`}>
-                              <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-                              <div className="absolute bottom-2 left-2 right-2 h-1 bg-white/30 rounded-full"></div>
+                          <div className="space-y-3">
+                            {/* Enhanced Gradient Preview with Glass Effect */}
+                            <div className={`h-10 rounded-xl bg-gradient-to-r ${theme.gradients.sidebar} shadow-lg relative overflow-hidden border border-white/20`}>
+                              <div className="absolute inset-0 bg-white/20 backdrop-blur-sm"></div>
+                              <div className="absolute bottom-1 left-2 right-2 h-0.5 bg-white/40 rounded-full"></div>
+                              <div className="absolute top-1 left-2 w-8 h-0.5 bg-white/60 rounded-full"></div>
                             </div>
                             
                             {/* Theme Info */}
                             <div>
-                              <h5 className="text-base font-semibold text-gray-900">{theme.name}</h5>
-                              <p className="text-sm text-gray-500 mt-1">{theme.description}</p>
+                              <h5 className="text-sm font-bold text-gray-900 group-hover:text-gray-800">{theme.name}</h5>
+                              <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{theme.description}</p>
                             </div>
                             
-                            {/* Color Palette */}
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="w-6 h-6 rounded-full border-2 border-white shadow-md"
-                                style={{ backgroundColor: theme.colors.primary.from }}
-                              ></div>
-                              <div
-                                className="w-6 h-6 rounded-full border-2 border-white shadow-md"
-                                style={{ backgroundColor: theme.colors.primary.to }}
-                              ></div>
-                              {theme.colors.primary.via && (
+                            {/* Enhanced Color Palette */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
                                 <div
-                                  className="w-6 h-6 rounded-full border-2 border-white shadow-md"
-                                  style={{ backgroundColor: theme.colors.primary.via }}
+                                  className="w-5 h-5 rounded-full border-2 border-white shadow-lg ring-1 ring-gray-200"
+                                  style={{ backgroundColor: theme.colors.primary.from }}
                                 ></div>
-                              )}
-                              <div className="ml-auto">
-                                <span className="text-xs text-gray-400 font-medium">
-                                  {currentTheme.id === theme.id ? 'ACTIVE' : 'PREVIEW'}
+                                <div
+                                  className="w-5 h-5 rounded-full border-2 border-white shadow-lg ring-1 ring-gray-200"
+                                  style={{ backgroundColor: theme.colors.primary.to }}
+                                ></div>
+                                {theme.colors.primary.via && (
+                                  <div
+                                    className="w-5 h-5 rounded-full border-2 border-white shadow-lg ring-1 ring-gray-200"
+                                    style={{ backgroundColor: theme.colors.primary.via }}
+                                  ></div>
+                                )}
+                                {theme.colors.accent && (
+                                  <div
+                                    className="w-5 h-5 rounded-full border-2 border-white shadow-lg ring-1 ring-gray-200"
+                                    style={{ backgroundColor: theme.colors.accent.from }}
+                                  ></div>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <span className={`text-xs font-bold tracking-wide ${
+                                  currentTheme.id === theme.id 
+                                    ? 'text-blue-600' 
+                                    : 'text-gray-400 group-hover:text-gray-500'
+                                }`}>
+                                  {currentTheme.id === theme.id ? 'ACTIVE' : 'SELECT'}
                                 </span>
                               </div>
                             </div>
                           </div>
                           
-                          {/* Enhanced Selected Indicator */}
+                          {/* Premium Selected Indicator */}
                           {currentTheme.id === theme.id && (
                             <motion.div 
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              className="absolute top-3 right-3 w-8 h-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg"
+                              initial={{ scale: 0, rotate: -180 }}
+                              animate={{ scale: 1, rotate: 0 }}
+                              transition={{ type: "spring", duration: 0.6 }}
+                              className="absolute -top-2 -right-2 w-7 h-7 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-xl ring-4 ring-white"
                             >
-                              <CheckCircle2 className="w-5 h-5 text-white" />
+                              <CheckCircle2 className="w-4 h-4 text-white" />
                             </motion.div>
                           )}
+                          
+                          {/* Hover Glow Effect */}
+                          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                         </motion.div>
                       ))}
                     </div>
                     
-                    {/* Theme Information */}
-                    <div className="bg-gray-50 rounded-xl p-4 mt-6">
-                      <div className="flex items-start gap-3">
-                        <Sparkles className="w-5 h-5 text-blue-500 mt-0.5" />
-                        <div>
-                          <h5 className="text-sm font-medium text-gray-900 mb-1">Current Theme: {currentTheme.name}</h5>
-                          <p className="text-xs text-gray-600">
-                            {currentTheme.description}. This theme affects the sidebar, buttons, and accent colors throughout the application.
+                    {/* Premium Theme Information */}
+                    <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-6 mt-8 border border-blue-100">
+                      <div className="flex items-start gap-4">
+                        <div className="p-2 bg-blue-100 rounded-xl">
+                          <Sparkles className="w-6 h-6 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <h5 className="text-lg font-bold text-gray-900 mb-2">
+                            Active: {currentTheme.name}
+                          </h5>
+                          <p className="text-sm text-gray-700 mb-3">
+                            {currentTheme.description}
                           </p>
+                          <div className="flex items-center gap-6 text-xs text-gray-600">
+                            <span className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                              Applied System-wide
+                            </span>
+                            <span className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                              {themes.length} Themes Available
+                            </span>
+                            <span className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                              Auto-saved
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>

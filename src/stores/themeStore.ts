@@ -321,6 +321,186 @@ const defaultThemes: Theme[] = [
       card: 'from-gray-400 to-gray-500',
       accent: 'from-[#cbd5e0] to-[#e2e8f0]'
     }
+  },
+  {
+    id: 'sapphire',
+    name: 'Sapphire Dream',
+    description: 'Brilliant blue with sapphire gradients',
+    colors: {
+      primary: {
+        from: '#489bfd',
+        to: '#1e40af'
+      },
+      secondary: {
+        from: '#60a5fa',
+        to: '#3b82f6'
+      },
+      accent: {
+        from: '#06b6d4',
+        to: '#0891b2'
+      },
+      text: {
+        primary: '#1e293b',
+        secondary: '#475569',
+        muted: '#64748b'
+      },
+      background: {
+        primary: '#ffffff',
+        secondary: '#f8fafc',
+        card: '#f1f5f9'
+      },
+      border: {
+        primary: '#e2e8f0',
+        secondary: '#cbd5e0'
+      },
+      status: {
+        success: '#10b981',
+        warning: '#f59e0b',
+        error: '#ef4444',
+        info: '#489bfd'
+      }
+    },
+    gradients: {
+      sidebar: 'from-[#489bfd] to-[#1e40af]',
+      button: 'from-[#489bfd] to-[#1e40af]',
+      card: 'from-blue-400 to-blue-600',
+      accent: 'from-[#06b6d4] to-[#0891b2]'
+    }
+  },
+  {
+    id: 'emerald',
+    name: 'Emerald Luxury',
+    description: 'Rich emerald with golden accents',
+    colors: {
+      primary: {
+        from: '#059669',
+        to: '#047857'
+      },
+      secondary: {
+        from: '#10b981',
+        to: '#059669'
+      },
+      accent: {
+        from: '#f59e0b',
+        to: '#d97706'
+      },
+      text: {
+        primary: '#1f2937',
+        secondary: '#374151',
+        muted: '#6b7280'
+      },
+      background: {
+        primary: '#ffffff',
+        secondary: '#f9fafb',
+        card: '#f3f4f6'
+      },
+      border: {
+        primary: '#e5e7eb',
+        secondary: '#d1d5db'
+      },
+      status: {
+        success: '#10b981',
+        warning: '#f59e0b',
+        error: '#ef4444',
+        info: '#3b82f6'
+      }
+    },
+    gradients: {
+      sidebar: 'from-[#059669] to-[#047857]',
+      button: 'from-[#059669] to-[#047857]',
+      card: 'from-emerald-500 to-emerald-700',
+      accent: 'from-[#f59e0b] to-[#d97706]'
+    }
+  },
+  {
+    id: 'rose-gold',
+    name: 'Rose Gold Elite',
+    description: 'Elegant rose gold with warm copper tones',
+    colors: {
+      primary: {
+        from: '#f43f5e',
+        to: '#be185d'
+      },
+      secondary: {
+        from: '#fb7185',
+        to: '#f43f5e'
+      },
+      accent: {
+        from: '#ea580c',
+        to: '#c2410c'
+      },
+      text: {
+        primary: '#1f2937',
+        secondary: '#374151',
+        muted: '#6b7280'
+      },
+      background: {
+        primary: '#ffffff',
+        secondary: '#fef7f7',
+        card: '#fef2f2'
+      },
+      border: {
+        primary: '#fce7e7',
+        secondary: '#fecaca'
+      },
+      status: {
+        success: '#10b981',
+        warning: '#f59e0b',
+        error: '#ef4444',
+        info: '#3b82f6'
+      }
+    },
+    gradients: {
+      sidebar: 'from-[#f43f5e] to-[#be185d]',
+      button: 'from-[#f43f5e] to-[#be185d]',
+      card: 'from-rose-500 to-rose-700',
+      accent: 'from-[#ea580c] to-[#c2410c]'
+    }
+  },
+  {
+    id: 'midnight',
+    name: 'Midnight Galaxy',
+    description: 'Deep space blues with starlight accents',
+    colors: {
+      primary: {
+        from: '#1e1b4b',
+        to: '#0f172a'
+      },
+      secondary: {
+        from: '#312e81',
+        to: '#1e1b4b'
+      },
+      accent: {
+        from: '#c084fc',
+        to: '#a855f7'
+      },
+      text: {
+        primary: '#f8fafc',
+        secondary: '#e2e8f0',
+        muted: '#94a3b8'
+      },
+      background: {
+        primary: '#0f172a',
+        secondary: '#1e293b',
+        card: '#334155'
+      },
+      border: {
+        primary: '#475569',
+        secondary: '#64748b'
+      },
+      status: {
+        success: '#22c55e',
+        warning: '#eab308',
+        error: '#ef4444',
+        info: '#3b82f6'
+      }
+    },
+    gradients: {
+      sidebar: 'from-[#1e1b4b] to-[#0f172a]',
+      button: 'from-[#1e1b4b] to-[#0f172a]',
+      card: 'from-slate-600 to-slate-800',
+      accent: 'from-[#c084fc] to-[#a855f7]'
+    }
   }
 ];
 
