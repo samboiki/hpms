@@ -40,6 +40,7 @@ import EnhancedFinancialModal from '../components/modals/EnhancedFinancialModal'
 import PracticeOverviewTile from '../components/dashboard/PracticeOverviewTile';
 import { dashboardStatsService, DashboardStats } from '../services/dashboardStatsService';
 import { useAuthStore } from '../stores/authStore';
+import { useTheme } from '../stores/themeStore';
 
 interface Appointment {
   id: string;
@@ -88,6 +89,7 @@ interface ActivityItem {
 
 function Dashboard() {
   const { user } = useAuthStore();
+  const { currentTheme } = useTheme();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<any[]>([]);
@@ -749,7 +751,7 @@ function Dashboard() {
       change: pendingAppointments.length > 0 ? 'Need approval' : 'None pending',
       trend: pendingAppointments.length > 0 ? 'down' : 'up',
       icon: AlertCircle,
-      gradient: 'from-red-500 to-rose-600',
+      gradient: 'from-gray-400 to-gray-500',
       id: 'pending-bookings',
       onClick: () => {
         setGridViewStatus('pending');
@@ -762,7 +764,7 @@ function Dashboard() {
       change: scheduledToday > 0 ? `${scheduledToday} scheduled` : 'All clear',
       trend: scheduledToday > 0 ? 'neutral' : 'up',
       icon: Calendar,
-      gradient: 'from-emerald-500 to-green-600',
+      gradient: 'from-gray-400 to-gray-500',
       id: 'appointments',
       onClick: () => {
         setGridViewStatus('scheduled');
@@ -775,7 +777,7 @@ function Dashboard() {
       change: inProgressAppointments.length > 0 ? 'Active visits' : 'None',
       trend: 'neutral',
       icon: Activity,
-      gradient: 'from-blue-500 to-cyan-600',
+      gradient: 'from-gray-400 to-gray-500',
       id: 'in-progress',
       onClick: () => {
         setGridViewStatus('in-progress');
@@ -788,7 +790,7 @@ function Dashboard() {
       change: completedToday > 0 ? 'View all' : 'None',
       trend: 'up',
       icon: CheckCircle2,
-      gradient: 'from-purple-500 to-indigo-600',
+      gradient: 'from-gray-400 to-gray-500',
       id: 'completed',
       onClick: () => {
         setGridViewStatus('completed');
@@ -852,7 +854,7 @@ function Dashboard() {
                   mainValue={250}
                   subtitle="Total registered patients"
                   icon={Users}
-                  gradient="from-blue-500 to-cyan-600"
+                  gradient="from-gray-400 to-gray-500"
                   stats={[
                     { label: 'Male', value: 120, color: '#3B82F6' },
                     { label: 'Female', value: 130, color: '#06B6D4' }
@@ -879,7 +881,7 @@ function Dashboard() {
                   mainValue={28}
                   subtitle="Active communications"
                   icon={MessageSquare}
-                  gradient="from-amber-500 to-orange-600"
+                  gradient="from-gray-400 to-gray-500"
                   stats={[
                     { label: 'Unread', value: 5, color: '#F59E0B' },
                     { label: 'Read', value: 23, color: '#059669' }
@@ -906,7 +908,7 @@ function Dashboard() {
                   mainValue={156}
                   subtitle="Total patient visits"
                   icon={Activity}
-                  gradient="from-emerald-500 to-green-600"
+                  gradient="from-gray-400 to-gray-500"
                   stats={[
                     { label: 'This Month', value: 23, color: '#10B981' },
                     { label: 'Previous', value: 133, color: '#047857' }
@@ -933,7 +935,7 @@ function Dashboard() {
                   mainValue="N$125,000"
                   subtitle="Total revenue"
                   icon={DollarSign}
-                  gradient="from-purple-500 to-indigo-600"
+                  gradient="from-gray-400 to-gray-500"
                   stats={[
                     { label: 'Paid', value: 'N$119,800', color: '#8B5CF6' },
                     { label: 'Outstanding', value: 'N$5,200', color: '#EF4444' }
@@ -1031,7 +1033,7 @@ function Dashboard() {
                           onClick={() => setViewMode(mode as any)}
                           className={`px-2 py-1 text-xs font-medium rounded-md transition-all capitalize ${
                             viewMode === mode
-                              ? 'bg-gradient-to-r from-[#01b9d5] to-cyan-600 text-white shadow-md'
+                              ? 'bg-gray-200 text-gray-800 shadow-md'
                               : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
                           }`}
                         >
@@ -1047,7 +1049,7 @@ function Dashboard() {
                           onClick={() => setInternalViewMode('timeline')}
                           className={`px-2 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
                             internalViewMode === 'timeline'
-                              ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-md'
+                              ? 'bg-gray-200 text-gray-800 shadow-md'
                               : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
                           }`}
                         >
@@ -1058,7 +1060,7 @@ function Dashboard() {
                           onClick={() => setInternalViewMode('grid')}
                           className={`px-2 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
                             internalViewMode === 'grid'
-                              ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-md'
+                              ? 'bg-gray-200 text-gray-800 shadow-md'
                               : 'text-gray-600 hover:text-gray-900 hover:bg-white/80'
                           }`}
                         >
@@ -1073,7 +1075,7 @@ function Dashboard() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => setIsAddAppointmentModalOpen(true)}
-                      className="bg-gradient-to-r from-[#01b9d5] to-cyan-600 text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:shadow-lg hover:shadow-[#01b9d5]/20 transition-all duration-200 font-medium text-sm"
+                      className={`bg-gradient-to-r ${currentTheme.gradients.button} text-white px-4 py-2 rounded-xl flex items-center gap-2 hover:shadow-lg hover:shadow-[${currentTheme.colors.primary.from}]/20 transition-all duration-200 font-medium text-sm`}
                       title="Schedule New Appointment"
                     >
                       <Plus className="w-4 h-4" />

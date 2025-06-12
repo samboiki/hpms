@@ -79,8 +79,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
               className="w-2 h-2 rounded-full" 
               style={{ backgroundColor: comparison.color1 }}
             />
-            <span className="font-medium text-gray-700">{comparison.label1}</span>
-            <span className="text-gray-500">{percentage1.toFixed(0)}%</span>
+            <span className="font-medium text-gray-700" style={{ fontFamily: 'Rubik, sans-serif' }}>{comparison.label1}</span>
+            <span className="text-gray-500" style={{ fontFamily: 'Rubik, sans-serif' }}>{percentage1.toFixed(0)}%</span>
           </div>
           
           <div className="flex items-center gap-1">
@@ -88,8 +88,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
               className="w-2 h-2 rounded-full" 
               style={{ backgroundColor: comparison.color2 }}
             />
-            <span className="font-medium text-gray-700">{comparison.label2}</span>
-            <span className="text-gray-500">{percentage2.toFixed(0)}%</span>
+            <span className="font-medium text-gray-700" style={{ fontFamily: 'Rubik, sans-serif' }}>{comparison.label2}</span>
+            <span className="text-gray-500" style={{ fontFamily: 'Rubik, sans-serif' }}>{percentage2.toFixed(0)}%</span>
           </div>
         </div>
       </div>
@@ -106,8 +106,9 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
       className="relative group cursor-pointer"
       onClick={onClick}
     >
-      {/* Main card with light grey background */}
-      <div className="relative bg-gray-100 rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200/50">
+      {/* Main card with light grey background and gradient border */}
+      <div className="relative rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden p-[1px] bg-gradient-to-br from-gray-300/40 via-gray-400/30 to-gray-300/40">
+        <div className="relative rounded-2xl h-full w-full overflow-hidden" style={{ backgroundColor: '#edf1f4' }}>
         {/* Unsplash background image */}
         {unsplashQuery && (
           <div className="absolute inset-0 opacity-10 group-hover:opacity-15 transition-opacity duration-300">
@@ -146,7 +147,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                 <Icon className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                <h3 className="text-lg font-semibold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>
                   {title}
                 </h3>
               </div>
@@ -168,7 +169,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
               <p className="text-3xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Rubik, sans-serif' }}>
                 {mainValue}
               </p>
-              <p className="text-sm text-gray-600 font-medium">{subtitle}</p>
+              <p className="text-sm text-gray-600 font-medium" style={{ fontFamily: 'Rubik, sans-serif' }}>{subtitle}</p>
             </div>
 
             {/* Compact stats grid with colored backgrounds */}
@@ -179,10 +180,10 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                   className="text-center rounded-lg py-2 px-2 border border-gray-200/50 bg-white/60 backdrop-blur-sm"
                   style={{ backgroundColor: `${stat.color}15` }}
                 >
-                  <p className="text-sm font-bold text-gray-800" style={{ color: stat.color }}>
+                  <p className="text-sm font-bold text-gray-800" style={{ color: stat.color, fontFamily: 'Rubik, sans-serif' }}>
                     {stat.value}
                   </p>
-                  <p className="text-[11px] text-gray-600 font-medium leading-tight">{stat.label}</p>
+                  <p className="text-[11px] text-gray-600 font-medium leading-tight" style={{ fontFamily: 'Rubik, sans-serif' }}>{stat.label}</p>
                 </div>
               ))}
             </div>
@@ -193,6 +194,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           
           {/* Colored bottom accent */}
           <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${gradient} opacity-40 group-hover:opacity-60 transition-opacity duration-300`}></div>
+        </div>
         </div>
       </div>
     </motion.div>

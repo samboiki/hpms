@@ -21,9 +21,11 @@ import {
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { useAuthStore } from '../stores/authStore';
+import { useTheme } from '../stores/themeStore';
 
 const Settings: React.FC = () => {
   const { user } = useAuthStore();
+  const { currentTheme, themes, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'account' | 'security' | 'notifications' | 'system' | 'practice'>('account');
 
   return (

@@ -19,6 +19,7 @@ import {
   Sun,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
+import { useTheme } from '../../stores/themeStore';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -38,6 +39,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleFullscreen
 }) => {
   const { isSuperAdmin, canManagePractices } = useAuthStore();
+  const { currentTheme } = useTheme();
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   const navItems = [
@@ -55,9 +57,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     <div 
       className={cn(
         isMobile 
-          ? "fixed left-0 top-0 h-full bg-gradient-to-br from-[#01b9d5] to-cyan-600 transition-all duration-300 z-50 w-[280px]"
-          : "fixed left-4 top-4 h-[calc(100vh-32px)] bg-gradient-to-br from-[#01b9d5] to-cyan-600 rounded-xl transition-all duration-300 z-30",
-        "shadow-[0_8px_30px_rgb(0,0,0,0.08)]",
+          ? `fixed left-0 top-0 h-full bg-gradient-to-b ${currentTheme.gradients.sidebar} backdrop-blur-md transition-all duration-300 z-50 w-[280px]`
+          : `fixed left-4 top-4 h-[calc(100vh-32px)] bg-gradient-to-b ${currentTheme.gradients.sidebar} backdrop-blur-md rounded-2xl transition-all duration-300 z-30`,
+        "shadow-[0_20px_60px_rgb(0,0,0,0.15)] border border-white/10",
         !isMobile && collapsed ? "w-[72px]" : !isMobile && "w-[240px]"
       )}
     >
@@ -78,9 +80,9 @@ const Sidebar: React.FC<SidebarProps> = ({
             key={item.path}
             to={item.path}
             className={({ isActive }) => cn(
-              "flex items-center px-3 py-2 rounded-lg mb-1 transition-colors min-h-[44px]",
-              "hover:bg-white/10",
-              isActive ? "text-white bg-white/20" : "text-white/80",
+              "flex items-center px-4 py-3 rounded-xl mb-2 transition-all duration-200 min-h-[48px] group",
+              "hover:bg-white/15 hover:shadow-lg hover:scale-[1.02]",
+              isActive ? "text-white bg-white/25 shadow-lg border border-white/20" : "text-white/90",
               collapsed && !isMobile && "justify-center"
             )}
             onClick={isMobile ? onMobileClose : undefined}
@@ -96,9 +98,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         <NavLink
           to="/settings"
           className={({ isActive }) => cn(
-            "flex items-center px-3 py-2 rounded-lg mb-1 transition-colors min-h-[44px]",
-            "hover:bg-white/10",
-            isActive ? "text-white bg-white/20" : "text-white/80",
+            "flex items-center px-4 py-3 rounded-xl mb-2 transition-all duration-200 min-h-[48px] group",
+            "hover:bg-white/15 hover:shadow-lg hover:scale-[1.02]",
+            isActive ? "text-white bg-white/25 shadow-lg border border-white/20" : "text-white/90",
             collapsed && !isMobile && "justify-center"
           )}
           onClick={isMobile ? onMobileClose : undefined}
@@ -114,7 +116,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={onToggleFullscreen}
             className={cn(
-              "w-full flex items-center px-3 py-2 rounded-lg mb-1 text-white/80 hover:bg-white/10 min-h-[44px]",
+              "w-full flex items-center px-4 py-3 rounded-xl mb-2 text-white/90 hover:bg-white/15 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 min-h-[48px]",
               collapsed && !isMobile && "justify-center"
             )}
             title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
@@ -135,7 +137,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <button
           onClick={onToggle}
           className={cn(
-            "w-full flex items-center px-3 py-2 rounded-lg mb-1 text-white/80 hover:bg-white/10 min-h-[44px]",
+            "w-full flex items-center px-4 py-3 rounded-xl mb-2 text-white/90 hover:bg-white/15 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 min-h-[48px]",
             collapsed && !isMobile && "justify-center"
           )}
         >
@@ -153,7 +155,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         <button
           onClick={() => setIsDarkMode(!isDarkMode)}
           className={cn(
-            "w-full flex items-center px-3 py-2 rounded-lg mb-1 text-white/80 hover:bg-white/10 min-h-[44px]",
+            "w-full flex items-center px-4 py-3 rounded-xl mb-2 text-white/90 hover:bg-white/15 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 min-h-[48px]",
             collapsed && !isMobile && "justify-center"
           )}
           title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
@@ -185,9 +187,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                 key={item.path}
                 to={item.path}
                 className={({ isActive }) => cn(
-                  "flex items-center px-3 py-2 rounded-lg mb-1 transition-colors min-h-[44px]",
-                  "hover:bg-white/10",
-                  isActive ? "text-white bg-white/20" : "text-white/80",
+                  "flex items-center px-4 py-3 rounded-xl mb-2 transition-all duration-200 min-h-[48px] group",
+                  "hover:bg-white/15 hover:shadow-lg hover:scale-[1.02]",
+                  isActive ? "text-white bg-white/25 shadow-lg border border-white/20" : "text-white/90",
                   collapsed && !isMobile && "justify-center"
                 )}
                 onClick={isMobile ? onMobileClose : undefined}
