@@ -92,7 +92,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           secondaryColor: '#ff8a92',
           gradientFrom: 'from-red-500',
           gradientTo: 'to-pink-500',
-          bgImage: 'https://images.unsplash.com/photo-1609840114035-3c981960e833?w=400&h=300&fit=crop&auto=format&q=80',
+          bgImage: '/images/medical-aids/enc.png',
           bgOpacity: 'opacity-10 group-hover:opacity-15',
           comparisonData: [
             { label: 'Completed', value: 142, color: '#ff4f5a' },
