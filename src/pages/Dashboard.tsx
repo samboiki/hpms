@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday, isSameDay, addWeeks, subWeeks } from 'date-fns';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday, isSameDay, addWeeks, subWeeks, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { practiceDataService, PracticeDetails } from '../lib/practiceDataService';
 import FormModal from '../components/modals/FormModal';
 import AddAppointmentForm from '../components/forms/AddAppointmentForm';
@@ -854,11 +854,11 @@ function Dashboard() {
             <div className="mt-6">
               {/* Week Calendar and Notifications Row */}
               <div className="grid grid-cols-12 gap-4">
-                {/* Premium Week Calendar - Glassmorphic - 8 columns */}
+                {/* Premium Month Calendar - Glassmorphic - 8 columns */}
                 <div className="relative col-span-8">
                   {/* Glassmorphic background */}
                   <div className="bg-white/20 backdrop-blur-xl rounded-2xl p-4 shadow-2xl border border-white/30">
-                    {/* Week Navigation Header */}
+                    {/* Month Navigation Header */}
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         {/* View Mode Toggles */}
@@ -880,13 +880,13 @@ function Dashboard() {
                       </div>
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => setSelectedDate(subWeeks(selectedDate, 1))}
+                          onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
                           className="p-1.5 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
                         >
                           <ChevronLeft className="w-4 h-4 text-gray-600" />
                         </button>
                         <button
-                          onClick={() => setSelectedDate(addWeeks(selectedDate, 1))}
+                          onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
                           className="p-1.5 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
                         >
                           <ChevronRight className="w-4 h-4 text-gray-600" />
@@ -894,65 +894,95 @@ function Dashboard() {
                       </div>
                     </div>
                     
-                    {/* Week Range Display */}
+                    {/* Month Display */}
                     <div className="text-center mb-4">
-                      <span className="text-sm font-semibold text-gray-700">
-                        {format(startOfWeek(selectedDate), 'MMM d')} - {format(endOfWeek(selectedDate), 'MMM d, yyyy')}
+                      <span className="text-lg font-bold text-gray-700">
+                        {format(selectedDate, 'MMMM yyyy')}
                       </span>
                     </div>
                     
-                    {/* Week Days - All 7 days in one row */}
+                    {/* Weekday Headers */}
+                    <div className="grid grid-cols-7 gap-2 mb-2">
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                        <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Month Days - All days in the month */}
                     <div className="grid grid-cols-7 gap-2">
                       {eachDayOfInterval({
-                        start: startOfWeek(selectedDate),
-                        end: endOfWeek(selectedDate)
+                        start: startOfWeek(startOfMonth(selectedDate)),
+                        end: endOfWeek(endOfMonth(selectedDate))
                       }).map((day) => {
                         const dayIsToday = isToday(day);
                         const dayIsSelected = isSameDay(day, selectedDate);
+                        const isCurrentMonth = day.getMonth() === selectedDate.getMonth();
+                        
+                        // Check if day has appointments
+                        const dayAppointments = appointments.filter(apt => 
+                          apt.date === format(day, 'yyyy-MM-dd')
+                        );
+                        const hasAppointments = dayAppointments.length > 0;
                         
                         return (
                           <button
                             key={day.toISOString()}
                             onClick={() => setSelectedDate(day)}
-                            className={`relative flex flex-col items-center p-3 rounded-2xl transition-all duration-300 transform hover:scale-105 ${
-                              dayIsToday || dayIsSelected
-                                ? `bg-gradient-to-br ${currentTheme.gradients.sidebar} shadow-lg backdrop-blur-sm`
-                                : 'bg-white/20 backdrop-blur-sm hover:bg-white/30'
+                            className={`relative flex flex-col items-center p-2 rounded-xl transition-all duration-300 transform hover:scale-105 min-h-[3rem] ${
+                              dayIsToday
+                                ? `bg-gradient-to-br ${currentTheme.gradients.sidebar} shadow-lg backdrop-blur-sm text-white`
+                                : dayIsSelected
+                                ? 'bg-white/40 backdrop-blur-sm shadow-md'
+                                : isCurrentMonth
+                                ? 'bg-white/20 backdrop-blur-sm hover:bg-white/30'
+                                : 'bg-white/10 backdrop-blur-sm hover:bg-white/20 opacity-50'
                             }`}
-                            style={{
-                              borderRadius: '20px', // Bean shape
-                            }}
                           >
-                            {/* Date number - prominently displayed at top with theme color */}
+                            {/* Date number */}
                             <div 
-                              className={`text-lg font-bold mb-1 ${
-                                dayIsToday || dayIsSelected 
+                              className={`text-sm font-semibold ${
+                                dayIsToday 
                                   ? 'text-white' 
-                                  : ''
+                                  : dayIsSelected
+                                  ? 'text-gray-800'
+                                  : isCurrentMonth 
+                                  ? 'text-gray-700'
+                                  : 'text-gray-400'
                               }`}
-                              style={{ 
-                                color: dayIsToday || dayIsSelected 
-                                  ? 'white' 
-                                  : currentTheme.colors.primary.from 
-                              }}
                             >
                               {format(day, 'd')}
                             </div>
                             
-                            {/* Day name - lighter, matte, faded */}
-                            <div 
-                              className={`text-xs font-medium ${
-                                dayIsToday || dayIsSelected
-                                  ? 'text-white/80'
-                                  : 'text-gray-500/70'
-                              }`}
-                            >
-                              {format(day, 'EEE')}
-                            </div>
+                            {/* Appointment indicators */}
+                            {hasAppointments && (
+                              <div className="flex gap-0.5 mt-1">
+                                {dayAppointments.slice(0, 3).map((apt, idx) => (
+                                  <div
+                                    key={idx}
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      apt.status === 'completed' 
+                                        ? 'bg-green-400' 
+                                        : apt.status === 'pending'
+                                        ? 'bg-amber-400'
+                                        : apt.status === 'cancelled'
+                                        ? 'bg-red-400'
+                                        : 'bg-blue-400'
+                                    }`}
+                                  />
+                                ))}
+                                {dayAppointments.length > 3 && (
+                                  <div className="text-xs text-gray-500 ml-1">
+                                    +{dayAppointments.length - 3}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             
                             {/* Today indicator */}
                             {dayIsToday && (
-                              <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full shadow-sm animate-pulse"></div>
+                              <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full shadow-sm animate-pulse"></div>
                             )}
                           </button>
                         );
