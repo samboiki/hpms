@@ -75,7 +75,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           secondaryColor: '#FCD34D',
           gradientFrom: 'from-amber-500',
           gradientTo: 'to-orange-600',
-          bgImage: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=300&fit=crop&auto=format&q=80',
+          bgImage: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=400&h=300&fit=crop&auto=format&q=80',
           bgOpacity: 'opacity-10 group-hover:opacity-15',
           comparisonData: [
             { label: 'Read', value: 23, color: '#F59E0B' },
