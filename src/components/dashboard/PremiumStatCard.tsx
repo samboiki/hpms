@@ -194,8 +194,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
     if (cardType === 'patients') {
       // No mini stats for patients card
       return null;
-    } else if (cardType === 'communication') {
-      // No mini stats for communication card
+    } else if (cardType === 'communication' || cardType === 'encounters' || cardType === 'finance') {
+      // No mini stats for communication, encounters, and finance cards
       return null;
     } else {
       // Mini donut chart for other cards (encounters, finance)

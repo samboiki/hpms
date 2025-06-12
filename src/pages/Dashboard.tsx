@@ -16,11 +16,14 @@ import {
   DollarSign,
   TrendingUp,
   Building2,
-  XCircle
+  XCircle,
+  Search,
+  ChevronLeft,
+  Filter
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import { practiceDataService, PracticeDetails } from '../lib/practiceDataService';
 import FormModal from '../components/modals/FormModal';
 import AddAppointmentForm from '../components/forms/AddAppointmentForm';
@@ -32,6 +35,7 @@ import AppointmentApprovalModal from '../components/modals/AppointmentApprovalMo
 import AppointmentGridView from '../components/appointments/AppointmentGridView';
 import { motion } from 'framer-motion';
 import { useRealtimeAppointments } from '../hooks/useRealtimeAppointments';
+import { useTheme } from '../stores/themeStore';
 import { toast } from 'react-hot-toast';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
 import PremiumStatCard from '../components/dashboard/PremiumStatCard';
@@ -127,6 +131,10 @@ function Dashboard() {
   const [isEnhancedFinancialModalOpen, setIsEnhancedFinancialModalOpen] = useState(false);
   const [appointmentStatusFilter, setAppointmentStatusFilter] = useState<'all' | 'total' | 'completed' | 'pending' | 'cancelled'>('all');
   const [practiceDetails, setPracticeDetails] = useState<PracticeDetails | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [timeFilter, setTimeFilter] = useState<'this-week' | 'last-week' | 'this-month' | 'last-month'>('this-week');
+  const { currentTheme } = useTheme();
   const navigate = useNavigate();
 
   // Real-time appointment updates
@@ -1059,6 +1067,128 @@ function Dashboard() {
                   </motion.div>
                 ))
               )}
+            </div>
+
+            {/* Premium Search Bar and Week Calendar */}
+            <div className="mt-6 space-y-4">
+              {/* Time Filter */}
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-600" />
+                <div className="flex items-center gap-1">
+                  {[
+                    { value: 'this-week', label: 'This Week' },
+                    { value: 'last-week', label: 'Last Week' },
+                    { value: 'this-month', label: 'This Month' },
+                    { value: 'last-month', label: 'Last Month' }
+                  ].map((filter) => (
+                    <button
+                      key={filter.value}
+                      onClick={() => setTimeFilter(filter.value as any)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        timeFilter === filter.value
+                          ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-sm`
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Search Bar and Week Calendar Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Premium Search Bar */}
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-white to-gray-100 rounded-xl opacity-80"></div>
+                  <div 
+                    className="relative bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-lg border-2 transition-all duration-300 hover:shadow-xl"
+                    style={{ borderColor: `${currentTheme.colors.primary.from}30` }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="p-2 rounded-lg shadow-sm"
+                        style={{ backgroundColor: `${currentTheme.colors.primary.from}15` }}
+                      >
+                        <Search className="w-4 h-4" style={{ color: currentTheme.colors.primary.from }} />
+                      </div>
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          placeholder="Search patients, appointments, or records..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full bg-transparent outline-none text-gray-700 placeholder-gray-500 text-sm font-medium"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Premium Week Calendar */}
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-white to-gray-100 rounded-xl opacity-80"></div>
+                  <div className="relative bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-gray-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" style={{ color: currentTheme.colors.primary.from }} />
+                        <span className="text-sm font-semibold text-gray-700">
+                          Week of {format(startOfWeek(selectedDate), 'MMM d')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setSelectedDate(subWeeks(selectedDate, 1))}
+                          className="p-1 hover:bg-gray-100 rounded transition-colors"
+                        >
+                          <ChevronLeft className="w-4 h-4 text-gray-600" />
+                        </button>
+                        <button
+                          onClick={() => setSelectedDate(addWeeks(selectedDate, 1))}
+                          className="p-1 hover:bg-gray-100 rounded transition-colors"
+                        >
+                          <ChevronRight className="w-4 h-4 text-gray-600" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Week Days */}
+                    <div className="grid grid-cols-7 gap-1">
+                      {eachDayOfInterval({
+                        start: startOfWeek(selectedDate),
+                        end: endOfWeek(selectedDate)
+                      }).map((day) => {
+                        const dayIsToday = isToday(day);
+                        const dayIsSelected = isSameDay(day, selectedDate);
+                        
+                        return (
+                          <button
+                            key={day.toISOString()}
+                            onClick={() => setSelectedDate(day)}
+                            className={`relative p-2 rounded-lg text-center transition-all duration-200 ${
+                              dayIsToday
+                                ? `bg-gradient-to-br ${currentTheme.gradients.sidebar} text-white shadow-md font-bold`
+                                : dayIsSelected
+                                ? 'bg-gray-200 text-gray-800 font-semibold'
+                                : 'hover:bg-gray-100 text-gray-600'
+                            }`}
+                          >
+                            <div className="text-xs font-medium">
+                              {format(day, 'EEE')}
+                            </div>
+                            <div className={`text-sm ${dayIsToday ? 'font-bold' : 'font-semibold'}`}>
+                              {format(day, 'd')}
+                            </div>
+                            {dayIsToday && (
+                              <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full shadow-sm"></div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
