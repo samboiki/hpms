@@ -44,7 +44,6 @@ import EnhancedFinancialModal from '../components/modals/EnhancedFinancialModal'
 import PracticeOverviewTile from '../components/dashboard/PracticeOverviewTile';
 import { dashboardStatsService, DashboardStats } from '../services/dashboardStatsService';
 import { useAuthStore } from '../stores/authStore';
-import { useTheme } from '../stores/themeStore';
 
 interface Appointment {
   id: string;
@@ -132,9 +131,7 @@ function Dashboard() {
   const [appointmentStatusFilter, setAppointmentStatusFilter] = useState<'all' | 'total' | 'completed' | 'pending' | 'cancelled'>('all');
   const [practiceDetails, setPracticeDetails] = useState<PracticeDetails | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
   const [timeFilter, setTimeFilter] = useState<'this-week' | 'last-week' | 'this-month' | 'last-month'>('this-week');
-  const { currentTheme } = useTheme();
   const navigate = useNavigate();
 
   // Real-time appointment updates
