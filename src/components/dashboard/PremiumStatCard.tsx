@@ -136,8 +136,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
 
   const settings = getCardSettings();
 
-  // Render horizontal stacked bar comparison
-  const renderComparisonBar = () => {
+  // Render legend without bar chart
+  const renderLegendOnly = () => {
     if (!settings.comparisonData || settings.comparisonData.length !== 2) return null;
 
     const [item1, item2] = settings.comparisonData;
@@ -147,25 +147,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
 
     return (
       <div className="mt-3">
-        {/* Horizontal Stacked Bar */}
-        <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden mb-2">
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${percentage1}%` }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="absolute left-0 top-0 h-full rounded-l-full"
-            style={{ backgroundColor: item1.color }}
-          />
-          <motion.div
-            initial={{ width: 0 }}
-            animate={{ width: `${percentage2}%` }}
-            transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-            className="absolute right-0 top-0 h-full rounded-r-full"
-            style={{ backgroundColor: item2.color }}
-          />
-        </div>
-        
-        {/* Compact Labels */}
+        {/* Legend Only */}
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center gap-1">
             <div 
@@ -286,14 +268,20 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           {/* Main Content */}
           <div className="space-y-3">
             <div>
-              <p className="text-3xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Rubik, sans-serif' }}>
+              <p 
+                className="text-3xl font-bold mb-1" 
+                style={{ 
+                  fontFamily: 'Rubik, sans-serif',
+                  color: settings.primaryColor
+                }}
+              >
                 {mainValue}
               </p>
               <p className="text-sm text-gray-600 font-medium">{subtitle}</p>
             </div>
 
-            {/* Horizontal Comparison Bar */}
-            {renderComparisonBar()}
+            {/* Legend Only */}
+            {renderLegendOnly()}
 
             {/* Mini Stats or Donut Chart */}
             {renderMiniStats()}
