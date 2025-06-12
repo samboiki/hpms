@@ -36,6 +36,7 @@ import PracticeOverviewTile from '../components/dashboard/PracticeOverviewTile';
 import { dashboardStatsService, DashboardStats } from '../services/dashboardStatsService';
 import { useAuthStore } from '../stores/authStore';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
+import PremiumCalendar from '../components/ui/PremiumCalendar';
 
 interface Appointment {
   id: string;
@@ -118,6 +119,7 @@ function Dashboard() {
   }>({ isOpen: false, type: null });
   const [isEnhancedFinancialModalOpen, setIsEnhancedFinancialModalOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [showCalendarPicker, setShowCalendarPicker] = useState(false);
   const navigate = useNavigate();
 
   // Real-time appointment updates
@@ -146,6 +148,39 @@ function Dashboard() {
           color: 'text-blue-600'
         };
         setRecentActivities(prev => [newActivity, ...prev.slice(0, 4)]);
+        
+        // Add real-time notification if appointment is pending
+        if (change.new.status === 'pending') {
+          const newNotification: Notification = {
+            id: `booking-${change.new.id}`,
+            type: 'booking',
+            priority: 'high',
+            title: 'New Booking Request',
+            description: `${change.new.patient?.first_name} ${change.new.patient?.last_name} requested a ${change.new.type} appointment for ${format(new Date(change.new.date + 'T' + change.new.time), 'MMM d, h:mm a')}`,
+            time: new Date(),
+            actionRequired: true,
+            read: false,
+            data: change.new,
+            actions: {
+              primary: {
+                label: 'Approve',
+                variant: 'approve',
+                onClick: () => {
+                  setSelectedAppointment(change.new);
+                  setIsApprovalModalOpen(true);
+                }
+              },
+              secondary: {
+                label: 'View Details',
+                onClick: () => {
+                  setSelectedAppointment(change.new);
+                  setIsDetailsModalOpen(true);
+                }
+              }
+            }
+          };
+          setNotifications(prev => [newNotification, ...prev]);
+        }
       } else if (change.eventType === 'UPDATE') {
         // Updated appointment - update in list
         setAppointments(prev => 
@@ -167,10 +202,17 @@ function Dashboard() {
             position: 'top-right',
             icon: change.new.status === 'cancelled' ? '❌' : '✅'
           });
+          
+          // Remove notification if appointment was pending and is now handled
+          if (change.old.status === 'pending' && ['scheduled', 'cancelled'].includes(change.new.status)) {
+            setNotifications(prev => prev.filter(notif => notif.id !== `booking-${change.new.id}`));
+          }
         }
       } else if (change.eventType === 'DELETE') {
         // Deleted appointment - remove from list
         setAppointments(prev => prev.filter(apt => apt.id !== change.old.id));
+        // Remove related notification
+        setNotifications(prev => prev.filter(notif => notif.id !== `booking-${change.old.id}`));
       }
     },
     onError: (error) => {
@@ -334,67 +376,120 @@ function Dashboard() {
       // Fetch patient statistics
       await fetchPatientStats();
 
-      // Generate sample notifications
-      const sampleNotifications: Notification[] = [
-        {
-          id: '1',
+      // Generate real-time notifications based on actual data
+      const newNotifications: Notification[] = [];
+
+      // Pending appointment bookings that need approval
+      const pendingBookings = practiceAppointments.filter(apt => apt.status === 'pending');
+      pendingBookings.forEach((apt) => {
+        newNotifications.push({
+          id: `booking-${apt.id}`,
           type: 'booking',
           priority: 'high',
-          title: 'New Appointment Request',
-          description: 'John Smith has requested an appointment for tomorrow at 2:00 PM',
-          time: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
+          title: 'New Booking Request',
+          description: `${apt.patient?.first_name} ${apt.patient?.last_name} requested a ${apt.type} appointment for ${format(new Date(apt.date + 'T' + apt.time), 'MMM d, h:mm a')}`,
+          time: new Date(apt.created_at || new Date()),
           actionRequired: true,
           read: false,
+          data: apt,
           actions: {
-            primary: { label: 'Approve', onClick: () => {}, variant: 'approve' },
-            secondary: { label: 'Reschedule', onClick: () => {} }
+            primary: {
+              label: 'Approve',
+              variant: 'approve',
+              onClick: () => {
+                setSelectedAppointment(apt);
+                setIsApprovalModalOpen(true);
+              }
+            },
+            secondary: {
+              label: 'View Details',
+              onClick: () => {
+                setSelectedAppointment(apt);
+                setIsDetailsModalOpen(true);
+              }
+            }
           }
-        },
-        {
-          id: '2',
+        });
+      });
+
+      // Lab results pending review
+      labRequestsData.forEach((lab) => {
+        newNotifications.push({
+          id: `lab-${lab.id}`,
           type: 'lab-result',
-          priority: 'urgent',
+          priority: lab.is_urgent ? 'urgent' : 'normal',
           title: 'Lab Results Ready',
-          description: 'Blood test results for Mary Johnson are ready for review',
-          time: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+          description: `${lab.test_name || 'Lab test'} results are ready for review`,
+          time: new Date(lab.created_at || new Date()),
           actionRequired: true,
           read: false,
+          data: lab,
           actions: {
-            primary: { label: 'Review', onClick: () => {}, variant: 'neutral' }
+            primary: {
+              label: 'Review Results',
+              onClick: () => navigate('/requests')
+            }
           }
-        },
-        {
-          id: '3',
+        });
+      });
+
+      // Upcoming follow-ups for today
+      const todayFollowUps = practiceAppointments.filter(apt => 
+        apt.type === 'follow-up' && 
+        apt.status === 'scheduled' &&
+        apt.date === format(new Date(), 'yyyy-MM-dd')
+      );
+      todayFollowUps.forEach((apt) => {
+        newNotifications.push({
+          id: `followup-${apt.id}`,
           type: 'follow-up',
           priority: 'normal',
           title: 'Follow-up Reminder',
-          description: 'Patient David Wilson needs follow-up appointment in 2 weeks',
-          time: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+          description: `${apt.patient?.first_name} ${apt.patient?.last_name} has a follow-up appointment at ${apt.time ? format(new Date(apt.date + 'T' + apt.time), 'h:mm a') : 'TBD'}`,
+          time: new Date(apt.date + 'T' + apt.time),
           actionRequired: false,
-          read: true
-        },
-        {
-          id: '4',
-          type: 'message',
+          read: false,
+          data: apt,
+          actions: {
+            primary: {
+              label: 'Start Visit',
+              onClick: () => handleStartVisit(apt.id)
+            }
+          }
+        });
+      });
+
+      // Media requests pending
+      mediaRequestsData.forEach((media) => {
+        newNotifications.push({
+          id: `media-${media.id}`,
+          type: 'system',
           priority: 'normal',
-          title: 'New Message',
-          description: 'Dr. Sarah received a message from a patient regarding medication',
-          time: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
-          actionRequired: false,
-          read: false
-        },
-        {
-          id: '5',
-          type: 'reminder',
-          priority: 'low',
-          title: 'System Reminder',
-          description: 'Monthly backup scheduled for tonight at 11:00 PM',
-          time: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
-          actionRequired: false,
-          read: true
+          title: 'Media Upload Pending',
+          description: `${media.request_type || 'Media'} upload requested for patient`,
+          time: new Date(media.created_at || new Date()),
+          actionRequired: true,
+          read: false,
+          data: media,
+          actions: {
+            primary: {
+              label: 'Upload Media',
+              onClick: () => navigate('/requests')
+            }
+          }
+        });
+      });
+
+      // Sort notifications by priority and time
+      newNotifications.sort((a, b) => {
+        const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 };
+        if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+          return priorityOrder[a.priority] - priorityOrder[b.priority];
         }
-      ];
-      setNotifications(sampleNotifications);
+        return b.time.getTime() - a.time.getTime();
+      });
+
+      setNotifications(newNotifications);
       
     } catch (error) {
       console.error('❌ [Dashboard] Error fetching data:', error);
@@ -942,9 +1037,13 @@ function Dashboard() {
                       >
                         <ChevronLeft className="w-5 h-5 text-gray-600" />
                       </button>
-                      <span className="text-lg font-bold text-gray-700 min-w-[140px] text-center">
-                        {format(selectedDate, 'MMMM yyyy')}
-                      </span>
+                      <button
+                        onClick={() => setShowCalendarPicker(!showCalendarPicker)}
+                        className="text-lg font-bold text-gray-700 min-w-[140px] text-center hover:bg-white/20 rounded-lg px-2 py-1 transition-all duration-200 flex items-center justify-center gap-2"
+                      >
+                        <span>{format(selectedDate, 'MMMM yyyy')}</span>
+                        <Calendar className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
                         className="p-2 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
@@ -952,6 +1051,22 @@ function Dashboard() {
                         <ChevronRight className="w-5 h-5 text-gray-600" />
                       </button>
                     </div>
+                    
+                    {/* Calendar Picker Modal */}
+                    {showCalendarPicker && (
+                      <div className="absolute top-full left-0 right-0 z-50 mt-2 bg-white rounded-lg shadow-2xl border border-gray-200 p-4">
+                        <PremiumCalendar
+                          value={selectedDate}
+                          onChange={(date) => {
+                            if (date) {
+                              setSelectedDate(date);
+                              setShowCalendarPicker(false);
+                            }
+                          }}
+                          className="w-full"
+                        />
+                      </div>
+                    )}
                     
                     {/* Month Days - All days in one horizontal row */}
                     <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-transparent">

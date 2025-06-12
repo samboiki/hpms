@@ -1807,6 +1807,7 @@ const AIIntelligenceContent: React.FC<{
   setShowDetails: (show: boolean) => void;
 }> = ({ visits, vitals, patientId, patient, nextOfKin, medicalAid, onSendSms, onMedicalAidClick, onMedicalAidLimitClick, onBillingClick, selectedInvoice, setSelectedInvoice, isInvoiceModalOpen, setIsInvoiceModalOpen, selectedService, setSelectedService, showDetails, setShowDetails }) => {
   const navigate = useNavigate();
+  const { currentTheme } = useTheme();
   const [medicalAidLogo, setMedicalAidLogo] = React.useState<string>('');
   
   // Calculate total spent (mock calculation based on visits)
