@@ -15,7 +15,9 @@ import {
   PieChart,
   Filter,
   Download,
-  Printer
+  Printer,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 
@@ -66,6 +68,7 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
   const { currentTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'overview' | 'charts' | 'insights'>('overview');
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '3m' | '6m'>('30d');
+  const [isMaximized, setIsMaximized] = useState(false);
 
   if (!isOpen) return null;
 
@@ -184,12 +187,19 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]" onClick={onClose}>
+    <div 
+      className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] ${
+        isMaximized ? 'p-0' : 'p-4'
+      }`} 
+      onClick={onClose}
+    >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="relative bg-white rounded-2xl shadow-2xl overflow-hidden max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+        className={`relative bg-white shadow-2xl overflow-hidden w-full overflow-y-auto ${
+          isMaximized ? 'rounded-none h-full' : 'rounded-2xl max-w-6xl max-h-[90vh]'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -210,6 +220,13 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
               </button>
               <button className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
                 <Printer className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setIsMaximized(!isMaximized)}
+                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                title={isMaximized ? "Minimize" : "Maximize"}
+              >
+                {isMaximized ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
               </button>
               <button
                 onClick={onClose}

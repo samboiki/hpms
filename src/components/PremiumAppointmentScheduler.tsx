@@ -617,9 +617,9 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     return (
       <div className="flex flex-col h-[600px] bg-white rounded-lg overflow-hidden border border-gray-200">
         {/* Professional Timeline Header */}
-        <div className="bg-white/30 backdrop-blur-sm border-b border-dashed border-gray-300">
+        <div className="bg-white/30 backdrop-blur-sm border-b border-dotted border-[#01b9d5]/40">
           <div className="flex">
-            <div className="w-20 p-3 border-r border-dashed border-gray-300 bg-white/20 backdrop-blur-sm">
+            <div className="w-20 p-3 border-r border-dotted border-[#01b9d5]/40 bg-white/20 backdrop-blur-sm">
               <span className="text-xs font-medium text-gray-700">Time</span>
             </div>
             <div className="flex-1 flex">
@@ -627,8 +627,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                 displayDates.map((date, index) => (
                   <div
                     key={index}
-                    className={`flex-1 p-3 border-r border-dashed border-gray-300 last:border-r-0 text-center
-                      ${isSameDay(date, new Date()) ? 'bg-blue-100/30 backdrop-blur-sm border-dashed border-blue-300' : ''}`}
+                    className={`flex-1 p-3 border-r border-dotted border-[#01b9d5]/40 last:border-r-0 text-center
+                      ${isSameDay(date, new Date()) ? 'bg-blue-100/30 backdrop-blur-sm border-dotted border-[#01b9d5]/60' : ''}`}
                   >
                     <p className="text-xs font-medium text-gray-600">{format(date, 'EEE')}</p>
                     <p className={`text-sm font-semibold ${
@@ -665,11 +665,11 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
         {/* Professional Timeline Body */}
         <div className="flex-1 overflow-y-auto" ref={scrollContainerRef}>
           <div className="flex">
-            <div className="w-20 bg-white/20 backdrop-blur-sm border-r border-dashed border-gray-300">
+            <div className="w-20 bg-white/20 backdrop-blur-sm border-r border-dotted border-[#01b9d5]/40">
               {timeSlots.map((slot, index) => (
                 <div
                   key={slot}
-                  className="h-[60px] border-b border-dashed border-gray-200 p-2 text-xs font-medium text-gray-600 flex items-center"
+                  className="h-[60px] border-b border-dotted border-[#01b9d5]/30 p-2 text-xs font-medium text-gray-600 flex items-center"
                   style={{ height: `${HOUR_HEIGHT}px` }}
                 >
                   {format(parseISO(`2000-01-01T${slot}`), 'h:mm a')}
@@ -699,7 +699,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               {timeSlots.map((slot, index) => (
                 <div
                   key={slot}
-                  className="absolute left-0 right-0 border-b border-dotted border-gray-200"
+                  className="absolute left-0 right-0 border-b border-dotted border-[#01b9d5]/30"
                   style={{ 
                     top: `${index * HOUR_HEIGHT}px`,
                     height: `${HOUR_HEIGHT}px`
@@ -718,7 +718,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                     return (
                       <div
                         key={dayIndex}
-                        className="absolute border-r border-dashed border-gray-300 last:border-r-0"
+                        className="absolute border-r border-dotted border-[#01b9d5]/30 last:border-r-0"
                         style={{
                           left: `${dayIndex * 14.285}%`,
                           width: '14.285%',

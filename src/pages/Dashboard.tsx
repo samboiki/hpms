@@ -934,11 +934,23 @@ function Dashboard() {
                       </div>
                     </div>
                     
-                    {/* Month Display */}
-                    <div className="text-center mb-4">
-                      <span className="text-lg font-bold text-gray-700">
+                    {/* Month Display with Navigation */}
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                      <button
+                        onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
+                        className="p-2 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
+                      >
+                        <ChevronLeft className="w-5 h-5 text-gray-600" />
+                      </button>
+                      <span className="text-lg font-bold text-gray-700 min-w-[140px] text-center">
                         {format(selectedDate, 'MMMM yyyy')}
                       </span>
+                      <button
+                        onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
+                        className="p-2 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
+                      >
+                        <ChevronRight className="w-5 h-5 text-gray-600" />
+                      </button>
                     </div>
                     
                     {/* Month Days - All days in one horizontal row */}
@@ -1077,55 +1089,6 @@ function Dashboard() {
                       </div>
                     </motion.div>
                   </div>
-
-                  {/* Practice Overview and Recent Activity - Below Appointments */}
-                  <div className="space-y-4 md:space-y-6 mt-4">
-                    {/* Practice Overview */}
-                    <PracticeOverviewTile
-                      totalPatients={patientsData.length}
-                      todayAppointments={todayAppointments.length}
-                      pendingAppointments={pendingAppointments.length}
-                      completedToday={completedToday}
-                      practiceStatus={pendingAppointments.length > 5 ? 'busy' : todayAppointments.length === 0 ? 'quiet' : 'operational'}
-                    />
-
-                    {/* Recent Activity */}
-                    <motion.div
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.4 }}
-                      className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 p-4 md:p-5"
-                    >
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-[#01b9d5]" />
-                        Recent Activity
-                      </h3>
-                      <div className="space-y-3">
-                        {recentActivities.length > 0 ? (
-                          recentActivities.map((activity, index) => (
-                            <motion.div
-                              key={activity.id}
-                              initial={{ opacity: 0, x: -20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: 0.5 + index * 0.05 }}
-                              className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                              <div className={`p-2 rounded-lg bg-gray-100`}>
-                                <activity.icon className={`w-4 h-4 ${activity.color}`} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900">{activity.message}</p>
-                                <p className="text-xs text-gray-500">{activity.details}</p>
-                              </div>
-                              <span className="text-xs text-gray-400">{activity.time}</span>
-                            </motion.div>
-                          ))
-                        ) : (
-                          <p className="text-sm text-gray-500 text-center py-8">No recent activity</p>
-                        )}
-                      </div>
-                    </motion.div>
-                  </div>
                 </div>
 
                 {/* Notifications Panel and Practice Overview - 4 columns */}
@@ -1166,42 +1129,7 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Recent Activity */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="bg-white/90 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200 p-4 md:p-5"
-        >
-          <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-            <Activity className="w-5 h-5 text-[#01b9d5]" />
-            Recent Activity
-          </h3>
-          <div className="space-y-3">
-            {recentActivities.length > 0 ? (
-              recentActivities.map((activity, index) => (
-                <motion.div
-                  key={activity.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.5 + index * 0.05 }}
-                  className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <div className={`p-2 rounded-lg bg-gray-100`}>
-                    <activity.icon className={`w-4 h-4 ${activity.color}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">{activity.message}</p>
-                    <p className="text-xs text-gray-500">{activity.details}</p>
-                  </div>
-                  <span className="text-xs text-gray-400">{activity.time}</span>
-                </motion.div>
-              ))
-            ) : (
-              <p className="text-sm text-gray-500 text-center py-8">No recent activity</p>
-            )}
-          </div>
-        </motion.div>
+      
 
       </div>
 
