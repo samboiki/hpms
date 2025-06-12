@@ -854,7 +854,8 @@ function Dashboard() {
                   mainValue={250}
                   subtitle="Total registered patients"
                   icon={Users}
-                  gradient="from-gray-400 to-gray-500"
+                  gradient="from-blue-500 to-cyan-600"
+                  cardType="patients"
                   stats={[
                     { label: 'Male', value: 120, color: '#3B82F6' },
                     { label: 'Female', value: 130, color: '#06B6D4' }
@@ -881,7 +882,8 @@ function Dashboard() {
                   mainValue={28}
                   subtitle="Active communications"
                   icon={MessageSquare}
-                  gradient="from-gray-400 to-gray-500"
+                  gradient="from-amber-500 to-orange-600"
+                  cardType="communication"
                   stats={[
                     { label: 'Unread', value: 5, color: '#F59E0B' },
                     { label: 'Read', value: 23, color: '#059669' }
@@ -908,7 +910,8 @@ function Dashboard() {
                   mainValue={156}
                   subtitle="Total patient visits"
                   icon={Activity}
-                  gradient="from-gray-400 to-gray-500"
+                  gradient="from-emerald-500 to-green-600"
+                  cardType="encounters"
                   stats={[
                     { label: 'This Month', value: 23, color: '#10B981' },
                     { label: 'Previous', value: 133, color: '#047857' }
@@ -935,7 +938,8 @@ function Dashboard() {
                   mainValue="N$125,000"
                   subtitle="Total revenue"
                   icon={DollarSign}
-                  gradient="from-gray-400 to-gray-500"
+                  gradient="from-purple-500 to-indigo-600"
+                  cardType="finance"
                   stats={[
                     { label: 'Paid', value: 'N$119,800', color: '#8B5CF6' },
                     { label: 'Outstanding', value: 'N$5,200', color: '#EF4444' }
