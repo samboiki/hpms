@@ -114,6 +114,12 @@ function Dashboard() {
   const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress'>('pending');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [patientStats, setPatientStats] = useState<{
+    total: number;
+    male: number;
+    female: number;
+    newThisMonth: number;
+  }>({ total: 0, male: 0, female: 0, newThisMonth: 0 });
   const [selectedReportModal, setSelectedReportModal] = useState<{
     isOpen: boolean;
     type: 'patients' | 'notifications' | 'encounters' | 'finance' | null;
@@ -180,6 +186,68 @@ function Dashboard() {
       console.error('Real-time error:', error);
     }
   });
+
+  const fetchPatientStats = async () => {
+    try {
+      console.log('📊 [Dashboard] Fetching patient statistics...');
+      
+      // Get total patients count
+      const { count: totalCount, error: totalError } = await supabase
+        .from('patients')
+        .select('*', { count: 'exact', head: true });
+
+      if (totalError) {
+        console.error('❌ Error fetching total patients:', totalError);
+        return;
+      }
+
+      // Get gender breakdown
+      const { data: genderData, error: genderError } = await supabase
+        .from('patients')
+        .select('gender')
+        .not('gender', 'is', null);
+
+      if (genderError) {
+        console.error('❌ Error fetching gender data:', genderError);
+        return;
+      }
+
+      // Calculate gender counts
+      const maleCount = genderData?.filter(p => p.gender?.toLowerCase() === 'male').length || 0;
+      const femaleCount = genderData?.filter(p => p.gender?.toLowerCase() === 'female').length || 0;
+
+      // Get new patients this month
+      const currentMonth = new Date();
+      const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+      
+      const { count: newThisMonth, error: newError } = await supabase
+        .from('patients')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', startOfMonth.toISOString());
+
+      if (newError) {
+        console.error('❌ Error fetching new patients:', newError);
+        return;
+      }
+
+      setPatientStats({
+        total: totalCount || 0,
+        male: maleCount,
+        female: femaleCount,
+        newThisMonth: newThisMonth || 0
+      });
+
+      console.log('✅ [Dashboard] Patient stats fetched:', {
+        total: totalCount,
+        male: maleCount,
+        female: femaleCount,
+        newThisMonth
+      });
+
+    } catch (error) {
+      console.error('❌ [Dashboard] Error fetching patient stats:', error);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -426,6 +494,9 @@ function Dashboard() {
         activitiesSet: activities.length,
         notificationsSet: newNotifications.length
       });
+
+      // Fetch patient statistics
+      await fetchPatientStats();
       
     } catch (error) {
       console.error('❌ [Dashboard] Error fetching data:', error);
@@ -851,26 +922,26 @@ function Dashboard() {
                 <PremiumStatCard
                   key="patients"
                   title="Patients"
-                  mainValue={250}
+                  mainValue={patientStats.total}
                   subtitle="Total registered patients"
                   icon={Users}
                   gradient="from-[#489bfd] to-[#a4c8ff]"
                   cardType="patients"
                   stats={[
-                    { label: 'Male', value: 120, color: '#3B82F6' },
-                    { label: 'Female', value: 130, color: '#06B6D4' }
+                    { label: 'Male', value: patientStats.male, color: '#489bfd' },
+                    { label: 'Female', value: patientStats.female, color: '#7db3fe' }
                   ]}
                   comparison={{
                     label1: 'Male',
-                    value1: 120,
+                    value1: patientStats.male,
                     label2: 'Female',
-                    value2: 130,
-                    color1: '#3B82F6',
-                    color2: '#06B6D4'
+                    value2: patientStats.female,
+                    color1: '#489bfd',
+                    color2: '#7db3fe'
                   }}
                   trend={{
-                    value: '+15',
-                    isPositive: true
+                    value: `+${patientStats.newThisMonth}`,
+                    isPositive: patientStats.newThisMonth > 0
                   }}
                   onClick={() => setSelectedReportModal({ isOpen: true, type: 'patients' })}
                 />,

@@ -54,19 +54,19 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
     switch (cardType) {
       case 'patients':
         return {
-          primaryColor: '#0459a0',
-          secondaryColor: '#4a90d9',
-          gradientFrom: 'from-[#0459a0]',
-          gradientTo: 'to-[#4a90d9]',
-          bgImage: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=300&fit=crop&auto=format&q=80',
+          primaryColor: '#489bfd',
+          secondaryColor: '#7db3fe',
+          gradientFrom: 'from-[#489bfd]',
+          gradientTo: 'to-[#7db3fe]',
+          bgImage: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=400&h=300&fit=crop&auto=format&q=80',
           bgOpacity: 'opacity-10 group-hover:opacity-15',
           comparisonData: [
-            { label: 'Male', value: 120, color: '#0459a0' },
-            { label: 'Female', value: 130, color: '#4a90d9' }
+            { label: 'Male', value: 120, color: '#489bfd' },
+            { label: 'Female', value: 130, color: '#7db3fe' }
           ],
           donutData: [
             { label: 'New', value: 15, color: '#10B981' },
-            { label: 'Active', value: 235, color: '#0459a0' }
+            { label: 'Active', value: 235, color: '#489bfd' }
           ]
         };
       case 'communication':
