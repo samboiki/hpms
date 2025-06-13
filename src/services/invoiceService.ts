@@ -29,7 +29,7 @@ export class InvoiceService {
     try {
       const { data, error: userError } = await supabase
         .from('users')
-        .select('id, role, first_name, last_name, email')
+        .select('id, role, full_name, email')
         .eq('id', user.id)
         .single();
         
@@ -47,7 +47,7 @@ export class InvoiceService {
     
     if (userData) {
       userRole = userData.role;
-      userName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.email;
+      userName = userData.full_name || userData.email;
     } else {
       // Check auth metadata for role
       const metadata = user.user_metadata || user.app_metadata || {};

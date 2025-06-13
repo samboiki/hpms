@@ -488,111 +488,153 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     
     setBatchLoading(true);
     try {
+      // Method 1: Try using the RPC function if it exists
+      console.log('🔍 Attempting to use get_practice_batches function...');
+      try {
+        const { data: batchData, error: rpcError } = await supabase
+          .rpc('get_practice_batches', { 
+            p_practice_id: practiceId 
+          });
+        
+        if (!rpcError && batchData) {
+          console.log('✅ Successfully fetched batches using RPC function');
+          console.log('📊 Found batches count:', batchData.length);
+          
+          // Add missing logo_url and theme_color if not returned by RPC
+          const enhancedBatches = batchData.map(batch => ({
+            ...batch,
+            medical_aid_logo_url: batch.medical_aid_logo_url || null,
+            medical_aid_theme_color: batch.medical_aid_theme_color || null
+          }));
+          
+          setBatches(enhancedBatches);
+          return;
+        }
+      } catch (rpcErr) {
+        console.log('⚠️ RPC function not available, falling back to direct query');
+      }
+      
+      // Method 2: Fallback to direct query with practice number lookup
       console.log('🏥 Fetching practice data for ID:', practiceId);
       
-      // First try to get practice details to check what fields are available
+      // First get the practice details to find practice_number
       const { data: practiceData, error: practiceError } = await supabase
         .from('practices')
-        .select('*')
+        .select('id, name, practice_number')
         .eq('id', practiceId)
         .single();
 
-      console.log('🏥 Practice query result:', { practiceData, practiceError });
-
       if (practiceError) {
         console.error('❌ Practice query error:', practiceError);
-        throw practiceError;
-      }
-      
-      // Log available practice fields
-      console.log('🔎 Available practice fields:', Object.keys(practiceData || {}));
-      
-      // Try practice_number first, then fallback to practice id or other identifier
-      let practiceIdentifier = practiceData?.practice_number || practiceData?.id || practiceId;
-      console.log('🔑 Using practice identifier:', practiceIdentifier);
-      
-      // Test if batch_management_view exists and what columns it has
-      console.log('📊 Testing batch_management_view access...');
-      const { data: testData, error: testError } = await supabase
-        .from('batch_management_view')
-        .select('*')
-        .limit(1);
-      
-      console.log('📊 Batch view test result:', { testData, testError });
-      
-      if (testError) {
-        console.error('❌ Batch view access error:', testError);
-        // Try the actual batch_headers table instead
-        console.log('🔄 Trying batch_headers table instead...');
-        const { data: headersData, error: headersError } = await supabase
-          .from('batch_headers')
-          .select('*')
-          .limit(5);
         
-        console.log('📋 Batch headers result:', { headersData, headersError });
+        // If practice not found, try direct batch_headers query by practice_id
+        console.log('🔄 Trying direct batch_headers query by practice_id...');
+        const { data: directBatches, error: directError } = await supabase
+          .from('batch_headers')
+          .select(`
+            *,
+            medical_aid_providers (
+              name,
+              short_name,
+              email,
+              logo_url,
+              theme_color
+            ),
+            practices (
+              name,
+              contact_email
+            )
+          `)
+          .eq('practice_id', practiceId)
+          .order('created_at', { ascending: false });
+        
+        if (!directError && directBatches) {
+          console.log('✅ Found batches using direct query:', directBatches.length);
+          
+          // Transform to match the view structure
+          const transformedBatches = directBatches.map(batch => ({
+            batch_id: batch.id,
+            practice_number: batch.practice_number,
+            batch_number: batch.batch_number,
+            batch_date: batch.batch_date,
+            medical_aid_reference: batch.medical_aid_reference,
+            status: batch.status,
+            total_invoices: batch.total_invoices,
+            total_amount: batch.total_amount,
+            created_at: batch.created_at,
+            sent_at: batch.sent_at,
+            confirmed_at: batch.confirmed_at,
+            medical_aid_name: batch.medical_aid_providers?.name,
+            medical_aid_short_name: batch.medical_aid_providers?.short_name,
+            medical_aid_email: batch.medical_aid_providers?.email,
+            medical_aid_logo_url: batch.medical_aid_providers?.logo_url,
+            medical_aid_theme_color: batch.medical_aid_providers?.theme_color,
+            practice_name: batch.practices?.name,
+            practice_email: batch.practices?.contact_email,
+            detail_transactions: 0, // Would need separate query
+            total_detail_transactions: 0,
+            total_amount_detail_transactions: 0,
+            dat_filename: `${batch.practice_number}_${batch.batch_number}_${batch.medical_aid_reference}`
+          }));
+          
+          setBatches(transformedBatches);
+          return;
+        }
+        
         setBatches([]);
         return;
       }
       
-      // Log all available data in the view
-      console.log('📋 Sample batch data structure:', testData?.[0] ? Object.keys(testData[0]) : 'No data');
+      console.log('🏥 Practice found:', practiceData);
       
-      // Fetch batch data using practice identifier
-      console.log('🔍 Querying batches with practice_number:', practiceIdentifier);
-      console.log('🔄 Batch filters:', batchFilters);
-      
-      let query = supabase
-        .from('batch_management_view')
-        .select('*')
-        .eq('practice_number', practiceIdentifier);
-      
-      const { data: batchData, error: batchError } = await query
-        .order('created_at', { ascending: false });
-
-      console.log('📊 Batch query result:', { batchData, batchError });
-      console.log('📊 Found batches count:', batchData?.length || 0);
-      
-      if (batchError) {
-        console.error('❌ Batch query error:', batchError);
-        throw batchError;
-      }
-
-      // Also try without status filter to see if there are any batches at all
-      console.log('🔍 Checking for any batches (without status filter)...');
-      const { data: allBatchData, error: allBatchError } = await supabase
-        .from('batch_management_view')
-        .select('*')
-        .eq('practice_number', practiceIdentifier);
-      
-      console.log('📊 All batches result:', { allBatchData, allBatchError });
-      console.log('📊 All batches count:', allBatchData?.length || 0);
-      
-      if (allBatchData && allBatchData.length > 0) {
-        console.log('📋 Available batch statuses:', [...new Set(allBatchData.map(b => b.status))]);
-      }
-
-      // If no batches found with our identifier, let's see what practice numbers exist
-      if (!allBatchData || allBatchData.length === 0) {
-        console.log('🔍 No batches found with practice identifier:', practiceIdentifier);
-        console.log('🔍 Let me check what practice numbers exist in the batch view...');
+      // Now query using practice_number if available
+      if (practiceData.practice_number) {
+        console.log('🔍 Querying batches with practice_number:', practiceData.practice_number);
         
-        const { data: allPracticeNumbers, error: practiceNumbersError } = await supabase
+        // Try the view first with join for logo and theme
+        const { data: batchData, error: batchError } = await supabase
           .from('batch_management_view')
-          .select('practice_number, practice_name')
-          .limit(10);
+          .select(`
+            *,
+            medical_aid_providers!medical_aid_reference (
+              logo_url,
+              theme_color
+            )
+          `)
+          .eq('practice_number', practiceData.practice_number)
+          .order('created_at', { ascending: false });
         
-        console.log('📋 Available practice numbers in batch view:', allPracticeNumbers);
+        if (!batchError && batchData) {
+          console.log('✅ Found batches:', batchData.length);
+          
+          // Flatten the joined data
+          const enhancedBatches = batchData.map(batch => ({
+            ...batch,
+            medical_aid_logo_url: batch.medical_aid_providers?.logo_url || null,
+            medical_aid_theme_color: batch.medical_aid_providers?.theme_color || null
+          }));
+          
+          setBatches(enhancedBatches);
+          return;
+        }
         
-        // Also check if there are any batches at all
-        const { data: anyBatches, error: anyBatchesError } = await supabase
-          .from('batch_management_view')
-          .select('practice_number, practice_name, status')
-          .limit(5);
-        
-        console.log('📋 Sample batches from view:', anyBatches);
+        if (batchError) {
+          console.error('❌ Batch query error:', batchError);
+        }
       }
-
-      setBatches(batchData || []);
+      
+      // Final fallback: check if there are any batches in the system
+      console.log('🔍 Checking for any batches in the system...');
+      const { data: anyBatches, count } = await supabase
+        .from('batch_management_view')
+        .select('*', { count: 'exact', head: false })
+        .limit(5);
+      
+      console.log('📊 Total batches in system:', count);
+      console.log('📋 Sample batches:', anyBatches);
+      
+      setBatches([]);
+      
     } catch (error) {
       console.error('❌ Error fetching batch data:', error);
       setBatches([]);
