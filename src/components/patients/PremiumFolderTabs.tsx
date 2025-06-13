@@ -1712,8 +1712,6 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
   vitals, 
   patientId,
   onAddVisit,
-  onAddVitals,
-  onVisitClick,
   onEditVisit,
   onVisitStatusChange,
   patient,
@@ -1725,7 +1723,6 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
   onBillingClick
 }) => {
   const { currentTheme } = useTheme();
-  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('ai-intelligence');
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
@@ -1812,7 +1809,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       id: 'results',
       label: 'Results',
       icon: <TestTube className="w-3.5 h-3.5" />,
-      count: 0, // Will be populated when lab results are added
+      count: 0,
       color: 'from-purple-500 to-violet-600'
     },
     {
@@ -1833,7 +1830,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       id: 'audit',
       label: 'Audit Trail',
       icon: <Shield className="w-3.5 h-3.5" />,
-      count: 0, // Will be populated when audit logs are added
+      count: 0,
       color: 'from-slate-500 to-gray-600'
     }
   ];
@@ -1898,6 +1895,13 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
           visits={visits} 
           vitals={vitals} 
           patientId={patientId}
+          patient={patient}
+          nextOfKin={nextOfKin}
+          medicalAid={medicalAid}
+          onSendSms={onSendSms}
+          onMedicalAidClick={onMedicalAidClick}
+          onMedicalAidLimitClick={onMedicalAidLimitClick}
+          onBillingClick={onBillingClick}
           selectedInvoice={selectedInvoice}
           setSelectedInvoice={setSelectedInvoice}
           isInvoiceModalOpen={isInvoiceModalOpen}
@@ -1912,7 +1916,6 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
 
   return (
     <div className="w-full relative">
-      {/* Header with Search and Actions */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -1924,7 +1927,6 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
         </div>
         
         <div className="flex items-center gap-3">
-          {/* Quick Actions Menu */}
           <div className="relative">
             <motion.button
               whileHover={{ scale: 1.05, y: -2 }}
@@ -1942,54 +1944,36 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
         </div>
       </div>
 
-      {/* Clean professional tabs */}
       <div className="relative mb-6">
         <div className="flex items-center gap-1 relative z-10 bg-gray-100 rounded-lg p-1">
-          {tabs.map((tab, index) => {
+          {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             
-            // Get content area colors
             const getTabColors = () => {
               switch(tab.id) {
                 case 'ai-intelligence': return {
-                  gradient: currentTheme.gradients.sidebar,
-                  textColor: isActive ? 'text-purple-700' : 'text-gray-600',
-                  borderColor: 'border-purple-200/50'
+                  textColor: isActive ? 'text-purple-700' : 'text-gray-600'
                 };
                 case 'encounters': return {
-                  gradient: currentTheme.gradients.button, 
-                  textColor: isActive ? 'text-white' : 'text-gray-600',
-                  borderColor: isActive ? `border-${currentTheme.colors.primary.from}/50` : 'border-gray-200/50'
+                  textColor: isActive ? 'text-white' : 'text-gray-600'
                 };
                 case 'vitals': return {
-                  gradient: 'from-red-500 to-rose-600',
-                  textColor: isActive ? 'text-red-700' : 'text-gray-600', 
-                  borderColor: 'border-red-200/50'
+                  textColor: isActive ? 'text-red-700' : 'text-gray-600'
                 };
                 case 'results': return {
-                  gradient: 'from-purple-500 to-violet-600',
-                  textColor: isActive ? 'text-purple-700' : 'text-gray-600',
-                  borderColor: 'border-purple-200/50'
+                  textColor: isActive ? 'text-purple-700' : 'text-gray-600'
                 };
                 case 'documents': return {
-                  gradient: 'from-amber-500 to-orange-600',
-                  textColor: isActive ? 'text-amber-700' : 'text-gray-600',
-                  borderColor: 'border-amber-200/50'
+                  textColor: isActive ? 'text-amber-700' : 'text-gray-600'
                 };
                 case 'billing': return {
-                  gradient: currentTheme.gradients.sidebar,
-                  textColor: isActive ? 'text-teal-700' : 'text-gray-600',
-                  borderColor: 'border-teal-200/50'
+                  textColor: isActive ? 'text-teal-700' : 'text-gray-600'
                 };
                 case 'audit': return {
-                  gradient: 'from-slate-500 to-gray-600',
-                  textColor: isActive ? 'text-slate-700' : 'text-gray-600',
-                  borderColor: 'border-slate-200/50'
+                  textColor: isActive ? 'text-slate-700' : 'text-gray-600'
                 };
                 default: return {
-                  gradient: 'from-purple-500 to-pink-600',
-                  textColor: isActive ? 'text-purple-700' : 'text-gray-600',
-                  borderColor: 'border-purple-200/50'
+                  textColor: isActive ? 'text-purple-700' : 'text-gray-600'
                 };
               }
             };
@@ -2011,15 +1995,12 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
               >
-                {/* Clean minimal icon */}
                 <div className={`transition-colors duration-200 ${isActive ? colors.textColor : 'text-gray-500'}`}>
                   {tab.icon}
                 </div>
                 
-                {/* Tab label */}
                 <span className={`font-medium truncate whitespace-nowrap transition-colors duration-300 ${colors.textColor}`} style={{ fontFamily: 'Poppins, sans-serif' }}>{tab.label}</span>
                 
-                {/* Clean count badge */}
                 {tab.count !== undefined && tab.count > 0 && (
                   <span className={`
                     px-2 py-0.5 rounded text-xs font-medium min-w-[20px] text-center transition-colors duration-200
@@ -2031,33 +2012,30 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
                     {tab.count}
                   </span>
                 )}
-                
               </motion.button>
             );
           })}
         </div>
         
-        {/* Content container with subtle gradient */}
         <div className="bg-gradient-to-br from-gray-50 to-white rounded-3xl shadow-2xl relative z-10 border border-gray-100/50">
           <div className="bg-white rounded-[1.25rem] overflow-hidden">
-          <div className="p-6">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -5 }}
-                transition={{ duration: 0.1 }}
-              >
-                {renderTabContent()}
-              </motion.div>
-            </AnimatePresence>
-          </div>
+            <div className="p-6">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  transition={{ duration: 0.1 }}
+                >
+                  {renderTabContent()}
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </div>
       
-      {/* Premium Visit Modal */}
       <PremiumVisitModal
         isOpen={isVisitModalOpen}
         onClose={() => {
@@ -2078,7 +2056,6 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
         }}
       />
 
-      {/* Invoice Details Modal */}
       <InvoiceDetailsModal
         isOpen={isInvoiceModalOpen}
         onClose={() => {
@@ -2090,5 +2067,6 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
     </div>
   );
 };
+}
 
 export default PremiumFolderTabs;
