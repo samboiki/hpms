@@ -199,6 +199,7 @@ const EncountersContent: React.FC<{
     )}
   </div>
 );
+};
 
 // Audit Trail Content Component
 const AuditTrailContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
@@ -2066,7 +2067,6 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
       />
     </div>
   );
-};
 };
 
 export default PremiumFolderTabs;
