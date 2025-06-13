@@ -93,389 +93,7 @@ interface TabData {
   color: string;
 }
 
-const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({ 
-  visits, 
-  vitals, 
-  patientId,
-  onAddVisit,
-  onAddVitals,
-  onVisitClick,
-  onEditVisit,
-  onVisitStatusChange,
-  patient,
-  nextOfKin,
-  medicalAid,
-  onSendSms,
-  onMedicalAidClick,
-  onMedicalAidLimitClick,
-  onBillingClick
-}) => {
-  const { currentTheme } = useTheme();
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('ai-intelligence');
-  const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
-  const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
-  const [billingCount, setBillingCount] = useState(0);
-  const [documentsCount, setDocumentsCount] = useState(0);
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
-  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
-  const [selectedService, setSelectedService] = useState<any>(null);
-  const [showDetails, setShowDetails] = useState(false);
-
-  // Fetch counts when component mounts
-  React.useEffect(() => {
-    const fetchCounts = async () => {
-      if (!patientId) {
-        setBillingCount(0);
-        setDocumentsCount(0);
-        return;
-      }
-      
-      // Count billing services
-      const { data: invoiceData } = await supabase
-        .from('invoices_enhanced')
-        .select('id')
-        .eq('patient_id', patientId);
-      
-      if (!invoiceData || invoiceData.length === 0) {
-        setBillingCount(0);
-      } else {
-        const invoiceIds = invoiceData.map(inv => inv.id);
-        const { count } = await supabase
-          .from('invoice_services')
-          .select('*', { count: 'exact', head: true })
-          .in('invoice_id', invoiceIds);
-        
-        setBillingCount(count || 0);
-      }
-      
-      // Count documents
-      const { count: docCount } = await supabase
-        .from('patient_documents')
-        .select('*', { count: 'exact', head: true })
-        .eq('patient_id', patientId);
-      
-      setDocumentsCount(docCount || 0);
-    };
-
-    fetchCounts();
-  }, [patientId, visits]);
-
-  const refreshDocumentsCount = async () => {
-    if (!patientId) return;
-    
-    const { count: docCount } = await supabase
-      .from('patient_documents')
-      .select('*', { count: 'exact', head: true })
-      .eq('patient_id', patientId);
-    
-    setDocumentsCount(docCount || 0);
-  };
-
-  const tabs: TabData[] = [
-    {
-      id: 'ai-intelligence',
-      label: 'Overview',
-      icon: <Sparkles className="w-3.5 h-3.5" />,
-      count: undefined,
-      color: 'from-gray-400 to-gray-600'
-    },
-    {
-      id: 'encounters',
-      label: 'Encounters',
-      icon: <Stethoscope className="w-3.5 h-3.5" />,
-      count: visits.length,
-      color: currentTheme.gradients.button
-    },
-    {
-      id: 'vitals',
-      label: 'Vitals',
-      icon: <Activity className="w-3.5 h-3.5" />,
-      count: vitals.length,
-      color: 'from-red-500 to-rose-600'
-    },
-    {
-      id: 'results',
-      label: 'Results',
-      icon: <TestTube className="w-3.5 h-3.5" />,
-      count: 0, // Will be populated when lab results are added
-      color: 'from-purple-500 to-violet-600'
-    },
-    {
-      id: 'documents',
-      label: 'Documents',
-      icon: <FileText className="w-3.5 h-3.5" />,
-      count: documentsCount,
-      color: 'from-amber-500 to-orange-600'
-    },
-    {
-      id: 'billing',
-      label: 'Billing',
-      icon: <CreditCard className="w-3.5 h-3.5" />,
-      count: billingCount,
-      color: 'from-teal-500 to-cyan-600'
-    },
-    {
-      id: 'audit',
-      label: 'Audit Trail',
-      icon: <Shield className="w-3.5 h-3.5" />,
-      count: 0, // Will be populated when audit logs are added
-      color: 'from-slate-500 to-gray-600'
-    }
-  ];
-
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'ai-intelligence':
-        return <AIIntelligenceContent 
-          visits={visits} 
-          vitals={vitals} 
-          patientId={patientId}
-          patient={patient}
-          nextOfKin={nextOfKin}
-          medicalAid={medicalAid}
-          onSendSms={onSendSms}
-          onMedicalAidClick={onMedicalAidClick}
-          onMedicalAidLimitClick={onMedicalAidLimitClick}
-          onBillingClick={onBillingClick}
-          selectedInvoice={selectedInvoice}
-          setSelectedInvoice={setSelectedInvoice}
-          isInvoiceModalOpen={isInvoiceModalOpen}
-          setIsInvoiceModalOpen={setIsInvoiceModalOpen}
-          selectedService={selectedService}
-          setSelectedService={setSelectedService}
-          showDetails={showDetails}
-          setShowDetails={setShowDetails}
-        />;
-      case 'encounters':
-        return <EncountersContent 
-          visits={visits} 
-          onVisitClick={(visit) => {
-            setSelectedVisit(visit);
-            setIsVisitModalOpen(true);
-          }}
-          onEditVisit={onEditVisit}
-          onVisitStatusChange={onVisitStatusChange}
-        />;
-      case 'vitals':
-        return <VitalsContent vitals={vitals} />;
-      case 'results':
-        return <ResultsContent />;
-      case 'documents':
-        return <DocumentsContent patientId={patientId} visitId={visits[0]?.id} onCountChange={refreshDocumentsCount} />;
-      case 'billing':
-        return <BillingContent 
-          patientId={patientId}
-          selectedService={selectedService}
-          setSelectedService={setSelectedService}
-          showDetails={showDetails}
-          setShowDetails={setShowDetails}
-          selectedInvoice={selectedInvoice}
-          setSelectedInvoice={setSelectedInvoice}
-          isInvoiceModalOpen={isInvoiceModalOpen}
-          setIsInvoiceModalOpen={setIsInvoiceModalOpen}
-          patient={patient}
-          medicalAid={medicalAid}
-        />;
-      case 'audit':
-        return <AuditTrailContent patientId={patientId} />;
-      default:
-        return <AIIntelligenceContent 
-          visits={visits} 
-          vitals={vitals} 
-          patientId={patientId}
-          selectedInvoice={selectedInvoice}
-          setSelectedInvoice={setSelectedInvoice}
-          isInvoiceModalOpen={isInvoiceModalOpen}
-          setIsInvoiceModalOpen={setIsInvoiceModalOpen}
-          selectedService={selectedService}
-          setSelectedService={setSelectedService}
-          showDetails={showDetails}
-          setShowDetails={setShowDetails}
-        />;
-    }
-  };
-
-  return (
-    <div className="w-full relative">
-      {/* Header with Search and Actions */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent" style={{ fontFamily: 'Poppins, sans-serif' }}>
-            Patient Records
-          </h2>
-          <p className="text-sm text-gray-500 font-medium">
-            Comprehensive medical history and documentation
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          {/* Quick Actions Menu */}
-          <div className="relative">
-            <motion.button
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={onAddVisit}
-              className={`px-4 py-2.5 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-2xl transition-all duration-300 font-semibold text-sm`}
-              style={{
-                boxShadow: `0 25px 50px -12px ${currentTheme.colors.primary.from}30`
-              }}
-            >
-              <Plus className="w-4 h-4" />
-              Add New Visit
-            </motion.button>
-          </div>
-        </div>
-      </div>
-
-      {/* Clean professional tabs */}
-      <div className="relative mb-6">
-        <div className="flex items-center gap-1 relative z-10 bg-gray-100 rounded-lg p-1">
-          {tabs.map((tab, index) => {
-            const isActive = activeTab === tab.id;
-            
-            // Get content area colors
-            const getTabColors = () => {
-              switch(tab.id) {
-                case 'ai-intelligence': return {
-                  gradient: currentTheme.gradients.sidebar,
-                  textColor: isActive ? 'text-purple-700' : 'text-gray-600',
-                  borderColor: 'border-purple-200/50'
-                };
-                case 'encounters': return {
-                  gradient: currentTheme.gradients.button, 
-                  textColor: isActive ? 'text-white' : 'text-gray-600',
-                  borderColor: isActive ? `border-${currentTheme.colors.primary.from}/50` : 'border-gray-200/50'
-                };
-                case 'vitals': return {
-                  gradient: 'from-red-500 to-rose-600',
-                  textColor: isActive ? 'text-red-700' : 'text-gray-600', 
-                  borderColor: 'border-red-200/50'
-                };
-                case 'results': return {
-                  gradient: 'from-purple-500 to-violet-600',
-                  textColor: isActive ? 'text-purple-700' : 'text-gray-600',
-                  borderColor: 'border-purple-200/50'
-                };
-                case 'documents': return {
-                  gradient: 'from-amber-500 to-orange-600',
-                  textColor: isActive ? 'text-amber-700' : 'text-gray-600',
-                  borderColor: 'border-amber-200/50'
-                };
-                case 'billing': return {
-                  gradient: currentTheme.gradients.sidebar,
-                  textColor: isActive ? 'text-teal-700' : 'text-gray-600',
-                  borderColor: 'border-teal-200/50'
-                };
-                case 'audit': return {
-                  gradient: 'from-slate-500 to-gray-600',
-                  textColor: isActive ? 'text-slate-700' : 'text-gray-600',
-                  borderColor: 'border-slate-200/50'
-                };
-                default: return {
-                  gradient: 'from-purple-500 to-pink-600',
-                  textColor: isActive ? 'text-purple-700' : 'text-gray-600',
-                  borderColor: 'border-purple-200/50'
-                };
-              }
-            };
-            
-            const colors = getTabColors();
-            
-            return (
-              <motion.button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`
-                  relative flex-1 px-4 py-2.5 rounded-md font-medium text-sm
-                  transition-all duration-200 flex items-center justify-center gap-2 min-w-0 
-                  ${isActive 
-                    ? `bg-white text-gray-900 shadow-sm ${colors.textColor}` 
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-dashed border-gray-300'
-                  }
-                `}
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-              >
-                {/* Clean minimal icon */}
-                <div className={`transition-colors duration-200 ${isActive ? colors.textColor : 'text-gray-500'}`}>
-                  {tab.icon}
-                </div>
-                
-                {/* Tab label */}
-                <span className={`font-medium truncate whitespace-nowrap transition-colors duration-300 ${colors.textColor}`} style={{ fontFamily: 'Poppins, sans-serif' }}>{tab.label}</span>
-                
-                {/* Clean count badge */}
-                {tab.count !== undefined && tab.count > 0 && (
-                  <span className={`
-                    px-2 py-0.5 rounded text-xs font-medium min-w-[20px] text-center transition-colors duration-200
-                    ${isActive 
-                      ? 'bg-gray-200 text-gray-700' 
-                      : 'bg-gray-300 text-gray-600'
-                    }
-                  `} style={{ fontFamily: 'Rubik, sans-serif' }}>
-                    {tab.count}
-                  </span>
-                )}
-                
-              </motion.button>
-            );
-          })}
-        </div>
-        
-        {/* Content container with subtle gradient */}
-        <div className="bg-gradient-to-br from-gray-50 to-white rounded-3xl shadow-2xl relative z-10 border border-gray-100/50">
-          <div className="bg-white rounded-[1.25rem] overflow-hidden">
-          <div className="p-6">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -5 }}
-                transition={{ duration: 0.1 }}
-              >
-                {renderTabContent()}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Premium Visit Modal */}
-      <PremiumVisitModal
-        isOpen={isVisitModalOpen}
-        onClose={() => {
-          setIsVisitModalOpen(false);
-          setSelectedVisit(null);
-        }}
-        visit={selectedVisit}
-        onEdit={() => {
-          setIsVisitModalOpen(false);
-          if (selectedVisit && onEditVisit) {
-            onEditVisit(selectedVisit);
-          }
-        }}
-        onStatusChange={(status) => {
-          if (selectedVisit && onVisitStatusChange) {
-            onVisitStatusChange(selectedVisit.id, status);
-          }
-        }}
-      />
-
-      {/* Invoice Details Modal */}
-      <InvoiceDetailsModal
-        isOpen={isInvoiceModalOpen}
-        onClose={() => {
-          setIsInvoiceModalOpen(false);
-          setSelectedInvoice(null);
-        }}
-        invoice={selectedInvoice}
-      />
-    </div>
-  );
-};
+// Content components will be defined below, main component at the end
 
 // Encounters Content Component
 const EncountersContent: React.FC<{ 
@@ -2087,6 +1705,390 @@ const AIIntelligenceContent: React.FC<{
     </>
   );
 };
-}
+
+// Main PremiumFolderTabs Component
+const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({ 
+  visits, 
+  vitals, 
+  patientId,
+  onAddVisit,
+  onAddVitals,
+  onVisitClick,
+  onEditVisit,
+  onVisitStatusChange,
+  patient,
+  nextOfKin,
+  medicalAid,
+  onSendSms,
+  onMedicalAidClick,
+  onMedicalAidLimitClick,
+  onBillingClick
+}) => {
+  const { currentTheme } = useTheme();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('ai-intelligence');
+  const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
+  const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
+  const [billingCount, setBillingCount] = useState(0);
+  const [documentsCount, setDocumentsCount] = useState(0);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<any>(null);
+  const [showDetails, setShowDetails] = useState(false);
+
+  // Fetch counts when component mounts
+  React.useEffect(() => {
+    const fetchCounts = async () => {
+      if (!patientId) {
+        setBillingCount(0);
+        setDocumentsCount(0);
+        return;
+      }
+      
+      // Count billing services
+      const { data: invoiceData } = await supabase
+        .from('invoices_enhanced')
+        .select('id')
+        .eq('patient_id', patientId);
+      
+      if (!invoiceData || invoiceData.length === 0) {
+        setBillingCount(0);
+      } else {
+        const invoiceIds = invoiceData.map(inv => inv.id);
+        const { count } = await supabase
+          .from('invoice_services')
+          .select('*', { count: 'exact', head: true })
+          .in('invoice_id', invoiceIds);
+        
+        setBillingCount(count || 0);
+      }
+      
+      // Count documents
+      const { count: docCount } = await supabase
+        .from('patient_documents')
+        .select('*', { count: 'exact', head: true })
+        .eq('patient_id', patientId);
+      
+      setDocumentsCount(docCount || 0);
+    };
+
+    fetchCounts();
+  }, [patientId, visits]);
+
+  const refreshDocumentsCount = async () => {
+    if (!patientId) return;
+    
+    const { count: docCount } = await supabase
+      .from('patient_documents')
+      .select('*', { count: 'exact', head: true })
+      .eq('patient_id', patientId);
+    
+    setDocumentsCount(docCount || 0);
+  };
+
+  const tabs: TabData[] = [
+    {
+      id: 'ai-intelligence',
+      label: 'Overview',
+      icon: <Sparkles className="w-3.5 h-3.5" />,
+      count: undefined,
+      color: 'from-gray-400 to-gray-600'
+    },
+    {
+      id: 'encounters',
+      label: 'Encounters',
+      icon: <Stethoscope className="w-3.5 h-3.5" />,
+      count: visits.length,
+      color: currentTheme.gradients.button
+    },
+    {
+      id: 'vitals',
+      label: 'Vitals',
+      icon: <Activity className="w-3.5 h-3.5" />,
+      count: vitals.length,
+      color: 'from-red-500 to-rose-600'
+    },
+    {
+      id: 'results',
+      label: 'Results',
+      icon: <TestTube className="w-3.5 h-3.5" />,
+      count: 0, // Will be populated when lab results are added
+      color: 'from-purple-500 to-violet-600'
+    },
+    {
+      id: 'documents',
+      label: 'Documents',
+      icon: <FileText className="w-3.5 h-3.5" />,
+      count: documentsCount,
+      color: 'from-amber-500 to-orange-600'
+    },
+    {
+      id: 'billing',
+      label: 'Billing',
+      icon: <CreditCard className="w-3.5 h-3.5" />,
+      count: billingCount,
+      color: 'from-teal-500 to-cyan-600'
+    },
+    {
+      id: 'audit',
+      label: 'Audit Trail',
+      icon: <Shield className="w-3.5 h-3.5" />,
+      count: 0, // Will be populated when audit logs are added
+      color: 'from-slate-500 to-gray-600'
+    }
+  ];
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'ai-intelligence':
+        return <AIIntelligenceContent 
+          visits={visits} 
+          vitals={vitals} 
+          patientId={patientId}
+          patient={patient}
+          nextOfKin={nextOfKin}
+          medicalAid={medicalAid}
+          onSendSms={onSendSms}
+          onMedicalAidClick={onMedicalAidClick}
+          onMedicalAidLimitClick={onMedicalAidLimitClick}
+          onBillingClick={onBillingClick}
+          selectedInvoice={selectedInvoice}
+          setSelectedInvoice={setSelectedInvoice}
+          isInvoiceModalOpen={isInvoiceModalOpen}
+          setIsInvoiceModalOpen={setIsInvoiceModalOpen}
+          selectedService={selectedService}
+          setSelectedService={setSelectedService}
+          showDetails={showDetails}
+          setShowDetails={setShowDetails}
+        />;
+      case 'encounters':
+        return <EncountersContent 
+          visits={visits} 
+          onVisitClick={(visit) => {
+            setSelectedVisit(visit);
+            setIsVisitModalOpen(true);
+          }}
+          onEditVisit={onEditVisit}
+          onVisitStatusChange={onVisitStatusChange}
+        />;
+      case 'vitals':
+        return <VitalsContent vitals={vitals} />;
+      case 'results':
+        return <ResultsContent />;
+      case 'documents':
+        return <DocumentsContent patientId={patientId} visitId={visits[0]?.id} onCountChange={refreshDocumentsCount} />;
+      case 'billing':
+        return <BillingContent 
+          patientId={patientId}
+          selectedService={selectedService}
+          setSelectedService={setSelectedService}
+          showDetails={showDetails}
+          setShowDetails={setShowDetails}
+          selectedInvoice={selectedInvoice}
+          setSelectedInvoice={setSelectedInvoice}
+          isInvoiceModalOpen={isInvoiceModalOpen}
+          setIsInvoiceModalOpen={setIsInvoiceModalOpen}
+          patient={patient}
+          medicalAid={medicalAid}
+        />;
+      case 'audit':
+        return <AuditTrailContent patientId={patientId} />;
+      default:
+        return <AIIntelligenceContent 
+          visits={visits} 
+          vitals={vitals} 
+          patientId={patientId}
+          selectedInvoice={selectedInvoice}
+          setSelectedInvoice={setSelectedInvoice}
+          isInvoiceModalOpen={isInvoiceModalOpen}
+          setIsInvoiceModalOpen={setIsInvoiceModalOpen}
+          selectedService={selectedService}
+          setSelectedService={setSelectedService}
+          showDetails={showDetails}
+          setShowDetails={setShowDetails}
+        />;
+    }
+  };
+
+  return (
+    <div className="w-full relative">
+      {/* Header with Search and Actions */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent" style={{ fontFamily: 'Poppins, sans-serif' }}>
+            Patient Records
+          </h2>
+          <p className="text-sm text-gray-500 font-medium">
+            Comprehensive medical history and documentation
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          {/* Quick Actions Menu */}
+          <div className="relative">
+            <motion.button
+              whileHover={{ scale: 1.05, y: -2 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onAddVisit}
+              className={`px-4 py-2.5 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-2xl transition-all duration-300 font-semibold text-sm`}
+              style={{
+                boxShadow: `0 25px 50px -12px ${currentTheme.colors.primary.from}30`
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              Add New Visit
+            </motion.button>
+          </div>
+        </div>
+      </div>
+
+      {/* Clean professional tabs */}
+      <div className="relative mb-6">
+        <div className="flex items-center gap-1 relative z-10 bg-gray-100 rounded-lg p-1">
+          {tabs.map((tab, index) => {
+            const isActive = activeTab === tab.id;
+            
+            // Get content area colors
+            const getTabColors = () => {
+              switch(tab.id) {
+                case 'ai-intelligence': return {
+                  gradient: currentTheme.gradients.sidebar,
+                  textColor: isActive ? 'text-purple-700' : 'text-gray-600',
+                  borderColor: 'border-purple-200/50'
+                };
+                case 'encounters': return {
+                  gradient: currentTheme.gradients.button, 
+                  textColor: isActive ? 'text-white' : 'text-gray-600',
+                  borderColor: isActive ? `border-${currentTheme.colors.primary.from}/50` : 'border-gray-200/50'
+                };
+                case 'vitals': return {
+                  gradient: 'from-red-500 to-rose-600',
+                  textColor: isActive ? 'text-red-700' : 'text-gray-600', 
+                  borderColor: 'border-red-200/50'
+                };
+                case 'results': return {
+                  gradient: 'from-purple-500 to-violet-600',
+                  textColor: isActive ? 'text-purple-700' : 'text-gray-600',
+                  borderColor: 'border-purple-200/50'
+                };
+                case 'documents': return {
+                  gradient: 'from-amber-500 to-orange-600',
+                  textColor: isActive ? 'text-amber-700' : 'text-gray-600',
+                  borderColor: 'border-amber-200/50'
+                };
+                case 'billing': return {
+                  gradient: currentTheme.gradients.sidebar,
+                  textColor: isActive ? 'text-teal-700' : 'text-gray-600',
+                  borderColor: 'border-teal-200/50'
+                };
+                case 'audit': return {
+                  gradient: 'from-slate-500 to-gray-600',
+                  textColor: isActive ? 'text-slate-700' : 'text-gray-600',
+                  borderColor: 'border-slate-200/50'
+                };
+                default: return {
+                  gradient: 'from-purple-500 to-pink-600',
+                  textColor: isActive ? 'text-purple-700' : 'text-gray-600',
+                  borderColor: 'border-purple-200/50'
+                };
+              }
+            };
+            
+            const colors = getTabColors();
+            
+            return (
+              <motion.button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  relative flex-1 px-4 py-2.5 rounded-md font-medium text-sm
+                  transition-all duration-200 flex items-center justify-center gap-2 min-w-0 
+                  ${isActive 
+                    ? `bg-white text-gray-900 shadow-sm ${colors.textColor}` 
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 border border-dashed border-gray-300'
+                  }
+                `}
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+              >
+                {/* Clean minimal icon */}
+                <div className={`transition-colors duration-200 ${isActive ? colors.textColor : 'text-gray-500'}`}>
+                  {tab.icon}
+                </div>
+                
+                {/* Tab label */}
+                <span className={`font-medium truncate whitespace-nowrap transition-colors duration-300 ${colors.textColor}`} style={{ fontFamily: 'Poppins, sans-serif' }}>{tab.label}</span>
+                
+                {/* Clean count badge */}
+                {tab.count !== undefined && tab.count > 0 && (
+                  <span className={`
+                    px-2 py-0.5 rounded text-xs font-medium min-w-[20px] text-center transition-colors duration-200
+                    ${isActive 
+                      ? 'bg-gray-200 text-gray-700' 
+                      : 'bg-gray-300 text-gray-600'
+                    }
+                  `} style={{ fontFamily: 'Rubik, sans-serif' }}>
+                    {tab.count}
+                  </span>
+                )}
+                
+              </motion.button>
+            );
+          })}
+        </div>
+        
+        {/* Content container with subtle gradient */}
+        <div className="bg-gradient-to-br from-gray-50 to-white rounded-3xl shadow-2xl relative z-10 border border-gray-100/50">
+          <div className="bg-white rounded-[1.25rem] overflow-hidden">
+          <div className="p-6">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.1 }}
+              >
+                {renderTabContent()}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Premium Visit Modal */}
+      <PremiumVisitModal
+        isOpen={isVisitModalOpen}
+        onClose={() => {
+          setIsVisitModalOpen(false);
+          setSelectedVisit(null);
+        }}
+        visit={selectedVisit}
+        onEdit={() => {
+          setIsVisitModalOpen(false);
+          if (selectedVisit && onEditVisit) {
+            onEditVisit(selectedVisit);
+          }
+        }}
+        onStatusChange={(status) => {
+          if (selectedVisit && onVisitStatusChange) {
+            onVisitStatusChange(selectedVisit.id, status);
+          }
+        }}
+      />
+
+      {/* Invoice Details Modal */}
+      <InvoiceDetailsModal
+        isOpen={isInvoiceModalOpen}
+        onClose={() => {
+          setIsInvoiceModalOpen(false);
+          setSelectedInvoice(null);
+        }}
+        invoice={selectedInvoice}
+      />
+    </div>
+  );
+};
 
 export default PremiumFolderTabs;
