@@ -2067,5 +2067,6 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
     </div>
   );
 };
+};
 
 export default PremiumFolderTabs;
