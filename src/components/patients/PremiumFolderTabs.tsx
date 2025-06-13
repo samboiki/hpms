@@ -483,7 +483,10 @@ const EncountersContent: React.FC<{
   onVisitClick?: (visit: Visit) => void;
   onEditVisit?: (visit: Visit) => void;
   onVisitStatusChange?: (visitId: string, status: string) => void;
-}> = ({ visits, onVisitClick, onEditVisit, onVisitStatusChange }) => (
+}> = ({ visits, onVisitClick, onEditVisit, onVisitStatusChange }) => {
+  const { currentTheme } = useTheme();
+  
+  return (
   <div className="space-y-6">
     <div className="flex items-center justify-between">
       <div>
@@ -581,6 +584,7 @@ const EncountersContent: React.FC<{
 
 // Audit Trail Content Component
 const AuditTrailContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
+  const { currentTheme } = useTheme();
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'create' | 'update' | 'delete' | 'login'>('all');
@@ -823,7 +827,10 @@ const AuditTrailContent: React.FC<{ patientId?: string }> = ({ patientId }) => {
 };
 
 // Vitals Content Component
-const VitalsContent: React.FC<{ vitals: Vital[] }> = ({ vitals }) => (
+const VitalsContent: React.FC<{ vitals: Vital[] }> = ({ vitals }) => {
+  const { currentTheme } = useTheme();
+  
+  return (
   <div className="space-y-6">
     <div className="flex items-center justify-between">
       <div>
@@ -890,10 +897,14 @@ const VitalsContent: React.FC<{ vitals: Vital[] }> = ({ vitals }) => (
       </div>
     )}
   </div>
-);
+  );
+};
 
 // Results Content Component
-const ResultsContent: React.FC = () => (
+const ResultsContent: React.FC = () => {
+  const { currentTheme } = useTheme();
+  
+  return (
   <div className="space-y-6">
     <div className="flex items-center justify-between">
       <div>
@@ -920,10 +931,12 @@ const ResultsContent: React.FC = () => (
       </div>
     </div>
   </div>
-);
+  );
+};
 
 // Documents Content Component
 const DocumentsContent: React.FC<{ patientId: string; visitId?: string; onCountChange?: () => void }> = ({ patientId, visitId, onCountChange }) => {
+  const { currentTheme } = useTheme();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -1063,6 +1076,7 @@ const BillingContent: React.FC<{
   patient?: any;
   medicalAid?: any;
 }> = ({ patientId, selectedService, setSelectedService, showDetails, setShowDetails, selectedInvoice, setSelectedInvoice, isInvoiceModalOpen, setIsInvoiceModalOpen, patient, medicalAid }) => {
+  const { currentTheme } = useTheme();
   const [services, setServices] = useState<any[]>([]);
   const [billingStats, setBillingStats] = useState<any>({
     totalServices: 0,
