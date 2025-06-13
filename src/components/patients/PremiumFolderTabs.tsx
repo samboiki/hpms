@@ -2087,5 +2087,6 @@ const AIIntelligenceContent: React.FC<{
     </>
   );
 };
+}
 
 export default PremiumFolderTabs;
