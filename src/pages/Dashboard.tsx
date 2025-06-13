@@ -121,6 +121,8 @@ function Dashboard() {
   const [isEnhancedFinancialModalOpen, setIsEnhancedFinancialModalOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
+  const [showYearDropdown, setShowYearDropdown] = useState(false);
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const navigate = useNavigate();
 
   // Close calendar picker when clicking backdrop or pressing Escape
@@ -128,6 +130,8 @@ function Dashboard() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && showCalendarPicker) {
         setShowCalendarPicker(false);
+        setShowYearDropdown(false);
+        setShowMonthDropdown(false);
       }
     };
 
@@ -135,6 +139,10 @@ function Dashboard() {
       document.addEventListener('keydown', handleKeyDown);
       // Prevent body scroll when modal is open
       document.body.style.overflow = 'hidden';
+    } else {
+      // Close dropdowns when modal closes
+      setShowYearDropdown(false);
+      setShowMonthDropdown(false);
     }
 
     return () => {
@@ -1433,7 +1441,11 @@ function Dashboard() {
           {/* Modal Backdrop */}
           <div 
             className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-            onClick={() => setShowCalendarPicker(false)}
+            onClick={() => {
+              setShowCalendarPicker(false);
+              setShowYearDropdown(false);
+              setShowMonthDropdown(false);
+            }}
           />
           
           {/* Calendar Modal */}
@@ -1443,12 +1455,21 @@ function Dashboard() {
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 mx-4 w-full max-w-[380px]"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              // Close dropdowns when clicking elsewhere in modal
+              setShowYearDropdown(false);
+              setShowMonthDropdown(false);
+            }}
           >
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-gray-900">Select Date</h3>
               <button
-                onClick={() => setShowCalendarPicker(false)}
+                onClick={() => {
+                  setShowCalendarPicker(false);
+                  setShowYearDropdown(false);
+                  setShowMonthDropdown(false);
+                }}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
                 <X className="w-5 h-5 text-gray-500" />
@@ -1463,9 +1484,82 @@ function Dashboard() {
               >
                 <ChevronLeft className="w-5 h-5 text-gray-700" />
               </button>
-              <h4 className="text-2xl font-bold text-gray-800">
-                {format(selectedDate, 'MMMM yyyy')}
-              </h4>
+              
+              {/* Month and Year Dropdowns */}
+              <div className="flex items-center gap-2">
+                {/* Month Dropdown */}
+                <div className="relative" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => {
+                      setShowMonthDropdown(!showMonthDropdown);
+                      setShowYearDropdown(false);
+                    }}
+                    className="px-4 py-2 text-lg font-bold text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    {format(selectedDate, 'MMMM')}
+                    <ChevronLeft className={`w-4 h-4 transition-transform ${showMonthDropdown ? 'rotate-90' : '-rotate-90'}`} />
+                  </button>
+                  
+                  {showMonthDropdown && (
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[140px] max-h-[200px] overflow-y-auto">
+                      {Array.from({ length: 12 }, (_, i) => {
+                        const monthDate = new Date(selectedDate.getFullYear(), i, 1);
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              setSelectedDate(new Date(selectedDate.getFullYear(), i, selectedDate.getDate()));
+                              setShowMonthDropdown(false);
+                            }}
+                            className={`w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors ${
+                              i === selectedDate.getMonth() ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'
+                            }`}
+                          >
+                            {format(monthDate, 'MMMM')}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Year Dropdown */}
+                <div className="relative" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => {
+                      setShowYearDropdown(!showYearDropdown);
+                      setShowMonthDropdown(false);
+                    }}
+                    className="px-4 py-2 text-lg font-bold text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    {format(selectedDate, 'yyyy')}
+                    <ChevronLeft className={`w-4 h-4 transition-transform ${showYearDropdown ? 'rotate-90' : '-rotate-90'}`} />
+                  </button>
+                  
+                  {showYearDropdown && (
+                    <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[100px] max-h-[200px] overflow-y-auto">
+                      {Array.from({ length: 100 }, (_, i) => {
+                        const year = new Date().getFullYear() - 50 + i;
+                        return (
+                          <button
+                            key={year}
+                            onClick={() => {
+                              setSelectedDate(new Date(year, selectedDate.getMonth(), selectedDate.getDate()));
+                              setShowYearDropdown(false);
+                            }}
+                            className={`w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors ${
+                              year === selectedDate.getFullYear() ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'
+                            }`}
+                          >
+                            {year}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
               <button
                 onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
                 className="p-3 hover:bg-gray-100 rounded-full transition-colors"
@@ -1494,6 +1588,8 @@ function Dashboard() {
                     onClick={() => {
                       setSelectedDate(day);
                       setShowCalendarPicker(false);
+                      setShowYearDropdown(false);
+                      setShowMonthDropdown(false);
                     }}
                     className={`h-12 w-12 text-sm rounded-xl transition-all duration-200 font-medium flex items-center justify-center ${
                       dayIsSelected
@@ -1514,13 +1610,19 @@ function Dashboard() {
                 onClick={() => {
                   setSelectedDate(new Date());
                   setShowCalendarPicker(false);
+                  setShowYearDropdown(false);
+                  setShowMonthDropdown(false);
                 }}
                 className={`flex-1 px-4 py-3 text-sm bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl transition-all font-semibold hover:shadow-lg`}
               >
                 Today
               </button>
               <button
-                onClick={() => setShowCalendarPicker(false)}
+                onClick={() => {
+                  setShowCalendarPicker(false);
+                  setShowYearDropdown(false);
+                  setShowMonthDropdown(false);
+                }}
                 className="flex-1 px-4 py-3 text-sm bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors font-semibold"
               >
                 Cancel
