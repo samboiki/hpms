@@ -29,7 +29,7 @@ const Header: React.FC = () => {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-gray-100 px-6 flex items-center justify-end">
+    <header className="h-16 bg-white border-b border-gray-100 px-6 flex items-center justify-end relative z-[100]">
       <div className="flex items-center space-x-4">
         {/* Practice Switcher - only show for super admins or multi-practice users */}
         <PracticeSwitcher />
@@ -70,7 +70,7 @@ const Header: React.FC = () => {
           </Button>
 
           {isDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50 border border-gray-100">
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-[9999] border border-gray-100">
               <div className="px-4 py-2 border-b border-gray-100">
                 <p className="text-sm font-medium text-gray-900">{user?.name}</p>
                 <p className="text-xs text-gray-500">{user?.email}</p>
