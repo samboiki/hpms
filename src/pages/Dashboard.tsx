@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Activity, 
@@ -13,7 +13,9 @@ import {
   DollarSign,
   Building2,
   ChevronLeft,
-  X
+  X,
+  Settings,
+  LogOut
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -85,7 +87,7 @@ interface ActivityItem {
 }
 
 function Dashboard() {
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { currentTheme } = useTheme();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -123,7 +125,14 @@ function Dashboard() {
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
+  const avatarButtonRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   // Close calendar picker when clicking backdrop or pressing Escape
   useEffect(() => {
@@ -817,8 +826,8 @@ function Dashboard() {
   );
   const pendingAppointments = appointments.filter(apt => apt.status === 'pending');
   const completedToday = todayAppointments.filter(apt => apt.status === 'completed').length;
-  const scheduledToday = todayAppointments.filter(apt => apt.status === 'scheduled').length;
-  const inProgressAppointments = appointments.filter(apt => apt.status === 'in-progress');
+  // const scheduledToday = todayAppointments.filter(apt => apt.status === 'scheduled').length;
+  // const inProgressAppointments = appointments.filter(apt => apt.status === 'in-progress');
 
 
   return (
@@ -841,24 +850,91 @@ function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center justify-end">
-                {/* User Avatar */}
+                {/* User Avatar with Dropdown */}
                 {user && (
-                  <div className="relative group">
-                    {/* Pulsating outer ring */}
-                    <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
-                    <div className={`absolute -inset-1 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full opacity-50`}></div>
-                    
-                    {/* Avatar circle */}
-                    <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
-                      <img 
-                        src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                        alt={user.name}
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
-                        }}
-                      />
-                    </div>
+                  <div className="relative">
+                    <button
+                      ref={avatarButtonRef}
+                      onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
+                      className="relative group focus:outline-none"
+                    >
+                      {/* Pulsating outer ring */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
+                      <div className={`absolute -inset-1 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full opacity-50`}></div>
+                      
+                      {/* Avatar circle */}
+                      <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                        <img 
+                          src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
+                          alt={user.name}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
+                          }}
+                        />
+                      </div>
+                    </button>
+
+                    {/* Dropdown Menu - Using Portal for maximum z-index control */}
+                    {isAvatarDropdownOpen && createPortal(
+                      <>
+                        {/* Backdrop to close dropdown */}
+                        <div 
+                          className="fixed inset-0 z-[99998]" 
+                          onClick={() => setIsAvatarDropdownOpen(false)}
+                        />
+                        
+                        {/* Dropdown Menu */}
+                        <div 
+                          style={{
+                            position: 'fixed',
+                            top: avatarButtonRef.current ? avatarButtonRef.current.getBoundingClientRect().bottom + 8 : 0,
+                            right: avatarButtonRef.current ? window.innerWidth - avatarButtonRef.current.getBoundingClientRect().right : 0,
+                            zIndex: 99999
+                          }}
+                          className="w-56 bg-white rounded-lg shadow-2xl border border-gray-200 py-2 animate-in fade-in slide-in-from-top-2 duration-200"
+                        >
+                          {/* User Info */}
+                          <div className="px-4 py-3 border-b border-gray-100">
+                            <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                            <p className="text-xs text-gray-500">{user.email}</p>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#01b9d5]/10 text-[#01b9d5] mt-1">
+                              {user.role}
+                            </span>
+                          </div>
+                          
+                          {/* Menu Items */}
+                          <div className="py-1">
+                            <button
+                              onClick={() => {
+                                setIsAvatarDropdownOpen(false);
+                                navigate('/settings');
+                              }}
+                              className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                            >
+                              <Settings className="w-4 h-4" />
+                              Settings
+                            </button>
+                            
+                            <div className="border-t border-gray-100 my-1" />
+                            
+                            <button
+                              onClick={() => {
+                                if (confirm('Are you sure you want to logout?')) {
+                                  setIsAvatarDropdownOpen(false);
+                                  handleLogout();
+                                }
+                              }}
+                              className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
+                            >
+                              <LogOut className="w-4 h-4" />
+                              Logout
+                            </button>
+                          </div>
+                        </div>
+                      </>,
+                      document.body
+                    )}
                   </div>
                 )}
               </div>
