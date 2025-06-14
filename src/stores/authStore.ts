@@ -158,13 +158,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
   logout: async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      console.log('🔐 Starting logout process...');
+      
+      // Clear auth state immediately to prevent any race conditions
       set({ isAuthenticated: false, user: null, selectedPracticeId: null });
-      console.log('👋 Logged out successfully');
+      
+      // Clear any cached data
+      localStorage.removeItem('supabase.auth.token');
+      sessionStorage.clear();
+      
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('⚠️ Supabase signOut error:', error);
+        // Don't throw here - we've already cleared local state
+      }
+      
+      console.log('✅ Logout completed successfully');
     } catch (error) {
-      console.error('Logout error:', error);
-      throw error;
+      console.error('❌ Unexpected logout error:', error);
+      // Still ensure state is cleared even if there's an error
+      set({ isAuthenticated: false, user: null, selectedPracticeId: null });
     }
   },
   switchPractice: async (practiceId: string) => {

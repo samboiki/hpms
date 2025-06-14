@@ -14,7 +14,6 @@ import {
   Building2,
   ChevronLeft,
   X,
-  Settings,
   LogOut
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -129,9 +128,15 @@ function Dashboard() {
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  const handleLogout = async () => {
+    // Clear any pending navigation
+    window.history.replaceState(null, '', '/login');
+    
+    // Perform logout
+    await logout();
+    
+    // Force navigation to login
+    window.location.href = '/login';
   };
 
   // Close calendar picker when clicking backdrop or pressing Escape
@@ -875,62 +880,70 @@ function Dashboard() {
                       </div>
                     </button>
 
-                    {/* Dropdown Menu - Using Portal for maximum z-index control */}
+                    {/* Premium Dropdown Modal - Using Portal for maximum z-index control */}
                     {isAvatarDropdownOpen && createPortal(
                       <>
-                        {/* Backdrop to close dropdown */}
+                        {/* Backdrop */}
                         <div 
-                          className="fixed inset-0 z-[99998]" 
+                          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[99998] animate-in fade-in duration-200" 
                           onClick={() => setIsAvatarDropdownOpen(false)}
                         />
                         
-                        {/* Dropdown Menu */}
+                        {/* Premium Modal Dropdown */}
                         <div 
                           style={{
                             position: 'fixed',
-                            top: avatarButtonRef.current ? avatarButtonRef.current.getBoundingClientRect().bottom + 8 : 0,
+                            top: avatarButtonRef.current ? avatarButtonRef.current.getBoundingClientRect().bottom + 16 : 0,
                             right: avatarButtonRef.current ? window.innerWidth - avatarButtonRef.current.getBoundingClientRect().right : 0,
                             zIndex: 99999
                           }}
-                          className="w-56 bg-white rounded-lg shadow-2xl border border-gray-200 py-2 animate-in fade-in slide-in-from-top-2 duration-200"
+                          className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 w-[320px] animate-in fade-in slide-in-from-top-3 duration-300"
                         >
-                          {/* User Info */}
-                          <div className="px-4 py-3 border-b border-gray-100">
-                            <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                            <p className="text-xs text-gray-500">{user.email}</p>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#01b9d5]/10 text-[#01b9d5] mt-1">
-                              {user.role}
-                            </span>
+                          {/* Header */}
+                          <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-bold text-gray-900">User Profile</h3>
+                            <button 
+                              onClick={() => setIsAvatarDropdownOpen(false)}
+                              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                              <X className="w-5 h-5 text-gray-500" />
+                            </button>
                           </div>
                           
-                          {/* Menu Items */}
-                          <div className="py-1">
-                            <button
-                              onClick={() => {
-                                setIsAvatarDropdownOpen(false);
-                                navigate('/settings');
-                              }}
-                              className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
-                            >
-                              <Settings className="w-4 h-4" />
-                              Settings
-                            </button>
-                            
-                            <div className="border-t border-gray-100 my-1" />
-                            
-                            <button
-                              onClick={() => {
-                                if (confirm('Are you sure you want to logout?')) {
-                                  setIsAvatarDropdownOpen(false);
-                                  handleLogout();
-                                }
-                              }}
-                              className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
-                            >
-                              <LogOut className="w-4 h-4" />
-                              Logout
-                            </button>
+                          {/* User Info Card */}
+                          <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl p-4 mb-6">
+                            <div className="flex items-center gap-4">
+                              <div className="relative">
+                                <div className="h-14 w-14 rounded-full overflow-hidden border-3 border-white shadow-lg">
+                                  <img 
+                                    src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
+                                    alt={user.name}
+                                    className="h-full w-full object-cover"
+                                  />
+                                </div>
+                                <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-base font-semibold text-gray-900">{user.name}</p>
+                                <p className="text-sm text-gray-500">{user.email}</p>
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-[#01b9d5] to-[#4bc0c8] text-white mt-1">
+                                  {user.role}
+                                </span>
+                              </div>
+                            </div>
                           </div>
+                          
+                          {/* Logout Button */}
+                          <button
+                            onClick={() => {
+                              setIsAvatarDropdownOpen(false);
+                              handleLogout();
+                            }}
+                            className="w-full px-4 py-3 text-sm bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl transition-all font-semibold hover:shadow-lg hover:scale-[1.02] flex items-center justify-center gap-2"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            Logout
+                          </button>
                         </div>
                       </>,
                       document.body

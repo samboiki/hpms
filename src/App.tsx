@@ -76,6 +76,7 @@ function App() {
           }}
         />
         <Routes>
+          <Route path="/login" element={<Login />} />
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="patients" element={<Patients />} />
