@@ -481,14 +481,85 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     if (!practiceId) {
       console.warn('❌ No practice ID found (neither selectedPracticeId nor user.practice_id)');
       console.log('🔧 Available user fields:', user ? Object.keys(user) : 'No user');
+      
+      // For super admins or users without practice ID, try to get the first available practice
+      if (user?.is_super_admin) {
+        console.log('🔧 User is super admin, trying to get first practice...');
+        try {
+          const { data: practices, error } = await supabase
+            .from('practices')
+            .select('id, name')
+            .limit(1);
+          
+          if (!error && practices && practices.length > 0) {
+            const firstPracticeId = practices[0].id;
+            console.log('✅ Using first practice:', firstPracticeId, practices[0].name);
+            // Continue with this practice ID
+            await fetchBatchDataForPractice(firstPracticeId);
+            return;
+          } else {
+            console.log('❌ No practices found in database');
+          }
+        } catch (error) {
+          console.error('❌ Error fetching practices:', error);
+        }
+      }
+      
+      // Set empty batches and return
+      setBatches([]);
       return;
     }
     
+    await fetchBatchDataForPractice(practiceId);
+  }, [selectedPracticeId, user, batchFilters]);
+
+  // Helper function to fetch batch data for a specific practice
+  const fetchBatchDataForPractice = async (practiceId: string) => {
     console.log('✅ Using practice ID:', practiceId);
     
     setBatchLoading(true);
     try {
-      // Method 1: Try using the RPC function if it exists
+      // Method 1: Try using the simple RPC function (best compatibility)
+      console.log('🔍 Attempting to use get_practice_batches_simple function...');
+      try {
+        const { data: simpleData, error: simpleRpcError } = await supabase
+          .rpc('get_practice_batches_simple', { 
+            p_practice_id: practiceId 
+          });
+        
+        if (!simpleRpcError && simpleData && simpleData.length > 0) {
+          console.log('✅ Successfully fetched batches using simple RPC function');
+          console.log('📊 Found batches count:', simpleData.length);
+          setBatches(simpleData);
+          return;
+        } else if (simpleRpcError) {
+          console.log('⚠️ get_practice_batches_simple RPC error:', simpleRpcError.message);
+        }
+      } catch (simpleRpcErr) {
+        console.log('⚠️ Simple RPC function not available, trying with doctors...');
+      }
+
+      // Method 2: Try using the detailed RPC function with doctor info
+      console.log('🔍 Attempting to use get_practice_batches_with_doctors function...');
+      try {
+        const { data: doctorData, error: doctorRpcError } = await supabase
+          .rpc('get_practice_batches_with_doctors', { 
+            p_practice_id: practiceId 
+          });
+        
+        if (!doctorRpcError && doctorData && doctorData.length > 0) {
+          console.log('✅ Successfully fetched batches using doctor RPC function');
+          console.log('📊 Found batches count:', doctorData.length);
+          setBatches(doctorData);
+          return;
+        } else if (doctorRpcError) {
+          console.log('⚠️ get_practice_batches_with_doctors RPC error:', doctorRpcError.message);
+        }
+      } catch (doctorRpcErr) {
+        console.log('⚠️ Doctor RPC function not available, falling back to original...');
+      }
+
+      // Method 3: Try the original RPC functions as fallback
       console.log('🔍 Attempting to use get_practice_batches function...');
       try {
         const { data: batchData, error: rpcError } = await supabase
@@ -496,28 +567,21 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
             p_practice_id: practiceId 
           });
         
-        if (!rpcError && batchData) {
-          console.log('✅ Successfully fetched batches using RPC function');
+        if (!rpcError && batchData && batchData.length > 0) {
+          console.log('✅ Successfully fetched batches using original RPC function');
           console.log('📊 Found batches count:', batchData.length);
-          
-          // Add missing logo_url and theme_color if not returned by RPC
-          const enhancedBatches = batchData.map(batch => ({
-            ...batch,
-            medical_aid_logo_url: batch.medical_aid_logo_url || null,
-            medical_aid_theme_color: batch.medical_aid_theme_color || null
-          }));
-          
-          setBatches(enhancedBatches);
+          setBatches(batchData);
           return;
+        } else if (rpcError) {
+          console.log('⚠️ get_practice_batches RPC error:', rpcError.message);
         }
       } catch (rpcErr) {
-        console.log('⚠️ RPC function not available, falling back to direct query');
+        console.log('⚠️ Original RPC function not available, trying direct...');
       }
       
-      // Method 2: Fallback to direct query with practice number lookup
+      // Method 4: Fallback to practice number lookup and view query
       console.log('🏥 Fetching practice data for ID:', practiceId);
       
-      // First get the practice details to find practice_number
       const { data: practiceData, error: practiceError } = await supabase
         .from('practices')
         .select('id, name, practice_number')
@@ -527,7 +591,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
       if (practiceError) {
         console.error('❌ Practice query error:', practiceError);
         
-        // If practice not found, try direct batch_headers query by practice_id
+        // Method 5: Try direct batch_headers query by practice_id
         console.log('🔄 Trying direct batch_headers query by practice_id...');
         const { data: directBatches, error: directError } = await supabase
           .from('batch_headers')
@@ -548,7 +612,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
           .eq('practice_id', practiceId)
           .order('created_at', { ascending: false });
         
-        if (!directError && directBatches) {
+        if (!directError && directBatches && directBatches.length > 0) {
           console.log('✅ Found batches using direct query:', directBatches.length);
           
           // Transform to match the view structure
@@ -559,79 +623,70 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
             batch_date: batch.batch_date,
             medical_aid_reference: batch.medical_aid_reference,
             status: batch.status,
-            total_invoices: batch.total_invoices,
-            total_amount: batch.total_amount,
+            total_invoices: batch.total_invoices || 0,
+            total_amount: batch.total_amount || 0,
             created_at: batch.created_at,
             sent_at: batch.sent_at,
             confirmed_at: batch.confirmed_at,
-            medical_aid_name: batch.medical_aid_providers?.name,
-            medical_aid_short_name: batch.medical_aid_providers?.short_name,
-            medical_aid_email: batch.medical_aid_providers?.email,
+            medical_aid_name: batch.medical_aid_providers?.name || 'Unknown Medical Aid',
+            medical_aid_short_name: batch.medical_aid_providers?.short_name || 'UNK',
+            medical_aid_email: batch.medical_aid_providers?.email || 'unknown@example.com',
             medical_aid_logo_url: batch.medical_aid_providers?.logo_url,
             medical_aid_theme_color: batch.medical_aid_providers?.theme_color,
-            practice_name: batch.practices?.name,
-            practice_email: batch.practices?.contact_email,
+            practice_name: batch.practices?.name || 'Unknown Practice',
+            practice_email: batch.practices?.contact_email || 'unknown@example.com',
             detail_transactions: 0, // Would need separate query
             total_detail_transactions: 0,
             total_amount_detail_transactions: 0,
-            dat_filename: `${batch.practice_number}_${batch.batch_number}_${batch.medical_aid_reference}`
+            dat_filename: `${batch.practice_number || 'UNKNOWN'}_${batch.batch_number || 1}_${batch.medical_aid_reference}`
           }));
           
           setBatches(transformedBatches);
           return;
         }
         
-        setBatches([]);
-        return;
-      }
-      
-      console.log('🏥 Practice found:', practiceData);
-      
-      // Now query using practice_number if available
-      if (practiceData.practice_number) {
-        console.log('🔍 Querying batches with practice_number:', practiceData.practice_number);
+        console.log('❌ No batches found via direct query, checking system-wide...');
+      } else {
+        console.log('🏥 Practice found:', practiceData);
         
-        // Try the view first with join for logo and theme
-        const { data: batchData, error: batchError } = await supabase
-          .from('batch_management_view')
-          .select(`
-            *,
-            medical_aid_providers!medical_aid_reference (
-              logo_url,
-              theme_color
-            )
-          `)
-          .eq('practice_number', practiceData.practice_number)
-          .order('created_at', { ascending: false });
-        
-        if (!batchError && batchData) {
-          console.log('✅ Found batches:', batchData.length);
+        // Method 6: Query using practice_number if available
+        if (practiceData.practice_number) {
+          console.log('🔍 Querying batches with practice_number:', practiceData.practice_number);
           
-          // Flatten the joined data
-          const enhancedBatches = batchData.map(batch => ({
-            ...batch,
-            medical_aid_logo_url: batch.medical_aid_providers?.logo_url || null,
-            medical_aid_theme_color: batch.medical_aid_providers?.theme_color || null
-          }));
+          const { data: batchData, error: batchError } = await supabase
+            .from('batch_management_view')
+            .select('*')
+            .eq('practice_number', practiceData.practice_number)
+            .order('created_at', { ascending: false });
           
-          setBatches(enhancedBatches);
-          return;
-        }
-        
-        if (batchError) {
-          console.error('❌ Batch query error:', batchError);
+          if (!batchError && batchData && batchData.length > 0) {
+            console.log('✅ Found batches via practice_number:', batchData.length);
+            setBatches(batchData);
+            return;
+          }
+          
+          if (batchError) {
+            console.error('❌ Batch view query error:', batchError);
+          }
         }
       }
       
-      // Final fallback: check if there are any batches in the system
+      // Method 7: Final fallback - check if there are any batches in the system
       console.log('🔍 Checking for any batches in the system...');
       const { data: anyBatches, count } = await supabase
         .from('batch_management_view')
         .select('*', { count: 'exact', head: false })
-        .limit(5);
+        .limit(10);
       
       console.log('📊 Total batches in system:', count);
       console.log('📋 Sample batches:', anyBatches);
+      
+      if (anyBatches && anyBatches.length > 0) {
+        console.log('⚠️ Found batches in system but none for this practice');
+        console.log('🔧 Consider checking practice_number mapping');
+      } else {
+        console.log('ℹ️ No batches found in the entire system - this is normal for new installations');
+      }
       
       setBatches([]);
       
@@ -641,7 +696,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     } finally {
       setBatchLoading(false);
     }
-  }, [selectedPracticeId, user, batchFilters]);
+  };
 
   // --- Function to handle individual batch submission ---
   const handleIndividualSubmit = async (batchId: string) => {
