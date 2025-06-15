@@ -46,13 +46,37 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return false;
         }
 
-        // Use auth user data as fallback
+        // First try to get user data from users table
+        let dbUser = null;
+        try {
+          const { data } = await supabase
+            .from('users')
+            .select('id, email, full_name, role, avatar, practice_id, is_super_admin, can_manage_practices, permissions, last_active_at')
+            .eq('id', session.user.id)
+            .single();
+          dbUser = data;
+        } catch (e) {
+          console.log('No user found in database, using auth metadata');
+        }
+
+        // Use database user data if available, otherwise fallback to auth metadata
         const authUser = session.user;
-        const user: User = {
+        const user: User = dbUser ? {
+          id: dbUser.id,
+          email: dbUser.email,
+          name: dbUser.full_name,
+          role: dbUser.role,
+          avatar: dbUser.avatar || null,
+          practice_id: dbUser.practice_id,
+          is_super_admin: dbUser.is_super_admin || false,
+          can_manage_practices: dbUser.can_manage_practices || false,
+          permissions: dbUser.permissions || {},
+          last_active_at: dbUser.last_active_at
+        } : {
           id: authUser.id,
           email: authUser.email || email,
           name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
-          role: (authUser.user_metadata?.role as any) || 'admin',
+          role: (authUser.user_metadata?.role as any) || 'doctor',
           avatar: authUser.user_metadata?.avatar || null,
           practice_id: authUser.user_metadata?.practice_id || null,
           is_super_admin: authUser.user_metadata?.is_super_admin || false,
@@ -117,7 +141,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           id: authUser.id,
           email: authUser.email || email,
           name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
-          role: (authUser.user_metadata?.role as any) || 'admin',
+          role: (authUser.user_metadata?.role as any) || 'doctor',
           avatar: authUser.user_metadata?.avatar || null,
           practice_id: authUser.user_metadata?.practice_id || null,
           is_super_admin: authUser.user_metadata?.is_super_admin || false,

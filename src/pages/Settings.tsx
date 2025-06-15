@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Settings as SettingsIcon, 
   User, 
@@ -20,11 +20,13 @@ import {
   Sparkles,
   Palette,
   Save,
-  Camera
+  Camera,
+  Plus
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { useAuthStore } from '../stores/authStore';
+import { supabase } from '../lib/supabase';
 import { useTheme } from '../stores/themeStore';
 import { motion } from 'framer-motion';
 
@@ -135,27 +137,6 @@ const Settings: React.FC = () => {
                 </Card>
               )}
               
-              {/* Quick Actions Card */}
-              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4" />
-                    Quick Actions
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 pt-0">
-                  <div className="space-y-2">
-                    <button className="w-full text-left p-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all flex items-center gap-2">
-                      <Save className="w-4 h-4" />
-                      Export Settings
-                    </button>
-                    <button className="w-full text-left p-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all flex items-center gap-2">
-                      <Palette className="w-4 h-4" />
-                      Theme Preview
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
             </div>
           </div>
 
@@ -763,10 +744,40 @@ const Settings: React.FC = () => {
 
 // Practice Profile Component
 const PracticeProfileContent: React.FC = () => {
+  const { user } = useAuthStore();
   const [practiceTab, setPracticeTab] = useState<'profile' | 'staff' | 'hours'>('profile');
+  const [practiceData, setPracticeData] = useState({
+    id: '',
+    name: '',
+    logo_url: '',
+    address: '',
+    city: '',
+    postal_code: '',
+    country: 'Namibia',
+    contact_phone: '',
+    contact_email: '',
+    about_text: '',
+    website_url: '',
+    business_hours: {} as any,
+    services: [] as any[],
+    social_links: {} as any,
+    primary_color: '#01b9d5',
+    secondary_color: '#0196be',
+    hero_title: '',
+    hero_subtitle: '',
+    license_number: '',
+    practice_number: '',
+    tax_number: ''
+  });
+  const [staff, setStaff] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [formData, setFormData] = useState(practiceData);
   
-  // Mock practice data
-  const practiceData = {
+  // Default mock data structure (keeping for reference)
+  const defaultMockData = {
     name: 'HealthCare Medical Center',
     logo: 'https://images.pexels.com/photos/5412/water-blue-ocean.jpg?auto=compress&cs=tinysrgb&w=300',
     address: '123 Main Street, Suite 100, Anytown, CA 94321',
@@ -822,6 +833,231 @@ const PracticeProfileContent: React.FC = () => {
       },
     ],
   };
+
+  // Load practice data from database
+  useEffect(() => {
+    const loadPracticeData = async () => {
+      if (!user?.practice_id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        console.log('📊 Loading practice data for ID:', user.practice_id);
+        
+        const { data: practice, error } = await supabase
+          .from('practices')
+          .select('*')
+          .eq('id', user.practice_id)
+          .single();
+
+        if (error) {
+          console.error('❌ Error loading practice data:', error);
+          return;
+        }
+
+        if (practice) {
+          console.log('✅ Practice data loaded:', practice.name);
+          
+          const practiceInfo = {
+            id: practice.id,
+            name: practice.name || '',
+            logo_url: practice.logo_url || '',
+            address: practice.address || '',
+            city: practice.city || '',
+            postal_code: practice.postal_code || '',
+            country: practice.country || 'Namibia',
+            contact_phone: practice.contact_phone || '',
+            contact_email: practice.contact_email || '',
+            about_text: practice.about_text || '',
+            website_url: practice.website_url || practice.domain || '',
+            business_hours: practice.business_hours || defaultMockData.hours,
+            services: practice.services || defaultMockData.specialties,
+            social_links: practice.social_links || {},
+            primary_color: practice.primary_color || '#01b9d5',
+            secondary_color: practice.secondary_color || '#0196be',
+            hero_title: practice.hero_title || '',
+            hero_subtitle: practice.hero_subtitle || '',
+            license_number: practice.license_number || '',
+            practice_number: practice.practice_number || '',
+            tax_number: practice.tax_number || ''
+          };
+          
+          setPracticeData(practiceInfo);
+          setFormData(practiceInfo);
+        }
+
+        // Load staff data from users table
+        const { data: staffData, error: staffError } = await supabase
+          .from('users')
+          .select('id, full_name, email, role, avatar, hpcsa_number')
+          .eq('practice_id', user.practice_id);
+
+        if (staffError) {
+          console.error('❌ Error loading staff data:', staffError);
+        } else if (staffData) {
+          console.log('✅ Staff data loaded:', staffData.length, 'staff members');
+          setStaff(staffData);
+        }
+
+      } catch (error) {
+        console.error('❌ Error loading practice data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPracticeData();
+  }, [user?.practice_id]);
+
+  // Save practice data to database
+  const savePracticeData = async (updates: Partial<typeof practiceData>) => {
+    if (!user?.practice_id || saving) return;
+
+    try {
+      setSaving(true);
+      console.log('💾 Saving practice data...', updates);
+      
+      const { error } = await supabase
+        .from('practices')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.practice_id);
+
+      if (error) {
+        console.error('❌ Error saving practice data:', error);
+        alert('Failed to save changes. Please try again.');
+        return;
+      }
+
+      // Update local state
+      setPracticeData(prev => ({ ...prev, ...updates }));
+      setFormData(prev => ({ ...prev, ...updates }));
+      setEditingSection(null);
+      setEditMode(false);
+      
+      console.log('✅ Practice data saved successfully');
+      
+      // Show success message
+      const successDiv = document.createElement('div');
+      successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      successDiv.textContent = 'Changes saved successfully!';
+      document.body.appendChild(successDiv);
+      setTimeout(() => {
+        document.body.removeChild(successDiv);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('❌ Error saving practice data:', error);
+      alert('Failed to save changes. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = () => {
+    const updates = Object.keys(formData).reduce((acc, key) => {
+      if (formData[key as keyof typeof formData] !== practiceData[key as keyof typeof practiceData]) {
+        acc[key] = formData[key as keyof typeof formData];
+      }
+      return acc;
+    }, {} as any);
+    
+    console.log('🔍 Debug handleSave:', {
+      editingSection,
+      updates,
+      formData_about_text: formData.about_text,
+      practiceData_about_text: practiceData.about_text,
+      hasUpdates: Object.keys(updates).length > 0
+    });
+    
+    if (Object.keys(updates).length > 0) {
+      savePracticeData(updates);
+    } else {
+      setEditingSection(null);
+    }
+  };
+
+  const handleCancel = () => {
+    setFormData(practiceData);
+    setEditingSection(null);
+  };
+
+  const handleLogoUpload = async (event: Event) => {
+    const target = event.target as HTMLInputElement;
+    const file = target.files?.[0];
+    
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    // Validate file size (2MB limit)
+    if (file.size > 2 * 1024 * 1024) {
+      alert('File size must be less than 2MB');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      console.log('📤 Uploading logo...', file.name);
+
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${practiceData.id}/logo_${Date.now()}.${fileExt}`;
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('practice-assets')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('❌ Upload error:', uploadError);
+        alert('Failed to upload logo. Please try again.');
+        return;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('practice-assets')
+        .getPublicUrl(fileName);
+
+      if (urlData?.publicUrl) {
+        // Save logo URL to database
+        await savePracticeData({ logo_url: urlData.publicUrl });
+        console.log('✅ Logo uploaded and saved:', urlData.publicUrl);
+      }
+
+    } catch (error) {
+      console.error('❌ Error uploading logo:', error);
+      alert('Failed to upload logo. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#01b9d5] mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading practice information...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -890,9 +1126,9 @@ const PracticeProfileContent: React.FC = () => {
                   <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
                     <CardContent className="p-6">
                       <div className="flex flex-col items-center text-center">
-                        {practiceData.logo ? (
+                        {practiceData.logo_url ? (
                           <img 
-                            src={practiceData.logo} 
+                            src={practiceData.logo_url} 
                             alt={practiceData.name}
                             className="w-24 h-24 rounded-full object-cover mb-4"
                           />
@@ -907,24 +1143,29 @@ const PracticeProfileContent: React.FC = () => {
                         <div className="space-y-2 w-full mt-4">
                           <div className="flex items-center py-2">
                             <MapPin size={16} className="text-gray-400 mr-3" />
-                            <span className="text-sm text-gray-700">{practiceData.address}</span>
+                            <span className="text-sm text-gray-700">{practiceData.address || 'No address set'}</span>
                           </div>
                           <div className="flex items-center py-2">
                             <Phone size={16} className="text-gray-400 mr-3" />
-                            <span className="text-sm text-gray-700">{practiceData.phone}</span>
+                            <span className="text-sm text-gray-700">{practiceData.contact_phone || 'No phone set'}</span>
                           </div>
                           <div className="flex items-center py-2">
                             <Mail size={16} className="text-gray-400 mr-3" />
-                            <span className="text-sm text-gray-700">{practiceData.email}</span>
+                            <span className="text-sm text-gray-700">{practiceData.contact_email || 'No email set'}</span>
                           </div>
                           <div className="flex items-center py-2">
                             <Globe size={16} className="text-gray-400 mr-3" />
-                            <span className="text-sm text-gray-700">{practiceData.website}</span>
+                            <span className="text-sm text-gray-700">{practiceData.city || 'No city set'}</span>
                           </div>
                         </div>
-                        <Button variant="outline" className="mt-4 w-full">
+                        <Button 
+                          variant="outline" 
+                          className="mt-4 w-full"
+                          onClick={() => setEditingSection('basic_info')}
+                          disabled={saving}
+                        >
                           <Edit3 size={16} className="mr-2" />
-                          Edit Practice Info
+                          {saving ? 'Saving...' : 'Edit Practice Info'}
                         </Button>
                       </div>
                     </CardContent>
@@ -936,7 +1177,7 @@ const PracticeProfileContent: React.FC = () => {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
-                        {practiceData.hours.map((day, idx) => (
+                        {(Array.isArray(practiceData.business_hours) ? practiceData.business_hours : defaultMockData.hours).map((day, idx) => (
                           <div key={idx} className="flex justify-between py-2 text-sm">
                             <span className="font-medium text-gray-700">{day.day}</span>
                             <span className="text-gray-600">{day.hours}</span>
@@ -952,17 +1193,154 @@ const PracticeProfileContent: React.FC = () => {
                 </div>
                 
                 <div className="lg:col-span-2">
+                  {/* Basic Info Edit Form */}
+                  {editingSection === 'basic_info' && (
+                    <Card className="mb-6 bg-white/90 backdrop-blur-md border border-gray-100/50">
+                      <CardHeader>
+                        <CardTitle>Edit Practice Information</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Practice Name
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.name}
+                              onChange={(e) => handleInputChange('name', e.target.value)}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent"
+                              placeholder="Enter practice name"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              City
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.city}
+                              onChange={(e) => handleInputChange('city', e.target.value)}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent"
+                              placeholder="Enter city"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Phone Number
+                            </label>
+                            <input
+                              type="tel"
+                              value={formData.contact_phone}
+                              onChange={(e) => handleInputChange('contact_phone', e.target.value)}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent"
+                              placeholder="Enter phone number"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Email Address
+                            </label>
+                            <input
+                              type="email"
+                              value={formData.contact_email}
+                              onChange={(e) => handleInputChange('contact_email', e.target.value)}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent"
+                              placeholder="Enter email address"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Website URL
+                            </label>
+                            <input
+                              type="url"
+                              value={formData.website_url}
+                              onChange={(e) => handleInputChange('website_url', e.target.value)}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent"
+                              placeholder="https://your-practice-website.com"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Address
+                            </label>
+                            <input
+                              type="text"
+                              value={formData.address}
+                              onChange={(e) => handleInputChange('address', e.target.value)}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent"
+                              placeholder="Enter full address"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2 mt-6">
+                          <Button 
+                            variant="outline" 
+                            onClick={handleSave}
+                            disabled={saving}
+                          >
+                            <Save size={16} className="mr-2" />
+                            {saving ? 'Saving...' : 'Save Changes'}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            onClick={handleCancel}
+                            disabled={saving}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                  
                   <Card className="mb-6 bg-white/90 backdrop-blur-md border border-gray-100/50">
                     <CardHeader>
                       <div className="flex justify-between items-center">
                         <CardTitle>Practice Description</CardTitle>
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setEditingSection('description')}
+                          disabled={saving}
+                        >
                           <Edit3 size={16} />
                         </Button>
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-gray-700">{practiceData.description}</p>
+                      {editingSection === 'description' ? (
+                        <div className="space-y-4">
+                          <textarea
+                            value={formData.about_text}
+                            onChange={(e) => handleInputChange('about_text', e.target.value)}
+                            className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent resize-none"
+                            placeholder="Enter practice description..."
+                          />
+                          <div className="flex gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={handleSave}
+                              disabled={saving}
+                            >
+                              <Save size={14} className="mr-2" />
+                              {saving ? 'Saving...' : 'Save'}
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={handleCancel}
+                              disabled={saving}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-gray-700">{practiceData.about_text || 'No description set'}</p>
+                      )}
                     </CardContent>
                   </Card>
                   
@@ -970,65 +1348,170 @@ const PracticeProfileContent: React.FC = () => {
                     <CardHeader>
                       <div className="flex justify-between items-center">
                         <CardTitle>Specialties & Services</CardTitle>
-                        <Button variant="ghost" size="sm">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setEditingSection('services')}
+                          disabled={saving}
+                        >
                           <Edit3 size={16} />
                         </Button>
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="flex flex-wrap gap-2">
-                        {practiceData.specialties.map((specialty, idx) => (
-                          <span 
-                            key={idx}
-                            className="px-3 py-1 bg-primary-50 text-primary-700 rounded-full text-sm"
+                      {editingSection === 'services' ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {formData.services?.map((service, idx) => (
+                              <div key={idx} className="flex items-center space-x-2 p-3 border border-gray-200 rounded-lg">
+                                <input
+                                  type="text"
+                                  value={typeof service === 'string' ? service : service.name}
+                                  onChange={(e) => {
+                                    const newServices = [...(formData.services || [])];
+                                    if (typeof service === 'string') {
+                                      newServices[idx] = e.target.value;
+                                    } else {
+                                      newServices[idx] = { ...service, name: e.target.value };
+                                    }
+                                    handleInputChange('services', newServices);
+                                  }}
+                                  className="flex-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent"
+                                  placeholder="Service name"
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    const newServices = formData.services?.filter((_, i) => i !== idx) || [];
+                                    handleInputChange('services', newServices);
+                                  }}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  ×
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const newServices = [...(formData.services || []), ''];
+                              handleInputChange('services', newServices);
+                            }}
+                            className="mt-2"
                           >
-                            {specialty}
-                          </span>
-                        ))}
-                      </div>
-                      <Button variant="outline" size="sm" className="mt-4">
-                        Add Specialty
-                      </Button>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Service
+                          </Button>
+                          
+                          <div className="flex gap-2 mt-6">
+                            <Button 
+                              variant="outline" 
+                              onClick={handleSave}
+                              disabled={saving}
+                            >
+                              <Save size={16} className="mr-2" />
+                              {saving ? 'Saving...' : 'Save Services'}
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              onClick={handleCancel}
+                              disabled={saving}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="flex flex-wrap gap-2">
+                            {(Array.isArray(practiceData.services) ? practiceData.services : defaultMockData.specialties).map((service, idx) => (
+                              <span 
+                                key={idx}
+                                className="px-3 py-1 bg-primary-50 text-primary-700 rounded-full text-sm"
+                              >
+                                {typeof service === 'string' ? service : service.name}
+                              </span>
+                            ))}
+                          </div>
+                          {(!practiceData.services || practiceData.services.length === 0) && (
+                            <p className="text-gray-500 text-sm mt-2">No services defined yet</p>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                   
                   <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
                     <CardHeader>
-                      <div className="flex justify-between items-center">
-                        <CardTitle>Website Appearance</CardTitle>
-                        <Button variant="ghost" size="sm">
-                          <Edit3 size={16} />
-                        </Button>
-                      </div>
+                      <CardTitle>Practice Logo</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-500 mb-2">Logo & Branding</h4>
-                          <div className="border border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center">
-                            <Image size={40} className="text-gray-400 mb-2" />
-                            <p className="text-sm text-gray-500">Upload your practice logo</p>
-                            <Button size="sm" className="mt-3">
-                              Upload
-                            </Button>
+                      <div className="space-y-4">
+                        {practiceData.logo_url ? (
+                          <div className="flex items-center space-x-4">
+                            <img 
+                              src={practiceData.logo_url} 
+                              alt="Practice logo"
+                              className="w-20 h-20 object-contain border border-gray-200 rounded-lg"
+                            />
+                            <div>
+                              <p className="text-sm text-gray-600 mb-2">Current logo</p>
+                              <div className="flex space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    const input = document.createElement('input');
+                                    input.type = 'file';
+                                    input.accept = 'image/*';
+                                    input.onchange = handleLogoUpload;
+                                    input.click();
+                                  }}
+                                  disabled={saving}
+                                >
+                                  <Image size={16} className="mr-2" />
+                                  Change Logo
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => savePracticeData({ logo_url: '' })}
+                                  disabled={saving}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-500 mb-2">Color Scheme</h4>
-                          <div className="space-y-3">
-                            <div className="flex items-center">
-                              <div className="w-10 h-10 rounded bg-primary-500 mr-3"></div>
-                              <span className="text-sm text-gray-700">Primary Color</span>
-                            </div>
-                            <div className="flex items-center">
-                              <div className="w-10 h-10 rounded bg-secondary-500 mr-3"></div>
-                              <span className="text-sm text-gray-700">Secondary Color</span>
-                            </div>
-                            <div className="flex items-center">
-                              <div className="w-10 h-10 rounded bg-accent-500 mr-3"></div>
-                              <span className="text-sm text-gray-700">Accent Color</span>
+                        ) : (
+                          <div className="border border-dashed border-gray-300 rounded-lg p-8">
+                            <div className="text-center">
+                              <Image size={48} className="text-gray-400 mx-auto mb-4" />
+                              <p className="text-sm text-gray-600 mb-4">No logo uploaded yet</p>
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  const input = document.createElement('input');
+                                  input.type = 'file';
+                                  input.accept = 'image/*';
+                                  input.onchange = handleLogoUpload;
+                                  input.click();
+                                }}
+                                disabled={saving}
+                              >
+                                <Image size={16} className="mr-2" />
+                                {saving ? 'Uploading...' : 'Upload Logo'}
+                              </Button>
                             </div>
                           </div>
+                        )}
+                        <div className="text-xs text-gray-500">
+                          <p>Recommended: PNG or JPG, max 2MB, square format for best results</p>
                         </div>
                       </div>
                     </CardContent>
@@ -1049,14 +1532,14 @@ const PracticeProfileContent: React.FC = () => {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {practiceData.staff.map((staff) => (
-                    <Card key={staff.id} className="bg-white/90 backdrop-blur-md border border-gray-100/50 hover:shadow-lg transition-all duration-300">
+                  {staff.map((staffMember) => (
+                    <Card key={staffMember.id} className="bg-white/90 backdrop-blur-md border border-gray-100/50 hover:shadow-lg transition-all duration-300">
                       <CardContent className="p-6">
                         <div className="flex flex-col items-center text-center">
-                          {staff.avatar ? (
+                          {staffMember.avatar ? (
                             <img 
-                              src={staff.avatar} 
-                              alt={staff.name}
+                              src={staffMember.avatar} 
+                              alt={staffMember.full_name}
                               className="w-20 h-20 rounded-full object-cover mb-3"
                             />
                           ) : (
@@ -1065,26 +1548,104 @@ const PracticeProfileContent: React.FC = () => {
                             </div>
                           )}
                           <h3 className="text-lg font-bold text-gray-900">
-                            {staff.name}
+                            {staffMember.full_name}
                           </h3>
-                          <p className="text-primary-600 font-medium">
-                            {staff.role}
+                          <p className="text-primary-600 font-medium capitalize">
+                            {staffMember.role}
                           </p>
                           <p className="text-sm text-gray-500 mt-1">
-                            {staff.specialty}
+                            {staffMember.email}
                           </p>
+                          {staffMember.hpcsa_number && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              HPCSA: {staffMember.hpcsa_number}
+                            </p>
+                          )}
                           <div className="flex mt-4 space-x-2">
-                            <Button variant="outline" size="sm">
-                              Edit
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setEditingSection(`schedule_${staffMember.id}`)}
+                            >
+                              <Calendar size={14} className="mr-1" />
+                              Schedule
                             </Button>
                             <Button variant="ghost" size="sm">
-                              Remove
+                              Edit
                             </Button>
                           </div>
                         </div>
                       </CardContent>
                     </Card>
                   ))}
+                  
+                  {/* Staff Schedule Modal */}
+                  {editingSection?.startsWith('schedule_') && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                      <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className="text-lg font-semibold">
+                            Staff Schedule - {staff.find(s => editingSection === `schedule_${s.id}`)?.full_name}
+                          </h3>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => setEditingSection(null)}
+                          >
+                            ×
+                          </Button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          <p className="text-sm text-gray-600">
+                            Set the working hours for this staff member. This will determine when they are available for appointments.
+                          </p>
+                          
+                          {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => (
+                            <div key={day} className="flex items-center justify-between py-3 border-b border-gray-100">
+                              <div className="flex items-center space-x-3">
+                                <input
+                                  type="checkbox"
+                                  defaultChecked={!['saturday', 'sunday'].includes(day)}
+                                  className="rounded border-gray-300"
+                                />
+                                <span className="font-medium text-gray-700 capitalize w-24">
+                                  {day}
+                                </span>
+                              </div>
+                              
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="time"
+                                  defaultValue="09:00"
+                                  className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                />
+                                <span className="text-gray-500">to</span>
+                                <input
+                                  type="time"
+                                  defaultValue="17:00"
+                                  className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                          
+                          <div className="flex gap-2 mt-6">
+                            <Button variant="outline">
+                              <Save size={16} className="mr-2" />
+                              Save Schedule
+                            </Button>
+                            <Button 
+                              variant="ghost"
+                              onClick={() => setEditingSection(null)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Add New Staff Card */}
                   <Card className="border-2 border-dashed border-gray-300 bg-gray-50/50 backdrop-blur-md hover:bg-gray-100/50 transition-all duration-300">
@@ -1116,25 +1677,114 @@ const PracticeProfileContent: React.FC = () => {
                   <CardHeader>
                     <div className="flex justify-between items-center">
                       <CardTitle>Hours of Operation</CardTitle>
-                      <Button variant="ghost" size="sm">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setEditingSection('hours')}
+                        disabled={saving}
+                      >
                         <Edit3 size={16} />
                       </Button>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      {practiceData.hours.map((day, idx) => (
-                        <div key={idx} className="flex justify-between items-center py-2 border-b border-gray-100">
-                          <span className="font-medium text-gray-700">{day.day}</span>
-                          <div className="flex items-center">
-                            <span className="text-gray-600 mr-4">{day.hours}</span>
-                            <Button variant="ghost" size="sm">
-                              Edit
-                            </Button>
-                          </div>
+                    {editingSection === 'hours' ? (
+                      <div className="space-y-4">
+                        {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
+                          const dayData = formData.business_hours?.[day] || {};
+                          const isClosed = dayData.closed || false;
+                          
+                          return (
+                            <div key={day} className="flex items-center justify-between py-3 border-b border-gray-100">
+                              <div className="flex items-center space-x-3">
+                                <input
+                                  type="checkbox"
+                                  checked={!isClosed}
+                                  onChange={(e) => {
+                                    const newHours = {
+                                      ...formData.business_hours,
+                                      [day]: e.target.checked 
+                                        ? { open: "08:00", close: "17:00" }
+                                        : { closed: true }
+                                    };
+                                    handleInputChange('business_hours', newHours);
+                                  }}
+                                  className="rounded border-gray-300"
+                                />
+                                <span className="font-medium text-gray-700 capitalize w-24">
+                                  {day}
+                                </span>
+                              </div>
+                              
+                              {!isClosed ? (
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="time"
+                                    value={dayData.open || "08:00"}
+                                    onChange={(e) => {
+                                      const newHours = {
+                                        ...formData.business_hours,
+                                        [day]: { ...dayData, open: e.target.value }
+                                      };
+                                      handleInputChange('business_hours', newHours);
+                                    }}
+                                    className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                  />
+                                  <span className="text-gray-500">to</span>
+                                  <input
+                                    type="time"
+                                    value={dayData.close || "17:00"}
+                                    onChange={(e) => {
+                                      const newHours = {
+                                        ...formData.business_hours,
+                                        [day]: { ...dayData, close: e.target.value }
+                                      };
+                                      handleInputChange('business_hours', newHours);
+                                    }}
+                                    className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                  />
+                                </div>
+                              ) : (
+                                <span className="text-gray-500 text-sm">Closed</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                        <div className="flex gap-2 mt-6">
+                          <Button 
+                            variant="outline" 
+                            onClick={handleSave}
+                            disabled={saving}
+                          >
+                            <Save size={16} className="mr-2" />
+                            {saving ? 'Saving...' : 'Save Hours'}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            onClick={handleCancel}
+                            disabled={saving}
+                          >
+                            Cancel
+                          </Button>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
+                          const dayData = practiceData.business_hours?.[day] || {};
+                          const isClosed = dayData.closed || false;
+                          
+                          return (
+                            <div key={day} className="flex justify-between items-center py-2">
+                              <span className="font-medium text-gray-700 capitalize">{day}</span>
+                              <span className="text-gray-600 text-sm">
+                                {isClosed ? 'Closed' : `${dayData.open || '08:00'} - ${dayData.close || '17:00'}`}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
                 
@@ -1147,18 +1797,18 @@ const PracticeProfileContent: React.FC = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {practiceData.staff
-                        .filter(s => s.role.includes('Physician') || s.role.includes('Doctor'))
-                        .map((staff) => (
+                      {staff
+                        .filter(s => s.role.includes('doctor') || s.role.includes('physician'))
+                        .map((staffMember) => (
                           <div 
-                            key={staff.id}
+                            key={staffMember.id}
                             className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                           >
                             <div className="flex items-center">
-                              {staff.avatar ? (
+                              {staffMember.avatar ? (
                                 <img 
-                                  src={staff.avatar} 
-                                  alt={staff.name}
+                                  src={staffMember.avatar} 
+                                  alt={staffMember.full_name}
                                   className="w-12 h-12 rounded-full object-cover mr-3 border-2 border-primary-200"
                                 />
                               ) : (
@@ -1167,8 +1817,8 @@ const PracticeProfileContent: React.FC = () => {
                                 </div>
                               )}
                               <div>
-                                <h4 className="font-medium text-gray-900">{staff.name}</h4>
-                                <p className="text-sm text-gray-500">{staff.specialty}</p>
+                                <h4 className="font-medium text-gray-900">{staffMember.full_name}</h4>
+                                <p className="text-sm text-gray-500 capitalize">{staffMember.role}</p>
                                 <div className="flex items-center gap-1 mt-1">
                                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                                   <span className="text-xs text-green-600">Available</span>
