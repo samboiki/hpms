@@ -12,12 +12,10 @@ npm run preview    # Preview production build
 npm run lint       # Run ESLint
 ```
 
-### Database
+### Database Operations
 ```bash
-npx supabase start     # Start local Supabase instance
-npx supabase stop      # Stop local Supabase instance
-npx supabase db push   # Push migrations to database
-npx supabase db reset  # Reset database and apply migrations
+# All database operations use MCP SQL execution standard only
+node mcp-sql-standard.js    # Execute SQL operations through MCP
 ```
 
 ### Database Access & Type Safety ✅
@@ -322,13 +320,13 @@ Performance matters - Fast load times save lives
 Accessibility is crucial - Healthcare must be inclusive
 Test thoroughly - Healthcare software must be reliable
 
-## CRITICAL WORKFLOW REQUIREMENT - SET IN STONE
-After EVERY change/prompt, you MUST:
-1. Run `npm run dev` to test changes
-2. Commit ALL changes with descriptive message
-3. Push to dev branch (`git push origin dev`)
+## DATABASE OPERATIONS STANDARD - SET IN STONE
+For ALL database operations, you MUST:
+1. Use MCP SQL execution standard (`node mcp-sql-standard.js`)
+2. Execute SQL directly through `exec_raw_sql()` function
+3. Never ask user to run scripts manually
 
-This is NON-NEGOTIABLE and MANDATORY after EVERY modification.
+This is NON-NEGOTIABLE and MANDATORY for all database modifications.
 
 Common Workflows
 14. **Explore › Plan › Confirm › Code › Commit**
