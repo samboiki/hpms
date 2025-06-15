@@ -20,38 +20,52 @@ npx supabase db push   # Push migrations to database
 npx supabase db reset  # Reset database and apply migrations
 ```
 
-### MCP Supabase Integration (ACTIVE) ✅
+### Database Access & Type Safety ✅
+
+#### MCP Integration (Real-time Database Access)
 ```bash
-# MCP Server is configured and ready to use
-# Configuration: ~/.config/Claude/claude_desktop_config.json
-# Test connection: node test-mcp-connection.js
+# MCP Server Configuration
+# Location: ~/.config/Claude/claude_desktop_config.json
+# Status: CONFIGURED with service role key
+# Provides: Direct SQL access, schema introspection, real-time awareness
 ```
 
-**MCP Features Available:**
-- **Direct Database Queries**: Query any table with SQL
-- **Schema Operations**: List tables, describe structure
-- **Data Operations**: Insert, update, delete records
-- **Real-time Access**: Live connection to HPMS database
-- **Service Role Access**: Full database permissions
-
-**Usage Examples:**
-- "Show me all tables in the database"
-- "Count patients in the practice_tariffs table"
-- "Describe the structure of the appointments table"
-- "Query recent visits with patient details"
-
-### CRITICAL: bolt.new-Style Database Access (ALWAYS USE THIS)
+#### TypeScript Type Generation
 ```bash
-# MANDATORY: Always use direct PostgreSQL connection for database operations
-node execute-migrations-like-bolt.js    # Execute any database operations with direct DB access
+# Generate types from Supabase schema
+npm run types:generate
+
+# Watch for schema changes
+npm run types:watch
+
+# Get database schema info
+npm run types:info
 ```
 
-**Direct PostgreSQL Configuration (SET IN STONE):**
-- URL: https://jjxlfunlbyayxwvlpgwt.supabase.co
-- Database Password: T@ngisasa200
-- Connection String: postgresql://postgres:T@ngisasa200@db.jjxlfunlbyayxwvlpgwt.supabase.co:5432/postgres
+#### Type-Safe Supabase Client
+```typescript
+// Client is now fully typed with database schema
+import { supabase } from './lib/supabase'
+import { Tables } from './types/database.types'
 
-**This is the ONLY method that works - direct PostgreSQL connection bypasses ALL restrictions**
+// Full TypeScript support
+const patients: Tables<'patients'>[] = await supabase
+  .from('patients')
+  .select('*')
+```
+
+#### Available Hooks
+- `usePatients()` - Fetch all patients
+- `usePatient(id)` - Fetch single patient
+- `useAppointments(filters)` - Fetch appointments with filters
+- `useVisits(patientId)` - Fetch visits
+- `useRealtimeAppointments()` - Real-time appointment updates
+- `useDatabaseSchema()` - Get full database schema
+- `useTypedQuery()` - Generic typed queries
+
+### Development Database Access
+
+For migrations and schema changes, use the schema introspection functions or the MCP integration. The typed Supabase client is the primary method for all application database access.
 
 ### Document Upload System (PRODUCTION READY) ✅
 
@@ -147,28 +161,6 @@ const { data, error } = await supabase.storage
 - **"Auth required"**: Verify user session is valid
 - **"Upload failed"**: Check file size and type restrictions
 
-### Database Operation Methods (MANDATORY APPROACH)
-1. **ALWAYS use direct PostgreSQL connection** with password
-2. **Use execute-migrations-like-bolt.js** for all database operations  
-3. **Direct database access** exactly like bolt.new does
-4. **Never repeat manual operations** - automate everything
-5. **This method bypasses ALL RLS policies and restrictions**
-
-**Example bolt.new-style operation:**
-```javascript
-// ✅ CORRECT: Direct PostgreSQL connection (WORKS EVERY TIME)
-import pg from 'pg';
-const client = new pg.Client({
-  connectionString: 'postgresql://postgres:T@ngisasa200@db.jjxlfunlbyayxwvlpgwt.supabase.co:5432/postgres',
-  ssl: { rejectUnauthorized: false }
-});
-await client.connect();
-await client.query('INSERT INTO practices ...');
-
-// ❌ WRONG: Service role or anon key - unreliable
-const supabase = createClient(url, key);
-const { error } = await supabase.from('practices').insert(data); // FAILS
-```
 
 ## Architecture Overview
 
