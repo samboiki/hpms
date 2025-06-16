@@ -919,8 +919,16 @@ Best regards,
                   }`}
                 >
                   <motion.div
-                    animate={isActive ? { rotate: 360 } : { rotate: 0 }}
-                    transition={{ duration: 0.6, ease: "easeInOut" }}
+                    animate={isActive ? { 
+                      rotate: [0, 360], 
+                      scale: [1, 1.1, 1],
+                    } : { rotate: 0, scale: 1 }}
+                    transition={{ 
+                      duration: isActive ? 0.8 : 0.3, 
+                      ease: "easeInOut",
+                      repeat: isActive ? Infinity : 0,
+                      repeatDelay: 3
+                    }}
                   >
                     <Icon className={`w-4 h-4 transition-all duration-300 ${
                       isActive ? 'text-amber-600 drop-shadow-sm' : ''
@@ -928,12 +936,21 @@ Best regards,
                   </motion.div>
                   <span className="hidden sm:inline font-medium">{tab.label}</span>
                   
-                  {/* Active tab glow effect */}
+                  {/* Active tab glow effect with fuzzing */}
                   {isActive && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 rounded-t-lg pointer-events-none"
+                      animate={{ 
+                        opacity: [0.3, 0.6, 0.3], 
+                        scale: [0.95, 1.05, 0.95],
+                        background: ["rgba(245,158,11,0.05)", "rgba(245,158,11,0.15)", "rgba(245,158,11,0.05)"]
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                      className="absolute inset-0 rounded-t-lg pointer-events-none"
                     />
                   )}
                 </motion.button>

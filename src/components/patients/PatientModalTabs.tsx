@@ -92,12 +92,7 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
   labResults = [],
   documents = []
 }) => {
-  const tabs = mode === 'list' ? [] : detailTabs; // Remove list tabs from header
-  
-  // Don't render anything if no tabs to show
-  if (tabs.length === 0) {
-    return null;
-  }
+  const tabs = mode === 'list' ? listTabs : detailTabs;
   
   // Get count for tabs with data
   const getTabCount = (tabId: string) => {
@@ -125,38 +120,85 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
             const count = getTabCount(tab.id);
             
             return (
-              <button
+              <motion.button
                 key={tab.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05, duration: 0.3 }}
+                whileHover={{ 
+                  scale: 1.02,
+                  y: -2,
+                  transition: { duration: 0.2 }
+                }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => onTabChange(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-300 relative ${
                   isActive
                     ? mode === 'list' 
-                      ? 'text-white border-white'
-                      : 'text-purple-600 border-purple-600'
+                      ? 'text-white border-white bg-gradient-to-t from-white/10 to-transparent'
+                      : 'text-purple-600 border-purple-600 bg-gradient-to-t from-purple-50 to-transparent'
                     : mode === 'list'
-                      ? 'text-white/80 border-transparent hover:text-white'
-                      : 'text-gray-500 border-transparent hover:text-gray-700'
+                      ? 'text-white/80 border-transparent hover:text-white hover:bg-white/10'
+                      : 'text-gray-500 border-transparent hover:text-purple-600 hover:bg-purple-50/50'
                 }`}
               >
-                <Icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{tab.label}</span>
+                <motion.div
+                  animate={isActive ? { 
+                    rotate: [0, 360], 
+                    scale: [1, 1.1, 1],
+                  } : { rotate: 0, scale: 1 }}
+                  transition={{ 
+                    duration: isActive ? 0.8 : 0.3, 
+                    ease: "easeInOut",
+                    repeat: isActive ? Infinity : 0,
+                    repeatDelay: 3
+                  }}
+                >
+                  <Icon className={`w-4 h-4 transition-all duration-300 ${
+                    isActive ? (mode === 'list' ? 'text-white drop-shadow-sm' : 'text-purple-600 drop-shadow-sm') : ''
+                  }`} />
+                </motion.div>
+                <span className="hidden sm:inline font-medium">{tab.label}</span>
                 
                 {/* Count badge */}
                 {count !== undefined && count > 0 && (
-                  <span 
+                  <motion.span 
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
                     className={`
                       px-2 py-0.5 text-xs font-bold rounded-full ml-1
                       ${mode === 'list'
                         ? 'bg-white/20 text-white border border-white/30'
                         : isActive 
-                          ? 'bg-purple-600 text-white'
+                          ? 'bg-purple-600 text-white shadow-lg'
                           : 'bg-gray-200 text-gray-700'
                       }
                     `}>
                     {count}
-                  </span>
+                  </motion.span>
                 )}
-              </button>
+                
+                {/* Active tab glow effect with fuzzing */}
+                {isActive && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ 
+                      opacity: [0.3, 0.6, 0.3], 
+                      scale: [0.95, 1.05, 0.95],
+                      background: mode === 'list' 
+                        ? ["rgba(255,255,255,0.05)", "rgba(255,255,255,0.15)", "rgba(255,255,255,0.05)"]
+                        : ["rgba(147,51,234,0.05)", "rgba(147,51,234,0.15)", "rgba(147,51,234,0.05)"]
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                    className="absolute inset-0 rounded-t-lg pointer-events-none"
+                  />
+                )}
+              </motion.button>
             );
           })}
         </div>

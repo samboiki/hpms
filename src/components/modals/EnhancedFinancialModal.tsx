@@ -1552,20 +1552,65 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
               { key: 'analytics', label: 'Financial Analytics', icon: TrendingUp },
               { key: 'insights', label: 'Insights', icon: Users },
               { key: 'batch-management', label: 'Batch Management', icon: Package }
-            ].map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key as typeof activeTab)}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === key
-                    ? 'text-[#01b9d5] border-[#01b9d5]'
-                    : 'text-gray-500 border-transparent hover:text-gray-700'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                <span className="hidden sm:inline">{label}</span>
-              </button>
-            ))}
+            ].map(({ key, label, icon: Icon }, index) => {
+              const isActive = activeTab === key;
+              return (
+                <motion.button
+                  key={key}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05, duration: 0.3 }}
+                  whileHover={{ 
+                    scale: 1.02,
+                    y: -2,
+                    transition: { duration: 0.2 }
+                  }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setActiveTab(key as typeof activeTab)}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-300 relative ${
+                    isActive
+                      ? 'text-[#01b9d5] border-[#01b9d5] bg-gradient-to-t from-cyan-50 to-transparent'
+                      : 'text-gray-500 border-transparent hover:text-[#01b9d5] hover:bg-cyan-50/50'
+                  }`}
+                >
+                  <motion.div
+                    animate={isActive ? { 
+                      rotate: [0, 360], 
+                      scale: [1, 1.1, 1],
+                    } : { rotate: 0, scale: 1 }}
+                    transition={{ 
+                      duration: isActive ? 0.8 : 0.3, 
+                      ease: "easeInOut",
+                      repeat: isActive ? Infinity : 0,
+                      repeatDelay: 3
+                    }}
+                  >
+                    <Icon className={`w-4 h-4 transition-all duration-300 ${
+                      isActive ? 'text-[#01b9d5] drop-shadow-sm' : ''
+                    }`} />
+                  </motion.div>
+                  <span className="hidden sm:inline font-medium">{label}</span>
+                  
+                  {/* Active tab glow effect with fuzzing */}
+                  {isActive && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ 
+                        opacity: [0.3, 0.6, 0.3], 
+                        scale: [0.95, 1.05, 0.95],
+                        background: ["rgba(1,185,213,0.05)", "rgba(1,185,213,0.15)", "rgba(1,185,213,0.05)"]
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                      }}
+                      className="absolute inset-0 rounded-t-lg pointer-events-none"
+                    />
+                  )}
+                </motion.button>
+              );
+            })}
           </div>
         </div>
 
