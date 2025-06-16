@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from './authStore';
 import { practiceDataService } from '../lib/practiceDataService';
+import { comprehensiveSearch } from '../utils/searchUtils';
 
 export interface Patient {
   id: string;
@@ -23,8 +24,21 @@ export interface Patient {
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
   emergency_contact_relationship?: string;
+  home_language?: string;
+  home_address?: string;
+  postal_address?: string;
   created_at?: string;
   updated_at?: string;
+  medical_aid_details?: {
+    id?: string;
+    provider: string;
+    scheme?: string;
+    membership_number: string;
+    plan_type?: string;
+    main_member_name?: string;
+    main_member_id_number?: string;
+    relationship_to_main?: string;
+  }[];
 }
 
 interface PatientsState {
@@ -134,49 +148,31 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
   searchPatients: async (searchTerm) => {
     set({ isLoading: true, error: null });
     try {
-      // Get current user's practice_id
-      const user = useAuthStore.getState().user;
-      if (!user?.practice_id) {
+      // Get authenticated user context
+      const authContext = await practiceDataService.getAuthContext();
+      if (!authContext) {
         set({ patients: [], isLoading: false });
         return;
       }
 
-      // Search patients
-      const { data: patients, error } = await supabase
-        .from('patients')
-        .select('*')
-        .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,cell_number.ilike.%${searchTerm}%`)
-        .order('last_name', { ascending: true })
-        .order('first_name', { ascending: true });
+      // Use practice data service to get practice patients first
+      const allPracticePatients = await practiceDataService.getPracticePatients(authContext.practiceId);
+      
+      // Use comprehensive search for advanced filtering and fuzzy matching
+      const filteredPatients = comprehensiveSearch(allPracticePatients, searchTerm, {
+        threshold: 0.3,
+        minMatchCharLength: 2,
+        keys: ['first_name', 'last_name', 'email', 'cell_number', 'id_number', 'occupation', 'employer']
+      });
 
-      if (error) throw error;
+      // Sort by relevance (already done in comprehensiveSearch) and then by name
+      filteredPatients.sort((a, b) => {
+        const lastNameCompare = (a.last_name || '').localeCompare(b.last_name || '');
+        if (lastNameCompare !== 0) return lastNameCompare;
+        return (a.first_name || '').localeCompare(b.first_name || '');
+      });
 
-      // Filter to only show patients who have appointments at this practice
-      const { data: appointments, error: appointmentsError } = await supabase
-        .from('appointments')
-        .select(`
-          patient_id,
-          doctor:users!doctor_id (
-            id,
-            practice_id
-          )
-        `)
-        .in('patient_id', patients?.map(p => p.id) || []);
-
-      if (appointmentsError) throw appointmentsError;
-
-      // Filter appointments by practice
-      const practiceAppointments = (appointments || []).filter(
-        apt => apt.doctor?.practice_id === user.practice_id
-      );
-
-      // Get patient IDs that belong to this practice
-      const practicePatientIds = [...new Set(practiceAppointments.map(apt => apt.patient_id))];
-
-      // Filter patients
-      const practicePatients = (patients || []).filter(p => practicePatientIds.includes(p.id));
-
-      set({ patients: practicePatients, isLoading: false });
+      set({ patients: filteredPatients, isLoading: false });
     } catch (error) {
       console.error('Error searching patients:', error);
       set({ error: 'Failed to search patients', isLoading: false });

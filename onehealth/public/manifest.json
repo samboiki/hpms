@@ -1,0 +1,18 @@
+{
+  "name": "OneHealth Admin Portal",
+  "short_name": "OneHealth Admin",
+  "description": "Admin portal for OneHealth medical practice management system",
+  "theme_color": "#01b9d4",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/onehealth-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

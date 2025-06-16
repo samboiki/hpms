@@ -33,6 +33,7 @@ interface PremiumStatCardProps {
   };
   unsplashQuery?: string;
   cardType?: 'patients' | 'communication' | 'encounters' | 'finance';
+  dashboardStats?: any;
 }
 
 const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
@@ -46,7 +47,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
   onClick,
   trend,
   unsplashQuery,
-  cardType = 'patients'
+  cardType = 'patients',
+  dashboardStats
 }) => {
 
   // Get card-specific colors and settings
@@ -138,33 +140,97 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
 
   // Render legend without bar chart
   const renderLegendOnly = () => {
-    if (!settings.comparisonData || settings.comparisonData.length !== 2) return null;
+    // Use comparison prop if provided, otherwise fall back to settings
+    const comparisonData = comparison ? [
+      { label: comparison.label1, value: comparison.value1, color: comparison.color1 },
+      { label: comparison.label2, value: comparison.value2, color: comparison.color2 }
+    ] : settings.comparisonData;
 
-    const [item1, item2] = settings.comparisonData;
+    if (!comparisonData || comparisonData.length !== 2) return null;
+
+    const [item1, item2] = comparisonData;
     const total = item1.value + item2.value;
-    const percentage1 = total > 0 ? (item1.value / total) * 100 : 0;
-    const percentage2 = total > 0 ? (item2.value / total) * 100 : 0;
+    
+    // For communication card with zero values, show 0% for both
+    let percentage1, percentage2;
+    if (cardType === 'communication' && total === 0) {
+      percentage1 = 0;
+      percentage2 = 0;
+    } else {
+      percentage1 = total > 0 ? (item1.value / total) * 100 : 0;
+      percentage2 = total > 0 ? (item2.value / total) * 100 : 0;
+    }
 
     return (
       <div className="mt-3">
-        {/* Legend Only */}
-        <div className="flex items-center justify-between text-xs">
-          <div className="flex items-center gap-1">
-            <div 
-              className="w-2 h-2 rounded-full" 
-              style={{ backgroundColor: item1.color }}
-            />
-            <span className="font-medium text-gray-700">{item1.label}</span>
-            <span className="text-gray-500">{percentage1.toFixed(0)}%</span>
+        {/* Premium Legend with enhanced styling */}
+        <div className="space-y-2">
+          {/* SMS Legend Item */}
+          <div className="flex items-center justify-between text-xs group">
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <div 
+                  className="w-3 h-3 rounded-full shadow-sm transition-all duration-300 group-hover:scale-110" 
+                  style={{ 
+                    backgroundColor: item1.color,
+                    boxShadow: `0 0 8px ${item1.color}20`
+                  }}
+                />
+                {/* Pulse effect for 0% */}
+                {percentage1 === 0 && (
+                  <div 
+                    className="absolute inset-0 w-3 h-3 rounded-full animate-ping opacity-30"
+                    style={{ backgroundColor: item1.color }}
+                  />
+                )}
+              </div>
+              <span className="font-semibold text-gray-800 tracking-wide">{item1.label}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span 
+                className="font-bold text-xs px-2 py-1 rounded-full"
+                style={{ 
+                  backgroundColor: `${item1.color}15`,
+                  color: item1.color
+                }}
+              >
+                {percentage1.toFixed(0)}%
+              </span>
+            </div>
           </div>
           
-          <div className="flex items-center gap-1">
-            <div 
-              className="w-2 h-2 rounded-full" 
-              style={{ backgroundColor: item2.color }}
-            />
-            <span className="font-medium text-gray-700">{item2.label}</span>
-            <span className="text-gray-500">{percentage2.toFixed(0)}%</span>
+          {/* Email Legend Item */}
+          <div className="flex items-center justify-between text-xs group">
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <div 
+                  className="w-3 h-3 rounded-full shadow-sm transition-all duration-300 group-hover:scale-110" 
+                  style={{ 
+                    backgroundColor: item2.color,
+                    boxShadow: `0 0 8px ${item2.color}20`
+                  }}
+                />
+                {/* Pulse effect for 0% */}
+                {percentage2 === 0 && (
+                  <div 
+                    className="absolute inset-0 w-3 h-3 rounded-full animate-ping opacity-30"
+                    style={{ backgroundColor: item2.color }}
+                  />
+                )}
+              </div>
+              <span className="font-semibold text-gray-800 tracking-wide">{item2.label}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span 
+                className="font-bold text-xs px-2 py-1 rounded-full"
+                style={{ 
+                  backgroundColor: `${item2.color}15`,
+                  color: item2.color
+                }}
+              >
+                {percentage2.toFixed(0)}%
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -267,24 +333,259 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           
           {/* Main Content */}
           <div className="space-y-3">
-            <div>
-              <p 
-                className="text-3xl font-bold mb-1" 
-                style={{ 
-                  fontFamily: 'Rubik, sans-serif',
-                  color: settings.primaryColor
-                }}
-              >
-                {mainValue}
-              </p>
-              <p className="text-sm text-gray-600 font-medium">{subtitle}</p>
-            </div>
+            {cardType === 'communication' ? (
+              /* Communication Card with Separate Mini Charts */
+              <div>
+                {/* Main Value */}
+                <div className="mb-3">
+                  <p 
+                    className="text-3xl font-bold mb-1" 
+                    style={{ 
+                      fontFamily: 'Rubik, sans-serif',
+                      color: settings.primaryColor
+                    }}
+                  >
+                    {mainValue}
+                  </p>
+                  <p className="text-sm text-gray-600 font-medium">{subtitle}</p>
+                </div>
 
-            {/* Legend Only */}
-            {renderLegendOnly()}
+                {/* SMS and Email Mini Charts in One Row */}
+                <div className="flex items-center justify-between gap-4">
+                  {/* SMS Available with Mini Chart */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-gray-800">SMS Available</span>
+                    <div className="relative w-8 h-8">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={(() => {
+                              const allocated = (dashboardStats?.communications?.smsAllocated || 0);
+                              const used = (dashboardStats?.communications?.smsUsed || 0);
+                              
+                              console.log('🔍 [SMS Chart] Data:', { 
+                                allocated, 
+                                used, 
+                                calculation: `${used}/${allocated} * 100 = ${allocated > 0 ? (used / allocated * 100).toFixed(1) : 0}%`
+                              });
+                              
+                              if (allocated === 0) {
+                                console.log('❌ [SMS Chart] No allocation, showing No Plan');
+                                return [{ name: 'No Plan', value: 100, color: '#9CA3AF' }];
+                              }
+                              
+                              const usedPercentage = (used / allocated) * 100;
+                              const availablePercentage = Math.max(0, 100 - usedPercentage);
+                              
+                              console.log('✅ [SMS Chart] Calculated:', { usedPercentage, availablePercentage });
+                              
+                              return [
+                                { name: 'Used', value: usedPercentage, color: '#F97316' }, // Orange theme
+                                { name: 'Available', value: availablePercentage, color: '#FCD34D' } // Light orange theme
+                              ];
+                            })()}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={10}
+                            outerRadius={16}
+                            dataKey="value"
+                            stroke="none"
+                          >
+                            {(() => {
+                              const allocated = (dashboardStats?.communications?.smsAllocated || 0);
+                              const used = (dashboardStats?.communications?.smsUsed || 0);
+                              
+                              if (allocated === 0) {
+                                return [<Cell key="no-plan" fill="#9CA3AF" />];
+                              }
+                              
+                              return [
+                                <Cell key="used" fill="#F97316" />, // Orange theme
+                                <Cell key="available" fill="#FCD34D" /> // Light orange theme
+                              ];
+                            })()}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-xs font-bold text-gray-700">
+                          {(() => {
+                            const allocated = (dashboardStats?.communications?.smsAllocated || 0);
+                            const used = (dashboardStats?.communications?.smsUsed || 0);
+                            const percentage = allocated > 0 ? Math.round((used / allocated) * 100) : 0;
+                            console.log('🔍 [SMS Center] Display:', { allocated, used, percentage });
+                            return `${percentage}%`;
+                          })()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
 
-            {/* Mini Stats or Donut Chart */}
-            {renderMiniStats()}
+                  {/* Email Available with Mini Chart */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-gray-800">Email Available</span>
+                    <div className="relative w-8 h-8">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={(() => {
+                              const allocated = (dashboardStats?.communications?.emailAllocated || 0);
+                              const used = (dashboardStats?.communications?.emailUsed || 0);
+                              
+                              console.log('🔍 [Email Chart] Data:', { 
+                                allocated, 
+                                used, 
+                                calculation: `${used}/${allocated} * 100 = ${allocated > 0 ? (used / allocated * 100).toFixed(1) : 0}%`
+                              });
+                              
+                              if (allocated === 0) {
+                                console.log('❌ [Email Chart] No allocation, showing No Plan');
+                                return [{ name: 'No Plan', value: 100, color: '#9CA3AF' }];
+                              }
+                              
+                              const usedPercentage = (used / allocated) * 100;
+                              const availablePercentage = Math.max(0, 100 - usedPercentage);
+                              
+                              console.log('✅ [Email Chart] Calculated:', { usedPercentage, availablePercentage });
+                              
+                              return [
+                                { name: 'Used', value: usedPercentage, color: '#EA580C' }, // Darker orange theme
+                                { name: 'Available', value: availablePercentage, color: '#FDBA74' } // Light orange theme
+                              ];
+                            })()}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={10}
+                            outerRadius={16}
+                            dataKey="value"
+                            stroke="none"
+                          >
+                            {(() => {
+                              const allocated = (dashboardStats?.communications?.emailAllocated || 0);
+                              const used = (dashboardStats?.communications?.emailUsed || 0);
+                              
+                              if (allocated === 0) {
+                                return [<Cell key="no-plan" fill="#9CA3AF" />];
+                              }
+                              
+                              return [
+                                <Cell key="used" fill="#EA580C" />, // Darker orange theme
+                                <Cell key="available" fill="#FDBA74" /> // Light orange theme
+                              ];
+                            })()}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-xs font-bold text-gray-700">
+                          {(() => {
+                            const allocated = (dashboardStats?.communications?.emailAllocated || 0);
+                            const used = (dashboardStats?.communications?.emailUsed || 0);
+                            const percentage = allocated > 0 ? Math.round((used / allocated) * 100) : 0;
+                            console.log('🔍 [Email Center] Display:', { allocated, used, percentage });
+                            return `${percentage}%`;
+                          })()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : cardType === 'patients' ? (
+              /* Patients Card with Main Donut Chart */
+              <div className="flex items-center justify-between">
+                <div className="relative">
+                  {/* Premium Donut Chart for Patients */}
+                  <div className="relative w-24 h-24 group">
+                    {/* Glow effect */}
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-400/20 to-cyan-400/20 blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={comparison ? [
+                            { name: comparison.label1, value: comparison.value1 },
+                            { name: comparison.label2, value: comparison.value2 }
+                          ] : [
+                            { name: 'Male', value: 120 },
+                            { name: 'Female', value: 130 }
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={28}
+                          outerRadius={42}
+                          paddingAngle={3}
+                          dataKey="value"
+                          stroke="rgba(255,255,255,0.3)"
+                          strokeWidth={1}
+                        >
+                          <defs>
+                            <linearGradient id="maleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" stopColor="#489bfd" stopOpacity={0.9} />
+                              <stop offset="100%" stopColor="#3b82f6" stopOpacity={1} />
+                            </linearGradient>
+                            <linearGradient id="femaleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" stopColor="#7db3fe" stopOpacity={0.9} />
+                              <stop offset="100%" stopColor="#06b6d4" stopOpacity={1} />
+                            </linearGradient>
+                          </defs>
+                          <Cell fill="url(#maleGradient)" />
+                          <Cell fill="url(#femaleGradient)" />
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  
+                  {/* Center Value for Patients */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center relative">
+                      <div className="absolute inset-0 bg-white/80 backdrop-blur-sm rounded-full scale-150 opacity-60"></div>
+                      <div className="relative">
+                        <p 
+                          className="text-xl font-bold tracking-tight relative z-10" 
+                          style={{ 
+                            fontFamily: 'Rubik, sans-serif',
+                            color: settings.primaryColor,
+                            textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                          }}
+                        >
+                          {mainValue}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex-1 ml-4">
+                  <p className="text-sm text-gray-600 font-medium mb-2">{subtitle}</p>
+                  {renderLegendOnly()}
+                </div>
+              </div>
+            ) : (
+              /* Default layout for other cards */
+              <div>
+                <p 
+                  className="text-3xl font-bold mb-1" 
+                  style={{ 
+                    fontFamily: 'Rubik, sans-serif',
+                    color: settings.primaryColor
+                  }}
+                >
+                  {mainValue}
+                </p>
+                <p className="text-sm text-gray-600 font-medium">{subtitle}</p>
+              </div>
+            )}
+
+            {cardType !== 'communication' && cardType !== 'patients' && (
+              <>
+                {/* Legend Only */}
+                {renderLegendOnly()}
+
+                {/* Mini Stats or Donut Chart */}
+                {renderMiniStats()}
+              </>
+            )}
           </div>
         </div>
 

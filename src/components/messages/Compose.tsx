@@ -20,6 +20,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { usePatientsStore } from '../../stores/patientsStore';
+import { useAuthStore } from '../../stores/authStore';
 
 interface Message {
   type: 'email' | 'sms';
@@ -54,6 +55,10 @@ const Compose: React.FC = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const { patients, fetchPatients } = usePatientsStore();
+  const { user } = useAuthStore();
+
+  // Get practice_id from user metadata or local storage
+  const practiceId = user?.user_metadata?.practice_id || localStorage.getItem('currentPracticeId');
 
   useEffect(() => {
     fetchPatients();
@@ -168,8 +173,9 @@ const Compose: React.FC = () => {
 
       for (const recipient of recipients) {
         const communicationData = {
+          practice_id: practiceId,
           patient_id: recipient.id,
-          type: message.type,
+          type: message.type.toUpperCase(),
           direction: 'OUTGOING',
           sender_address: message.type === 'email' ? 'clinic@example.com' : '+1234567890',
           recipient_address: message.type === 'email' ? recipient.email : recipient.phone,

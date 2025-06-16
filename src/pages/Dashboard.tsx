@@ -39,6 +39,9 @@ import PracticeOverviewTile from '../components/dashboard/PracticeOverviewTile';
 import { dashboardStatsService, DashboardStats } from '../services/dashboardStatsService';
 import { useAuthStore } from '../stores/authStore';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
+import { ServiceLimitsWidget } from '../components/practice/ServiceLimitsWidget';
+import CommunicationsModal from '../components/modals/CommunicationsModal';
+import ComprehensivePatientModal from '../components/patients/ComprehensivePatientModal';
 
 interface Appointment {
   id: string;
@@ -119,7 +122,13 @@ function Dashboard() {
     isOpen: boolean;
     type: 'patients' | 'notifications' | 'encounters' | 'finance' | null;
   }>({ isOpen: false, type: null });
+  
+  // Debug modal state changes
+  useEffect(() => {
+    console.log('🔍 [Dashboard] Report modal state changed:', selectedReportModal);
+  }, [selectedReportModal]);
   const [isEnhancedFinancialModalOpen, setIsEnhancedFinancialModalOpen] = useState(false);
+  const [isCommunicationsModalOpen, setIsCommunicationsModalOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
   const [showYearDropdown, setShowYearDropdown] = useState(false);
@@ -127,6 +136,7 @@ function Dashboard() {
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
+  const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
 
   const handleLogout = async () => {
     // Clear any pending navigation
@@ -854,7 +864,15 @@ function Dashboard() {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center justify-end">
+              <div className="flex items-center justify-end gap-3">
+                {/* Quick Patients Access Button */}
+                <button
+                  onClick={() => setIsPatientModalOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-medium text-sm"
+                >
+                  <Users className="w-4 h-4" />
+                  <span className="hidden sm:inline">Patients</span>
+                </button>
                 {/* User Avatar with Dropdown */}
                 {user && (
                   <div className="relative">
@@ -926,7 +944,7 @@ function Dashboard() {
                               <div className="flex-1">
                                 <p className="text-base font-semibold text-gray-900">{user.name}</p>
                                 <p className="text-sm text-gray-500">{user.email}</p>
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-[#01b9d5] to-[#4bc0c8] text-white mt-1">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-500 to-indigo-600 text-white mt-1">
                                   {user.role}
                                 </span>
                               </div>
@@ -982,35 +1000,38 @@ function Dashboard() {
                     value: `+${patientStats.newThisMonth}`,
                     isPositive: patientStats.newThisMonth > 0
                   }}
-                  onClick={() => setSelectedReportModal({ isOpen: true, type: 'patients' })}
+                  onClick={() => {
+                    console.log('🔍 [Dashboard] Patients modal clicked');
+                    setIsPatientModalOpen(true);
+                  }}
                 />,
                 
                 // Communication Card (Light Mode)
                 <PremiumStatCard
                   key="communication"
                   title="Communication"
-                  mainValue={28}
+                  mainValue={dashboardStats?.communications?.total || 28}
                   subtitle="Active communications"
                   icon={MessageSquare}
                   gradient="from-amber-500 to-orange-600"
                   cardType="communication"
                   stats={[
-                    { label: 'Unread', value: 5, color: '#F59E0B' },
-                    { label: 'Read', value: 23, color: '#059669' }
+                    { label: 'SMS Available', value: dashboardStats?.communications?.smsAvailable || 0, color: '#EF4444' },
+                    { label: 'Email Available', value: dashboardStats?.communications?.emailAvailable || 0, color: '#F59E0B' }
                   ]}
                   comparison={{
-                    label1: 'Unread',
-                    value1: 5,
-                    label2: 'Read',
-                    value2: 23,
-                    color1: '#F59E0B',
-                    color2: '#059669'
+                    label1: 'SMS Available',
+                    value1: dashboardStats?.communications?.smsAvailable || 0,
+                    label2: 'Email Available', 
+                    value2: dashboardStats?.communications?.emailAvailable || 0,
+                    color1: '#EF4444',
+                    color2: '#F97316'
                   }}
-                  trend={{
-                    value: '5 unread',
-                    isPositive: false
+                  onClick={() => {
+                    console.log('🔍 [Dashboard] Communications modal clicked');
+                    setIsCommunicationsModalOpen(true);
                   }}
-                  onClick={() => setSelectedReportModal({ isOpen: true, type: 'notifications' })}
+                  dashboardStats={dashboardStats}
                 />,
                 
                 // Encounters Card
@@ -1038,7 +1059,10 @@ function Dashboard() {
                     value: '+23',
                     isPositive: true
                   }}
-                  onClick={() => setSelectedReportModal({ isOpen: true, type: 'encounters' })}
+                  onClick={() => {
+                    console.log('🔍 [Dashboard] Encounters modal clicked');
+                    setSelectedReportModal({ isOpen: true, type: 'encounters' });
+                  }}
                 />,
                 
                 // Finance Card
@@ -1066,7 +1090,10 @@ function Dashboard() {
                     value: 'N$18,500',
                     isPositive: true
                   }}
-                  onClick={() => setIsEnhancedFinancialModalOpen(true)}
+                  onClick={() => {
+                    console.log('🔍 [Dashboard] Finance modal clicked');
+                    setIsEnhancedFinancialModalOpen(true);
+                  }}
                 />
               ] : (
                 // Loading skeleton
@@ -1370,6 +1397,9 @@ function Dashboard() {
                     }}
                   />
 
+                  {/* Service Limits Widget */}
+                  <ServiceLimitsWidget />
+
                   {/* Practice Overview */}
                   <PracticeOverviewTile
                     totalPatients={patientsData.length}
@@ -1497,32 +1527,54 @@ function Dashboard() {
       )}
 
       {/* Detailed Report Modal */}
-      {selectedReportModal.isOpen && selectedReportModal.type && dashboardStats && (
+      {selectedReportModal.isOpen && selectedReportModal.type && (
         <DetailedReportModal
           isOpen={selectedReportModal.isOpen}
-          onClose={() => setSelectedReportModal({ isOpen: false, type: null })}
-          data={generateReportData(selectedReportModal.type, dashboardStats)}
+          onClose={() => {
+            console.log('🔍 [Dashboard] Closing report modal');
+            setSelectedReportModal({ isOpen: false, type: null });
+          }}
+          data={dashboardStats ? generateReportData(selectedReportModal.type, dashboardStats) : {
+            type: selectedReportModal.type,
+            title: 'Loading...',
+            subtitle: 'Please wait while we load the data',
+            overview: { total: 0, change: 'Loading...', isPositive: true, period: 'N/A' },
+            breakdown: [],
+            chartData: { labels: [], datasets: [] },
+            timeSeriesData: { labels: [], datasets: [] },
+            insights: ['Loading data...'],
+            actionItems: ['Please wait...']
+          }}
         />
       )}
 
       {/* Enhanced Financial Modal */}
-      {isEnhancedFinancialModalOpen && dashboardStats && (
+      {isEnhancedFinancialModalOpen && (
         <EnhancedFinancialModal
           isOpen={isEnhancedFinancialModalOpen}
-          onClose={() => setIsEnhancedFinancialModalOpen(false)}
+          onClose={() => {
+            console.log('🔍 [Dashboard] Closing financial modal');
+            setIsEnhancedFinancialModalOpen(false);
+          }}
           data={dashboardStats ? generateFinancialReportData(dashboardStats) : {
             type: 'finance' as const,
             title: 'Financial Overview',
-            subtitle: 'No data available',
-            overview: { total: 0, change: 'N/A', isPositive: false, period: 'N/A' },
+            subtitle: 'Loading financial data...',
+            overview: { total: 0, change: 'Loading...', isPositive: true, period: 'N/A' },
             breakdown: [],
             chartData: { labels: [], datasets: [] },
             timeSeriesData: { labels: [], datasets: [] },
-            insights: [],
-            actionItems: []
+            insights: ['Loading financial data...'],
+            actionItems: ['Please wait...']
           }}
         />
       )}
+
+      {/* Communications Modal */}
+      <CommunicationsModal
+        isOpen={isCommunicationsModalOpen}
+        onClose={() => setIsCommunicationsModalOpen(false)}
+      />
 
       {/* Calendar Picker Modal - Rendered as Portal */}
       {showCalendarPicker && createPortal(
@@ -1722,6 +1774,11 @@ function Dashboard() {
         document.body
       )}
 
+      {/* Enhanced Patient Modal */}
+      <ComprehensivePatientModal
+        isOpen={isPatientModalOpen}
+        onClose={() => setIsPatientModalOpen(false)}
+      />
     </div>
   );
 

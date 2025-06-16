@@ -109,8 +109,8 @@ class PracticeDataService {
         .from('appointments')
         .select(`
           *,
-          patient:patients(id, first_name, last_name, cell_number, date_of_birth, gender),
-          doctor:users!doctor_id(id, full_name, practice_id)
+          patients!patient_id(id, first_name, last_name, cell_number, date_of_birth, gender),
+          users!doctor_id(id, full_name, practice_id)
         `)
         .eq('practice_id', practiceId)
         .order('date', { ascending: true })
@@ -141,7 +141,14 @@ class PracticeDataService {
         } : null
       });
 
-      return filteredAppointments;
+      // Transform the data to match the expected format
+      const formattedAppointments = filteredAppointments.map(apt => ({
+        ...apt,
+        patient: apt.patients,
+        doctor: apt.users
+      }));
+
+      return formattedAppointments;
 
     } catch (error) {
       this.logError('Exception fetching practice appointments', error);
@@ -154,10 +161,13 @@ class PracticeDataService {
     this.logWithContext(`Fetching patients for practice: ${practiceId}`);
     
     try {
-      // Directly fetch patients by practice_id
+      // Directly fetch patients by practice_id with medical aid details
       const { data: patients, error } = await supabase
         .from('patients')
-        .select('*')
+        .select(`
+          *,
+          medical_aid_details!patient_id (*)
+        `)
         .eq('practice_id', practiceId)
         .order('last_name', { ascending: true })
         .order('first_name', { ascending: true });
@@ -224,13 +234,13 @@ class PracticeDataService {
     // Check all appointments in DB
     const { data: allAppointments } = await supabase
       .from('appointments')
-      .select(`id, doctor_id, date, patient:patients(first_name, last_name), doctor:users(full_name, practice_id)`)
+      .select(`id, doctor_id, date, patients!patient_id(first_name, last_name), users!doctor_id(full_name, practice_id)`)
       .limit(50);
 
     this.logWithContext(`🐛 DEBUG: All appointments in database (first 50):`, {
       total: allAppointments?.length || 0,
       byPractice: allAppointments?.reduce((acc, apt) => {
-        const practice = apt.doctor?.practice_id || 'NO_PRACTICE';
+        const practice = apt.users?.practice_id || 'NO_PRACTICE';
         acc[practice] = (acc[practice] || 0) + 1;
         return acc;
       }, {} as Record<string, number>)

@@ -28,6 +28,8 @@ interface SidebarProps {
   onMobileClose?: () => void;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  onOpenCommunications?: () => void;
+  onOpenPatients?: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -36,16 +38,18 @@ const Sidebar: React.FC<SidebarProps> = ({
   isMobile,
   onMobileClose,
   isFullscreen = false,
-  onToggleFullscreen
+  onToggleFullscreen,
+  onOpenCommunications,
+  onOpenPatients
 }) => {
   const { isSuperAdmin, canManagePractices } = useAuthStore();
   const { currentTheme } = useTheme();
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: Users, label: 'Patients', path: '/patients' },
-    { icon: Bell, label: 'Messages', path: '/messages' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/', isRoute: true },
+    { icon: Users, label: 'Patients', path: '/patients', isRoute: false, onClick: onOpenPatients },
+    { icon: Bell, label: 'Messages', path: '/messages', isRoute: false, onClick: onOpenCommunications },
   ];
 
   const adminItems = [
@@ -75,24 +79,48 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <nav className="p-2">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) => cn(
-              "flex items-center px-4 py-3 rounded-xl mb-2 transition-all duration-200 min-h-[48px] group",
-              "hover:bg-white/15 hover:shadow-lg hover:scale-[1.02]",
-              isActive ? "text-white bg-white/25 shadow-lg border border-white/20" : "text-white/90",
-              collapsed && !isMobile && "justify-center"
-            )}
-            onClick={isMobile ? onMobileClose : undefined}
-          >
-            <item.icon size={20} strokeWidth={1.5} />
-            {(!collapsed || isMobile) && (
-              <span className="ml-3 text-sm font-medium">{item.label}</span>
-            )}
-          </NavLink>
-        ))}
+        {navItems.map((item) => {
+          if (item.isRoute) {
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) => cn(
+                  "flex items-center px-4 py-3 rounded-xl mb-2 transition-all duration-200 min-h-[48px] group",
+                  "hover:bg-white/15 hover:shadow-lg hover:scale-[1.02]",
+                  isActive ? "text-white bg-white/25 shadow-lg border border-white/20" : "text-white/90",
+                  collapsed && !isMobile && "justify-center"
+                )}
+                onClick={isMobile ? onMobileClose : undefined}
+              >
+                <item.icon size={20} strokeWidth={1.5} />
+                {(!collapsed || isMobile) && (
+                  <span className="ml-3 text-sm font-medium">{item.label}</span>
+                )}
+              </NavLink>
+            );
+          } else {
+            return (
+              <button
+                key={item.path}
+                onClick={() => {
+                  item.onClick?.();
+                  if (isMobile) onMobileClose?.();
+                }}
+                className={cn(
+                  "w-full flex items-center px-4 py-3 rounded-xl mb-2 transition-all duration-200 min-h-[48px] group",
+                  "hover:bg-white/15 hover:shadow-lg hover:scale-[1.02] text-white/90",
+                  collapsed && !isMobile && "justify-center"
+                )}
+              >
+                <item.icon size={20} strokeWidth={1.5} />
+                {(!collapsed || isMobile) && (
+                  <span className="ml-3 text-sm font-medium">{item.label}</span>
+                )}
+              </button>
+            );
+          }
+        })}
 
         {/* Settings and Controls Section */}
         <NavLink

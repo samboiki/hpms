@@ -24,6 +24,16 @@ const FormModal: React.FC<FormModalProps> = ({
   hideHeader = false
 }) => {
   const { currentTheme } = useTheme();
+  
+  // Debug modal state changes
+  useEffect(() => {
+    if (isOpen) {
+      console.log('📧 MODAL DEBUG: FormModal OPENED -', title, '(z-index: 99998)');
+    } else {
+      console.log('📧 MODAL DEBUG: FormModal CLOSED -', title);
+    }
+  }, [isOpen, title]);
+
   // Handle modal open/close effects
   useEffect(() => {
     if (isOpen) {
@@ -59,7 +69,7 @@ const FormModal: React.FC<FormModalProps> = ({
       contentLabel={title}
       style={{
         overlay: {
-          zIndex: 1000,
+          zIndex: 99998,
         }
       }}
     >

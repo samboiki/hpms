@@ -43,20 +43,53 @@ export function useRealtimeAppointments({
           // For INSERT and UPDATE, we need to fetch the full appointment data with patient info
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             try {
-              const { data, error } = await supabase
+              // Get appointment data first
+              const { data: appointmentData, error: appointmentError } = await supabase
                 .from('appointments')
-                .select(`
-                  *,
-                  patient:patients(*)
-                `)
+                .select('*')
                 .eq('id', payload.new.id)
                 .single();
 
-              if (error) throw error;
+              if (appointmentError) throw appointmentError;
+
+              // Get patient data separately if patient_id exists
+              let patientData = null;
+              if (appointmentData.patient_id) {
+                const { data: patient, error: patientError } = await supabase
+                  .from('patients')
+                  .select('id, first_name, last_name, cell_number, date_of_birth, gender')
+                  .eq('id', appointmentData.patient_id)
+                  .single();
+
+                if (!patientError) {
+                  patientData = patient;
+                }
+              }
+
+              // Get doctor data separately if doctor_id exists
+              let doctorData = null;
+              if (appointmentData.doctor_id) {
+                const { data: doctor, error: doctorError } = await supabase
+                  .from('users')
+                  .select('id, full_name')
+                  .eq('id', appointmentData.doctor_id)
+                  .single();
+
+                if (!doctorError) {
+                  doctorData = doctor;
+                }
+              }
+
+              // Combine data
+              const enrichedAppointment = {
+                ...appointmentData,
+                patient: patientData,
+                doctor: doctorData
+              };
 
               onAppointmentChange({
                 eventType: payload.eventType,
-                new: data,
+                new: enrichedAppointment,
                 old: payload.old
               });
             } catch (error) {

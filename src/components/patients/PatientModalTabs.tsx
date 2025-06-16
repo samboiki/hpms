@@ -92,7 +92,12 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
   labResults = [],
   documents = []
 }) => {
-  const tabs = mode === 'list' ? listTabs : detailTabs;
+  const tabs = mode === 'list' ? [] : detailTabs; // Remove list tabs from header
+  
+  // Don't render anything if no tabs to show
+  if (tabs.length === 0) {
+    return null;
+  }
   
   // Get count for tabs with data
   const getTabCount = (tabId: string) => {

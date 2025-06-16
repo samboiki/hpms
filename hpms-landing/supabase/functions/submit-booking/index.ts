@@ -33,7 +33,7 @@ serve(async (req) => {
     }
 
     // Check if patient exists by email
-    let { data: existingPatients } = await supabaseAdmin
+    const { data: existingPatients } = await supabaseAdmin
       .from('patients')
       .select('*')
       .eq('email', formData.email)

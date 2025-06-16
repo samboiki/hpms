@@ -11,10 +11,13 @@ import {
   Check,
   X,
   Save,
-  Tag
+  Tag,
+  Eye
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
+import EmailTemplatePreview from './EmailTemplatePreview';
+import { professionalEmailTemplates } from './EmailTemplates';
 
 interface Template {
   id?: string;
@@ -36,9 +39,20 @@ const Templates: React.FC = () => {
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
 
-  // Sample appointment reminder templates
+  // Enhanced professional templates with proper email structure
   const sampleTemplates: Template[] = [
+    // Professional email templates from our new collection
+    ...professionalEmailTemplates.map(template => ({
+      id: template.id,
+      name: template.name,
+      type: 'EMAIL' as const,
+      subject: template.subject,
+      body: template.body,
+      is_active: true,
+      created_at: new Date().toISOString()
+    })),
     {
       id: 'sample-1',
       name: '24 Hour Appointment Reminder',
@@ -458,6 +472,18 @@ const Templates: React.FC = () => {
 
                   <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                     <div className="flex gap-1">
+                      {template.type === 'EMAIL' && (
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => setPreviewTemplate(template)}
+                          className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Preview Email"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </motion.button>
+                      )}
+                      
                       <motion.button
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
@@ -662,6 +688,14 @@ const Templates: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Email Template Preview Modal */}
+      {previewTemplate && (
+        <EmailTemplatePreview
+          template={previewTemplate}
+          onClose={() => setPreviewTemplate(null)}
+        />
+      )}
     </div>
   );
 };

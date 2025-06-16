@@ -54,6 +54,12 @@ const navigation = [
     description: 'SMS allocation and monitoring'
   },
   {
+    name: 'SMS Logs',
+    href: '/dashboard/sms-logs',
+    icon: FileText,
+    description: 'SMS history and delivery tracking'
+  },
+  {
     name: 'Analytics & Reports',
     href: '/dashboard/analytics',
     icon: TrendingUp,

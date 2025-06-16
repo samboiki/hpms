@@ -365,7 +365,7 @@ export class InvoiceService {
   ): Promise<void> {
     try {
       // Get medical aid coverage for amount calculations
-      let coverageMap: Map<string, MedicalAidCoverage> = new Map();
+      const coverageMap: Map<string, MedicalAidCoverage> = new Map();
       if (medicalAidId) {
         try {
           const { data: coverage } = await supabase

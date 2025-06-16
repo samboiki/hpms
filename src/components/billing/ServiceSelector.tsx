@@ -72,7 +72,7 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({
         // Fetch tariffs that match the practice type (simplified structure - no practice_id)
         // Aesthetic practices also see dental codes since they do dental work
         let tariffs = [];
-        let serviceTypesToFetch = [practiceType];
+        const serviceTypesToFetch = [practiceType];
         
         // Aesthetic practices can also perform dental services
         if (practiceType === 'aesthetic') {
@@ -216,7 +216,7 @@ const ServiceSelector: React.FC<ServiceSelectorProps> = ({
         }
 
         // If medical aid is selected, fetch coverage information
-        let coverageMap: Map<string, MedicalAidCoverage> = new Map();
+        const coverageMap: Map<string, MedicalAidCoverage> = new Map();
         if (medicalAidId) {
           const { data: coverage, error: coverageError } = await supabase
             .from('medical_aid_coverage')

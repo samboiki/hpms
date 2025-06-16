@@ -896,21 +896,47 @@ Best regards,
         {/* Navigation Tabs */}
         <div className="border-b border-gray-200 px-6">
           <div className="flex w-full">
-            {tabs.map((tab) => {
+            {tabs.map((tab, index) => {
               const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
               return (
-                <button
+                <motion.button
                   key={tab.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05, duration: 0.3 }}
+                  whileHover={{ 
+                    scale: 1.02,
+                    y: -2,
+                    transition: { duration: 0.2 }
+                  }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={() => setActiveTab(tab.id as TabType)}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === tab.id
-                      ? 'text-[#01b9d5] border-[#01b9d5]'
-                      : 'text-gray-500 border-transparent hover:text-gray-700'
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-300 relative ${
+                    isActive
+                      ? 'text-amber-600 border-amber-500 bg-gradient-to-t from-amber-50 to-transparent'
+                      : 'text-gray-500 border-transparent hover:text-amber-600 hover:bg-amber-50/50'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </button>
+                  <motion.div
+                    animate={isActive ? { rotate: 360 } : { rotate: 0 }}
+                    transition={{ duration: 0.6, ease: "easeInOut" }}
+                  >
+                    <Icon className={`w-4 h-4 transition-all duration-300 ${
+                      isActive ? 'text-amber-600 drop-shadow-sm' : ''
+                    }`} />
+                  </motion.div>
+                  <span className="hidden sm:inline font-medium">{tab.label}</span>
+                  
+                  {/* Active tab glow effect */}
+                  {isActive && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="absolute inset-0 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 rounded-t-lg pointer-events-none"
+                    />
+                  )}
+                </motion.button>
               );
             })}
           </div>

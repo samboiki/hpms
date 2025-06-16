@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,7 +28,8 @@ import {
   AlertCircle,
   Zap,
   Shield,
-  Crown
+  Crown,
+  Settings
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import {
@@ -109,6 +111,47 @@ export default function PracticesManagementPage() {
 
       if (perfError) {
         console.error('Error loading performance data:', perfError)
+        // Fallback to basic practices data if view fails
+        const { data: basicPractices, error: basicError } = await supabase
+          .from('practices')
+          .select(`
+            id as practice_id,
+            name as practice_name,
+            slug,
+            city,
+            contact_email,
+            contact_phone,
+            status,
+            subscription_tier,
+            created_at as practice_created_at
+          `)
+          .order('name')
+
+        if (basicError) {
+          console.error('Error loading basic practices:', basicError)
+        } else if (basicPractices) {
+          // Transform basic data to match expected format
+          const transformedData = basicPractices.map(practice => ({
+            ...practice,
+            total_patients: 0,
+            new_patients_30_days: 0,
+            new_patients_7_days: 0,
+            total_appointments: 0,
+            completed_appointments: 0,
+            cancelled_appointments: 0,
+            no_show_appointments: 0,
+            appointments_last_30_days: 0,
+            appointments_last_7_days: 0,
+            completion_rate_percentage: 0,
+            sms_monthly_limit: 0,
+            sms_current_usage: 0,
+            sms_sent_last_30_days: 0,
+            sms_usage_percentage: 0,
+            total_potential_revenue: 0,
+            active_services: 1
+          }))
+          setPractices(transformedData)
+        }
       } else if (performanceData) {
         setPractices(performanceData)
       }
@@ -252,6 +295,39 @@ export default function PracticesManagementPage() {
         </div>
       </div>
 
+      {/* Quick Guide */}
+      <Card className="bg-gradient-to-r from-onehealth-50 to-blue-50 border-onehealth-200">
+        <div className="p-4">
+          <div className="flex items-start space-x-3">
+            <div className="p-2 bg-onehealth-100 rounded-lg">
+              <MessageSquare className="h-5 w-5 text-onehealth-600" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-poppins font-semibold text-gray-900 mb-1">
+                How to Set SMS & Email Limits
+              </h3>
+              <p className="text-sm font-montserrat text-gray-600 mb-2">
+                Click the <strong>"Manage Limits"</strong> button on any practice card below to set monthly SMS and email limits, configure features, and manage subscriptions.
+              </p>
+              <div className="flex items-center space-x-4 text-xs font-montserrat text-gray-500">
+                <span className="flex items-center">
+                  <Edit className="h-3 w-3 mr-1" />
+                  Set Limits
+                </span>
+                <span className="flex items-center">
+                  <Shield className="h-3 w-3 mr-1" />
+                  Manage Features
+                </span>
+                <span className="flex items-center">
+                  <Settings className="h-3 w-3 mr-1" />
+                  Configure Services
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
       {/* Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4">
@@ -391,13 +467,17 @@ export default function PracticesManagementPage() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuItem>
-                      <Eye className="mr-2 h-4 w-4" />
-                      View Details
+                    <DropdownMenuItem asChild>
+                      <Link href={`/dashboard/practices/manage/${practice.practice_id}`}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Details
+                      </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit Practice
+                    <DropdownMenuItem asChild>
+                      <Link href={`/dashboard/practices/manage/${practice.practice_id}`}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Manage Limits & Settings
+                      </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem className="text-red-600">
@@ -445,7 +525,7 @@ export default function PracticesManagementPage() {
               {/* SMS Usage Bar */}
               <div className="mb-4">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-sm font-montserrat text-gray-600">SMS Usage</span>
+                  <span className="text-sm font-montserrat text-gray-600">SMS Limit</span>
                   <span className="text-sm font-montserrat font-medium text-gray-900">
                     {practice.sms_current_usage} / {practice.sms_monthly_limit}
                   </span>
@@ -459,9 +539,16 @@ export default function PracticesManagementPage() {
                     style={{ width: `${Math.min(practice.sms_usage_percentage, 100)}%` }}
                   ></div>
                 </div>
-                <p className="text-xs font-montserrat text-gray-500 mt-1">
-                  {practice.sms_usage_percentage.toFixed(0)}% used
-                </p>
+                <div className="flex justify-between items-center mt-1">
+                  <p className="text-xs font-montserrat text-gray-500">
+                    {practice.sms_usage_percentage.toFixed(0)}% used
+                  </p>
+                  {practice.sms_monthly_limit === 0 && (
+                    <p className="text-xs font-montserrat text-orange-600 font-medium">
+                      No limit set
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Revenue Potential */}
@@ -500,6 +587,24 @@ export default function PracticesManagementPage() {
                   </div>
                 </div>
               )}
+
+              {/* Action Buttons */}
+              <div className="mt-4 pt-3 border-t">
+                <div className="flex space-x-2">
+                  <Link href={`/dashboard/practices/manage/${practice.practice_id}`} className="flex-1">
+                    <Button variant="outline" size="sm" className="w-full">
+                      <Edit className="h-4 w-4 mr-1" />
+                      Manage Limits
+                    </Button>
+                  </Link>
+                  <Link href={`/dashboard/practices/manage/${practice.practice_id}`} className="flex-1">
+                    <Button size="sm" className="w-full">
+                      <Eye className="h-4 w-4 mr-1" />
+                      View Details
+                    </Button>
+                  </Link>
+                </div>
+              </div>
             </Card>
           )
         })}

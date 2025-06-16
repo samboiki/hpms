@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, 
-  Printer, 
   Download, 
   Calendar, 
   User, 
@@ -75,10 +74,6 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
     overdue: <AlertCircle className="w-4 h-4" />
   };
 
-  const handlePrint = () => {
-    // Directly call window.print() without showing preview
-    window.print();
-  };
 
   const handleDownloadPDF = () => {
     // This would integrate with a PDF generation service
@@ -287,13 +282,6 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
           </div>
           
           <div className="flex items-center gap-3">
-            <button
-              onClick={handlePrint}
-              className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2 text-sm font-medium"
-            >
-              <Printer className="w-4 h-4" />
-              Print
-            </button>
             
             <button
               onClick={onClose}

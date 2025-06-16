@@ -35,6 +35,17 @@ export interface DashboardStats {
     revenueData: number[];
     paymentMethods: { method: string; amount: number; color: string }[];
   };
+  communications: {
+    smsAllocated: number;
+    smsUsed: number;
+    smsAvailable: number;
+    smsUsagePercentage: number;
+    emailAllocated: number;
+    emailUsed: number;
+    emailAvailable: number;
+    emailUsagePercentage: number;
+    total: number;
+  };
 }
 
 class DashboardStatsService {
@@ -47,32 +58,64 @@ class DashboardStatsService {
       const last6Months = subMonths(today, 6);
       const last7Days = subDays(today, 7);
 
-      // Parallel data fetching for performance
+      // Parallel data fetching for performance with error handling
       const [
         patientsData,
         visitData,
         appointmentData,
         invoiceData,
-        medicalAidData
-      ] = await Promise.all([
+        medicalAidData,
+        communicationsData
+      ] = await Promise.allSettled([
         this.getPatientsStats(practiceId, monthStart, last6Months),
         this.getVisitStats(practiceId, monthStart, last6Months),
         this.getAppointmentStats(practiceId, monthStart),
         this.getFinanceStats(practiceId, monthStart, last6Months),
-        this.getMedicalAidStats(practiceId)
+        this.getMedicalAidStats(practiceId),
+        this.getCommunicationStats(practiceId)
       ]);
+
+      // Extract successful results and provide defaults for failed ones
+      const patientsResult = patientsData.status === 'fulfilled' ? patientsData.value : {
+        total: 0, male: 0, female: 0, newThisMonth: 0, averageAge: 0, topMedicalAids: [], growthData: []
+      };
+      
+      const visitResult = visitData.status === 'fulfilled' ? visitData.value : {
+        total: 0, thisMonth: 0, completed: 0, pending: 0, types: [], monthlyData: []
+      };
+      
+      const appointmentResult = appointmentData.status === 'fulfilled' ? appointmentData.value : {
+        appointmentsThisMonth: 0, pendingAppointments: 0
+      };
+      
+      const invoiceResult = invoiceData.status === 'fulfilled' ? invoiceData.value : {
+        totalRevenue: 0, thisMonth: 0, outstanding: 0, paidInvoices: 0, unpaidInvoices: 0, revenueData: [], paymentMethods: []
+      };
+      
+      const communicationsResult = communicationsData.status === 'fulfilled' ? communicationsData.value : {
+        smsAllocated: 0, smsUsed: 0, smsAvailable: 0, smsUsagePercentage: 0,
+        emailAllocated: 0, emailUsed: 0, emailAvailable: 0, emailUsagePercentage: 0, total: 0
+      };
+
+      // Log any failures
+      if (patientsData.status === 'rejected') console.error('Patients stats failed:', patientsData.reason);
+      if (visitData.status === 'rejected') console.error('Visit stats failed:', visitData.reason);
+      if (appointmentData.status === 'rejected') console.error('Appointment stats failed:', appointmentData.reason);
+      if (invoiceData.status === 'rejected') console.error('Invoice stats failed:', invoiceData.reason);
+      if (communicationsData.status === 'rejected') console.error('Communications stats failed:', communicationsData.reason);
 
       // Generate mock notification data (since we don't have a notifications table)
       const notifications = this.generateNotificationStats();
 
       return {
-        patients: patientsData,
+        patients: patientsResult,
         notifications,
         encounters: {
-          ...visitData,
-          ...appointmentData
+          ...visitResult,
+          ...appointmentResult
         },
-        finance: invoiceData
+        finance: invoiceResult,
+        communications: communicationsResult
       };
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
@@ -152,13 +195,30 @@ class DashboardStatsService {
   }
 
   private async getVisitStats(practiceId: string, monthStart: Date, last6Months: Date) {
+    // First get all patients for this practice
+    const { data: practicePatients } = await supabase
+      .from('patients')
+      .select('id')
+      .eq('practice_id', practiceId);
+    
+    const patientIds = practicePatients?.map(p => p.id) || [];
+    
+    if (patientIds.length === 0) {
+      return {
+        total: 0,
+        thisMonth: 0,
+        completed: 0,
+        pending: 0,
+        types: [],
+        monthlyData: []
+      };
+    }
+
+    // Then get visits for those patients
     const { data: visits, error } = await supabase
       .from('visits')
-      .select(`
-        *,
-        patients!inner(practice_id)
-      `)
-      .eq('patients.practice_id', practiceId)
+      .select('*')
+      .in('patient_id', patientIds)
       .gte('visit_date', format(last6Months, 'yyyy-MM-dd'));
 
     if (error) throw error;
@@ -210,13 +270,11 @@ class DashboardStatsService {
   }
 
   private async getAppointmentStats(practiceId: string, monthStart: Date) {
+    // Get appointments directly by practice_id filter
     const { data: appointments, error } = await supabase
       .from('appointments')
-      .select(`
-        *,
-        patients!inner(practice_id)
-      `)
-      .eq('patients.practice_id', practiceId)
+      .select('*')
+      .eq('practice_id', practiceId)
       .gte('date', format(monthStart, 'yyyy-MM-dd'));
 
     if (error) throw error;
@@ -340,6 +398,139 @@ class DashboardStatsService {
     }
     
     return invoices;
+  }
+
+  private async getCommunicationStats(practiceId: string) {
+    try {
+      console.log('🔍 [Communications] Fetching real subscription data for practice:', practiceId);
+
+      // Fetch SMS subscription data using practice_id - NO FALLBACKS
+      const { data: smsSubscription, error: smsError } = await supabase
+        .from('practice_sms_subscriptions')
+        .select(`
+          monthly_limit,
+          additional_sms_purchased,
+          current_usage
+        `)
+        .eq('practice_id', practiceId)
+        .eq('is_active', true)
+        .single();
+
+      if (smsError) {
+        console.log('🔍 [SMS] No active SMS subscription found for practice:', practiceId);
+      }
+
+      // Calculate SMS stats - current_usage/monthly_limit * 100 (REAL DATA ONLY)
+      const smsMonthlyLimit = smsSubscription?.monthly_limit || 0;
+      const smsUsed = smsSubscription?.current_usage || 0;
+      const smsAdditional = smsSubscription?.additional_sms_purchased || 0;
+      const smsAllocated = smsMonthlyLimit + smsAdditional;
+      const smsAvailable = Math.max(0, smsAllocated - smsUsed);
+      const smsUsagePercentage = smsMonthlyLimit > 0 ? Math.round((smsUsed / smsMonthlyLimit) * 100) : 0;
+
+      // Fetch Email subscription data using practice_id - NO FALLBACKS
+      let emailSubscription = null;
+      let emailError = null;
+      
+      try {
+        const emailResult = await supabase
+          .from('practice_email_subscriptions' as any)
+          .select(`
+            monthly_limit,
+            additional_emails_purchased,
+            current_usage
+          `)
+          .eq('practice_id', practiceId)
+          .eq('is_active', true)
+          .single();
+        
+        emailSubscription = emailResult.data;
+        emailError = emailResult.error;
+      } catch (err) {
+        console.log('🔍 [Email] Email subscription table does not exist for practice:', practiceId);
+        emailError = err;
+      }
+
+      if (emailError) {
+        console.log('🔍 [Email] No active Email subscription found for practice:', practiceId);
+      }
+
+      // Calculate Email stats - current_usage/monthly_limit * 100 (REAL DATA ONLY)
+      const emailMonthlyLimit = (emailSubscription as any)?.monthly_limit || 0;
+      const emailUsed = (emailSubscription as any)?.current_usage || 0;
+      const emailAdditional = (emailSubscription as any)?.additional_emails_purchased || 0;
+      const emailAllocated = emailMonthlyLimit + emailAdditional;
+      const emailAvailable = Math.max(0, emailAllocated - emailUsed);
+      const emailUsagePercentage = emailMonthlyLimit > 0 ? Math.round((emailUsed / emailMonthlyLimit) * 100) : 0;
+
+      // Calculate total active communications (REAL DATA ONLY)
+      const { data: smsLogs } = await supabase
+        .from('sms_usage_logs')
+        .select('id')
+        .eq('practice_id', practiceId)
+        .gte('sent_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+
+      // Try to get email logs (table may not exist yet)
+      let emailLogs = null;
+      try {
+        const emailLogsResult = await supabase
+          .from('email_usage_logs' as any)
+          .select('id')
+          .eq('practice_id', practiceId)
+          .gte('sent_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+        emailLogs = emailLogsResult.data;
+      } catch (err) {
+        console.log('🔍 [Communications] Email usage logs table does not exist');
+        emailLogs = null;
+      }
+
+      const totalActiveComms = (smsLogs?.length || 0) + (emailLogs?.length || 0);
+
+      console.log('📊 [Communications] REAL Stats for practice', practiceId, ':', {
+        sms: {
+          monthlyLimit: smsMonthlyLimit,
+          used: smsUsed,
+          additional: smsAdditional,
+          allocated: smsAllocated,
+          available: smsAvailable,
+          usagePercentage: smsUsagePercentage
+        },
+        email: {
+          monthlyLimit: emailMonthlyLimit,
+          used: emailUsed,
+          additional: emailAdditional,
+          allocated: emailAllocated,
+          available: emailAvailable,
+          usagePercentage: emailUsagePercentage
+        },
+        totalActiveComms
+      });
+
+      return {
+        smsAllocated: smsMonthlyLimit, // Use monthly limit for percentage calculation
+        smsUsed,
+        smsAvailable,
+        smsUsagePercentage,
+        emailAllocated: emailMonthlyLimit, // Use monthly limit for percentage calculation
+        emailUsed,
+        emailAvailable,
+        emailUsagePercentage,
+        total: totalActiveComms
+      };
+    } catch (error) {
+      console.error('Error fetching communication stats for practice', practiceId, ':', error);
+      return {
+        smsAllocated: 0,
+        smsUsed: 0,
+        smsAvailable: 0,
+        smsUsagePercentage: 0,
+        emailAllocated: 0,
+        emailUsed: 0,
+        emailAvailable: 0,
+        emailUsagePercentage: 0,
+        total: 0
+      };
+    }
   }
 }
 

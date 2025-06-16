@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, MessageSquare, Phone, User, Clock } from 'lucide-react';
+import { X, Send, MessageSquare, Phone, User, Clock, Sparkles, FileText } from 'lucide-react';
 import Button from '../ui/Button';
 import { defaultSMSService } from '../../services/smsPortal';
 import { useTheme } from '../../stores/themeStore';
+import { supabase } from '../../lib/supabase';
+import { useAuthStore } from '../../stores/authStore';
 
 interface SendMessageModalProps {
   isOpen: boolean;
@@ -18,10 +20,22 @@ interface SendMessageModalProps {
 
 const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, patient }) => {
   const { currentTheme } = useTheme();
+  const { user } = useAuthStore();
   const [message, setMessage] = useState('');
   const [phoneNumber, setPhoneNumber] = useState(patient?.cell_number || '');
   const [isSending, setIsSending] = useState(false);
   const [sendStatus, setSendStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  // Initialize phone number when modal opens
+  React.useEffect(() => {
+    if (isOpen && patient?.cell_number) {
+      setPhoneNumber(patient.cell_number);
+    }
+  }, [isOpen, patient]);
+
+  // Get practice_id from user metadata or local storage
+  const practiceId = user?.user_metadata?.practice_id || localStorage.getItem('currentPracticeId');
 
   const handleSend = async () => {
     if (!message.trim() || !phoneNumber.trim()) {
@@ -36,6 +50,43 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
       const response = await defaultSMSService.sendSMS(phoneNumber, message);
       
       if (response.success) {
+        // Log successful SMS to database
+        try {
+          await supabase
+            .from('sms_usage_logs')
+            .insert({
+              practice_id: practiceId,
+              recipient_phone: phoneNumber,
+              message_content: message,
+              status: 'sent',
+              cost: response.cost || 0,
+              message_id: response.messageId,
+              sent_at: new Date().toISOString(),
+              user_id: user?.id
+            });
+
+          // Also log to communications_log if patient is known
+          if (patient?.id) {
+            await supabase
+              .from('communications_log')
+              .insert({
+                practice_id: practiceId,
+                patient_id: patient.id,
+                type: 'SMS',
+                direction: 'OUTGOING',
+                sender_address: 'System',
+                recipient_address: phoneNumber,
+                subject: 'Manual SMS',
+                body_preview: message.substring(0, 200),
+                status: 'SENT',
+                sent_at: new Date().toISOString()
+              });
+          }
+        } catch (dbError) {
+          console.error('Error logging SMS to database:', dbError);
+          // Don't fail the SMS send if logging fails
+        }
+
         setSendStatus('success');
         setMessage('');
         setTimeout(() => {
@@ -43,10 +94,46 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
           setSendStatus('idle');
         }, 2000);
       } else {
+        // Log failed SMS to database
+        try {
+          await supabase
+            .from('sms_usage_logs')
+            .insert({
+              practice_id: practiceId,
+              recipient_phone: phoneNumber,
+              message_content: message,
+              status: 'failed',
+              error_message: response.error,
+              cost: 0,
+              sent_at: new Date().toISOString(),
+              user_id: user?.id
+            });
+        } catch (dbError) {
+          console.error('Error logging failed SMS to database:', dbError);
+        }
+
         setSendStatus('error');
         console.error('SMS sending failed:', response.error);
       }
     } catch (error) {
+      // Log error to database
+      try {
+        await supabase
+          .from('sms_usage_logs')
+          .insert({
+            practice_id: practiceId,
+            recipient_phone: phoneNumber,
+            message_content: message,
+            status: 'failed',
+            error_message: error instanceof Error ? error.message : 'Unknown error',
+            cost: 0,
+            sent_at: new Date().toISOString(),
+            user_id: user?.id
+          });
+      } catch (dbError) {
+        console.error('Error logging SMS error to database:', dbError);
+      }
+
       setSendStatus('error');
       console.error('Error sending SMS:', error);
     } finally {
@@ -62,14 +149,53 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
     "Please take your medication as prescribed. Contact us if you have any questions."
   ];
 
+  const smsTemplates = [
+    {
+      name: "Appointment Reminder",
+      category: "appointment",
+      message: "Hi {{patientName}}, this is a reminder about your appointment tomorrow at OneHealth Practice. Please arrive 15 minutes early. Call us if you need to reschedule: +264 61 123 4567"
+    },
+    {
+      name: "Birthday Greeting",
+      category: "birthday",
+      message: "🎉 Happy Birthday {{patientName}}! Wishing you a healthy and wonderful year ahead. Special birthday offer: 15% off your next health screening. Call us to book!"
+    },
+    {
+      name: "Test Results Ready",
+      category: "results",
+      message: "Hello {{patientName}}, your test results from your recent visit are now available. Please log into your patient portal or call us to discuss. OneHealth Practice: +264 61 123 4567"
+    },
+    {
+      name: "Payment Reminder",
+      category: "billing",
+      message: "Dear {{patientName}}, this is a friendly reminder about your outstanding invoice. You can pay online via our portal or visit our reception. Thank you - OneHealth Practice"
+    },
+    {
+      name: "Medication Reminder",
+      category: "medication",
+      message: "Hello {{patientName}}, this is a reminder to take your prescribed medication as directed. If you have any side effects or questions, please contact us immediately: +264 61 123 4567"
+    },
+    {
+      name: "Follow-up Required",
+      category: "followup",
+      message: "Hi {{patientName}}, Dr. {{doctorName}} has requested a follow-up appointment. Please call us to schedule at your earliest convenience: +264 61 123 4567. OneHealth Practice"
+    }
+  ];
+
   const handleQuickMessage = (quickMsg: string) => {
     setMessage(quickMsg);
+  };
+
+  const handleTemplateSelect = (template: any) => {
+    const personalizedMessage = template.message.replace('{{patientName}}', patient?.first_name || 'Patient');
+    setMessage(personalizedMessage);
+    setShowTemplates(false);
   };
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -149,22 +275,59 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
                 </div>
               </div>
 
-              {/* Quick Messages */}
+              {/* Professional SMS Templates */}
               <div className="space-y-3">
-                <label className="block text-sm font-semibold text-gray-700">
-                  Quick Messages
-                </label>
-                <div className="space-y-2 max-h-32 overflow-y-auto">
-                  {quickMessages.map((quickMsg, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleQuickMessage(quickMsg)}
-                      className="w-full text-left p-3 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-200 rounded-lg text-sm transition-all duration-200"
-                    >
-                      {quickMsg}
-                    </button>
-                  ))}
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-600" />
+                    SMS Templates
+                  </label>
+                  <button
+                    onClick={() => setShowTemplates(!showTemplates)}
+                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                  >
+                    <FileText className="w-3 h-3" />
+                    {showTemplates ? 'Hide' : 'Browse'} Templates
+                  </button>
                 </div>
+                
+                {showTemplates && (
+                  <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-200">
+                    <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto">
+                      {smsTemplates.map((template, index) => (
+                        <button
+                          key={index}
+                          onClick={() => handleTemplateSelect(template)}
+                          className="text-left p-3 bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg transition-all duration-200 group"
+                        >
+                          <div className="font-medium text-gray-900 text-sm group-hover:text-blue-700">
+                            {template.name}
+                          </div>
+                          <div className="text-xs text-gray-600 group-hover:text-blue-600 mt-1 line-clamp-2">
+                            {template.message.substring(0, 80)}...
+                          </div>
+                          <div className="text-xs text-purple-600 mt-1 opacity-75">
+                            Category: {template.category}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!showTemplates && (
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {quickMessages.map((quickMsg, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleQuickMessage(quickMsg)}
+                        className="w-full text-left p-3 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-200 rounded-lg text-sm transition-all duration-200"
+                      >
+                        {quickMsg}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Message Input */}

@@ -38,7 +38,7 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      let query = supabase
+      const query = supabase
         .from('appointments')
         .select(`
           *,

@@ -16,6 +16,8 @@ import {
   DollarSign,
 } from 'lucide-react'
 import Link from 'next/link'
+import { SMSBalanceWidget } from '@/components/admin/SMSBalanceWidget'
+import { Toaster } from 'react-hot-toast'
 
 export default function DashboardPage() {
   const { profile, currentPractice } = useAuth()
@@ -174,7 +176,7 @@ export default function DashboardPage() {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-3">
         {/* Recent Activity */}
         <Card>
           <CardHeader>
@@ -211,6 +213,11 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* SMS Balance Widget - Only show for admins */}
+        {profile?.role === 'admin' && (
+          <SMSBalanceWidget />
+        )}
 
         {/* Upcoming Appointments */}
         <Card>
@@ -290,6 +297,8 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+      
+      <Toaster position="top-right" />
     </div>
   )
 }

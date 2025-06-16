@@ -71,26 +71,49 @@ export const useAppointmentsStore = create<AppointmentsState>((set, get) => ({
   fetchAppointmentsByPatient: async (patientId) => {
     set({ isLoading: true, error: null });
     try {
-      const { data, error } = await supabase
+      // First get appointments without relationships
+      const { data: appointmentsData, error: appointmentsError } = await supabase
         .from('appointments')
-        .select(`
-          *,
-          patient:patients!patient_id (
-            id,
-            first_name,
-            last_name
-          ),
-          doctor:users!doctor_id (
-            id,
-            full_name
-          )
-        `)
+        .select('*')
         .eq('patient_id', patientId)
         .order('date', { ascending: true })
         .order('time', { ascending: true });
       
-      if (error) throw error;
-      set({ appointments: data || [], isLoading: false });
+      if (appointmentsError) throw appointmentsError;
+      
+      if (!appointmentsData || appointmentsData.length === 0) {
+        set({ appointments: [], isLoading: false });
+        return;
+      }
+
+      // Get unique patient and doctor IDs
+      const patientIds = [...new Set(appointmentsData.map(apt => apt.patient_id).filter(Boolean))];
+      const doctorIds = [...new Set(appointmentsData.map(apt => apt.doctor_id).filter(Boolean))];
+
+      // Fetch patients and doctors separately
+      const [patientsResponse, doctorsResponse] = await Promise.all([
+        patientIds.length > 0 ? supabase
+          .from('patients')
+          .select('id, first_name, last_name')
+          .in('id', patientIds) : Promise.resolve({ data: [] }),
+        doctorIds.length > 0 ? supabase
+          .from('users')
+          .select('id, full_name')
+          .in('id', doctorIds) : Promise.resolve({ data: [] })
+      ]);
+
+      // Create lookup maps
+      const patientsMap = new Map((patientsResponse.data || []).map(p => [p.id, p]));
+      const doctorsMap = new Map((doctorsResponse.data || []).map(d => [d.id, d]));
+
+      // Combine data
+      const enrichedAppointments = appointmentsData.map(appointment => ({
+        ...appointment,
+        patient: appointment.patient_id ? patientsMap.get(appointment.patient_id) : undefined,
+        doctor: appointment.doctor_id ? doctorsMap.get(appointment.doctor_id) : undefined
+      }));
+      
+      set({ appointments: enrichedAppointments, isLoading: false });
     } catch (error) {
       console.error('Error fetching patient appointments:', error);
       set({ error: 'Failed to fetch appointments', isLoading: false });

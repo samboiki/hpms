@@ -14,10 +14,7 @@ import {
   BarChart3,
   PieChart,
   Filter,
-  Download,
-  Printer,
-  Maximize2,
-  Minimize2
+  Download
 } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 
@@ -68,7 +65,6 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
   const { currentTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'overview' | 'charts' | 'insights'>('overview');
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '3m' | '6m'>('30d');
-  const [isMaximized, setIsMaximized] = useState(false);
 
   if (!isOpen) return null;
 
@@ -82,7 +78,7 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
   const Icon = iconMap[data.type];
 
   const colorMap = {
-    patients: 'from-blue-500 to-cyan-600',
+    patients: 'from-purple-500 to-indigo-600',
     notifications: 'from-amber-500 to-orange-600',
     encounters: 'from-emerald-500 to-green-600',
     finance: 'from-purple-500 to-indigo-600'
@@ -188,22 +184,18 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
 
   return createPortal(
     <div 
-      className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] ${
-        isMaximized ? 'p-0' : 'p-4'
-      }`} 
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4" 
       onClick={onClose}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className={`relative bg-white shadow-2xl overflow-hidden w-full overflow-y-auto ${
-          isMaximized ? 'rounded-none h-full' : 'rounded-2xl max-w-6xl max-h-[90vh]'
-        }`}
+        className="relative bg-white shadow-2xl overflow-hidden w-full overflow-y-auto rounded-2xl max-w-6xl max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`bg-gradient-to-r ${currentTheme.gradients.sidebar} p-6 text-white`}>
+        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 p-6 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
@@ -217,16 +209,6 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
             <div className="flex items-center gap-3">
               <button className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
                 <Download className="w-5 h-5" />
-              </button>
-              <button className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
-                <Printer className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setIsMaximized(!isMaximized)}
-                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-                title={isMaximized ? "Minimize" : "Maximize"}
-              >
-                {isMaximized ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
               </button>
               <button
                 onClick={onClose}

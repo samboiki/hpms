@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Users, 
   Search, 
@@ -31,17 +31,21 @@ import {
   MapPin,
   Stethoscope,
   Bot,
-  Loader2
+  Loader2,
+  Send
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import FormModal from '../components/modals/FormModal';
 import AddPatientForm from '../components/forms/AddPatientForm';
 import EditPatientForm from '../components/forms/EditPatientForm';
+import ComprehensivePatientModal from '../components/patients/ComprehensivePatientModal';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { usePatientsStoreNew, Patient } from '../stores/patientsStoreNew';
 import { useTheme } from '../stores/themeStore';
+import { toast } from 'react-hot-toast';
+import { defaultSMSService } from '../services/smsPortal';
 
 interface PatientOld {
   id: string;
@@ -115,6 +119,15 @@ const Patients: React.FC = () => {
   const [showExportModal, setShowExportModal] = useState(false);
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [aiFilters, setAiFilters] = useState<any>(null);
+  const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailContent, setEmailContent] = useState('');
+  const [smsContent, setSmsContent] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isSendingSms, setIsSendingSms] = useState(false);
   
   // Define calculateAge before using it
   const calculateAge = (dateOfBirth: string) => {
@@ -138,95 +151,96 @@ const Patients: React.FC = () => {
     console.log('📊 AI Filters state changed:', aiFilters);
   }, [aiFilters]);
 
-  // Search effect
+  // Debounced search
   useEffect(() => {
     if (searchTerm) {
       const timeoutId = setTimeout(() => {
         searchPatients(searchTerm);
       }, 300);
       return () => clearTimeout(timeoutId);
-    } else {
+    } else if (!aiFilters) {
       fetchPatientsFromStore();
     }
-  }, [searchTerm]);
+  }, [searchTerm, fetchPatientsFromStore, searchPatients]);
 
-  const filteredPatients = (() => {
+  // Memoized filtered patients for better performance
+  const filteredPatients = useMemo(() => {
     // If AI search results are available, use them
     if (aiFilters && aiFilters.results) {
       return aiFilters.results;
     }
     
     // Otherwise, apply regular filters
-    return patients.filter(patient => {
-    const fullName = `${patient.first_name} ${patient.last_name}`.toLowerCase();
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = fullName.includes(searchLower) || 
-      (patient.email && patient.email.toLowerCase().includes(searchLower)) ||
-      (patient.cell_number && patient.cell_number.includes(searchTerm));
-    
-    // Apply date filter
-    const patientDate = new Date(patient.created_at);
-    const now = new Date();
-    let matchesDate = true;
-    
-    switch (dateFilter) {
-      case 'today':
-        matchesDate = patientDate.toDateString() === now.toDateString();
-        break;
-      case 'this-week':
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        matchesDate = patientDate >= weekAgo;
-        break;
-      case 'this-month':
-        matchesDate = patientDate.getMonth() === now.getMonth() && 
-                     patientDate.getFullYear() === now.getFullYear();
-        break;
-      case 'last-3-months':
-        const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        matchesDate = patientDate >= threeMonthsAgo;
-        break;
-      case 'this-year':
-        matchesDate = patientDate.getFullYear() === now.getFullYear();
-        break;
-      default: // 'all-time'
-        matchesDate = true;
-    }
-    
-    if (!matchesDate) return false;
-    
-    // Apply stat filter first if active
-    if (statFilter) {
-      if (statFilter === 'total' && !matchesSearch) return false;
-      if (statFilter === 'active' && !matchesSearch) return false; // In real app, would check active status
-      if (statFilter === 'new' && !matchesSearch) return false; // In real app, would check new status
-      if (statFilter === 'insured' && (!matchesSearch || !patient.medical_aid_details)) return false;
-    }
-    
-    // Apply regular filter logic
-    if (selectedFilter === 'all') return matchesSearch;
-    if (selectedFilter === 'medical-aid') return matchesSearch && patient.medical_aid_details;
-    if (selectedFilter === 'appointments') return matchesSearch && (patient.id.length % 3 === 0); // Simulated appointments check
-    if (selectedFilter === 'favorites') return matchesSearch; // In real app, would check favorites
-    if (selectedFilter === 'female') return matchesSearch && patient.gender.toLowerCase() === 'female';
-    if (selectedFilter === 'male') return matchesSearch && patient.gender.toLowerCase() === 'male';
-    
-    return matchesSearch;
+    const filtered = patients.filter(patient => {
+      // Apply stat filter first if active
+      if (statFilter) {
+        if (statFilter === 'total') {
+          // Show all patients
+        } else if (statFilter === 'active') {
+          // In real app, would check active status
+        } else if (statFilter === 'new') {
+          // In real app, would check new status  
+        } else if (statFilter === 'insured' && !patient.medical_aid_details) {
+          return false;
+        }
+      }
+      
+      // Apply date filter
+      if (dateFilter !== 'all-time') {
+        const patientDate = new Date(patient.created_at);
+        const now = new Date();
+        let matchesDate = true;
+        
+        switch (dateFilter) {
+          case 'today':
+            matchesDate = patientDate.toDateString() === now.toDateString();
+            break;
+          case 'this-week':
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            matchesDate = patientDate >= weekAgo;
+            break;
+          case 'this-month':
+            matchesDate = patientDate.getMonth() === now.getMonth() && 
+                         patientDate.getFullYear() === now.getFullYear();
+            break;
+          case 'last-3-months':
+            const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+            matchesDate = patientDate >= threeMonthsAgo;
+            break;
+          case 'this-year':
+            matchesDate = patientDate.getFullYear() === now.getFullYear();
+            break;
+        }
+        
+        if (!matchesDate) return false;
+      }
+      
+      // Apply regular filter
+      if (selectedFilter === 'medical-aid' && !patient.medical_aid_details) return false;
+      if (selectedFilter === 'female' && patient.gender?.toLowerCase() !== 'female') return false;
+      if (selectedFilter === 'male' && patient.gender?.toLowerCase() !== 'male') return false;
+      if (selectedFilter === 'appointments' && (patient.id.length % 3 !== 0)) return false; // Simulated
+      
+      return true;
     });
-  })().sort((a: Patient, b: Patient) => {
-    if (sortBy === 'name') {
-      const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
-      const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
-      return sortOrder === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
-    } else if (sortBy === 'date') {
-      const dateA = new Date(a.date_of_birth).getTime();
-      const dateB = new Date(b.date_of_birth).getTime();
-      return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
-    } else {
-      const ageA = calculateAge(a.date_of_birth);
-      const ageB = calculateAge(b.date_of_birth);
-      return sortOrder === 'asc' ? ageA - ageB : ageB - ageA;
-    }
-  });
+    
+    // Sort the results
+    return filtered.sort((a: Patient, b: Patient) => {
+      if (sortBy === 'name') {
+        const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
+        const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+        return sortOrder === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+      } else if (sortBy === 'date') {
+        const dateA = new Date(a.date_of_birth).getTime();
+        const dateB = new Date(b.date_of_birth).getTime();
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      } else {
+        const ageA = calculateAge(a.date_of_birth);
+        const ageB = calculateAge(b.date_of_birth);
+        return sortOrder === 'asc' ? ageA - ageB : ageB - ageA;
+      }
+    });
+  }, [patients, aiFilters, statFilter, dateFilter, selectedFilter, sortBy, sortOrder]);
 
   // Pagination
   const totalPages = Math.ceil(filteredPatients.length / ITEMS_PER_PAGE);
@@ -293,12 +307,17 @@ const Patients: React.FC = () => {
       dateOfBirth: p.date_of_birth,
       gender: p.gender,
       medicalAid: p.medical_aid_details?.provider || 'None',
+      occupation: p.occupation || '',
+      employer: p.employer || '',
+      maritalStatus: p.marital_status || '',
+      emergencyContact: p.emergency_contact_name || '',
+      emergencyPhone: p.emergency_contact_phone || '',
       registeredDate: p.created_at
     }));
 
     if (exportFormat === 'csv') {
       const csvContent = [
-        ['Name', 'Email', 'Phone', 'DOB', 'Gender', 'Medical Aid', 'Registered'],
+        ['Name', 'Email', 'Phone', 'DOB', 'Gender', 'Medical Aid', 'Occupation', 'Employer', 'Marital Status', 'Emergency Contact', 'Emergency Phone', 'Registered'],
         ...exportData.map((p: any) => [
           p.name,
           p.email,
@@ -306,15 +325,20 @@ const Patients: React.FC = () => {
           p.dateOfBirth,
           p.gender,
           p.medicalAid,
+          p.occupation,
+          p.employer,
+          p.maritalStatus,
+          p.emergencyContact,
+          p.emergencyPhone,
           format(new Date(p.registeredDate), 'yyyy-MM-dd')
         ])
-      ].map(row => row.join(',')).join('\n');
+      ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
 
-      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `patients_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      a.download = `patients_${format(new Date(), 'yyyy-MM-dd')}_filtered.csv`;
       a.click();
     } else {
       const jsonContent = JSON.stringify(exportData, null, 2);
@@ -322,23 +346,50 @@ const Patients: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `patients_${format(new Date(), 'yyyy-MM-dd')}.json`;
+      a.download = `patients_${format(new Date(), 'yyyy-MM-dd')}_filtered.json`;
       a.click();
     }
     setShowExportModal(false);
   };
 
-  const handleSendEmail = () => {
-    const emails = filteredPatients.map((p: Patient) => p.email).filter(Boolean);
-    const subject = 'Healthcare Notice';
-    const body = 'Dear patients, this is an important notice from our healthcare facility.';
-    const mailtoLink = `mailto:${emails.join(';')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailtoLink);
+  const handleSendEmail = async () => {
+    const patientsWithEmail = filteredPatients.filter(p => p.email);
+    if (patientsWithEmail.length === 0) {
+      alert('No patients with email addresses in the current filtered list.');
+      return;
+    }
+    
+    setEmailSubject('Important Health Information from OneHealth Practice');
+    setEmailContent(`Dear Patient,
+
+We hope this message finds you in good health. We wanted to reach out with some important information regarding your healthcare.
+
+Please don't hesitate to contact our office if you have any questions or concerns. We're here to support your health journey.
+
+Stay healthy and take care.
+
+Best regards,
+OneHealth Medical Team`);
+    setIsEmailModalOpen(true);
   };
 
   const handleSendSMS = () => {
-    const phones = filteredPatients.map((p: Patient) => p.cell_number).filter(Boolean);
-    alert(`SMS feature would send to ${phones.length} patients: ${phones.slice(0, 3).join(', ')}${phones.length > 3 ? '...' : ''}`);
+    const patientsWithPhone = filteredPatients.filter(p => p.cell_number);
+    if (patientsWithPhone.length === 0) {
+      alert('No patients with phone numbers in the current filtered list.');
+      return;
+    }
+    
+    setSmsContent(`Hello,
+
+This is a message from OneHealth Practice. Please contact us at your earliest convenience if you have any questions about your healthcare.
+
+Best regards,
+OneHealth Medical Team
+
+Phone: +264 61 123 4567
+Email: info@onehealth.com.na`);
+    setIsSmsModalOpen(true);
   };
 
   const handleAiSearch = async () => {
@@ -552,7 +603,8 @@ The AI uses GPT-4 to understand natural language queries like:
   };
 
   const handleRowClick = (patientId: string) => {
-    navigate(`/patients/${patientId}`);
+    setSelectedPatientId(patientId);
+    setIsPatientModalOpen(true);
   };
 
   // Calculate filtered patients for stats
@@ -712,99 +764,82 @@ The AI uses GPT-4 to understand natural language queries like:
 
         {/* Search and Filter Section */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <div className="flex flex-col lg:flex-row gap-3">
-            {/* AI-Powered Search Bar */}
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search Bar with AI */}
             <div className="flex-1">
-              <div className="relative group">
-                {/* Gradient Glow Border */}
-                <div className="absolute inset-0 bg-gradient-to-r from-[#01b9d5]/20 via-purple-500/20 to-[#01b9d5]/20 rounded-lg blur-sm opacity-60 group-focus-within:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search patients by name, email, or phone..."
+                  className="w-full pl-10 pr-16 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all"
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                    // Clear AI filters when typing normally
+                    if (aiFilters) {
+                      setAiFilters(null);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && searchTerm.trim()) {
+                      handleAiSearch();
+                    }
+                  }}
+                />
                 
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10" />
-                  <input
-                    type="text"
-                    placeholder="Search by name, email, phone, or ask AI: 'female patients under 25 with medical aid'"
-                    className="relative w-full pl-10 pr-16 py-2 bg-white border border-gray-200 rounded-lg outline-none transition-all text-sm placeholder-gray-400 shadow-sm"
-                  style={{
-                    '--tw-ring-color': `${currentTheme.colors.primary.from}20`,
-                    borderColor: searchTerm ? currentTheme.colors.primary.from : undefined
-                  } as React.CSSProperties}
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setCurrentPage(1);
-                      // Clear AI filters when typing normally
-                      if (aiFilters) {
-                        setAiFilters(null);
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && searchTerm.trim()) {
-                        handleAiSearch();
-                      }
-                    }}
-                  />
-                  
-                  {/* AI Search Button */}
-                  <button
-                    onClick={handleAiSearch}
-                    disabled={isAiSearching}
-                    className={`absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-lg hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed z-20 shadow-md`}
-                    title="AI Search - Ask anything about your patients"
-                  >
-                    {isAiSearching ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Bot className="w-4 h-4" />
-                    )}
-                  </button>
-                  
-                  <AnimatePresence>
-                    {searchTerm && !isAiSearching && (
-                      <motion.button
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        onClick={() => {
-                          setSearchTerm('');
-                          setAiFilters(null);
-                        }}
-                        className="absolute right-12 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </motion.button>
-                    )}
-                  </AnimatePresence>
-                </div>
-                
-                {/* AI Filter Indicator */}
-                {aiFilters && (
-                  <div className={`absolute top-full left-0 right-0 mt-1 bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white text-xs px-3 py-1 rounded-md shadow-lg z-10`}>
-                    <div className="flex items-center gap-2">
-                      <Bot className="w-3 h-3" />
-                      <span>AI filtered: {aiFilters.description}</span>
-                      <button
-                        onClick={() => {
-                          console.log('🧹 Clearing AI filters');
-                          setAiFilters(null);
-                          setSearchTerm('');
-                        }}
-                        className="ml-auto hover:bg-white/20 rounded p-0.5"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                    {/* Debug info - remove in production */}
-                    <div className="text-[10px] opacity-70 mt-1">
-                      {aiFilters.results.length} results | SQL: {aiFilters.sql_query?.substring(0, 50)}...
-                    </div>
-                  </div>
-                )}
+                {/* AI Search Button - positioned inside input */}
+                <button
+                  onClick={handleAiSearch}
+                  disabled={isAiSearching || !searchTerm.trim()}
+                  className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-1.5 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-md hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm`}
+                  title="AI Search - Ask anything about your patients"
+                >
+                  {isAiSearching ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Bot className="w-3.5 h-3.5" />
+                  )}
+                </button>
               </div>
+              
+              {/* AI Filter Indicator */}
+              {aiFilters && (
+                <div className={`mt-2 bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white text-xs px-3 py-2 rounded-md shadow-lg`}>
+                  <div className="flex items-center gap-2">
+                    <Bot className="w-3 h-3" />
+                    <span>AI filtered: {aiFilters.description}</span>
+                    <button
+                      onClick={() => {
+                        console.log('🧹 Clearing AI filters');
+                        setAiFilters(null);
+                        setSearchTerm('');
+                      }}
+                      className="ml-auto hover:bg-white/20 rounded p-0.5"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setIsAddPatientModalOpen(true)}
+                className="px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 font-medium"
+              >
+                <UserPlus className="w-4 h-4" />
+                Add Patient
+              </button>
+              <button
+                onClick={() => setView(view === 'grid' ? 'list' : 'grid')}
+                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+              >
+                <List className="w-4 h-4" />
+              </button>
               {/* Date Filter Dropdown */}
               <div className="relative">
                 <select
@@ -825,17 +860,6 @@ The AI uses GPT-4 to understand natural language queries like:
                 <Calendar className="absolute right-2 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
               </div>
               
-              <button
-                onClick={() => setView(view === 'grid' ? 'list' : 'grid')}
-                className={`px-2 py-1 rounded-md flex items-center gap-1 transition-all text-xs font-medium border ${
-                  view === 'grid' 
-                    ? `bg-gradient-to-br ${currentTheme.gradients.button} text-white border-transparent shadow-md` 
-                    : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                }`}
-              >
-                {view === 'grid' ? <List className="w-3 h-3" /> : <LayoutGrid className="w-3 h-3" />}
-                <span className="text-xs">{view === 'grid' ? 'List' : 'Grid'}</span>
-              </button>
               
               
               {/* SMS Button */}
@@ -1051,6 +1075,12 @@ The AI uses GPT-4 to understand natural language queries like:
                           <Clock className="w-3 h-3 mr-1.5 text-gray-400" />
                           <span>Since {format(new Date(patient.created_at), 'MMM yyyy')}</span>
                         </div>
+                        {patient.medical_aid_details?.membership_number && (
+                          <div className="flex items-center text-gray-600">
+                            <Shield className="w-3 h-3 mr-1.5 text-gray-400" />
+                            <span className="truncate">#{patient.medical_aid_details.membership_number}</span>
+                          </div>
+                        )}
                       </div>
 
                       {/* Bottom Action Bar */}
@@ -1197,12 +1227,17 @@ The AI uses GPT-4 to understand natural language queries like:
                               </span>
                             </div>
                             
-                            <div className="flex items-center">
+                            <div className="flex flex-col">
                               {patient.medical_aid_details ? (
-                                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-50 rounded-lg">
-                                  <Shield className="w-4 h-4 text-cyan-600" />
-                                  <span className="text-xs text-cyan-700 font-medium">
-                                    {patient.medical_aid_details.provider}
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <Shield className="w-4 h-4 text-cyan-600" />
+                                    <span className="text-sm text-cyan-700 font-medium">
+                                      {patient.medical_aid_details.provider}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs text-gray-600 ml-5">
+                                    #{patient.medical_aid_details.membership_number || 'N/A'}
                                   </span>
                                 </div>
                               ) : (
@@ -1488,6 +1523,230 @@ The AI uses GPT-4 to understand natural language queries like:
               >
                 Cancel
               </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+      
+      {/* Patient Details Modal */}
+      <ComprehensivePatientModal
+        isOpen={isPatientModalOpen}
+        onClose={() => {
+          setIsPatientModalOpen(false);
+          setSelectedPatientId(null);
+        }}
+        patientId={selectedPatientId}
+      />
+
+      {/* SMS Modal */}
+      {isSmsModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-2xl"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Send SMS to {filteredPatients.filter(p => p.cell_number).length} Patients</h3>
+              <button
+                onClick={() => setIsSmsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Message Content</label>
+                <textarea
+                  value={smsContent}
+                  onChange={(e) => setSmsContent(e.target.value)}
+                  rows={6}
+                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all resize-none"
+                  placeholder="Type your message here..."
+                />
+                <div className="text-xs text-gray-500 mt-1">Character count: {smsContent.length}/1600</div>
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsSmsModalOpen(false)}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setIsSendingSms(true);
+                    try {
+                      const patientsWithPhone = filteredPatients.filter(p => p.cell_number);
+                      let successCount = 0;
+                      let failureCount = 0;
+
+                      for (const patient of patientsWithPhone) {
+                        try {
+                          const result = await defaultSMSService.sendSMS({
+                            to: patient.cell_number!,
+                            content: smsContent,
+                            reference: `bulk-patient-${patient.id}-${Date.now()}`
+                          });
+                          if (result.success) successCount++;
+                          else failureCount++;
+                        } catch (error) {
+                          failureCount++;
+                        }
+                      }
+
+                      if (successCount > 0) {
+                        toast.success(`SMS sent to ${successCount} patients successfully!`);
+                      }
+                      if (failureCount > 0) {
+                        toast.error(`Failed to send SMS to ${failureCount} patients`);
+                      }
+                      
+                      setIsSmsModalOpen(false);
+                      setSmsContent('');
+                    } catch (error) {
+                      console.error('Error sending bulk SMS:', error);
+                      toast.error('Failed to send SMS. Please try again.');
+                    } finally {
+                      setIsSendingSms(false);
+                    }
+                  }}
+                  disabled={isSendingSms || !smsContent.trim()}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-[#01b9d5] to-purple-600 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSendingSms ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Phone className="w-4 h-4" />
+                      Send SMS
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Email Modal */}
+      {isEmailModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Send Email to {filteredPatients.filter(p => p.email).length} Patients</h3>
+              <button
+                onClick={() => setIsEmailModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                <input
+                  type="text"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all"
+                  placeholder="Enter email subject"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Message Content</label>
+                <textarea
+                  value={emailContent}
+                  onChange={(e) => setEmailContent(e.target.value)}
+                  rows={8}
+                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all resize-none"
+                  placeholder="Type your email content here..."
+                />
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsEmailModalOpen(false)}
+                  className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setIsSendingEmail(true);
+                    try {
+                      const patientsWithEmail = filteredPatients.filter(p => p.email);
+                      
+                      const { data, error } = await supabase.functions.invoke('send-batch-email', {
+                        body: {
+                          recipients: patientsWithEmail.map(p => ({
+                            email: p.email,
+                            name: `${p.first_name} ${p.last_name}`
+                          })),
+                          subject: emailSubject,
+                          html: `
+                            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                              <div style="background: linear-gradient(135deg, #01b9d4 0%, #7c3aed 100%); padding: 30px 20px; text-align: center;">
+                                <h1 style="color: white; margin: 0;">OneHealth Practice Management</h1>
+                              </div>
+                              <div style="padding: 30px 20px;">
+                                <div style="white-space: pre-wrap;">${emailContent}</div>
+                              </div>
+                              <div style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
+                                <p style="margin: 0; color: #666; font-size: 14px;">© 2024 OneHealth. All rights reserved.</p>
+                              </div>
+                            </div>
+                          `,
+                          from: {
+                            email: 'noreply@onehealth.com.na',
+                            name: 'OneHealth Practice'
+                          }
+                        }
+                      });
+
+                      if (error) throw error;
+
+                      toast.success(`Email sent to ${patientsWithEmail.length} patients successfully!`);
+                      setIsEmailModalOpen(false);
+                      setEmailContent('');
+                      setEmailSubject('');
+                    } catch (error) {
+                      console.error('Error sending bulk email:', error);
+                      toast.error('Failed to send emails. Please try again.');
+                    } finally {
+                      setIsSendingEmail(false);
+                    }
+                  }}
+                  disabled={isSendingEmail || !emailContent.trim() || !emailSubject.trim()}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-emerald-500 to-[#01b9d5] text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSendingEmail ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4" />
+                      Send Email
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </motion.div>
         </div>

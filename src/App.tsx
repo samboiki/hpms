@@ -12,7 +12,6 @@ import NotFound from './pages/NotFound';
 import PracticeProfile from './pages/PracticeProfile';
 import EnhancedPracticeProfile from './pages/EnhancedPracticeProfile';
 import Inventory from './pages/Inventory';
-import Messages from './pages/Messages';
 import PracticesManagement from './pages/admin/PracticesManagement';
 import TariffManagement from './pages/admin/TariffManagement';
 import BillingWorkflow from './pages/BillingWorkflow';
@@ -81,7 +80,6 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="patients" element={<Patients />} />
             <Route path="patients/:id" element={<PatientModernDetail />} />
-            <Route path="messages" element={<Messages />} />
             <Route path="billing/workflow" element={<BillingWorkflow />} />
             <Route path="practice-profile" element={<EnhancedPracticeProfile />} />
             <Route path="admin/practices" element={<PracticesManagement />} />

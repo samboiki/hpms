@@ -452,17 +452,14 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
       visit_id: visitId,
       file_name: storagePath.split('/').pop(),
       original_name: file.name,
-      title: title || file.name, // Use custom title or fallback to filename
       file_type: file.type.split('/')[1],
       file_size: file.size,
       mime_type: file.type,
       storage_path: storagePath,
-      thumbnail_url: thumbnailUrl,
       description: description.trim() || null,
       category: selectedCategory,
       tags: tags.length > 0 ? tags : null,
-      uploaded_by: user.id,
-      is_processed: !!thumbnailUrl // Mark as processed if we have a thumbnail
+      uploaded_by: user.id
     };
     
     console.log('📝 Metadata to save:', metadata);

@@ -83,6 +83,7 @@ interface PremiumFolderTabsProps {
   onMedicalAidClick?: () => void;
   onMedicalAidLimitClick?: () => void;
   onBillingClick?: () => void;
+  initialTab?: string;
 }
 
 interface TabData {
@@ -1721,10 +1722,11 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
   onSendSms,
   onMedicalAidClick,
   onMedicalAidLimitClick,
-  onBillingClick
+  onBillingClick,
+  initialTab
 }) => {
   const { currentTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState('ai-intelligence');
+  const [activeTab, setActiveTab] = useState(initialTab || 'ai-intelligence');
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
   const [billingCount, setBillingCount] = useState(0);
@@ -1917,33 +1919,6 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
 
   return (
     <div className="w-full relative">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent" style={{ fontFamily: 'Poppins, sans-serif' }}>
-            Patient Records
-          </h2>
-          <p className="text-sm text-gray-500 font-medium">
-            Comprehensive medical history and documentation
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <motion.button
-              whileHover={{ scale: 1.05, y: -2 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={onAddVisit}
-              className={`px-4 py-2.5 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl flex items-center gap-2 shadow-lg hover:shadow-2xl transition-all duration-300 font-semibold text-sm`}
-              style={{
-                boxShadow: `0 25px 50px -12px ${currentTheme.colors.primary.from}30`
-              }}
-            >
-              <Plus className="w-4 h-4" />
-              Add New Visit
-            </motion.button>
-          </div>
-        </div>
-      </div>
 
       <div className="relative mb-6">
         <div className="flex items-center gap-1 relative z-10 bg-gray-100 rounded-lg p-1">

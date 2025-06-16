@@ -141,9 +141,27 @@ const PremiumAddVisitForm: React.FC<Props> = ({ patientId, onSuccess, onCancel }
     try {
       setIsSubmitting(true);
 
+      // Get current user practice
+      const { data: { user } } = await supabase.auth.getUser();
+      let practiceId = undefined;
+      
+      if (user) {
+        const { data: userProfile, error: profileError } = await supabase
+          .from('users')
+          .select('practice_id')
+          .eq('id', user.id)
+          .single();
+        
+        if (!profileError && userProfile?.practice_id) {
+          practiceId = userProfile.practice_id;
+        }
+      }
+
       // Create the visit record
       const visitData = {
         patient_id: patientId,
+        practice_id: practiceId,
+        doctor_id: user?.id,
         encounter_date: data.encounter_date.toISOString(),
         visit_date: data.encounter_date.toISOString().split('T')[0],
         visit_time: data.encounter_date.toLocaleTimeString('en-US', { hour12: false }),
