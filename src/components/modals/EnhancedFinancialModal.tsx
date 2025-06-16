@@ -10,19 +10,18 @@ import {
   DollarSign,
   Filter,
   Download,
-  Printer,
-  Target,
-  CreditCard,
-  Clock,
   Users,
-  Maximize2,
-  Minimize2,
   Package,
   Send,
   Calendar,
   FileText,
   CheckCircle,
-  Loader2
+  Loader2,
+  Maximize2,
+  Minimize2,
+  Banknote,
+  Receipt,
+  Wallet
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { 
@@ -229,10 +228,14 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
   const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'insights' | 'batch-management'>('overview');
   const [dateRange, setDateRange] = useState<'30d' | '3m' | '6m' | '12m'>('30d');
   const [kpis, setKpis] = useState<FinancialKPIs | null>(null);
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  const toggleMaximize = useCallback(() => {
+    setIsMaximized(prev => !prev);
+  }, []);
   const [batches, setBatches] = useState<BatchData[]>([]);
   const [loading, setLoading] = useState(false);
   const [batchLoading, setBatchLoading] = useState(false);
-  const [isMaximized, setIsMaximized] = useState(false);
   const [batchFilters, setBatchFilters] = useState<{paid: boolean, unpaid: boolean, active: boolean}>({
     paid: false,
     unpaid: false, 
@@ -807,67 +810,6 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
 
   if (!isOpen) return null;
 
-  const renderKPICards = () => {
-    if (!kpis) return null;
-
-    const kpiData = [
-      {
-        title: 'Total Billed (MTD)',
-        value: `N$${kpis.totalBilledMTD.toLocaleString()}`,
-        icon: DollarSign,
-        color: COLORS.primary,
-        change: '+12.3%'
-      },
-      {
-        title: 'Total Collected (MTD)', 
-        value: `N$${kpis.totalCollectedMTD.toLocaleString()}`,
-        icon: CreditCard,
-        color: COLORS.success,
-        change: '+8.7%'
-      },
-      {
-        title: 'Total Outstanding',
-        value: `N$${kpis.totalOutstanding.toLocaleString()}`,
-        icon: Clock,
-        color: COLORS.warning,
-        change: '-5.2%'
-      },
-      {
-        title: 'Claims in Progress',
-        value: `N$${kpis.claimsInProgress.toLocaleString()}`,
-        icon: Target,
-        color: COLORS.secondary,
-        change: '+2.1%'
-      }
-    ];
-
-    return (
-      <div className={`grid gap-4 mb-6 ${
-        isMaximized ? 'grid-cols-4' : 'grid-cols-2 md:grid-cols-4'
-      }`}>
-        {kpiData.map((kpi, index) => (
-          <motion.div
-            key={kpi.title}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <kpi.icon className="w-5 h-5 text-gray-400" />
-              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                kpi.change.startsWith('+') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-              }`}>
-                {kpi.change}
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-gray-900 font-rubik mb-1">{kpi.value}</p>
-            <p className="text-sm text-gray-600">{kpi.title}</p>
-          </motion.div>
-        ))}
-      </div>
-    );
-  };
 
   const renderCharts = () => {
     if (!kpis) return null;
@@ -1459,28 +1401,36 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
 
   return createPortal(
     <div 
-      className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] ${
-        isMaximized ? 'p-0' : 'p-4'
+      className={`fixed inset-0 z-[9999] ${
+        isMaximized 
+          ? 'bg-black/20 p-0' 
+          : 'bg-black/50 backdrop-blur-sm flex items-center justify-center p-4'
       }`} 
       onClick={onClose}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ 
-          opacity: 1, 
-          scale: 1, 
-          y: 0
+        initial={{ 
+          opacity: 0, 
+          scale: isMaximized ? 1 : 0.95, 
+          y: isMaximized ? 0 : 20 
         }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ 
+          opacity: 0, 
+          scale: isMaximized ? 1 : 0.95, 
+          y: isMaximized ? 0 : 20 
+        }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
-        className={`relative bg-white shadow-2xl overflow-hidden w-full overflow-y-auto ${
-          isMaximized ? 'rounded-none h-full' : 'rounded-2xl max-w-7xl max-h-[90vh]'
+        className={`relative bg-white shadow-2xl overflow-hidden w-full overflow-y-auto transition-all duration-300 ${
+          isMaximized 
+            ? 'h-screen max-w-none max-h-none rounded-none' 
+            : 'max-w-7xl max-h-[90vh] rounded-2xl'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`bg-gradient-to-r ${currentTheme.gradients.sidebar} p-6 text-white`}>
-          <div className="flex items-center justify-between">
+        <div className="bg-gradient-to-br from-[#01b9d5] via-[#0891b2] to-[#0e7490] p-6 text-white">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
                 <DollarSign className="w-6 h-6" />
@@ -1508,13 +1458,10 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
               <button className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
                 <Download className="w-5 h-5" />
               </button>
-              <button className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
-                <Printer className="w-5 h-5" />
-              </button>
               <button
-                onClick={() => setIsMaximized(!isMaximized)}
+                onClick={toggleMaximize}
                 className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-                title={isMaximized ? "Minimize" : "Maximize"}
+                title={isMaximized ? 'Minimize' : 'Maximize'}
               >
                 {isMaximized ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
               </button>
@@ -1526,11 +1473,80 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
               </button>
             </div>
           </div>
+          
+          {/* Stat Cards in Header */}
+          {kpis && (
+            <div className={`grid gap-4 ${isMaximized ? 'grid-cols-4' : 'grid-cols-2 md:grid-cols-4'}`}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="relative bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 overflow-hidden"
+              >
+                <div className="absolute -top-2 -right-2 opacity-20 transform rotate-12">
+                  <DollarSign className="w-12 h-12 text-white" />
+                </div>
+                <div className="relative z-10">
+                  <p className="text-white/80 text-sm font-medium">Total Billed MTD</p>
+                  <p className="text-white text-2xl font-bold">N${kpis.totalBilledMTD.toLocaleString()}</p>
+                  <p className="text-white/60 text-xs">This month</p>
+                </div>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="relative bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 overflow-hidden"
+              >
+                <div className="absolute -top-2 -right-2 opacity-20 transform -rotate-12">
+                  <Banknote className="w-12 h-12 text-white" />
+                </div>
+                <div className="relative z-10">
+                  <p className="text-white/80 text-sm font-medium">Outstanding</p>
+                  <p className="text-white text-2xl font-bold">N${kpis.totalOutstanding.toLocaleString()}</p>
+                  <p className="text-white/60 text-xs">Pending collection</p>
+                </div>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="relative bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 overflow-hidden"
+              >
+                <div className="absolute -top-2 -right-2 opacity-20 transform rotate-6">
+                  <Receipt className="w-12 h-12 text-white" />
+                </div>
+                <div className="relative z-10">
+                  <p className="text-white/80 text-sm font-medium">Collected MTD</p>
+                  <p className="text-white text-2xl font-bold">N${kpis.totalCollectedMTD.toLocaleString()}</p>
+                  <p className="text-white/60 text-xs">This month</p>
+                </div>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="relative bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 overflow-hidden"
+              >
+                <div className="absolute -top-2 -right-2 opacity-20 transform -rotate-6">
+                  <Wallet className="w-12 h-12 text-white" />
+                </div>
+                <div className="relative z-10">
+                  <p className="text-white/80 text-sm font-medium">Claims in Progress</p>
+                  <p className="text-white text-2xl font-bold">N${kpis.claimsInProgress.toLocaleString()}</p>
+                  <p className="text-white/60 text-xs">Processing</p>
+                </div>
+              </motion.div>
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
+        <div className="border-b border-gray-200 px-6">
+          <div className="flex gap-1 overflow-x-auto">
             {[
               { key: 'overview', label: 'Overview', icon: BarChart3 },
               { key: 'analytics', label: 'Financial Analytics', icon: TrendingUp },
@@ -1540,17 +1556,17 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
               <button
                 key={key}
                 onClick={() => setActiveTab(key as typeof activeTab)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 flex items-center gap-2 ${
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === key
-                    ? 'border-purple-500 text-purple-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'text-[#01b9d5] border-[#01b9d5]'
+                    : 'text-gray-500 border-transparent hover:text-gray-700'
                 }`}
               >
                 <Icon className="w-4 h-4" />
                 {label}
               </button>
             ))}
-          </nav>
+          </div>
         </div>
 
         {/* Content */}
@@ -1580,14 +1596,14 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
             <>
               {activeTab === 'overview' && (
                 <div className="space-y-6">
-                  {renderKPICards()}
+                  {/* KPI Cards now shown in header */}
                   {renderCharts()}
                 </div>
               )}
 
               {activeTab === 'analytics' && (
                 <div className="space-y-6">
-                  {renderKPICards()}
+                  {/* KPI Cards now shown in header */}
                   {renderCharts()}
                   
                   {/* Medical Aid Breakdown */}

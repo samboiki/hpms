@@ -32,7 +32,9 @@ import {
   Edit3,
   Heart,
   UserPlus,
-  Activity
+  Activity,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
@@ -45,6 +47,9 @@ import './CommunicationsModal.css';
 import Compose from '../messages/Compose';
 import SmartAutomations from '../messages/SmartAutomations';
 import CommunicationHistory from '../messages/CommunicationHistory';
+import EmailTemplatePreview from '../messages/EmailTemplatePreview';
+import EmailTemplatePreviews from '../messages/EmailTemplatePreviews';
+import { professionalEmailTemplates } from '../messages/EmailTemplates';
 
 interface CommunicationsModalProps {
   isOpen: boolean;
@@ -92,18 +97,67 @@ const CommunicationsModal: React.FC<CommunicationsModalProps> = ({ isOpen, onClo
   const [isLoading, setIsLoading] = useState(true);
   const [recentMessages, setRecentMessages] = useState<any[]>([]);
   const [expandedService, setExpandedService] = useState<string | null>(null);
+  const [previewTemplate, setPreviewTemplate] = useState<any | null>(null);
+  const [showEmailPreview, setShowEmailPreview] = useState<string | null>(null);
+  const [isMaximized, setIsMaximized] = useState(false);
+  const [dateRange, setDateRange] = useState<'30d' | '3m' | '6m' | '12m'>('30d');
+  
+  const toggleMaximize = () => {
+    setIsMaximized(prev => !prev);
+  };
+  
   const [automationSettings, setAutomationSettings] = useState({
     appointmentReminders: { 
       enabled: false, 
       timing: ['24h', '2h'], 
-      method: 'sms',
-      template: `Hi {{patientName}}, this is a reminder about your appointment on {{appointmentDate}} at {{appointmentTime}} with Dr. {{doctorName}}. Please call us at {{practicePhone}} if you need to reschedule. See you soon!`
+      method: 'email',
+      template: `Dear {{patientName}},
+
+This is a friendly reminder about your upcoming appointment scheduled for {{appointmentDate}} at {{appointmentTime}} with Dr. {{doctorName}}.
+
+APPOINTMENT DETAILS:
+• Date: {{appointmentDate}}
+• Time: {{appointmentTime}}
+• Doctor: Dr. {{doctorName}}
+• Location: {{practiceName}}
+
+WHAT TO BRING:
+• Valid ID document
+• Medical aid card (if applicable)
+• Any previous medical records
+• List of current medications
+
+Please arrive 15 minutes early for check-in. If you need to reschedule or cancel, please contact us as soon as possible at {{practicePhone}}.
+
+We look forward to seeing you soon!
+
+Best regards,
+The {{practiceName}} Team`
     },
     birthdayMessages: { 
       enabled: false, 
-      method: 'sms',
+      method: 'email',
       includeOffer: true,
-      template: 'Happy Birthday {{patientName}}! 🎉 Wishing you a wonderful year ahead. As a birthday gift, enjoy 10% off your next visit. Book online or call {{practicePhone}}.'
+      template: `Dear {{patientName}},
+
+Happy Birthday! 🎉
+
+On this special day, the entire team at {{practiceName}} wants to wish you a year filled with good health, happiness, and wonderful memories.
+
+BIRTHDAY SPECIAL OFFER:
+As our gift to you, we're offering 15% off your next preventive health screening or consultation.
+
+This offer includes:
+• 15% off comprehensive health check-up
+• Complimentary wellness consultation
+• Priority booking for the next 30 days
+
+To book your appointment, simply call us at {{practicePhone}} or visit {{practiceWebsite}}. Mention "Birthday2024" to receive your special discount.
+
+Wishing you the happiest of birthdays and a healthy year ahead!
+
+Warm regards,
+The {{practiceName}} Team`
     },
     followUpCare: { 
       enabled: false, 
@@ -121,7 +175,28 @@ const CommunicationsModal: React.FC<CommunicationsModalProps> = ({ isOpen, onClo
       enabled: false, 
       method: 'email',
       timing: ['immediately'],
-      template: 'Dear {{patientName}}, thank you for your visit on {{visitDate}}. Your invoice #{{invoiceNumber}} for {{amount}} is attached. Payment is due by {{dueDate}}. Pay online: {{paymentLink}}'
+      template: `Dear {{patientName}},
+
+Thank you for visiting {{practiceName}} on {{visitDate}}. We hope you had a positive experience with our healthcare services.
+
+INVOICE DETAILS:
+• Invoice Number: {{invoiceNumber}}
+• Amount: {{amount}}
+• Due Date: {{dueDate}}
+• Service Date: {{visitDate}}
+
+PAYMENT OPTIONS:
+1. Online Payment (Recommended): {{paymentLink}}
+2. Bank Transfer: Details provided in attached invoice
+3. In-person: Visit our reception during business hours
+4. Phone Payment: Call {{practicePhone}}
+
+Your health is our priority, and we appreciate your trust in our services. If you have any questions about this invoice, please don't hesitate to contact our billing department.
+
+Thank you for choosing {{practiceName}}.
+
+Best regards,
+{{practiceName}} Billing Department`
     },
     thankYouMessages: { 
       enabled: false, 
@@ -507,6 +582,13 @@ const CommunicationsModal: React.FC<CommunicationsModalProps> = ({ isOpen, onClo
                     </label>
                     <div className="flex gap-2">
                       <button
+                        onClick={() => setShowEmailPreview(serviceKey)}
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                      >
+                        <Eye className="w-3 h-3" />
+                        Preview Email
+                      </button>
+                      <button
                         onClick={() => {
                           navigator.clipboard.writeText(service.template);
                         }}
@@ -645,15 +727,33 @@ const CommunicationsModal: React.FC<CommunicationsModalProps> = ({ isOpen, onClo
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" 
-         style={{ scrollBehavior: 'smooth', willChange: 'transform' }}>
+    <div className={`fixed inset-0 z-[99997] ${
+      isMaximized 
+        ? 'bg-black/20 p-0' 
+        : 'bg-black/60 backdrop-blur-sm flex items-center justify-center p-4'
+    }`} 
+         style={{ scrollBehavior: 'smooth', willChange: 'transform' }}
+         onClick={onClose}>
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
-        className="w-full max-w-7xl h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        initial={{ 
+          opacity: 0, 
+          scale: isMaximized ? 1 : 0.95, 
+          y: isMaximized ? 0 : 20 
+        }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ 
+          opacity: 0, 
+          scale: isMaximized ? 1 : 0.95, 
+          y: isMaximized ? 0 : 20 
+        }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+        className={`relative bg-white shadow-2xl overflow-hidden w-full overflow-y-auto transition-all duration-300 flex flex-col ${
+          isMaximized 
+            ? 'h-screen max-w-none max-h-none rounded-none' 
+            : 'max-w-7xl h-[90vh] rounded-2xl'
+        }`}
         style={{ transform: 'translateZ(0)', backfaceVisibility: 'hidden' }}
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="bg-gradient-to-r from-amber-500 to-orange-600 p-6 text-white">
@@ -669,8 +769,28 @@ const CommunicationsModal: React.FC<CommunicationsModalProps> = ({ isOpen, onClo
             </div>
             
             <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-white/20 rounded-lg px-3 py-2">
+                <Filter className="w-4 h-4" />
+                <select 
+                  value={dateRange} 
+                  onChange={(e) => setDateRange(e.target.value as typeof dateRange)}
+                  className="bg-transparent border-none text-white text-sm focus:outline-none"
+                >
+                  <option value="30d" className="text-gray-900">30 Days</option>
+                  <option value="3m" className="text-gray-900">3 Months</option>
+                  <option value="6m" className="text-gray-900">6 Months</option>
+                  <option value="12m" className="text-gray-900">12 Months</option>
+                </select>
+              </div>
               <button className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
                 <Download className="w-5 h-5" />
+              </button>
+              <button
+                onClick={toggleMaximize}
+                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                title={isMaximized ? 'Minimize' : 'Maximize'}
+              >
+                {isMaximized ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
               </button>
               <button
                 onClick={onClose}
@@ -1395,6 +1515,25 @@ const CommunicationsModal: React.FC<CommunicationsModalProps> = ({ isOpen, onClo
           </AnimatePresence>
         </div>
       </motion.div>
+
+      {/* Email Template Preview Modal */}
+      {previewTemplate && (
+        <EmailTemplatePreview
+          template={previewTemplate}
+          onClose={() => setPreviewTemplate(null)}
+          practiceData={currentPracticeData}
+        />
+      )}
+
+      {/* Professional Email Preview Modal */}
+      {showEmailPreview && (
+        <EmailTemplatePreviews
+          isOpen={!!showEmailPreview}
+          onClose={() => setShowEmailPreview(null)}
+          serviceName={showEmailPreview}
+          practiceData={currentPracticeData}
+        />
+      )}
     </div>
   );
 };
