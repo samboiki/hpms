@@ -464,11 +464,24 @@ class DashboardStatsService {
       const emailUsagePercentage = emailMonthlyLimit > 0 ? Math.round((emailUsed / emailMonthlyLimit) * 100) : 0;
 
       // Calculate total active communications (REAL DATA ONLY)
-      const { data: smsLogs } = await supabase
-        .from('sms_usage_logs')
-        .select('id')
-        .eq('practice_id', practiceId)
-        .gte('sent_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+      let smsLogs = null;
+      try {
+        const smsLogsResult = await supabase
+          .from('sms_usage_logs')
+          .select('id')
+          .eq('practice_id', practiceId)
+          .gte('sent_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
+        
+        if (smsLogsResult.error) {
+          console.log('🔍 [Communications] SMS usage logs table access denied or does not exist');
+          smsLogs = null;
+        } else {
+          smsLogs = smsLogsResult.data;
+        }
+      } catch (err) {
+        console.log('🔍 [Communications] SMS usage logs table does not exist');
+        smsLogs = null;
+      }
 
       // Try to get email logs (table may not exist yet)
       let emailLogs = null;
@@ -478,7 +491,13 @@ class DashboardStatsService {
           .select('id')
           .eq('practice_id', practiceId)
           .gte('sent_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
-        emailLogs = emailLogsResult.data;
+        
+        if (emailLogsResult.error) {
+          console.log('🔍 [Communications] Email usage logs table access denied or does not exist');
+          emailLogs = null;
+        } else {
+          emailLogs = emailLogsResult.data;
+        }
       } catch (err) {
         console.log('🔍 [Communications] Email usage logs table does not exist');
         emailLogs = null;

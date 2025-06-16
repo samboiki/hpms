@@ -109,8 +109,8 @@ class PracticeDataService {
         .from('appointments')
         .select(`
           *,
-          patients!patient_id(id, first_name, last_name, cell_number, date_of_birth, gender),
-          users!doctor_id(id, full_name, practice_id)
+          patients!appointments_patient_id_fkey(id, first_name, last_name, cell_number, date_of_birth, gender),
+          users!appointments_doctor_id_fkey(id, full_name, practice_id)
         `)
         .eq('practice_id', practiceId)
         .order('date', { ascending: true })

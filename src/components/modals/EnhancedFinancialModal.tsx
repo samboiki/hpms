@@ -1558,8 +1558,21 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                 <motion.button
                   key={key}
                   initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05, duration: 0.3 }}
+                  animate={{ 
+                    opacity: 1, 
+                    y: 0,
+                    x: isActive ? [0, -2, 2, -1, 1, 0] : 0
+                  }}
+                  transition={{ 
+                    opacity: { delay: index * 0.05, duration: 0.3 },
+                    y: { delay: index * 0.05, duration: 0.3 },
+                    x: isActive ? { 
+                      duration: 0.5, 
+                      repeat: Infinity, 
+                      repeatDelay: 3,
+                      ease: "easeInOut"
+                    } : { duration: 0.3 }
+                  }}
                   whileHover={{ 
                     scale: 1.02,
                     y: -2,
@@ -1575,14 +1588,13 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                 >
                   <motion.div
                     animate={isActive ? { 
-                      rotate: [0, 360], 
-                      scale: [1, 1.1, 1],
-                    } : { rotate: 0, scale: 1 }}
+                      scale: [1, 1.2, 1, 1.2, 1],
+                    } : { scale: 1 }}
                     transition={{ 
-                      duration: isActive ? 0.8 : 0.3, 
+                      duration: isActive ? 1.2 : 0.3, 
                       ease: "easeInOut",
                       repeat: isActive ? Infinity : 0,
-                      repeatDelay: 3
+                      repeatDelay: 2
                     }}
                   >
                     <Icon className={`w-4 h-4 transition-all duration-300 ${
@@ -1591,23 +1603,6 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                   </motion.div>
                   <span className="hidden sm:inline font-medium">{label}</span>
                   
-                  {/* Active tab glow effect with fuzzing */}
-                  {isActive && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ 
-                        opacity: [0.3, 0.6, 0.3], 
-                        scale: [0.95, 1.05, 0.95],
-                        background: ["rgba(1,185,213,0.05)", "rgba(1,185,213,0.15)", "rgba(1,185,213,0.05)"]
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                      }}
-                      className="absolute inset-0 rounded-t-lg pointer-events-none"
-                    />
-                  )}
                 </motion.button>
               );
             })}
