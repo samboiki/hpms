@@ -113,7 +113,7 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
   return (
     <div className={`${mode === 'list' ? 'bg-gradient-to-r from-purple-500 to-indigo-600' : 'bg-white border-b border-gray-200'} relative`}>
       <div className="px-6">
-        <div className="flex gap-1 overflow-x-auto scrollbar-hide">
+        <div className="flex w-full">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -123,28 +123,28 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   isActive
                     ? mode === 'list' 
                       ? 'text-white border-white'
-                      : 'text-[#01b9d5] border-[#01b9d5]'
+                      : 'text-purple-600 border-purple-600'
                     : mode === 'list'
                       ? 'text-white/80 border-transparent hover:text-white'
                       : 'text-gray-500 border-transparent hover:text-gray-700'
                 }`}
               >
                 <Icon className="w-4 h-4" />
-                {tab.label}
+                <span className="hidden sm:inline">{tab.label}</span>
                 
                 {/* Count badge */}
                 {count !== undefined && count > 0 && (
                   <span 
                     className={`
-                      px-2 py-0.5 text-xs font-bold rounded-full
+                      px-2 py-0.5 text-xs font-bold rounded-full ml-1
                       ${mode === 'list'
                         ? 'bg-white/20 text-white border border-white/30'
                         : isActive 
-                          ? 'bg-[#01b9d5] text-white'
+                          ? 'bg-purple-600 text-white'
                           : 'bg-gray-200 text-gray-700'
                       }
                     `}>

@@ -895,21 +895,21 @@ Best regards,
 
         {/* Navigation Tabs */}
         <div className="border-b border-gray-200 px-6">
-          <div className="flex gap-1 overflow-x-auto">
+          <div className="flex w-full">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as TabType)}
-                  className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === tab.id
                       ? 'text-[#01b9d5] border-[#01b9d5]'
                       : 'text-gray-500 border-transparent hover:text-gray-700'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
-                  {tab.label}
+                  <span className="hidden sm:inline">{tab.label}</span>
                 </button>
               );
             })}

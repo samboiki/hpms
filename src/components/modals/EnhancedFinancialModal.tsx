@@ -1546,7 +1546,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
 
         {/* Tabs */}
         <div className="border-b border-gray-200 px-6">
-          <div className="flex gap-1 overflow-x-auto">
+          <div className="flex w-full">
             {[
               { key: 'overview', label: 'Overview', icon: BarChart3 },
               { key: 'analytics', label: 'Financial Analytics', icon: TrendingUp },
@@ -1556,14 +1556,14 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
               <button
                 key={key}
                 onClick={() => setActiveTab(key as typeof activeTab)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                   activeTab === key
                     ? 'text-[#01b9d5] border-[#01b9d5]'
                     : 'text-gray-500 border-transparent hover:text-gray-700'
                 }`}
               >
                 <Icon className="w-4 h-4" />
-                {label}
+                <span className="hidden sm:inline">{label}</span>
               </button>
             ))}
           </div>
