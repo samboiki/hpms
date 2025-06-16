@@ -869,6 +869,24 @@ OneHealth Medical Team`;
                 medicalAid={medicalAid}
                 visits={visits}
                 vitals={vitals}
+                onSendMessage={() => {
+                  if (selectedPatientDetails) {
+                    modalState.openSmsModal(true);
+                    setSmsPhone(selectedPatientDetails.cell_number || '');
+                    setSmsContent(`Hi ${selectedPatientDetails.first_name}, this is a message from OneHealth Practice regarding your healthcare.`);
+                  }
+                }}
+                onSendEmail={() => {
+                  if (selectedPatientDetails) {
+                    modalState.openEmailModal(true);
+                  }
+                }}
+                onEditProfile={() => {
+                  if (selectedPatientDetails) {
+                    setEditingPatient(selectedPatientDetails);
+                    modalState.openEditModal();
+                  }
+                }}
               />
 
 
@@ -1599,83 +1617,6 @@ OneHealth Medical Team`;
                                         </div>
                                       </div>
                                     )}
-                                    
-                                    {/* Quick Stats Grid */}
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                      <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-blue-100">
-                                        <div className="flex items-center gap-2 mb-2">
-                                          <Calendar className="w-4 h-4 text-blue-500" />
-                                          <span className="text-sm font-medium text-gray-700">Total Visits</span>
-                                        </div>
-                                        <p className="text-2xl font-bold text-blue-600">{visits.length}</p>
-                                      </div>
-                                      <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-red-100">
-                                        <div className="flex items-center gap-2 mb-2">
-                                          <Activity className="w-4 h-4 text-red-500" />
-                                          <span className="text-sm font-medium text-gray-700">Vitals</span>
-                                        </div>
-                                        <p className="text-2xl font-bold text-red-600">{vitals.length}</p>
-                                      </div>
-                                      <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-green-100">
-                                        <div className="flex items-center gap-2 mb-2">
-                                          <User className="w-4 h-4 text-green-500" />
-                                          <span className="text-sm font-medium text-gray-700">Age</span>
-                                        </div>
-                                        <p className="text-2xl font-bold text-green-600">
-                                          {selectedPatientDetails?.date_of_birth 
-                                            ? calculateAge(selectedPatientDetails.date_of_birth)
-                                            : 'N/A'}
-                                        </p>
-                                      </div>
-                                      <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-purple-100">
-                                        <div className="flex items-center gap-2 mb-2">
-                                          <Shield className="w-4 h-4 text-purple-500" />
-                                          <span className="text-sm font-medium text-gray-700">Status</span>
-                                        </div>
-                                        <p className="text-sm font-bold text-purple-600 bg-purple-100 px-2 py-1 rounded-full inline-block">Active</p>
-                                      </div>
-                                    </div>
-                                    
-                                    {/* Contact Information */}
-                                    <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                                      <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-gray-100">
-                                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                                          <Phone className="w-4 h-4 text-blue-500" />
-                                          Contact Information
-                                        </h4>
-                                        <div className="space-y-2">
-                                          <div className="flex items-center gap-2">
-                                            <Phone className="w-3 h-3 text-gray-400" />
-                                            <span className="text-sm text-gray-700">{selectedPatientDetails?.cell_number || 'No phone'}</span>
-                                          </div>
-                                          <div className="flex items-center gap-2">
-                                            <Mail className="w-3 h-3 text-gray-400" />
-                                            <span className="text-sm text-gray-700">{selectedPatientDetails?.email || 'No email'}</span>
-                                          </div>
-                                        </div>
-                                      </div>
-                                      <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-gray-100">
-                                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                                          <MapPin className="w-4 h-4 text-green-500" />
-                                          Demographics
-                                        </h4>
-                                        <div className="space-y-2">
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-sm text-gray-500">Gender:</span>
-                                            <span className="text-sm text-gray-700 capitalize">{selectedPatientDetails?.gender || 'Not specified'}</span>
-                                          </div>
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-sm text-gray-500">DOB:</span>
-                                            <span className="text-sm text-gray-700">
-                                              {selectedPatientDetails?.date_of_birth 
-                                                ? format(new Date(selectedPatientDetails.date_of_birth), 'MMM dd, yyyy')
-                                                : 'Not specified'
-                                              }
-                                            </span>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
                                   </div>
                                 </div>
                               )}
