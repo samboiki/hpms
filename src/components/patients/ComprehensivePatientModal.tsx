@@ -87,6 +87,7 @@ import { useAiSearch } from '../../hooks/useAiSearch';
 import { defaultSMSService } from '../../services/smsPortal';
 import { medicalAidService } from '../../services/medicalAidService';
 import { LabResultsContent, DocumentsContent, BillingContent } from './DirectTabContent';
+import ManageBeneficiariesModal from '../modals/ManageBeneficiariesModal';
 
 interface MessageConfirmationData {
   type: 'sms' | 'email';
@@ -258,13 +259,39 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   const [isSendingSms, setIsSendingSms] = useState(false);
   const [isEnhancedSmsModalOpen, setIsEnhancedSmsModalOpen] = useState(false);
   const [isEnhancedEmailModalOpen, setIsEnhancedEmailModalOpen] = useState(false);
+  const [isManageBeneficiariesModalOpen, setIsManageBeneficiariesModalOpen] = useState(false);
+  const [smsTarget, setSmsTarget] = useState<'patient' | 'nextOfKin'>('patient');
   const [showMessageConfirmation, setShowMessageConfirmation] = useState(false);
   const [messageConfirmationData, setMessageConfirmationData] = useState<MessageConfirmationData | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isSendingBulkSms, setIsSendingBulkSms] = useState(false);
   const [isSendingBulkEmail, setIsSendingBulkEmail] = useState(false);
+  const [beneficiariesCount, setBeneficiariesCount] = useState<number>(0);
 
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  // Fetch beneficiaries count for medical aid
+  const fetchBeneficiariesCount = useCallback(async (membershipNumber: string) => {
+    if (!membershipNumber) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('medical_aid_details')
+        .select('id', { count: 'exact' })
+        .eq('membership_number', membershipNumber);
+
+      if (error) {
+        console.error('Error fetching beneficiaries count:', error);
+        return;
+      }
+
+      const count = data?.length || 0;
+      setBeneficiariesCount(count);
+      console.log(`✅ Found ${count} total beneficiaries for membership ${membershipNumber}`);
+    } catch (err) {
+      console.error('Error fetching beneficiaries count:', err);
+    }
+  }, []);
 
   // Fetch patient details
   const fetchPatientDetails = useCallback(async (patientId: string) => {
@@ -293,6 +320,22 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       if (patientData.medical_aid_details && (patientData.medical_aid_details as any).length > 0) {
         const medicalAidData = (patientData.medical_aid_details as any)[0];
         setMedicalAid(medicalAidData as any);
+        // Fetch beneficiaries count for this medical aid
+        fetchBeneficiariesCount(medicalAidData.membership_number);
+      }
+
+      // Fetch next of kin data
+      const { data: nextOfKinData, error: nextOfKinError } = await supabase
+        .from('next_of_kin')
+        .select('*')
+        .eq('patient_id', patientId)
+        .maybeSingle();
+
+      if (nextOfKinError) {
+        console.error('Error fetching next of kin:', nextOfKinError);
+        setNextOfKin(null);
+      } else {
+        setNextOfKin(nextOfKinData || null);
       }
 
       const { data: visitsData, error: visitsError } = await supabase
@@ -369,18 +412,6 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         setBillingData(billingDataResult || []);
       }
 
-      // Fetch next of kin
-      const { data: nextOfKinData, error: nextOfKinError } = await supabase
-        .from('next_of_kin')
-        .select('*')
-        .eq('patient_id', patientId)
-        .maybeSingle();
-
-      if (nextOfKinError && nextOfKinError.code !== 'PGRST116') {
-        console.error('Error fetching next of kin:', nextOfKinError);
-      } else {
-        setNextOfKin(nextOfKinData as any);
-      }
 
     } catch (error) {
       console.error('Error fetching patient details:', error);
@@ -416,10 +447,20 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         e.preventDefault();
         modalState.toggleFullScreen();
       } else if (e.key === 'Escape') {
-        if (modalState.modalState.isFullScreen) {
+        // Check if any child modals are open first
+        if (modalState.modalState.isMessageModalOpen) {
+          console.log('🔧 ESC KEY DEBUG: Closing message modal instead of parent');
+          e.preventDefault();
+          modalState.closeMessageModal();
+        } else if (modalState.modalState.isEmailModalOpen) {
+          console.log('🔧 ESC KEY DEBUG: Closing email modal instead of parent');
+          e.preventDefault();
+          modalState.closeEmailModal();
+        } else if (modalState.modalState.isFullScreen) {
           e.preventDefault();
           modalState.toggleFullScreen();
         } else {
+          console.log('🔧 ESC KEY DEBUG: Closing parent modal');
           onClose();
         }
       }
@@ -868,9 +909,11 @@ OneHealth Medical Team`;
   // Handle confirmation modal confirm
   const handleConfirmCommunication = () => {
     if (confirmationData?.type === 'email') {
-      modalState.openEmailModal(true);
+      console.log('🔧 CONFIRMATION DEBUG: Opening email modal');
+      modalState.openEmailModal();
     } else if (confirmationData?.type === 'sms') {
-      modalState.openSmsModal(true);
+      console.log('🔧 CONFIRMATION DEBUG: Opening SMS modal');
+      modalState.openSmsModal();
     }
     setShowConfirmationModal(false);
     setConfirmationData(null);
@@ -953,7 +996,16 @@ OneHealth Medical Team`;
             ? 'bg-black/20 p-0' 
             : 'bg-black/50 backdrop-blur-sm flex items-center justify-center p-4'
         }`} 
-        onClick={onClose}
+        onClick={(e) => {
+          // Prevent closing parent modal when child modals are open
+          if (modalState.modalState.isMessageModalOpen || modalState.modalState.isEmailModalOpen) {
+            console.log('🚫 PREVENTING PARENT CLOSE: Child modal is open');
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          onClose();
+        }}
       >
         <motion.div
           initial={{ 
@@ -1004,10 +1056,12 @@ OneHealth Medical Team`;
                 onBackToList={activeTab === 'details' ? () => setActiveTab('patients') : undefined}
                 filteredPatients={filteredPatientsForStats}
                 medicalAid={medicalAid}
+                nextOfKin={nextOfKin}
                 visits={visits}
                 vitals={vitals}
                 onSendMessage={() => {
                   if (selectedPatientDetails) {
+                    setSmsTarget('patient');
                     setIsEnhancedSmsModalOpen(true);
                   }
                 }}
@@ -1022,6 +1076,16 @@ OneHealth Medical Team`;
                     setIsEditPatientModalOpen(true);
                   }
                 }}
+                onSmsNextOfKin={(phone: string) => {
+                  if (nextOfKin || selectedPatientDetails) {
+                    setSmsTarget('nextOfKin');
+                    setIsEnhancedSmsModalOpen(true);
+                  }
+                }}
+                onManageBeneficiaries={() => {
+                  setIsManageBeneficiariesModalOpen(true);
+                }}
+                beneficiariesCount={beneficiariesCount}
               />
 
 
@@ -1122,7 +1186,10 @@ OneHealth Medical Team`;
                             <motion.button
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
-                              onClick={openSmsModal}
+                              onClick={() => {
+                                console.log('🔧 DIRECT MESSAGE DEBUG: Button clicked, opening message modal directly');
+                                modalState.openMessageModal();
+                              }}
                               disabled={isSendingBulkSms || (selectedPatientIds.size === 0 && filteredPatients.length === 0)}
                               className={`px-3 py-2 rounded-lg transition-all flex items-center gap-2 text-sm font-medium ${
                                 (selectedPatientIds.size > 0 || ((searchTerm || selectedFilter !== 'all' || aiFilters) && filteredPatients.length > 0))
@@ -1144,7 +1211,10 @@ OneHealth Medical Team`;
                             <motion.button
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
-                              onClick={openEmailModal}
+                              onClick={() => {
+                                console.log('🔧 DIRECT EMAIL DEBUG: Button clicked, opening email modal directly');
+                                modalState.openEmailModal();
+                              }}
                               disabled={isSendingBulkEmail || (selectedPatientIds.size === 0 && filteredPatients.length === 0)}
                               className={`px-3 py-2 rounded-lg transition-all flex items-center gap-2 text-sm font-medium ${
                                 (selectedPatientIds.size > 0 || ((searchTerm || selectedFilter !== 'all' || aiFilters) && filteredPatients.length > 0))
@@ -1588,171 +1658,76 @@ OneHealth Medical Team`;
                             <div className="relative backdrop-blur-xl bg-white/95 border border-gray-200/50 rounded-2xl shadow-xl p-6">
                               {activeDetailTab === 'overview' && (
                                 <div className="space-y-6">
-                                  {/* Patient Overview with Medical Aid Info */}
-                                  <div className="bg-gradient-to-br from-blue-50 via-white to-purple-50 rounded-2xl p-6 border border-blue-100">
-                                    <div className="flex items-start justify-between mb-6">
-                                      <div>
-                                        <h3 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                                          <Sparkles className="w-6 h-6 text-purple-500" />
-                                          Patient Overview
-                                        </h3>
-                                        <p className="text-gray-600">Comprehensive patient information and status</p>
-                                      </div>
-                                      {medicalAid && (
-                                        <div className="bg-gradient-to-r from-emerald-50 to-cyan-50 border border-emerald-200 rounded-xl p-4 min-w-[200px]">
-                                          <div className="flex items-center gap-2 mb-2">
-                                            <Shield className="w-4 h-4 text-emerald-600" />
-                                            <span className="text-sm font-semibold text-emerald-800">Medical Aid</span>
-                                          </div>
-                                          <p className="text-emerald-700 font-medium">{medicalAid.provider}</p>
-                                          <p className="text-xs text-emerald-600">{medicalAid.scheme_name}</p>
-                                          <p className="text-xs text-emerald-600">#{medicalAid.member_number}</p>
-                                        </div>
-                                      )}
-                                    </div>
+                                  {/* Enhanced Patient Overview Header */}
+                                  <div className="bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 rounded-2xl p-6 text-white relative overflow-hidden">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
+                                    <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+                                    <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
                                     
-                                    {/* Comprehensive AI Health Summary */}
-                                    {selectedPatientDetails && (
-                                      <div className="mt-6 bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 rounded-2xl p-6 border border-purple-200 shadow-lg">
-                                        <div className="flex items-start gap-4">
-                                          <div className="p-3 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl shadow-lg">
-                                            <Bot className="w-6 h-6 text-white" />
-                                          </div>
-                                          <div className="flex-1">
-                                            <div className="flex items-center gap-3 mb-4">
-                                              <h4 className="text-xl font-bold text-gray-900">AI Health Summary</h4>
-                                              <Sparkles className="w-5 h-5 text-yellow-500" />
-                                              <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-medium">
-                                                Powered by Claude AI
-                                              </span>
-                                            </div>
-                                            
-                                            <div className="space-y-4">
-                                              {/* Patient Profile Summary */}
-                                              <div className="bg-white/70 rounded-xl p-4 border border-purple-100">
-                                                <h5 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                                                  <User className="w-4 h-4 text-purple-600" />
-                                                  Patient Profile
-                                                </h5>
-                                                <p className="text-sm text-gray-700 leading-relaxed">
-                                                  {(() => {
-                                                    const age = selectedPatientDetails?.date_of_birth 
-                                                      ? Math.floor((Date.now() - new Date(selectedPatientDetails.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-                                                      : null;
-                                                    const gender = selectedPatientDetails?.gender || 'unknown';
-                                                    
-                                                    return `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name} is ${age ? `a ${age}-year-old` : 'an adult'} ${gender} patient who has been registered in our healthcare system. ${age && age > 65 ? 'As a senior patient, they may require specialized geriatric care considerations.' : age && age < 18 ? 'As a pediatric patient, they require age-appropriate care protocols.' : 'They are in the adult care category with standard healthcare protocols applicable.'} Patient ID: ${selectedPatientDetails.id.substring(0, 8)}.`;
-                                                  })()}
-                                                </p>
-                                              </div>
-                                              
-                                              {/* Medical History Analysis */}
-                                              <div className="bg-white/70 rounded-xl p-4 border border-blue-100">
-                                                <h5 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                                                  <Activity className="w-4 h-4 text-blue-600" />
-                                                  Medical History Analysis
-                                                </h5>
-                                                <p className="text-sm text-gray-700 leading-relaxed">
-                                                  {(() => {
-                                                    const hasVisits = visits.length > 0;
-                                                    const hasVitals = vitals.length > 0;
-                                                    
-                                                    if (!hasVisits && !hasVitals) {
-                                                      return 'This patient is new to our system with no recorded medical history. Recommend scheduling a comprehensive initial consultation to establish baseline health metrics, conduct preventive screening, and create a personalized care plan. Initial visit should include vital signs assessment, medical history documentation, and establishing care goals.';
-                                                    }
-                                                    
-                                                    let analysis = `Patient has ${visits.length} recorded visit${visits.length !== 1 ? 's' : ''} and ${vitals.length} vital sign record${vitals.length !== 1 ? 's' : ''} in our system. `;
-                                                    
-                                                    if (hasVitals) {
-                                                      const latestVital = vitals[vitals.length - 1];
-                                                      const systolic = latestVital?.blood_pressure_systolic;
-                                                      const diastolic = latestVital?.blood_pressure_diastolic;
-                                                      const heartRate = latestVital?.heart_rate;
-                                                      const weight = latestVital?.weight;
-                                                      
-                                                      analysis += 'Latest vital signs: ';
-                                                      
-                                                      if (systolic && diastolic) {
-                                                        if (systolic > 140 || diastolic > 90) {
-                                                          analysis += `Blood pressure ${systolic}/${diastolic} mmHg indicates hypertension - requires monitoring and potential intervention. `;
-                                                        } else if (systolic < 90 || diastolic < 60) {
-                                                          analysis += `Blood pressure ${systolic}/${diastolic} mmHg is low - monitor for hypotension symptoms. `;
-                                                        } else {
-                                                          analysis += `Blood pressure ${systolic}/${diastolic} mmHg is within normal range. `;
-                                                        }
-                                                      }
-                                                      
-                                                      if (heartRate) {
-                                                        if (heartRate > 100) {
-                                                          analysis += `Heart rate ${heartRate} bpm is elevated (tachycardia). `;
-                                                        } else if (heartRate < 60) {
-                                                          analysis += `Heart rate ${heartRate} bpm is low (bradycardia). `;
-                                                        } else {
-                                                          analysis += `Heart rate ${heartRate} bpm is normal. `;
-                                                        }
-                                                      }
-                                                      
-                                                      if (weight) {
-                                                        analysis += `Current weight: ${weight}kg. `;
-                                                      }
-                                                    }
-                                                    
-                                                    if (visits.length > 3) {
-                                                      analysis += 'Patient shows good engagement with healthcare services. ';
-                                                    } else if (visits.length === 1) {
-                                                      analysis += 'Recent first visit - follow-up care recommended to establish ongoing relationship. ';
-                                                    }
-                                                    
-                                                    return analysis;
-                                                  })()}
-                                                </p>
-                                              </div>
-                                              
-                                              {/* Coverage & Care Recommendations */}
-                                              <div className="bg-white/70 rounded-xl p-4 border border-green-100">
-                                                <h5 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                                                  <Shield className="w-4 h-4 text-green-600" />
-                                                  Coverage & Care Recommendations
-                                                </h5>
-                                                <p className="text-sm text-gray-700 leading-relaxed">
-                                                  {(() => {
-                                                    const hasMedicalAid = !!medicalAid;
-                                                    const age = selectedPatientDetails?.date_of_birth 
-                                                      ? Math.floor((Date.now() - new Date(selectedPatientDetails.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-                                                      : null;
-                                                    
-                                                    let recommendations = '';
-                                                    
-                                                    if (hasMedicalAid) {
-                                                      recommendations += `Patient is covered under ${medicalAid.provider} medical aid (${medicalAid.scheme_name}, Member #${medicalAid.member_number}). Ensure all treatments align with scheme benefits and obtain pre-authorization for procedures as required. `;
-                                                    } else {
-                                                      recommendations += 'Patient has no medical aid coverage - provide transparent pricing and payment plan options. Consider qualifying for charity care programs if applicable. ';
-                                                    }
-                                                    
-                                                    // Age-specific recommendations
-                                                    if (age) {
-                                                      if (age >= 65) {
-                                                        recommendations += 'Senior patient care: Schedule annual wellness exams, bone density screening, cognitive assessments, and medication reviews. Monitor for age-related conditions like hypertension, diabetes, and arthritis. ';
-                                                      } else if (age >= 40) {
-                                                        recommendations += 'Middle-age preventive care: Annual health screenings including mammograms (women), prostate exams (men), colonoscopy screening, and cardiovascular risk assessment. ';
-                                                      } else if (age >= 18) {
-                                                        recommendations += 'Adult preventive care: Regular check-ups, health maintenance, family planning services, and lifestyle counseling for diet, exercise, and stress management. ';
-                                                      } else {
-                                                        recommendations += 'Pediatric care: Age-appropriate vaccinations, growth monitoring, developmental assessments, and parent education on child health and safety. ';
-                                                      }
-                                                    }
-                                                    
-                                                    recommendations += 'Maintain updated emergency contact information and ensure care coordination with any specialists or other healthcare providers.';
-                                                    
-                                                    return recommendations;
-                                                  })()}
-                                                </p>
-                                              </div>
-                                            </div>
-                                          </div>
+                                    <div className="relative z-10">
+                                      <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                          <h3 className="text-3xl font-bold mb-2 flex items-center gap-3">
+                                            <motion.div
+                                              animate={{ rotate: [0, 360] }}
+                                              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                                            >
+                                              <Sparkles className="w-8 h-8" />
+                                            </motion.div>
+                                            AI Health Intelligence Dashboard
+                                          </h3>
+                                          <p className="text-white/90 text-lg">Powered by advanced health analytics</p>
+                                        </div>
+                                        <div className="text-right">
+                                          <p className="text-white/80 text-sm">Last Updated</p>
+                                          <p className="text-white font-medium">{new Date().toLocaleString('en-US', { 
+                                            month: 'short', 
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                          })}</p>
                                         </div>
                                       </div>
-                                    )}
+                                      
+                                      {/* Quick Stats */}
+                                      <div className="grid grid-cols-4 gap-4 mt-6">
+                                        <motion.div 
+                                          whileHover={{ scale: 1.05 }}
+                                          className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30"
+                                        >
+                                          <Activity className="w-6 h-6 mb-2 text-white/80" />
+                                          <p className="text-2xl font-bold">{visits.length}</p>
+                                          <p className="text-sm text-white/80">Total Visits</p>
+                                        </motion.div>
+                                        
+                                        <motion.div 
+                                          whileHover={{ scale: 1.05 }}
+                                          className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30"
+                                        >
+                                          <HeartPulse className="w-6 h-6 mb-2 text-white/80" />
+                                          <p className="text-2xl font-bold">{vitals.length}</p>
+                                          <p className="text-sm text-white/80">Vital Records</p>
+                                        </motion.div>
+                                        
+                                        <motion.div 
+                                          whileHover={{ scale: 1.05 }}
+                                          className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30"
+                                        >
+                                          <TestTube className="w-6 h-6 mb-2 text-white/80" />
+                                          <p className="text-2xl font-bold">{labResults.length}</p>
+                                          <p className="text-sm text-white/80">Lab Results</p>
+                                        </motion.div>
+                                        
+                                        <motion.div 
+                                          whileHover={{ scale: 1.05 }}
+                                          className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30"
+                                        >
+                                          <FileText className="w-6 h-6 mb-2 text-white/80" />
+                                          <p className="text-2xl font-bold">{documents.length}</p>
+                                          <p className="text-sm text-white/80">Documents</p>
+                                        </motion.div>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               )}
@@ -2096,6 +2071,10 @@ OneHealth Medical Team`;
             onSuccess={() => {
               modalState.closeMedicalAidModal();
               fetchPatientDetails(selectedPatientDetails.id);
+              // Refresh beneficiaries count if medical aid was updated
+              if (medicalAid?.membership_number) {
+                fetchBeneficiariesCount(medicalAid.membership_number);
+              }
             }}
           />
         </FormModal>
@@ -2276,12 +2255,15 @@ OneHealth Medical Team`;
       {/* Enhanced SMS Modal */}
       <EnhancedSmsModal
         isOpen={isEnhancedSmsModalOpen}
-        onClose={() => setIsEnhancedSmsModalOpen(false)}
+        onClose={() => {
+          setIsEnhancedSmsModalOpen(false);
+          setSmsTarget('patient');
+        }}
         patient={selectedPatientDetails ? {
           id: selectedPatientDetails.id,
-          first_name: selectedPatientDetails.first_name,
-          last_name: selectedPatientDetails.last_name,
-          cell_number: selectedPatientDetails.cell_number || '',
+          first_name: smsTarget === 'nextOfKin' && nextOfKin ? nextOfKin.name : selectedPatientDetails.first_name,
+          last_name: smsTarget === 'nextOfKin' && nextOfKin ? '' : selectedPatientDetails.last_name,
+          cell_number: smsTarget === 'nextOfKin' && nextOfKin ? nextOfKin.phone : (selectedPatientDetails.cell_number || ''),
           email: selectedPatientDetails.email || ''
         } : null}
         onSend={handleEnhancedSendSms}
@@ -2302,6 +2284,31 @@ OneHealth Medical Team`;
         onSend={handleEnhancedSendEmail}
         isSending={false}
       />
+
+      {/* Manage Beneficiaries Modal */}
+      {selectedPatientDetails && medicalAid && (
+        <ManageBeneficiariesModal
+          isOpen={isManageBeneficiariesModalOpen}
+          onClose={() => setIsManageBeneficiariesModalOpen(false)}
+          patientId={selectedPatientDetails.id}
+          currentMedicalAid={{
+            id: medicalAid.id,
+            provider: medicalAid.provider,
+            scheme: medicalAid.scheme || medicalAid.scheme_name,
+            membership_number: medicalAid.membership_number,
+            plan_type: medicalAid.plan_type,
+            main_member_name: medicalAid.main_member_name,
+            main_member_id_number: medicalAid.main_member_id_number,
+            patient_id: selectedPatientDetails.id
+          }}
+          onRefresh={() => {
+            fetchPatientDetails(selectedPatientDetails.id);
+            if (medicalAid?.membership_number) {
+              fetchBeneficiariesCount(medicalAid.membership_number);
+            }
+          }}
+        />
+      )}
 
       {/* Message Confirmation Modal */}
       <MessageConfirmationModal

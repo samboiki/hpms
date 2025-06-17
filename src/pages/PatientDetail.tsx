@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Building2,
@@ -11,6 +11,7 @@ import {
   Edit3,
   Clock,
   User,
+  Users,
   Loader2,
   Heart,
   Activity,
@@ -32,6 +33,7 @@ import AddMedicalRecordForm from '../components/forms/AddMedicalRecordForm';
 import NextOfKinForm from '../components/forms/NextOfKinForm';
 import EditPatientForm from '../components/forms/EditPatientForm';
 import AddVisitForm from '../components/forms/AddVisitForm';
+import ManageBeneficiariesModal from '../components/modals/ManageBeneficiariesModal';
 import { supabase } from '../lib/supabase';
 import { logDatabaseError } from '../lib/supabase';
 import { format } from 'date-fns';
@@ -73,6 +75,7 @@ interface Patient {
 const PatientDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +85,8 @@ const PatientDetail: React.FC = () => {
   const [isEditPatientModalOpen, setIsEditPatientModalOpen] = useState(false);
   const [isMedicalAidModalOpen, setIsMedicalAidModalOpen] = useState(false);
   const [isAddVisitModalOpen, setIsAddVisitModalOpen] = useState(false);
+  const [isManageBeneficiariesModalOpen, setIsManageBeneficiariesModalOpen] = useState(false);
+  const [beneficiariesCount, setBeneficiariesCount] = useState<number>(0);
 
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -105,6 +110,59 @@ const PatientDetail: React.FC = () => {
       fetchPatientDetails();
     }
   }, [id]);
+
+  // Handle return from beneficiary management
+  useEffect(() => {
+    const locationState = location.state as any;
+    if (locationState?.fromBeneficiaryManagement && locationState?.returnToModal === 'manageBeneficiaries') {
+      // Open the ManageBeneficiariesModal when returning from a beneficiary's profile
+      setIsManageBeneficiariesModalOpen(true);
+    } else if (locationState?.openManageBeneficiariesModal) {
+      // Open modal when returning to the original patient from beneficiary navigation
+      setIsManageBeneficiariesModalOpen(true);
+    }
+  }, [location.state]);
+
+  // Handle back navigation
+  const handleBackNavigation = () => {
+    const locationState = location.state as any;
+    
+    if (locationState?.fromBeneficiaryManagement && locationState?.returnToPatientId) {
+      // Navigate back to the original patient's profile and open the beneficiaries modal
+      navigate(`/patients/${locationState.returnToPatientId}`, {
+        state: {
+          openManageBeneficiariesModal: true,
+          currentMedicalAid: locationState.currentMedicalAid
+        }
+      });
+    } else {
+      // Default back to patients list
+      navigate('/patients');
+    }
+  };
+
+  const fetchBeneficiariesCount = async (membershipNumber?: string) => {
+    const memberNumber = membershipNumber || patient?.medicalAidDetails?.[0]?.membershipNumber;
+    if (!memberNumber) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('medical_aid_details')
+        .select('id', { count: 'exact' })
+        .eq('membership_number', memberNumber);
+
+      if (error) {
+        console.error('Error fetching beneficiaries count:', error);
+        return;
+      }
+
+      const count = data?.length || 0;
+      setBeneficiariesCount(count);
+      console.log(`✅ Found ${count} total beneficiaries for membership ${memberNumber}`);
+    } catch (err) {
+      console.error('Error fetching beneficiaries count:', err);
+    }
+  };
 
   const fetchPatientDetails = async () => {
     try {
@@ -147,6 +205,11 @@ const PatientDetail: React.FC = () => {
 
       console.log('Fetched patient data:', transformedData);
       setPatient(transformedData);
+      
+      // Fetch beneficiaries count after patient data is loaded
+      if (transformedData.medicalAidDetails?.[0]?.membershipNumber) {
+        fetchBeneficiariesCount(transformedData.medicalAidDetails[0].membershipNumber);
+      }
     } catch (err) {
       console.error('Error fetching patient details:', err);
       logDatabaseError(err, 'fetchPatientDetails');
@@ -164,6 +227,13 @@ const PatientDetail: React.FC = () => {
   const handleEditPatientSubmit = async () => {
     await fetchPatientDetails();
     setIsEditPatientModalOpen(false);
+  };
+
+  const refreshPatientData = async () => {
+    await fetchPatientDetails();
+    if (patient?.medicalAidDetails?.[0]?.membershipNumber) {
+      fetchBeneficiariesCount(patient.medicalAidDetails[0].membershipNumber);
+    }
   };
 
   const calculateAge = (dateOfBirth: string) => {
@@ -326,7 +396,7 @@ const PatientDetail: React.FC = () => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate('/patients')}
+            onClick={handleBackNavigation}
             className="mr-4"
           >
             <ChevronLeft size={16} />
@@ -445,7 +515,12 @@ const PatientDetail: React.FC = () => {
                       <h4 className="text-sm font-medium text-gray-500">Provider</h4>
                       <p className="text-lg font-semibold text-gray-900">{patient.medicalAidDetails[0].provider}</p>
                     </div>
-                    <Badge variant="success">Active</Badge>
+                    <div className="flex flex-col items-end gap-2">
+                      <Badge variant="success">Active</Badge>
+                      <Badge variant="azure" className="text-xs">
+                        {beneficiariesCount} {beneficiariesCount === 1 ? 'Member' : 'Members'}
+                      </Badge>
+                    </div>
                   </div>
                   
                   <div>
@@ -455,7 +530,12 @@ const PatientDetail: React.FC = () => {
                   
                   <div>
                     <h4 className="text-sm font-medium text-gray-500">Membership Number</h4>
-                    <p className="text-gray-900 font-mono">{patient.medicalAidDetails[0].membershipNumber}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-gray-900 font-mono">#{patient.medicalAidDetails[0].membershipNumber}</p>
+                      <Badge variant="outline" className="text-xs font-medium">
+                        Total Members: {beneficiariesCount}
+                      </Badge>
+                    </div>
                   </div>
                   
                   <div className="pt-4 border-t border-gray-100">
@@ -464,15 +544,26 @@ const PatientDetail: React.FC = () => {
                     <p className="text-sm text-gray-500">ID: {patient.medicalAidDetails[0].mainMemberIdNumber}</p>
                   </div>
                   
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="w-full mt-4"
-                    onClick={() => setIsMedicalAidModalOpen(true)}
-                  >
-                    <Edit3 size={14} className="mr-2" />
-                    Update Details
-                  </Button>
+                  <div className="space-y-2 mt-4">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => setIsMedicalAidModalOpen(true)}
+                    >
+                      <Edit3 size={14} className="mr-2" />
+                      Update Details
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      onClick={() => setIsManageBeneficiariesModalOpen(true)}
+                    >
+                      <Users size={14} className="mr-2" />
+                      Manage Beneficiaries
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-6">
@@ -619,10 +710,28 @@ const PatientDetail: React.FC = () => {
           patientId={id || ''}
           onSuccess={() => {
             setIsAddVisitModalOpen(false);
-            fetchPatientDetails();
+            refreshPatientData();
           }}
         />
       </FormModal>
+
+      {/* Manage Beneficiaries Modal */}
+      <ManageBeneficiariesModal
+        isOpen={isManageBeneficiariesModalOpen}
+        onClose={() => setIsManageBeneficiariesModalOpen(false)}
+        currentMedicalAid={patient?.medicalAidDetails?.[0] ? {
+          id: '', // This would need to be retrieved from the actual medical aid details
+          provider: patient.medicalAidDetails[0].provider,
+          scheme: patient.medicalAidDetails[0].scheme,
+          membership_number: patient.medicalAidDetails[0].membershipNumber,
+          plan_type: patient.medicalAidDetails[0].planType,
+          main_member_name: patient.medicalAidDetails[0].mainMemberName,
+          main_member_id_number: patient.medicalAidDetails[0].mainMemberIdNumber,
+          patient_id: id || ''
+        } : undefined}
+        patientId={id || ''}
+        onRefresh={refreshPatientData}
+      />
     </motion.div>
   );
 };

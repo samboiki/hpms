@@ -6,9 +6,9 @@ import {
   User,
   FileText,
   Activity,
-  TestTube,
+  FlaskConical,
   FolderOpen,
-  Receipt,
+  Wallet,
   History,
   Sparkles
 } from 'lucide-react';
@@ -64,7 +64,7 @@ const detailTabs: Tab[] = [
   {
     id: 'results',
     label: 'Lab Results',
-    icon: TestTube
+    icon: FlaskConical
   },
   {
     id: 'documents',
@@ -74,7 +74,7 @@ const detailTabs: Tab[] = [
   {
     id: 'billing',
     label: 'Billing',
-    icon: Receipt
+    icon: Wallet
   },
   {
     id: 'audit',
@@ -115,7 +115,7 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
   };
 
   return (
-    <div className={`${mode === 'list' ? 'bg-gradient-to-r from-purple-500 to-indigo-600' : 'bg-white border-b border-gray-200'} relative`}>
+    <div className={`${mode === 'list' ? 'bg-gradient-to-r from-purple-500 to-indigo-600' : 'bg-white/80 backdrop-blur-xl border-b border-gray-200/50'} relative`}>
       <div className="px-6">
         <div className="flex w-full">
           {tabs.map((tab, index) => {
@@ -152,11 +152,11 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-300 relative ${
                   isActive
                     ? mode === 'list' 
-                      ? 'text-white border-white bg-gradient-to-t from-white/10 to-transparent'
-                      : 'text-purple-600 border-purple-600 bg-gradient-to-t from-purple-50 to-transparent'
+                      ? 'text-white border-white bg-gradient-to-t from-white/20 to-white/5 backdrop-blur-sm'
+                      : 'text-purple-600 border-purple-600 bg-gradient-to-t from-purple-50/50 to-transparent backdrop-blur-sm'
                     : mode === 'list'
-                      ? 'text-white/80 border-transparent hover:text-white hover:bg-white/10'
-                      : 'text-gray-500 border-transparent hover:text-purple-600 hover:bg-purple-50/50'
+                      ? 'text-white/80 border-transparent hover:text-white hover:bg-white/10 backdrop-blur-sm'
+                      : 'text-gray-500 border-transparent hover:text-purple-600 hover:bg-purple-50/30 backdrop-blur-sm'
                 }`}
               >
                 <motion.div
@@ -185,14 +185,24 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
                     className={`
                       px-2 py-0.5 text-xs font-bold rounded-full ml-1
                       ${mode === 'list'
-                        ? 'bg-white/20 text-white border border-white/30'
+                        ? 'bg-white/20 text-white border border-white/30 backdrop-blur-sm'
                         : isActive 
                           ? 'bg-purple-600 text-white shadow-lg'
-                          : 'bg-gray-200 text-gray-700'
+                          : 'bg-gray-200/70 text-gray-700 backdrop-blur-sm'
                       }
                     `}>
                     {count}
                   </motion.span>
+                )}
+                
+                {/* Active indicator */}
+                {isActive && (
+                  <motion.div
+                    className="absolute -bottom-1 left-0 right-0 mx-auto w-8 h-1 bg-white rounded-full"
+                    initial={{ width: 0, opacity: 0 }}
+                    animate={{ width: 32, opacity: 1 }}
+                    transition={{ duration: 0.3, type: "spring", stiffness: 200 }}
+                  />
                 )}
               </motion.button>
             );

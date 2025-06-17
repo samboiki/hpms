@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X, Send, Mail, User, Clock, Users, Sparkles, FileText } from 'lucide-react';
 import Button from '../ui/Button';
+import FullScreenModal from '../ui/FullScreenModal';
 import { useTheme } from '../../stores/themeStore';
 import { useAuthStore } from '../../stores/authStore';
 import { professionalEmailTemplates, type ProfessionalEmailTemplate } from '../messages/EmailTemplates';
@@ -26,6 +27,53 @@ const SendEmailModal: React.FC<SendEmailModalProps> = ({ isOpen, onClose, patien
   const [sendStatus, setSendStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [selectedTemplate, setSelectedTemplate] = useState<ProfessionalEmailTemplate | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
+
+  // Debug modal state changes
+  React.useEffect(() => {
+    if (isOpen) {
+      console.log('📧 EMAIL MODAL DEBUG: SendEmailModal OPENED - Recipients:', patients.length);
+      console.log('📧 EMAIL MODAL DEBUG: Modal approach - FULL SCREEN with FullScreenModal wrapper');
+      console.log('📧 EMAIL MODAL DEBUG: Current theme gradient:', currentTheme.gradients.sidebar);
+      console.log('📧 EMAIL MODAL DEBUG: Z-index: 2147483647 (MAX VALUE), Position: fixed inset-0');
+      console.log('📧 EMAIL MODAL DEBUG: Rendered via Portal to document.body with isolation');
+      console.log('📧 EMAIL MODAL DEBUG: Patients:', patients.map(p => `${p.first_name} ${p.last_name}`));
+      
+      // Check for DOM conflicts
+      const existingModals = document.querySelectorAll('[class*="z-"]');
+      console.log('📧 EMAIL MODAL DEBUG: Existing modals with z-index:', existingModals.length);
+      existingModals.forEach((modal, i) => {
+        const classes = modal.className;
+        if (classes.includes('z-')) {
+          console.log(`📧 EMAIL MODAL DEBUG: Modal ${i}:`, classes);
+        }
+      });
+    } else {
+      console.log('📧 EMAIL MODAL DEBUG: SendEmailModal CLOSED');
+    }
+  }, [isOpen, patients, currentTheme]);
+
+  // Runtime dimension checking
+  React.useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        const modalElement = document.querySelector('[data-testid="email-modal"]') as HTMLElement;
+        if (modalElement) {
+          const rect = modalElement.getBoundingClientRect();
+          console.log('📧 EMAIL MODAL DEBUG: Actual modal dimensions:', {
+            width: rect.width,
+            height: rect.height,
+            viewportWidth: window.innerWidth,
+            viewportHeight: window.innerHeight,
+            widthPercentage: (rect.width / window.innerWidth * 100).toFixed(1) + '%',
+            heightPercentage: (rect.height / window.innerHeight * 100).toFixed(1) + '%'
+          });
+        } else {
+          console.log('📧 EMAIL MODAL DEBUG: Modal element not found in DOM');
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   // Initialize modal content
   React.useEffect(() => {
@@ -116,26 +164,8 @@ This email was sent to you because you are a registered patient at OneHealth Pra
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          />
-
-          {/* Modal */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-200/50 overflow-hidden"
-          >
+    <FullScreenModal isOpen={isOpen} onClose={onClose} modalId="send-email-modal">
+      <div className="h-full bg-white flex flex-col">
             {/* Header */}
             <div className={`bg-gradient-to-r ${currentTheme.gradients.sidebar} p-6 text-white`}>
               <div className="flex items-center justify-between">
@@ -161,7 +191,7 @@ This email was sent to you because you are a registered patient at OneHealth Pra
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+            <div className="p-6 space-y-6 flex-1 overflow-y-auto">
               {/* Recipients Preview */}
               <div className="bg-gray-50 rounded-xl p-4">
                 <div className="flex items-center gap-3 mb-2">
@@ -325,10 +355,8 @@ This email was sent to you because you are a registered patient at OneHealth Pra
                 )}
               </Button>
             </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+          </div>
+    </FullScreenModal>
   );
 };
 

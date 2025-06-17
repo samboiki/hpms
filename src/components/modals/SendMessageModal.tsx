@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X, Send, MessageSquare, Phone, User, Clock, Sparkles, FileText } from 'lucide-react';
 import Button from '../ui/Button';
+import FullScreenModal from '../ui/FullScreenModal';
 import { defaultSMSService } from '../../services/smsPortal';
 import { useTheme } from '../../stores/themeStore';
 import { supabase } from '../../lib/supabase';
@@ -26,6 +27,52 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
   const [isSending, setIsSending] = useState(false);
   const [sendStatus, setSendStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [showTemplates, setShowTemplates] = useState(false);
+
+  // Debug modal state changes
+  React.useEffect(() => {
+    if (isOpen) {
+      console.log('📱 SMS MODAL DEBUG: SendMessageModal OPENED - Patient:', patient?.first_name, patient?.last_name);
+      console.log('📱 SMS MODAL DEBUG: Modal approach - FULL SCREEN with FullScreenModal wrapper');
+      console.log('📱 SMS MODAL DEBUG: Current theme gradient:', currentTheme.gradients.sidebar);
+      console.log('📱 SMS MODAL DEBUG: Z-index: 2147483647 (MAX VALUE), Position: fixed inset-0');
+      console.log('📱 SMS MODAL DEBUG: Rendered via Portal to document.body with isolation');
+      
+      // Check for DOM conflicts
+      const existingModals = document.querySelectorAll('[class*="z-"]');
+      console.log('📱 SMS MODAL DEBUG: Existing modals with z-index:', existingModals.length);
+      existingModals.forEach((modal, i) => {
+        const classes = modal.className;
+        if (classes.includes('z-')) {
+          console.log(`📱 SMS MODAL DEBUG: Modal ${i}:`, classes);
+        }
+      });
+    } else {
+      console.log('📱 SMS MODAL DEBUG: SendMessageModal CLOSED');
+    }
+  }, [isOpen, patient, currentTheme]);
+
+  // Runtime dimension checking
+  React.useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        const modalElement = document.querySelector('[data-testid="sms-modal"]') as HTMLElement;
+        if (modalElement) {
+          const rect = modalElement.getBoundingClientRect();
+          console.log('📱 SMS MODAL DEBUG: Actual modal dimensions:', {
+            width: rect.width,
+            height: rect.height,
+            viewportWidth: window.innerWidth,
+            viewportHeight: window.innerHeight,
+            widthPercentage: (rect.width / window.innerWidth * 100).toFixed(1) + '%',
+            heightPercentage: (rect.height / window.innerHeight * 100).toFixed(1) + '%'
+          });
+        } else {
+          console.log('📱 SMS MODAL DEBUG: Modal element not found in DOM');
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   // Initialize phone number when modal opens
   React.useEffect(() => {
@@ -193,26 +240,8 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          />
-
-          {/* Modal */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-200/50 overflow-hidden"
-          >
+    <FullScreenModal isOpen={isOpen} onClose={onClose} modalId="send-message-modal">
+      <div className="h-full bg-white flex flex-col">
             {/* Header */}
             <div className={`bg-gradient-to-r ${currentTheme.gradients.sidebar} p-6 text-white`}>
               <div className="flex items-center justify-between">
@@ -237,7 +266,7 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 flex-1 overflow-y-auto">
               {/* Patient Info */}
               {patient && (
                 <div className="bg-gray-50 rounded-xl p-4">
@@ -406,10 +435,8 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
                 )}
               </Button>
             </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+          </div>
+    </FullScreenModal>
   );
 };
 

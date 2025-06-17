@@ -16,11 +16,9 @@ import {
   Sparkles,
   X,
   Shield,
-  UserCheck,
-  Maximize2,
-  Minimize2
+  UserCheck
 } from 'lucide-react';
-import FormModal from '../modals/FormModal';
+import FullScreenModal from '../ui/FullScreenModal';
 import { Patient } from '../../stores/patientsStoreNew';
 
 interface EnhancedSmsModalProps {
@@ -120,7 +118,6 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
   const [showPreview, setShowPreview] = useState(true);
   const [showTemplates, setShowTemplates] = useState(false);
   const [isEditing, setIsEditing] = useState(true);
-  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     if (patient?.cell_number) {
@@ -178,14 +175,8 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
   };
 
   return (
-    <FormModal
-      isOpen={isOpen}
-      onClose={onClose}
-      title=""
-      hideHeader={true}
-      maxWidth={isExpanded ? "max-w-none w-screen h-screen" : "max-w-6xl"}
-    >
-      <div className="relative bg-gradient-to-br from-white via-blue-50/30 to-purple-50/20 rounded-2xl shadow-2xl overflow-hidden">
+    <FullScreenModal isOpen={isOpen} onClose={onClose} modalId="enhanced-sms-modal">
+      <div className="h-full bg-white flex flex-col">
         {/* Premium Header */}
         <div className="relative bg-gradient-to-r from-[#01b9d5] to-purple-600 p-6 text-white">
           <div className="absolute inset-0 bg-gradient-to-r from-[#01b9d5]/20 to-purple-600/20 backdrop-blur-sm"></div>
@@ -201,25 +192,16 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-                title={isExpanded ? "Minimize" : "Maximize"}
-              >
-                {isExpanded ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
-              </button>
-              <button
-                onClick={onClose}
-                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            <button
+              onClick={onClose}
+              className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
-        <div className={`p-6 overflow-hidden ${isExpanded ? 'h-[calc(100vh-120px)]' : 'h-[calc(100vh-200px)]'}`}>
+        <div className="p-6 overflow-hidden h-[calc(100vh-120px)]">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
             {/* Left Column - Form */}
             <div className="space-y-6 overflow-y-auto pr-2">
@@ -450,6 +432,6 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
           </div>
         </div>
       </div>
-    </FormModal>
+    </FullScreenModal>
   );
 };

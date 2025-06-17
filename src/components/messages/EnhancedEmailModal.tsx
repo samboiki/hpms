@@ -23,10 +23,8 @@ import {
   Italic,
   List,
   Link2,
-  Maximize2,
-  Minimize2
 } from 'lucide-react';
-import FormModal from '../modals/FormModal';
+import FullScreenModal from '../ui/FullScreenModal';
 import { Patient } from '../../stores/patientsStoreNew';
 import { PremiumEmailTemplate } from './PremiumEmailTemplate';
 import { useCurrentUserAndPractice } from '../../hooks/useCurrentUserAndPractice';
@@ -197,7 +195,6 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
   const [showPreview, setShowPreview] = useState(true);
   const [showTemplates, setShowTemplates] = useState(false);
   const [isEditing, setIsEditing] = useState(true);
-  const [isExpanded, setIsExpanded] = useState(false);
   const [isSendingLocal, setIsSending] = useState(false);
   
   // Ref for textarea to handle text formatting
@@ -406,14 +403,8 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
   };
 
   return (
-    <FormModal
-      isOpen={isOpen}
-      onClose={onClose}
-      title=""
-      hideHeader={true}
-      maxWidth={isExpanded ? "max-w-none w-screen h-screen" : "max-w-6xl"}
-    >
-      <div className="relative bg-gradient-to-br from-white via-purple-50/30 to-blue-50/20 rounded-2xl shadow-2xl overflow-hidden">
+    <FullScreenModal isOpen={isOpen} onClose={onClose} modalId="enhanced-email-modal">
+      <div className="h-full bg-white flex flex-col">
         {/* Premium Header */}
         <div className="relative bg-gradient-to-r from-purple-600 to-[#01b9d5] p-6 text-white">
           <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-[#01b9d5]/20 backdrop-blur-sm"></div>
@@ -429,25 +420,16 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-                title={isExpanded ? "Minimize" : "Maximize"}
-              >
-                {isExpanded ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
-              </button>
-              <button
-                onClick={onClose}
-                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            <button
+              onClick={onClose}
+              className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
-        <div className={`p-6 overflow-hidden ${isExpanded ? 'h-[calc(100vh-120px)]' : 'h-[calc(100vh-200px)]'}`}>
+        <div className="p-6 overflow-hidden h-[calc(100vh-120px)]">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
             {/* Left Column - Form */}
             <div className="space-y-6 overflow-y-auto pr-2">
@@ -716,6 +698,6 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
           </div>
         </div>
       </div>
-    </FormModal>
+    </FullScreenModal>
   );
 };

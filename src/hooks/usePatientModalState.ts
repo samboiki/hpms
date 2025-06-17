@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 export interface ModalState {
   isNextOfKinModalOpen: boolean;
@@ -58,6 +58,15 @@ export const usePatientModalState = () => {
     isFullScreen: false,
   });
 
+  // Debug state changes
+  useEffect(() => {
+    console.log('🔧 MODAL STATE DEBUG: Modal state changed:', {
+      isMessageModalOpen: modalState.isMessageModalOpen,
+      isEmailModalOpen: modalState.isEmailModalOpen,
+      timestamp: new Date().toISOString()
+    });
+  }, [modalState.isMessageModalOpen, modalState.isEmailModalOpen]);
+
   const openNextOfKinModal = useCallback(() => 
     setModalState(prev => ({ ...prev, isNextOfKinModalOpen: true })), []);
   
@@ -88,11 +97,16 @@ export const usePatientModalState = () => {
   const closeMedicalAidModal = useCallback(() => 
     setModalState(prev => ({ ...prev, isMedicalAidModalOpen: false })), []);
 
-  const openMessageModal = useCallback(() => 
-    setModalState(prev => ({ ...prev, isMessageModalOpen: true })), []);
+  const openMessageModal = useCallback(() => {
+    console.log('🔧 MODAL STATE DEBUG: openMessageModal() called');
+    setModalState(prev => ({ ...prev, isMessageModalOpen: true }));
+  }, []);
   
-  const closeMessageModal = useCallback(() => 
-    setModalState(prev => ({ ...prev, isMessageModalOpen: false })), []);
+  const closeMessageModal = useCallback(() => {
+    console.log('🔧 MODAL STATE DEBUG: closeMessageModal() called');
+    console.trace('🔧 MODAL STATE DEBUG: Call stack for closeMessageModal');
+    setModalState(prev => ({ ...prev, isMessageModalOpen: false }));
+  }, []);
 
   const openVitalsModal = useCallback(() => 
     setModalState(prev => ({ ...prev, isVitalsModalOpen: true })), []);
@@ -118,16 +132,23 @@ export const usePatientModalState = () => {
   const closeBillingModal = useCallback(() => 
     setModalState(prev => ({ ...prev, isBillingModalOpen: false })), []);
 
-  const openEmailModal = useCallback(() => 
-    setModalState(prev => ({ ...prev, isEmailModalOpen: true })), []);
+  const openEmailModal = useCallback(() => {
+    console.log('🔧 MODAL STATE DEBUG: openEmailModal() called');
+    setModalState(prev => ({ ...prev, isEmailModalOpen: true }));
+  }, []);
   
-  const closeEmailModal = useCallback(() => 
-    setModalState(prev => ({ ...prev, isEmailModalOpen: false })), []);
+  const closeEmailModal = useCallback(() => {
+    console.log('🔧 MODAL STATE DEBUG: closeEmailModal() called');
+    console.trace('🔧 MODAL STATE DEBUG: Call stack for closeEmailModal');
+    setModalState(prev => ({ ...prev, isEmailModalOpen: false }));
+  }, []);
 
   const toggleFullScreen = useCallback(() => 
     setModalState(prev => ({ ...prev, isFullScreen: !prev.isFullScreen })), []);
 
-  const closeAllModals = useCallback(() => 
+  const closeAllModals = useCallback(() => {
+    console.log('🔧 MODAL STATE DEBUG: closeAllModals() called - THIS WILL CLOSE MESSAGE AND EMAIL MODALS');
+    console.trace('🔧 MODAL STATE DEBUG: Call stack for closeAllModals');
     setModalState(prev => ({ 
       ...prev, 
       isNextOfKinModalOpen: false,
@@ -141,7 +162,8 @@ export const usePatientModalState = () => {
       isMediaRequestModalOpen: false,
       isBillingModalOpen: false,
       isEmailModalOpen: false,
-    })), []);
+    }));
+  }, []);
 
   const actions: ModalActions = {
     openNextOfKinModal,
