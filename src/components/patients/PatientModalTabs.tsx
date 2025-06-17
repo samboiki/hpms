@@ -29,6 +29,7 @@ interface PatientModalTabsProps {
   vitals?: any[];
   labResults?: any[];
   documents?: any[];
+  billingData?: any[];
 }
 
 const listTabs: Tab[] = [
@@ -90,7 +91,8 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
   visits = [],
   vitals = [],
   labResults = [],
-  documents = []
+  documents = [],
+  billingData = []
 }) => {
   const tabs = mode === 'list' ? listTabs : detailTabs;
   
@@ -105,6 +107,8 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
         return labResults.length;
       case 'documents':
         return documents.length;
+      case 'billing':
+        return billingData.length;
       default:
         return undefined;
     }

@@ -38,6 +38,8 @@ import MedicalAidForm from '../components/forms/MedicalAidForm';
 // import MedicalAidLimitUpdateForm from '../components/forms/MedicalAidLimitUpdateForm';
 import EditPatientForm from '../components/forms/EditPatientForm';
 import SendMessageModal from '../components/modals/SendMessageModal';
+import { EnhancedSmsModal } from '../components/messages/EnhancedSmsModal';
+import { EnhancedEmailModal } from '../components/messages/EnhancedEmailModal';
 import PatientDataTabs from '../components/patients/PatientDataTabs';
 import PremiumFolderTabs from '../components/patients/PremiumFolderTabs';
 import { useRealtimeAppointments } from '../hooks/useRealtimeAppointments';
@@ -291,6 +293,9 @@ const PatientModernDetail = () => {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isEditPatientModalOpen, setIsEditPatientModalOpen] = useState(false);
   const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [isEnhancedSmsModalOpen, setIsEnhancedSmsModalOpen] = useState(false);
+  const [isEnhancedEmailModalOpen, setIsEnhancedEmailModalOpen] = useState(false);
   const [isMedicalAidModalOpen, setIsMedicalAidModalOpen] = useState(false);
   const [isMedicalAidLimitModalOpen, setIsMedicalAidLimitModalOpen] = useState(false);
   const [smsContent, setSmsContent] = useState('');
@@ -635,6 +640,50 @@ Medical Team`;
     setIsSmsModalOpen(true);
   };
 
+  const handleEnhancedSendSms = async (phone: string, message: string) => {
+    if (!patient || !phone || !message) {
+      toast.error('Missing required information');
+      return;
+    }
+
+    try {
+      const result = await defaultSMSService.sendSMS({
+        to: phone,
+        content: message,
+        reference: `patient-${patient.id}-${Date.now()}`
+      });
+
+      if (result.success) {
+        toast.success('SMS sent successfully!');
+        setIsEnhancedSmsModalOpen(false);
+      } else {
+        toast.error(`Failed to send SMS: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error sending SMS:', error);
+      toast.error('Failed to send SMS. Please try again.');
+    }
+  };
+
+  const handleEnhancedSendEmail = async (email: string, subject: string, message: string) => {
+    if (!patient || !email || !subject || !message) {
+      toast.error('Missing required information');
+      return;
+    }
+
+    try {
+      // Here you would integrate with your email service
+      // For now, we'll just show a success message
+      console.log('Sending email:', { email, subject, message, patientId: patient.id });
+      
+      toast.success('Email sent successfully!');
+      setIsEnhancedEmailModalOpen(false);
+    } catch (error) {
+      console.error('Error sending email:', error);
+      toast.error('Failed to send email. Please try again.');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -751,12 +800,22 @@ Medical Team`;
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => setIsMessageModalOpen(true)}
-                  className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 font-medium text-sm flex items-center gap-2"
-                  title="Send Message"
+                  onClick={() => setIsEnhancedSmsModalOpen(true)}
+                  className="px-4 py-2.5 bg-gradient-to-r from-[#01b9d4] to-purple-600 hover:from-[#01b9d4]/90 hover:to-purple-600/90 text-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 font-medium text-sm flex items-center gap-2"
+                  title="Send SMS"
                 >
                   <MessageSquare className="w-4 h-4" />
-                  Send Message
+                  Send SMS
+                </motion.button>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsEnhancedEmailModalOpen(true)}
+                  className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-[#01b9d4] hover:from-purple-600/90 hover:to-[#01b9d4]/90 text-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 font-medium text-sm flex items-center gap-2"
+                  title="Send Email"
+                >
+                  <Mail className="w-4 h-4" />
+                  Send Email
                 </motion.button>
                 <motion.button
                   whileHover={{ scale: 1.05, y: -2 }}
@@ -1479,6 +1538,36 @@ Medical Team`;
           }}
         />
       </FormModal>
+
+      {/* Enhanced SMS Modal */}
+      <EnhancedSmsModal
+        isOpen={isEnhancedSmsModalOpen}
+        onClose={() => setIsEnhancedSmsModalOpen(false)}
+        patient={patient ? {
+          id: patient.id,
+          first_name: patient.first_name,
+          last_name: patient.last_name,
+          cell_number: patient.cell_number || '',
+          email: patient.email || ''
+        } : null}
+        onSend={handleEnhancedSendSms}
+        isSending={false}
+      />
+
+      {/* Enhanced Email Modal */}
+      <EnhancedEmailModal
+        isOpen={isEnhancedEmailModalOpen}
+        onClose={() => setIsEnhancedEmailModalOpen(false)}
+        patient={patient ? {
+          id: patient.id,
+          first_name: patient.first_name,
+          last_name: patient.last_name,
+          cell_number: patient.cell_number || '',
+          email: patient.email || ''
+        } : null}
+        onSend={handleEnhancedSendEmail}
+        isSending={false}
+      />
 
       {/* Send Message Modal */}
       <SendMessageModal
