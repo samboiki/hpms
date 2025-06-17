@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
-import { User, Phone, Stethoscope, Shield } from 'lucide-react';
+import { User, Phone, Stethoscope, Shield, Users, MapPin, Heart } from 'lucide-react';
 
 interface EditPatientFormData {
   first_name: string;
@@ -28,19 +27,27 @@ interface EditPatientFormData {
     mainMemberIdNumber: string;
     relationship: string;
   };
+
+  // Next of Kin
+  nextOfKin: {
+    name: string;
+    relationship: string;
+    phone: string;
+    address: string;
+  };
 }
 
 interface MedicalAidProvider {
   id: string;
   name: string;
-  short_name: string;
+  short_name: string | null;
 }
 
 interface MedicalAidScheme {
   id: string;
-  provider_id: string;
+  provider_id?: string;
   name: string;
-  description: string;
+  description: string | null;
 }
 
 interface MedicalAidDetails {
@@ -51,7 +58,15 @@ interface MedicalAidDetails {
   main_member_name: string;
   main_member_id_number: string;
   relationship_to_main: string;
-  medical_aid_provider_id: string;
+  medical_aid_provider_id: string | null;
+}
+
+interface NextOfKinDetails {
+  id: string;
+  name: string;
+  relationship: string;
+  phone: string;
+  address: string | null;
 }
 
 interface Props {
@@ -67,6 +82,7 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
   const [loadingProviders, setLoadingProviders] = useState(true);
   const [loadingSchemes, setLoadingSchemes] = useState(false);
   const [medicalAidDetails, setMedicalAidDetails] = useState<MedicalAidDetails | null>(null);
+  const [nextOfKinDetails, setNextOfKinDetails] = useState<NextOfKinDetails | null>(null);
   
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<EditPatientFormData>({
     defaultValues: {
@@ -79,6 +95,13 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
         mainMemberIdNumber: '',
         relationship: '',
         ...initialData?.medicalAid
+      },
+      nextOfKin: {
+        name: '',
+        relationship: '',
+        phone: '',
+        address: '',
+        ...initialData?.nextOfKin
       }
     }
   });
@@ -173,6 +196,34 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
     fetchMedicalAidDetails();
   }, [patientId, setValue]);
 
+  // Fetch existing next of kin details
+  useEffect(() => {
+    const fetchNextOfKinDetails = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('next_of_kin')
+          .select('*')
+          .eq('patient_id', patientId)
+          .maybeSingle();
+
+        if (error && error.code !== 'PGRST116') throw error;
+        
+        if (data) {
+          setNextOfKinDetails(data);
+          // Set form values
+          setValue('nextOfKin.name', data.name || '');
+          setValue('nextOfKin.relationship', data.relationship || '');
+          setValue('nextOfKin.phone', data.phone || '');
+          setValue('nextOfKin.address', data.address || '');
+        }
+      } catch (error) {
+        console.error('Error fetching next of kin details:', error);
+      }
+    };
+
+    fetchNextOfKinDetails();
+  }, [patientId, setValue]);
+
   const onSubmit = async (data: EditPatientFormData) => {
     try {
       // Update patient basic info (exclude medical aid from patient update)
@@ -227,6 +278,42 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
         if (deleteError) throw deleteError;
       }
 
+      // Handle next of kin details
+      if (data.nextOfKin.name) {
+        const nextOfKinData = {
+          patient_id: patientId,
+          name: data.nextOfKin.name,
+          relationship: data.nextOfKin.relationship,
+          phone: data.nextOfKin.phone,
+          address: data.nextOfKin.address
+        };
+
+        if (nextOfKinDetails) {
+          // Update existing next of kin details
+          const { error: nextOfKinError } = await supabase
+            .from('next_of_kin')
+            .update(nextOfKinData)
+            .eq('id', nextOfKinDetails.id);
+
+          if (nextOfKinError) throw nextOfKinError;
+        } else {
+          // Insert new next of kin details
+          const { error: nextOfKinError } = await supabase
+            .from('next_of_kin')
+            .insert([nextOfKinData]);
+
+          if (nextOfKinError) throw nextOfKinError;
+        }
+      } else if (nextOfKinDetails) {
+        // Remove next of kin details if cleared
+        const { error: deleteError } = await supabase
+          .from('next_of_kin')
+          .delete()
+          .eq('id', nextOfKinDetails.id);
+
+        if (deleteError) throw deleteError;
+      }
+
       onSuccess();
     } catch (error) {
       console.error('Error updating patient:', error);
@@ -237,28 +324,35 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
     { id: 'personal', label: 'Personal Info', icon: User },
     { id: 'contact', label: 'Contact Details', icon: Phone },
     { id: 'medical', label: 'Medical Info', icon: Stethoscope },
-    { id: 'medicalaid', label: 'Medical Aid', icon: Shield }
+    { id: 'medicalaid', label: 'Medical Aid', icon: Shield },
+    { id: 'nextofkin', label: 'Next of Kin', icon: Users }
   ];
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Premium Tabs */}
-      <div className="flex space-x-1 bg-gradient-to-r from-blue-50 to-purple-50 p-1 rounded-xl border border-blue-100">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all ${
-              activeTab === tab.id
-                ? 'bg-gradient-to-r from-[#01b9d5] to-purple-600 text-white shadow-lg transform scale-105'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-            }`}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
-          </button>
-        ))}
+      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 relative">
+        <div className="px-6">
+          <div className="flex w-full">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-300 relative ${
+                  activeTab === tab.id
+                    ? 'text-white border-white bg-gradient-to-t from-white/10 to-transparent'
+                    : 'text-white/80 border-transparent hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <tab.icon className={`w-4 h-4 transition-all duration-300 ${
+                  activeTab === tab.id ? 'text-white drop-shadow-sm' : ''
+                }`} />
+                <span className="hidden sm:inline font-medium">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Tab Content */}
@@ -551,6 +645,83 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
             )}
           </div>
         )}
+
+        {activeTab === 'nextofkin' && (
+          <div className="space-y-6">
+            <div className="bg-gradient-to-r from-orange-50 to-purple-50 rounded-lg p-4 border border-orange-100">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">Emergency Contact Information</h3>
+              <p className="text-sm text-gray-600">Provide details for the patient's emergency contact or next of kin.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-orange-500" />
+                  Next of Kin Name
+                </label>
+                <input
+                  type="text"
+                  {...register('nextOfKin.name')}
+                  className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all shadow-sm hover:shadow-md"
+                  placeholder="Enter next of kin name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-orange-500" />
+                  Relationship
+                </label>
+                <input
+                  type="text"
+                  {...register('nextOfKin.relationship')}
+                  className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all shadow-sm hover:shadow-md"
+                  placeholder="e.g., Spouse, Parent, Sibling"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-orange-500" />
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  {...register('nextOfKin.phone')}
+                  className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all shadow-sm hover:shadow-md"
+                  placeholder="Enter phone number"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-orange-500" />
+                  Address
+                </label>
+                <textarea
+                  {...register('nextOfKin.address')}
+                  rows={3}
+                  className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all shadow-sm hover:shadow-md resize-none"
+                  placeholder="Enter address"
+                />
+              </div>
+            </div>
+
+            {nextOfKinDetails && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="w-5 h-5 text-green-600" />
+                  <h4 className="font-semibold text-green-800">Current Emergency Contact</h4>
+                </div>
+                <div className="text-sm text-green-700">
+                  <p><strong>Name:</strong> {nextOfKinDetails.name}</p>
+                  <p><strong>Relationship:</strong> {nextOfKinDetails.relationship}</p>
+                  <p><strong>Phone:</strong> {nextOfKinDetails.phone}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end space-x-3 pt-6 border-t border-gray-100">
@@ -563,7 +734,7 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
         </button>
         <button
           type="submit"
-          className="px-6 py-2.5 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+          className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all font-medium transform hover:scale-105"
         >
           Update Patient
         </button>

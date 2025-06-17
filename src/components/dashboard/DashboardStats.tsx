@@ -223,8 +223,8 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ practiceId }) => {
     try {
       const { data: vitals, error } = await supabase
         .from('vitals')
-        .select('blood_pressure_systolic, blood_pressure_diastolic, heart_rate, temperature, recorded_at')
-        .gte('recorded_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+        .select('blood_pressure_systolic, blood_pressure_diastolic, heart_rate, temperature, created_at')
+        .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
 
       if (error) throw error;
 

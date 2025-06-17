@@ -224,7 +224,7 @@ const EnhancedAddVisitForm: React.FC<Props> = ({ patientId, onSuccess, onCancel 
           .insert([{
             visit_id: visit.id,
             ...data.vitals,
-            recorded_at: new Date().toISOString()
+            created_at: new Date().toISOString()
           }]);
 
         if (vitalsError) throw vitalsError;

@@ -285,7 +285,7 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
             .insert([{
               visit_id: visitId,
               ...data.vitals,
-              recorded_at: new Date().toISOString()
+              created_at: new Date().toISOString()
             }]);
 
           if (vitalsError) throw vitalsError;

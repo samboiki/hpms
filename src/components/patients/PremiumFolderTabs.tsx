@@ -64,7 +64,7 @@ interface Vital {
   heart_rate: number;
   temperature: number;
   weight: number;
-  recorded_at: string;
+  created_at: string;
 }
 
 interface PremiumFolderTabsProps {
@@ -102,7 +102,8 @@ const EncountersContent: React.FC<{
   onVisitClick?: (visit: Visit) => void;
   onEditVisit?: (visit: Visit) => void;
   onVisitStatusChange?: (visitId: string, status: string) => void;
-}> = ({ visits, onVisitClick, onEditVisit, onVisitStatusChange }) => {
+  onAddVisit?: () => void;
+}> = ({ visits, onVisitClick, onEditVisit, onVisitStatusChange, onAddVisit }) => {
   const { currentTheme } = useTheme();
   
   return (
@@ -112,9 +113,22 @@ const EncountersContent: React.FC<{
         <h3 className="text-xl font-bold text-gray-800 mb-1" style={{ fontFamily: 'Poppins, sans-serif' }}>Medical Encounters</h3>
         <p className="text-gray-500 text-sm">Complete visit history and clinical notes</p>
       </div>
-      <div className="flex items-center gap-2 text-sm text-gray-500">
-        <Calendar className="w-4 h-4" />
-        <span style={{ fontFamily: 'Rubik, sans-serif' }}>{visits.length} total visits</span>
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <Calendar className="w-4 h-4" />
+          <span style={{ fontFamily: 'Rubik, sans-serif' }}>{visits.length} total visits</span>
+        </div>
+        {onAddVisit && (
+          <motion.button
+            whileHover={{ scale: 1.02, y: -1 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={onAddVisit}
+            className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all flex items-center gap-2 font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Add New Visit
+          </motion.button>
+        )}
       </div>
     </div>
     
@@ -175,16 +189,18 @@ const EncountersContent: React.FC<{
                 <FileText className="w-3 h-3" />
                 View Details
               </button>
-              <button 
+              <motion.button 
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={(e) => {
                   e.stopPropagation();
                   onEditVisit && onEditVisit(visit);
                 }}
-                className="text-xs text-green-600 hover:text-green-800 font-medium flex items-center gap-1"
+                className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-3 py-1.5 rounded-lg hover:shadow-lg transition-all flex items-center gap-2 font-medium text-xs"
               >
                 <Plus className="w-3 h-3" />
                 Edit Visit
-              </button>
+              </motion.button>
             </div>
           </motion.div>
         ))}
@@ -479,7 +495,7 @@ const VitalsContent: React.FC<{ vitals: Vital[] }> = ({ vitals }) => {
                   <Heart className="w-4 h-4 text-white" />
                 </div>
                 <div className="text-sm text-gray-500">
-                  {vital.recorded_at ? format(new Date(vital.recorded_at), 'MMM dd, yyyy HH:mm') : 'No date recorded'}
+                  {vital.created_at && !isNaN(new Date(vital.created_at).getTime()) ? format(new Date(vital.created_at), 'MMM dd, yyyy HH:mm') : 'No date recorded'}
                 </div>
               </div>
             </div>
@@ -1870,6 +1886,7 @@ const PremiumFolderTabs: React.FC<PremiumFolderTabsProps> = ({
           }}
           onEditVisit={onEditVisit}
           onVisitStatusChange={onVisitStatusChange}
+          onAddVisit={onAddVisit}
         />;
       case 'vitals':
         return <VitalsContent vitals={vitals} />;

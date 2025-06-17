@@ -79,11 +79,20 @@ import PatientModalTabs from './PatientModalTabs';
 import PatientAnalytics from './PatientAnalytics';
 import { PatientSearchFilters } from './PatientSearchFilters';
 import { PremiumSmsModal } from '../messages/PremiumSmsModal';
+import { EnhancedSmsModal } from '../messages/EnhancedSmsModal';
+import { EnhancedEmailModal } from '../messages/EnhancedEmailModal';
+import MessageConfirmationModal from '../modals/MessageConfirmationModal';
 import { usePatientModalState } from '../../hooks/usePatientModalState';
 import { useAiSearch } from '../../hooks/useAiSearch';
 import { defaultSMSService } from '../../services/smsPortal';
 import { medicalAidService } from '../../services/medicalAidService';
 import { LabResultsContent, DocumentsContent, BillingContent } from './DirectTabContent';
+
+interface MessageConfirmationData {
+  type: 'sms' | 'email';
+  recipientName?: string;
+  recipientContact?: string;
+}
 
 interface ComprehensivePatientModalProps {
   isOpen: boolean;
@@ -239,11 +248,18 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [vitals, setVitals] = useState<any[]>([]);
+  const [labResults, setLabResults] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [billingData, setBillingData] = useState<any[]>([]);
   const [labRequests, setLabRequests] = useState<any[]>([]);
   const [mediaRequests, setMediaRequests] = useState<any[]>([]);
   const [smsContent, setSmsContent] = useState('');
   const [smsPhone, setSmsPhone] = useState('');
   const [isSendingSms, setIsSendingSms] = useState(false);
+  const [isEnhancedSmsModalOpen, setIsEnhancedSmsModalOpen] = useState(false);
+  const [isEnhancedEmailModalOpen, setIsEnhancedEmailModalOpen] = useState(false);
+  const [showMessageConfirmation, setShowMessageConfirmation] = useState(false);
+  const [messageConfirmationData, setMessageConfirmationData] = useState<MessageConfirmationData | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isSendingBulkSms, setIsSendingBulkSms] = useState(false);
   const [isSendingBulkEmail, setIsSendingBulkEmail] = useState(false);
@@ -287,6 +303,71 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
 
       if (visitsError) throw visitsError;
       setVisits(visitsData as any || []);
+
+      // Fetch vitals data for this patient's visits only
+      const visitIds = visitsData?.map(v => v.id) || [];
+      let vitalsData = [];
+      
+      if (visitIds.length > 0) {
+        const { data: patientVitalsData, error: vitalsError } = await supabase
+          .from('vitals')
+          .select('*')
+          .in('visit_id', visitIds)
+          .order('created_at', { ascending: false });
+
+        if (vitalsError) {
+          console.error('Error fetching vitals:', vitalsError);
+        } else {
+          vitalsData = patientVitalsData || [];
+        }
+      }
+      
+      setVitals(vitalsData);
+
+      // Fetch lab results for this patient's visits only
+      let labResultsData = [];
+      
+      if (visitIds.length > 0) {
+        const { data: patientLabResultsData, error: labResultsError } = await supabase
+          .from('lab_results')
+          .select('*')
+          .in('visit_id', visitIds)
+          .order('created_at', { ascending: false });
+
+        if (labResultsError) {
+          console.error('Error fetching lab results:', labResultsError);
+        } else {
+          labResultsData = patientLabResultsData || [];
+        }
+      }
+      
+      setLabResults(labResultsData);
+
+      // Fetch documents
+      const { data: documentsData, error: documentsError } = await supabase
+        .from('patient_documents')
+        .select('*')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false });
+
+      if (documentsError) {
+        console.error('Error fetching documents:', documentsError);
+      } else {
+        setDocuments(documentsData || []);
+      }
+
+      // Fetch billing data (invoices_enhanced)
+      const { data: billingDataResult, error: billingError } = await supabase
+        .from('invoices_enhanced')
+        .select('*')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false });
+
+      if (billingError) {
+        console.error('Error fetching billing data:', billingError);
+      } else {
+        setBillingData(billingDataResult || []);
+      }
 
       // Fetch next of kin
       const { data: nextOfKinData, error: nextOfKinError } = await supabase
@@ -619,6 +700,62 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
     }
   };
 
+  // Enhanced SMS handler
+  const handleEnhancedSendSms = async (phone: string, message: string) => {
+    if (!selectedPatientDetails || !phone || !message) {
+      toast.error('Missing required information');
+      return;
+    }
+
+    try {
+      const result = await defaultSMSService.sendSMS({
+        to: phone,
+        content: message,
+        reference: `patient-${selectedPatientDetails.id}-${Date.now()}`
+      });
+
+      if (result.success) {
+        setIsEnhancedSmsModalOpen(false);
+        setMessageConfirmationData({
+          type: 'sms',
+          recipientName: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
+          recipientContact: phone
+        });
+        setShowMessageConfirmation(true);
+      } else {
+        toast.error(`Failed to send SMS: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error sending SMS:', error);
+      toast.error('Failed to send SMS. Please try again.');
+    }
+  };
+
+  // Enhanced Email handler
+  const handleEnhancedSendEmail = async (email: string, subject: string, message: string) => {
+    if (!selectedPatientDetails || !email || !subject || !message) {
+      toast.error('Missing required information');
+      return;
+    }
+
+    try {
+      // Here you would integrate with your email service
+      // For now, we'll just show a success message
+      console.log('Sending email:', { email, subject, message, patientId: selectedPatientDetails.id });
+      
+      setIsEnhancedEmailModalOpen(false);
+      setMessageConfirmationData({
+        type: 'email',
+        recipientName: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
+        recipientContact: email
+      });
+      setShowMessageConfirmation(true);
+    } catch (error) {
+      console.error('Error sending email:', error);
+      toast.error('Failed to send email. Please try again.');
+    }
+  };
+
   // Export functionality for filtered patients
   const handleExportPatients = async () => {
     if (filteredPatients.length === 0) {
@@ -871,20 +1008,18 @@ OneHealth Medical Team`;
                 vitals={vitals}
                 onSendMessage={() => {
                   if (selectedPatientDetails) {
-                    modalState.openSmsModal(true);
-                    setSmsPhone(selectedPatientDetails.cell_number || '');
-                    setSmsContent(`Hi ${selectedPatientDetails.first_name}, this is a message from OneHealth Practice regarding your healthcare.`);
+                    setIsEnhancedSmsModalOpen(true);
                   }
                 }}
                 onSendEmail={() => {
                   if (selectedPatientDetails) {
-                    modalState.openEmailModal(true);
+                    setIsEnhancedEmailModalOpen(true);
                   }
                 }}
                 onEditProfile={() => {
                   if (selectedPatientDetails) {
-                    setEditingPatient(selectedPatientDetails);
-                    modalState.openEditModal();
+                    setSelectedPatient(selectedPatientDetails);
+                    setIsEditPatientModalOpen(true);
                   }
                 }}
               />
@@ -904,8 +1039,9 @@ OneHealth Medical Team`;
                 selectedPatient={selectedPatientDetails}
                 visits={visits}
                 vitals={vitals}
-                labResults={[]} // TODO: Add lab results data
-                documents={[]} // TODO: Add documents data
+                labResults={labResults}
+                documents={documents}
+                billingData={billingData}
               />
 
               {/* Modal Content */}
@@ -1744,10 +1880,16 @@ OneHealth Medical Team`;
                                               </div>
                                               <div>
                                                 <p className="font-semibold text-gray-900">
-                                                  {format(new Date(vital.recorded_at), 'MMM dd, yyyy')}
+                                                  {vital.created_at && !isNaN(new Date(vital.created_at).getTime()) 
+                                                    ? format(new Date(vital.created_at), 'MMM dd, yyyy')
+                                                    : 'Date not available'
+                                                  }
                                                 </p>
                                                 <p className="text-sm text-gray-600">
-                                                  {format(new Date(vital.recorded_at), 'HH:mm')}
+                                                  {vital.created_at && !isNaN(new Date(vital.created_at).getTime())
+                                                    ? format(new Date(vital.created_at), 'HH:mm')
+                                                    : 'Time not available'
+                                                  }
                                                 </p>
                                               </div>
                                             </div>
@@ -2130,6 +2272,48 @@ OneHealth Medical Team`;
           </div>
         </div>
       </FormModal>
+
+      {/* Enhanced SMS Modal */}
+      <EnhancedSmsModal
+        isOpen={isEnhancedSmsModalOpen}
+        onClose={() => setIsEnhancedSmsModalOpen(false)}
+        patient={selectedPatientDetails ? {
+          id: selectedPatientDetails.id,
+          first_name: selectedPatientDetails.first_name,
+          last_name: selectedPatientDetails.last_name,
+          cell_number: selectedPatientDetails.cell_number || '',
+          email: selectedPatientDetails.email || ''
+        } : null}
+        onSend={handleEnhancedSendSms}
+        isSending={false}
+      />
+
+      {/* Enhanced Email Modal */}
+      <EnhancedEmailModal
+        isOpen={isEnhancedEmailModalOpen}
+        onClose={() => setIsEnhancedEmailModalOpen(false)}
+        patient={selectedPatientDetails ? {
+          id: selectedPatientDetails.id,
+          first_name: selectedPatientDetails.first_name,
+          last_name: selectedPatientDetails.last_name,
+          cell_number: selectedPatientDetails.cell_number || '',
+          email: selectedPatientDetails.email || ''
+        } : null}
+        onSend={handleEnhancedSendEmail}
+        isSending={false}
+      />
+
+      {/* Message Confirmation Modal */}
+      <MessageConfirmationModal
+        isOpen={showMessageConfirmation}
+        onClose={() => {
+          setShowMessageConfirmation(false);
+          setMessageConfirmationData(null);
+        }}
+        type={messageConfirmationData?.type || 'sms'}
+        recipientName={messageConfirmationData?.recipientName}
+        recipientContact={messageConfirmationData?.recipientContact}
+      />
 
       {/* Premium Confirmation Modal */}
       <PremiumConfirmationModal
