@@ -33,17 +33,14 @@ import {
   Sunset,
   Clock,
   ChevronUp,
-  Calculator,
   Receipt,
   CheckCircle2,
   Plus,
-  Minus,
-  AlertTriangle
+  Minus
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ServiceSelection } from '../../types/billing';
 import { invoiceService } from '../../services/invoiceService';
-import EnhancedDentalServiceSelector from '../billing/EnhancedDentalServiceSelector';
 
 interface EditVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
@@ -2568,160 +2565,112 @@ const EditVisitTabs: React.FC<Props> = ({
             animate={{ opacity: 1, y: 0 }}
             className="space-y-8"
           >
-            {/* Add Services Button */}
-            <div className="flex justify-end mb-6">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('🔵 Add Services button clicked');
-                  setShowServiceModal(true);
-                }}
-                className="px-6 py-3 rounded-xl font-semibold text-white transition-all duration-200 hover:shadow-lg hover:scale-105 flex items-center gap-2"
-                style={{ background: 'linear-gradient(135deg, #30b4be, #2a9da6)' }}
-              >
-                <Plus className="w-5 h-5" />
-                Add Services
-              </button>
-            </div>
-
-            {/* Premium Services Table */}
-            {selectedServices.length > 0 && (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-                className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-xl shadow-gray-200/20"
-              >
-                {/* Sleek Header */}
-                <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <motion.div 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
-                        className="p-2 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200"
-                      >
-                        <Receipt className="w-5 h-5 text-gray-600" />
-                      </motion.div>
-                      <div>
-                        <h4 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                          Services for this Visit
-                        </h4>
-                        <p className="text-sm text-gray-500 mt-0.5">
-                          {selectedServices.length} service{selectedServices.length !== 1 ? 's' : ''} selected
-                        </p>
-                      </div>
+            {/* Services Header with Add Button and Total */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-4">
+                <h3 className="text-lg font-bold text-gray-900">Services</h3>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🔵 Add Services button clicked');
+                    setShowServiceModal(true);
+                  }}
+                  className="px-4 py-2 rounded-lg font-medium text-white transition-all duration-200 hover:shadow-md hover:scale-105 flex items-center gap-2 text-sm"
+                  style={{ background: 'linear-gradient(135deg, #30b4be, #2a9da6)' }}
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Services
+                </button>
+              </div>
+              
+              {selectedServices.length > 0 && (
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-gray-600">
+                    <span className="font-semibold">{selectedServices.length}</span> items
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-gray-500">Total</div>
+                    <div className="text-lg font-bold" style={{ color: '#30b4be' }}>
+                      N${selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0).toFixed(2)}
                     </div>
-                    <motion.div 
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
-                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-100 to-gray-200 rounded-full"
-                    >
-                      <Calculator className="w-4 h-4 text-gray-600" />
-                      <span className="text-lg font-bold text-gray-700">
-                        N${selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0).toFixed(2)}
-                      </span>
-                    </motion.div>
                   </div>
                 </div>
-                
-                {/* Premium Table */}
+              )}
+            </div>
+
+            {/* Clean Services Table */}
+            {selectedServices.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm"
+              >
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="bg-gradient-to-r from-gray-50/50 to-gray-100/30 border-b border-gray-100">
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-3.5 h-3.5" />
-                            Code
-                          </div>
-                        </th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide">
-                          <div className="flex items-center gap-2">
-                            <ClipboardList className="w-3.5 h-3.5" />
-                            Description
-                          </div>
-                        </th>
-                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wide">
-                          <div className="flex items-center justify-center gap-2">
-                            <Calculator className="w-3.5 h-3.5" />
-                            Qty
-                          </div>
-                        </th>
-                        <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wide">
-                          Unit Price
-                        </th>
-                        <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wide">
-                          <div className="flex items-center justify-end gap-2">
-                            Total
-                            <Receipt className="w-3.5 h-3.5" />
-                          </div>
-                        </th>
-                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wide">
-                          Action
-                        </th>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">#</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Code</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Description</th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wide">Qty</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Unit</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Total</th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wide">Remove</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="divide-y divide-gray-100">
                       {selectedServices.map((service, index) => (
-                        <motion.tr 
+                        <tr 
                           key={service.id} 
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1, duration: 0.3 }}
-                          className="group hover:bg-gradient-to-r hover:from-gray-50/50 hover:to-blue-50/30 transition-all duration-200"
+                          className="hover:bg-gray-50 transition-colors"
                         >
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <span className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                                {service.code}
-                              </span>
-                              <div className="flex gap-2">
+                          {/* Row Number */}
+                          <td className="px-4 py-2">
+                            <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold text-white bg-gray-400 rounded-full">
+                              {index + 1}
+                            </span>
+                          </td>
+                          
+                          {/* Code with Badges */}
+                          <td className="px-4 py-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-900">{service.code}</span>
+                              <div className="flex gap-1">
                                 {service.isRequired && (
-                                  <motion.span 
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    transition={{ delay: 0.3 }}
-                                    className="px-2 py-1 bg-red-100 text-red-600 text-xs font-bold rounded-full flex items-center gap-1"
-                                  >
-                                    <AlertCircle className="w-3 h-3" />
+                                  <span className="px-2 py-0.5 bg-red-100 text-red-600 text-xs font-medium rounded">
                                     Required
-                                  </motion.span>
+                                  </span>
                                 )}
                                 {service.isAutoGenerated && (
-                                  <motion.span 
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    transition={{ delay: 0.3 }}
-                                    className="px-2 py-1 bg-amber-100 text-amber-600 text-xs font-bold rounded-full flex items-center gap-1"
-                                  >
-                                    <Bot className="w-3 h-3" />
+                                  <span className="px-2 py-0.5 bg-amber-100 text-amber-600 text-xs font-medium rounded">
                                     Auto
-                                  </motion.span>
+                                  </span>
                                 )}
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="text-sm text-gray-900 font-semibold leading-tight">
+                          
+                          {/* Description with Tooth Numbers */}
+                          <td className="px-4 py-2">
+                            <div className="text-sm text-gray-900 font-medium">
                               {service.description}
                             </div>
-                            {service.teethNumbers && service.teethNumbers.length > 0 && (
-                              <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                                <Stethoscope className="w-3 h-3" />
-                                Teeth: {service.teethNumbers.join(', ')}
-                              </div>
-                            )}
+                            <div className="flex gap-1 mt-1">
+                              {service.teethNumbers && service.teethNumbers.length > 0 && (
+                                <span className="px-2 py-0.5 bg-blue-100 text-blue-600 text-xs font-medium rounded">
+                                  Teeth: {service.teethNumbers.join(', ')}
+                                </span>
+                              )}
+                            </div>
                           </td>
-                          <td className="px-6 py-4 text-center">
-                            <div className="flex items-center justify-center gap-3">
-                              <motion.button
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
+                          
+                          {/* Compact Quantity Controls */}
+                          <td className="px-4 py-2 text-center">
+                            <div className="inline-flex items-center bg-gray-100 rounded-lg overflow-hidden">
+                              <button
                                 type="button"
                                 disabled={!service.canBeMultiplied || service.quantity <= 1 || service.isRequired}
                                 onClick={(e) => {
@@ -2735,20 +2684,18 @@ const EditVisitTabs: React.FC<Props> = ({
                                   setSelectedServices(updatedServices);
                                   if (onSelectedServicesChange) onSelectedServicesChange(updatedServices);
                                 }}
-                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
+                                className={`p-1 text-xs ${
                                   !service.canBeMultiplied || service.quantity <= 1 || service.isRequired
-                                    ? 'text-gray-300 cursor-not-allowed bg-gray-100'
-                                    : 'text-white bg-gradient-to-br from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 shadow-md hover:shadow-lg'
+                                    ? 'text-gray-300 cursor-not-allowed'
+                                    : 'text-gray-600 hover:text-red-600 hover:bg-red-50'
                                 }`}
                               >
-                                <Minus className="w-4 h-4" />
-                              </motion.button>
-                              <span className="text-lg font-bold text-gray-900 min-w-[30px] text-center px-3 py-1 bg-gray-100 rounded-lg">
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="px-3 py-1 text-sm font-semibold text-gray-900 min-w-[30px] text-center">
                                 {service.quantity}
                               </span>
-                              <motion.button
-                                whileHover={{ scale: 1.1 }}
-                                whileTap={{ scale: 0.9 }}
+                              <button
                                 type="button"
                                 disabled={!service.canBeMultiplied || service.isRequired}
                                 onClick={(e) => {
@@ -2762,36 +2709,34 @@ const EditVisitTabs: React.FC<Props> = ({
                                   setSelectedServices(updatedServices);
                                   if (onSelectedServicesChange) onSelectedServicesChange(updatedServices);
                                 }}
-                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
+                                className={`p-1 text-xs ${
                                   !service.canBeMultiplied || service.isRequired
-                                    ? 'text-gray-300 cursor-not-allowed bg-gray-100'
-                                    : 'text-white bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 shadow-md hover:shadow-lg'
+                                    ? 'text-gray-300 cursor-not-allowed'
+                                    : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
                                 }`}
                               >
-                                <Plus className="w-4 h-4" />
-                              </motion.button>
+                                <Plus className="w-3 h-3" />
+                              </button>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-right">
-                            <span className="text-lg font-bold text-gray-900">
+                          
+                          {/* Unit Price */}
+                          <td className="px-4 py-2 text-right">
+                            <span className="text-sm font-semibold text-gray-900">
                               N${service.unitPrice.toFixed(2)}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-right">
-                            <motion.span 
-                              key={service.totalPrice}
-                              initial={{ scale: 1.1 }}
-                              animate={{ scale: 1 }}
-                              className="text-xl font-bold" 
-                              style={{ color: '#30b4be', fontFamily: 'Rubik, sans-serif' }}
-                            >
+                          
+                          {/* Total */}
+                          <td className="px-4 py-2 text-right">
+                            <span className="text-sm font-bold" style={{ color: '#30b4be' }}>
                               N${service.totalPrice.toFixed(2)}
-                            </motion.span>
+                            </span>
                           </td>
-                          <td className="px-6 py-4 text-center">
-                            <motion.button
-                              whileHover={{ scale: 1.1, rotate: service.isRequired ? 0 : 5 }}
-                              whileTap={{ scale: 0.9 }}
+                          
+                          {/* Remove Button */}
+                          <td className="px-4 py-2 text-center">
+                            <button
                               type="button"
                               disabled={service.isRequired}
                               onClick={(e) => {
@@ -2808,66 +2753,21 @@ const EditVisitTabs: React.FC<Props> = ({
                                 setSelectedServices(finalServices);
                                 if (onSelectedServicesChange) onSelectedServicesChange(finalServices);
                               }}
-                              className={`p-3 rounded-full transition-all duration-200 ${
+                              className={`p-1 rounded transition-colors ${
                                 service.isRequired
-                                  ? 'text-gray-300 cursor-not-allowed bg-gray-100'
-                                  : 'text-red-400 hover:text-white hover:bg-red-500 bg-red-50 hover:shadow-lg'
+                                  ? 'text-gray-300 cursor-not-allowed'
+                                  : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
                               }`}
                               title={service.isRequired ? 'Required service cannot be removed' : 'Remove service'}
                             >
-                              <Trash2 className="w-5 h-5" />
-                            </motion.button>
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </td>
-                        </motion.tr>
+                        </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                
-                {/* Premium Footer */}
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5 }}
-                  className="bg-gradient-to-r from-gray-50 to-white px-8 py-6 border-t border-gray-100"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <motion.div 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 0.6, type: "spring", stiffness: 300 }}
-                        className="p-2 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg"
-                      >
-                        <CheckCircle2 className="w-5 h-5 text-blue-600" />
-                      </motion.div>
-                      <div>
-                        <div className="text-lg font-bold text-gray-900">
-                          {selectedServices.length} Service{selectedServices.length !== 1 ? 's' : ''} Selected
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          Ready for billing
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm text-gray-500 mb-1 flex items-center justify-end gap-1">
-                        <Calculator className="w-4 h-4" />
-                        Visit Total
-                      </div>
-                      <motion.div 
-                        key={selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0)}
-                        initial={{ scale: 1.1 }}
-                        animate={{ scale: 1 }}
-                        transition={{ duration: 0.2 }}
-                        className="text-3xl font-black" 
-                        style={{ color: '#30b4be', fontFamily: 'Rubik, sans-serif' }}
-                      >
-                        N${selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0).toFixed(2)}
-                      </motion.div>
-                    </div>
-                  </div>
-                </motion.div>
               </motion.div>
             )}
 
