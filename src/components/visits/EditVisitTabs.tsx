@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Save,
   Loader2,
@@ -32,7 +32,13 @@ import {
   Edit3,
   Sunset,
   Clock,
-  ChevronUp
+  ChevronUp,
+  Calculator,
+  Receipt,
+  CheckCircle2,
+  Plus,
+  Minus,
+  AlertTriangle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ServiceSelection } from '../../types/billing';
@@ -69,6 +75,8 @@ interface Props {
   activeTab: string;
   onSuccess: () => void;
   onCancel: () => void;
+  selectedServices?: ServiceSelection[];
+  onSelectedServicesChange?: (services: ServiceSelection[]) => void;
 }
 
 // Professional Visit Type Dropdown
@@ -116,10 +124,22 @@ const ProfessionalDropdown: React.FC<{
   );
 };
 
-const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSuccess, onCancel }) => {
+const EditVisitTabs: React.FC<Props> = ({ 
+  visitId, 
+  patientId, 
+  activeTab, 
+  onSuccess, 
+  onCancel,
+  selectedServices: externalSelectedServices,
+  onSelectedServicesChange
+}) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedServices, setSelectedServices] = useState<ServiceSelection[]>([]);
+  const [internalSelectedServices, setInternalSelectedServices] = useState<ServiceSelection[]>([]);
+  
+  // Use external services if provided, otherwise use internal state
+  const selectedServices = externalSelectedServices || internalSelectedServices;
+  const setSelectedServices = onSelectedServicesChange || setInternalSelectedServices;
   
   // View mode states
   const [labViewMode, setLabViewMode] = useState<'grid' | 'list'>('grid');
@@ -130,6 +150,17 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
   const [labDragging, setLabDragging] = useState(false);
   const [imagingDragging, setImagingDragging] = useState(false);
   const [mediaDragging, setMediaDragging] = useState(false);
+  
+  // Service selection states
+  const [serviceSearchTerm, setServiceSearchTerm] = useState('');
+  const [showServiceModal, setShowServiceModal] = useState(false);
+  const [showQuantityModal, setShowQuantityModal] = useState(false);
+  const [showToothModal, setShowToothModal] = useState(false);
+  const [selectedTariff, setSelectedTariff] = useState<any>(null);
+  const [serviceQuantity, setServiceQuantity] = useState(1);
+  const [selectedTooth, setSelectedTooth] = useState('');
+  const [availableTariffs, setAvailableTariffs] = useState<any[]>([]);
+  const [serviceUsageStats, setServiceUsageStats] = useState<{[key: string]: number}>({});
 
   // Date picker modal states
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -159,7 +190,7 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
   // Function to refresh medications
   const refreshMedications = async () => {
     try {
-      const { data: existingMedications, error: medicationError } = await supabase
+      const { data: existingMedications, error: medicationError } = await (supabase as any)
         .from('medications_with_details')
         .select('*')
         .eq('visit_id', visitId)
@@ -306,7 +337,7 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
 
         // Fetch existing medications from the view
         try {
-          const { data: existingMedications, error: medicationError } = await supabase
+          const { data: existingMedications, error: medicationError } = await (supabase as any)
             .from('medications_with_details')
             .select('*')
             .eq('visit_id', visitId)
@@ -394,6 +425,7 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
   }, [visitId, reset]);
 
   const onSubmit = async (data: EditVisitFormData) => {
+    console.log('📝 Form submitted - this should only happen when clicking Update Visit button');
     try {
       setIsSubmitting(true);
 
@@ -484,7 +516,7 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
               medical_aid_covered: service.medicalAidCovered ? service.totalPrice : 0,
               patient_portion: service.medicalAidCovered ? 0 : service.totalPrice,
               notes: service.notes || '',
-              system_transaction_number: Date.now() + Math.floor(Math.random() * 1000)
+              system_transaction_number: Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000)
             }));
 
             const { error: insertError } = await supabase
@@ -591,6 +623,359 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
       setIsSubmitting(false);
     }
   };
+
+  // Load available tariffs and usage statistics
+  useEffect(() => {
+    const loadTariffs = async () => {
+      try {
+        console.log('🔍 Loading tariffs - checking auth state');
+        // Fetch tariffs from practice_tariffs_with_types view
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+        
+        if (authError) {
+          console.error('❌ Auth error:', authError);
+          return;
+        }
+        
+        if (!authUser) return;
+
+        const { data: userProfile } = await supabase
+          .from('users')
+          .select('practice_id')
+          .eq('id', authUser.id)
+          .single();
+
+        if (!userProfile?.practice_id) return;
+
+        const { data: practiceData } = await supabase
+          .from('practices')
+          .select('practice_type')
+          .eq('id', userProfile.practice_id)
+          .single();
+
+        if (!practiceData || practiceData.practice_type !== 'dental') return;
+
+        // Load tariffs
+        const { data: tariffs } = await supabase
+          .from('practice_tariffs_with_types')
+          .select('*')
+          .eq('practice_type_name', 'dental')
+          .order('code', { ascending: true });
+
+        if (tariffs) {
+          setAvailableTariffs(tariffs);
+        }
+
+        // Load real usage statistics from invoice_services
+        const { data: usageData } = await supabase
+          .from('invoice_services')
+          .select('code')
+          .order('created_at', { ascending: false })
+          .limit(1000); // Get last 1000 services
+
+        if (usageData) {
+          const usageCount: {[key: string]: number} = {};
+          usageData.forEach(service => {
+            if (service.code) {
+              usageCount[service.code] = (usageCount[service.code] || 0) + 1;
+            }
+          });
+          setServiceUsageStats(usageCount);
+        }
+      } catch (error) {
+        console.error('Error loading tariffs:', error);
+      }
+    };
+
+    loadTariffs();
+  }, []);
+
+  // Helper functions for service selection
+
+  // Business Rules Engine for Dental Services - 10 iterations of refinement
+  const getDentalServiceBusinessRules = (tariff: any) => {
+    const code = tariff.code;
+    const formula = tariff.business_rule_formula?.toLowerCase() || '';
+    const canMultiply = tariff.can_be_multiplied;
+    const requiresTooth = tariff.requires_tooth_number;
+    
+    // Iteration 1: Basic categorization
+    let ruleType = 'FIXED';
+    if (formula.includes('progressive')) ruleType = 'PROGRESSIVE';
+    else if (formula.includes('multiply') || formula.includes('×')) ruleType = 'MULTIPLY';
+    else if (formula.includes('per visit') || formula.includes('once per visit')) ruleType = 'PER_VISIT';
+    else if (canMultiply === 'YES') ruleType = 'MULTIPLY';
+    
+    // Iteration 2: Special codes handling
+    const specialCodes: {[key: string]: any} = {
+      '8109': { type: 'INFECTION_CONTROL', maxQuantity: 1, autoAdd: true },
+      '8110': { type: 'STERILIZATION', maxQuantity: 1 },
+      '8145': { type: 'ANESTHETIC', maxQuantity: 10 }, // Multiple injections
+      '8107': { type: 'XRAY', maxQuantity: 7 }, // Max 7 films
+      '8163': { type: 'SEALANT', requiresTooth: true, maxTeeth: 32 },
+      '8185': { type: 'QUADRANT', maxQuantity: 4 }, // Max 4 quadrants
+      '8346': { type: 'MATERIAL_FACTOR', autoGenerated: true, percentage: 0.10 }
+    };
+    
+    // Iteration 3: Progressive pricing rules
+    const progressiveCodes = ['8340', '8202', '8328', '8337', '8348'];
+    if (progressiveCodes.includes(code)) {
+      ruleType = 'PROGRESSIVE';
+    }
+    
+    // Iteration 4: Tooth-specific logic refinement
+    const toothLogic = {
+      requiresTooth: requiresTooth === 'YES',
+      multipleTeeth: canMultiply === 'YES' && requiresTooth === 'YES',
+      singleTooth: requiresTooth === 'YES' && canMultiply !== 'YES',
+      toothSpecificPricing: code === '8346' // Special pricing per tooth
+    };
+    
+    // Iteration 5: Quantity rules
+    const quantityRules = {
+      allowQuantity: canMultiply === 'YES' || specialCodes[code]?.maxQuantity > 1,
+      minQuantity: 1,
+      maxQuantity: specialCodes[code]?.maxQuantity || (ruleType === 'QUADRANT' ? 4 : 99),
+      defaultQuantity: 1
+    };
+    
+    // Iteration 6: Auto-generation rules
+    const autoGenerateRules: {[key: string]: string[]} = {
+      '8341': ['8346'], // Amalgam procedures auto-generate material factor
+      '8342': ['8346'],
+      '8343': ['8346'],
+      '8344': ['8346'],
+      '8351': ['8346'], // Resin procedures
+      '8352': ['8346'],
+      '8353': ['8346'],
+      '8354': ['8346'],
+      '8367': ['8346'],
+      '8368': ['8346'],
+      '8369': ['8346'],
+      '8370': ['8346']
+    };
+    
+    // Iteration 7: Validation rules
+    const validationRules = {
+      requiresToothValidation: toothLogic.requiresTooth,
+      validToothNumbers: ['11','12','13','14','15','16','17','18',
+                         '21','22','23','24','25','26','27','28',
+                         '31','32','33','34','35','36','37','38',
+                         '41','42','43','44','45','46','47','48'],
+      requiresQuantityValidation: quantityRules.allowQuantity,
+      conflictsWithCodes: [] // Some codes can't be used together
+    };
+    
+    // Iteration 8: Pricing calculation rules
+    const pricingRules = {
+      basePrice: parseFloat(tariff.price) || 0,
+      calculation: (quantity: number, toothNumbers?: string[]) => {
+        let total = parseFloat(tariff.price) || 0;
+        
+        if (ruleType === 'PROGRESSIVE') {
+          // First item full price, additional at 50% (example)
+          total = total + ((quantity - 1) * total * 0.5);
+        } else if (ruleType === 'MULTIPLY') {
+          total = total * quantity;
+        } else if (code === '8346' && toothNumbers) {
+          // Special tooth-specific pricing
+          total = toothNumbers.length * total;
+        }
+        
+        return total;
+      }
+    };
+    
+    // Iteration 9: UI workflow rules
+    const workflowRules = {
+      showQuantityModal: quantityRules.allowQuantity && !toothLogic.requiresTooth,
+      showToothModal: toothLogic.requiresTooth && !quantityRules.allowQuantity,
+      showBothModals: quantityRules.allowQuantity && toothLogic.requiresTooth,
+      skipAllModals: !quantityRules.allowQuantity && !toothLogic.requiresTooth
+    };
+    
+    // Iteration 10: Final comprehensive rule object
+    return {
+      code,
+      ruleType,
+      specialCode: specialCodes[code],
+      toothLogic,
+      quantityRules,
+      autoGenerateRules: autoGenerateRules[code] || [],
+      validationRules,
+      pricingRules,
+      workflowRules,
+      description: tariff.description,
+      isRequired: code === '8109', // Infection control always required
+      allowDuplicates: toothLogic.requiresTooth // Can add same service for different teeth
+    };
+  };
+
+  const handleServiceSelect = (tariff: any) => {
+    console.log('🎯 Service selected:', {
+      code: tariff.code,
+      description: tariff.description,
+      can_be_multiplied: tariff.can_be_multiplied,
+      requires_tooth_number: tariff.requires_tooth_number
+    });
+    
+    setSelectedTariff(tariff);
+    setShowServiceModal(false);
+    
+    // Get comprehensive business rules
+    const rules = getDentalServiceBusinessRules(tariff);
+    console.log('📋 Business rules:', rules);
+    
+    // Determine workflow based on refined rules
+    if (rules.workflowRules.showBothModals) {
+      console.log('🔢➡🦷 Showing quantity modal first (tooth will follow)');
+      setServiceQuantity(rules.quantityRules.defaultQuantity);
+      setShowQuantityModal(true);
+    } else if (rules.workflowRules.showQuantityModal) {
+      console.log('🔢 Showing quantity modal only');
+      setServiceQuantity(rules.quantityRules.defaultQuantity);
+      setShowQuantityModal(true);
+    } else if (rules.workflowRules.showToothModal) {
+      console.log('🦷 Showing tooth selection modal only');
+      setSelectedTooth('');
+      setShowToothModal(true);
+    } else {
+      console.log('➕ Adding service directly');
+      addServiceDirectly(tariff, 1, '');
+    }
+  };
+
+  const handleQuantityNext = () => {
+    console.log('🔢✅ Quantity next clicked:', { quantity: serviceQuantity, needsTooth: selectedTariff?.requires_tooth_number });
+    setShowQuantityModal(false);
+    if (selectedTariff?.requires_tooth_number === 'YES') {
+      console.log('🦷 Moving to tooth selection');
+      setSelectedTooth('');
+      setShowToothModal(true);
+    } else {
+      console.log('➕ Adding service with quantity only');
+      addServiceDirectly(selectedTariff, serviceQuantity, '');
+    }
+  };
+
+  const handleToothNext = () => {
+    console.log('🦷✅ Tooth next clicked:', { tooth: selectedTooth, quantity: serviceQuantity });
+    setShowToothModal(false);
+    addServiceDirectly(selectedTariff, serviceQuantity, selectedTooth);
+  };
+
+  const handleModalCancel = () => {
+    // Reset all modal states without affecting parent navigation
+    setShowServiceModal(false);
+    setShowQuantityModal(false);
+    setShowToothModal(false);
+    setSelectedTariff(null);
+    setServiceQuantity(1);
+    setSelectedTooth('');
+  };
+
+  const addServiceDirectly = (tariff: any, quantity: number, toothNumber: string) => {
+    if (!tariff) {
+      console.log('❌ No tariff provided to addServiceDirectly');
+      return;
+    }
+
+    console.log('➕ Adding service:', {
+      code: tariff.code,
+      quantity,
+      toothNumber,
+      price: tariff.price
+    });
+
+    const rules = getDentalServiceBusinessRules(tariff);
+    const basePrice = parseFloat(tariff.price) || 0;
+    let totalPrice = rules.pricingRules.calculation(quantity, toothNumber ? [toothNumber] : undefined);
+
+    const newService: ServiceSelection = {
+      id: crypto.randomUUID(),
+      tariffId: tariff.id,
+      code: tariff.code,
+      description: `${tariff.description}${toothNumber ? ` (Tooth ${toothNumber})` : ''}`,
+      category: 'Dental Service',
+      subcategory: 'General',
+      unitPrice: basePrice,
+      quantity: quantity,
+      totalPrice: totalPrice,
+      requiresPreAuth: false,
+      medicalAidCovered: true,
+      coveragePercentage: 100,
+      businessRule: tariff.business_rule_formula,
+      exampleCalculation: tariff.example_calculation,
+      requiresTeethNumbers: tariff.requires_tooth_number === 'YES',
+      canBeMultiplied: tariff.can_be_multiplied === 'YES',
+      teethNumbers: toothNumber ? [toothNumber] : undefined
+    };
+
+    let updatedServices = [...selectedServices, newService];
+    
+    // Check for auto-generation rules (e.g., 8346 material factor)
+    if (rules.autoGenerateRules.length > 0) {
+      console.log('🔄 Auto-generating services:', rules.autoGenerateRules);
+      
+      for (const autoCode of rules.autoGenerateRules) {
+        // Find the 8346 tariff
+        const materialTariff = availableTariffs.find(t => t.code === autoCode);
+        
+        if (materialTariff) {
+          const materialPrice = basePrice * 0.10; // 10% of the service price
+          
+          const autoService: ServiceSelection = {
+            id: crypto.randomUUID(),
+            tariffId: materialTariff.id,
+            code: materialTariff.code,
+            description: `${materialTariff.description} (for ${tariff.code})${toothNumber ? ` - Tooth ${toothNumber}` : ''}`,
+            category: 'Dental Service',
+            subcategory: 'Material Factor',
+            unitPrice: materialPrice,
+            quantity: quantity,
+            totalPrice: materialPrice * quantity,
+            requiresPreAuth: false,
+            medicalAidCovered: true,
+            coveragePercentage: 100,
+            businessRule: '10% material factor',
+            exampleCalculation: `${basePrice} × 0.10 = ${materialPrice.toFixed(2)}`,
+            requiresTeethNumbers: toothNumber ? true : false,
+            canBeMultiplied: false,
+            teethNumbers: toothNumber ? [toothNumber] : undefined,
+            isAutoGenerated: true,
+            parentServiceId: newService.id
+          };
+          
+          updatedServices.push(autoService);
+          console.log('✅ Auto-generated service:', autoService.code);
+        } else {
+          console.log('⚠️ Could not find tariff for auto-generation code:', autoCode);
+        }
+      }
+    }
+    
+    setSelectedServices(updatedServices);
+    
+    console.log('📋 Services updated:', {
+      oldCount: selectedServices.length,
+      newCount: updatedServices.length,
+      newService: newService.code,
+      autoGenerated: rules.autoGenerateRules.length
+    });
+    
+    // Notify parent component about the change
+    if (onSelectedServicesChange) {
+      onSelectedServicesChange(updatedServices);
+      console.log('📡 Parent notified of service changes');
+    }
+    
+    // Reset states
+    setSelectedTariff(null);
+    setServiceQuantity(1);
+    setSelectedTooth('');
+  };
+
+  // Dental tooth numbering system (FDI notation) - removed unused array
 
   if (isLoading) {
     return (
@@ -2095,27 +2480,715 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
+            className="space-y-8"
           >
-            <EnhancedDentalServiceSelector
-              selectedServices={selectedServices}
-              onServiceChange={setSelectedServices}
-            />
+            {/* Quick Service Selection */}
+            <div>
+              <div className="flex items-center justify-between gap-4 mb-6">
+                {/* Search Bar */}
+                <div className="flex-1 relative">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5" style={{ color: '#30b4be' }} />
+                  <input
+                    type="text"
+                    placeholder="Search services by code or description..."
+                    value={serviceSearchTerm}
+                    onChange={(e) => setServiceSearchTerm(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 rounded-xl border-2 focus:outline-none focus:ring-2 transition-all text-gray-700 placeholder-gray-400"
+                    style={{ 
+                      borderColor: '#30b4be40',
+                      backgroundColor: '#30b4be05'
+                    }}
+                  />
+                </div>
+                
+                {/* Add Services Button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🔵 Add Services button clicked');
+                    setShowServiceModal(true);
+                  }}
+                  className="px-6 py-3 rounded-xl font-semibold text-white transition-all duration-200 hover:shadow-lg hover:scale-105 flex items-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #30b4be, #2a9da6)' }}
+                >
+                  <Plus className="w-5 h-5" />
+                  Add Services
+                </button>
+              </div>
+            </div>
 
-            {/* Invoice Generation Option */}
-            <div className="border-t pt-6">
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  {...register('generateInvoice')}
-                  className="rounded border-gray-300 text-[#01b9d4] focus:ring-[#01b9d4]"
-                />
-                <span className="text-sm font-medium text-gray-700">Generate/update invoice automatically</span>
-              </label>
+            {/* Selected Services Summary */}
+            {selectedServices.length > 0 && (
+              <div>
+                <div className="flex items-center mb-4">
+                  <div className="w-1 h-5 rounded-full" style={{ background: 'linear-gradient(to bottom, #30b4be, #2a9da6)' }}></div>
+                  <h4 className="text-md font-semibold text-gray-700 ml-2">Selected Services</h4>
+                </div>
+              
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                <div className="px-4 py-3" style={{ background: 'linear-gradient(to right, #30b4be, #2a9da6)' }}>
+                  <h5 className="text-white font-semibold">Services for this Visit</h5>
+                </div>
+                
+                {/* Service Items */}
+                <div className="p-6 space-y-4">
+                  {selectedServices.map((service) => (
+                    <div key={service.id} className="flex items-start gap-4">
+                      <div className="p-3 rounded-lg flex-shrink-0" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
+                        <Stethoscope className="w-5 h-5" style={{ color: '#30b4be' }} />
+                      </div>
+                      
+                      <div className="flex-1 space-y-3">
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold text-gray-900 text-lg">{service.code}</span>
+                            {service.isRequired && (
+                              <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded-full">
+                                Required
+                              </span>
+                            )}
+                            {service.isAutoGenerated && (
+                              <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">
+                                Auto-Generated
+                              </span>
+                            )}
+                          </div>
+                          <h6 className="font-semibold text-gray-900 text-base mb-1">
+                            {service.description}
+                          </h6>
+                          <p className="text-sm text-gray-600 mb-3">
+                            {service.businessRule || 'Standard pricing applies'}
+                          </p>
+                        </div>
+
+                        {/* Quantity Controls */}
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <label className="text-sm font-semibold text-gray-700">Quantity:</label>
+                              <div className="flex items-center border border-gray-300 rounded-lg bg-white">
+                                <button
+                                  type="button"
+                                  disabled={!service.canBeMultiplied || service.quantity <= 1}
+                                  onClick={() => {
+                                    const updatedServices = selectedServices.map(s => 
+                                      s.id === service.id 
+                                        ? { ...s, quantity: Math.max(1, s.quantity - 1), totalPrice: s.unitPrice * Math.max(1, s.quantity - 1) }
+                                        : s
+                                    );
+                                    setSelectedServices(updatedServices);
+                                  }}
+                                  className={`p-2 ${!service.canBeMultiplied || service.quantity <= 1 ? 'text-gray-400 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'}`}
+                                >
+                                  <Minus className="w-4 h-4" />
+                                </button>
+                                <div className="px-4 py-2 border-l border-r border-gray-300 min-w-[60px] text-center font-semibold text-gray-900">
+                                  {service.quantity}
+                                </div>
+                                <button
+                                  type="button"
+                                  disabled={!service.canBeMultiplied}
+                                  onClick={() => {
+                                    const updatedServices = selectedServices.map(s => 
+                                      s.id === service.id 
+                                        ? { ...s, quantity: s.quantity + 1, totalPrice: s.unitPrice * (s.quantity + 1) }
+                                        : s
+                                    );
+                                    setSelectedServices(updatedServices);
+                                  }}
+                                  className={`p-2 ${!service.canBeMultiplied ? 'text-gray-400 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'}`}
+                                >
+                                  <Plus className="w-4 h-4" />
+                                </button>
+                              </div>
+                              {!service.canBeMultiplied && (
+                                <div className="flex items-center gap-1 text-amber-600">
+                                  <AlertTriangle className="w-4 h-4" />
+                                  <span className="text-xs font-medium">Fixed quantity</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="text-right">
+                              <div className="text-sm text-gray-500 mb-1">Unit Price</div>
+                              <div className="text-lg font-bold">
+                                <span style={{ color: '#30b4be' }}>N${Math.floor(service.unitPrice)}</span>
+                                <span style={{ color: '#30b4be60' }}>.{String(service.unitPrice.toFixed(2)).split('.')[1]}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Rules Check */}
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="flex items-center gap-2 text-green-600">
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span className="text-xs font-medium">
+                                {service.isRequired ? 'Required service - automatically included' : 
+                                 service.isAutoGenerated ? 'Auto-generated based on selected procedures' :
+                                 'Service added successfully'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Tooth Numbers if applicable */}
+                        {service.requiresTeethNumbers && (
+                          <div className="bg-blue-50 p-3 rounded-lg">
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                              Tooth Numbers (space-separated):
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="e.g., 11 12 21 22"
+                              value={(service.teethNumbers || []).join(' ')}
+                              onChange={(e) => {
+                                const teeth = e.target.value.split(' ').filter(t => t.trim());
+                                const updatedServices = selectedServices.map(s => 
+                                  s.id === service.id ? { ...s, teethNumbers: teeth } : s
+                                );
+                                setSelectedServices(updatedServices);
+                              }}
+                              className="w-full p-2 border border-gray-200 rounded text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Total Section */}
+                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-gray-700">Total Amount:</span>
+                    <span className="text-xl font-bold">
+                      <span style={{ color: '#30b4be' }}>
+                        N${Math.floor(selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0))}
+                      </span>
+                      <span style={{ color: '#30b4be60' }}>
+                        .{String(selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0).toFixed(2)).split('.')[1]}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            )}
+
+            {/* Invoice Generation Options */}
+            <div>
+              <div className="flex items-center mb-4">
+                <div className="w-1 h-5 rounded-full" style={{ background: 'linear-gradient(to bottom, #30b4be, #2a9da6)' }}></div>
+                <h4 className="text-md font-semibold text-gray-700 ml-2">Invoice & Payment Options</h4>
+              </div>
+              
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
+                <div className="space-y-4">
+                  {/* Auto Invoice Generation */}
+                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                    <label className="flex items-center space-x-3 cursor-pointer">
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          {...register('generateInvoice')}
+                          className="sr-only"
+                        />
+                        <div className={`w-6 h-6 rounded-lg border-2 transition-all duration-200 flex items-center justify-center ${
+                          watch('generateInvoice') 
+                            ? 'border-cyan-500' 
+                            : 'border-gray-300 hover:border-cyan-300'
+                        }`} style={{
+                          background: watch('generateInvoice') 
+                            ? 'linear-gradient(135deg, #30b4be, #2a9da6)' 
+                            : 'transparent'
+                        }}>
+                          {watch('generateInvoice') && (
+                            <CheckCircle2 className="w-4 h-4 text-white" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
+                          <Receipt className="w-4 h-4" style={{ color: '#30b4be' }} />
+                        </div>
+                        <div>
+                          <span className="text-sm font-semibold text-gray-900">Generate Invoice Automatically</span>
+                          <p className="text-xs text-gray-600">Create and save invoice when visit is updated</p>
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Additional Options */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
+                          <Calendar className="w-4 h-4" style={{ color: '#30b4be' }} />
+                        </div>
+                        <span className="text-sm font-semibold text-gray-900">Payment Terms</span>
+                      </div>
+                      <p className="text-xs text-gray-600">Payment due immediately upon service completion</p>
+                    </div>
+                    
+                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
+                          <CheckCircle2 className="w-4 h-4" style={{ color: '#30b4be' }} />
+                        </div>
+                        <span className="text-sm font-semibold text-gray-900">Medical Aid</span>
+                      </div>
+                      <p className="text-xs text-gray-600">
+                        {selectedServices.some(s => s.medicalAidCovered) 
+                          ? 'Some services covered by medical aid' 
+                          : 'No medical aid coverage applied'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </motion.div>
         )}
       </div>
+
+      {/* Service Selection Modal */}
+      <AnimatePresence>
+        {showServiceModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={handleModalCancel}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden"
+              onClick={(e) => {
+                e.stopPropagation();
+                console.log('🛡️ Modal content clicked - stopping propagation');
+              }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                console.log('🚫 Form submission prevented in modal');
+              }}
+            >
+              <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                    Select Service
+                  </h3>
+                  <p className="text-sm text-gray-600">Choose from {availableTariffs.length} available services</p>
+                </div>
+                <button
+                  onClick={handleModalCancel}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              
+              <div className="p-6 max-h-[70vh] overflow-y-auto">
+                {/* Search Bar */}
+                <div className="mb-6 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Search services..."
+                    value={serviceSearchTerm}
+                    onChange={(e) => setServiceSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 transition-all"
+                  />
+                </div>
+
+                {/* Services Grid - 8 per row */}
+                <div className="grid grid-cols-8 gap-3">
+                  {availableTariffs
+                    .filter(tariff => 
+                      serviceSearchTerm === '' || 
+                      tariff.code.toLowerCase().includes(serviceSearchTerm.toLowerCase()) ||
+                      tariff.description.toLowerCase().includes(serviceSearchTerm.toLowerCase())
+                    )
+                    .sort((a, b) => {
+                      // Sort by frequency (most used first)
+                      const aUsage = serviceUsageStats[a.code] || 0;
+                      const bUsage = serviceUsageStats[b.code] || 0;
+                      if (aUsage !== bUsage) return bUsage - aUsage;
+                      // Then by code
+                      return parseInt(a.code) - parseInt(b.code);
+                    })
+                    .map((tariff) => {
+                      const usageCount = serviceUsageStats[tariff.code] || 0;
+                      const maxUsage = Math.max(...Object.values(serviceUsageStats));
+                      const heatLevel = maxUsage > 0 ? (usageCount / maxUsage) : 0;
+                      
+                      // Gradient from light grey to #30b4be based on usage
+                      const getGradientStyle = (level: number) => {
+                        if (level === 0) {
+                          return {
+                            backgroundColor: '#f9fafb',
+                            borderColor: '#e5e7eb',
+                            color: '#6b7280'
+                          };
+                        }
+                        // Gradient calculation from grey to #30b4be
+                        const startColor = { r: 249, g: 250, b: 251 }; // Light grey
+                        const endColor = { r: 48, g: 180, b: 190 }; // #30b4be
+                        
+                        const r = Math.round(startColor.r + (endColor.r - startColor.r) * level);
+                        const g = Math.round(startColor.g + (endColor.g - startColor.g) * level);
+                        const b = Math.round(startColor.b + (endColor.b - startColor.b) * level);
+                        
+                        return {
+                          backgroundColor: `rgba(${r}, ${g}, ${b}, 0.1)`,
+                          borderColor: `rgba(${r}, ${g}, ${b}, 0.5)`,
+                          color: level > 0.5 ? '#30b4be' : '#374151'
+                        };
+                      };
+
+                      const gradientStyle = getGradientStyle(heatLevel);
+                      
+                      return (
+                        <motion.button
+                          key={tariff.id}
+                          type="button"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('🔘 Service button clicked:', tariff.code);
+                            handleServiceSelect(tariff);
+                          }}
+                          className="p-3 rounded-lg border-2 transition-all text-left hover:shadow-md"
+                          style={gradientStyle}
+                        >
+                          <div className="text-sm font-bold mb-1" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                            {tariff.code}
+                          </div>
+                          <div className="text-xs leading-tight mb-2 line-clamp-2">
+                            {tariff.description}
+                          </div>
+                          <div className="text-xs font-semibold" style={{ color: '#30b4be' }}>
+                            N${Math.floor(parseFloat(tariff.price))}<span style={{ color: '#30b4be60' }}>.{String(parseFloat(tariff.price).toFixed(2)).split('.')[1]}</span>
+                          </div>
+                          {usageCount > 0 && (
+                            <div className="text-xs mt-1 opacity-60">
+                              Used {usageCount}x
+                            </div>
+                          )}
+                        </motion.button>
+                      );
+                    })}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Quantity Selection Modal */}
+      <AnimatePresence>
+        {showQuantityModal && selectedTariff && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={handleModalCancel}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-xl shadow-2xl max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                  Select Quantity
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {selectedTariff.code} - {selectedTariff.description}
+                </p>
+              </div>
+              
+              <div className="p-6">
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 mb-4">How many of this service?</p>
+                  
+                  <div className="flex items-center justify-center gap-4 mb-6">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setServiceQuantity(Math.max(1, serviceQuantity - 1));
+                      }}
+                      className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                      style={{ color: '#30b4be' }}
+                    >
+                      <Minus className="w-6 h-6" />
+                    </button>
+                    
+                    <div className="text-3xl font-bold min-w-[60px]" style={{ color: '#30b4be', fontFamily: 'Rubik, sans-serif' }}>
+                      {serviceQuantity}
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setServiceQuantity(serviceQuantity + 1);
+                      }}
+                      className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                      style={{ color: '#30b4be' }}
+                    >
+                      <Plus className="w-6 h-6" />
+                    </button>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                    <div className="text-sm text-gray-600">Total Cost</div>
+                    <div className="text-xl font-bold" style={{ color: '#30b4be', fontFamily: 'Rubik, sans-serif' }}>
+                      N${Math.floor(parseFloat(selectedTariff.price) * serviceQuantity)}<span style={{ color: '#30b4be60' }}>.{String((parseFloat(selectedTariff.price) * serviceQuantity).toFixed(2)).split('.')[1]}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleModalCancel();
+                      }}
+                      className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleQuantityNext();
+                      }}
+                      className="flex-1 px-4 py-2 text-white rounded-lg hover:shadow-lg transition-all"
+                      style={{ backgroundColor: '#30b4be' }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tooth Selection Modal */}
+      <AnimatePresence>
+        {showToothModal && selectedTariff && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={handleModalCancel}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                  Select Tooth Number
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {selectedTariff.code} - {selectedTariff.description}
+                </p>
+              </div>
+              
+              <div className="p-6 max-h-[70vh] overflow-y-auto">
+                <p className="text-sm text-gray-600 mb-4 text-center">
+                  Select the tooth number(s) for this procedure (FDI notation)
+                </p>
+                
+                {/* Dental Chart */}
+                <div className="space-y-4">
+                  {/* Upper Jaw */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Upper Jaw</h4>
+                    <div className="grid grid-cols-8 gap-2">
+                      {/* Right upper quadrant (18-11) */}
+                      {[18, 17, 16, 15, 14, 13, 12, 11].map(tooth => (
+                        <button
+                          type="button"
+                          key={tooth}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const toothStr = tooth.toString();
+                            if (selectedTooth === toothStr) {
+                              setSelectedTooth('');
+                            } else {
+                              setSelectedTooth(toothStr);
+                            }
+                          }}
+                          className={`p-3 text-sm font-bold rounded-lg border-2 transition-all ${
+                            selectedTooth === tooth.toString()
+                              ? 'border-2 text-white'
+                              : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                          }`}
+                          style={{
+                            backgroundColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined,
+                            borderColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined
+                          }}
+                        >
+                          {tooth}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-8 gap-2 mt-2">
+                      {/* Left upper quadrant (21-28) */}
+                      {[21, 22, 23, 24, 25, 26, 27, 28].map(tooth => (
+                        <button
+                          type="button"
+                          key={tooth}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const toothStr = tooth.toString();
+                            if (selectedTooth === toothStr) {
+                              setSelectedTooth('');
+                            } else {
+                              setSelectedTooth(toothStr);
+                            }
+                          }}
+                          className={`p-3 text-sm font-bold rounded-lg border-2 transition-all ${
+                            selectedTooth === tooth.toString()
+                              ? 'border-2 text-white'
+                              : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                          }`}
+                          style={{
+                            backgroundColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined,
+                            borderColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined
+                          }}
+                        >
+                          {tooth}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Lower Jaw */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Lower Jaw</h4>
+                    <div className="grid grid-cols-8 gap-2">
+                      {/* Right lower quadrant (48-41) */}
+                      {[48, 47, 46, 45, 44, 43, 42, 41].map(tooth => (
+                        <button
+                          type="button"
+                          key={tooth}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const toothStr = tooth.toString();
+                            if (selectedTooth === toothStr) {
+                              setSelectedTooth('');
+                            } else {
+                              setSelectedTooth(toothStr);
+                            }
+                          }}
+                          className={`p-3 text-sm font-bold rounded-lg border-2 transition-all ${
+                            selectedTooth === tooth.toString()
+                              ? 'border-2 text-white'
+                              : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                          }`}
+                          style={{
+                            backgroundColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined,
+                            borderColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined
+                          }}
+                        >
+                          {tooth}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-8 gap-2 mt-2">
+                      {/* Left lower quadrant (31-38) */}
+                      {[31, 32, 33, 34, 35, 36, 37, 38].map(tooth => (
+                        <button
+                          type="button"
+                          key={tooth}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const toothStr = tooth.toString();
+                            if (selectedTooth === toothStr) {
+                              setSelectedTooth('');
+                            } else {
+                              setSelectedTooth(toothStr);
+                            }
+                          }}
+                          className={`p-3 text-sm font-bold rounded-lg border-2 transition-all ${
+                            selectedTooth === tooth.toString()
+                              ? 'border-2 text-white'
+                              : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                          }`}
+                          style={{
+                            backgroundColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined,
+                            borderColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined
+                          }}
+                        >
+                          {tooth}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleModalCancel();
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleToothNext();
+                    }}
+                    disabled={!selectedTooth}
+                    className="flex-1 px-4 py-2 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: '#30b4be' }}
+                  >
+                    Add Service
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Form Actions */}
       <div className="border-t border-gray-200 pt-6 mt-8 flex justify-end space-x-3">

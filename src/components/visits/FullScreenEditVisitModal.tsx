@@ -19,6 +19,7 @@ import FormModal from '../modals/FormModal';
 import AddAppointmentForm from '../forms/AddAppointmentForm';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
+import { ServiceSelection } from '../../types/billing';
 
 interface FullScreenEditVisitModalProps {
   isOpen: boolean;
@@ -36,7 +37,7 @@ interface Visit {
   chief_complaint?: string | null;
   diagnosis?: string | null;
   doctor_id?: string | null;
-  patient?: {
+  patients?: {
     first_name: string;
     last_name: string;
   } | null;
@@ -107,6 +108,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
   const [followUpRequired, setFollowUpRequired] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [selectedServices, setSelectedServices] = useState<ServiceSelection[]>([]);
   const { user } = useAuthStore();
 
   // Debug logging for modal state
@@ -128,7 +130,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
         .from('visits')
         .select(`
           *,
-          patient:patients(first_name, last_name)
+          patients!visits_patient_id_fkey(first_name, last_name)
         `)
         .eq('id', visitId)
         .single();
@@ -159,7 +161,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
             <h2 className="text-2xl font-bold">Edit Visit</h2>
             {visit && (
               <p className="text-blue-100 text-sm">
-                {visit.patient?.first_name} {visit.patient?.last_name} • {visit.visit_date ? new Date(visit.visit_date).toLocaleDateString() : 'No date'} • {visit.visit_type || 'Consultation'}
+                {visit.patients?.first_name} {visit.patients?.last_name} • {visit.visit_date ? new Date(visit.visit_date).toLocaleDateString() : 'No date'} • {visit.visit_type || 'Consultation'}
               </p>
             )}
           </div>
@@ -387,16 +389,62 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
               )}
 
               {activeTab === 'billing' && (
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-emerald-100 rounded-lg">
-                    <Wallet className="w-5 h-5 text-emerald-600" />
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
+                      <Wallet className="w-5 h-5" style={{ color: '#30b4be' }} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        Billing
+                      </h3>
+                      <p className="text-sm text-gray-600">Manage services, procedures, and billing information for this visit</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                      Billing
-                    </h3>
-                    <p className="text-sm text-gray-600">Manage services, procedures, and billing information for this visit</p>
-                  </div>
+                  
+                  {/* Services Counter - Premium Box */}
+                  <motion.div 
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="bg-gradient-to-br from-white to-cyan-50/30 border border-cyan-200/50 rounded-lg p-3 shadow-md backdrop-blur-sm min-w-[180px] hover:shadow-lg transition-all duration-200"
+                    style={{ borderColor: '#30b4be20' }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="text-center">
+                        <div className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#30b4be' }}>Services</div>
+                        <motion.div 
+                          key={selectedServices.length}
+                          initial={{ scale: 1.1 }}
+                          animate={{ scale: 1 }}
+                          transition={{ duration: 0.2 }}
+                          className="text-lg font-bold" 
+                          style={{ fontFamily: 'Rubik, sans-serif', color: '#30b4be' }}
+                        >
+                          {selectedServices.length}
+                        </motion.div>
+                      </div>
+                      <div className="w-px h-8 bg-gradient-to-b from-transparent to-transparent mx-3" style={{ backgroundColor: '#30b4be40' }}></div>
+                      <div className="text-center">
+                        <div className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#30b4be' }}>Total</div>
+                        <motion.div 
+                          key={selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0)}
+                          initial={{ scale: 1.1 }}
+                          animate={{ scale: 1 }}
+                          transition={{ duration: 0.2 }}
+                          className="text-lg font-bold" 
+                          style={{ fontFamily: 'Rubik, sans-serif' }}
+                        >
+                          <span style={{ color: '#30b4be' }}>
+                            N${Math.floor(selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0))}
+                          </span>
+                          <span style={{ color: '#30b4be60' }}>
+                            .{String(selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0).toFixed(2)).split('.')[1]}
+                          </span>
+                        </motion.div>
+                      </div>
+                    </div>
+                  </motion.div>
                 </div>
               )}
             </div>
@@ -408,6 +456,8 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                   activeTab={activeTab}
                   onSuccess={handleSuccess}
                   onCancel={onClose}
+                  selectedServices={selectedServices}
+                  onSelectedServicesChange={setSelectedServices}
                 />
               </div>
             </div>
