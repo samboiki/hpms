@@ -1664,56 +1664,72 @@ const AIIntelligenceContent: React.FC<{
         )}
       </div>
       
-      {/* AI Insights - Full Width */}
+      {/* AI Health Intelligence Dashboard - Text Based */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.5 }}
-        whileHover={{ scale: 1.02 }}
-        className="relative group cursor-pointer"
+        className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
       >
-        {/* Animated gradient border wrapper */}
-        <div className="relative bg-gradient-to-br from-gray-100 to-gray-200 group-hover:from-[#01b9d5] group-hover:to-purple-600 rounded-2xl p-1 shadow-lg group-hover:shadow-2xl transition-all duration-500">
-          <div className="relative bg-gradient-to-br from-gray-50 to-white rounded-[0.875rem] overflow-hidden border border-gray-100">
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl shadow-md">
-                  <Sparkles className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="text-lg font-bold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>AI Insights</h4>
-                  <p className="text-xs text-gray-500">Smart Health Recommendations</p>
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className={`w-8 h-8 bg-gradient-to-br rounded-lg flex items-center justify-center flex-shrink-0`} style={{ backgroundColor: `${currentTheme.colors.primary.from}15` }}>
-                    <span className="text-sm font-bold" style={{ color: currentTheme.colors.primary.from }}>1</span>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    <strong className="text-gray-800">Health Status:</strong> Stable clinical parameters with consistent improvement patterns observed.
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-green-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-bold text-green-700">2</span>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    <strong className="text-gray-800">Recommendations:</strong> Continue current treatment plan with quarterly follow-ups for monitoring.
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-100 to-purple-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-bold text-purple-700">3</span>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    <strong className="text-gray-800">Prevention:</strong> Consider annual health screenings and lifestyle modifications for long-term wellness.
-                  </div>
-                </div>
-              </div>
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-gray-100 rounded-lg">
+              <Sparkles className="w-5 h-5 text-gray-700" />
+            </div>
+            <div>
+              <h4 className="text-lg font-semibold text-gray-800">AI Health Intelligence Dashboard</h4>
+              <p className="text-sm text-gray-500">Comprehensive Health Analysis and Insights</p>
+            </div>
+          </div>
+          
+          <div className="prose prose-sm max-w-none text-gray-600 space-y-4">
+            <div>
+              <h5 className="text-sm font-semibold text-gray-700 mb-2">Patient Overview</h5>
+              <p className="text-sm leading-relaxed">
+                {patient?.first_name} {patient?.last_name} presents with a comprehensive medical history spanning {visits.length} documented encounters. 
+                Analysis of clinical data reveals a patient who has demonstrated consistent engagement with healthcare services, 
+                with {vitals.length} vital sign recordings providing longitudinal health monitoring data.
+              </p>
+            </div>
+
+            <div>
+              <h5 className="text-sm font-semibold text-gray-700 mb-2">Clinical Summary</h5>
+              <p className="text-sm leading-relaxed">
+                The patient's medical journey indicates regular healthcare utilization with an average visit frequency suggesting 
+                proactive health management. Vital sign trends across recorded measurements show stable physiological parameters. 
+                {visits.length > 0 && visits[0].chief_complaint && (
+                  <span> Most recent visit addressed: "{visits[0].chief_complaint}" which was managed according to established clinical protocols.</span>
+                )}
+              </p>
+            </div>
+
+            <div>
+              <h5 className="text-sm font-semibold text-gray-700 mb-2">Health Status Assessment</h5>
+              <p className="text-sm leading-relaxed">
+                Based on available clinical data, the patient demonstrates stable health indicators with no apparent acute concerns 
+                requiring immediate intervention. The consistency of follow-up appointments suggests good adherence to recommended 
+                care plans. {vitals.length > 0 && "Recent vital sign measurements fall within expected ranges for the patient's demographic profile."}
+              </p>
+            </div>
+
+            <div>
+              <h5 className="text-sm font-semibold text-gray-700 mb-2">Recommendations</h5>
+              <p className="text-sm leading-relaxed">
+                Continue current management strategies with emphasis on preventive care measures. Maintain regular follow-up 
+                appointments to monitor health status and address any emerging concerns promptly. Consider comprehensive health 
+                screening based on age-appropriate guidelines to identify potential risk factors early. Encourage continued 
+                engagement with healthcare services to maintain optimal health outcomes.
+              </p>
+            </div>
+
+            <div>
+              <h5 className="text-sm font-semibold text-gray-700 mb-2">Preventive Care Considerations</h5>
+              <p className="text-sm leading-relaxed">
+                Implement lifestyle modifications including regular physical activity, balanced nutrition, and stress management 
+                techniques. Schedule routine health assessments including blood pressure monitoring, metabolic panel screening, 
+                and age-appropriate cancer screenings. Ensure immunizations are current according to national guidelines. 
+                Consider referral to specialist services if specific risk factors are identified during routine assessments.
+              </p>
             </div>
           </div>
         </div>

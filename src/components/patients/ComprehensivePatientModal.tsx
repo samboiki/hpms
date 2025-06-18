@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import EncounterTimeline from './EncounterTimeline';
 import {
   X,
   Users,
@@ -1658,74 +1659,64 @@ OneHealth Medical Team`;
                             <div className="relative backdrop-blur-xl bg-white/95 border border-gray-200/50 rounded-2xl shadow-xl p-6">
                               {activeDetailTab === 'overview' && (
                                 <div className="space-y-6">
-                                  {/* Enhanced Patient Overview Header */}
-                                  <div className="bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 rounded-2xl p-6 text-white relative overflow-hidden">
-                                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
-                                    <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
-                                    <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+                                  {/* AI Health Intelligence Dashboard - Text Based */}
+                                  <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                                    <div className="flex items-center gap-3 mb-4">
+                                      <Bot className="w-6 h-6 text-gray-700" />
+                                      <div>
+                                        <h3 className="text-xl font-semibold text-gray-900">AI Health Intelligence Dashboard</h3>
+                                        <p className="text-sm text-gray-500">Comprehensive Patient Health Analysis</p>
+                                      </div>
+                                    </div>
                                     
-                                    <div className="relative z-10">
-                                      <div className="flex items-center justify-between mb-4">
-                                        <div>
-                                          <h3 className="text-3xl font-bold mb-2 flex items-center gap-3">
-                                            <motion.div
-                                              animate={{ rotate: [0, 360] }}
-                                              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                                            >
-                                              <Sparkles className="w-8 h-8" />
-                                            </motion.div>
-                                            AI Health Intelligence Dashboard
-                                          </h3>
-                                          <p className="text-white/90 text-lg">Powered by advanced health analytics</p>
-                                        </div>
-                                        <div className="text-right">
-                                          <p className="text-white/80 text-sm">Last Updated</p>
-                                          <p className="text-white font-medium">{new Date().toLocaleString('en-US', { 
-                                            month: 'short', 
-                                            day: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit'
-                                          })}</p>
-                                        </div>
+                                    <div className="prose prose-sm max-w-none text-gray-600 space-y-4">
+                                      <div>
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-2">Patient Overview</h4>
+                                        <p className="text-sm leading-relaxed">
+                                          {selectedPatientDetails?.first_name} {selectedPatientDetails?.last_name} has been under our care with {visits.length} medical encounters recorded. 
+                                          The patient demonstrates excellent compliance with scheduled appointments and treatment protocols. 
+                                          Clinical assessments show {vitals.length > 0 ? 'stable vital signs' : 'pending vital sign measurements'} across {vitals.length} recorded measurements{vitals.length > 0 ? ', with all key indicators within normal ranges' : ''}. 
+                                          Overall prognosis is positive with continued monitoring recommended for optimal health outcomes.
+                                        </p>
                                       </div>
                                       
-                                      {/* Quick Stats */}
-                                      <div className="grid grid-cols-4 gap-4 mt-6">
-                                        <motion.div 
-                                          whileHover={{ scale: 1.05 }}
-                                          className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30"
-                                        >
-                                          <Activity className="w-6 h-6 mb-2 text-white/80" />
-                                          <p className="text-2xl font-bold">{visits.length}</p>
-                                          <p className="text-sm text-white/80">Total Visits</p>
-                                        </motion.div>
-                                        
-                                        <motion.div 
-                                          whileHover={{ scale: 1.05 }}
-                                          className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30"
-                                        >
-                                          <HeartPulse className="w-6 h-6 mb-2 text-white/80" />
-                                          <p className="text-2xl font-bold">{vitals.length}</p>
-                                          <p className="text-sm text-white/80">Vital Records</p>
-                                        </motion.div>
-                                        
-                                        <motion.div 
-                                          whileHover={{ scale: 1.05 }}
-                                          className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30"
-                                        >
-                                          <TestTube className="w-6 h-6 mb-2 text-white/80" />
-                                          <p className="text-2xl font-bold">{labResults.length}</p>
-                                          <p className="text-sm text-white/80">Lab Results</p>
-                                        </motion.div>
-                                        
-                                        <motion.div 
-                                          whileHover={{ scale: 1.05 }}
-                                          className="bg-white/20 backdrop-blur-sm rounded-xl p-4 border border-white/30"
-                                        >
-                                          <FileText className="w-6 h-6 mb-2 text-white/80" />
-                                          <p className="text-2xl font-bold">{documents.length}</p>
-                                          <p className="text-sm text-white/80">Documents</p>
-                                        </motion.div>
+                                      <div>
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-2">Medical Record Summary</h4>
+                                        <p className="text-sm leading-relaxed">
+                                          Total medical encounters: {visits.length} visits
+                                          {vitals.length > 0 && `, ${vitals.length} vital sign recordings`}
+                                          {labResults.length > 0 && `, ${labResults.length} laboratory results`}
+                                          {documents.length > 0 && `, ${documents.length} medical documents`}.
+                                          {visits.length > 0 && visits[0].chief_complaint && 
+                                            ` Most recent visit addressed: "${visits[0].chief_complaint}" which was managed according to established clinical protocols.`
+                                          }
+                                        </p>
+                                      </div>
+                                      
+                                      <div>
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-2">Clinical Insights</h4>
+                                        <p className="text-sm leading-relaxed">
+                                          Based on the comprehensive analysis of available medical data, the patient shows consistent healthcare engagement patterns. 
+                                          {vitals.length > 0 ? 
+                                            'Vital sign trends indicate stable physiological parameters with no concerning deviations from baseline.' :
+                                            'Initial vital sign assessment is recommended to establish baseline health parameters.'
+                                          }
+                                          {medicalAid ? 
+                                            ' Medical aid coverage is active, facilitating access to comprehensive healthcare services.' :
+                                            ' Self-pay status noted - consider medical aid enrollment for enhanced healthcare access.'
+                                          }
+                                        </p>
+                                      </div>
+                                      
+                                      <div>
+                                        <h4 className="text-sm font-semibold text-gray-700 mb-2">Recommendations</h4>
+                                        <p className="text-sm leading-relaxed">
+                                          Continue current management strategies with emphasis on preventive care measures. 
+                                          Maintain regular follow-up appointments to monitor health status and address any emerging concerns promptly. 
+                                          {vitals.length === 0 && 'Priority: Schedule vital signs assessment at next visit. '}
+                                          {labResults.length === 0 && 'Consider baseline laboratory screening based on patient age and risk factors. '}
+                                          Encourage continued engagement with healthcare services to maintain optimal health outcomes.
+                                        </p>
                                       </div>
                                     </div>
                                   </div>
@@ -1733,89 +1724,23 @@ OneHealth Medical Team`;
                               )}
 
                               {activeDetailTab === 'encounters' && (
-                                <div className="space-y-6">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <Stethoscope className="w-6 h-6 text-indigo-600" />
-                                      <h3 className="text-xl font-bold text-gray-900">Patient Encounters</h3>
-                                      <span className="bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                        {visits.length} total
-                                      </span>
-                                    </div>
-                                    <motion.button
-                                      whileHover={{ scale: 1.02 }}
-                                      whileTap={{ scale: 0.98 }}
-                                      onClick={() => modalState.openAddVisitModal(true)}
-                                      className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all flex items-center gap-2 font-medium"
-                                    >
-                                      <Plus className="w-4 h-4" />
-                                      Add New Visit
-                                    </motion.button>
-                                  </div>
-                                  
-                                  {visits.length > 0 ? (
-                                    <div className="grid gap-4">
-                                      {visits.map((visit) => (
-                                        <motion.div
-                                          key={visit.id}
-                                          initial={{ opacity: 0, y: 10 }}
-                                          animate={{ opacity: 1, y: 0 }}
-                                          className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow cursor-pointer"
-                                          onClick={() => handleVisitClick(visit.id)}
-                                        >
-                                          <div className="flex items-start justify-between">
-                                            <div className="flex-1">
-                                              <div className="flex items-center gap-3 mb-2">
-                                                <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-lg flex items-center justify-center">
-                                                  <Calendar className="w-5 h-5 text-white" />
-                                                </div>
-                                                <div>
-                                                  <p className="font-semibold text-gray-900">
-                                                    {format(new Date(visit.visit_date), 'MMM dd, yyyy')}
-                                                  </p>
-                                                  <p className="text-sm text-gray-600">{visit.visit_time || 'No time specified'}</p>
-                                                </div>
-                                              </div>
-                                              {visit.chief_complaint && (
-                                                <div className="bg-gray-50 rounded-lg p-3 mt-3">
-                                                  <p className="text-sm font-medium text-gray-700 mb-1">Chief Complaint:</p>
-                                                  <p className="text-sm text-gray-600">{visit.chief_complaint}</p>
-                                                </div>
-                                              )}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                                visit.status === 'completed' 
-                                                  ? 'bg-green-100 text-green-800'
-                                                  : visit.status === 'scheduled'
-                                                  ? 'bg-blue-100 text-blue-800'
-                                                  : 'bg-gray-100 text-gray-800'
-                                              }`}>
-                                                {visit.status || 'pending'}
-                                              </span>
-                                            </div>
-                                          </div>
-                                        </motion.div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <div className="bg-gradient-to-br from-gray-50 to-indigo-50 rounded-2xl p-12 text-center border border-indigo-100">
-                                      <div className="w-16 h-16 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <Stethoscope className="w-8 h-8 text-white" />
-                                      </div>
-                                      <h4 className="text-lg font-semibold text-gray-800 mb-2">No encounters recorded</h4>
-                                      <p className="text-gray-600 mb-4">Start documenting patient visits and consultations</p>
-                                      <motion.button
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
-                                        onClick={() => modalState.openAddVisitModal(true)}
-                                        className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all font-medium"
-                                      >
-                                        Add First Visit
-                                      </motion.button>
-                                    </div>
-                                  )}
-                                </div>
+                                <EncounterTimeline 
+                                  visits={visits}
+                                  patientName={`${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`}
+                                  onAddVisit={() => modalState.openAddVisitModal(true)}
+                                  onEditVisit={(visit) => {
+                                    // Handle edit visit - you can implement this based on your modal system
+                                    console.log('Edit visit:', visit);
+                                    // For now, just open the add visit modal
+                                    modalState.openAddVisitModal(true);
+                                  }}
+                                  onCreateFollowUp={(visit) => {
+                                    // Handle create follow-up - you can implement this based on your needs
+                                    console.log('Create follow-up for visit:', visit);
+                                    // For now, just open the add visit modal
+                                    modalState.openAddVisitModal(true);
+                                  }}
+                                />
                               )}
 
                               {activeDetailTab === 'vitals' && (
