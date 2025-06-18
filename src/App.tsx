@@ -3,7 +3,6 @@ import { Route, Routes } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
-import PatientModernDetail from './pages/PatientModernDetail';
 import Settings from './pages/Settings';
 import Layout from './components/layout/Layout';
 import Login from './pages/auth/Login';
@@ -79,7 +78,6 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="patients" element={<Patients />} />
-            <Route path="patients/:id" element={<PatientModernDetail />} />
             <Route path="billing/workflow" element={<BillingWorkflow />} />
             <Route path="practice-profile" element={<EnhancedPracticeProfile />} />
             <Route path="admin/practices" element={<PracticesManagement />} />

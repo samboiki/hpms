@@ -55,7 +55,7 @@ export const usePatientModalState = () => {
     isMediaRequestModalOpen: false,
     isBillingModalOpen: false,
     isEmailModalOpen: false,
-    isFullScreen: false,
+    isFullScreen: true, // Default to full screen
   });
 
   // Debug state changes

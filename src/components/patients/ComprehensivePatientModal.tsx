@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EncounterTimeline from './EncounterTimeline';
-import FullScreenModal from '../ui/FullScreenModal';
 import {
   X,
   Users,
@@ -52,8 +51,6 @@ import {
   TestTube,
   FolderOpen,
   Receipt,
-  FlaskConical,
-  Pill,
   History,
   CheckCircle2
 } from 'lucide-react';
@@ -68,8 +65,7 @@ import { toast } from 'react-hot-toast';
 import EditPatientForm from '../forms/EditPatientForm';
 import NextOfKinForm from '../forms/NextOfKinForm';
 import PremiumAddVisitForm from '../forms/PremiumAddVisitForm';
-import PremiumEditVisitForm from '../forms/PremiumEditVisitForm';
-import EditVisitTabs from '../visits/EditVisitTabs';
+import FullScreenEditVisitModal from '../visits/FullScreenEditVisitModal';
 import MedicalAidForm from '../forms/MedicalAidForm';
 import SendMessageModal from '../modals/SendMessageModal';
 import SendEmailModal from '../modals/SendEmailModal';
@@ -196,7 +192,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   const [isAddPatientModalOpen, setIsAddPatientModalOpen] = useState(false);
   const [isEditPatientModalOpen, setIsEditPatientModalOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [view, setView] = useState<'grid' | 'list'>('list');
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'age'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -252,7 +248,6 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   
   // Additional state
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
-  const [editVisitActiveTab, setEditVisitActiveTab] = useState('general');
   const [appointments, setAppointments] = useState<any[]>([]);
   const [vitals, setVitals] = useState<any[]>([]);
   const [labResults, setLabResults] = useState<any[]>([]);
@@ -1159,14 +1154,14 @@ OneHealth Medical Team`;
                                     handleAiSearch(searchTerm);
                                   }
                                 }}
-                                className="w-full pl-10 pr-16 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all"
+                                className="w-full pl-10 pr-16 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d5]/30 focus:border-[#01b9d5] transition-all text-sm"
                               />
                               
                               {/* AI Search Button */}
                               <button
                                 onClick={() => handleAiSearch(searchTerm)}
                                 disabled={isAiSearching || !searchTerm.trim()}
-                                className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-1.5 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-md hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm`}
+                                className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-1 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-md hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm`}
                                 title="AI Search - Ask anything about your patients"
                               >
                                 {isAiSearching ? (
@@ -1179,13 +1174,13 @@ OneHealth Medical Team`;
                           </div>
 
                           {/* Action Buttons */}
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-1">
                             <button
                               onClick={() => setIsAddPatientModalOpen(true)}
-                              className="px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 font-medium"
+                              className="px-2 py-1 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-1 text-xs font-medium"
                             >
-                              <Plus className="w-4 h-4" />
-                              Add Patient
+                              <Plus className="w-3 h-3" />
+                              <span className="text-xs">Add Patient</span>
                             </button>
                             
                             {/* Bulk Action Buttons - Illuminate when filtered */}
@@ -1197,7 +1192,7 @@ OneHealth Medical Team`;
                                 modalState.openMessageModal();
                               }}
                               disabled={isSendingBulkSms || (selectedPatientIds.size === 0 && filteredPatients.length === 0)}
-                              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-2 text-sm font-medium ${
+                              className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 text-xs font-medium ${
                                 (selectedPatientIds.size > 0 || ((searchTerm || selectedFilter !== 'all' || aiFilters) && filteredPatients.length > 0))
                                   ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md hover:shadow-lg'
                                   : 'bg-gray-100 text-gray-400 opacity-50'
@@ -1207,11 +1202,11 @@ OneHealth Medical Team`;
                                 : `Send SMS to ${filteredPatients.length} filtered patients`}
                             >
                               {isSendingBulkSms ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <Loader2 className="w-3 h-3 animate-spin" />
                               ) : (
-                                <MessageSquare className="w-4 h-4" />
+                                <MessageSquare className="w-3 h-3" />
                               )}
-                              SMS
+                              <span className="text-xs">SMS</span>
                             </motion.button>
                             
                             <motion.button
@@ -1222,7 +1217,7 @@ OneHealth Medical Team`;
                                 modalState.openEmailModal();
                               }}
                               disabled={isSendingBulkEmail || (selectedPatientIds.size === 0 && filteredPatients.length === 0)}
-                              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-2 text-sm font-medium ${
+                              className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 text-xs font-medium ${
                                 (selectedPatientIds.size > 0 || ((searchTerm || selectedFilter !== 'all' || aiFilters) && filteredPatients.length > 0))
                                   ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md hover:shadow-lg'
                                   : 'bg-gray-100 text-gray-400 opacity-50'
@@ -1232,11 +1227,11 @@ OneHealth Medical Team`;
                                 : `Send Email to ${filteredPatients.length} filtered patients`}
                             >
                               {isSendingBulkEmail ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <Loader2 className="w-3 h-3 animate-spin" />
                               ) : (
-                                <Send className="w-4 h-4" />
+                                <Send className="w-3 h-3" />
                               )}
-                              Email
+                              <span className="text-xs">Email</span>
                             </motion.button>
                             
                             <motion.button
@@ -1244,7 +1239,7 @@ OneHealth Medical Team`;
                               whileTap={{ scale: 0.95 }}
                               onClick={handleExportPatients}
                               disabled={isExporting || filteredPatients.length === 0}
-                              className={`px-3 py-2 rounded-lg transition-all flex items-center gap-2 text-sm font-medium ${
+                              className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 text-xs font-medium ${
                                 (searchTerm || selectedFilter !== 'all' || aiFilters) && filteredPatients.length > 0
                                   ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md hover:shadow-lg'
                                   : 'bg-gray-100 text-gray-400 opacity-50'
@@ -1252,18 +1247,18 @@ OneHealth Medical Team`;
                               title={`Export ${filteredPatients.length} filtered patients`}
                             >
                               {isExporting ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <Loader2 className="w-3 h-3 animate-spin" />
                               ) : (
-                                <FileDown className="w-4 h-4" />
+                                <FileDown className="w-3 h-3" />
                               )}
-                              Export
+                              <span className="text-xs">Export</span>
                             </motion.button>
                             
                             <button
                               onClick={() => setView(view === 'grid' ? 'list' : 'grid')}
-                              className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+                              className="px-2 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1"
                             >
-                              {view === 'grid' ? <List className="w-4 h-4" /> : <LayoutGrid className="w-4 h-4" />}
+                              {view === 'grid' ? <List className="w-3 h-3" /> : <LayoutGrid className="w-3 h-3" />}
                             </button>
                           </div>
                         </div>
@@ -1732,7 +1727,7 @@ OneHealth Medical Team`;
                                 <EncounterTimeline 
                                   visits={visits}
                                   patientName={`${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`}
-                                  onAddVisit={() => modalState.openAddVisitModal(true)}
+                                  onAddVisit={() => modalState.openAddVisitModal()}
                                   onEditVisit={(visit) => {
                                     console.log('Edit visit:', visit);
                                     setSelectedVisit(visit);
@@ -1742,7 +1737,7 @@ OneHealth Medical Team`;
                                     // Handle create follow-up - you can implement this based on your needs
                                     console.log('Create follow-up for visit:', visit);
                                     // For now, just open the add visit modal
-                                    modalState.openAddVisitModal(true);
+                                    modalState.openAddVisitModal();
                                   }}
                                 />
                               )}
@@ -1938,103 +1933,21 @@ OneHealth Medical Team`;
         )}
       </FormModal>
 
-      {/* Full Screen Edit Visit Modal */}
-      <FullScreenModal
-        isOpen={modalState.modalState.isEditVisitModalOpen}
-        onClose={() => {
-          modalState.closeEditVisitModal();
-          setSelectedVisit(null);
-          setEditVisitActiveTab('general');
-        }}
-      >
-        {selectedVisit && selectedPatientDetails && (
-          <div className="h-full bg-gray-50 flex flex-col">
-            {/* Header */}
-            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    modalState.closeEditVisitModal();
-                    setSelectedVisit(null);
-                    setEditVisitActiveTab('general');
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </motion.button>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">Edit Visit</h1>
-                  <p className="text-sm text-gray-600">
-                    {selectedPatientDetails.first_name} {selectedPatientDetails.last_name} - {selectedVisit.visit_date}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="bg-white border-b border-gray-200">
-              <div className="px-6">
-                <div className="flex" role="tablist">
-                  {[
-                    { id: 'general', label: 'General', icon: FileText },
-                    { id: 'vitals', label: 'Vitals', icon: Activity },
-                    { id: 'medications', label: 'Medications', icon: Pill },
-                    { id: 'results', label: 'Lab Results', icon: FlaskConical },
-                    { id: 'history', label: 'History', icon: History }
-                  ].map((tab) => {
-                    const Icon = tab.icon;
-                    const isActive = editVisitActiveTab === tab.id;
-                    
-                    return (
-                      <motion.button
-                        key={tab.id}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setEditVisitActiveTab(tab.id)}
-                        className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-200 ${
-                          isActive
-                            ? 'text-purple-600 border-purple-600 bg-gradient-to-t from-purple-50/50 to-transparent'
-                            : 'text-gray-500 border-transparent hover:text-purple-600 hover:bg-purple-50/30'
-                        }`}
-                        role="tab"
-                        aria-selected={isActive}
-                      >
-                        <Icon className="w-4 h-4" />
-                        {tab.label}
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-hidden">
-              <div className="h-full p-6">
-                <div className="bg-white rounded-lg shadow-sm h-full overflow-auto">
-                  <EditVisitTabs
-                    visitId={selectedVisit.id}
-                    patientId={selectedPatientDetails.id}
-                    activeTab={editVisitActiveTab}
-                    onSuccess={() => {
-                      modalState.closeEditVisitModal();
-                      fetchPatientDetails(selectedPatientDetails.id);
-                      setEditVisitActiveTab('general');
-                    }}
-                    onCancel={() => {
-                      modalState.closeEditVisitModal();
-                      setSelectedVisit(null);
-                      setEditVisitActiveTab('general');
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </FullScreenModal>
+      {selectedVisit && selectedPatientDetails && (
+        <FullScreenEditVisitModal
+          isOpen={modalState.modalState.isEditVisitModalOpen}
+          onClose={() => {
+            modalState.closeEditVisitModal();
+            setSelectedVisit(null);
+          }}
+          visitId={selectedVisit.id}
+          patientId={selectedPatientDetails.id}
+          onSuccess={() => {
+            modalState.closeEditVisitModal();
+            fetchPatientDetails(selectedPatientDetails.id);
+          }}
+        />
+      )}
 
       <FormModal
         isOpen={modalState.modalState.isAddVisitModalOpen}

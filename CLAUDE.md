@@ -546,3 +546,5 @@ ORDER BY v.visit_date DESC, v.visit_time DESC;
 - Complete month view implementation
 - Reschedule functionality for scheduled appointments
 - Proper appointment status workflow
+## IMPORTANT FILE EXCLUSIONS
+- **PatientModernDetail.tsx**: This file has been DELETED and should NEVER be referenced or recreated. All patient detail functionality is handled through ComprehensivePatientModal.tsx only.

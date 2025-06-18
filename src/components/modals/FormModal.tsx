@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
-import Modal from 'react-modal';
+import ReactDOM from 'react-dom';
 import { X } from 'lucide-react';
-import { cn } from '../../utils/cn';
 
 interface FormModalProps {
   isOpen: boolean;
@@ -11,8 +10,6 @@ interface FormModalProps {
   className?: string;
   hideHeader?: boolean;
 }
-
-Modal.setAppElement('#root');
 
 const FormModal: React.FC<FormModalProps> = ({ 
   isOpen, 
@@ -26,11 +23,12 @@ const FormModal: React.FC<FormModalProps> = ({
   // Debug modal state changes
   useEffect(() => {
     if (isOpen) {
-      console.log('📧 MODAL DEBUG: FormModal OPENED -', title, '(z-index: 99998)');
+      console.log('📧 MODAL DEBUG: FormModal OPENED -', title, '(z-index: 2147483648)');
+      console.log('📧 MODAL DEBUG: FormModal props -', { isOpen, title, hideHeader });
     } else {
       console.log('📧 MODAL DEBUG: FormModal CLOSED -', title);
     }
-  }, [isOpen, title]);
+  }, [isOpen, title, hideHeader]);
 
   // Handle modal open/close effects
   useEffect(() => {
@@ -52,56 +50,59 @@ const FormModal: React.FC<FormModalProps> = ({
     };
   }, [isOpen]);
 
-  return (
-    <Modal
-      isOpen={isOpen}
-      onRequestClose={onClose}
-      className={cn(
-        "fixed inset-0 flex items-center justify-center p-4 pointer-events-none",
-        className
-      )}
-      overlayClassName={cn(
-        "fixed inset-0 bg-black/60 flex items-center justify-center p-4",
-        "backdrop-blur-xl"
-      )}
-      contentLabel={title}
-      style={{
-        overlay: {
-          zIndex: 99998,
-        }
+  // Create a portal to render the modal at body level to avoid z-index issues
+  const modalContent = isOpen ? (
+    <div 
+      className="fixed inset-0"
+      style={{ 
+        zIndex: 2147483648, // Just above FullScreenModal (2147483647)
       }}
     >
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] pointer-events-auto flex flex-col overflow-hidden animate-scale-in">
-        {!hideHeader && (
-          <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 p-6 text-white">
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-indigo-600 opacity-20 backdrop-blur-sm"></div>
-            <div className="relative flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <div className="w-6 h-6 flex items-center justify-center">
-                    <div className="w-5 h-5 bg-white rounded"></div>
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/60 backdrop-blur-xl"
+        onClick={onClose}
+      />
+      
+      {/* Modal Container */}
+      <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] pointer-events-auto flex flex-col overflow-hidden animate-scale-in">
+          {!hideHeader && (
+            <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 p-6 text-white">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-indigo-600 opacity-20 backdrop-blur-sm"></div>
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                    <div className="w-6 h-6 flex items-center justify-center">
+                      <div className="w-5 h-5 bg-white rounded"></div>
+                    </div>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold" style={{ fontFamily: 'Poppins, sans-serif' }}>{title}</h2>
+                    <p className="text-blue-100 text-sm">Complete the information below</p>
                   </div>
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold" style={{ fontFamily: 'Poppins, sans-serif' }}>{title}</h2>
-                  <p className="text-blue-100 text-sm">Complete the information below</p>
-                </div>
+                <button
+                  onClick={onClose}
+                  className="text-white/80 hover:text-white transition-all duration-200 p-2.5 rounded-xl hover:bg-white/20 hover:scale-105"
+                >
+                  <X size={24} />
+                </button>
               </div>
-              <button
-                onClick={onClose}
-                className="text-white/80 hover:text-white transition-all duration-200 p-2.5 rounded-xl hover:bg-white/20 hover:scale-105"
-              >
-                <X size={24} />
-              </button>
             </div>
+          )}
+          
+          {/* Content */}
+          <div className="flex-1 overflow-auto p-6 custom-scrollbar bg-white">
+            {children}
           </div>
-        )}
-        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-white">
-          {children}
         </div>
       </div>
-    </Modal>
-  );
+    </div>
+  ) : null;
+
+  // Portal to document body
+  return modalContent ? ReactDOM.createPortal(modalContent, document.body) : null;
 };
 
 export default FormModal;

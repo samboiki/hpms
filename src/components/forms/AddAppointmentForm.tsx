@@ -35,17 +35,31 @@ interface Props {
   initialDate?: Date;
   initialTime?: string;
   initialDoctorId?: string;
+  initialPatientId?: string;
+  initialType?: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
 }
 
-const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTime, initialDoctorId }) => {
+const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTime, initialDoctorId, initialPatientId, initialType }) => {
   const { user } = useAuthStore();
+
+  // Debug initial props
+  useEffect(() => {
+    console.log('📋 DEBUG: AddAppointmentForm mounted with props:', {
+      initialDate,
+      initialTime,
+      initialDoctorId,
+      initialPatientId,
+      initialType
+    });
+  }, []);
   const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm<AddAppointmentFormData>({
     defaultValues: {
       date: initialDate ? format(initialDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
       time: initialTime || format(new Date(), 'HH:mm'),
       duration: 30,
-      type: 'consultation',
-      doctor_id: initialDoctorId || ''
+      type: initialType || 'consultation',
+      doctor_id: initialDoctorId || '',
+      patient_id: initialPatientId || ''
     }
   });
   
@@ -55,11 +69,11 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
       date: initialDate ? format(initialDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
       time: initialTime || format(new Date(), 'HH:mm'),
       duration: 30,
-      type: 'consultation',
+      type: initialType || 'consultation',
       doctor_id: initialDoctorId || '',
-      patient_id: ''
+      patient_id: initialPatientId || ''
     });
-  }, [initialDate, initialTime, initialDoctorId, reset]);
+  }, [initialDate, initialTime, initialDoctorId, initialPatientId, initialType, reset]);
   
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -101,6 +115,17 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
     fetchPatients();
     fetchDoctors();
   }, []);
+
+  // Set initial patient search term when patients are loaded and initialPatientId is provided
+  useEffect(() => {
+    if (initialPatientId && patients.length > 0 && !patientSearchTerm) {
+      const selectedPatient = patients.find(p => p.id === initialPatientId);
+      if (selectedPatient) {
+        setPatientSearchTerm(`${selectedPatient.first_name} ${selectedPatient.last_name}`);
+        setValue('patient_id', initialPatientId);
+      }
+    }
+  }, [initialPatientId, patients, patientSearchTerm, setValue]);
 
   useEffect(() => {
     if (patientSearchTerm) {
@@ -309,11 +334,16 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
               placeholder="Search patients..."
               value={patientSearchTerm}
               onChange={(e) => {
-                setPatientSearchTerm(e.target.value);
-                setShowPatientDropdown(true);
+                if (!initialPatientId) {
+                  setPatientSearchTerm(e.target.value);
+                  setShowPatientDropdown(true);
+                }
               }}
-              onFocus={() => setShowPatientDropdown(true)}
-              className="pl-10 block w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
+              onFocus={() => !initialPatientId && setShowPatientDropdown(true)}
+              disabled={!!initialPatientId}
+              className={`pl-10 block w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-brand-primary focus:border-brand-primary ${
+                initialPatientId ? 'bg-gray-100 text-gray-700 cursor-not-allowed' : ''
+              }`}
             />
             <input
               type="hidden"
@@ -493,7 +523,10 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
           <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
           <select
             {...register('type', { required: 'Type is required' })}
-            className="block w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-brand-primary focus:border-brand-primary"
+            disabled={!!initialType}
+            className={`block w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-brand-primary focus:border-brand-primary ${
+              initialType ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
+            }`}
           >
             <option value="consultation">Consultation</option>
             <option value="follow-up">Follow-up</option>

@@ -5,11 +5,39 @@ import {
   Save,
   Loader2,
   Microscope,
-  CheckCircle,
-  ChevronDown
+  ChevronDown,
+  Film,
+  ImageIcon,
+  Upload,
+  Search,
+  FileText,
+  Activity,
+  Pill,
+  Camera,
+  Grid,
+  List,
+  Filter,
+  Weight,
+  Thermometer,
+  Calendar,
+  AlertCircle,
+  Stethoscope,
+  ClipboardList,
+  MessageSquare,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Bot,
+  Trash2,
+  Edit3,
+  Sunset,
+  Clock,
+  ChevronUp
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import ModernDateTimePicker from '../ui/ModernDateTimePicker';
+import { ServiceSelection } from '../../types/billing';
+import { invoiceService } from '../../services/invoiceService';
+import EnhancedDentalServiceSelector from '../billing/EnhancedDentalServiceSelector';
 
 interface EditVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
@@ -31,6 +59,8 @@ interface EditVisitFormData {
     bmi?: number;
     oxygen_saturation?: number;
   };
+  selectedServices: ServiceSelection[];
+  generateInvoice: boolean;
 }
 
 interface Props {
@@ -47,7 +77,8 @@ const ProfessionalDropdown: React.FC<{
   onChange: (value: string) => void;
   options: { value: string; label: string; icon?: string }[];
   placeholder?: string;
-}> = ({ value, onChange, options, placeholder }) => {
+  hasIcon?: boolean;
+}> = ({ value, onChange, options, placeholder, hasIcon = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectedOption = options.find(opt => opt.value === value);
 
@@ -56,7 +87,7 @@ const ProfessionalDropdown: React.FC<{
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-3 bg-white border-2 border-[#01b9d4]/20 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4] transition-all shadow-sm hover:shadow-md text-left flex items-center justify-between"
+        className={`w-full p-3 bg-white border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-left flex items-center justify-between h-[60px] ${hasIcon ? 'pl-10' : ''}`}
       >
         <span className={selectedOption ? 'text-gray-900' : 'text-gray-500'}>
           {selectedOption ? selectedOption.label : placeholder}
@@ -65,7 +96,7 @@ const ProfessionalDropdown: React.FC<{
       </button>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-amber-200 rounded-lg shadow-lg z-10">
           {options.map((option) => (
             <button
               key={option.value}
@@ -74,7 +105,7 @@ const ProfessionalDropdown: React.FC<{
                 onChange(option.value);
                 setIsOpen(false);
               }}
-              className="w-full p-3 text-left hover:bg-[#01b9d4]/5 transition-colors first:rounded-t-lg last:rounded-b-lg"
+              className="w-full p-3 text-left hover:bg-amber-50 transition-colors first:rounded-t-lg last:rounded-b-lg"
             >
               {option.label}
             </button>
@@ -88,14 +119,106 @@ const ProfessionalDropdown: React.FC<{
 const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSuccess, onCancel }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedServices, setSelectedServices] = useState<ServiceSelection[]>([]);
+  
+  // View mode states
+  const [labViewMode, setLabViewMode] = useState<'grid' | 'list'>('grid');
+  const [imagingViewMode, setImagingViewMode] = useState<'grid' | 'list'>('grid');
+  const [mediaViewMode, setMediaViewMode] = useState<'grid' | 'list'>('grid');
+  
+  // Drag states
+  const [labDragging, setLabDragging] = useState(false);
+  const [imagingDragging, setImagingDragging] = useState(false);
+  const [mediaDragging, setMediaDragging] = useState(false);
+
+  // Date picker modal states
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedHour, setSelectedHour] = useState(() => {
+    const now = new Date();
+    return now.getHours().toString().padStart(2, '0');
+  });
+  const [selectedMinute, setSelectedMinute] = useState(() => {
+    const now = new Date();
+    return now.getMinutes().toString().padStart(2, '0');
+  });
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+
+  // Medications state
+  const [medications, setMedications] = useState<any[]>([]);
+  const [newMedication, setNewMedication] = useState({
+    medication_name: '',
+    dosage: '',
+    frequency: '',
+    duration: '',
+    instructions: ''
+  });
+
+  // Function to refresh medications
+  const refreshMedications = async () => {
+    try {
+      const { data: existingMedications, error: medicationError } = await supabase
+        .from('medications_with_details')
+        .select('*')
+        .eq('visit_id', visitId)
+        .order('created_at', { ascending: true });
+
+      if (!medicationError && existingMedications && existingMedications.length > 0) {
+        console.log('Refreshed medications:', existingMedications);
+        setMedications(existingMedications.map((med: any) => ({
+          id: med.id,
+          medication_name: med.medication_name,
+          dosage: med.dosage,
+          frequency: med.frequency,
+          duration: med.duration,
+          instructions: med.instructions,
+          notes: med.notes
+        })));
+      } else {
+        setMedications([]);
+        console.log('No medications found after refresh');
+      }
+    } catch (medicationError) {
+      console.log('Error refreshing medications:', medicationError);
+    }
+  };
+
+  // Medication modal states
+  const [isDosageModalOpen, setIsDosageModalOpen] = useState(false);
+  const [isFrequencyModalOpen, setIsFrequencyModalOpen] = useState(false);
+  const [isDurationModalOpen, setIsDurationModalOpen] = useState(false);
+  const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
 
   const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm<EditVisitFormData>({
     defaultValues: {
       visit_type: 'consultation',
       encounter_date: new Date(),
-      vitals: {}
+      chief_complaint: '',
+      diagnosis: '',
+      treatment_plan: '',
+      prescription: '',
+      follow_up_required: false,
+      follow_up_date: '',
+      notes: '',
+      vitals: {},
+      selectedServices: [],
+      generateInvoice: false
     }
   });
+
+  // Calculate BMI when height or weight changes
+  const weight = watch('vitals.weight');
+  const height = watch('vitals.height');
+
+  useEffect(() => {
+    if (weight && height && height > 0) {
+      const heightInMeters = height / 100;
+      const bmi = weight / (heightInMeters * heightInMeters);
+      setValue('vitals.bmi', Math.round(bmi * 10) / 10);
+    }
+  }, [weight, height, setValue]);
 
   const visitTypeOptions = [
     { value: 'consultation', label: 'Consultation' },
@@ -103,6 +226,44 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
     { value: 'procedure', label: 'Procedure' },
     { value: 'emergency', label: 'Emergency' }
   ];
+
+  // Camera functionality
+  const handleTakePicture = async (type: 'lab' | 'media') => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ video: true });
+      // This would open a camera modal - implementation depends on your camera component
+      console.log('Opening camera for:', type);
+      // You would implement the actual camera functionality here
+    } catch (error) {
+      console.error('Camera access denied:', error);
+      alert('Camera access is required to take pictures. Please enable camera permissions.');
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent, type: 'lab' | 'imaging' | 'media') => {
+    e.preventDefault();
+    if (type === 'lab') setLabDragging(true);
+    if (type === 'imaging') setImagingDragging(true);
+    if (type === 'media') setMediaDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent, type: 'lab' | 'imaging' | 'media') => {
+    e.preventDefault();
+    if (type === 'lab') setLabDragging(false);
+    if (type === 'imaging') setImagingDragging(false);
+    if (type === 'media') setMediaDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent, type: 'lab' | 'imaging' | 'media') => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files);
+    console.log(`Files dropped for ${type}:`, files);
+    // Handle file upload here
+    if (type === 'lab') setLabDragging(false);
+    if (type === 'imaging') setImagingDragging(false);
+    if (type === 'media') setMediaDragging(false);
+  };
 
   // Load existing visit data
   useEffect(() => {
@@ -127,12 +288,60 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
           .order('created_at', { ascending: false })
           .limit(1);
 
+        // Fetch existing services from invoice
+        const { data: invoiceData } = await supabase
+          .from('invoices_enhanced')
+          .select('*')
+          .eq('visit_id', visitId)
+          .limit(1);
+
+        let invoiceServices: any[] = [];
+        if (invoiceData && invoiceData.length > 0) {
+          const { data: services } = await supabase
+            .from('invoice_services')
+            .select('*')
+            .eq('invoice_id', invoiceData[0].id);
+          invoiceServices = services || [];
+        }
+
+        // Fetch existing medications from the view
+        try {
+          const { data: existingMedications, error: medicationError } = await supabase
+            .from('medications_with_details')
+            .select('*')
+            .eq('visit_id', visitId)
+            .order('created_at', { ascending: true });
+
+          if (!medicationError && existingMedications && existingMedications.length > 0) {
+            console.log('Found existing medications:', existingMedications);
+            setMedications(existingMedications.map((med: any) => ({
+              id: med.id,
+              medication_name: med.medication_name,
+              dosage: med.dosage,
+              frequency: med.frequency,
+              duration: med.duration,
+              instructions: med.instructions,
+              notes: med.notes
+            })));
+          } else {
+            console.log('No existing medications found for this visit');
+          }
+        } catch (medicationError) {
+          console.log('Error fetching medications:', medicationError);
+        }
+
         // Populate form with existing data
+        const encounterDateTime = visit.encounter_date ? new Date(visit.encounter_date) : 
+          (visit.visit_date && visit.visit_time ? 
+            new Date(`${visit.visit_date}T${visit.visit_time}`) : new Date());
+
+        // Set time states
+        setSelectedHour(encounterDateTime.getHours().toString().padStart(2, '0'));
+        setSelectedMinute(encounterDateTime.getMinutes().toString().padStart(2, '0'));
+
         const formData = {
-          visit_type: visit.visit_type || 'consultation',
-          encounter_date: visit.encounter_date ? new Date(visit.encounter_date) : 
-            (visit.visit_date && visit.visit_time ? 
-              new Date(`${visit.visit_date}T${visit.visit_time}`) : new Date()),
+          visit_type: (visit.visit_type as 'consultation' | 'follow-up' | 'procedure' | 'emergency') || 'consultation',
+          encounter_date: encounterDateTime || new Date(),
           chief_complaint: visit.chief_complaint || '',
           diagnosis: visit.diagnosis || '',
           treatment_plan: visit.treatment_plan || '',
@@ -147,10 +356,31 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
             respiratory_rate: vitals[0].respiratory_rate || undefined,
             weight: vitals[0].weight || undefined,
             height: vitals[0].height || undefined,
-            bmi: vitals[0].bmi || undefined,
-            oxygen_saturation: vitals[0].oxygen_saturation || undefined
-          } : {}
+            bmi: vitals[0].bmi || undefined
+          } : {},
+          generateInvoice: true,
+          selectedServices: []
         };
+
+        // Load existing services
+        if (invoiceServices.length > 0) {
+          const existingServices = invoiceServices.map((service: any) => ({
+            id: service.id,
+            tariffId: service.tariff_id,
+            code: service.code,
+            description: service.description,
+            category: 'Service',
+            subcategory: 'General',
+            unitPrice: service.unit_price,
+            quantity: service.quantity,
+            totalPrice: service.total_price,
+            requiresPreAuth: false,
+            medicalAidCovered: false,
+            coveragePercentage: 0,
+            notes: service.notes
+          }));
+          setSelectedServices(existingServices);
+        }
 
         reset(formData);
       } catch (error) {
@@ -170,16 +400,16 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
       // Update the visit record
       const visitData = {
         visit_type: data.visit_type,
-        encounter_date: data.encounter_date.toISOString(),
-        visit_date: data.encounter_date.toISOString().split('T')[0],
-        visit_time: data.encounter_date.toLocaleTimeString('en-US', { hour12: false }),
-        chief_complaint: data.chief_complaint,
-        diagnosis: data.diagnosis,
-        treatment_plan: data.treatment_plan,
-        prescription: data.prescription,
-        follow_up_required: data.follow_up_required,
-        follow_up_date: data.follow_up_date,
-        notes: data.notes,
+        encounter_date: data.encounter_date ? data.encounter_date.toISOString() : undefined,
+        visit_date: data.encounter_date ? data.encounter_date.toISOString().split('T')[0] : undefined,
+        visit_time: data.encounter_date ? data.encounter_date.toLocaleTimeString('en-US', { hour12: false }) : undefined,
+        chief_complaint: data.chief_complaint || '',
+        diagnosis: data.diagnosis || '',
+        treatment_plan: data.treatment_plan || '',
+        prescription: data.prescription || undefined,
+        follow_up_required: data.follow_up_required || false,
+        follow_up_date: data.follow_up_date && data.follow_up_date.trim() ? data.follow_up_date : undefined,
+        notes: data.notes || undefined,
         updated_at: new Date().toISOString()
       };
 
@@ -221,6 +451,139 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
         }
       }
 
+      // Handle invoice updates if services changed
+      if (selectedServices.length > 0 && data.generateInvoice) {
+        try {
+          // Check if invoice exists
+          const { data: existingInvoice, error: invoiceCheckError } = await supabase
+            .from('invoices_enhanced')
+            .select('id')
+            .eq('visit_id', visitId)
+            .limit(1);
+
+          if (invoiceCheckError) throw invoiceCheckError;
+
+          if (existingInvoice && existingInvoice.length > 0) {
+            // Update existing invoice by deleting old services and adding new ones
+            const { error: deleteError } = await supabase
+              .from('invoice_services')
+              .delete()
+              .eq('invoice_id', existingInvoice[0].id);
+
+            if (deleteError) throw deleteError;
+
+            // Add new services
+            const serviceRecords = selectedServices.map(service => ({
+              invoice_id: existingInvoice[0].id,
+              tariff_id: service.tariffId,
+              code: service.code,
+              description: service.description,
+              quantity: service.quantity,
+              unit_price: service.unitPrice,
+              total_price: service.totalPrice,
+              medical_aid_covered: service.medicalAidCovered ? service.totalPrice : 0,
+              patient_portion: service.medicalAidCovered ? 0 : service.totalPrice,
+              notes: service.notes || '',
+              system_transaction_number: Date.now() + Math.floor(Math.random() * 1000)
+            }));
+
+            const { error: insertError } = await supabase
+              .from('invoice_services')
+              .insert(serviceRecords);
+
+            if (insertError) throw insertError;
+          } else {
+            // Create new invoice
+            const { data: { user } } = await supabase.auth.getUser();
+            let practiceId = undefined;
+            
+            if (user) {
+              const { data: userProfile } = await supabase
+                .from('users')
+                .select('practice_id')
+                .eq('id', user.id)
+                .single();
+              
+              practiceId = userProfile?.practice_id;
+            }
+            
+            const invoiceRequest = {
+              visitId: visitId,
+              patientId,
+              practiceId: practiceId || '',
+              services: selectedServices,
+              medicalAidId: undefined,
+              generatePdf: false,
+              notes: 'Updated from edit visit form'
+            };
+            
+            await invoiceService.generateInvoiceFromVisit(invoiceRequest);
+          }
+        } catch (invoiceError) {
+          console.error('Invoice update/creation failed:', invoiceError);
+          // Show user-friendly error but don't block the main save
+          alert(`Invoice update failed: ${invoiceError instanceof Error ? invoiceError.message : 'Unknown error'}. The visit was updated but invoice changes were not saved.`);
+        }
+      }
+
+      // Save medications to database
+      if (medications.length > 0) {
+        try {
+          // First, delete all existing medications for this visit
+          await (supabase as any)
+            .from('medications')
+            .delete()
+            .eq('visit_id', visitId);
+
+          // Get current user for prescribed_by
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          // Use a batch approach - insert new medications
+          const medicationPromises = medications.map(async (med) => {
+            // Create individual medication record
+            const medicationData = {
+              visit_id: visitId,
+              patient_id: patientId,
+              medication_name: med.medication_name,
+              dosage: med.dosage,
+              frequency: med.frequency,
+              duration: med.duration,
+              instructions: med.instructions || '',
+              prescribed_by: user?.id,
+              prescribed_date: new Date().toISOString(),
+              status: 'active',
+              notes: med.notes || null
+            };
+
+            // Skip deletion for individual medications - we'll do a bulk delete first
+            // This is handled outside the loop
+
+            // Insert the new medication using direct table access (bypass type checking)
+            const { error } = await (supabase as any)
+              .from('medications')
+              .insert([medicationData]);
+
+            if (error) {
+              console.error('Error inserting medication:', error);
+              throw new Error(`Failed to save medication: ${med.medication_name}`);
+            }
+
+            return medicationData;
+          });
+
+          await Promise.all(medicationPromises);
+          console.log('Medications saved successfully:', medications.length, 'medications');
+          
+          // Refresh the medications list after saving
+          setTimeout(() => {
+            refreshMedications();
+          }, 1000);
+        } catch (medicationError) {
+          console.error('Error saving medications:', medicationError);
+          alert(`Medications save failed: ${medicationError instanceof Error ? medicationError.message : 'Unknown error'}. The visit was updated but medications were not saved.`);
+        }
+      }
+
       onSuccess();
     } catch (error) {
       console.error('Error updating visit:', error);
@@ -241,132 +604,862 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="h-full flex flex-col">
-      <div className="flex-1 overflow-auto">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col">
+      <div className="flex-1">
         {/* General Tab */}
         {activeTab === 'general' && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
+            className="space-y-8"
           >
-            {/* Encounter Date & Time */}
+            {/* Encounter Information Section */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Encounter Date & Time
-              </label>
-              <ModernDateTimePicker
-                value={watch('encounter_date')}
-                onChange={(date) => setValue('encounter_date', date)}
-                placeholder="Select encounter date and time"
-                showTime={true}
-                className="w-full max-w-md"
-              />
-              {errors.encounter_date && (
-                <p className="text-sm text-red-600 mt-1">Encounter date is required</p>
-              )}
+              <div className="flex items-center mb-4">
+                <div className="w-1 h-5 bg-[#01b9d4] rounded-full"></div>
+                <h3 className="text-lg font-semibold text-gray-800 ml-2">Encounter Details</h3>
+              </div>
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
+                <div className="flex flex-col md:flex-row gap-6">
+                  {/* Date and Time Container */}
+                  <div className="flex flex-col sm:flex-row gap-4 md:w-1/2">
+                    <div className="flex-1">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Encounter Date
+                      </label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setIsDatePickerOpen(true)}
+                          className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[60px]"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-blue-400 to-cyan-500">
+                              <Calendar className="w-4 h-4 text-white" />
+                            </div>
+                            <div>
+                              {watch('encounter_date') ? (
+                                <>
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {watch('encounter_date').toLocaleDateString('en-US', { 
+                                      month: 'short', 
+                                      day: 'numeric', 
+                                      year: 'numeric' 
+                                    })}
+                                  </p>
+                                  <p className="text-xs text-gray-500">Selected date</p>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-sm font-semibold text-gray-900">Select Date</p>
+                                  <p className="text-xs text-gray-500">Choose encounter date</p>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          <ChevronDown className="w-5 h-5 transition-transform text-[#01b9d5]" />
+                        </button>
+                      </div>
+                      {errors.encounter_date && (
+                        <p className="text-sm text-red-600 mt-1">Encounter date is required</p>
+                      )}
+                    </div>
+
+                    <div className="flex-1">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Encounter Time
+                      </label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setIsTimePickerOpen(true)}
+                          className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[60px]"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-purple-400 to-pink-500">
+                              <Sunset className="w-4 h-4 text-white" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">
+                                {selectedHour}:{selectedMinute}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {parseInt(selectedHour) >= 12 ? 'PM' : 'AM'}
+                              </p>
+                            </div>
+                          </div>
+                          <Clock className="w-5 h-5 transition-transform text-[#01b9d5]" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Visit Type Container */}
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Visit Type
+                    </label>
+                    <div className="relative">
+                      <ProfessionalDropdown
+                        value={watch('visit_type') || ''}
+                        onChange={(value) => setValue('visit_type', value as any)}
+                        options={visitTypeOptions}
+                        placeholder="Select visit type"
+                        hasIcon={true}
+                      />
+                      <Stethoscope className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-amber-500 pointer-events-none z-10" />
+                    </div>
+                    {errors.visit_type && (
+                      <p className="text-sm text-red-600 mt-1">{errors.visit_type.message}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Visit Type & Chief Complaint */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700">
-                  Visit Type
-                </label>
-                <ProfessionalDropdown
-                  value={watch('visit_type') || ''}
-                  onChange={(value) => setValue('visit_type', value as any)}
-                  options={visitTypeOptions}
-                  placeholder="Select visit type"
-                />
-                {errors.visit_type && (
-                  <p className="text-sm text-red-600">{errors.visit_type.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700">
-                  Chief Complaint
-                </label>
-                <input
-                  type="text"
-                  {...register('chief_complaint', { required: 'Chief complaint is required' })}
-                  className="w-full p-3 bg-white border-2 border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all shadow-sm hover:shadow-md"
-                  placeholder="Primary reason for visit"
-                />
+            {/* Chief Complaint Section */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <div className="w-1 h-5 bg-red-500 rounded-full"></div>
+                Chief Complaint
+              </h3>
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
+                <div className="relative">
+                  <input
+                    type="text"
+                    {...register('chief_complaint', { required: 'Chief complaint is required' })}
+                    className="w-full p-3 bg-white border-2 border-red-200 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all pl-10"
+                    placeholder="Primary reason for visit"
+                  />
+                  <AlertCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-red-500" />
+                </div>
                 {errors.chief_complaint && (
-                  <p className="text-sm text-red-600">{errors.chief_complaint.message}</p>
+                  <p className="text-sm text-red-600 mt-1">{errors.chief_complaint.message}</p>
                 )}
               </div>
             </div>
 
-            {/* Diagnosis & Treatment Plan */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700">
-                  Diagnosis
-                </label>
-                <textarea
-                  {...register('diagnosis', { required: 'Diagnosis is required' })}
-                  rows={4}
-                  className="w-full p-3 bg-white border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm hover:shadow-md resize-none"
-                  placeholder="Clinical diagnosis and findings"
-                />
-                {errors.diagnosis && (
-                  <p className="text-sm text-red-600">{errors.diagnosis.message}</p>
-                )}
-              </div>
+            {/* Clinical Assessment Section */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <div className="w-1 h-5 bg-green-600 rounded-full"></div>
+                Clinical Assessment
+              </h3>
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Diagnosis
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        {...register('diagnosis', { required: 'Diagnosis is required' })}
+                        rows={4}
+                        className="w-full p-3 bg-white border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all pl-10 resize-none"
+                        placeholder="Clinical diagnosis and findings"
+                      />
+                      <ClipboardList className="absolute left-3 top-3 w-4 h-4 text-green-500" />
+                    </div>
+                    {errors.diagnosis && (
+                      <p className="text-sm text-red-600 mt-1">{errors.diagnosis.message}</p>
+                    )}
+                  </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700">
-                  Treatment Plan
-                </label>
-                <textarea
-                  {...register('treatment_plan', { required: 'Treatment plan is required' })}
-                  rows={4}
-                  className="w-full p-3 bg-white border-2 border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm hover:shadow-md resize-none"
-                  placeholder="Recommended treatment and procedures"
-                />
-                {errors.treatment_plan && (
-                  <p className="text-sm text-red-600">{errors.treatment_plan.message}</p>
-                )}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Treatment Plan
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        {...register('treatment_plan', { required: 'Treatment plan is required' })}
+                        rows={4}
+                        className="w-full p-3 bg-white border-2 border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all pl-10 resize-none"
+                        placeholder="Recommended treatment and procedures"
+                      />
+                      <Stethoscope className="absolute left-3 top-3 w-4 h-4 text-blue-500" />
+                    </div>
+                    {errors.treatment_plan && (
+                      <p className="text-sm text-red-600 mt-1">{errors.treatment_plan.message}</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Notes */}
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700">
-                Additional Notes
-              </label>
-              <textarea
-                {...register('notes')}
-                rows={3}
-                className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4] transition-all shadow-sm hover:shadow-md resize-none"
-                placeholder="Additional notes and observations (optional)"
-              />
-            </div>
-
-            {/* Follow-up */}
-            <div className="border-t pt-6">
-              <div className="flex items-center space-x-4">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    {...register('follow_up_required')}
-                    className="rounded border-gray-300 text-[#01b9d4] focus:ring-[#01b9d4]"
-                  />
-                  <span className="text-sm font-medium text-gray-700">Follow-up Required</span>
-                </label>
-                {watch('follow_up_required') && (
-                  <input
-                    type="date"
-                    {...register('follow_up_date')}
-                    className="p-2 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-                  />
-                )}
+            {/* Additional Information Section */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <div className="w-1 h-5 bg-purple-600 rounded-full"></div>
+                Additional Information
+              </h3>
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Clinical Notes
+                  </label>
+                  <div className="relative">
+                    <textarea
+                      {...register('notes')}
+                      rows={3}
+                      className="w-full p-3 bg-white border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all pl-10 resize-none"
+                      placeholder="Additional notes and observations (optional)"
+                    />
+                    <MessageSquare className="absolute left-3 top-3 w-4 h-4 text-purple-500" />
+                  </div>
+                </div>
               </div>
             </div>
           </motion.div>
+        )}
+
+        {/* Date Picker Modal */}
+        {isDatePickerOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 mx-4 w-full max-w-[500px] max-h-[85vh] overflow-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900">Select Date & Time</h3>
+                <button 
+                  onClick={() => setIsDatePickerOpen(false)}
+                  className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-4 h-4 text-gray-500" />
+                </button>
+              </div>
+              
+              {/* Month/Year Navigation */}
+              <div className="flex items-center justify-between mb-3">
+                <button 
+                  onClick={() => {
+                    if (currentMonth === 0) {
+                      setCurrentMonth(11);
+                      setCurrentYear(currentYear - 1);
+                    } else {
+                      setCurrentMonth(currentMonth - 1);
+                    }
+                  }}
+                  className="p-3 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5 text-gray-700" />
+                </button>
+                <div className="flex items-center gap-2">
+                  {/* Month Dropdown */}
+                  <select
+                    value={currentMonth}
+                    onChange={(e) => setCurrentMonth(parseInt(e.target.value))}
+                    className="text-lg font-bold text-gray-800 bg-transparent border border-gray-300 rounded-lg px-3 py-1 focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                  >
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <option key={i} value={i}>
+                        {new Date(currentYear, i).toLocaleDateString('en-US', { month: 'long' })}
+                      </option>
+                    ))}
+                  </select>
+                  {/* Year Dropdown */}
+                  <select
+                    value={currentYear}
+                    onChange={(e) => setCurrentYear(parseInt(e.target.value))}
+                    className="text-lg font-bold text-gray-800 bg-transparent border border-gray-300 rounded-lg px-3 py-1 focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                  >
+                    {Array.from({ length: 50 }, (_, i) => {
+                      const year = new Date().getFullYear() - 25 + i;
+                      return (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+                <button 
+                  onClick={() => {
+                    if (currentMonth === 11) {
+                      setCurrentMonth(0);
+                      setCurrentYear(currentYear + 1);
+                    } else {
+                      setCurrentMonth(currentMonth + 1);
+                    }
+                  }}
+                  className="p-3 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <ChevronRight className="w-5 h-5 text-gray-700" />
+                </button>
+              </div>
+
+              {/* Calendar Grid */}
+              <div className="grid grid-cols-7 gap-1 mb-4">
+                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                  <div key={day} className="text-xs font-semibold text-gray-500 text-center py-2">
+                    {day}
+                  </div>
+                ))}
+                {Array.from({ length: new Date(currentYear, currentMonth, 1).getDay() }, (_, i) => (
+                  <div key={`empty-${i}`} className="h-8"></div>
+                ))}
+                {Array.from({ length: new Date(currentYear, currentMonth + 1, 0).getDate() }, (_, i) => {
+                  const day = i + 1;
+                  const isToday = 
+                    new Date().getDate() === day && 
+                    new Date().getMonth() === currentMonth && 
+                    new Date().getFullYear() === currentYear;
+                  const isSelected = 
+                    selectedDate.getDate() === day && 
+                    selectedDate.getMonth() === currentMonth && 
+                    selectedDate.getFullYear() === currentYear;
+                  
+                  return (
+                    <button
+                      key={day}
+                      onClick={() => {
+                        const newDate = new Date(currentYear, currentMonth, day);
+                        setSelectedDate(newDate);
+                      }}
+                      className={`h-8 w-8 text-xs rounded-lg transition-all duration-200 font-medium flex items-center justify-center ${
+                        isSelected
+                          ? 'bg-gradient-to-r from-[#01b9d5] to-[#4bc0c8] text-white font-bold shadow-lg scale-110'
+                          : isToday
+                          ? 'bg-blue-100 text-blue-700 font-bold'
+                          : 'hover:bg-gray-100 text-gray-700 hover:scale-105'
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+
+
+              {/* Quick Action Buttons */}
+              <div className="flex gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const today = new Date();
+                    const currentEncounterDate = watch('encounter_date') || new Date();
+                    const newDateTime = new Date(today);
+                    // Keep the existing time, just update the date
+                    newDateTime.setHours(currentEncounterDate.getHours(), currentEncounterDate.getMinutes(), 0, 0);
+                    setSelectedDate(today);
+                    setCurrentMonth(today.getMonth());
+                    setCurrentYear(today.getFullYear());
+                    setValue('encounter_date', newDateTime);
+                    setIsDatePickerOpen(false);
+                  }}
+                  className="flex-1 px-4 py-2 text-sm bg-gradient-to-r from-[#01b9d5] to-[#4bc0c8] text-white rounded-lg transition-all font-medium hover:shadow-md"
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentEncounterDate = watch('encounter_date') || new Date();
+                    const newDateTime = new Date(selectedDate);
+                    // Keep the existing time, just update the date
+                    newDateTime.setHours(currentEncounterDate.getHours(), currentEncounterDate.getMinutes(), 0, 0);
+                    setValue('encounter_date', newDateTime);
+                    setIsDatePickerOpen(false);
+                  }}
+                  className="flex-1 px-4 py-2 text-sm bg-gradient-to-r from-[#01b9d5] to-[#4bc0c8] text-white rounded-lg transition-all font-medium hover:shadow-md"
+                >
+                  Set Date
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsDatePickerOpen(false)}
+                  className="flex-1 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Time Picker Modal */}
+        {isTimePickerOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-4 mx-4 w-full max-w-[500px] max-h-[85vh] overflow-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900">Select Time</h3>
+                <button 
+                  onClick={() => setIsTimePickerOpen(false)}
+                  className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-4 h-4 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Quick Select */}
+              <div className="p-3 border-b border-gray-100 bg-gray-50 rounded-xl mb-4">
+                <p className="text-xs font-medium text-gray-600 mb-2">Quick Select</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { time: '09:00', label: 'Morning', hour: '09', minute: '00' },
+                    { time: '12:00', label: 'Noon', hour: '12', minute: '00' },
+                    { time: '15:00', label: 'Afternoon', hour: '15', minute: '00' },
+                    { time: '18:00', label: 'Evening', hour: '18', minute: '00' }
+                  ].map((preset) => (
+                    <button
+                      key={preset.time}
+                      type="button"
+                      onClick={() => {
+                        setSelectedHour(preset.hour);
+                        setSelectedMinute(preset.minute);
+                      }}
+                      className="p-2 rounded-lg text-xs font-medium transition-all bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                    >
+                      <p>{preset.time}</p>
+                      <p className="text-[10px] opacity-75">{preset.label}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Time Selector */}
+              <div className="p-4">
+                <div className="flex items-center justify-center gap-4">
+                  {/* Hour Selector */}
+                  <div className="text-center">
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const newHour = (parseInt(selectedHour) + 1) % 24;
+                        setSelectedHour(newHour.toString().padStart(2, '0'));
+                      }}
+                      className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <ChevronUp className="w-5 h-5 text-gray-400" />
+                    </button>
+                    <div className="my-2">
+                      <input 
+                        type="text" 
+                        value={selectedHour}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (/^\d{0,2}$/.test(value) && (value === '' || (parseInt(value) >= 0 && parseInt(value) <= 23))) {
+                            setSelectedHour(value.padStart(2, '0'));
+                          }
+                        }}
+                        className="w-16 h-16 text-2xl font-bold text-center rounded-lg border-2 border-gray-200 focus:border-[#01b9d5] focus:outline-none"
+                      />
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const newHour = parseInt(selectedHour) === 0 ? 23 : parseInt(selectedHour) - 1;
+                        setSelectedHour(newHour.toString().padStart(2, '0'));
+                      }}
+                      className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <ChevronDown className="w-5 h-5 text-gray-400" />
+                    </button>
+                  </div>
+
+                  <div className="text-2xl font-bold text-gray-400">:</div>
+
+                  {/* Minute Selector */}
+                  <div className="text-center">
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const newMinute = (parseInt(selectedMinute) + 15) % 60;
+                        setSelectedMinute(newMinute.toString().padStart(2, '0'));
+                      }}
+                      className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <ChevronUp className="w-5 h-5 text-gray-400" />
+                    </button>
+                    <div className="my-2">
+                      <input 
+                        type="text" 
+                        value={selectedMinute}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (/^\d{0,2}$/.test(value) && (value === '' || (parseInt(value) >= 0 && parseInt(value) <= 59))) {
+                            setSelectedMinute(value.padStart(2, '0'));
+                          }
+                        }}
+                        className="w-16 h-16 text-2xl font-bold text-center rounded-lg border-2 border-gray-200 focus:border-[#01b9d5] focus:outline-none"
+                      />
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        const newMinute = parseInt(selectedMinute) === 0 ? 45 : parseInt(selectedMinute) - 15;
+                        setSelectedMinute(newMinute.toString().padStart(2, '0'));
+                      }}
+                      className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <ChevronDown className="w-5 h-5 text-gray-400" />
+                    </button>
+                  </div>
+
+                  {/* AM/PM Indicator */}
+                  <div className="ml-2">
+                    <div className={`px-3 py-2 rounded-lg font-medium text-sm ${
+                      parseInt(selectedHour) >= 12 ? 'bg-indigo-100 text-indigo-700' : 'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {parseInt(selectedHour) >= 12 ? 'PM' : 'AM'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Available Slots */}
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <p className="text-xs font-medium text-gray-600 mb-2">Available Slots</p>
+                  <div className="grid grid-cols-6 gap-1 max-h-32 overflow-y-auto custom-scrollbar">
+                    {Array.from({ length: 96 }, (_, i) => {
+                      const totalMinutes = i * 15;
+                      const hours = Math.floor(totalMinutes / 60);
+                      const minutes = totalMinutes % 60;
+                      const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                      
+                      return (
+                        <button
+                          key={timeString}
+                          type="button"
+                          onClick={() => {
+                            setSelectedHour(hours.toString().padStart(2, '0'));
+                            setSelectedMinute(minutes.toString().padStart(2, '0'));
+                          }}
+                          className="p-1.5 text-xs rounded transition-all relative text-gray-500 hover:bg-gray-50"
+                        >
+                          {timeString}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const now = new Date();
+                      setSelectedHour(now.getHours().toString().padStart(2, '0'));
+                      setSelectedMinute(now.getMinutes().toString().padStart(2, '0'));
+                    }}
+                    className="px-4 py-2 text-sm bg-gradient-to-r from-[#01b9d5] to-[#4bc0c8] text-white rounded-lg transition-all font-medium hover:shadow-md"
+                  >
+                    Now
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      // Update the encounter_date with new time
+                      const currentDate = watch('encounter_date') || new Date();
+                      const newDateTime = new Date(currentDate);
+                      newDateTime.setHours(parseInt(selectedHour), parseInt(selectedMinute), 0, 0);
+                      setValue('encounter_date', newDateTime);
+                      setIsTimePickerOpen(false);
+                    }}
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-[#01b9d5] to-[#0197a4] text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all"
+                  >
+                    Set Time
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsTimePickerOpen(false)}
+                    className="flex-1 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Dosage Modal */}
+        {isDosageModalOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 mx-4 w-full max-w-4xl max-h-[90vh] overflow-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Select Dosage</h3>
+                <button 
+                  onClick={() => setIsDosageModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Common Dosages Grid */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Common Dosages</h4>
+                <div className="grid grid-cols-6 gap-3">
+                  {[
+                    '5mg', '10mg', '15mg', '20mg', '25mg', '30mg',
+                    '50mg', '75mg', '100mg', '125mg', '150mg', '200mg',
+                    '250mg', '300mg', '400mg', '500mg', '750mg', '1000mg',
+                    '1g', '1.5g', '2g', '2.5g', '3g', '5g',
+                    '5ml', '10ml', '15ml', '20ml', '25ml', '50ml'
+                  ].map((dosage) => (
+                    <button
+                      key={dosage}
+                      type="button"
+                      onClick={() => {
+                        setNewMedication({...newMedication, dosage});
+                        setIsDosageModalOpen(false);
+                      }}
+                      className="p-3 text-sm font-medium text-gray-700 bg-gradient-to-br from-gray-50 to-gray-100 hover:from-blue-50 hover:to-blue-100 hover:text-blue-700 border border-gray-200 hover:border-blue-300 rounded-xl transition-all duration-200 hover:shadow-md"
+                    >
+                      {dosage}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Dosage */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Custom Dosage</h4>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    placeholder="Enter custom dosage (e.g., 375mg, 2.5ml)"
+                    className="flex-1 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                        setNewMedication({...newMedication, dosage: e.currentTarget.value.trim()});
+                        setIsDosageModalOpen(false);
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                      if (input.value.trim()) {
+                        setNewMedication({...newMedication, dosage: input.value.trim()});
+                        setIsDosageModalOpen(false);
+                      }
+                    }}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
+                  >
+                    Set
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Frequency Modal */}
+        {isFrequencyModalOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 mx-4 w-full max-w-3xl max-h-[90vh] overflow-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Select Frequency</h3>
+                <button 
+                  onClick={() => setIsFrequencyModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Common Frequencies Grid */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Common Frequencies</h4>
+                <div className="grid grid-cols-4 gap-3">
+                  {[
+                    'Once daily', 'Twice daily', '3 times daily', '4 times daily',
+                    'Every 4 hours', 'Every 6 hours', 'Every 8 hours', 'Every 12 hours',
+                    'Morning only', 'Evening only', 'With meals', 'Before meals',
+                    'As needed', 'Weekly', 'Twice weekly', 'Monthly'
+                  ].map((frequency) => (
+                    <button
+                      key={frequency}
+                      type="button"
+                      onClick={() => {
+                        setNewMedication({...newMedication, frequency});
+                        setIsFrequencyModalOpen(false);
+                      }}
+                      className="p-3 text-sm font-medium text-gray-700 bg-gradient-to-br from-gray-50 to-gray-100 hover:from-green-50 hover:to-green-100 hover:text-green-700 border border-gray-200 hover:border-green-300 rounded-xl transition-all duration-200 hover:shadow-md text-center"
+                    >
+                      {frequency}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Frequency */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Custom Frequency</h4>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    placeholder="Enter custom frequency (e.g., Every 2 hours as needed)"
+                    className="flex-1 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                        setNewMedication({...newMedication, frequency: e.currentTarget.value.trim()});
+                        setIsFrequencyModalOpen(false);
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                      if (input.value.trim()) {
+                        setNewMedication({...newMedication, frequency: input.value.trim()});
+                        setIsFrequencyModalOpen(false);
+                      }
+                    }}
+                    className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-colors font-medium"
+                  >
+                    Set
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Duration Modal */}
+        {isDurationModalOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 mx-4 w-full max-w-3xl max-h-[90vh] overflow-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Select Duration</h3>
+                <button 
+                  onClick={() => setIsDurationModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Common Durations Grid */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Common Durations</h4>
+                <div className="grid grid-cols-5 gap-3">
+                  {[
+                    '3 days', '5 days', '7 days', '10 days', '14 days',
+                    '2 weeks', '3 weeks', '4 weeks', '1 month', '2 months',
+                    '3 months', '6 months', '1 year', 'Until finished', 'Ongoing'
+                  ].map((duration) => (
+                    <button
+                      key={duration}
+                      type="button"
+                      onClick={() => {
+                        setNewMedication({...newMedication, duration});
+                        setIsDurationModalOpen(false);
+                      }}
+                      className="p-3 text-sm font-medium text-gray-700 bg-gradient-to-br from-gray-50 to-gray-100 hover:from-purple-50 hover:to-purple-100 hover:text-purple-700 border border-gray-200 hover:border-purple-300 rounded-xl transition-all duration-200 hover:shadow-md text-center"
+                    >
+                      {duration}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Duration */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Custom Duration</h4>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    placeholder="Enter custom duration (e.g., 21 days, 6 weeks)"
+                    className="flex-1 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                        setNewMedication({...newMedication, duration: e.currentTarget.value.trim()});
+                        setIsDurationModalOpen(false);
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                      if (input.value.trim()) {
+                        setNewMedication({...newMedication, duration: input.value.trim()});
+                        setIsDurationModalOpen(false);
+                      }
+                    }}
+                    className="px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors font-medium"
+                  >
+                    Set
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Special Instructions Modal */}
+        {isInstructionsModalOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 mx-4 w-full max-w-4xl max-h-[90vh] overflow-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Select Special Instructions</h3>
+                <button 
+                  onClick={() => setIsInstructionsModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Common Instructions Grid */}
+              <div className="mb-6">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Common Instructions</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    'Take with food', 'Take on empty stomach', 'Take with plenty of water',
+                    'Avoid alcohol', 'Take at bedtime', 'Take in the morning',
+                    'Do not crush or chew', 'May cause drowsiness', 'Avoid dairy products',
+                    'Complete full course', 'Store in refrigerator', 'Shake well before use'
+                  ].map((instruction) => (
+                    <button
+                      key={instruction}
+                      type="button"
+                      onClick={() => {
+                        setNewMedication({...newMedication, instructions: instruction});
+                        setIsInstructionsModalOpen(false);
+                      }}
+                      className="p-3 text-sm font-medium text-gray-700 bg-gradient-to-br from-gray-50 to-gray-100 hover:from-orange-50 hover:to-orange-100 hover:text-orange-700 border border-gray-200 hover:border-orange-300 rounded-xl transition-all duration-200 hover:shadow-md text-center"
+                    >
+                      {instruction}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Instructions */}
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Custom Instructions</h4>
+                <div className="flex gap-3">
+                  <textarea
+                    placeholder="Enter custom instructions..."
+                    rows={3}
+                    className="flex-1 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all resize-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.ctrlKey && e.currentTarget.value.trim()) {
+                        setNewMedication({...newMedication, instructions: e.currentTarget.value.trim()});
+                        setIsInstructionsModalOpen(false);
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const textarea = e.currentTarget.previousElementSibling as HTMLTextAreaElement;
+                      if (textarea.value.trim()) {
+                        setNewMedication({...newMedication, instructions: textarea.value.trim()});
+                        setIsInstructionsModalOpen(false);
+                      }
+                    }}
+                    className="px-6 py-3 bg-orange-600 text-white rounded-xl hover:bg-orange-700 transition-colors font-medium self-start"
+                  >
+                    Set
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Tip: Press Ctrl+Enter to set custom instructions</p>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Vitals Tab */}
@@ -374,84 +1467,124 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
+            className="space-y-8"
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">Blood Pressure</label>
-                <input
-                  type="text"
-                  {...register('vitals.blood_pressure')}
-                  placeholder="120/80"
-                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-                />
+            {/* Primary Vitals Section */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <div className="w-1 h-5 bg-[#01b9d4] rounded-full"></div>
+                Primary Vitals
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="bg-gradient-to-br from-red-50 to-red-100/50 p-4 rounded-xl border border-red-200/50">
+                  <label className="block text-sm font-semibold text-red-700 mb-2">Blood Pressure</label>
+                  <input
+                    type="text"
+                    {...register('vitals.blood_pressure')}
+                    placeholder="120/80"
+                    className="w-full p-3 bg-white border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+                  />
+                </div>
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 p-4 rounded-xl border border-orange-200/50">
+                  <label className="block text-sm font-semibold text-orange-700 mb-2">Temperature (°C)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    {...register('vitals.temperature')}
+                    placeholder="36.5"
+                    className="w-full p-3 bg-white border border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+                  />
+                </div>
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 p-4 rounded-xl border border-purple-200/50">
+                  <label className="block text-sm font-semibold text-purple-700 mb-2">Pulse (bpm)</label>
+                  <input
+                    type="number"
+                    {...register('vitals.pulse_rate')}
+                    placeholder="72"
+                    className="w-full p-3 bg-white border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
+                  />
+                </div>
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 p-4 rounded-xl border border-blue-200/50">
+                  <label className="block text-sm font-semibold text-blue-700 mb-2">Respiratory Rate</label>
+                  <input
+                    type="number"
+                    {...register('vitals.respiratory_rate')}
+                    placeholder="16"
+                    className="w-full p-3 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  />
+                </div>
+                <div className="bg-gradient-to-br from-cyan-50 to-cyan-100/50 p-4 rounded-xl border border-cyan-200/50">
+                  <label className="block text-sm font-semibold text-cyan-700 mb-2">Oxygen Saturation (%)</label>
+                  <input
+                    type="number"
+                    {...register('vitals.oxygen_saturation')}
+                    placeholder="98"
+                    className="w-full p-3 bg-white border border-cyan-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">Temperature (°C)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  {...register('vitals.temperature')}
-                  placeholder="36.5"
-                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">Pulse (bpm)</label>
-                <input
-                  type="number"
-                  {...register('vitals.pulse_rate')}
-                  placeholder="72"
-                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">Respiratory Rate</label>
-                <input
-                  type="number"
-                  {...register('vitals.respiratory_rate')}
-                  placeholder="16"
-                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">Weight (kg)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  {...register('vitals.weight')}
-                  placeholder="70.0"
-                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">Height (cm)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  {...register('vitals.height')}
-                  placeholder="175.0"
-                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">BMI</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  {...register('vitals.bmi')}
-                  placeholder="22.9"
-                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">Oxygen Saturation (%)</label>
-                <input
-                  type="number"
-                  {...register('vitals.oxygen_saturation')}
-                  placeholder="98"
-                  className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-                />
+            </div>
+
+            {/* Body Measurements Section */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <div className="w-1 h-5 bg-purple-600 rounded-full"></div>
+                Body Measurements
+              </h3>
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Weight (kg)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.1"
+                        {...register('vitals.weight')}
+                        placeholder="70.0"
+                        className="w-full p-3 bg-white border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all pl-10"
+                      />
+                      <Weight className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-green-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Height (cm)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.1"
+                        {...register('vitals.height')}
+                        placeholder="175.0"
+                        className="w-full p-3 bg-white border-2 border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all pl-10"
+                      />
+                      <Thermometer className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-500 rotate-90" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                      BMI
+                      <span className="text-xs font-normal text-gray-500">(Auto-calculated)</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.1"
+                        {...register('vitals.bmi')}
+                        value={watch('vitals.bmi') || ''}
+                        readOnly
+                        className="w-full p-3 bg-gray-100 border-2 border-gray-300 rounded-lg text-gray-600 cursor-not-allowed pl-10"
+                      />
+                      <Activity className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+                    {watch('vitals.bmi') && (
+                      <p className="text-xs mt-1 text-gray-500">
+                        {(watch('vitals.bmi') || 0) < 18.5 && 'Underweight'}
+                        {(watch('vitals.bmi') || 0) >= 18.5 && (watch('vitals.bmi') || 0) < 25 && 'Normal weight'}
+                        {(watch('vitals.bmi') || 0) >= 25 && (watch('vitals.bmi') || 0) < 30 && 'Overweight'}
+                        {(watch('vitals.bmi') || 0) >= 30 && 'Obese'}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -462,55 +1595,530 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
+            className="space-y-8"
+          >
+            {/* Prescription Section */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                  <div className="w-1 h-5 bg-green-600 rounded-full"></div>
+                  Prescription Notes
+                </h3>
+                <button
+                  type="button"
+                  className="p-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
+                  title="AI-Powered Prescription Assistant"
+                >
+                  <Bot className="w-4 h-4" />
+                  <Camera className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
+                <textarea
+                  {...register('prescription')}
+                  rows={6}
+                  className="w-full p-3 bg-white border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm hover:shadow-md resize-none"
+                  placeholder="General prescription notes and instructions..."
+                />
+              </div>
+            </div>
+
+            {/* Prescribed Medications Table */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                  <div className="w-1 h-5 bg-blue-600 rounded-full"></div>
+                  Prescribed Medications
+                </h3>
+                <button
+                  type="button"
+                  onClick={refreshMedications}
+                  className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-1"
+                >
+                  <Activity className="w-3 h-3" />
+                  Refresh
+                </button>
+              </div>
+              
+              {/* Add New Medication Form */}
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50 mb-6">
+                <h4 className="text-md font-semibold text-gray-700 mb-4">Add New Medication</h4>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Medication Name</label>
+                    <input
+                      type="text"
+                      value={newMedication.medication_name}
+                      onChange={(e) => setNewMedication({...newMedication, medication_name: e.target.value})}
+                      className="w-full p-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+                      placeholder="e.g., Amoxicillin"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Dosage</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsDosageModalOpen(true)}
+                      className="w-full p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-left flex items-center justify-between"
+                    >
+                      <span className={newMedication.dosage ? 'text-gray-900' : 'text-gray-500'}>
+                        {newMedication.dosage || 'Select dosage'}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </button>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsFrequencyModalOpen(true)}
+                      className="w-full p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-left flex items-center justify-between"
+                    >
+                      <span className={newMedication.frequency ? 'text-gray-900' : 'text-gray-500'}>
+                        {newMedication.frequency || 'Select frequency'}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </button>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsDurationModalOpen(true)}
+                      className="w-full p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-left flex items-center justify-between"
+                    >
+                      <span className={newMedication.duration ? 'text-gray-900' : 'text-gray-500'}>
+                        {newMedication.duration || 'Select duration'}
+                      </span>
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    </button>
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (newMedication.medication_name && newMedication.dosage) {
+                          setMedications([...medications, { ...newMedication, id: Date.now() }]);
+                          setNewMedication({
+                            medication_name: '',
+                            dosage: '',
+                            frequency: '',
+                            duration: '',
+                            instructions: ''
+                          });
+                        }
+                      }}
+                      className="w-full p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm font-medium"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Special Instructions</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsInstructionsModalOpen(true)}
+                    className="w-full p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-left flex items-center justify-between"
+                  >
+                    <span className={newMedication.instructions ? 'text-gray-900' : 'text-gray-500'}>
+                      {newMedication.instructions || 'Select special instructions'}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Medications Table */}
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Medication</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Dosage</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Frequency</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Duration</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Instructions</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {medications.length > 0 ? (
+                        medications.map((med: any) => (
+                          <tr key={med.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-900">{med.medication_name}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{med.dosage}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{med.frequency}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{med.duration}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{med.instructions}</td>
+                            <td className="px-4 py-3 text-sm">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  className="p-1 text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                                  title="Edit medication"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setMedications(medications.filter((m: any) => m.id !== med.id))}
+                                  className="p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
+                                  title="Remove medication"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                            <div className="flex flex-col items-center">
+                              <Pill className="w-12 h-12 text-gray-300 mb-3" />
+                              <p className="text-sm">No medications prescribed yet</p>
+                              <p className="text-xs text-gray-400 mt-1">Add medications using the form above</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Laboratory Tab */}
+        {activeTab === 'laboratory' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700">
-                Prescription
-              </label>
-              <textarea
-                {...register('prescription')}
-                rows={8}
-                className="w-full p-3 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4] transition-all shadow-sm hover:shadow-md resize-none"
-                placeholder="Medications and dosage instructions (optional)"
+            {/* Upload Section */}
+            <motion.div
+              className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${
+                labDragging 
+                  ? 'border-[#01b9d4] bg-cyan-50/50' 
+                  : 'border-gray-300 hover:border-gray-400'
+              }`}
+              onDrop={(e) => handleDrop(e, 'lab')}
+              onDragOver={(e) => handleDragOver(e, 'lab')}
+              onDragLeave={(e) => handleDragLeave(e, 'lab')}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+            >
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.txt"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                onChange={(e) => console.log('Files selected:', e.target.files)}
               />
+              
+              <div className={`p-4 rounded-full mx-auto mb-4 w-fit ${labDragging ? 'bg-cyan-100' : 'bg-gray-100'}`}>
+                <Upload className={`w-8 h-8 ${labDragging ? 'text-[#01b9d4]' : 'text-gray-400'}`} />
+              </div>
+              
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                {labDragging ? 'Drop files here' : 'Upload Lab Results'}
+              </h3>
+              <p className="text-gray-600 text-sm mb-3">
+                Drag and drop files here, or click to browse
+              </p>
+              <p className="text-xs text-gray-500 mb-1">
+                Supports: PDF, Images (JPG, PNG, GIF, WebP), Word docs, Excel, Text files
+              </p>
+              <p className="text-xs text-gray-500 mb-4">
+                Maximum file size: 50MB
+              </p>
+              
+              {/* Camera Button */}
+              <button
+                type="button"
+                onClick={() => handleTakePicture('lab')}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <Camera className="w-4 h-4" />
+                Take Picture
+              </button>
+            </motion.div>
+
+            {/* Search and Filter */}
+            <div className="flex gap-4">
+              <div className="flex-1 relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search lab results..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500/20 focus:border-green-500"
+                />
+              </div>
+              <select className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500/20 focus:border-green-500">
+                <option>All Categories</option>
+                <option>Blood Tests</option>
+                <option>Urine Tests</option>
+                <option>Radiology</option>
+                <option>Pathology</option>
+              </select>
+              
+              {/* View Mode Toggle */}
+              <div className="flex border border-gray-200 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setLabViewMode('grid')}
+                  className={`p-2 ${labViewMode === 'grid' ? 'bg-green-100 text-green-600' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  <Grid className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLabViewMode('list')}
+                  className={`p-2 ${labViewMode === 'list' ? 'bg-green-100 text-green-600' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* No Documents State */}
+            <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+              <Microscope className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h4 className="text-lg font-medium text-gray-900 mb-2">No lab results uploaded</h4>
+              <p className="text-gray-500">Upload lab results to get started</p>
             </div>
           </motion.div>
         )}
 
-        {/* Lab Results Tab */}
-        {activeTab === 'results' && (
+        {/* Imaging Tab */}
+        {activeTab === 'imaging' && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <div className="text-center py-8">
-              <Microscope className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Lab Results</h3>
-              <p className="text-gray-600">Lab results functionality will be implemented here</p>
+            {/* Upload Section */}
+            <motion.div
+              className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${
+                imagingDragging 
+                  ? 'border-[#01b9d4] bg-cyan-50/50' 
+                  : 'border-gray-300 hover:border-gray-400'
+              }`}
+              onDrop={(e) => handleDrop(e, 'imaging')}
+              onDragOver={(e) => handleDragOver(e, 'imaging')}
+              onDragLeave={(e) => handleDragLeave(e, 'imaging')}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+            >
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.dcm,.dicom"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                onChange={(e) => console.log('Files selected:', e.target.files)}
+              />
+              
+              <div className={`p-4 rounded-full mx-auto mb-4 w-fit ${imagingDragging ? 'bg-cyan-100' : 'bg-gray-100'}`}>
+                <Upload className={`w-8 h-8 ${imagingDragging ? 'text-[#01b9d4]' : 'text-gray-400'}`} />
+              </div>
+              
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                {imagingDragging ? 'Drop files here' : 'Upload Imaging Files'}
+              </h3>
+              <p className="text-gray-600 text-sm mb-3">
+                Drag and drop files here, or click to browse
+              </p>
+              <p className="text-xs text-gray-500 mb-1">
+                Supports: PDF, Images (JPG, PNG, GIF, WebP), DICOM files
+              </p>
+              <p className="text-xs text-gray-500">
+                Maximum file size: 50MB
+              </p>
+            </motion.div>
+
+            {/* Search and Filter */}
+            <div className="flex gap-4">
+              <div className="flex-1 relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search imaging studies..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+              <select className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500">
+                <option>All Categories</option>
+                <option>X-Ray</option>
+                <option>CT Scan</option>
+                <option>MRI</option>
+                <option>Ultrasound</option>
+                <option>Mammography</option>
+              </select>
+              
+              {/* View Mode Toggle */}
+              <div className="flex border border-gray-200 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setImagingViewMode('grid')}
+                  className={`p-2 ${imagingViewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  <Grid className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImagingViewMode('list')}
+                  className={`p-2 ${imagingViewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* No Documents State */}
+            <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+              <Film className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h4 className="text-lg font-medium text-gray-900 mb-2">No imaging studies uploaded</h4>
+              <p className="text-gray-500">Upload imaging files to get started</p>
             </div>
           </motion.div>
         )}
 
-        {/* History Tab */}
-        {activeTab === 'history' && (
+        {/* Media Tab */}
+        {activeTab === 'media' && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
-            <div className="text-center py-8">
-              <CheckCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Visit History</h3>
-              <p className="text-gray-600">Visit history functionality will be implemented here</p>
+            {/* Upload Section */}
+            <motion.div
+              className={`relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-300 ${
+                mediaDragging 
+                  ? 'border-[#01b9d4] bg-cyan-50/50' 
+                  : 'border-gray-300 hover:border-gray-400'
+              }`}
+              onDrop={(e) => handleDrop(e, 'media')}
+              onDragOver={(e) => handleDragOver(e, 'media')}
+              onDragLeave={(e) => handleDragLeave(e, 'media')}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+            >
+              <input
+                type="file"
+                multiple
+                accept=".jpg,.jpeg,.png,.gif,.webp,.mp4,.avi,.mov,.mp3,.wav,.m4a"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                onChange={(e) => console.log('Files selected:', e.target.files)}
+              />
+              
+              <div className={`p-4 rounded-full mx-auto mb-4 w-fit ${mediaDragging ? 'bg-cyan-100' : 'bg-gray-100'}`}>
+                <Upload className={`w-8 h-8 ${mediaDragging ? 'text-[#01b9d4]' : 'text-gray-400'}`} />
+              </div>
+              
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                {mediaDragging ? 'Drop files here' : 'Upload Media Files'}
+              </h3>
+              <p className="text-gray-600 text-sm mb-3">
+                Drag and drop files here, or click to browse
+              </p>
+              <p className="text-xs text-gray-500 mb-1">
+                Supports: Images (JPG, PNG, GIF, WebP), Videos (MP4, AVI, MOV), Audio (MP3, WAV, M4A)
+              </p>
+              <p className="text-xs text-gray-500 mb-4">
+                Maximum file size: 50MB
+              </p>
+              
+              {/* Camera Button */}
+              <button
+                type="button"
+                onClick={() => handleTakePicture('media')}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <Camera className="w-4 h-4" />
+                Take Picture
+              </button>
+            </motion.div>
+
+            {/* Search and Filter */}
+            <div className="flex gap-4">
+              <div className="flex-1 relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search media files..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                />
+              </div>
+              <select className="px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500">
+                <option>All Categories</option>
+                <option>Clinical Photos</option>
+                <option>Before/After</option>
+                <option>Wound Documentation</option>
+                <option>Procedure Videos</option>
+                <option>Audio Notes</option>
+              </select>
+              
+              {/* View Mode Toggle */}
+              <div className="flex border border-gray-200 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setMediaViewMode('grid')}
+                  className={`p-2 ${mediaViewMode === 'grid' ? 'bg-purple-100 text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  <Grid className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMediaViewMode('list')}
+                  className={`p-2 ${mediaViewMode === 'list' ? 'bg-purple-100 text-purple-600' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* No Documents State */}
+            <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+              <ImageIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h4 className="text-lg font-medium text-gray-900 mb-2">No media files uploaded</h4>
+              <p className="text-gray-500">Upload media files to get started</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Billing Tab */}
+        {activeTab === 'billing' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <EnhancedDentalServiceSelector
+              selectedServices={selectedServices}
+              onServiceChange={setSelectedServices}
+            />
+
+            {/* Invoice Generation Option */}
+            <div className="border-t pt-6">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  {...register('generateInvoice')}
+                  className="rounded border-gray-300 text-[#01b9d4] focus:ring-[#01b9d4]"
+                />
+                <span className="text-sm font-medium text-gray-700">Generate/update invoice automatically</span>
+              </label>
             </div>
           </motion.div>
         )}
       </div>
 
-      {/* Form Actions - Sticky at bottom */}
-      <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex justify-end space-x-3">
+      {/* Form Actions */}
+      <div className="border-t border-gray-200 pt-6 mt-8 flex justify-end space-x-3">
         <button
           type="button"
           onClick={onCancel}
@@ -521,16 +2129,16 @@ const EditVisitTabs: React.FC<Props> = ({ visitId, patientId, activeTab, onSucce
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-6 py-2.5 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-xl hover:shadow-lg transition-all flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" />
               Updating Visit...
             </>
           ) : (
             <>
-              <Save className="w-4 h-4" />
+              <Save className="w-5 h-5" />
               Update Visit
             </>
           )}
