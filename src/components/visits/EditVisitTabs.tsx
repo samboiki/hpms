@@ -2586,71 +2586,142 @@ const EditVisitTabs: React.FC<Props> = ({
               </button>
             </div>
 
-            {/* Selected Services Summary */}
+            {/* Premium Services Table */}
             {selectedServices.length > 0 && (
-              <div>
-                <div className="flex items-center mb-4">
-                  <div className="w-1 h-5 rounded-full" style={{ background: 'linear-gradient(to bottom, #30b4be, #2a9da6)' }}></div>
-                  <h4 className="text-md font-semibold text-gray-700 ml-2">Selected Services</h4>
-                </div>
-              
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                {/* Header */}
-                <div className="px-6 py-4 border-b border-gray-200" style={{ background: 'linear-gradient(135deg, #30b4be, #2a9da6)' }}>
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+                className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-xl shadow-gray-200/20"
+              >
+                {/* Sleek Header */}
+                <div className="px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-lg font-semibold text-white">Services for this Visit</h4>
-                    <div className="text-white text-sm">
-                      {selectedServices.length} service{selectedServices.length !== 1 ? 's' : ''}
+                    <div className="flex items-center gap-3">
+                      <motion.div 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.1, type: "spring", stiffness: 300 }}
+                        className="p-2 rounded-lg bg-gradient-to-br from-gray-100 to-gray-200"
+                      >
+                        <Receipt className="w-5 h-5 text-gray-600" />
+                      </motion.div>
+                      <div>
+                        <h4 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          Services for this Visit
+                        </h4>
+                        <p className="text-sm text-gray-500 mt-0.5">
+                          {selectedServices.length} service{selectedServices.length !== 1 ? 's' : ''} selected
+                        </p>
+                      </div>
                     </div>
+                    <motion.div 
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.2, type: "spring", stiffness: 300 }}
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-100 to-gray-200 rounded-full"
+                    >
+                      <Calculator className="w-4 h-4 text-gray-600" />
+                      <span className="text-lg font-bold text-gray-700">
+                        N${selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0).toFixed(2)}
+                      </span>
+                    </motion.div>
                   </div>
                 </div>
                 
-                {/* Table */}
+                {/* Premium Table */}
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Code</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Qty</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Unit Price</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total</th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Action</th>
+                    <thead>
+                      <tr className="bg-gradient-to-r from-gray-50/50 to-gray-100/30 border-b border-gray-100">
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-3.5 h-3.5" />
+                            Code
+                          </div>
+                        </th>
+                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wide">
+                          <div className="flex items-center gap-2">
+                            <ClipboardList className="w-3.5 h-3.5" />
+                            Description
+                          </div>
+                        </th>
+                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wide">
+                          <div className="flex items-center justify-center gap-2">
+                            <Calculator className="w-3.5 h-3.5" />
+                            Qty
+                          </div>
+                        </th>
+                        <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wide">
+                          Unit Price
+                        </th>
+                        <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wide">
+                          <div className="flex items-center justify-end gap-2">
+                            Total
+                            <Receipt className="w-3.5 h-3.5" />
+                          </div>
+                        </th>
+                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wide">
+                          Action
+                        </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-gray-50">
                       {selectedServices.map((service, index) => (
-                        <tr key={service.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-gray-900">{service.code}</span>
-                              <div className="flex gap-1">
+                        <motion.tr 
+                          key={service.id} 
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1, duration: 0.3 }}
+                          className="group hover:bg-gradient-to-r hover:from-gray-50/50 hover:to-blue-50/30 transition-all duration-200"
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <span className="text-lg font-bold text-gray-900" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                                {service.code}
+                              </span>
+                              <div className="flex gap-2">
                                 {service.isRequired && (
-                                  <span className="px-2 py-1 bg-red-100 text-red-600 text-xs font-medium rounded-full">
+                                  <motion.span 
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{ delay: 0.3 }}
+                                    className="px-2 py-1 bg-red-100 text-red-600 text-xs font-bold rounded-full flex items-center gap-1"
+                                  >
+                                    <AlertCircle className="w-3 h-3" />
                                     Required
-                                  </span>
+                                  </motion.span>
                                 )}
                                 {service.isAutoGenerated && (
-                                  <span className="px-2 py-1 bg-amber-100 text-amber-600 text-xs font-medium rounded-full">
+                                  <motion.span 
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    transition={{ delay: 0.3 }}
+                                    className="px-2 py-1 bg-amber-100 text-amber-600 text-xs font-bold rounded-full flex items-center gap-1"
+                                  >
+                                    <Bot className="w-3 h-3" />
                                     Auto
-                                  </span>
+                                  </motion.span>
                                 )}
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="text-sm text-gray-900 font-medium leading-tight">
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-900 font-semibold leading-tight">
                               {service.description}
                             </div>
                             {service.teethNumbers && service.teethNumbers.length > 0 && (
-                              <div className="text-xs text-gray-500 mt-1">
+                              <div className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                <Stethoscope className="w-3 h-3" />
                                 Teeth: {service.teethNumbers.join(', ')}
                               </div>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <button
+                          <td className="px-6 py-4 text-center">
+                            <div className="flex items-center justify-center gap-3">
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
                                 type="button"
                                 disabled={!service.canBeMultiplied || service.quantity <= 1 || service.isRequired}
                                 onClick={(e) => {
@@ -2664,18 +2735,20 @@ const EditVisitTabs: React.FC<Props> = ({
                                   setSelectedServices(updatedServices);
                                   if (onSelectedServicesChange) onSelectedServicesChange(updatedServices);
                                 }}
-                                className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
+                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
                                   !service.canBeMultiplied || service.quantity <= 1 || service.isRequired
-                                    ? 'text-gray-300 cursor-not-allowed'
-                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                                    ? 'text-gray-300 cursor-not-allowed bg-gray-100'
+                                    : 'text-white bg-gradient-to-br from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 shadow-md hover:shadow-lg'
                                 }`}
                               >
-                                <Minus className="w-3 h-3" />
-                              </button>
-                              <span className="font-semibold text-gray-900 min-w-[20px] text-center">
+                                <Minus className="w-4 h-4" />
+                              </motion.button>
+                              <span className="text-lg font-bold text-gray-900 min-w-[30px] text-center px-3 py-1 bg-gray-100 rounded-lg">
                                 {service.quantity}
                               </span>
-                              <button
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
                                 type="button"
                                 disabled={!service.canBeMultiplied || service.isRequired}
                                 onClick={(e) => {
@@ -2689,28 +2762,36 @@ const EditVisitTabs: React.FC<Props> = ({
                                   setSelectedServices(updatedServices);
                                   if (onSelectedServicesChange) onSelectedServicesChange(updatedServices);
                                 }}
-                                className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
+                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
                                   !service.canBeMultiplied || service.isRequired
-                                    ? 'text-gray-300 cursor-not-allowed'
-                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                                    ? 'text-gray-300 cursor-not-allowed bg-gray-100'
+                                    : 'text-white bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 shadow-md hover:shadow-lg'
                                 }`}
                               >
-                                <Plus className="w-3 h-3" />
-                              </button>
+                                <Plus className="w-4 h-4" />
+                              </motion.button>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-right">
-                            <span className="font-semibold text-gray-900">
+                          <td className="px-6 py-4 text-right">
+                            <span className="text-lg font-bold text-gray-900">
                               N${service.unitPrice.toFixed(2)}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right">
-                            <span className="font-bold text-lg" style={{ color: '#30b4be' }}>
+                          <td className="px-6 py-4 text-right">
+                            <motion.span 
+                              key={service.totalPrice}
+                              initial={{ scale: 1.1 }}
+                              animate={{ scale: 1 }}
+                              className="text-xl font-bold" 
+                              style={{ color: '#30b4be', fontFamily: 'Rubik, sans-serif' }}
+                            >
                               N${service.totalPrice.toFixed(2)}
-                            </span>
+                            </motion.span>
                           </td>
-                          <td className="px-4 py-3 text-center">
-                            <button
+                          <td className="px-6 py-4 text-center">
+                            <motion.button
+                              whileHover={{ scale: 1.1, rotate: service.isRequired ? 0 : 5 }}
+                              whileTap={{ scale: 0.9 }}
                               type="button"
                               disabled={service.isRequired}
                               onClick={(e) => {
@@ -2727,38 +2808,67 @@ const EditVisitTabs: React.FC<Props> = ({
                                 setSelectedServices(finalServices);
                                 if (onSelectedServicesChange) onSelectedServicesChange(finalServices);
                               }}
-                              className={`p-2 rounded-full transition-colors ${
+                              className={`p-3 rounded-full transition-all duration-200 ${
                                 service.isRequired
-                                  ? 'text-gray-300 cursor-not-allowed'
-                                  : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+                                  ? 'text-gray-300 cursor-not-allowed bg-gray-100'
+                                  : 'text-red-400 hover:text-white hover:bg-red-500 bg-red-50 hover:shadow-lg'
                               }`}
                               title={service.isRequired ? 'Required service cannot be removed' : 'Remove service'}
                             >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                              <Trash2 className="w-5 h-5" />
+                            </motion.button>
                           </td>
-                        </tr>
+                        </motion.tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
                 
-                {/* Footer Total */}
-                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-t">
+                {/* Premium Footer */}
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.5 }}
+                  className="bg-gradient-to-r from-gray-50 to-white px-8 py-6 border-t border-gray-100"
+                >
                   <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-600">
-                      <span className="font-semibold">{selectedServices.length}</span> services selected
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm text-gray-500 mb-1">Visit Total</div>
-                      <div className="text-2xl font-bold" style={{ color: '#30b4be' }}>
-                        N${selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0).toFixed(2)}
+                    <div className="flex items-center gap-3">
+                      <motion.div 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.6, type: "spring", stiffness: 300 }}
+                        className="p-2 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg"
+                      >
+                        <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                      </motion.div>
+                      <div>
+                        <div className="text-lg font-bold text-gray-900">
+                          {selectedServices.length} Service{selectedServices.length !== 1 ? 's' : ''} Selected
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          Ready for billing
+                        </div>
                       </div>
                     </div>
+                    <div className="text-right">
+                      <div className="text-sm text-gray-500 mb-1 flex items-center justify-end gap-1">
+                        <Calculator className="w-4 h-4" />
+                        Visit Total
+                      </div>
+                      <motion.div 
+                        key={selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0)}
+                        initial={{ scale: 1.1 }}
+                        animate={{ scale: 1 }}
+                        transition={{ duration: 0.2 }}
+                        className="text-3xl font-black" 
+                        style={{ color: '#30b4be', fontFamily: 'Rubik, sans-serif' }}
+                      >
+                        N${selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0).toFixed(2)}
+                      </motion.div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </div>
+                </motion.div>
+              </motion.div>
             )}
 
             {/* Invoice Generation Options */}
