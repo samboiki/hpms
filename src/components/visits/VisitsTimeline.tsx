@@ -25,6 +25,7 @@ import FormModal from '../modals/FormModal';
 import VisitCard from './VisitCard';
 import VisitModal from './VisitModal';
 import PremiumEditVisitForm from '../forms/PremiumEditVisitForm';
+import FullScreenEditVisitModal from './FullScreenEditVisitModal';
 
 interface Visit {
   id: string;
@@ -430,23 +431,16 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
       </FormModal>
 
       {selectedVisit && (
-        <FormModal
+        <FullScreenEditVisitModal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
-          title="Edit Visit"
-        >
-          <PremiumEditVisitForm
-            visitId={selectedVisit.id}
-            patientId={patientId}
-            onSuccess={() => {
-              setIsEditModalOpen(false);
-              fetchVisits();
-            }}
-            onCancel={() => {
-              setIsEditModalOpen(false);
-            }}
-          />
-        </FormModal>
+          visitId={selectedVisit.id}
+          patientId={patientId}
+          onSuccess={() => {
+            setIsEditModalOpen(false);
+            fetchVisits();
+          }}
+        />
       )}
     </Card>
   );

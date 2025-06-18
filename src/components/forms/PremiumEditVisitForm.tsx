@@ -51,6 +51,8 @@ interface Props {
   patientId: string;
   onSuccess: () => void;
   onCancel: () => void;
+  activeTab?: string;
+  isFullScreen?: boolean;
 }
 
 
@@ -105,13 +107,20 @@ const ProfessionalDropdown: React.FC<{
   );
 };
 
-const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, onCancel }) => {
+const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, onCancel, activeTab: externalActiveTab, isFullScreen = false }) => {
   const [activeTab, setActiveTab] = useState('encounter');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedServices, setSelectedServices] = useState<ServiceSelection[]>([]);
   const [labResults, setLabResults] = useState<any[]>([]);
   const [mediaFiles, setMediaFiles] = useState<any[]>([]);
+
+  // Sync external activeTab with internal state
+  useEffect(() => {
+    if (externalActiveTab) {
+      setActiveTab(externalActiveTab);
+    }
+  }, [externalActiveTab]);
 
   const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm<PremiumEditVisitFormData>({
     defaultValues: {
@@ -446,27 +455,29 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Premium Tabs */}
-        <div className="flex space-x-1 bg-gradient-to-r from-blue-50 to-purple-50 p-1 rounded-xl border border-blue-100">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all ${
-                activeTab === tab.id
-                  ? 'bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white shadow-lg transform scale-105'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-              }`}
-              style={{ fontFamily: 'Rubik, sans-serif' }}
-            >
-              <tab.icon className="w-4 h-4" />
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </div>
+    <div className={isFullScreen ? "h-full flex flex-col" : "max-w-6xl mx-auto"}>
+      <form onSubmit={handleSubmit(onSubmit)} className={isFullScreen ? "h-full flex flex-col space-y-6" : "space-y-6"}>
+        {/* Premium Tabs - Only show if not in full screen mode */}
+        {!isFullScreen && (
+          <div className="flex space-x-1 bg-gradient-to-r from-blue-50 to-purple-50 p-1 rounded-xl border border-blue-100">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium text-sm transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white shadow-lg transform scale-105'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                }`}
+                style={{ fontFamily: 'Rubik, sans-serif' }}
+              >
+                <tab.icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Tab Content - Same structure as AddVisitForm but with existing data loaded */}
         <AnimatePresence mode="wait">
@@ -476,7 +487,10 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
+            className={isFullScreen 
+              ? "flex-1 overflow-auto p-6 bg-white" 
+              : "bg-white rounded-xl shadow-sm border border-gray-100 p-6"
+            }
           >
             {/* Encounter Tab - Same as AddVisitForm */}
             {activeTab === 'encounter' && (
@@ -816,7 +830,10 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
         </AnimatePresence>
 
         {/* Form Actions */}
-        <div className="flex justify-end space-x-3 pt-6 border-t border-gray-100">
+        <div className={isFullScreen 
+          ? "sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 flex justify-end space-x-3"
+          : "flex justify-end space-x-3 pt-6 border-t border-gray-100"
+        }>
           <button
             type="button"
             onClick={onCancel}

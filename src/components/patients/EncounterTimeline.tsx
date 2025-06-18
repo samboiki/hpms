@@ -38,6 +38,8 @@ interface Visit {
   doctor_name?: string;
   visit_type?: string;
   status?: string;
+  history_of_present_illness?: string;
+  follow_up_instructions?: string;
   vitals?: {
     blood_pressure?: string;
     heart_rate?: number;
@@ -68,28 +70,28 @@ const CompletionDonutChart: React.FC<{ visits: Visit[] }> = ({ visits }) => {
   const totalVisits = visits.length;
   const completionPercentage = totalVisits > 0 ? (completedVisits / totalVisits) * 100 : 0;
   
-  const circumference = 2 * Math.PI * 24;
+  const circumference = 2 * Math.PI * 32;
   const strokeDasharray = `${(completionPercentage / 100) * circumference} ${circumference}`;
   
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="relative">
-        <svg width="60" height="60" className="transform -rotate-90">
+        <svg width="80" height="80" className="transform -rotate-90">
           <circle
-            cx="30"
-            cy="30"
-            r="24"
+            cx="40"
+            cy="40"
+            r="32"
             stroke="currentColor"
-            strokeWidth="5"
+            strokeWidth="6"
             fill="none"
             className="text-gray-200"
           />
           <circle
-            cx="30"
-            cy="30"
-            r="24"
+            cx="40"
+            cy="40"
+            r="32"
             stroke="currentColor"
-            strokeWidth="5"
+            strokeWidth="6"
             fill="none"
             strokeDasharray={strokeDasharray}
             strokeLinecap="round"
@@ -97,7 +99,7 @@ const CompletionDonutChart: React.FC<{ visits: Visit[] }> = ({ visits }) => {
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-sm font-bold text-indigo-600">{Math.round(completionPercentage)}%</div>
+          <div className="text-lg font-bold text-indigo-600">{Math.round(completionPercentage)}%</div>
         </div>
       </div>
       
@@ -214,14 +216,70 @@ const TimelineNode: React.FC<{
     <div className="relative flex items-start gap-6">
       {/* Timeline node */}
       <div className="relative flex-shrink-0">
-        {/* Connection line */}
+        {/* Animated connection line to next visit */}
         {!isLast && (
           <motion.div
-            className="absolute top-16 left-1/2 w-0.5 h-20 bg-gradient-to-b from-gray-300 to-gray-200 -ml-px"
-            initial={{ height: 0 }}
-            animate={{ height: 80 }}
-            transition={{ delay: index * 0.05 + 0.2, duration: 0.4 }}
-          />
+            className={`absolute top-16 left-8 w-0.5 -z-10 ${
+              isCompleted 
+                ? 'bg-gradient-to-b from-indigo-500 via-purple-500 to-indigo-400' 
+                : isTodayVisit
+                ? 'bg-gradient-to-b from-purple-500 via-pink-500 to-purple-400'
+                : isFutureVisit
+                ? 'bg-gradient-to-b from-blue-500 via-cyan-500 to-blue-400'
+                : 'bg-gradient-to-b from-gray-300 to-gray-200'
+            }`}
+            initial={{ scaleY: 0, opacity: 0 }}
+            animate={{ 
+              scaleY: 1, 
+              opacity: 1,
+              backgroundPosition: isCompleted ? ['0% 0%', '100% 100%'] : ['0% 0%']
+            }}
+            transition={{ 
+              delay: index * 0.05 + 0.2, 
+              duration: 0.6,
+              backgroundPosition: {
+                duration: isCompleted ? 2 : 0,
+                repeat: isCompleted ? Infinity : 0,
+                ease: "linear"
+              }
+            }}
+            style={{
+              height: 'calc(100% + 2rem + var(--card-height, 200px))',
+              transformOrigin: 'top'
+            }}
+          >
+            {/* Animated pulse for completed visits */}
+            {isCompleted && (
+              <motion.div
+                className="absolute inset-0 bg-gradient-to-b from-indigo-400 to-purple-400 rounded-full"
+                animate={{
+                  opacity: [0.8, 0.3, 0.8],
+                  scale: [1, 1.2, 1]
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              />
+            )}
+            
+            {/* Moving dot for today's visits */}
+            {isTodayVisit && (
+              <motion.div
+                className="absolute w-2 h-2 bg-white rounded-full shadow-lg"
+                style={{ left: '-3px' }}
+                animate={{
+                  y: [0, 60, 0],
+                }}
+                transition={{
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+              />
+            )}
+          </motion.div>
         )}
         
         <motion.div
@@ -245,8 +303,8 @@ const TimelineNode: React.FC<{
             className={`relative z-10 w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-xl border-4 ${theme.border}`}
           >
             {/* Inner colored circle with visit number */}
-            <div className={`w-10 h-10 ${theme.bg} rounded-full flex items-center justify-center shadow-md`}>
-              <span className="text-lg font-bold text-white">
+            <div className={`w-12 h-12 ${theme.bg} rounded-full flex items-center justify-center shadow-md`}>
+              <span className="text-xl font-bold text-white">
                 {visitNumber}
               </span>
             </div>
@@ -281,9 +339,15 @@ const TimelineNode: React.FC<{
           transition={{ duration: 0.3, ease: "easeOut" }}
         >
           <motion.div
-            className={`${theme.cardBg} rounded-xl ${
-              isHovered ? 'shadow-lg scale-[1.01]' : 'shadow-md'
-            } overflow-hidden transition-all duration-200 cursor-pointer relative group`}
+            className={`${theme.cardBg} rounded-xl overflow-hidden transition-all duration-200 cursor-pointer relative group border ${
+              isCompleted 
+                ? 'border-indigo-500' 
+                : isTodayVisit
+                ? 'border-purple-500'
+                : isFutureVisit
+                ? 'border-blue-500'
+                : 'border-gray-300'
+            }`}
             onClick={onToggle}
             whileHover={{ scale: 1.005 }}
           >
@@ -319,8 +383,8 @@ const TimelineNode: React.FC<{
               <div className="absolute inset-[1px] rounded-xl bg-white" />
             </div>
             
-            {/* Card header with wow factors */}
-            <div className="p-6 relative z-10">
+            {/* Card content */}
+            <div className="relative z-10">
               {/* Floating particles effect */}
               {isHovered && (
                 <>
@@ -344,147 +408,191 @@ const TimelineNode: React.FC<{
                 </>
               )}
               
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <motion.h3 
-                        className={`font-bold text-xl ${theme.textPrimary} relative z-10`}
-                        animate={{ scale: isHovered ? 1.05 : 1 }}
+              {/* Main content area */}
+              <div className="pt-4 px-4">
+                {/* Row 1: Visit type and chief complaint */}
+                <div className="flex items-center gap-2 mb-3">
+                  <motion.h3 
+                    className={`font-semibold text-base ${theme.textPrimary} relative z-10 flex-shrink-0`}
+                    animate={{ scale: isHovered ? 1.02 : 1 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {getVisitTypeDisplay()}:
+                  </motion.h3>
+                  {visit.chief_complaint && (
+                    <>
+                      <Stethoscope className={`w-4 h-4 ${theme.iconColor} flex-shrink-0`} />
+                      <motion.p 
+                        className={`text-sm ${theme.textSecondary} font-medium relative z-10 truncate`}
+                        animate={{ opacity: isHovered ? 1 : 0.8 }}
                         transition={{ duration: 0.2 }}
                       >
-                        {getVisitTypeDisplay()}
-                      </motion.h3>
-                      
-                    </div>
-                    
-                  </div>
-                  
-                  {visit.chief_complaint && (
-                    <motion.p 
-                      className={`text-sm mb-4 leading-relaxed ${theme.textSecondary} font-medium relative z-10`}
-                      animate={{ opacity: isHovered ? 1 : 0.8 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      {visit.chief_complaint}
-                    </motion.p>
+                        {visit.chief_complaint}
+                      </motion.p>
+                    </>
                   )}
-                  
-                  <div className="flex items-center gap-6 text-xs mb-4">
-                    {visit.doctor_name && (
-                      <div className="flex items-center gap-3">
-                        <motion.div 
-                          className="flex items-center gap-2 text-gray-600 bg-white/50 rounded-lg px-3 py-1.5"
-                          whileHover={{ scale: 1.05 }}
-                        >
-                          <User className="w-3 h-3" />
-                          <span className="font-semibold">Dr. {visit.doctor_name}</span>
-                        </motion.div>
-                        
-                        {/* Status Indicator below doctor name */}
-                        <motion.div
-                          whileHover={{ scale: 1.1, rotate: 5 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <div className={`px-3 py-1.5 bg-gradient-to-r ${theme.accent} rounded-full shadow-lg backdrop-blur-sm`}>
-                            <div className="flex items-center gap-1.5">
-                              <motion.div
-                                className="w-2 h-2 bg-white rounded-full"
-                                animate={{
-                                  scale: [1, 1.2, 1],
-                                  opacity: [1, 0.7, 1]
-                                }}
-                                transition={{
-                                  duration: 2,
-                                  repeat: Infinity,
-                                  ease: "easeInOut"
-                                }}
-                              />
-                              <span className="text-xs font-bold text-white uppercase tracking-wider">
-                                {theme.status}
-                              </span>
-                            </div>
-                          </div>
-                        </motion.div>
+                </div>
+                
+                {/* Row 2: Doctor and status - compact vertical layout with consistent spacing */}
+                {visit.doctor_name && (
+                  <div className="mb-3">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <User className="w-3.5 h-3.5" />
+                        <span className="font-semibold text-sm">Dr. {visit.doctor_name}</span>
                       </div>
-                    )}
+                      
+                      {/* Status Indicator - below doctor with no left margin/padding */}
+                      <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r ${theme.accent} rounded-full shadow-sm`}>
+                          <motion.div
+                            className="w-1.5 h-1.5 bg-white rounded-full"
+                            animate={{
+                              scale: [1, 1.2, 1],
+                              opacity: [1, 0.7, 1]
+                            }}
+                            transition={{
+                              duration: 2,
+                              repeat: Infinity,
+                              ease: "easeInOut"
+                            }}
+                          />
+                          <span className="text-xs font-semibold text-white uppercase tracking-wide">
+                            {theme.status}
+                          </span>
+                        </div>
+                      </motion.div>
+                    </div>
                   </div>
-                  
-                  {/* Enhanced quick stats */}
-                  <div className="flex items-center gap-3 relative z-10">
+                )}
+                
+                {/* Row 3: Quick stats */}
+                {(visit.vitals?.blood_pressure || (visit.medications && visit.medications.length > 0) || (visit.lab_results && visit.lab_results.length > 0)) && (
+                  <div className="flex items-center gap-2 mb-3">
                     {visit.vitals?.blood_pressure && (
                       <motion.div 
-                        className="flex items-center gap-2 text-xs bg-gradient-to-r from-red-50 to-pink-50 rounded-xl px-3 py-2 border border-red-100"
+                        className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-red-50 to-pink-50 rounded-lg px-2.5 py-1.5 border border-red-100"
                         whileHover={{ scale: 1.05, y: -1 }}
                       >
-                        <Heart className="w-4 h-4 text-red-500" />
-                        <span className="font-bold text-red-700">{visit.vitals.blood_pressure}</span>
+                        <Heart className="w-3.5 h-3.5 text-red-500" />
+                        <span className="font-semibold text-red-700">{visit.vitals.blood_pressure}</span>
                       </motion.div>
                     )}
                     {visit.medications && visit.medications.length > 0 && (
                       <motion.div 
-                        className="flex items-center gap-2 text-xs bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl px-3 py-2 border border-blue-100"
+                        className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg px-2.5 py-1.5 border border-blue-100"
                         whileHover={{ scale: 1.05, y: -1 }}
                       >
-                        <Pill className="w-4 h-4 text-blue-500" />
-                        <span className="font-bold text-blue-700">{visit.medications.length} meds</span>
+                        <Pill className="w-3.5 h-3.5 text-blue-500" />
+                        <span className="font-semibold text-blue-700">{visit.medications.length} meds</span>
                       </motion.div>
                     )}
                     {visit.lab_results && visit.lab_results.length > 0 && (
                       <motion.div 
-                        className="flex items-center gap-2 text-xs bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl px-3 py-2 border border-emerald-100"
+                        className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg px-2.5 py-1.5 border border-emerald-100"
                         whileHover={{ scale: 1.05, y: -1 }}
                       >
-                        <FlaskConical className="w-4 h-4 text-emerald-500" />
-                        <span className="font-bold text-emerald-700">{visit.lab_results.length} tests</span>
+                        <FlaskConical className="w-3.5 h-3.5 text-emerald-500" />
+                        <span className="font-semibold text-emerald-700">{visit.lab_results.length} tests</span>
                       </motion.div>
                     )}
                   </div>
-                </div>
+                )}
               </div>
               
-              {/* Action buttons - positioned bottom right */}
-              <div className="absolute bottom-4 right-4 flex items-center gap-1 relative z-20">
-                {onEditVisit && (
-                  <motion.button
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEditVisit(visit);
-                    }}
-                    className="p-2.5 hover:bg-white/90 rounded-xl transition-all duration-200 group/btn shadow-sm border border-transparent hover:border-purple-200"
-                    title="Edit visit"
+              {/* Bottom row: Media/Lab/Imaging badges and Action buttons */}
+              <div className="flex items-center justify-between px-4 pb-3 border-t border-gray-100 pt-3">
+                {/* Media, Lab, Imaging badges as light grey buttons */}
+                <div className="flex items-center gap-2">
+                  <motion.button 
+                    className="group flex items-center gap-1.5 text-xs bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-md transition-all duration-200"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <Edit3 className="w-4 h-4 text-gray-500 group-hover/btn:text-purple-600 transition-colors" />
+                    <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.5 }}>
+                      <FileText className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-700" />
+                    </motion.div>
+                    <span className="text-gray-600 group-hover:text-gray-800">Media</span>
+                    <span className="font-semibold text-gray-700 group-hover:text-gray-900">0</span>
                   </motion.button>
-                )}
-                {onCreateFollowUp && isCompleted && (
-                  <motion.button
-                    whileHover={{ scale: 1.1, rotate: -5 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onCreateFollowUp(visit);
-                    }}
-                    className="p-2.5 hover:bg-white/90 rounded-xl transition-all duration-200 group/btn shadow-sm border border-transparent hover:border-indigo-200"
-                    title="Create follow-up"
+                  
+                  <motion.button 
+                    className="group flex items-center gap-1.5 text-xs bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-md transition-all duration-200"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <Copy className="w-4 h-4 text-gray-500 group-hover/btn:text-indigo-600 transition-colors" />
+                    <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.5 }}>
+                      <FlaskConical className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-700" />
+                    </motion.div>
+                    <span className="text-gray-600 group-hover:text-gray-800">Lab</span>
+                    <span className="font-semibold text-gray-700 group-hover:text-gray-900">{visit.lab_results?.length || 0}</span>
                   </motion.button>
-                )}
-                <motion.div
-                  className="p-2.5 hover:bg-white/90 rounded-xl transition-all duration-200 group/btn"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
-                >
-                  <motion.div
-                    animate={{ rotate: isExpanded ? 90 : 0 }}
-                    transition={{ duration: 0.3, ease: "easeOut" }}
+                  
+                  <motion.button 
+                    className="group flex items-center gap-1.5 text-xs bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-md transition-all duration-200"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <ChevronRight className="w-4 h-4 text-gray-500 group-hover/btn:text-purple-600 transition-colors" />
-                  </motion.div>
-                </motion.div>
+                    <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.5 }}>
+                      <Hexagon className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-700" />
+                    </motion.div>
+                    <span className="text-gray-600 group-hover:text-gray-800">Imaging</span>
+                    <span className="font-semibold text-gray-700 group-hover:text-gray-900">0</span>
+                  </motion.button>
+                </div>
+                
+                {/* Action buttons */}
+                <div className="flex items-center gap-2 relative z-20">
+                  {onEditVisit && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditVisit(visit);
+                      }}
+                      className="group flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-all duration-200"
+                      title="Edit encounter"
+                    >
+                      <motion.div whileHover={{ rotate: -15 }} transition={{ duration: 0.2 }}>
+                        <Edit3 className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-700" />
+                      </motion.div>
+                      <span className="font-medium text-gray-600 group-hover:text-gray-800">Edit</span>
+                    </motion.button>
+                  )}
+                  {onCreateFollowUp && isCompleted && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCreateFollowUp(visit);
+                      }}
+                      className="group flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-all duration-200"
+                      title="Create follow-up"
+                    >
+                      <motion.div whileHover={{ scale: 1.2 }} transition={{ duration: 0.2 }}>
+                        <Copy className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-700" />
+                      </motion.div>
+                      <span className="font-medium text-gray-600 group-hover:text-gray-800">Follow-up</span>
+                    </motion.button>
+                  )}
+                  <motion.button
+                    className="group p-1.5 bg-gray-100 hover:bg-gray-200 rounded-md transition-all duration-200"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <motion.div
+                      animate={{ rotate: isExpanded ? 90 : 0 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                    >
+                      <ChevronRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-700 transition-colors" />
+                    </motion.div>
+                  </motion.button>
+                </div>
               </div>
             </div>
             
@@ -596,7 +704,6 @@ const TimelineNode: React.FC<{
 
 const EncounterTimeline: React.FC<EncounterTimelineProps> = ({ 
   visits, 
-  patientName, 
   onAddVisit, 
   onEditVisit, 
   onCreateFollowUp 
@@ -634,13 +741,9 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
             </h2>
           </div>
           
-          {/* Center: Patient Info */}
+          {/* Center: Empty space */}
           <div className="text-center">
-            {patientName && (
-              <p className="text-gray-700 font-medium">
-                {patientName} • <span className="text-purple-600 font-semibold">{sortedVisits.length}</span> visits
-              </p>
-            )}
+            {/* Removed patient info as requested */}
           </div>
           
           {/* Right: Add Visit Button */}
@@ -661,65 +764,240 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
         
       </motion.div>
       
-      {/* Timeline */}
-      <div className="space-y-8">
-        {sortedVisits.map((visit, index) => (
-          <div key={visit.id} className="flex items-start gap-6">
-            {/* Date column */}
-            <div className="w-32 text-right flex-shrink-0">
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.04 + 0.1, duration: 0.3 }}
-              >
-                <p className="font-bold text-gray-900 text-sm leading-tight">
-                  {formatVisitDate(visit.visit_date)}
-                </p>
-                {visit.visit_time && (
-                  <div className="flex items-center justify-end gap-1 mt-2">
-                    <Clock className="w-3 h-3 text-gray-400" />
-                    <p className="text-xs text-gray-500 font-medium">
-                      {visit.visit_time}
-                    </p>
-                  </div>
-                )}
-              </motion.div>
-            </div>
-            
-            {/* Timeline content */}
-            <div className="flex-1">
-              <TimelineNode
-                visit={visit}
-                index={index}
-                totalVisits={sortedVisits.length}
-                isLast={index === sortedVisits.length - 1}
-                isExpanded={expandedVisits.has(visit.id)}
-                onToggle={() => toggleVisit(visit.id)}
-                onEditVisit={onEditVisit}
-                onCreateFollowUp={onCreateFollowUp}
-              />
-            </div>
-            
-            {/* Progress Chart column */}
-            <div className="w-48 flex-shrink-0">
-              {index === 0 && (
+      {/* Two Column Layout: Timeline (10/12) + Journey Progress (2/12) */}
+      <div className="grid grid-cols-12 gap-6">
+        {/* Timeline Column - 10/12 width */}
+        <div className="col-span-10">
+          {sortedVisits.map((visit, index) => (
+            <div key={visit.id} className="flex items-start gap-6 mb-8 last:mb-0 relative">
+              {/* Date column */}
+              <div className="w-32 text-right flex-shrink-0 pt-5">
                 <motion.div
-                  initial={{ opacity: 0, x: 20 }}
+                  initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 }}
+                  transition={{ delay: index * 0.04 + 0.1, duration: 0.3 }}
                 >
-                  <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-                    <div className="text-center mb-3">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-1">Journey Progress</h3>
-                      <p className="text-xs text-gray-500">Visit completion status</p>
+                  <p className={`font-bold text-base leading-tight ${
+                    visit.status === 'completed' ? 'text-indigo-600' : 'text-gray-900'
+                  }`}>
+                    {formatVisitDate(visit.visit_date)}
+                  </p>
+                  {visit.visit_time && (
+                    <div className="flex items-center justify-end gap-1 mt-2">
+                      <Clock className="w-3 h-3 text-gray-400" />
+                      <p className="text-xs text-gray-500 font-medium">
+                        {visit.visit_time}
+                      </p>
+                    </div>
+                  )}
+                </motion.div>
+              </div>
+              
+              {/* Timeline content */}
+              <div className="flex-1 min-w-0">
+                <TimelineNode
+                  visit={visit}
+                  index={index}
+                  totalVisits={sortedVisits.length}
+                  isLast={index === sortedVisits.length - 1}
+                  isExpanded={expandedVisits.has(visit.id)}
+                  onToggle={() => toggleVisit(visit.id)}
+                  onEditVisit={onEditVisit}
+                  onCreateFollowUp={onCreateFollowUp}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {/* Journey Progress Column - 2/12 width */}
+        <div className="col-span-2">
+          <div className="sticky top-8">
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3, duration: 0.6 }}
+            >
+              <div className="relative">
+                {/* Pure glassmorphic card with border */}
+                <div className="relative bg-white/30 backdrop-blur-xl rounded-3xl p-6 overflow-hidden border border-gray-200/50">
+                  {/* Gradient overlay for glassmorphic effect */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-100/30 via-white/10 to-indigo-100/30 pointer-events-none" />
+                  
+                  {/* Content */}
+                  <div className="relative z-10">
+                    <div className="text-center mb-4">
+                      <h3 className="text-lg font-bold text-gray-900 mb-2">Journey Progress</h3>
+                      <p className="text-sm text-gray-700/80">Visit completion status</p>
                     </div>
                     <CompletionDonutChart visits={sortedVisits} />
                   </div>
-                </motion.div>
-              )}
+                  
+                  {/* Subtle decorative elements */}
+                  <motion.div
+                    className="absolute -top-6 -right-6 w-32 h-32 bg-gradient-to-br from-purple-300/20 to-indigo-300/20 rounded-full blur-3xl"
+                    animate={{
+                      scale: [1, 1.3, 1],
+                      opacity: [0.2, 0.4, 0.2],
+                    }}
+                    transition={{
+                      duration: 6,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  />
+                  <motion.div
+                    className="absolute -bottom-4 -left-4 w-24 h-24 bg-gradient-to-br from-indigo-300/20 to-purple-300/20 rounded-full blur-2xl"
+                    animate={{
+                      scale: [1, 1.2, 1],
+                      opacity: [0.3, 0.5, 0.3],
+                    }}
+                    transition={{
+                      duration: 4,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: 2,
+                    }}
+                  />
+                </div>
+              </div>
+            </motion.div>
+            
+            {/* Play Medical History Tile */}
+            <div className="mt-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6, duration: 0.6 }}
+                whileHover={{ y: -4 }}
+              >
+                <div className="relative group cursor-pointer">
+                  {/* Premium glassmorphic card */}
+                  <div 
+                    className="relative bg-gradient-to-br from-purple-500/10 via-indigo-500/10 to-purple-500/10 backdrop-blur-xl rounded-3xl p-6 overflow-hidden border border-purple-300/20"
+                    onClick={() => {
+                      // TODO: Implement medical history playback functionality
+                      console.log('Playing medical history for patient...');
+                    }}
+                  >
+                    {/* Animated background pattern */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-100/20 via-indigo-100/10 to-purple-100/20 pointer-events-none" />
+                    
+                    {/* Content */}
+                    <div className="relative z-10">
+                      <div className="text-center mb-4">
+                        <h3 className="text-lg font-bold text-gray-900">Play Medical History</h3>
+                      </div>
+                      
+                      {/* Audio Controls */}
+                      <div className="space-y-4">
+                        {/* Play/Pause and Control Buttons */}
+                        <div className="flex items-center justify-center gap-3">
+                          {/* Previous/Restart Button */}
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-all"
+                          >
+                            <svg className="w-4 h-4 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+                            </svg>
+                          </motion.button>
+                          
+                          {/* Main Play Button */}
+                          <motion.div
+                            className="relative"
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-2xl group-hover:shadow-purple-500/50 transition-all duration-300">
+                              <motion.svg 
+                                className="w-5 h-5 text-white ml-1" 
+                                fill="currentColor" 
+                                viewBox="0 0 24 24"
+                                whileHover={{ scale: 1.2 }}
+                                transition={{ duration: 0.2 }}
+                              >
+                                <path d="M8 5v14l11-7z"/>
+                              </motion.svg>
+                            </div>
+                            
+                            {/* Ripple effect */}
+                            <motion.div
+                              className="absolute inset-0 bg-purple-400 rounded-full"
+                              animate={{
+                                scale: [1, 1.5, 1],
+                                opacity: [0.3, 0, 0.3]
+                              }}
+                              transition={{
+                                duration: 2,
+                                repeat: Infinity,
+                                ease: "easeOut"
+                              }}
+                            />
+                          </motion.div>
+                          
+                          {/* Stop Button */}
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-all"
+                          >
+                            <svg className="w-4 h-4 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M6 6h12v12H6z"/>
+                            </svg>
+                          </motion.button>
+                        </div>
+                        
+                        {/* Progress Bar */}
+                        <div className="px-2">
+                          <div className="flex items-center gap-3 text-xs text-gray-600">
+                            <span>0:00</span>
+                            <div className="flex-1 h-2 bg-white/30 rounded-full overflow-hidden cursor-pointer">
+                              <motion.div
+                                className="h-full bg-gradient-to-r from-purple-400 to-indigo-500 rounded-full"
+                                style={{ width: '0%' }}
+                                whileHover={{ opacity: 0.8 }}
+                              />
+                            </div>
+                            <span>2:45</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Subtle decorative elements */}
+                    <motion.div
+                      className="absolute -top-6 -left-6 w-32 h-32 bg-gradient-to-br from-purple-300/20 to-indigo-300/20 rounded-full blur-3xl"
+                      animate={{
+                        scale: [1, 1.3, 1],
+                        opacity: [0.2, 0.4, 0.2],
+                      }}
+                      transition={{
+                        duration: 4,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                    />
+                    <motion.div
+                      className="absolute -bottom-4 -right-4 w-24 h-24 bg-gradient-to-br from-indigo-300/20 to-purple-300/20 rounded-full blur-2xl"
+                      animate={{
+                        scale: [1, 1.2, 1],
+                        opacity: [0.3, 0.5, 0.3],
+                      }}
+                      transition={{
+                        duration: 3,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        delay: 1.5,
+                      }}
+                    />
+                  </div>
+                </div>
+              </motion.div>
             </div>
           </div>
-        ))}
+        </div>
       </div>
       
       {/* Premium floating decoration */}

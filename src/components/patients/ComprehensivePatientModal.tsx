@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EncounterTimeline from './EncounterTimeline';
+import FullScreenModal from '../ui/FullScreenModal';
 import {
   X,
   Users,
@@ -51,6 +52,8 @@ import {
   TestTube,
   FolderOpen,
   Receipt,
+  FlaskConical,
+  Pill,
   History,
   CheckCircle2
 } from 'lucide-react';
@@ -66,6 +69,7 @@ import EditPatientForm from '../forms/EditPatientForm';
 import NextOfKinForm from '../forms/NextOfKinForm';
 import PremiumAddVisitForm from '../forms/PremiumAddVisitForm';
 import PremiumEditVisitForm from '../forms/PremiumEditVisitForm';
+import EditVisitTabs from '../visits/EditVisitTabs';
 import MedicalAidForm from '../forms/MedicalAidForm';
 import SendMessageModal from '../modals/SendMessageModal';
 import SendEmailModal from '../modals/SendEmailModal';
@@ -248,6 +252,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   
   // Additional state
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
+  const [editVisitActiveTab, setEditVisitActiveTab] = useState('general');
   const [appointments, setAppointments] = useState<any[]>([]);
   const [vitals, setVitals] = useState<any[]>([]);
   const [labResults, setLabResults] = useState<any[]>([]);
@@ -1729,10 +1734,9 @@ OneHealth Medical Team`;
                                   patientName={`${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`}
                                   onAddVisit={() => modalState.openAddVisitModal(true)}
                                   onEditVisit={(visit) => {
-                                    // Handle edit visit - you can implement this based on your modal system
                                     console.log('Edit visit:', visit);
-                                    // For now, just open the add visit modal
-                                    modalState.openAddVisitModal(true);
+                                    setSelectedVisit(visit);
+                                    modalState.openEditVisitModal();
                                   }}
                                   onCreateFollowUp={(visit) => {
                                     // Handle create follow-up - you can implement this based on your needs
@@ -1934,29 +1938,103 @@ OneHealth Medical Team`;
         )}
       </FormModal>
 
-      <FormModal
+      {/* Full Screen Edit Visit Modal */}
+      <FullScreenModal
         isOpen={modalState.modalState.isEditVisitModalOpen}
         onClose={() => {
           modalState.closeEditVisitModal();
           setSelectedVisit(null);
+          setEditVisitActiveTab('general');
         }}
-        title="Edit Visit"
       >
         {selectedVisit && selectedPatientDetails && (
-          <PremiumEditVisitForm
-            visitId={selectedVisit.id}
-            patientId={selectedPatientDetails.id}
-            onSuccess={() => {
-              modalState.closeEditVisitModal();
-              fetchPatientDetails(selectedPatientDetails.id);
-            }}
-            onCancel={() => {
-              modalState.closeEditVisitModal();
-              setSelectedVisit(null);
-            }}
-          />
+          <div className="h-full bg-gray-50 flex flex-col">
+            {/* Header */}
+            <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    modalState.closeEditVisitModal();
+                    setSelectedVisit(null);
+                    setEditVisitActiveTab('general');
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </motion.button>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">Edit Visit</h1>
+                  <p className="text-sm text-gray-600">
+                    {selectedPatientDetails.first_name} {selectedPatientDetails.last_name} - {selectedVisit.visit_date}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="bg-white border-b border-gray-200">
+              <div className="px-6">
+                <div className="flex" role="tablist">
+                  {[
+                    { id: 'general', label: 'General', icon: FileText },
+                    { id: 'vitals', label: 'Vitals', icon: Activity },
+                    { id: 'medications', label: 'Medications', icon: Pill },
+                    { id: 'results', label: 'Lab Results', icon: FlaskConical },
+                    { id: 'history', label: 'History', icon: History }
+                  ].map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = editVisitActiveTab === tab.id;
+                    
+                    return (
+                      <motion.button
+                        key={tab.id}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setEditVisitActiveTab(tab.id)}
+                        className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-200 ${
+                          isActive
+                            ? 'text-purple-600 border-purple-600 bg-gradient-to-t from-purple-50/50 to-transparent'
+                            : 'text-gray-500 border-transparent hover:text-purple-600 hover:bg-purple-50/30'
+                        }`}
+                        role="tab"
+                        aria-selected={isActive}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {tab.label}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-hidden">
+              <div className="h-full p-6">
+                <div className="bg-white rounded-lg shadow-sm h-full overflow-auto">
+                  <EditVisitTabs
+                    visitId={selectedVisit.id}
+                    patientId={selectedPatientDetails.id}
+                    activeTab={editVisitActiveTab}
+                    onSuccess={() => {
+                      modalState.closeEditVisitModal();
+                      fetchPatientDetails(selectedPatientDetails.id);
+                      setEditVisitActiveTab('general');
+                    }}
+                    onCancel={() => {
+                      modalState.closeEditVisitModal();
+                      setSelectedVisit(null);
+                      setEditVisitActiveTab('general');
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         )}
-      </FormModal>
+      </FullScreenModal>
 
       <FormModal
         isOpen={modalState.modalState.isAddVisitModalOpen}
