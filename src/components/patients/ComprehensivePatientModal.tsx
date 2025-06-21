@@ -65,7 +65,7 @@ import { toast } from 'react-hot-toast';
 import EditPatientForm from '../forms/EditPatientForm';
 import NextOfKinForm from '../forms/NextOfKinForm';
 import FullScreenEditVisitModal from '../visits/FullScreenEditVisitModal';
-import AddVisitTabs from '../visits/AddVisitTabs';
+import FullScreenAddVisitModal from '../visits/FullScreenAddVisitModal';
 import MedicalAidForm from '../forms/MedicalAidForm';
 import SendMessageModal from '../modals/SendMessageModal';
 import SendEmailModal from '../modals/SendEmailModal';
@@ -1965,57 +1965,19 @@ OneHealth Medical Team`;
         />
       )}
 
-      <FormModal
-        isOpen={modalState.modalState.isAddVisitModalOpen}
-        onClose={() => modalState.closeAddVisitModal()}
-        title="Record New Visit"
-      >
-        {selectedPatientDetails && (
-          <AddVisitTabs
-            patientId={selectedPatientDetails.id}
-            activeTab="general"
-            onCancel={() => modalState.closeAddVisitModal()}
-            onSuccess={() => {
-              modalState.closeAddVisitModal();
-              fetchPatientDetails(selectedPatientDetails.id);
-            }}
-          />
-        )}
-      </FormModal>
+      {/* Add Visit Modal with Full Tabs */}
+      {selectedPatientDetails && (
+        <FullScreenAddVisitModal
+          isOpen={modalState.modalState.isAddVisitModalOpen}
+          onClose={() => modalState.closeAddVisitModal()}
+          patientId={selectedPatientDetails.id}
+          onSuccess={() => {
+            modalState.closeAddVisitModal();
+            fetchPatientDetails(selectedPatientDetails.id);
+          }}
+        />
+      )}
 
-      {/* Add Visit Tabs Modal */}
-      <AnimatePresence>
-        {selectedPatientDetails && modalState.modalState.isAddVisitTabsModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] flex items-center justify-center"
-          >
-            {console.log('🔍 RENDER: AddVisitTabs modal is now visible')}
-            <motion.div 
-              className="absolute inset-0 bg-black bg-opacity-50" 
-              onClick={() => modalState.closeAddVisitTabsModal()} 
-            />
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="relative z-10 w-full max-w-7xl mx-4 max-h-[90vh] overflow-auto"
-            >
-              <AddVisitTabs
-                patientId={selectedPatientDetails.id}
-                activeTab="details"
-                onSuccess={() => {
-                  modalState.closeAddVisitTabsModal();
-                  fetchPatientDetails(selectedPatientDetails.id);
-                }}
-                onCancel={() => modalState.closeAddVisitTabsModal()}
-              />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {selectedPatientDetails && (
         <FormModal
