@@ -708,6 +708,9 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
   onEditVisit, 
   onCreateFollowUp 
 }) => {
+  console.log('🔍 ENCOUNTER TIMELINE: Props received:', {
+    hasOnAddVisit: !!onAddVisit
+  });
   const [expandedVisits, setExpandedVisits] = useState<Set<string>>(new Set());
   const sortedVisits = [...visits].sort((a, b) => 
     new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()
@@ -746,8 +749,8 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
             {/* Removed patient info as requested */}
           </div>
           
-          {/* Right: Add Visit Button */}
-          <div>
+          {/* Right: Add Visit Buttons */}
+          <div className="flex items-center gap-3">
             {onAddVisit && (
               <motion.button
                 whileHover={{ scale: 1.02 }}

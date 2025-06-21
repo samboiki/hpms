@@ -103,6 +103,7 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<string>('general');
   const [visit, setVisit] = useState<Visit | null>(null);
+  const [patient, setPatient] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
   const [followUpRequired, setFollowUpRequired] = useState(false);
@@ -122,14 +123,35 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
     console.log('🔍 DEBUG: FullScreenAddVisitModal - isScheduleModalOpen changed to:', isScheduleModalOpen);
   }, [isScheduleModalOpen]);
 
-  // Initialize for new visit
+  // Initialize for new visit and fetch patient data
   useEffect(() => {
-    if (isOpen) {
-      console.log('🆕 Initializing new visit modal');
-      setLoading(false);
-      setVisit(null); // No existing visit data for new visits
+    if (isOpen && patientId) {
+      fetchPatientData();
     }
-  }, [isOpen]);
+  }, [isOpen, patientId]);
+
+  const fetchPatientData = async () => {
+    try {
+      setLoading(true);
+      console.log('🆕 Fetching patient data for new visit modal');
+      
+      const { data, error } = await supabase
+        .from('patients')
+        .select('id, first_name, last_name, date_of_birth')
+        .eq('id', patientId)
+        .single();
+
+      if (error) throw error;
+      
+      setPatient(data);
+      setVisit(null); // No existing visit data for new visits
+      console.log('✅ Patient data loaded:', data);
+    } catch (error) {
+      console.error('❌ Error fetching patient data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSuccess = () => {
     onSuccess();
@@ -145,12 +167,10 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
             <Stethoscope className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold">Edit Visit</h2>
-            {visit && (
-              <p className="text-blue-100 text-sm">
-                {visit.patients?.first_name} {visit.patients?.last_name} • {visit.visit_date ? new Date(visit.visit_date).toLocaleDateString() : 'No date'} • {visit.visit_type || 'Consultation'}
-              </p>
-            )}
+            <h2 className="text-2xl font-bold">Add Visit</h2>
+            <p className="text-blue-100 text-sm">
+              {patient ? `${patient.first_name} ${patient.last_name}` : 'Loading patient...'} • Creating new visit • {new Date().toLocaleDateString()}
+            </p>
           </div>
         </div>
         <button

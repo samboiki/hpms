@@ -2167,7 +2167,7 @@ const AddVisitTabs: React.FC<Props> = ({
 
         {/* Imaging Tab */}
         {activeTab === 'imaging' && (
-          <ImagingTabContentSimple patientId={patientId} visitId={visitId} />
+          <ImagingTabContentSimple patientId={patientId} visitId="" />
         )}
 
 
