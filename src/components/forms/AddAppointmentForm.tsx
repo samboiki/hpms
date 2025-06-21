@@ -31,7 +31,7 @@ interface Doctor {
 }
 
 interface Props {
-  onSuccess: () => void;
+  onSuccess: (appointmentData?: any) => void;
   initialDate?: Date;
   initialTime?: string;
   initialDoctorId?: string;
@@ -197,18 +197,38 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
 
   const fetchBookedTimes = async (doctorId: string, date: string) => {
     try {
-      const { data, error } = await supabase
-        .from('appointments')
-        .select('time, duration')
-        .eq('doctor_id', doctorId)
-        .eq('date', date)
-        .in('status', ['scheduled', 'in-progress']); // Only consider confirmed appointments
+      // Check both old appointments table and new visits table for conflicts
+      const [appointmentsData, visitsData] = await Promise.all([
+        supabase
+          .from('appointments')
+          .select('time, duration')
+          .eq('doctor_id', doctorId)
+          .eq('date', date)
+          .in('status', ['scheduled', 'in-progress']),
+        supabase
+          .from('visits')
+          .select('visit_time')
+          .eq('doctor_id', doctorId)
+          .eq('visit_date', date)
+          .in('status', ['scheduled', 'in-progress'])
+      ]);
 
-      if (error) throw error;
+      const { data: appointmentsResult, error: appointmentsError } = appointmentsData;
+      const { data: visitsResult, error: visitsError } = visitsData;
+
+      if (appointmentsError || visitsError) {
+        throw appointmentsError || visitsError;
+      }
+
+      // Combine both sources of booked times
+      const allBookedAppointments = [
+        ...(appointmentsResult || []).map(apt => ({ time: apt.time, duration: apt.duration })),
+        ...(visitsResult || []).map(visit => ({ time: visit.visit_time, duration: 30 }))
+      ];
 
       // Generate array of booked time slots
       const bookedSlots: string[] = [];
-      data?.forEach(appointment => {
+      allBookedAppointments.forEach(appointment => {
         if (appointment.time && appointment.duration) {
           const [hours, minutes] = appointment.time.split(':').map(Number);
           const startTime = new Date();
@@ -261,24 +281,34 @@ const AddAppointmentForm: React.FC<Props> = ({ onSuccess, initialDate, initialTi
 
       const practiceId = userData?.practice_id || user?.practice_id;
 
-      // Create the appointment
-      const { error: appointmentError } = await supabase
-        .from('appointments')
+      // Create a scheduled visit (unified system - appointments are now scheduled visits)
+      const { data: newVisit, error: visitError } = await supabase
+        .from('visits')
         .insert([{
           patient_id: data.patient_id,
           doctor_id: data.doctor_id,
-          date: data.date,
-          time: data.time,
-          duration: data.duration,
-          type: data.type,
-          status: 'scheduled',
-          notes: data.notes,
-          practice_id: practiceId
-        }]);
+          visit_date: data.date,
+          visit_time: data.time,
+          visit_type: data.type,
+          status: 'scheduled',  // This makes it an appointment
+          chief_complaint: data.notes || '',
+          notes: `Appointment scheduled for ${format(new Date(data.date), 'PPP')} at ${data.time}`,
+          practice_id: practiceId,
+          created_at: new Date().toISOString()
+        }])
+        .select(`
+          *,
+          doctor:users!doctor_id(id, full_name),
+          patient:patients!visits_patient_id_fkey(id, first_name, last_name)
+        `)
+        .single();
 
-      if (appointmentError) throw appointmentError;
+      if (visitError) throw visitError;
 
-      onSuccess();
+      console.log('✅ Created scheduled visit (appointment):', newVisit);
+
+      // Pass the created visit data to onSuccess for immediate timeline update
+      onSuccess(newVisit);
     } catch (err) {
       console.error('Error creating appointment:', err);
       setError('Failed to create appointment');

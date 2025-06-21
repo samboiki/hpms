@@ -5,9 +5,10 @@ import {
   BarChart3,
   User,
   FileText,
-  Activity,
+  Pill,
+  Camera,
   FlaskConical,
-  FolderOpen,
+  Scan,
   Wallet,
   History,
   Sparkles,
@@ -31,9 +32,10 @@ interface PatientModalTabsProps {
   mode: 'list' | 'details';
   selectedPatient?: any;
   visits?: any[];
-  vitals?: any[];
-  labResults?: any[];
-  documents?: any[];
+  medications?: any[];
+  media?: any[];
+  lab?: any[];
+  imaging?: any[];
   billingData?: any[];
   loadingTabs?: string[];
   newDataTabs?: string[];
@@ -66,22 +68,28 @@ const detailTabs: Tab[] = [
     tooltip: 'Visit history and clinical notes'
   },
   {
-    id: 'vitals',
-    label: 'Vitals',
-    icon: Activity,
-    tooltip: 'Blood pressure, heart rate, temperature'
+    id: 'medications',
+    label: 'Medications',
+    icon: Pill,
+    tooltip: 'Prescribed medications and treatment plans'
   },
   {
-    id: 'results',
-    label: 'Lab Results',
+    id: 'media',
+    label: 'Media',
+    icon: Camera,
+    tooltip: 'Photos, videos, and media files'
+  },
+  {
+    id: 'lab',
+    label: 'Laboratory',
     icon: FlaskConical,
-    tooltip: 'Laboratory tests and imaging results'
+    tooltip: 'Lab tests and results'
   },
   {
-    id: 'documents',
-    label: 'Documents',
-    icon: FolderOpen,
-    tooltip: 'Medical records and uploaded files'
+    id: 'imaging',
+    label: 'Imaging',
+    icon: Scan,
+    tooltip: 'X-rays, CT scans, and imaging studies'
   },
   {
     id: 'billing',
@@ -103,9 +111,10 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
   mode,
   selectedPatient,
   visits = [],
-  vitals = [],
-  labResults = [],
-  documents = [],
+  medications = [],
+  media = [],
+  lab = [],
+  imaging = [],
   billingData = [],
   loadingTabs = [],
   newDataTabs = []
@@ -170,12 +179,14 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
     switch (tabId) {
       case 'encounters':
         return visits.length;
-      case 'vitals':
-        return vitals.length;
-      case 'results':
-        return labResults.length;
-      case 'documents':
-        return documents.length;
+      case 'medications':
+        return medications.length;
+      case 'media':
+        return media.length;
+      case 'lab':
+        return lab.length;
+      case 'imaging':
+        return imaging.length;
       case 'billing':
         return billingData.length;
       default:

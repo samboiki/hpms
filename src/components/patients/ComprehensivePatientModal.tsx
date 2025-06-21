@@ -52,7 +52,11 @@ import {
   FolderOpen,
   Receipt,
   History,
-  CheckCircle2
+  CheckCircle2,
+  Pill,
+  Camera,
+  Scan,
+  FlaskConical
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
@@ -100,6 +104,7 @@ interface ComprehensivePatientModalProps {
   isOpen: boolean;
   onClose: () => void;
   patientId?: string | null;
+  onAppointmentCreated?: (appointment: any) => void;
 }
 
 interface PatientDetails {
@@ -178,14 +183,14 @@ const MaleIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ isOpen, onClose, patientId }) => {
+const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ isOpen, onClose, patientId, onAppointmentCreated }) => {
   const { currentTheme } = useTheme();
   const { patients, isLoading, error, fetchPatients: fetchPatientsFromStore, searchPatients } = usePatientsStoreNew();
   
   // Main tab state - automatically switch to details if patientId is provided
   const [activeTab, setActiveTab] = useState<'patients' | 'details'>(patientId ? 'details' : 'patients');
   const [activeMainTab, setActiveMainTab] = useState<'patients' | 'analytics'>('patients');
-  const [activeDetailTab, setActiveDetailTab] = useState<'overview' | 'encounters' | 'vitals' | 'results' | 'documents' | 'billing' | 'audit'>('overview');
+  const [activeDetailTab, setActiveDetailTab] = useState<'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'audit'>('overview');
   
   // Patients list state
   const [searchTerm, setSearchTerm] = useState('');
@@ -238,6 +243,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   // Patient details state
   const [selectedPatientDetails, setSelectedPatientDetails] = useState<PatientDetails | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
   const [nextOfKin, setNextOfKin] = useState<NextOfKin | null>(null);
   const [medicalAid, setMedicalAid] = useState<MedicalAidDetails | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -246,12 +252,61 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   // Extracted modal state management
   const modalState = usePatientModalState();
   
+  // Function to handle new appointments created for this patient
+  const handleNewAppointmentForPatient = useCallback((newAppointment: any) => {
+    console.log('🎯 PATIENT MODAL: handleNewAppointmentForPatient called:', {
+      newAppointment,
+      currentPatientId: patientId,
+      appointmentPatientId: newAppointment.patient_id,
+      isForCurrentPatient: newAppointment.patient_id === patientId
+    });
+    
+    // Only update if this appointment is for the currently viewed patient
+    if (newAppointment.patient_id === patientId) {
+      setAppointments(prevAppointments => {
+        console.log('📋 PATIENT MODAL: Current appointments before update:', prevAppointments);
+        
+        // Check if appointment already exists to avoid duplicates
+        const exists = prevAppointments.some(appt => appt.id === newAppointment.id);
+        console.log('🔍 PATIENT MODAL: Appointment already exists?', exists);
+        
+        if (exists) return prevAppointments;
+        
+        // Add new appointment and sort by date
+        const updatedAppointments = [...prevAppointments, newAppointment];
+        const sortedAppointments = updatedAppointments.sort((a, b) => 
+          new Date(b.date + ' ' + b.time).getTime() - new Date(a.date + ' ' + a.time).getTime()
+        );
+        
+        console.log('✅ PATIENT MODAL: Updated appointments:', sortedAppointments);
+        return sortedAppointments;
+      });
+    } else {
+      console.log('⚠️ PATIENT MODAL: Appointment not for current patient, ignoring');
+    }
+  }, [patientId]);
+
+  // Expose the handler to parent components
+  useEffect(() => {
+    if (onAppointmentCreated && patientId) {
+      // Register this handler globally if needed
+      window.addAppointmentToPatientTimeline = handleNewAppointmentForPatient;
+    }
+    
+    return () => {
+      if (window.addAppointmentToPatientTimeline) {
+        delete window.addAppointmentToPatientTimeline;
+      }
+    };
+  }, [handleNewAppointmentForPatient, onAppointmentCreated, patientId]);
+  
   // Additional state
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
-  const [appointments, setAppointments] = useState<any[]>([]);
   const [vitals, setVitals] = useState<any[]>([]);
   const [labResults, setLabResults] = useState<any[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
+  const [medications, setMedications] = useState<any[]>([]);
+  const [imagingRequests, setImagingRequests] = useState<any[]>([]);
   const [billingData, setBillingData] = useState<any[]>([]);
   const [labRequests, setLabRequests] = useState<any[]>([]);
   const [mediaRequests, setMediaRequests] = useState<any[]>([]);
@@ -339,14 +394,42 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         setNextOfKin(nextOfKinData || null);
       }
 
+      // Fetch ALL visits (including scheduled ones which are appointments)
       const { data: visitsData, error: visitsError } = await supabase
-        .from('visit_details_view')
-        .select('*')
+        .from('visits')
+        .select(`
+          *,
+          doctor:users!doctor_id(id, full_name)
+        `)
         .eq('patient_id', patientId)
-        .order('visit_date', { ascending: false });
+        .order('visit_date', { ascending: false })
+        .order('visit_time', { ascending: false });
 
       if (visitsError) throw visitsError;
+      
+      console.log('✅ UNIFIED VISITS FETCHED:', {
+        total: visitsData?.length || 0,
+        scheduled: visitsData?.filter(v => v.status === 'scheduled').length || 0,
+        completed: visitsData?.filter(v => v.status === 'completed').length || 0,
+        inProgress: visitsData?.filter(v => v.status === 'in-progress').length || 0
+      });
+      
       setVisits(visitsData as any || []);
+      
+      // No need to fetch appointments separately anymore
+      console.log('✅ APPOINTMENTS ARE NOW PART OF VISITS WITH status="scheduled"');
+
+      // APPOINTMENTS ARE NOW INTEGRATED INTO VISITS
+      // Scheduled visits (status='scheduled') are appointments
+      // This provides unified numbering and timeline display
+      const scheduledVisits = visitsData?.filter(v => v.status === 'scheduled') || [];
+      console.log('📅 SCHEDULED VISITS (APPOINTMENTS):', {
+        count: scheduledVisits.length,
+        nextAppointment: scheduledVisits[0] || null
+      });
+      
+      // For backward compatibility, set appointments to scheduled visits
+      setAppointments(scheduledVisits);
 
       // Fetch vitals data for this patient's visits only
       const visitIds = visitsData?.map(v => v.id) || [];
@@ -424,6 +507,57 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         setBillingData(billingDataResult || []);
       }
 
+      // Fetch medications for this patient
+      const { data: medicationsData, error: medicationsError } = await supabase
+        .from('medications')
+        .select('*')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false });
+
+      if (medicationsError) {
+        console.error('Error fetching medications:', medicationsError);
+      } else {
+        setMedications(medicationsData || []);
+      }
+
+      // Fetch patient media files
+      const { data: mediaData, error: mediaError } = await supabase
+        .from('patient_media')
+        .select('*')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false });
+
+      if (mediaError) {
+        console.error('Error fetching media:', mediaError);
+      } else {
+        setMediaRequests(mediaData || []);
+      }
+
+      // Fetch patient laboratory files
+      const { data: labData, error: labError } = await supabase
+        .from('patient_laboratory')
+        .select('*')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false });
+
+      if (labError) {
+        console.error('Error fetching lab data:', labError);
+      } else {
+        setLabRequests(labData || []);
+      }
+
+      // Fetch patient imaging files
+      const { data: imagingData, error: imagingError } = await supabase
+        .from('patient_imaging')
+        .select('*')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false });
+
+      if (imagingError) {
+        console.error('Error fetching imaging data:', imagingError);
+      } else {
+        setImagingRequests(imagingData || []);
+      }
 
     } catch (error) {
       console.error('Error fetching patient details:', error);
@@ -1114,9 +1248,10 @@ OneHealth Medical Team`;
                 mode={activeTab === 'patients' ? 'list' : 'details'}
                 selectedPatient={selectedPatientDetails}
                 visits={visits}
-                vitals={vitals}
-                labResults={labResults}
-                documents={documents}
+                medications={medications}
+                media={mediaRequests}
+                lab={labRequests}
+                imaging={imagingRequests}
                 billingData={billingData}
               />
 
@@ -1735,10 +1870,18 @@ OneHealth Medical Team`;
                               )}
 
                               {activeDetailTab === 'encounters' && (
-                                <EncounterTimeline 
-                                  visits={visits}
-                                  patientName={`${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`}
-                                  onAddVisit={() => modalState.openAddVisitModal()}
+                                <>
+                                  {console.log('🚀 UNIFIED VISIT SYSTEM DATA:', {
+                                    totalVisits: visits.length,
+                                    scheduledVisits: visits.filter(v => v.status === 'scheduled').length,
+                                    completedVisits: visits.filter(v => v.status === 'completed').length,
+                                    inProgressVisits: visits.filter(v => v.status === 'in-progress').length,
+                                    patientName: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`
+                                  })}
+                                  <EncounterTimeline 
+                                    visits={visits}
+                                    patientName={`${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`}
+                                    onAddVisit={() => modalState.openAddVisitModal()}
                                   onAddVisitTabs={() => {
                                     console.log('🔍 PATIENT MODAL: onAddVisitTabs callback triggered');
                                     console.log('🔍 PATIENT MODAL: modalState:', modalState);
@@ -1755,116 +1898,362 @@ OneHealth Medical Team`;
                                     // For now, just open the add visit modal
                                     modalState.openAddVisitModal();
                                   }}
+                                  onStartAppointment={async (scheduledVisit) => {
+                                    try {
+                                      console.log('🚀 Starting scheduled visit:', scheduledVisit);
+                                      
+                                      // Show premium loading toast
+                                      toast.loading('Starting visit...', {
+                                        id: 'visit-start',
+                                        duration: 2000
+                                      });
+
+                                      // Simply update the status from 'scheduled' to 'in-progress'
+                                      const { data: updatedVisit, error: updateError } = await supabase
+                                        .from('visits')
+                                        .update({
+                                          status: 'in-progress',
+                                          updated_at: new Date().toISOString()
+                                        })
+                                        .eq('id', scheduledVisit.id)
+                                        .select(`
+                                          *,
+                                          doctor:users!doctor_id(id, full_name)
+                                        `)
+                                        .single();
+
+                                      if (updateError) throw updateError;
+
+                                      // Update local state for instant feedback
+                                      setVisits(prevVisits => 
+                                        prevVisits.map(visit => 
+                                          visit.id === scheduledVisit.id 
+                                            ? { ...visit, ...updatedVisit, status: 'in-progress' }
+                                            : visit
+                                        )
+                                      );
+
+                                      // Success feedback with premium animation
+                                      toast.success('🎉 Visit started successfully!', {
+                                        id: 'visit-start',
+                                        duration: 3000,
+                                        style: {
+                                          background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                          color: 'white',
+                                          fontWeight: '600'
+                                        }
+                                      });
+
+                                      console.log('✅ Visit status updated:', updatedVisit);
+                                      
+                                      // Open the edit visit modal to fill in details
+                                      setSelectedVisit(updatedVisit);
+                                      modalState.openEditVisitModal();
+                                    } catch (error) {
+                                      console.error('❌ Error starting visit:', error);
+                                      
+                                      // Error feedback with premium styling
+                                      toast.error('Failed to start visit. Please try again.', {
+                                        id: 'visit-start',
+                                        duration: 4000,
+                                        style: {
+                                          background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                                          color: 'white',
+                                          fontWeight: '600'
+                                        }
+                                      });
+                                    }
+                                  }}
+                                  onVisitStatusChange={(visitId: string, newStatus: string) => {
+                                    // Update local state instantly without page refresh
+                                    setVisits(prevVisits => 
+                                      prevVisits.map(visit => 
+                                        visit.id === visitId 
+                                          ? { ...visit, status: newStatus }
+                                          : visit
+                                      )
+                                    );
+                                  }}
                                 />
+                                </>
                               )}
 
-                              {activeDetailTab === 'vitals' && (
+                              {activeDetailTab === 'medications' && (
                                 <div className="space-y-6">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                      <HeartPulse className="w-6 h-6 text-red-600" />
-                                      <h3 className="text-xl font-bold text-gray-900">Vital Signs</h3>
-                                      <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                        {vitals.length} recorded
+                                      <Pill className="w-6 h-6 text-blue-600" />
+                                      <h3 className="text-xl font-bold text-gray-900">Medications</h3>
+                                      <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                        All medications across visits
                                       </span>
                                     </div>
-                                    <motion.button
-                                      whileHover={{ scale: 1.02 }}
-                                      whileTap={{ scale: 0.98 }}
-                                      onClick={() => modalState.openVitalsModal(true)}
-                                      className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all flex items-center gap-2 font-medium"
-                                    >
-                                      <Plus className="w-4 h-4" />
-                                      Add Vitals
-                                    </motion.button>
                                   </div>
                                   
-                                  {vitals.length > 0 ? (
-                                    <div className="grid gap-4">
-                                      {vitals.map((vital) => (
-                                        <motion.div
-                                          key={vital.id}
-                                          initial={{ opacity: 0, y: 10 }}
-                                          animate={{ opacity: 1, y: 0 }}
-                                          className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow"
-                                        >
-                                          <div className="flex items-start justify-between mb-4">
-                                            <div className="flex items-center gap-3">
-                                              <div className="w-10 h-10 bg-gradient-to-br from-red-400 to-pink-500 rounded-lg flex items-center justify-center">
-                                                <HeartPulse className="w-5 h-5 text-white" />
-                                              </div>
-                                              <div>
-                                                <p className="font-semibold text-gray-900">
-                                                  {vital.created_at && !isNaN(new Date(vital.created_at).getTime()) 
-                                                    ? format(new Date(vital.created_at), 'MMM dd, yyyy')
-                                                    : 'Date not available'
-                                                  }
-                                                </p>
-                                                <p className="text-sm text-gray-600">
-                                                  {vital.created_at && !isNaN(new Date(vital.created_at).getTime())
-                                                    ? format(new Date(vital.created_at), 'HH:mm')
-                                                    : 'Time not available'
-                                                  }
-                                                </p>
-                                              </div>
-                                            </div>
-                                          </div>
-                                          
-                                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                            <div className="bg-red-50 rounded-lg p-3">
-                                              <p className="text-xs font-medium text-red-600 mb-1">Blood Pressure</p>
-                                              <p className="font-bold text-red-800">
-                                                {vital.blood_pressure_systolic}/{vital.blood_pressure_diastolic}
-                                              </p>
-                                              <p className="text-xs text-red-600">mmHg</p>
-                                            </div>
-                                            <div className="bg-blue-50 rounded-lg p-3">
-                                              <p className="text-xs font-medium text-blue-600 mb-1">Heart Rate</p>
-                                              <p className="font-bold text-blue-800">{vital.heart_rate}</p>
-                                              <p className="text-xs text-blue-600">bpm</p>
-                                            </div>
-                                            <div className="bg-orange-50 rounded-lg p-3">
-                                              <p className="text-xs font-medium text-orange-600 mb-1">Temperature</p>
-                                              <p className="font-bold text-orange-800">{vital.temperature}°</p>
-                                              <p className="text-xs text-orange-600">celsius</p>
-                                            </div>
-                                            <div className="bg-green-50 rounded-lg p-3">
-                                              <p className="text-xs font-medium text-green-600 mb-1">Weight</p>
-                                              <p className="font-bold text-green-800">{vital.weight}</p>
-                                              <p className="text-xs text-green-600">kg</p>
-                                            </div>
-                                          </div>
-                                        </motion.div>
-                                      ))}
+                                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full">
+                                        <thead className="bg-gray-50 border-b border-gray-200">
+                                          <tr>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Medication</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Dosage</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Frequency</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Duration</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Visit Date</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200">
+                                          {medications.length > 0 ? (
+                                            medications.map((medication) => (
+                                              <tr key={medication.id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-4 py-3 text-sm font-medium text-gray-900">{medication.medication_name}</td>
+                                                <td className="px-4 py-3 text-sm text-gray-700">{medication.dosage}</td>
+                                                <td className="px-4 py-3 text-sm text-gray-700">{medication.frequency}</td>
+                                                <td className="px-4 py-3 text-sm text-gray-700">{medication.duration}</td>
+                                                <td className="px-4 py-3 text-sm text-gray-700">
+                                                  {medication.prescribed_date ? format(new Date(medication.prescribed_date), 'MMM dd, yyyy') : 'N/A'}
+                                                </td>
+                                              </tr>
+                                            ))
+                                          ) : (
+                                            <tr className="hover:bg-gray-50 transition-colors">
+                                              <td className="px-4 py-3 text-sm text-gray-600" colSpan={5}>
+                                                <div className="text-center py-8">
+                                                  <Pill className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                                                  <p className="text-gray-500">No medications found</p>
+                                                  <p className="text-sm text-gray-400">Medications will appear here when prescribed</p>
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </tbody>
+                                      </table>
                                     </div>
-                                  ) : (
-                                    <div className="bg-gradient-to-br from-gray-50 to-red-50 rounded-2xl p-12 text-center border border-red-100">
-                                      <div className="w-16 h-16 bg-gradient-to-br from-red-400 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <HeartPulse className="w-8 h-8 text-white" />
-                                      </div>
-                                      <h4 className="text-lg font-semibold text-gray-800 mb-2">No vital signs recorded</h4>
-                                      <p className="text-gray-600 mb-4">Start recording patient vital signs and measurements</p>
-                                      <motion.button
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
-                                        onClick={() => modalState.openVitalsModal(true)}
-                                        className="bg-gradient-to-r from-red-500 to-pink-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all font-medium"
-                                      >
-                                        Record First Vitals
-                                      </motion.button>
-                                    </div>
-                                  )}
+                                  </div>
                                 </div>
                               )}
 
-                              {activeDetailTab === 'results' && (
-                                <LabResultsContent />
+                              {activeDetailTab === 'media' && (
+                                <div className="space-y-6">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Camera className="w-6 h-6 text-purple-600" />
+                                      <h3 className="text-xl font-bold text-gray-900">Media Files</h3>
+                                      <span className="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                        All media across visits
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full">
+                                        <thead className="bg-gray-50 border-b border-gray-200">
+                                          <tr>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Preview</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Category</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Size</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Date</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200">
+                                          {mediaRequests.length > 0 ? (
+                                            mediaRequests.map((media) => (
+                                              <tr key={media.id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-4 py-3">
+                                                  <div className="flex items-center">
+                                                    {media.file_type && ['png', 'jpg', 'jpeg', 'webp'].includes(media.file_type.toLowerCase()) ? (
+                                                      <img 
+                                                        src={`${supabase.storage.from(media.storage_bucket).getPublicUrl(media.storage_path).data.publicUrl}`}
+                                                        alt={media.title || media.original_name} 
+                                                        className="w-12 h-12 object-cover rounded border cursor-pointer" 
+                                                      />
+                                                    ) : (
+                                                      <div className="w-12 h-12 flex items-center justify-center bg-gray-100 rounded border">
+                                                        <FileText className="w-6 h-6 text-gray-600" />
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-900">{media.title || media.original_name}</td>
+                                                <td className="px-4 py-3 text-sm text-gray-700 capitalize">{media.category}</td>
+                                                <td className="px-4 py-3 text-sm text-gray-700">{(media.file_size / 1024).toFixed(1)} KB</td>
+                                                <td className="px-4 py-3 text-sm text-gray-700">
+                                                  {media.created_at ? format(new Date(media.created_at), 'MMM dd, yyyy') : 'N/A'}
+                                                </td>
+                                              </tr>
+                                            ))
+                                          ) : (
+                                            <tr className="hover:bg-gray-50 transition-colors">
+                                              <td className="px-4 py-3 text-sm text-gray-600" colSpan={5}>
+                                                <div className="text-center py-8">
+                                                  <Camera className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                                                  <p className="text-gray-500">No media files found</p>
+                                                  <p className="text-sm text-gray-400">Photos, videos, and documents will appear here</p>
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                </div>
                               )}
 
-                              {activeDetailTab === 'documents' && (
-                                <DocumentsContent 
-                                  patientId={selectedPatientDetails.id}
-                                />
+                              {activeDetailTab === 'lab' && (
+                                <div className="space-y-6">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <FlaskConical className="w-6 h-6 text-emerald-600" />
+                                      <h3 className="text-xl font-bold text-gray-900">Laboratory Results</h3>
+                                      <span className="bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                        All lab tests across visits
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full">
+                                        <thead className="bg-gray-50 border-b border-gray-200">
+                                          <tr>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Request Date</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Test Type</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Laboratory</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Results</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200">
+                                          {labRequests.length > 0 ? (
+                                            labRequests.map((lab) => (
+                                              <tr key={lab.id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-4 py-3 text-sm text-gray-700">
+                                                  {lab.test_date ? format(new Date(lab.test_date), 'MMM dd, yyyy') : 'N/A'}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-900 capitalize">{lab.test_type?.replace('_', ' ') || 'General'}</td>
+                                                <td className="px-4 py-3 text-sm text-gray-700">{lab.lab_name || 'Not specified'}</td>
+                                                <td className="px-4 py-3 text-sm">
+                                                  <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                                                    lab.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                    lab.status === 'in_progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                    'bg-gray-100 text-gray-800'
+                                                  }`}>
+                                                    {lab.status || 'pending'}
+                                                  </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700">
+                                                  {lab.critical_result ? (
+                                                    <span className="text-red-600 font-medium">Critical</span>
+                                                  ) : lab.is_abnormal ? (
+                                                    <span className="text-orange-600 font-medium">Abnormal</span>
+                                                  ) : (
+                                                    <span className="text-green-600">Normal</span>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                            ))
+                                          ) : (
+                                            <tr className="hover:bg-gray-50 transition-colors">
+                                              <td className="px-4 py-3 text-sm text-gray-600" colSpan={5}>
+                                                <div className="text-center py-8">
+                                                  <FlaskConical className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                                                  <p className="text-gray-500">No laboratory results found</p>
+                                                  <p className="text-sm text-gray-400">Lab tests and results will appear here</p>
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {activeDetailTab === 'imaging' && (
+                                <div className="space-y-6">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Scan className="w-6 h-6 text-indigo-600" />
+                                      <h3 className="text-xl font-bold text-gray-900">Imaging Studies</h3>
+                                      <span className="bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                        All imaging across visits
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full">
+                                        <thead className="bg-gray-50 border-b border-gray-200">
+                                          <tr>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Type</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Request Date</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Body Part</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Files</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200">
+                                          {imagingRequests.length > 0 ? (
+                                            imagingRequests.map((imaging) => (
+                                              <tr key={imaging.id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-4 py-3 text-sm">
+                                                  <div className="flex items-center">
+                                                    <Scan className="w-4 h-4 text-indigo-600 mr-2" />
+                                                    <span className="font-medium text-gray-900 capitalize">
+                                                      {imaging.imaging_type?.replace('_', ' ') || 'Other'}
+                                                    </span>
+                                                  </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700">
+                                                  {imaging.study_date ? format(new Date(imaging.study_date), 'MMM dd, yyyy') : 'N/A'}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700 capitalize">{imaging.body_part || 'Not specified'}</td>
+                                                <td className="px-4 py-3 text-sm">
+                                                  <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                                    Available
+                                                  </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm">
+                                                  <div className="flex items-center">
+                                                    {imaging.file_type && ['png', 'jpg', 'jpeg', 'webp'].includes(imaging.file_type.toLowerCase()) ? (
+                                                      <img 
+                                                        src={`${supabase.storage.from(imaging.storage_bucket).getPublicUrl(imaging.storage_path).data.publicUrl}`}
+                                                        alt={imaging.title || imaging.original_name} 
+                                                        className="w-8 h-8 object-cover rounded border cursor-pointer mr-2" 
+                                                      />
+                                                    ) : (
+                                                      <div className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded border mr-2">
+                                                        <FileText className="w-4 h-4 text-gray-600" />
+                                                      </div>
+                                                    )}
+                                                    <span className="text-xs text-gray-500">
+                                                      {(imaging.file_size / 1024).toFixed(1)} KB
+                                                    </span>
+                                                  </div>
+                                                </td>
+                                              </tr>
+                                            ))
+                                          ) : (
+                                            <tr className="hover:bg-gray-50 transition-colors">
+                                              <td className="px-4 py-3 text-sm text-gray-600" colSpan={5}>
+                                                <div className="text-center py-8">
+                                                  <Scan className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                                                  <p className="text-gray-500">No imaging studies found</p>
+                                                  <p className="text-sm text-gray-400">X-rays, CT scans, and imaging will appear here</p>
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                </div>
                               )}
 
                               {activeDetailTab === 'billing' && (

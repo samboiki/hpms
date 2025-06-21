@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO, isToday, isFuture, isPast } from 'date-fns';
+import { supabase } from '../../lib/supabase';
 import {
   Clock,
   Heart,
@@ -25,21 +26,117 @@ import {
   Crown,
   Award,
   Target,
-  Hexagon
+  Hexagon,
+  Play,
+  CalendarCheck
 } from 'lucide-react';
 
+// Professional Status Toggle Component
+const StatusToggle: React.FC<{
+  visitId: string;
+  currentStatus: string;
+  onStatusChange?: (visitId: string, newStatus: string) => void;
+  disabled?: boolean;
+}> = ({ visitId, currentStatus, onStatusChange, disabled = false }) => {
+  const [localStatus, setLocalStatus] = useState(currentStatus);
+  const [isUpdating, setIsUpdating] = useState(false);
+  
+  const isCompleted = localStatus === 'completed';
+  
+  const handleToggle = async (e: React.MouseEvent) => {
+    // Prevent event bubbling to parent card
+    e.stopPropagation();
+    e.preventDefault();
+    
+    if (isUpdating || disabled) return;
+    
+    const newStatus = isCompleted ? 'in-progress' : 'completed';
+    const previousStatus = localStatus;
+    
+    try {
+      setIsUpdating(true);
+      
+      // Immediate optimistic update for snappy UX
+      setLocalStatus(newStatus);
+      
+      // Update database silently in background
+      const { error } = await supabase
+        .from('visits')
+        .update({ status: newStatus })
+        .eq('id', visitId);
+      
+      if (error) throw error;
+      
+      // Silently notify parent without refreshing
+      if (onStatusChange) {
+        onStatusChange(visitId, newStatus);
+      }
+      
+    } catch (error) {
+      console.error('Error updating visit status:', error);
+      
+      // Revert optimistic update on error
+      setLocalStatus(previousStatus);
+      
+      // Simple error notification
+      console.error('Failed to update visit status');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  
+  return (
+    <div 
+      className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full cursor-pointer select-none transition-all duration-150 ease-out ${
+        isCompleted 
+          ? 'bg-white border border-[#01b9d5] hover:bg-[#01b9d5]/8' 
+          : 'bg-gray-100 border border-gray-200 hover:bg-gray-200'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      onClick={handleToggle}
+    >
+      {/* Compact toggle switch */}
+      <div className={`relative w-7 h-4 rounded-full transition-colors duration-150 ease-out ${
+        isCompleted ? 'bg-[#01b9d5]' : 'bg-gray-400'
+      }`}>
+        <div
+          className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-150 ease-out ${
+            isCompleted ? 'transform translate-x-3' : 'transform translate-x-0.5'
+          }`}
+          style={{ willChange: 'transform' }}
+        />
+      </div>
+      
+      {/* Compact status text */}
+      <span className={`text-xs font-medium transition-colors duration-150 ${
+        isCompleted ? 'text-[#01b9d5]' : 'text-gray-600'
+      }`}>
+        {isCompleted ? 'Done' : 'Pending'}
+      </span>
+    </div>
+  );
+};
+
+// Unified Visit interface for both appointments and visits
 interface Visit {
   id: string;
   visit_date: string;
   visit_time?: string;
+  visit_number?: number;  // Sequential number for patient journey
   chief_complaint?: string;
   diagnosis?: string;
   treatment_plan?: string;
   doctor_name?: string;
+  doctor?: {
+    id: string;
+    full_name: string;
+  };
   visit_type?: string;
-  status?: string;
+  status?: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';  // Unified statuses
   history_of_present_illness?: string;
   follow_up_instructions?: string;
+  notes?: string;
+  duration?: number;
+  appointment_id?: string;  // Link to original appointment if migrated
   vitals?: {
     blood_pressure?: string;
     heart_rate?: number;
@@ -54,14 +151,27 @@ interface Visit {
     test_name: string;
     status: string;
   }>;
+  // Add counts for media, lab, and imaging
+  media_count?: number;
+  lab_count?: number;
+  imaging_count?: number;
 }
+
+// Helper to check if a visit is scheduled (appointment)
+const isScheduledVisit = (visit: Visit): boolean => {
+  return visit.status === 'scheduled';
+};
 
 interface EncounterTimelineProps {
   visits: Visit[];
+  appointments?: any[];  // Deprecated - kept for backward compatibility
   patientName?: string;
   onAddVisit?: () => void;
+  onAddVisitTabs?: () => void;
   onEditVisit?: (visit: Visit) => void;
   onCreateFollowUp?: (visit: Visit) => void;
+  onStartAppointment?: (visit: Visit) => void;  // Now handles scheduled visits
+  onVisitStatusChange?: (visitId: string, newStatus: string) => void;
 }
 
 // Donut Chart Component
@@ -136,16 +246,78 @@ const TimelineNode: React.FC<{
   onToggle: () => void;
   onEditVisit?: (visit: Visit) => void;
   onCreateFollowUp?: (visit: Visit) => void;
-}> = ({ visit, index, totalVisits, isLast, isExpanded, onToggle, onEditVisit, onCreateFollowUp }) => {
+  onVisitStatusChange?: (visitId: string, newStatus: string) => void;
+  onStartAppointment?: (visit: Visit) => void;
+}> = ({ visit, index, totalVisits, isLast, isExpanded, onToggle, onEditVisit, onCreateFollowUp, onVisitStatusChange, onStartAppointment }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [counts, setCounts] = useState({
+    media: 0,
+    lab: 0,
+    imaging: 0
+  });
+
+  // Fetch counts for this visit
+  useEffect(() => {
+    const fetchVisitCounts = async () => {
+      try {
+        const [mediaResult, labResult, imagingResult] = await Promise.all([
+          // Get media count for this visit
+          supabase
+            .from('patient_media')
+            .select('id', { count: 'exact', head: true })
+            .eq('visit_id', visit.id),
+          
+          // Get lab count for this visit
+          supabase
+            .from('patient_laboratory')
+            .select('id', { count: 'exact', head: true })
+            .eq('visit_id', visit.id),
+          
+          // Get imaging count for this visit
+          supabase
+            .from('patient_imaging')
+            .select('id', { count: 'exact', head: true })
+            .eq('visit_id', visit.id)
+        ]);
+
+        setCounts({
+          media: mediaResult.count || 0,
+          lab: labResult.count || 0,
+          imaging: imagingResult.count || 0
+        });
+      } catch (error) {
+        console.error('Error fetching visit counts:', error);
+        // Set to 0 on error
+        setCounts({ media: 0, lab: 0, imaging: 0 });
+      }
+    };
+
+    fetchVisitCounts();
+  }, [visit.id]);
   const visitDate = parseISO(visit.visit_date);
   const isTodayVisit = isToday(visitDate);
   const isFutureVisit = isFuture(visitDate);
-  const visitNumber = totalVisits - index;
+  const visitNumber = visit.visit_number || (totalVisits - index);  // Use visit_number if available
   const isCompleted = visit.status === 'completed';
+  const isScheduled = visit.status === 'scheduled';  // This is an appointment
   
   // Get premium colors and demarcation based on status
   const getVisitTheme = () => {
+    if (isScheduled) {
+      // Scheduled visits (appointments) get a special theme
+      return {
+        bg: 'bg-gradient-to-br from-emerald-500 to-teal-600',
+        border: 'border-emerald-300',
+        glow: 'bg-emerald-400',
+        cardBg: 'bg-gradient-to-br from-emerald-50/30 to-teal-50/30',
+        textPrimary: 'text-gray-900',
+        textSecondary: 'text-gray-700',
+        accent: 'from-emerald-500 to-teal-600',
+        icon: CalendarCheck,
+        iconColor: 'text-emerald-600',
+        status: 'scheduled'
+      };
+    }
     if (isCompleted) {
       return {
         bg: 'bg-gradient-to-br from-indigo-500 to-purple-600',
@@ -433,43 +605,47 @@ const TimelineNode: React.FC<{
                   )}
                 </div>
                 
-                {/* Row 2: Doctor and status - compact vertical layout with consistent spacing */}
-                {visit.doctor_name && (
+                {/* Row 2: Doctor info (if available) */}
+                {(visit.doctor?.full_name || visit.doctor_name) && (
                   <div className="mb-3">
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <User className="w-3.5 h-3.5" />
-                        <span className="font-semibold text-sm">Dr. {visit.doctor_name}</span>
-                      </div>
-                      
-                      {/* Status Indicator - below doctor with no left margin/padding */}
-                      <motion.div
-                        whileHover={{ scale: 1.05 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r ${theme.accent} rounded-full shadow-sm`}>
-                          <motion.div
-                            className="w-1.5 h-1.5 bg-white rounded-full"
-                            animate={{
-                              scale: [1, 1.2, 1],
-                              opacity: [1, 0.7, 1]
-                            }}
-                            transition={{
-                              duration: 2,
-                              repeat: Infinity,
-                              ease: "easeInOut"
-                            }}
-                          />
-                          <span className="text-xs font-semibold text-white uppercase tracking-wide">
-                            {theme.status}
-                          </span>
-                        </div>
-                      </motion.div>
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <User className="w-3.5 h-3.5" />
+                      <span className="font-semibold text-sm">
+                        Dr. {visit.doctor?.full_name || visit.doctor_name}
+                      </span>
                     </div>
                   </div>
                 )}
                 
-                {/* Row 3: Quick stats */}
+                {/* Row 3: Status Toggle or Start Visit button */}
+                <div className="mb-3">
+                  {isScheduled ? (
+                    // For scheduled visits (appointments), show "Start Visit" button
+                    <motion.button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onStartAppointment) {
+                          onStartAppointment(visit); // This will update status and open edit form
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full shadow-sm hover:shadow-lg transition-all text-white font-semibold text-xs"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      <Play className="w-3 h-3" />
+                      Start Visit
+                    </motion.button>
+                  ) : (
+                    // For in-progress or completed visits, show status toggle
+                    <StatusToggle
+                      visitId={visit.id}
+                      currentStatus={visit.status || 'in-progress'}
+                      onStatusChange={onVisitStatusChange}
+                    />
+                  )}
+                </div>
+                
+                {/* Row 4: Quick stats */}
                 {(visit.vitals?.blood_pressure || (visit.medications && visit.medications.length > 0) || (visit.lab_results && visit.lab_results.length > 0)) && (
                   <div className="flex items-center gap-2 mb-3">
                     {visit.vitals?.blood_pressure && (
@@ -508,39 +684,87 @@ const TimelineNode: React.FC<{
                 {/* Media, Lab, Imaging badges as light grey buttons */}
                 <div className="flex items-center gap-2">
                   <motion.button 
-                    className="group flex items-center gap-1.5 text-xs bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-md transition-all duration-200"
+                    className={`group flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md transition-all duration-200 ${
+                      counts.media > 0 
+                        ? 'bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border border-blue-200/50' 
+                        : 'bg-gray-100 hover:bg-gray-200'
+                    }`}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
                     <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.5 }}>
-                      <FileText className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-700" />
+                      <FileText className={`w-3.5 h-3.5 transition-colors ${
+                        counts.media > 0 
+                          ? 'text-blue-600 group-hover:text-blue-700' 
+                          : 'text-gray-500 group-hover:text-gray-700'
+                      }`} />
                     </motion.div>
-                    <span className="text-gray-600 group-hover:text-gray-800">Media</span>
-                    <span className="font-semibold text-gray-700 group-hover:text-gray-900">0</span>
+                    <span className={`transition-colors ${
+                      counts.media > 0 
+                        ? 'text-blue-700 group-hover:text-blue-800' 
+                        : 'text-gray-600 group-hover:text-gray-800'
+                    }`}>Media</span>
+                    <span className={`font-semibold transition-colors ${
+                      counts.media > 0 
+                        ? 'text-blue-800 group-hover:text-blue-900' 
+                        : 'text-gray-700 group-hover:text-gray-900'
+                    }`}>{counts.media}</span>
                   </motion.button>
                   
                   <motion.button 
-                    className="group flex items-center gap-1.5 text-xs bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-md transition-all duration-200"
+                    className={`group flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md transition-all duration-200 ${
+                      counts.lab > 0 
+                        ? 'bg-gradient-to-r from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100 border border-emerald-200/50' 
+                        : 'bg-gray-100 hover:bg-gray-200'
+                    }`}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
                     <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.5 }}>
-                      <FlaskConical className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-700" />
+                      <FlaskConical className={`w-3.5 h-3.5 transition-colors ${
+                        counts.lab > 0 
+                          ? 'text-emerald-600 group-hover:text-emerald-700' 
+                          : 'text-gray-500 group-hover:text-gray-700'
+                      }`} />
                     </motion.div>
-                    <span className="text-gray-600 group-hover:text-gray-800">Lab</span>
-                    <span className="font-semibold text-gray-700 group-hover:text-gray-900">{visit.lab_results?.length || 0}</span>
+                    <span className={`transition-colors ${
+                      counts.lab > 0 
+                        ? 'text-emerald-700 group-hover:text-emerald-800' 
+                        : 'text-gray-600 group-hover:text-gray-800'
+                    }`}>Lab</span>
+                    <span className={`font-semibold transition-colors ${
+                      counts.lab > 0 
+                        ? 'text-emerald-800 group-hover:text-emerald-900' 
+                        : 'text-gray-700 group-hover:text-gray-900'
+                    }`}>{counts.lab}</span>
                   </motion.button>
                   
                   <motion.button 
-                    className="group flex items-center gap-1.5 text-xs bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded-md transition-all duration-200"
+                    className={`group flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md transition-all duration-200 ${
+                      counts.imaging > 0 
+                        ? 'bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 border border-purple-200/50' 
+                        : 'bg-gray-100 hover:bg-gray-200'
+                    }`}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                   >
                     <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.5 }}>
-                      <Hexagon className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-700" />
+                      <Hexagon className={`w-3.5 h-3.5 transition-colors ${
+                        counts.imaging > 0 
+                          ? 'text-purple-600 group-hover:text-purple-700' 
+                          : 'text-gray-500 group-hover:text-gray-700'
+                      }`} />
                     </motion.div>
-                    <span className="text-gray-600 group-hover:text-gray-800">Imaging</span>
-                    <span className="font-semibold text-gray-700 group-hover:text-gray-900">0</span>
+                    <span className={`transition-colors ${
+                      counts.imaging > 0 
+                        ? 'text-purple-700 group-hover:text-purple-800' 
+                        : 'text-gray-600 group-hover:text-gray-800'
+                    }`}>Imaging</span>
+                    <span className={`font-semibold transition-colors ${
+                      counts.imaging > 0 
+                        ? 'text-purple-800 group-hover:text-purple-900' 
+                        : 'text-gray-700 group-hover:text-gray-900'
+                    }`}>{counts.imaging}</span>
                   </motion.button>
                 </div>
                 
@@ -702,19 +926,54 @@ const TimelineNode: React.FC<{
   );
 };
 
+// AppointmentNode component removed - All appointments are now scheduled visits
+
 const EncounterTimeline: React.FC<EncounterTimelineProps> = ({ 
   visits, 
+  appointments = [],
   onAddVisit, 
+  onAddVisitTabs,
   onEditVisit, 
-  onCreateFollowUp 
+  onCreateFollowUp,
+  onStartAppointment,
+  onVisitStatusChange
 }) => {
-  console.log('🔍 ENCOUNTER TIMELINE: Props received:', {
-    hasOnAddVisit: !!onAddVisit
+  console.log('🔍 ENCOUNTER TIMELINE: Unified Visit System', {
+    totalVisits: visits.length,
+    scheduledVisits: visits.filter(v => v.status === 'scheduled').length,
+    completedVisits: visits.filter(v => v.status === 'completed').length,
+    inProgressVisits: visits.filter(v => v.status === 'in-progress').length,
+    hasOnAddVisit: !!onAddVisit,
+    hasOnEditVisit: !!onEditVisit
   });
+  
   const [expandedVisits, setExpandedVisits] = useState<Set<string>>(new Set());
-  const sortedVisits = [...visits].sort((a, b) => 
-    new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()
-  );
+  
+  // Sort visits by date and time (includes scheduled visits/appointments)
+  const sortedVisits = [...visits].sort((a, b) => {
+    const dateCompare = new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime();
+    if (dateCompare !== 0) return dateCompare;
+    
+    // If same date, sort by time
+    const timeA = a.visit_time || '00:00';
+    const timeB = b.visit_time || '00:00';
+    return timeB.localeCompare(timeA);
+  });
+
+  // All items are now visits (appointments are scheduled visits)
+  const timelineItems = sortedVisits.map(visit => ({
+    ...visit,
+    type: 'visit' as const,
+    dateTime: new Date(`${visit.visit_date} ${visit.visit_time || '00:00'}`),
+    displayDate: visit.visit_date,
+    displayTime: visit.visit_time
+  }));
+
+  console.log('📊 UNIFIED TIMELINE:', {
+    totalItems: timelineItems.length,
+    itemsWithNumbers: timelineItems.filter(item => item.visit_number).length,
+    scheduledItems: timelineItems.filter(item => item.status === 'scheduled').length
+  });
   
   const toggleVisit = (visitId: string) => {
     setExpandedVisits(prev => {
@@ -771,8 +1030,14 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
       <div className="grid grid-cols-12 gap-6">
         {/* Timeline Column - 10/12 width */}
         <div className="col-span-10">
-          {sortedVisits.map((visit, index) => (
-            <div key={visit.id} className="flex items-start gap-6 mb-8 last:mb-0 relative">
+          {console.log('🎬 RENDERING TIMELINE ITEMS:', {
+            totalItems: timelineItems.length,
+            itemBreakdown: timelineItems.map(item => ({ type: item.type, id: item.id, date: item.displayDate }))
+          })}
+          {timelineItems.map((item, index) => {
+            console.log(`🔄 RENDERING ITEM ${index}:`, { type: item.type, id: item.id, data: item });
+            return (
+            <div key={`${item.type}-${item.id}`} className="flex items-start gap-6 mb-8 last:mb-0 relative">
               {/* Date column */}
               <div className="w-32 text-right flex-shrink-0 pt-5">
                 <motion.div
@@ -781,36 +1046,41 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
                   transition={{ delay: index * 0.04 + 0.1, duration: 0.3 }}
                 >
                   <p className={`font-bold text-base leading-tight ${
-                    visit.status === 'completed' ? 'text-indigo-600' : 'text-gray-900'
+                    item.type === 'visit' && item.status === 'completed' ? 'text-indigo-600' : 
+                    item.type === 'appointment' && isToday(parseISO(item.displayDate)) ? 'text-emerald-600' :
+                    'text-gray-900'
                   }`}>
-                    {formatVisitDate(visit.visit_date)}
+                    {formatVisitDate(item.displayDate)}
                   </p>
-                  {visit.visit_time && (
+                  {item.displayTime && (
                     <div className="flex items-center justify-end gap-1 mt-2">
                       <Clock className="w-3 h-3 text-gray-400" />
                       <p className="text-xs text-gray-500 font-medium">
-                        {visit.visit_time}
+                        {item.displayTime}
                       </p>
                     </div>
                   )}
                 </motion.div>
               </div>
               
-              {/* Timeline content */}
+              {/* Timeline content - All items are visits now */}
               <div className="flex-1 min-w-0">
                 <TimelineNode
-                  visit={visit}
+                  visit={item}
                   index={index}
-                  totalVisits={sortedVisits.length}
-                  isLast={index === sortedVisits.length - 1}
-                  isExpanded={expandedVisits.has(visit.id)}
-                  onToggle={() => toggleVisit(visit.id)}
+                  totalVisits={timelineItems.length}  // Total count includes scheduled visits
+                  isLast={index === timelineItems.length - 1}
+                  isExpanded={expandedVisits.has(item.id)}
+                  onToggle={() => toggleVisit(item.id)}
                   onEditVisit={onEditVisit}
                   onCreateFollowUp={onCreateFollowUp}
+                  onVisitStatusChange={onVisitStatusChange}
+                  onStartAppointment={onStartAppointment}
                 />
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
         
         {/* Journey Progress Column - 2/12 width */}
