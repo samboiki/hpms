@@ -190,11 +190,11 @@ const AddVisitTabs: React.FC<Props> = ({
     instructions: ''
   });
 
-  // Function to refresh medications
+  // Function to refresh medications (for new visit, just reset to empty)
   const refreshMedications = async () => {
-    // For new visits, medications start empty
+    console.log('🔄 Refreshing medications for new visit');
     setMedications([]);
-    console.log('Medications initialized for new visit');
+    console.log('✅ Medications reset for new visit');
   };
 
   // Medication modal states
@@ -291,13 +291,22 @@ const AddVisitTabs: React.FC<Props> = ({
     if (type === 'media') setMediaDragging(false);
   };
 
-  // Initialize form with default values for new visit
+  // Initialize form for new visit
   useEffect(() => {
+    console.log('🆕 Initializing new visit form');
     // Set default time to current time
     const now = new Date();
     setSelectedHour(now.getHours().toString().padStart(2, '0'));
     setSelectedMinute(now.getMinutes().toString().padStart(2, '0'));
+    setSelectedDate(now);
+    
+    // Initialize empty medications list
+    setMedications([]);
+    
+    // Set loading to false since we don't need to fetch anything
     setIsLoading(false);
+    
+    console.log('✅ New visit form initialized');
   }, []);
 
   const onSubmit = async (data: EditVisitFormData) => {
@@ -331,6 +340,8 @@ const AddVisitTabs: React.FC<Props> = ({
         updated_at: new Date().toISOString()
       };
 
+      console.log('🏥 Creating new visit with data:', visitData);
+
       const { data: newVisit, error: visitError } = await supabase
         .from('visits')
         .insert([visitData])
@@ -340,9 +351,11 @@ const AddVisitTabs: React.FC<Props> = ({
       if (visitError) throw visitError;
       
       const newVisitId = newVisit.id;
+      console.log('✅ New visit created with ID:', newVisitId);
 
       // Create vitals if provided
       if (Object.keys(data.vitals).some(key => data.vitals[key as keyof typeof data.vitals])) {
+        console.log('💓 Creating vitals for new visit:', data.vitals);
         const { error: vitalsError } = await supabase
           .from('vitals')
           .insert([{
@@ -352,12 +365,14 @@ const AddVisitTabs: React.FC<Props> = ({
           }]);
 
         if (vitalsError) throw vitalsError;
+        console.log('✅ Vitals created successfully');
       }
 
       // Handle invoice creation if services selected
       if (selectedServices.length > 0 && data.generateInvoice) {
         try {
-          // Create new invoice
+          console.log('🧾 Creating invoice for new visit with services:', selectedServices.length);
+          
           let practiceId = undefined;
           
           if (user) {
@@ -381,6 +396,7 @@ const AddVisitTabs: React.FC<Props> = ({
           };
           
           await invoiceService.generateInvoiceFromVisit(invoiceRequest);
+          console.log('✅ Invoice created successfully');
         } catch (invoiceError) {
           console.error('Invoice creation failed:', invoiceError);
           // Show user-friendly error but don't block the main save
@@ -391,6 +407,8 @@ const AddVisitTabs: React.FC<Props> = ({
       // Save medications to database
       if (medications.length > 0) {
         try {
+          console.log('💊 Creating medications for new visit:', medications.length);
+          
           // Get current user for prescribed_by
           const { data: { user } } = await supabase.auth.getUser();
           
@@ -425,21 +443,19 @@ const AddVisitTabs: React.FC<Props> = ({
           });
 
           await Promise.all(medicationPromises);
-          console.log('Medications saved successfully:', medications.length, 'medications');
+          console.log('✅ Medications saved successfully:', medications.length, 'medications');
           
-          // Refresh the medications list after saving
-          setTimeout(() => {
-            refreshMedications();
-          }, 1000);
         } catch (medicationError) {
           console.error('Error saving medications:', medicationError);
           alert(`Medications save failed: ${medicationError instanceof Error ? medicationError.message : 'Unknown error'}. The visit was created but medications were not saved.`);
         }
       }
 
+      console.log('🎉 Visit creation completed successfully!');
       onSuccess();
     } catch (error) {
-      console.error('Error creating visit:', error);
+      console.error('❌ Error creating visit:', error);
+      alert(`Failed to create visit: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -2151,7 +2167,7 @@ const AddVisitTabs: React.FC<Props> = ({
 
         {/* Imaging Tab */}
         {activeTab === 'imaging' && (
-          <ImagingTabContentSimple patientId={patientId} visitId="" />
+          <ImagingTabContentSimple patientId={patientId} visitId={visitId} />
         )}
 
 

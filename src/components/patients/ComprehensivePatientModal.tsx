@@ -64,8 +64,8 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import EditPatientForm from '../forms/EditPatientForm';
 import NextOfKinForm from '../forms/NextOfKinForm';
-import PremiumAddVisitForm from '../forms/PremiumAddVisitForm';
 import FullScreenEditVisitModal from '../visits/FullScreenEditVisitModal';
+import AddVisitTabs from '../visits/AddVisitTabs';
 import MedicalAidForm from '../forms/MedicalAidForm';
 import SendMessageModal from '../modals/SendMessageModal';
 import SendEmailModal from '../modals/SendEmailModal';
@@ -372,16 +372,27 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       let labResultsData = [];
       
       if (visitIds.length > 0) {
-        const { data: patientLabResultsData, error: labResultsError } = await supabase
-          .from('lab_results')
-          .select('*')
-          .in('visit_id', visitIds)
-          .order('created_at', { ascending: false });
+        // First get lab requests for these visits
+        const { data: labRequestsData, error: labRequestsError } = await supabase
+          .from('lab_requests')
+          .select('id')
+          .in('visit_id', visitIds);
 
-        if (labResultsError) {
-          console.error('Error fetching lab results:', labResultsError);
-        } else {
-          labResultsData = patientLabResultsData || [];
+        if (!labRequestsError && labRequestsData && labRequestsData.length > 0) {
+          const labRequestIds = labRequestsData.map(req => req.id);
+          
+          // Then get lab results for these lab requests
+          const { data: patientLabResultsData, error: labResultsError } = await supabase
+            .from('lab_results')
+            .select('*, lab_request_id')
+            .in('lab_request_id', labRequestIds)
+            .order('created_at', { ascending: false });
+
+          if (labResultsError) {
+            console.error('Error fetching lab results:', labResultsError);
+          } else {
+            labResultsData = patientLabResultsData || [];
+          }
         }
       }
       
@@ -1728,6 +1739,11 @@ OneHealth Medical Team`;
                                   visits={visits}
                                   patientName={`${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`}
                                   onAddVisit={() => modalState.openAddVisitModal()}
+                                  onAddVisitTabs={() => {
+                                    console.log('🔍 PATIENT MODAL: onAddVisitTabs callback triggered');
+                                    console.log('🔍 PATIENT MODAL: modalState:', modalState);
+                                    modalState.openAddVisitTabsModal();
+                                  }}
                                   onEditVisit={(visit) => {
                                     console.log('Edit visit:', visit);
                                     setSelectedVisit(visit);
@@ -1955,8 +1971,9 @@ OneHealth Medical Team`;
         title="Record New Visit"
       >
         {selectedPatientDetails && (
-          <PremiumAddVisitForm
+          <AddVisitTabs
             patientId={selectedPatientDetails.id}
+            activeTab="general"
             onCancel={() => modalState.closeAddVisitModal()}
             onSuccess={() => {
               modalState.closeAddVisitModal();
@@ -1965,6 +1982,40 @@ OneHealth Medical Team`;
           />
         )}
       </FormModal>
+
+      {/* Add Visit Tabs Modal */}
+      <AnimatePresence>
+        {selectedPatientDetails && modalState.modalState.isAddVisitTabsModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex items-center justify-center"
+          >
+            {console.log('🔍 RENDER: AddVisitTabs modal is now visible')}
+            <motion.div 
+              className="absolute inset-0 bg-black bg-opacity-50" 
+              onClick={() => modalState.closeAddVisitTabsModal()} 
+            />
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative z-10 w-full max-w-7xl mx-4 max-h-[90vh] overflow-auto"
+            >
+              <AddVisitTabs
+                patientId={selectedPatientDetails.id}
+                activeTab="details"
+                onSuccess={() => {
+                  modalState.closeAddVisitTabsModal();
+                  fetchPatientDetails(selectedPatientDetails.id);
+                }}
+                onCancel={() => modalState.closeAddVisitTabsModal()}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {selectedPatientDetails && (
         <FormModal
