@@ -18,7 +18,7 @@ import {
   Share2
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { downloadInvoicePDF } from '../billing/ProfessionalInvoicePDF';
+import { downloadInvoicePDF } from '../billing/SimpleProfessionalInvoicePDF';
 import { toast } from 'react-hot-toast';
 
 interface Invoice {

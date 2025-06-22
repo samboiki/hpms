@@ -95,7 +95,7 @@ import { LabResultsContent, DocumentsContent, BillingContent } from './DirectTab
 import CleanInvoiceTable from '../billing/CleanInvoiceTable';
 import InvoicePreviewModal from '../modals/InvoicePreviewModal';
 import ManageBeneficiariesModal from '../modals/ManageBeneficiariesModal';
-import { downloadInvoicePDF, generateInvoicePDF } from '../billing/ProfessionalInvoicePDF';
+import { downloadInvoicePDF, generateInvoicePDF } from '../billing/SimpleProfessionalInvoicePDF';
 
 interface MessageConfirmationData {
   type: 'sms' | 'email';
@@ -2644,7 +2644,7 @@ OneHealth Medical Team`;
                                         });
                                       } catch (error) {
                                         console.error('Error preparing invoice for email:', error);
-                                        alert('Failed to prepare invoice for email');
+                                        toast.error('Failed to prepare invoice for email');
                                       }
                                     }}
                                     onPrintInvoice={async (invoice) => {
@@ -2662,7 +2662,7 @@ OneHealth Medical Team`;
                                         );
                                       } catch (error) {
                                         console.error('Error generating PDF:', error);
-                                        alert('Failed to generate invoice PDF');
+                                        toast.error('Failed to generate invoice PDF');
                                       }
                                     }}
                                   />

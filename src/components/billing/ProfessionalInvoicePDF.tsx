@@ -13,10 +13,16 @@ import { format, parseISO } from 'date-fns';
 
 // Register fonts for better typography
 Font.register({
-  family: 'Inter',
+  family: 'Helvetica',
   fonts: [
-    { src: 'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyeMZs.woff2' },
-    { src: 'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuDyfMZs.woff2', fontWeight: 'bold' }
+    {
+      src: 'https://cdn.jsdelivr.net/npm/@canvas-fonts/helvetica@1.0.4/Helvetica.ttf',
+      fontWeight: 'normal',
+    },
+    {
+      src: 'https://cdn.jsdelivr.net/npm/@canvas-fonts/helvetica-bold@1.0.4/Helvetica-Bold.ttf',
+      fontWeight: 'bold',
+    },
   ]
 });
 
@@ -27,7 +33,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     padding: 40,
     fontSize: 10,
-    fontFamily: 'Inter',
+    fontFamily: 'Helvetica',
     lineHeight: 1.4,
   },
   header: {
@@ -51,7 +57,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
     marginBottom: 10,
-    fontStyle: 'italic',
+    color: '#64748b',
   },
   practiceDetails: {
     fontSize: 9,
