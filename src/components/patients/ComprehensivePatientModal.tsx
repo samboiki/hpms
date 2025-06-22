@@ -92,7 +92,7 @@ import { useAiSearch } from '../../hooks/useAiSearch';
 import { defaultSMSService } from '../../services/smsPortal';
 import { medicalAidService } from '../../services/medicalAidService';
 import { LabResultsContent, DocumentsContent, BillingContent } from './DirectTabContent';
-import PremiumInvoiceTable from '../billing/PremiumInvoiceTable';
+import CleanInvoiceTable from '../billing/CleanInvoiceTable';
 import InvoicePreviewModal from '../modals/InvoicePreviewModal';
 import ManageBeneficiariesModal from '../modals/ManageBeneficiariesModal';
 import { downloadInvoicePDF, generateInvoicePDF } from '../billing/ProfessionalInvoicePDF';
@@ -2574,7 +2574,7 @@ OneHealth Medical Team`;
 
                               {activeDetailTab === 'billing' && (
                                 <div className="space-y-6">
-                                  <PremiumInvoiceTable
+                                  <CleanInvoiceTable
                                     patientId={selectedPatientDetails.id}
                                     onVisitClick={(visitId) => {
                                       const visitToEdit = visits.find(v => v.id === visitId);

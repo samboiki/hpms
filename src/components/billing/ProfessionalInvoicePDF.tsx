@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e293b',
     color: '#ffffff',
     fontWeight: 'bold',
-    borderRadius: '8 8 0 0',
+    borderRadius: 8,
   },
   summaryLabel: {
     fontSize: 11,
