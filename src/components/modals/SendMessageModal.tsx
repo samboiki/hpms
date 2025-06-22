@@ -28,28 +28,6 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
   const [sendStatus, setSendStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [showTemplates, setShowTemplates] = useState(false);
 
-  // Debug modal state changes
-  React.useEffect(() => {
-    if (isOpen) {
-      console.log('📱 SMS MODAL DEBUG: SendMessageModal OPENED - Patient:', patient?.first_name, patient?.last_name);
-      console.log('📱 SMS MODAL DEBUG: Modal approach - FULL SCREEN with FullScreenModal wrapper');
-      console.log('📱 SMS MODAL DEBUG: Current theme gradient:', currentTheme.gradients.sidebar);
-      console.log('📱 SMS MODAL DEBUG: Z-index: 2147483647 (MAX VALUE), Position: fixed inset-0');
-      console.log('📱 SMS MODAL DEBUG: Rendered via Portal to document.body with isolation');
-      
-      // Check for DOM conflicts
-      const existingModals = document.querySelectorAll('[class*="z-"]');
-      console.log('📱 SMS MODAL DEBUG: Existing modals with z-index:', existingModals.length);
-      existingModals.forEach((modal, i) => {
-        const classes = modal.className;
-        if (classes.includes('z-')) {
-          console.log(`📱 SMS MODAL DEBUG: Modal ${i}:`, classes);
-        }
-      });
-    } else {
-      console.log('📱 SMS MODAL DEBUG: SendMessageModal CLOSED');
-    }
-  }, [isOpen, patient, currentTheme]);
 
   // Runtime dimension checking
   React.useEffect(() => {

@@ -113,15 +113,9 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
   
   // Ref to trigger service modal from AddVisitTabs
   const triggerServiceModal = () => {
-    console.log('🔵 Triggering service modal from header');
-    // We'll use a custom event or callback to trigger the modal in AddVisitTabs
     window.dispatchEvent(new CustomEvent('triggerServiceModal'));
   };
 
-  // Debug logging for modal state
-  useEffect(() => {
-    console.log('🔍 DEBUG: FullScreenAddVisitModal - isScheduleModalOpen changed to:', isScheduleModalOpen);
-  }, [isScheduleModalOpen]);
 
   // Initialize for new visit and fetch patient data
   useEffect(() => {
@@ -133,7 +127,6 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
   const fetchPatientData = async () => {
     try {
       setLoading(true);
-      console.log('🆕 Fetching patient data for new visit modal');
       
       const { data, error } = await supabase
         .from('patients')
@@ -145,9 +138,8 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
       
       setPatient(data);
       setVisit(null); // No existing visit data for new visits
-      console.log('✅ Patient data loaded:', data);
     } catch (error) {
-      console.error('❌ Error fetching patient data:', error);
+      console.error('Error fetching patient data:', error);
     } finally {
       setLoading(false);
     }
@@ -321,9 +313,6 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      console.log('🎯 DEBUG: Schedule Follow-up button clicked!');
-                      console.log('🎯 DEBUG: Current isScheduleModalOpen:', isScheduleModalOpen);
-                      console.log('🎯 DEBUG: Setting isScheduleModalOpen to true...');
                       setIsScheduleModalOpen(true);
                     }}
                     className="px-4 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2 bg-blue-100 text-blue-600 hover:bg-blue-200"
@@ -424,13 +413,10 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        console.log('🔵 Add Services button clicked from header');
-                        // Switch to billing tab if not already there
                         if (activeTab !== 'billing') {
                           setActiveTab('billing');
                         }
-                        // Trigger the service modal in AddVisitTabs
-                        setTimeout(() => triggerServiceModal(), 100); // Small delay to ensure tab switch
+                        setTimeout(() => triggerServiceModal(), 100);
                       }}
                       className="px-4 py-2 rounded-lg font-medium text-white transition-all duration-200 hover:shadow-md hover:scale-105 flex items-center gap-2 text-sm"
                       style={{ background: 'linear-gradient(135deg, #30b4be, #2a9da6)' }}
@@ -515,26 +501,17 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
       </FullScreenModal>
 
       {/* Schedule Follow-up Appointment Modal */}
-      {console.log('🏗️ DEBUG: Rendering FormModal with props:', {
-        isScheduleModalOpen,
-        patientId,
-        visitDoctorId: visit?.doctor_id,
-        userId: user?.id
-      })}
       <FormModal
         isOpen={isScheduleModalOpen}
         onClose={() => {
-          console.log('🔴 DEBUG: Schedule modal onClose called');
           setIsScheduleModalOpen(false);
         }}
         title="Schedule Follow-up Appointment"
       >
         <AddAppointmentForm
           onSuccess={() => {
-            console.log('✅ DEBUG: AddAppointmentForm onSuccess called');
             setIsScheduleModalOpen(false);
             setFollowUpRequired(true);
-            // Optionally refresh visit data or show success message
           }}
           initialPatientId={patientId}
           initialType="follow-up"

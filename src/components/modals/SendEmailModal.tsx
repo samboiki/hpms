@@ -28,29 +28,6 @@ const SendEmailModal: React.FC<SendEmailModalProps> = ({ isOpen, onClose, patien
   const [selectedTemplate, setSelectedTemplate] = useState<ProfessionalEmailTemplate | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
 
-  // Debug modal state changes
-  React.useEffect(() => {
-    if (isOpen) {
-      console.log('📧 EMAIL MODAL DEBUG: SendEmailModal OPENED - Recipients:', patients.length);
-      console.log('📧 EMAIL MODAL DEBUG: Modal approach - FULL SCREEN with FullScreenModal wrapper');
-      console.log('📧 EMAIL MODAL DEBUG: Current theme gradient:', currentTheme.gradients.sidebar);
-      console.log('📧 EMAIL MODAL DEBUG: Z-index: 2147483647 (MAX VALUE), Position: fixed inset-0');
-      console.log('📧 EMAIL MODAL DEBUG: Rendered via Portal to document.body with isolation');
-      console.log('📧 EMAIL MODAL DEBUG: Patients:', patients.map(p => `${p.first_name} ${p.last_name}`));
-      
-      // Check for DOM conflicts
-      const existingModals = document.querySelectorAll('[class*="z-"]');
-      console.log('📧 EMAIL MODAL DEBUG: Existing modals with z-index:', existingModals.length);
-      existingModals.forEach((modal, i) => {
-        const classes = modal.className;
-        if (classes.includes('z-')) {
-          console.log(`📧 EMAIL MODAL DEBUG: Modal ${i}:`, classes);
-        }
-      });
-    } else {
-      console.log('📧 EMAIL MODAL DEBUG: SendEmailModal CLOSED');
-    }
-  }, [isOpen, patients, currentTheme]);
 
   // Runtime dimension checking
   React.useEffect(() => {

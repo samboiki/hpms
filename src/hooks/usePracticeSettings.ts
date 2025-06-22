@@ -130,13 +130,21 @@ export const usePracticeSettings = () => {
         .eq('is_active', true)
         .single();
 
-      // Load email subscription
-      const { data: emailData, error: emailError } = await supabase
-        .from('practice_email_subscriptions')
-        .select('*')
-        .eq('practice_id', currentPractice.id)
-        .eq('is_active', true)
-        .single();
+      // Load email subscription (table may not exist yet)
+      let emailData = null;
+      let emailError = null;
+      try {
+        const emailResult = await supabase
+          .from('practice_email_subscriptions')
+          .select('*')
+          .eq('practice_id', currentPractice.id)
+          .eq('is_active', true)
+          .single();
+        emailData = emailResult.data;
+        emailError = emailResult.error;
+      } catch (err) {
+        emailError = err;
+      }
 
       // Process features
       const features = featuresData || [];

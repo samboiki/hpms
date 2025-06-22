@@ -123,10 +123,6 @@ function Dashboard() {
     type: 'patients' | 'notifications' | 'encounters' | 'finance' | null;
   }>({ isOpen: false, type: null });
   
-  // Debug modal state changes
-  useEffect(() => {
-    console.log('🔍 [Dashboard] Report modal state changed:', selectedReportModal);
-  }, [selectedReportModal]);
   const [isEnhancedFinancialModalOpen, setIsEnhancedFinancialModalOpen] = useState(false);
   const [isCommunicationsModalOpen, setIsCommunicationsModalOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -179,7 +175,6 @@ function Dashboard() {
   useRealtimeAppointments({
     practiceId: currentPracticeId,
     onAppointmentChange: (change) => {
-      console.log('📡 Real-time change:', change);
       
       if (change.eventType === 'INSERT') {
         // New appointment - add to list and show notification
@@ -275,7 +270,6 @@ function Dashboard() {
 
   const fetchPatientStats = async () => {
     try {
-      console.log('📊 [Dashboard] Fetching patient statistics...');
       
       // Get total patients count
       const { count: totalCount, error: totalError } = await supabase
@@ -323,12 +317,6 @@ function Dashboard() {
         newThisMonth: newThisMonth || 0
       });
 
-      console.log('✅ [Dashboard] Patient stats fetched:', {
-        total: totalCount,
-        male: maleCount,
-        female: femaleCount,
-        newThisMonth
-      });
 
     } catch (error) {
       console.error('❌ [Dashboard] Error fetching patient stats:', error);
@@ -338,17 +326,14 @@ function Dashboard() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      console.log('🔄 [Dashboard] Starting fetchData');
       
       // Get authenticated user context
       const authContext = await practiceDataService.getAuthContext();
       if (!authContext) {
-        console.log('❌ [Dashboard] No valid auth context');
         setError(new Error('Authentication failed'));
         return;
       }
 
-      console.log('✅ [Dashboard] Auth context established', authContext);
       setCurrentUserId(authContext.userId);
       setCurrentUserRole(authContext.userRole as any);
       setCurrentPracticeId(authContext.practiceId);
@@ -356,24 +341,16 @@ function Dashboard() {
       // Fetch practice details including logo
       const practiceData = await practiceDataService.getPracticeDetails(authContext.practiceId);
       if (practiceData) {
-        console.log('✅ [Dashboard] Practice details loaded:', practiceData);
       }
 
       // Debug practice data
       const debugData = await practiceDataService.debugPracticeData(authContext.practiceId);
-      console.log('🐛 [Dashboard] Debug data:', debugData);
 
       // Use robust practice data service
       const practiceAppointments = await practiceDataService.getPracticeAppointments(authContext.practiceId);
       const practicePatients = await practiceDataService.getPracticePatients(authContext.practiceId);
       const practiceDoctors = await practiceDataService.getPracticeDoctors(authContext.practiceId);
 
-      console.log('✅ [Dashboard] Final results:', {
-        appointments: practiceAppointments.length,
-        patients: practicePatients.length,
-        doctors: practiceDoctors.length,
-        practiceId: authContext.practiceId
-      });
 
       // Get unique patient IDs for lab/media requests
       const uniquePatientIds = [...new Set(practiceAppointments.map(apt => apt.patient_id))];
@@ -448,7 +425,6 @@ function Dashboard() {
       try {
         const stats = await dashboardStatsService.getComprehensiveStats(authContext.practiceId);
         setDashboardStats(stats);
-        console.log('✅ [Dashboard] Stats loaded:', stats);
       } catch (statsError) {
         console.error('❌ [Dashboard] Error loading stats:', statsError);
         // Continue without stats if there's an error
@@ -572,14 +548,6 @@ function Dashboard() {
 
       setNotifications(newNotifications);
 
-      console.log('✅ [Dashboard] Data fetch complete:', {
-        appointmentsSet: practiceAppointments.length,
-        patientsSet: practicePatients.length,
-        labRequestsSet: labRequestsData.length,
-        mediaRequestsSet: mediaRequestsData.length,
-        activitiesSet: activities.length,
-        notificationsSet: newNotifications.length
-      });
       
     } catch (error) {
       console.error('❌ [Dashboard] Error fetching data:', error);
@@ -607,7 +575,6 @@ function Dashboard() {
   } | null>(null);
 
   const handleCreateAppointment = async (doctorId: string, date: string, time: string) => {
-    console.log('Creating appointment for:', { doctorId, date, time });
     setSelectedTimeSlot({ doctorId, date, time });
     setIsAddAppointmentModalOpen(true);
   };
@@ -1001,7 +968,6 @@ function Dashboard() {
                     isPositive: patientStats.newThisMonth > 0
                   }}
                   onClick={() => {
-                    console.log('🔍 [Dashboard] Patients modal clicked');
                     setIsPatientModalOpen(true);
                   }}
                 />,
@@ -1028,7 +994,6 @@ function Dashboard() {
                     color2: '#F97316'
                   }}
                   onClick={() => {
-                    console.log('🔍 [Dashboard] Communications modal clicked');
                     setIsCommunicationsModalOpen(true);
                   }}
                   dashboardStats={dashboardStats}
@@ -1060,7 +1025,6 @@ function Dashboard() {
                     isPositive: true
                   }}
                   onClick={() => {
-                    console.log('🔍 [Dashboard] Encounters modal clicked');
                     setSelectedReportModal({ isOpen: true, type: 'encounters' });
                   }}
                 />,
@@ -1091,7 +1055,6 @@ function Dashboard() {
                     isPositive: true
                   }}
                   onClick={() => {
-                    console.log('🔍 [Dashboard] Finance modal clicked');
                     setIsEnhancedFinancialModalOpen(true);
                   }}
                 />
@@ -1356,13 +1319,11 @@ function Dashboard() {
                           onCreateAppointment={handleCreateAppointment}
                           viewMode={viewMode}
                           onBlockTime={(doctorId, startTime, endTime, reason) => {
-                            console.log('Block time:', { doctorId, startTime, endTime, reason });
                           }}
                           onDeleteAppointment={handleDeleteAppointment}
                           currentUserRole={currentUserRole}
                           currentUserId={currentUserId}
                           onRefresh={() => {
-                            console.log('🔄 Manual refresh triggered from scheduler');
                             fetchData();
                           }}
                           internalViewMode={internalViewMode}
@@ -1378,7 +1339,6 @@ function Dashboard() {
                   <NotificationsPanel
                     notifications={notifications}
                     onNotificationAction={(notificationId, action) => {
-                      console.log('Notification action:', notificationId, action);
                       // Handle notification actions here
                     }}
                     onMarkAsRead={(notificationId) => {
@@ -1431,10 +1391,24 @@ function Dashboard() {
           initialDate={selectedTimeSlot ? new Date(selectedTimeSlot.date) : undefined}
           initialTime={selectedTimeSlot?.time}
           initialDoctorId={selectedTimeSlot?.doctorId}
-          onSuccess={() => {
+          onSuccess={(newAppointment) => {
             setIsAddAppointmentModalOpen(false);
             setSelectedTimeSlot(null);
-            // Real-time updates will handle the refresh
+            
+            // Instantly add new appointment to the state for immediate UI update
+            if (newAppointment) {
+              setAppointments(prevAppointments => {
+                const updated = [...prevAppointments, newAppointment];
+                return updated;
+              });
+              
+              // Notify patient timeline if it's open for this patient
+              if (window.addAppointmentToPatientTimeline) {
+                window.addAppointmentToPatientTimeline(newAppointment);
+              } else {
+              }
+            } else {
+            }
           }}
         />
       </FormModal>
@@ -1531,7 +1505,6 @@ function Dashboard() {
         <DetailedReportModal
           isOpen={selectedReportModal.isOpen}
           onClose={() => {
-            console.log('🔍 [Dashboard] Closing report modal');
             setSelectedReportModal({ isOpen: false, type: null });
           }}
           data={dashboardStats ? generateReportData(selectedReportModal.type, dashboardStats) : {
@@ -1553,7 +1526,6 @@ function Dashboard() {
         <EnhancedFinancialModal
           isOpen={isEnhancedFinancialModalOpen}
           onClose={() => {
-            console.log('🔍 [Dashboard] Closing financial modal');
             setIsEnhancedFinancialModalOpen(false);
           }}
           data={dashboardStats ? generateFinancialReportData(dashboardStats) : {

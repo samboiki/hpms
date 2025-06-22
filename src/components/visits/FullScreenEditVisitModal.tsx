@@ -11,7 +11,8 @@ import {
   Wallet,
   Loader2,
   Stethoscope,
-  CalendarCheck
+  CalendarCheck,
+  Plus
 } from 'lucide-react';
 import FullScreenModal from '../ui/FullScreenModal';
 import EditVisitTabs from './EditVisitTabs';
@@ -110,11 +111,12 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [selectedServices, setSelectedServices] = useState<ServiceSelection[]>([]);
   const { user } = useAuthStore();
+  
+  // Ref to trigger service modal from EditVisitTabs
+  const triggerServiceModal = () => {
+    window.dispatchEvent(new CustomEvent('triggerServiceModal'));
+  };
 
-  // Debug logging for modal state
-  useEffect(() => {
-    console.log('🔍 DEBUG: FullScreenEditVisitModal - isScheduleModalOpen changed to:', isScheduleModalOpen);
-  }, [isScheduleModalOpen]);
 
   // Fetch visit details for header
   useEffect(() => {
@@ -167,7 +169,12 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
           </div>
         </div>
         <button
-          onClick={onClose}
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onClose();
+          }}
           className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
         >
           <X className="w-5 h-5" />
@@ -188,6 +195,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
             return (
               <motion.button
                 key={tab.id}
+                type="button"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ 
                   opacity: 1, 
@@ -202,7 +210,11 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                   transition: { duration: 0.2 }
                 }}
                 whileTap={{ scale: 0.998 }}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setActiveTab(tab.id);
+                }}
                 onMouseEnter={() => setHoveredTab(tab.id)}
                 onMouseLeave={() => setHoveredTab(null)}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-200 relative group ${
@@ -304,9 +316,6 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      console.log('🎯 DEBUG: Schedule Follow-up button clicked!');
-                      console.log('🎯 DEBUG: Current isScheduleModalOpen:', isScheduleModalOpen);
-                      console.log('🎯 DEBUG: Setting isScheduleModalOpen to true...');
                       setIsScheduleModalOpen(true);
                     }}
                     className="px-4 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2 bg-blue-100 text-blue-600 hover:bg-blue-200"
@@ -402,15 +411,32 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                     </div>
                   </div>
                   
-                  {/* Services Counter - Premium Box */}
-                  <motion.div 
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="bg-gradient-to-br from-white to-cyan-50/30 border border-cyan-200/50 rounded-lg p-3 shadow-md backdrop-blur-sm min-w-[180px] hover:shadow-lg transition-all duration-200"
-                    style={{ borderColor: '#30b4be20' }}
-                  >
-                    <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {/* Add Services Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (activeTab !== 'billing') {
+                          setActiveTab('billing');
+                        }
+                        setTimeout(() => triggerServiceModal(), 100);
+                      }}
+                      className="px-4 py-2 rounded-lg font-medium text-white transition-all duration-200 hover:shadow-md hover:scale-105 flex items-center gap-2 text-sm"
+                      style={{ background: 'linear-gradient(135deg, #30b4be, #2a9da6)' }}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Services
+                    </button>
+                  
+                    {/* Services Counter - Premium Box */}
+                    <motion.div 
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="bg-gradient-to-br from-white to-cyan-50/30 border border-cyan-200/50 rounded-lg p-3 shadow-md backdrop-blur-sm min-w-[180px] hover:shadow-lg transition-all duration-200"
+                      style={{ borderColor: '#30b4be20' }}
+                    >
+                      <div className="flex items-center justify-between">
                       <div className="text-center">
                         <div className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#30b4be' }}>Services</div>
                         <motion.div 
@@ -445,6 +471,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                       </div>
                     </div>
                   </motion.div>
+                  </div>
                 </div>
               )}
             </div>
@@ -478,26 +505,17 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
       </FullScreenModal>
 
       {/* Schedule Follow-up Appointment Modal */}
-      {console.log('🏗️ DEBUG: Rendering FormModal with props:', {
-        isScheduleModalOpen,
-        patientId,
-        visitDoctorId: visit?.doctor_id,
-        userId: user?.id
-      })}
       <FormModal
         isOpen={isScheduleModalOpen}
         onClose={() => {
-          console.log('🔴 DEBUG: Schedule modal onClose called');
           setIsScheduleModalOpen(false);
         }}
         title="Schedule Follow-up Appointment"
       >
         <AddAppointmentForm
           onSuccess={() => {
-            console.log('✅ DEBUG: AddAppointmentForm onSuccess called');
             setIsScheduleModalOpen(false);
             setFollowUpRequired(true);
-            // Optionally refresh visit data or show success message
           }}
           initialPatientId={patientId}
           initialType="follow-up"

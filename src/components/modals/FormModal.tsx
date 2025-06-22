@@ -20,15 +20,6 @@ const FormModal: React.FC<FormModalProps> = ({
   hideHeader = false
 }) => {
   
-  // Debug modal state changes
-  useEffect(() => {
-    if (isOpen) {
-      console.log('📧 MODAL DEBUG: FormModal OPENED -', title, '(z-index: 2147483648)');
-      console.log('📧 MODAL DEBUG: FormModal props -', { isOpen, title, hideHeader });
-    } else {
-      console.log('📧 MODAL DEBUG: FormModal CLOSED -', title);
-    }
-  }, [isOpen, title, hideHeader]);
 
   // Handle modal open/close effects
   useEffect(() => {

@@ -363,21 +363,12 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                               const allocated = (dashboardStats?.communications?.smsAllocated || 0);
                               const used = (dashboardStats?.communications?.smsUsed || 0);
                               
-                              console.log('🔍 [SMS Chart] Data:', { 
-                                allocated, 
-                                used, 
-                                calculation: `${used}/${allocated} * 100 = ${allocated > 0 ? (used / allocated * 100).toFixed(1) : 0}%`
-                              });
-                              
                               if (allocated === 0) {
-                                console.log('❌ [SMS Chart] No allocation, showing No Plan');
                                 return [{ name: 'No Plan', value: 100, color: '#9CA3AF' }];
                               }
                               
                               const usedPercentage = (used / allocated) * 100;
                               const availablePercentage = Math.max(0, 100 - usedPercentage);
-                              
-                              console.log('✅ [SMS Chart] Calculated:', { usedPercentage, availablePercentage });
                               
                               return [
                                 { name: 'Used', value: usedPercentage, color: '#F97316' }, // Orange theme
@@ -413,7 +404,6 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                             const allocated = (dashboardStats?.communications?.smsAllocated || 0);
                             const used = (dashboardStats?.communications?.smsUsed || 0);
                             const percentage = allocated > 0 ? Math.round((used / allocated) * 100) : 0;
-                            console.log('🔍 [SMS Center] Display:', { allocated, used, percentage });
                             return `${percentage}%`;
                           })()}
                         </span>
@@ -432,21 +422,12 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                               const allocated = (dashboardStats?.communications?.emailAllocated || 0);
                               const used = (dashboardStats?.communications?.emailUsed || 0);
                               
-                              console.log('🔍 [Email Chart] Data:', { 
-                                allocated, 
-                                used, 
-                                calculation: `${used}/${allocated} * 100 = ${allocated > 0 ? (used / allocated * 100).toFixed(1) : 0}%`
-                              });
-                              
                               if (allocated === 0) {
-                                console.log('❌ [Email Chart] No allocation, showing No Plan');
                                 return [{ name: 'No Plan', value: 100, color: '#9CA3AF' }];
                               }
                               
                               const usedPercentage = (used / allocated) * 100;
                               const availablePercentage = Math.max(0, 100 - usedPercentage);
-                              
-                              console.log('✅ [Email Chart] Calculated:', { usedPercentage, availablePercentage });
                               
                               return [
                                 { name: 'Used', value: usedPercentage, color: '#EA580C' }, // Darker orange theme
@@ -482,7 +463,6 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
                             const allocated = (dashboardStats?.communications?.emailAllocated || 0);
                             const used = (dashboardStats?.communications?.emailUsed || 0);
                             const percentage = allocated > 0 ? Math.round((used / allocated) * 100) : 0;
-                            console.log('🔍 [Email Center] Display:', { allocated, used, percentage });
                             return `${percentage}%`;
                           })()}
                         </span>

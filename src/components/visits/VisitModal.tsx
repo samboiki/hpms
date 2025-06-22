@@ -53,15 +53,7 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
 
       if (vitalsError) throw vitalsError;
 
-      // Delete lab results
-      const { error: labResultsError } = await supabase
-        .from('lab_results')
-        .delete()
-        .eq('visit_id', visit.id);
-
-      if (labResultsError) throw labResultsError;
-
-      // Delete lab requests
+      // Delete lab requests (this will cascade delete lab_results)
       const { error: labRequestsError } = await supabase
         .from('lab_requests')
         .delete()
@@ -77,13 +69,17 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
 
       if (mediaError) throw mediaError;
 
-      // Delete media requests
-      const { error: mediaRequestsError } = await supabase
-        .from('media_requests')
-        .delete()
-        .eq('visit_id', visit.id);
+      // Delete media requests (table may not exist yet)
+      try {
+        const { error: mediaRequestsError } = await supabase
+          .from('media_requests')
+          .delete()
+          .eq('visit_id', visit.id);
 
-      if (mediaRequestsError) throw mediaRequestsError;
+        if (mediaRequestsError) throw mediaRequestsError;
+      } catch (err) {
+        // Table doesn't exist yet, skip this deletion
+      }
 
       // Finally, delete the visit
       const { error: visitError } = await supabase

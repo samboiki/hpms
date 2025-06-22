@@ -243,6 +243,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   // Patient details state
   const [selectedPatientDetails, setSelectedPatientDetails] = useState<PatientDetails | null>(null);
   const [visits, setVisits] = useState<Visit[]>([]);
+  const [visitCounts, setVisitCounts] = useState<{ [visitId: string]: { media: number; lab: number; imaging: number } }>({});
   const [appointments, setAppointments] = useState<any[]>([]);
   const [nextOfKin, setNextOfKin] = useState<NextOfKin | null>(null);
   const [medicalAid, setMedicalAid] = useState<MedicalAidDetails | null>(null);
@@ -351,6 +352,9 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
 
   // Fetch patient details
   const fetchPatientDetails = useCallback(async (patientId: string) => {
+    const startTime = performance.now();
+    console.log(`🚀 STARTING fetchPatientDetails for patient: ${patientId}`);
+    
     if (!patientId || !UUID_REGEX.test(patientId)) {
       setDetailsError('Invalid patient ID format');
       setIsLoadingDetails(false);
@@ -358,18 +362,64 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
     }
 
     try {
+      // ⚡ CRITICAL: Clear previous patient data IMMEDIATELY to prevent showing old data
+      setSelectedPatientDetails(null);
+      setVisits([]);
+      setVisitCounts({});
+      setAppointments([]);
+      setVitals([]);
+      setLabRequests([]);
+      setLabResults([]);
+      setMedications([]);
+      setMediaRequests([]);
+      setImagingRequests([]);
+      setBillingData([]);
+      setMedicalAid(null);
+      setNextOfKin(null);
+      
       setIsLoadingDetails(true);
       setDetailsError(null);
       
-      const { data: patientData, error: patientError } = await supabase
-        .from('patient_details_view')
-        .select('*')
-        .eq('id', patientId)
-        .single();
-
-      if (patientError) throw patientError;
-      if (!patientData) throw new Error('Patient not found');
+      // ⏱️ TIMING: Initial parallel queries (MAJOR OPTIMIZATION)
+      const initialStartTime = performance.now();
+      console.log('🚀 Starting PARALLEL initial queries for patient details, next of kin, and visits...');
       
+      const [patientResult, nextOfKinResult, visitsResult] = await Promise.all([
+        // Patient details
+        supabase
+          .from('patient_details_view')
+          .select('*')
+          .eq('id', patientId)
+          .single(),
+          
+        // Next of kin (optimized)
+        supabase
+          .from('next_of_kin')
+          .select('id, first_name, last_name, relationship, phone_number, email')
+          .eq('patient_id', patientId)
+          .limit(1)
+          .maybeSingle(),
+          
+        // Visits with doctor info
+        supabase
+          .from('visits')
+          .select(`
+            *,
+            doctor:users!doctor_id(id, full_name)
+          `)
+          .eq('patient_id', patientId)
+          .order('visit_date', { ascending: false })
+          .order('visit_time', { ascending: false })
+      ]);
+      
+      const initialEndTime = performance.now();
+      console.log(`⏱️ Initial parallel queries: ${(initialEndTime - initialStartTime).toFixed(2)}ms`);
+
+      // Process results
+      if (patientResult.error) throw patientResult.error;
+      if (!patientResult.data) throw new Error('Patient not found');
+      
+      const patientData = patientResult.data;
       setSelectedPatientDetails(patientData as any);
       
       // Extract medical aid from the view
@@ -380,32 +430,17 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         fetchBeneficiariesCount(medicalAidData.membership_number);
       }
 
-      // Fetch next of kin data
-      const { data: nextOfKinData, error: nextOfKinError } = await supabase
-        .from('next_of_kin')
-        .select('*')
-        .eq('patient_id', patientId)
-        .maybeSingle();
-
-      if (nextOfKinError) {
-        console.error('Error fetching next of kin:', nextOfKinError);
+      // Process next of kin
+      if (nextOfKinResult.error) {
+        console.error('Error fetching next of kin:', nextOfKinResult.error);
         setNextOfKin(null);
       } else {
-        setNextOfKin(nextOfKinData || null);
+        setNextOfKin(nextOfKinResult.data || null);
       }
 
-      // Fetch ALL visits (including scheduled ones which are appointments)
-      const { data: visitsData, error: visitsError } = await supabase
-        .from('visits')
-        .select(`
-          *,
-          doctor:users!doctor_id(id, full_name)
-        `)
-        .eq('patient_id', patientId)
-        .order('visit_date', { ascending: false })
-        .order('visit_time', { ascending: false });
-
-      if (visitsError) throw visitsError;
+      // Process visits
+      if (visitsResult.error) throw visitsResult.error;
+      const visitsData = visitsResult.data;
       
       console.log('✅ UNIFIED VISITS FETCHED:', {
         total: visitsData?.length || 0,
@@ -414,7 +449,88 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         inProgress: visitsData?.filter(v => v.status === 'in-progress').length || 0
       });
       
+      // ⚡ PERFORMANCE OPTIMIZATION: Batch fetch visit counts to eliminate N+1 queries
+      const visitIds = visitsData?.map(v => v.id) || [];
+      let visitCountsMap: { [visitId: string]: { media: number; lab: number; imaging: number } } = {};
+      
+      if (visitIds.length > 0) {
+        try {
+          // ⏱️ TIMING: Count queries (POTENTIAL BOTTLENECK)
+          const countBatchStartTime = performance.now();
+          console.log('🚀 BATCHING COUNT QUERIES for', visitIds.length, 'visits');
+          
+          // ⚡ OPTIMIZED: Skip problematic RPC function, use fast parallel queries 
+          console.log('⚡ Using ULTRA-FAST parallel count queries...');
+          let countsError = { message: 'Using optimized parallel method' }; // Force optimized path
+            
+          if (countsError) {
+            console.log('⚡ OPTIMIZED METHOD: 3 parallel queries with minimal data transfer');
+            const countStartTime = performance.now();
+            const [mediaCountsResult, labCountsResult, imagingCountsResult] = await Promise.all([
+              supabase
+                .from('patient_media')
+                .select('visit_id')
+                .in('visit_id', visitIds),
+                
+              supabase
+                .from('patient_laboratory')  
+                .select('visit_id')
+                .in('visit_id', visitIds),
+                
+              supabase
+                .from('patient_imaging')
+                .select('visit_id')
+                .in('visit_id', visitIds)
+            ]);
+            const countEndTime = performance.now();
+            console.log(`⏱️ Individual count queries: ${(countEndTime - countStartTime).toFixed(2)}ms`);
+            
+            // Create count maps (fallback method)
+            const mediaCounts = (mediaCountsResult.data || []).reduce((acc, item) => {
+              acc[item.visit_id] = (acc[item.visit_id] || 0) + 1;
+              return acc;
+            }, {} as { [key: string]: number });
+            
+            const labCounts = (labCountsResult.data || []).reduce((acc, item) => {
+              acc[item.visit_id] = (acc[item.visit_id] || 0) + 1;
+              return acc;
+            }, {} as { [key: string]: number });
+            
+            const imagingCounts = (imagingCountsResult.data || []).reduce((acc, item) => {
+              acc[item.visit_id] = (acc[item.visit_id] || 0) + 1;
+              return acc;
+            }, {} as { [key: string]: number });
+            
+            // Combine into visitCountsMap (fallback)
+            visitIds.forEach(visitId => {
+              visitCountsMap[visitId] = {
+                media: mediaCounts[visitId] || 0,
+                lab: labCounts[visitId] || 0,
+                imaging: imagingCounts[visitId] || 0
+              };
+            });
+          } else {
+            // ⚡ LIGHTNING FAST: Use optimized database function results
+            (countsResult || []).forEach((row: any) => {
+              visitCountsMap[row.visit_id] = {
+                media: parseInt(row.media_count) || 0,
+                lab: parseInt(row.lab_count) || 0,
+                imaging: parseInt(row.imaging_count) || 0
+              };
+            });
+          }
+          
+          const endTime = performance.now();
+          console.log(`⏱️ TOTAL count batch: ${(endTime - countBatchStartTime).toFixed(2)}ms - eliminated N+1 queries!`);
+          
+        } catch (error) {
+          console.error('Error in batch count queries:', error);
+          // Continue with empty counts rather than failing
+        }
+      }
+      
       setVisits(visitsData as any || []);
+      setVisitCounts(visitCountsMap); // Store counts for EncounterTimeline
       
       // No need to fetch appointments separately anymore
       console.log('✅ APPOINTMENTS ARE NOW PART OF VISITS WITH status="scheduled"');
@@ -431,45 +547,102 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       // For backward compatibility, set appointments to scheduled visits
       setAppointments(scheduledVisits);
 
-      // Fetch vitals data for this patient's visits only
-      const visitIds = visitsData?.map(v => v.id) || [];
-      let vitalsData = [];
+      // ⏱️ TIMING: Secondary parallel queries (MEGA OPTIMIZATION)
+      let secondaryQueries = [];
       
       if (visitIds.length > 0) {
-        const { data: patientVitalsData, error: vitalsError } = await supabase
-          .from('vitals')
-          .select('*')
-          .in('visit_id', visitIds)
-          .order('created_at', { ascending: false });
-
-        if (vitalsError) {
-          console.error('Error fetching vitals:', vitalsError);
-        } else {
-          vitalsData = patientVitalsData || [];
-        }
+        secondaryQueries = [
+          // Vitals
+          supabase
+            .from('vitals')
+            .select('*')
+            .in('visit_id', visitIds)
+            .order('created_at', { ascending: false }),
+            
+          // Lab requests
+          supabase
+            .from('lab_requests')
+            .select('id')
+            .in('visit_id', visitIds),
+            
+          // Documents
+          supabase
+            .from('patient_documents')
+            .select('*')
+            .eq('patient_id', patientId)
+            .order('created_at', { ascending: false }),
+            
+          // Billing
+          supabase
+            .from('invoices_enhanced')
+            .select('*')
+            .eq('patient_id', patientId)
+            .order('created_at', { ascending: false })
+        ];
+      } else {
+        secondaryQueries = [
+          // Just documents and billing if no visits
+          supabase
+            .from('patient_documents')
+            .select('*')
+            .eq('patient_id', patientId)
+            .order('created_at', { ascending: false }),
+            
+          supabase
+            .from('invoices_enhanced')
+            .select('*')
+            .eq('patient_id', patientId)
+            .order('created_at', { ascending: false })
+        ];
       }
       
-      setVitals(vitalsData);
-
-      // Fetch lab results for this patient's visits only
-      let labResultsData = [];
+      const secondaryStartTime = performance.now();
+      console.log('🚀 Starting secondary parallel queries...');
+      const secondaryResults = await Promise.all(secondaryQueries);
+      const secondaryEndTime = performance.now();
+      console.log(`⏱️ Secondary parallel queries: ${(secondaryEndTime - secondaryStartTime).toFixed(2)}ms`);
       
+      // Process secondary results
       if (visitIds.length > 0) {
-        // First get lab requests for these visits
-        const { data: labRequestsData, error: labRequestsError } = await supabase
-          .from('lab_requests')
-          .select('id')
-          .in('visit_id', visitIds);
-
-        if (!labRequestsError && labRequestsData && labRequestsData.length > 0) {
-          const labRequestIds = labRequestsData.map(req => req.id);
+        const [vitalsResult, labRequestsResult, documentsResult, billingResult] = secondaryResults;
+        
+        // Set vitals
+        if (vitalsResult.error) {
+          console.error('Error fetching vitals:', vitalsResult.error);
+          setVitals([]);
+        } else {
+          setVitals(vitalsResult.data || []);
+        }
+        
+        // Set documents
+        if (documentsResult.error) {
+          console.error('Error fetching documents:', documentsResult.error);
+          setDocuments([]);
+        } else {
+          setDocuments(documentsResult.data || []);
+        }
+        
+        // Set billing
+        if (billingResult.error) {
+          console.error('Error fetching billing data:', billingResult.error);
+          setBillingData([]);
+        } else {
+          setBillingData(billingResult.data || []);
+        }
+        
+        // Handle lab results separately (needs lab request IDs)
+        let labResultsData = [];
+        if (!labRequestsResult.error && labRequestsResult.data && labRequestsResult.data.length > 0) {
+          const labRequestIds = labRequestsResult.data.map((req: any) => req.id);
           
-          // Then get lab results for these lab requests
+          const labResultsStartTime = performance.now();
           const { data: patientLabResultsData, error: labResultsError } = await supabase
             .from('lab_results')
             .select('*, lab_request_id')
             .in('lab_request_id', labRequestIds)
             .order('created_at', { ascending: false });
+          const labResultsEndTime = performance.now();
+          console.log(`⏱️ Lab results query: ${(labResultsEndTime - labResultsStartTime).toFixed(2)}ms`);
 
           if (labResultsError) {
             console.error('Error fetching lab results:', labResultsError);
@@ -477,93 +650,95 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
             labResultsData = patientLabResultsData || [];
           }
         }
-      }
-      
-      setLabResults(labResultsData);
-
-      // Fetch documents
-      const { data: documentsData, error: documentsError } = await supabase
-        .from('patient_documents')
-        .select('*')
-        .eq('patient_id', patientId)
-        .order('created_at', { ascending: false });
-
-      if (documentsError) {
-        console.error('Error fetching documents:', documentsError);
+        setLabResults(labResultsData);
+        
       } else {
-        setDocuments(documentsData || []);
+        // No visits case
+        const [documentsResult, billingResult] = secondaryResults;
+        
+        setVitals([]);
+        setLabResults([]);
+        setDocuments(documentsResult.data || []);
+        setBillingData(billingResult.data || []);
       }
 
-      // Fetch billing data (invoices_enhanced)
-      const { data: billingDataResult, error: billingError } = await supabase
-        .from('invoices_enhanced')
-        .select('*')
-        .eq('patient_id', patientId)
-        .order('created_at', { ascending: false });
+      // ⏱️ TIMING: Final parallel queries (MAJOR BOTTLENECK CANDIDATE)
+      const parallelStartTime = performance.now();
+      console.log('🚀 Starting final parallel queries for medications, media, lab, imaging...');
+      const [medicationsResult, mediaResult, labResult, imagingResult] = await Promise.all([
+        // Medications with visit info
+        supabase
+          .from('medications')
+          .select(`
+            id, medication_name, dosage, frequency, duration, prescribed_date, visit_id,
+            visit:visits!visit_id(id, visit_date, visit_number)
+          `)
+          .eq('patient_id', patientId)
+          .order('prescribed_date', { ascending: false }),
 
-      if (billingError) {
-        console.error('Error fetching billing data:', billingError);
-      } else {
-        setBillingData(billingDataResult || []);
-      }
+        // Media files with visit info  
+        supabase
+          .from('patient_media')
+          .select(`
+            id, title, original_name, file_size, file_type, category, storage_path, storage_bucket, created_at, visit_id,
+            visit:visits!visit_id(id, visit_date, visit_number)
+          `)
+          .eq('patient_id', patientId)
+          .order('created_at', { ascending: false }),
 
-      // Fetch medications for this patient
-      const { data: medicationsData, error: medicationsError } = await supabase
-        .from('medications')
-        .select('*')
-        .eq('patient_id', patientId)
-        .order('created_at', { ascending: false });
+        // Lab data with visit info
+        supabase
+          .from('patient_laboratory')
+          .select(`
+            id, test_type, test_date, lab_name, status, is_abnormal, critical_result, visit_id,
+            visit:visits!visit_id(id, visit_date, visit_number)
+          `)
+          .eq('patient_id', patientId)
+          .order('test_date', { ascending: false }),
 
-      if (medicationsError) {
-        console.error('Error fetching medications:', medicationsError);
-      } else {
-        setMedications(medicationsData || []);
-      }
+        // Imaging data with visit info
+        supabase
+          .from('patient_imaging')
+          .select(`
+            id, imaging_type, study_date, body_part, file_size, file_type, storage_path, storage_bucket, original_name, visit_id,
+            visit:visits!visit_id(id, visit_date, visit_number)
+          `)
+          .eq('patient_id', patientId)
+          .order('study_date', { ascending: false })
+      ]);
+      const parallelEndTime = performance.now();
+      console.log(`⏱️ Final parallel queries: ${(parallelEndTime - parallelStartTime).toFixed(2)}ms`);
 
-      // Fetch patient media files
-      const { data: mediaData, error: mediaError } = await supabase
-        .from('patient_media')
-        .select('*')
-        .eq('patient_id', patientId)
-        .order('created_at', { ascending: false });
+      // Set all data instantly
+      setMedications(medicationsResult.data || []);
+      setMediaRequests(mediaResult.data || []);
+      setLabRequests(labResult.data || []);
+      setImagingRequests(imagingResult.data || []);
 
-      if (mediaError) {
-        console.error('Error fetching media:', mediaError);
-      } else {
-        setMediaRequests(mediaData || []);
-      }
-
-      // Fetch patient laboratory files
-      const { data: labData, error: labError } = await supabase
-        .from('patient_laboratory')
-        .select('*')
-        .eq('patient_id', patientId)
-        .order('created_at', { ascending: false });
-
-      if (labError) {
-        console.error('Error fetching lab data:', labError);
-      } else {
-        setLabRequests(labData || []);
-      }
-
-      // Fetch patient imaging files
-      const { data: imagingData, error: imagingError } = await supabase
-        .from('patient_imaging')
-        .select('*')
-        .eq('patient_id', patientId)
-        .order('created_at', { ascending: false });
-
-      if (imagingError) {
-        console.error('Error fetching imaging data:', imagingError);
-      } else {
-        setImagingRequests(imagingData || []);
-      }
+      // Log any errors but don't block UI
+      if (medicationsResult.error) console.error('Medications error:', medicationsResult.error);
+      if (mediaResult.error) console.error('Media error:', mediaResult.error);
+      if (labResult.error) console.error('Lab error:', labResult.error);
+      if (imagingResult.error) console.error('Imaging error:', imagingResult.error);
 
     } catch (error) {
       console.error('Error fetching patient details:', error);
       setDetailsError(error instanceof Error ? error.message : 'An error occurred while fetching patient data');
     } finally {
       setIsLoadingDetails(false);
+      
+      // 🎯 PERFORMANCE LOGGING
+      const totalTime = performance.now() - startTime;
+      console.log(`📊 TOTAL fetchPatientDetails time: ${totalTime.toFixed(2)}ms for patient ${patientId}`);
+      
+      if (totalTime > 1000) {
+        console.warn('⚠️ SLOW QUERY WARNING: fetchPatientDetails took longer than 1 second!');
+        console.warn('🔍 Check the individual query times above to identify the bottleneck');
+      } else if (totalTime < 500) {
+        console.log('🚀 FAST QUERY: fetchPatientDetails completed in under 500ms!');
+      } else {
+        console.log('✅ MODERATE PERFORMANCE: fetchPatientDetails completed in reasonable time');
+      }
     }
   }, []);
 
@@ -1974,6 +2149,7 @@ OneHealth Medical Team`;
                                       )
                                     );
                                   }}
+                                  visitCounts={visitCounts}
                                 />
                                 </>
                               )}
@@ -1999,25 +2175,55 @@ OneHealth Medical Team`;
                                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Dosage</th>
                                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Frequency</th>
                                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Duration</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Visit #</th>
                                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Visit Date</th>
                                           </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-200">
-                                          {medications.length > 0 ? (
+                                          {isLoadingDetails ? (
+                                            // Skeleton loading rows
+                                            Array.from({ length: 3 }).map((_, index) => (
+                                              <tr key={`skeleton-${index}`} className="animate-pulse">
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-3/4"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-1/2"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-1/3"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-1/4"></div></td>
+                                                <td className="px-4 py-3"><div className="h-6 bg-gray-200 rounded-full w-12"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-2/3"></div></td>
+                                              </tr>
+                                            ))
+                                          ) : medications.length > 0 ? (
                                             medications.map((medication) => (
-                                              <tr key={medication.id} className="hover:bg-gray-50 transition-colors">
+                                              <tr 
+                                                key={medication.id} 
+                                                className="hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer"
+                                                onClick={() => {
+                                                  if (medication.visit_id) {
+                                                    const visitToEdit = visits.find(v => v.id === medication.visit_id);
+                                                    if (visitToEdit) {
+                                                      setSelectedVisit(visitToEdit);
+                                                      modalState.openEditVisitModal();
+                                                    }
+                                                  }
+                                                }}
+                                              >
                                                 <td className="px-4 py-3 text-sm font-medium text-gray-900">{medication.medication_name}</td>
                                                 <td className="px-4 py-3 text-sm text-gray-700">{medication.dosage}</td>
                                                 <td className="px-4 py-3 text-sm text-gray-700">{medication.frequency}</td>
                                                 <td className="px-4 py-3 text-sm text-gray-700">{medication.duration}</td>
+                                                <td className="px-4 py-3 text-sm">
+                                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                    #{medication.visit?.visit_number || 'N/A'}
+                                                  </span>
+                                                </td>
                                                 <td className="px-4 py-3 text-sm text-gray-700">
-                                                  {medication.prescribed_date ? format(new Date(medication.prescribed_date), 'MMM dd, yyyy') : 'N/A'}
+                                                  {medication.visit?.visit_date ? format(new Date(medication.visit.visit_date), 'MMM dd, yyyy') : 'N/A'}
                                                 </td>
                                               </tr>
                                             ))
                                           ) : (
                                             <tr className="hover:bg-gray-50 transition-colors">
-                                              <td className="px-4 py-3 text-sm text-gray-600" colSpan={5}>
+                                              <td className="px-4 py-3 text-sm text-gray-600" colSpan={6}>
                                                 <div className="text-center py-8">
                                                   <Pill className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                                                   <p className="text-gray-500">No medications found</p>
@@ -2050,6 +2256,8 @@ OneHealth Medical Team`;
                                       <table className="w-full">
                                         <thead className="bg-gray-50 border-b border-gray-200">
                                           <tr>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Visit #</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Visit Date</th>
                                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Preview</th>
                                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
                                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Category</th>
@@ -2058,9 +2266,42 @@ OneHealth Medical Team`;
                                           </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-200">
-                                          {mediaRequests.length > 0 ? (
+                                          {isLoadingDetails ? (
+                                            // Skeleton loading rows
+                                            Array.from({ length: 3 }).map((_, index) => (
+                                              <tr key={`skeleton-${index}`} className="animate-pulse">
+                                                <td className="px-4 py-3"><div className="h-6 bg-gray-200 rounded-full w-12"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-2/3"></div></td>
+                                                <td className="px-4 py-3"><div className="h-12 w-12 bg-gray-200 rounded"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-3/4"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-1/2"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-1/4"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-2/3"></div></td>
+                                              </tr>
+                                            ))
+                                          ) : mediaRequests.length > 0 ? (
                                             mediaRequests.map((media) => (
-                                              <tr key={media.id} className="hover:bg-gray-50 transition-colors">
+                                              <tr 
+                                                key={media.id} 
+                                                className="hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer"
+                                                onClick={() => {
+                                                  if (media.visit_id) {
+                                                    const visitToEdit = visits.find(v => v.id === media.visit_id);
+                                                    if (visitToEdit) {
+                                                      setSelectedVisit(visitToEdit);
+                                                      modalState.openEditVisitModal();
+                                                    }
+                                                  }
+                                                }}
+                                              >
+                                                <td className="px-4 py-3">
+                                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                                                    {media.visit?.visit_number || 'N/A'}
+                                                  </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700">
+                                                  {media.visit?.visit_date ? format(new Date(media.visit.visit_date), 'MMM dd, yyyy') : 'N/A'}
+                                                </td>
                                                 <td className="px-4 py-3">
                                                   <div className="flex items-center">
                                                     {media.file_type && ['png', 'jpg', 'jpeg', 'webp'].includes(media.file_type.toLowerCase()) ? (
@@ -2086,7 +2327,7 @@ OneHealth Medical Team`;
                                             ))
                                           ) : (
                                             <tr className="hover:bg-gray-50 transition-colors">
-                                              <td className="px-4 py-3 text-sm text-gray-600" colSpan={5}>
+                                              <td className="px-4 py-3 text-sm text-gray-600" colSpan={7}>
                                                 <div className="text-center py-8">
                                                   <Camera className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                                                   <p className="text-gray-500">No media files found</p>
@@ -2119,6 +2360,8 @@ OneHealth Medical Team`;
                                       <table className="w-full">
                                         <thead className="bg-gray-50 border-b border-gray-200">
                                           <tr>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Visit #</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Visit Date</th>
                                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Request Date</th>
                                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Test Type</th>
                                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Laboratory</th>
@@ -2127,9 +2370,42 @@ OneHealth Medical Team`;
                                           </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-200">
-                                          {labRequests.length > 0 ? (
+                                          {isLoadingDetails ? (
+                                            // Skeleton loading rows
+                                            Array.from({ length: 3 }).map((_, index) => (
+                                              <tr key={`skeleton-${index}`} className="animate-pulse">
+                                                <td className="px-4 py-3"><div className="h-6 bg-gray-200 rounded-full w-12"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-2/3"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-2/3"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-1/2"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-3/4"></div></td>
+                                                <td className="px-4 py-3"><div className="h-6 bg-gray-200 rounded-full w-16"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-1/3"></div></td>
+                                              </tr>
+                                            ))
+                                          ) : labRequests.length > 0 ? (
                                             labRequests.map((lab) => (
-                                              <tr key={lab.id} className="hover:bg-gray-50 transition-colors">
+                                              <tr 
+                                                key={lab.id} 
+                                                className="hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer"
+                                                onClick={() => {
+                                                  if (lab.visit_id) {
+                                                    const visitToEdit = visits.find(v => v.id === lab.visit_id);
+                                                    if (visitToEdit) {
+                                                      setSelectedVisit(visitToEdit);
+                                                      modalState.openEditVisitModal();
+                                                    }
+                                                  }
+                                                }}
+                                              >
+                                                <td className="px-4 py-3">
+                                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                                                    {lab.visit?.visit_number || 'N/A'}
+                                                  </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700">
+                                                  {lab.visit?.visit_date ? format(new Date(lab.visit.visit_date), 'MMM dd, yyyy') : 'N/A'}
+                                                </td>
                                                 <td className="px-4 py-3 text-sm text-gray-700">
                                                   {lab.test_date ? format(new Date(lab.test_date), 'MMM dd, yyyy') : 'N/A'}
                                                 </td>
@@ -2157,7 +2433,7 @@ OneHealth Medical Team`;
                                             ))
                                           ) : (
                                             <tr className="hover:bg-gray-50 transition-colors">
-                                              <td className="px-4 py-3 text-sm text-gray-600" colSpan={5}>
+                                              <td className="px-4 py-3 text-sm text-gray-600" colSpan={7}>
                                                 <div className="text-center py-8">
                                                   <FlaskConical className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                                                   <p className="text-gray-500">No laboratory results found</p>
@@ -2190,6 +2466,8 @@ OneHealth Medical Team`;
                                       <table className="w-full">
                                         <thead className="bg-gray-50 border-b border-gray-200">
                                           <tr>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Visit #</th>
+                                            <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Visit Date</th>
                                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Type</th>
                                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Request Date</th>
                                             <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Body Part</th>
@@ -2198,9 +2476,42 @@ OneHealth Medical Team`;
                                           </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-200">
-                                          {imagingRequests.length > 0 ? (
+                                          {isLoadingDetails ? (
+                                            // Skeleton loading rows
+                                            Array.from({ length: 3 }).map((_, index) => (
+                                              <tr key={`skeleton-${index}`} className="animate-pulse">
+                                                <td className="px-4 py-3"><div className="h-6 bg-gray-200 rounded-full w-12"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-2/3"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-1/2"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-2/3"></div></td>
+                                                <td className="px-4 py-3"><div className="h-4 bg-gray-200 rounded w-3/4"></div></td>
+                                                <td className="px-4 py-3"><div className="h-6 bg-gray-200 rounded-full w-16"></div></td>
+                                                <td className="px-4 py-3"><div className="h-8 w-8 bg-gray-200 rounded"></div></td>
+                                              </tr>
+                                            ))
+                                          ) : imagingRequests.length > 0 ? (
                                             imagingRequests.map((imaging) => (
-                                              <tr key={imaging.id} className="hover:bg-gray-50 transition-colors">
+                                              <tr 
+                                                key={imaging.id} 
+                                                className="hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer"
+                                                onClick={() => {
+                                                  if (imaging.visit_id) {
+                                                    const visitToEdit = visits.find(v => v.id === imaging.visit_id);
+                                                    if (visitToEdit) {
+                                                      setSelectedVisit(visitToEdit);
+                                                      modalState.openEditVisitModal();
+                                                    }
+                                                  }
+                                                }}
+                                              >
+                                                <td className="px-4 py-3">
+                                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                                    {imaging.visit?.visit_number || 'N/A'}
+                                                  </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700">
+                                                  {imaging.visit?.visit_date ? format(new Date(imaging.visit.visit_date), 'MMM dd, yyyy') : 'N/A'}
+                                                </td>
                                                 <td className="px-4 py-3 text-sm">
                                                   <div className="flex items-center">
                                                     <Scan className="w-4 h-4 text-indigo-600 mr-2" />
@@ -2240,7 +2551,7 @@ OneHealth Medical Team`;
                                             ))
                                           ) : (
                                             <tr className="hover:bg-gray-50 transition-colors">
-                                              <td className="px-4 py-3 text-sm text-gray-600" colSpan={5}>
+                                              <td className="px-4 py-3 text-sm text-gray-600" colSpan={7}>
                                                 <div className="text-center py-8">
                                                   <Scan className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                                                   <p className="text-gray-500">No imaging studies found</p>

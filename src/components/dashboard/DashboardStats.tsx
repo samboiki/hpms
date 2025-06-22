@@ -301,7 +301,6 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ practiceId }) => {
   };
 
   const handleFilterChange = (chartType: string, filterType: string, value: string) => {
-    console.log(`Filter changed for ${chartType}: ${filterType} = ${value}`);
     // Refetch data based on new filters
     fetchAllStats();
   };
