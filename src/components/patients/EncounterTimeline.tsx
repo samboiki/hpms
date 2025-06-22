@@ -172,6 +172,8 @@ interface EncounterTimelineProps {
   onCreateFollowUp?: (visit: Visit) => void;
   onStartAppointment?: (visit: Visit) => void;  // Now handles scheduled visits
   onVisitStatusChange?: (visitId: string, newStatus: string) => void;
+  // Add counts prop for MASSIVE performance optimization - eliminates N+1 queries
+  visitCounts?: { [visitId: string]: { media: number; lab: number; imaging: number } };
 }
 
 // Donut Chart Component
@@ -248,52 +250,18 @@ const TimelineNode: React.FC<{
   onCreateFollowUp?: (visit: Visit) => void;
   onVisitStatusChange?: (visitId: string, newStatus: string) => void;
   onStartAppointment?: (visit: Visit) => void;
-}> = ({ visit, index, totalVisits, isLast, isExpanded, onToggle, onEditVisit, onCreateFollowUp, onVisitStatusChange, onStartAppointment }) => {
+  // Add optional counts prop for MASSIVE performance optimization
+  visitCounts?: { [visitId: string]: { media: number; lab: number; imaging: number } };
+}> = ({ visit, index, totalVisits, isLast, isExpanded, onToggle, onEditVisit, onCreateFollowUp, onVisitStatusChange, onStartAppointment, visitCounts }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [counts, setCounts] = useState({
-    media: 0,
-    lab: 0,
-    imaging: 0
-  });
-
-  // Fetch counts for this visit
-  useEffect(() => {
-    const fetchVisitCounts = async () => {
-      try {
-        const [mediaResult, labResult, imagingResult] = await Promise.all([
-          // Get media count for this visit
-          supabase
-            .from('patient_media')
-            .select('id', { count: 'exact', head: true })
-            .eq('visit_id', visit.id),
-          
-          // Get lab count for this visit
-          supabase
-            .from('patient_laboratory')
-            .select('id', { count: 'exact', head: true })
-            .eq('visit_id', visit.id),
-          
-          // Get imaging count for this visit
-          supabase
-            .from('patient_imaging')
-            .select('id', { count: 'exact', head: true })
-            .eq('visit_id', visit.id)
-        ]);
-
-        setCounts({
-          media: mediaResult.count || 0,
-          lab: labResult.count || 0,
-          imaging: imagingResult.count || 0
-        });
-      } catch (error) {
-        console.error('Error fetching visit counts:', error);
-        // Set to 0 on error
-        setCounts({ media: 0, lab: 0, imaging: 0 });
-      }
-    };
-
-    fetchVisitCounts();
-  }, [visit.id]);
+  
+  // ⚡ PERFORMANCE OPTIMIZATION: Use pre-calculated counts instead of individual queries
+  // This eliminates the N+1 query problem that was causing 3-4 second delays
+  const counts = {
+    media: visitCounts?.[visit.id]?.media ?? visit.media_count ?? 0,
+    lab: visitCounts?.[visit.id]?.lab ?? visit.lab_count ?? 0,
+    imaging: visitCounts?.[visit.id]?.imaging ?? visit.imaging_count ?? 0
+  };
   const visitDate = parseISO(visit.visit_date);
   const isTodayVisit = isToday(visitDate);
   const isFutureVisit = isFuture(visitDate);
@@ -936,7 +904,8 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
   onEditVisit, 
   onCreateFollowUp,
   onStartAppointment,
-  onVisitStatusChange
+  onVisitStatusChange,
+  visitCounts
 }) => {
   console.log('🔍 ENCOUNTER TIMELINE: Unified Visit System', {
     totalVisits: visits.length,
@@ -1076,6 +1045,7 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
                   onCreateFollowUp={onCreateFollowUp}
                   onVisitStatusChange={onVisitStatusChange}
                   onStartAppointment={onStartAppointment}
+                  visitCounts={visitCounts}
                 />
               </div>
             </div>

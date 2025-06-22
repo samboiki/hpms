@@ -12,6 +12,7 @@ import ModernDateTimePicker from '../ui/ModernDateTimePicker';
 
 interface EditVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
+  doctor_id?: string;
   encounter_date: Date;
   chief_complaint: string;
   diagnosis: string;
@@ -58,6 +59,12 @@ interface Props {
   onSuccess: () => void;
 }
 
+interface Doctor {
+  id: string;
+  full_name: string;
+  role: string;
+}
+
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -98,6 +105,65 @@ const EnhancedEditVisitForm: React.FC<Props> = ({ visitId, patientId, initialDat
   const [patient, setPatient] = useState<any>(null);
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
   const [existingInvoiceId, setExistingInvoiceId] = useState<string | null>(null);
+  
+  // Doctor selection state
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [appointmentDoctor, setAppointmentDoctor] = useState<string | null>(null);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
+
+  // Fetch doctors
+  React.useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, full_name, role')
+          .eq('role', 'doctor')
+          .order('full_name');
+
+        if (error) throw error;
+        setDoctors(data || []);
+      } catch (error) {
+        console.error('Error fetching doctors:', error);
+      } finally {
+        setLoadingDoctors(false);
+      }
+    };
+
+    fetchDoctors();
+  }, []);
+
+  // Fetch appointment doctor if visit has an appointment_id
+  React.useEffect(() => {
+    const fetchAppointmentDoctor = async () => {
+      try {
+        const { data: visitData, error: visitError } = await supabase
+          .from('visits')
+          .select('appointment_id')
+          .eq('id', visitId)
+          .single();
+
+        if (visitError) throw visitError;
+        
+        if (visitData?.appointment_id) {
+          const { data: appointmentData, error: appointmentError } = await supabase
+            .from('appointments')
+            .select('doctor_id')
+            .eq('id', visitData.appointment_id)
+            .single();
+
+          if (appointmentError) throw appointmentError;
+          if (appointmentData?.doctor_id) {
+            setAppointmentDoctor(appointmentData.doctor_id);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching appointment doctor:', error);
+      }
+    };
+
+    fetchAppointmentDoctor();
+  }, [visitId]);
 
   // Check if AI processing is available when component mounts
   React.useEffect(() => {
@@ -478,11 +544,15 @@ const EnhancedEditVisitForm: React.FC<Props> = ({ visitId, patientId, initialDat
 
   const onSubmit = async (data: EditVisitFormData) => {
     try {
+      // Determine the doctor ID - prioritize appointment doctor over selected doctor
+      const finalDoctorId = appointmentDoctor || data.doctor_id;
+      
       // Update the visit
       const { error: visitError } = await supabase
         .from('visits')
         .update({
           visit_type: data.visit_type,
+          doctor_id: finalDoctorId,
           encounter_date: data.encounter_date.toISOString(),
           visit_date: data.encounter_date.toISOString().split('T')[0],
           visit_time: data.encounter_date.toLocaleTimeString('en-US', { hour12: false }),
@@ -664,6 +734,34 @@ const EnhancedEditVisitForm: React.FC<Props> = ({ visitId, patientId, initialDat
             </select>
             {errors.visit_type && (
               <p className="mt-1 text-sm text-red-600">{errors.visit_type.message}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Treating Doctor
+              {appointmentDoctor && (
+                <span className="text-sm text-blue-600 ml-1">(From Appointment)</span>
+              )}
+            </label>
+            <select
+              {...register('doctor_id')}
+              disabled={!!appointmentDoctor || loadingDoctors}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              <option value="">Select doctor</option>
+              {doctors.map((doctor) => (
+                <option key={doctor.id} value={doctor.id}>
+                  {doctor.full_name} ({doctor.role})
+                </option>
+              ))}
+            </select>
+            {appointmentDoctor && (
+              <p className="mt-1 text-sm text-blue-600">
+                Doctor automatically selected from appointment
+              </p>
+            )}
+            {loadingDoctors && (
+              <p className="mt-1 text-sm text-gray-500">Loading doctors...</p>
             )}
           </div>
         </div>

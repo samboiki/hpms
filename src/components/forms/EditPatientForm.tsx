@@ -226,8 +226,8 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
 
   const onSubmit = async (data: EditPatientFormData) => {
     try {
-      // Update patient basic info (exclude medical aid from patient update)
-      const { medicalAid, ...patientData } = data;
+      // Update patient basic info (exclude medical aid and nextOfKin from patient update)
+      const { medicalAid, nextOfKin, ...patientData } = data;
       const { error: patientError } = await supabase
         .from('patients')
         .update(patientData)

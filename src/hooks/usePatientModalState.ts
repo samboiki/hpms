@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 export interface ModalState {
   isNextOfKinModalOpen: boolean;
   isAddVisitModalOpen: boolean;
+  isAddVisitTabsModalOpen: boolean;
   isEditVisitModalOpen: boolean;
   isSmsModalOpen: boolean;
   isMedicalAidModalOpen: boolean;
@@ -20,6 +21,8 @@ export interface ModalActions {
   closeNextOfKinModal: () => void;
   openAddVisitModal: () => void;
   closeAddVisitModal: () => void;
+  openAddVisitTabsModal: () => void;
+  closeAddVisitTabsModal: () => void;
   openEditVisitModal: () => void;
   closeEditVisitModal: () => void;
   openSmsModal: () => void;
@@ -46,6 +49,7 @@ export const usePatientModalState = () => {
   const [modalState, setModalState] = useState<ModalState>({
     isNextOfKinModalOpen: false,
     isAddVisitModalOpen: false,
+    isAddVisitTabsModalOpen: false,
     isEditVisitModalOpen: false,
     isSmsModalOpen: false,
     isMedicalAidModalOpen: false,
@@ -63,9 +67,10 @@ export const usePatientModalState = () => {
     console.log('🔧 MODAL STATE DEBUG: Modal state changed:', {
       isMessageModalOpen: modalState.isMessageModalOpen,
       isEmailModalOpen: modalState.isEmailModalOpen,
+      isAddVisitTabsModalOpen: modalState.isAddVisitTabsModalOpen,
       timestamp: new Date().toISOString()
     });
-  }, [modalState.isMessageModalOpen, modalState.isEmailModalOpen]);
+  }, [modalState.isMessageModalOpen, modalState.isEmailModalOpen, modalState.isAddVisitTabsModalOpen]);
 
   const openNextOfKinModal = useCallback(() => 
     setModalState(prev => ({ ...prev, isNextOfKinModalOpen: true })), []);
@@ -78,6 +83,20 @@ export const usePatientModalState = () => {
   
   const closeAddVisitModal = useCallback(() => 
     setModalState(prev => ({ ...prev, isAddVisitModalOpen: false })), []);
+
+  const openAddVisitTabsModal = useCallback(() => {
+    console.log('🔍 MODAL STATE: openAddVisitTabsModal called');
+    setModalState(prev => {
+      const newState = { ...prev, isAddVisitTabsModalOpen: true };
+      console.log('🔍 MODAL STATE: New state will be:', newState);
+      return newState;
+    });
+  }, []);
+  
+  const closeAddVisitTabsModal = useCallback(() => {
+    console.log('🔍 MODAL STATE: closeAddVisitTabsModal called');
+    setModalState(prev => ({ ...prev, isAddVisitTabsModalOpen: false }));
+  }, []);
 
   const openEditVisitModal = useCallback(() => 
     setModalState(prev => ({ ...prev, isEditVisitModalOpen: true })), []);
@@ -153,6 +172,7 @@ export const usePatientModalState = () => {
       ...prev, 
       isNextOfKinModalOpen: false,
       isAddVisitModalOpen: false,
+      isAddVisitTabsModalOpen: false,
       isEditVisitModalOpen: false,
       isSmsModalOpen: false,
       isMedicalAidModalOpen: false,
@@ -170,6 +190,8 @@ export const usePatientModalState = () => {
     closeNextOfKinModal,
     openAddVisitModal,
     closeAddVisitModal,
+    openAddVisitTabsModal,
+    closeAddVisitTabsModal,
     openEditVisitModal,
     closeEditVisitModal,
     openSmsModal,

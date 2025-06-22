@@ -86,6 +86,7 @@ interface PremiumAppointmentScheduleProps {
   onUpdateAppointment: (id: string, updates: Partial<Appointment>) => Promise<void>;
   onView: (appointment: Appointment) => void;
   onCreateAppointment?: (slotDate: Date, slotTime: string) => void;
+  onAppointmentCreated?: (appointment: Appointment) => void;
 }
 
 interface ProcessedAppointment extends Appointment {
@@ -195,6 +196,7 @@ const PremiumAppointmentSchedule: React.FC<PremiumAppointmentScheduleProps> = ({
   onUpdateAppointment,
   onView,
   onCreateAppointment,
+  onAppointmentCreated,
 }) => {
   console.log('=== PremiumAppointmentSchedule Component Rendered ===');
   console.log('Props:', {
@@ -896,11 +898,14 @@ const PremiumAppointmentSchedule: React.FC<PremiumAppointmentScheduleProps> = ({
         <AddAppointmentForm 
           initialDate={selectedTimeSlot?.date}
           initialTime={selectedTimeSlot?.time}
-          onSuccess={() => {
+          onSuccess={(newAppointment) => {
             setIsAddModalOpen(false);
             setSelectedTimeSlot(null);
-            // Refresh appointments
-            window.location.reload();
+            
+            // Immediately notify parent component about new appointment
+            if (newAppointment && onAppointmentCreated) {
+              onAppointmentCreated(newAppointment);
+            }
           }}
         />
       </FormModal>

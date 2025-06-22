@@ -86,18 +86,36 @@ export async function generateTimeSlots(
     currentTime = slotEnd;
   }
   
-  // Check for existing appointments
+  // Check for existing appointments in both tables
+  const dateStr = format(date, 'yyyy-MM-dd');
   
-  const { data: appointments } = await supabase
-    .from('appointments')
-    .select('date, time, duration')
-    .eq('doctor_id', doctorId)
-    .eq('date', format(date, 'yyyy-MM-dd'))
-    .neq('status', 'cancelled');
+  const [appointmentsData, visitsData] = await Promise.all([
+    supabase
+      .from('appointments')
+      .select('date, time, duration')
+      .eq('doctor_id', doctorId)
+      .eq('date', dateStr)
+      .neq('status', 'cancelled'),
+    supabase
+      .from('visits')
+      .select('visit_date, visit_time, duration')
+      .eq('doctor_id', doctorId)
+      .eq('visit_date', dateStr)
+      .in('status', ['scheduled', 'in-progress'])
+  ]);
+
+  const { data: appointments } = appointmentsData;
+  const { data: visits } = visitsData;
+  
+  // Combine appointments from both sources
+  const allAppointments = [
+    ...(appointments || []).map(apt => ({ time: apt.time, duration: apt.duration })),
+    ...(visits || []).map(visit => ({ time: visit.visit_time, duration: visit.duration || APPOINTMENT_DURATION }))
+  ];
   
   // Mark slots as unavailable if they have appointments
-  if (appointments) {
-    appointments.forEach(appt => {
+  allAppointments.forEach(appt => {
+    if (appt.time) {
       const [hours, minutes] = appt.time.split(':').map(Number);
       const apptTime = setMinutes(setHours(dayStart, hours), minutes);
       const apptEnd = addMinutes(apptTime, appt.duration || APPOINTMENT_DURATION);
@@ -110,8 +128,8 @@ export async function generateTimeSlots(
           slot.available = false;
         }
       });
-    });
-  }
+    }
+  });
   
   return slots;
 }
@@ -127,20 +145,30 @@ export async function checkAppointmentConflict(
 ): Promise<boolean> {
   const dateStr = format(scheduledTime, 'yyyy-MM-dd');
   
-  let query = supabase
-    .from('appointments')
-    .select('id, date, time, duration')
-    .eq('doctor_id', doctorId)
-    .eq('date', dateStr)
-    .neq('status', 'cancelled');
+  // Check both appointments and visits tables for conflicts
+  const [appointmentsData, visitsData] = await Promise.all([
+    supabase
+      .from('appointments')
+      .select('id, date, time, duration')
+      .eq('doctor_id', doctorId)
+      .eq('date', dateStr)
+      .neq('status', 'cancelled'),
+    supabase
+      .from('visits')
+      .select('id, visit_date, visit_time, duration')
+      .eq('doctor_id', doctorId)
+      .eq('visit_date', dateStr)
+      .in('status', ['scheduled', 'in-progress'])
+  ]);
+
+  const { data: appointments } = appointmentsData;
+  const { data: visits } = visitsData;
   
-  if (excludeAppointmentId) {
-    query = query.neq('id', excludeAppointmentId);
-  }
+  // Filter out excluded appointments/visits
+  const filteredAppointments = appointments?.filter(apt => apt.id !== excludeAppointmentId) || [];
+  const filteredVisits = visits?.filter(visit => visit.id !== excludeAppointmentId) || [];
   
-  const { data: appointments } = await query;
-  
-  if (!appointments || appointments.length === 0) {
+  if (filteredAppointments.length === 0 && filteredVisits.length === 0) {
     return false;
   }
   
@@ -148,7 +176,8 @@ export async function checkAppointmentConflict(
   const slotStart = scheduledTime;
   const slotEnd = addMinutes(scheduledTime, duration);
   
-  return appointments.some(appt => {
+  // Check conflicts in both appointments and visits
+  const hasAppointmentConflict = filteredAppointments.some(appt => {
     const [hours, minutes] = appt.time.split(':').map(Number);
     const apptStart = setMinutes(setHours(parse(appt.date, 'yyyy-MM-dd', new Date()), hours), minutes);
     const apptEnd = addMinutes(apptStart, appt.duration || APPOINTMENT_DURATION);
@@ -156,6 +185,18 @@ export async function checkAppointmentConflict(
     // Check if times overlap
     return (slotStart < apptEnd && slotEnd > apptStart);
   });
+
+  const hasVisitConflict = filteredVisits.some(visit => {
+    if (!visit.visit_time) return false;
+    const [hours, minutes] = visit.visit_time.split(':').map(Number);
+    const visitStart = setMinutes(setHours(parse(visit.visit_date, 'yyyy-MM-dd', new Date()), hours), minutes);
+    const visitEnd = addMinutes(visitStart, visit.duration || APPOINTMENT_DURATION);
+    
+    // Check if times overlap
+    return (slotStart < visitEnd && slotEnd > visitStart);
+  });
+
+  return hasAppointmentConflict || hasVisitConflict;
 }
 
 /**

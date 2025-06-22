@@ -92,7 +92,10 @@ import { useAiSearch } from '../../hooks/useAiSearch';
 import { defaultSMSService } from '../../services/smsPortal';
 import { medicalAidService } from '../../services/medicalAidService';
 import { LabResultsContent, DocumentsContent, BillingContent } from './DirectTabContent';
+import PremiumInvoiceTable from '../billing/PremiumInvoiceTable';
+import InvoicePreviewModal from '../modals/InvoicePreviewModal';
 import ManageBeneficiariesModal from '../modals/ManageBeneficiariesModal';
+import { downloadInvoicePDF, generateInvoicePDF } from '../billing/ProfessionalInvoicePDF';
 
 interface MessageConfirmationData {
   type: 'sms' | 'email';
@@ -324,6 +327,8 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   const [isSendingBulkSms, setIsSendingBulkSms] = useState(false);
   const [isSendingBulkEmail, setIsSendingBulkEmail] = useState(false);
   const [beneficiariesCount, setBeneficiariesCount] = useState<number>(0);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
 
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -2568,11 +2573,100 @@ OneHealth Medical Team`;
                               )}
 
                               {activeDetailTab === 'billing' && (
-                                <BillingContent 
-                                  patientId={selectedPatientDetails.id}
-                                  patient={selectedPatientDetails}
-                                  medicalAid={medicalAid}
-                                />
+                                <div className="space-y-6">
+                                  <PremiumInvoiceTable
+                                    patientId={selectedPatientDetails.id}
+                                    onVisitClick={(visitId) => {
+                                      const visitToEdit = visits.find(v => v.id === visitId);
+                                      if (visitToEdit) {
+                                        setSelectedVisit(visitToEdit);
+                                        modalState.openEditVisitModal();
+                                      }
+                                    }}
+                                    onInvoiceView={(invoice) => {
+                                      setSelectedInvoice(invoice);
+                                      setIsInvoicePreviewOpen(true);
+                                    }}
+                                    onStatusChange={async (invoiceId, newStatus) => {
+                                      try {
+                                        const { error } = await supabase
+                                          .from('invoices_enhanced')
+                                          .update({ payment_status: newStatus })
+                                          .eq('id', invoiceId);
+
+                                        if (error) {
+                                          console.error('Error updating invoice status:', error);
+                                          alert('Failed to update invoice status');
+                                        } else {
+                                          // Refresh the billing data to show updated status
+                                          const { data: updatedBilling } = await supabase
+                                            .from('invoices_enhanced')
+                                            .select('*')
+                                            .eq('patient_id', selectedPatientDetails.id);
+                                          setBillingData(updatedBilling || []);
+                                        }
+                                      } catch (error) {
+                                        console.error('Error updating invoice status:', error);
+                                        alert('Failed to update invoice status');
+                                      }
+                                    }}
+                                    onEmailInvoice={async (invoice) => {
+                                      try {
+                                        // Generate PDF blob for attachment
+                                        const pdfBlob = await generateInvoicePDF(
+                                          invoice,
+                                          {
+                                            name: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
+                                            phone: selectedPatientDetails.cell_number,
+                                            email: selectedPatientDetails.email,
+                                            address: selectedPatientDetails.home_address,
+                                            medicalAidProvider: medicalAid?.provider,
+                                            membershipNumber: medicalAid?.membership_number,
+                                          }
+                                        );
+                                        
+                                        // Create file from blob for attachment
+                                        const file = new File([pdfBlob], `invoice-${invoice.invoice_number}.pdf`, {
+                                          type: 'application/pdf'
+                                        });
+                                        
+                                        // Store invoice attachment for email modal
+                                        // Note: You'll need to modify EnhancedEmailModal to accept attachments
+                                        window.invoiceAttachment = file;
+                                        
+                                        // Open email modal
+                                        setIsEnhancedEmailModalOpen(true);
+                                        
+                                        console.log('📧 Email invoice prepared:', {
+                                          invoice: invoice.invoice_number,
+                                          patient: selectedPatientDetails.first_name,
+                                          attachmentSize: (pdfBlob.size / 1024).toFixed(2) + ' KB'
+                                        });
+                                      } catch (error) {
+                                        console.error('Error preparing invoice for email:', error);
+                                        alert('Failed to prepare invoice for email');
+                                      }
+                                    }}
+                                    onPrintInvoice={async (invoice) => {
+                                      try {
+                                        await downloadInvoicePDF(
+                                          invoice,
+                                          {
+                                            name: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
+                                            phone: selectedPatientDetails.cell_number,
+                                            email: selectedPatientDetails.email,
+                                            address: selectedPatientDetails.home_address,
+                                            medicalAidProvider: medicalAid?.provider,
+                                            membershipNumber: medicalAid?.membership_number,
+                                          }
+                                        );
+                                      } catch (error) {
+                                        console.error('Error generating PDF:', error);
+                                        alert('Failed to generate invoice PDF');
+                                      }
+                                    }}
+                                  />
+                                </div>
                               )}
 
                               {activeDetailTab === 'audit' && (
@@ -2949,6 +3043,22 @@ OneHealth Medical Team`;
         type={messageConfirmationData?.type || 'sms'}
         recipientName={messageConfirmationData?.recipientName}
         recipientContact={messageConfirmationData?.recipientContact}
+      />
+
+      {/* Invoice Preview Modal */}
+      <InvoicePreviewModal
+        isOpen={isInvoicePreviewOpen}
+        onClose={() => {
+          setIsInvoicePreviewOpen(false);
+          setSelectedInvoice(null);
+        }}
+        invoice={selectedInvoice}
+        patientName={selectedPatientDetails ? `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}` : undefined}
+        patientPhone={selectedPatientDetails?.cell_number}
+        patientEmail={selectedPatientDetails?.email}
+        patientAddress={selectedPatientDetails?.home_address}
+        medicalAidProvider={medicalAid?.provider}
+        membershipNumber={medicalAid?.membership_number}
       />
 
       {/* Premium Confirmation Modal */}

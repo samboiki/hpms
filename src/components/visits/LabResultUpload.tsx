@@ -52,7 +52,10 @@ const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ imageUrl: publicUrl })
+        body: JSON.stringify({ 
+          imageUrl: publicUrl,
+          fileType: file.type
+        })
       });
 
       if (!response.ok) {
@@ -63,17 +66,32 @@ const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
 
       const result = await response.json();
 
-      // Process the extracted data
-      const labData = {
-        id: crypto.randomUUID(),
-        name: result.testName || 'Unknown Test',
-        value: result.value || '',
-        unit: result.unit || '',
-        reference_range: result.referenceRange || '',
-        status: result.status || 'normal'
-      };
-
-      onUpload(labData);
+      // Handle the response from the updated edge function
+      if (result.results && Array.isArray(result.results) && result.results.length > 0) {
+        // Process each extracted result
+        result.results.forEach((labResult: any) => {
+          const labData = {
+            id: crypto.randomUUID(),
+            name: labResult.testName || 'Unknown Test',
+            value: labResult.value || '',
+            unit: labResult.unit || '',
+            reference_range: labResult.referenceRange || '',
+            status: labResult.status || 'normal'
+          };
+          onUpload(labData);
+        });
+      } else {
+        // Fallback for single result or empty response
+        const labData = {
+          id: crypto.randomUUID(),
+          name: result.testName || 'Unknown Test',
+          value: result.value || '',
+          unit: result.unit || '',
+          reference_range: result.referenceRange || '',
+          status: result.status || 'normal'
+        };
+        onUpload(labData);
+      }
       setPreview(publicUrl);
     } catch (err) {
       console.error('Error processing lab result:', err);
@@ -158,7 +176,12 @@ const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
             <h4 className="text-sm font-medium text-gray-900">Preview</h4>
             <Button
               size="sm"
-              onClick={() => processWithAI(uploadedFile)}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                processWithAI(uploadedFile);
+              }}
               disabled={isProcessing}
             >
               <Wand2 size={16} className="mr-2" />

@@ -12,6 +12,7 @@ import ModernDateTimePicker from '../ui/ModernDateTimePicker';
 
 interface AddVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
+  doctor_id?: string;
   encounter_date: Date;
   chief_complaint: string;
   diagnosis: string;
@@ -51,13 +52,20 @@ interface AddVisitFormData {
 
 interface Props {
   patientId: string;
+  appointmentId?: string;
   onSuccess: () => void;
+}
+
+interface Doctor {
+  id: string;
+  full_name: string;
+  role: string;
 }
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
+const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) => {
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<AddVisitFormData>({
     defaultValues: {
       encounter_date: new Date(),
@@ -84,6 +92,11 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
   const [medicalAidId, setMedicalAidId] = useState<string | undefined>(undefined);
   const [patient, setPatient] = useState<any>(null);
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
+  
+  // Doctor selection state
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [appointmentDoctor, setAppointmentDoctor] = useState<string | null>(null);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
 
   // Check if AI processing is available when component mounts
   React.useEffect(() => {
@@ -129,6 +142,53 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
       setValue('vitals.bmi', Math.round(bmi * 10) / 10);
     }
   }, [weight, height, setValue]);
+
+  // Fetch doctors
+  React.useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, full_name, role')
+          .eq('role', 'doctor')
+          .order('full_name');
+
+        if (error) throw error;
+        setDoctors(data || []);
+      } catch (error) {
+        console.error('Error fetching doctors:', error);
+      } finally {
+        setLoadingDoctors(false);
+      }
+    };
+
+    fetchDoctors();
+  }, []);
+
+  // Fetch appointment doctor if appointmentId is provided
+  React.useEffect(() => {
+    const fetchAppointmentDoctor = async () => {
+      if (!appointmentId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('appointments')
+          .select('doctor_id')
+          .eq('id', appointmentId)
+          .single();
+
+        if (error) throw error;
+        if (data?.doctor_id) {
+          setAppointmentDoctor(data.doctor_id);
+          setValue('doctor_id', data.doctor_id);
+        }
+      } catch (error) {
+        console.error('Error fetching appointment doctor:', error);
+      }
+    };
+
+    fetchAppointmentDoctor();
+  }, [appointmentId, setValue]);
 
   // Fetch patient and practice information for billing
   React.useEffect(() => {
@@ -402,11 +462,16 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
 
   const onSubmit = async (data: AddVisitFormData) => {
     try {
+      // Determine the doctor ID - prioritize appointment doctor over selected doctor
+      const finalDoctorId = appointmentDoctor || data.doctor_id;
+      
       // First insert the visit
       const { data: visitData, error: visitError } = await supabase
         .from('visits')
         .insert([{
           patient_id: patientId,
+          doctor_id: finalDoctorId,
+          appointment_id: appointmentId || null,
           visit_type: data.visit_type,
           encounter_date: data.encounter_date.toISOString(),
           visit_date: data.encounter_date.toISOString().split('T')[0],
@@ -444,17 +509,33 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
 
         if (vitalsError) throw vitalsError;
 
-        // Insert lab results
+        // Insert lab results (new schema: create lab_request first, then lab_results)
         if (data.lab_results.length > 0) {
+          // Create a lab request for this visit
+          const { data: labRequestData, error: labRequestError } = await supabase
+            .from('lab_requests')
+            .insert({
+              patient_id: patientId,
+              visit_id: visitData.id,
+              request_date: data.encounter_date,
+              status: 'completed',
+              notes: 'Created during visit'
+            })
+            .select()
+            .single();
+
+          if (labRequestError) throw labRequestError;
+
+          // Now insert the individual lab results
           const { error: labError } = await supabase
             .from('lab_results')
             .insert(
               data.lab_results.map(result => ({
-                visit_id: visitData.id,
-                // Ensure 'id' from form (crypto.randomUUID()) is not sent if your DB auto-generates it
-                // If your DB's lab_results table has its own auto-incrementing ID, you might want to omit `result.id`
-                // For now, assuming your DB schema for lab_results can take an `id` or ignores it if it's a primary key.
-                ...result 
+                lab_request_id: labRequestData.id,
+                test_name: result.name,
+                test_value: result.value,
+                test_unit: result.unit || null,
+                reference_range: result.reference_range || null
               }))
             );
 
@@ -590,6 +671,34 @@ const AddVisitForm: React.FC<Props> = ({ patientId, onSuccess }) => {
             </select>
             {errors.visit_type && (
               <p className="mt-1 text-sm text-red-600">{errors.visit_type.message}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Treating Doctor
+              {appointmentDoctor && (
+                <span className="text-sm text-blue-600 ml-1">(From Appointment)</span>
+              )}
+            </label>
+            <select
+              {...register('doctor_id')}
+              disabled={!!appointmentDoctor || loadingDoctors}
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              <option value="">Select doctor</option>
+              {doctors.map((doctor) => (
+                <option key={doctor.id} value={doctor.id}>
+                  {doctor.full_name} ({doctor.role})
+                </option>
+              ))}
+            </select>
+            {appointmentDoctor && (
+              <p className="mt-1 text-sm text-blue-600">
+                Doctor automatically selected from appointment
+              </p>
+            )}
+            {loadingDoctors && (
+              <p className="mt-1 text-sm text-gray-500">Loading doctors...</p>
             )}
           </div>
         </div>

@@ -196,6 +196,7 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
   const [showTemplates, setShowTemplates] = useState(false);
   const [isEditing, setIsEditing] = useState(true);
   const [isSendingLocal, setIsSending] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
   
   // Ref for textarea to handle text formatting
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -206,6 +207,13 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
   useEffect(() => {
     if (patient?.email) {
       setEmail(patient.email);
+    }
+    
+    // Check for invoice attachment
+    if ((window as any).invoiceAttachment) {
+      setAttachments([(window as any).invoiceAttachment]);
+      // Clear the global attachment after picking it up
+      delete (window as any).invoiceAttachment;
     }
   }, [patient]);
 
@@ -255,9 +263,27 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
   };
 
   const handleAttachment = () => {
-    // For now, just insert a placeholder
-    alert('Attachment functionality will be implemented in a future update');
-    // TODO: Implement file upload functionality
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png';
+    input.multiple = true;
+    input.onchange = (e) => {
+      const files = Array.from((e.target as HTMLInputElement).files || []);
+      setAttachments(prev => [...prev, ...files]);
+    };
+    input.click();
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const replaceVariables = (text: string): string => {
@@ -340,7 +366,8 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
           email: practice.contact_email,
           website: practice.slug ? `www.${practice.slug}.com.na` : undefined,
           themeColor: '#01b9d4' // You can make this dynamic from practice settings
-        }
+        },
+        attachments: attachments.length > 0 ? attachments : undefined
       });
 
       // Dismiss loading toast
@@ -551,6 +578,44 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
                 />
               </div>
 
+              {/* Attachments Section */}
+              {attachments.length > 0 && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Paperclip className="w-4 h-4" />
+                    Attachments ({attachments.length})
+                  </label>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+                    {attachments.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between bg-white rounded-lg p-2 border border-blue-100">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            {file.type.includes('pdf') ? (
+                              <FileText className="w-4 h-4 text-blue-600" />
+                            ) : file.type.includes('image') ? (
+                              <Image className="w-4 h-4 text-blue-600" />
+                            ) : (
+                              <Paperclip className="w-4 h-4 text-blue-600" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                            <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => removeAttachment(index)}
+                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Remove attachment"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Email Content */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -604,10 +669,17 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
                     <div className="h-4 w-px bg-gray-300 mx-1" />
                     <button 
                       onClick={handleAttachment}
-                      className="p-1.5 hover:bg-gray-200 rounded transition-colors" 
-                      title="Attach File (Coming Soon)"
+                      className={`p-1.5 hover:bg-gray-200 rounded transition-colors relative ${
+                        attachments.length > 0 ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                      }`}
+                      title={`Attach Files (${attachments.length} attached)`}
                     >
-                      <Paperclip className="w-4 h-4 text-gray-600" />
+                      <Paperclip className="w-4 h-4" />
+                      {attachments.length > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                          {attachments.length}
+                        </span>
+                      )}
                     </button>
                   </div>
                 )}
@@ -652,7 +724,7 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
                   ) : (
                     <>
                       <Send className="w-4 h-4" />
-                      Send Email
+                      Send Email{attachments.length > 0 ? ` (${attachments.length} attachment${attachments.length !== 1 ? 's' : ''})` : ''}
                     </>
                   )}
                 </motion.button>

@@ -49,6 +49,7 @@ import ImagingTabContentSimple from '../requests/ImagingTabContentSimple';
 
 interface EditVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
+  doctor_id?: string;
   encounter_date: Date;
   chief_complaint: string;
   diagnosis: string;
@@ -73,11 +74,18 @@ interface EditVisitFormData {
 
 interface Props {
   patientId: string;
+  appointmentId?: string;
   activeTab: string;
   onSuccess: () => void;
   onCancel: () => void;
   selectedServices?: ServiceSelection[];
   onSelectedServicesChange?: (services: ServiceSelection[]) => void;
+}
+
+interface Doctor {
+  id: string;
+  full_name: string;
+  role: string;
 }
 
 // Professional Visit Type Dropdown
@@ -126,7 +134,8 @@ const ProfessionalDropdown: React.FC<{
 };
 
 const AddVisitTabs: React.FC<Props> = ({ 
-  patientId, 
+  patientId,
+  appointmentId,
   activeTab, 
   onSuccess, 
   onCancel,
@@ -136,6 +145,13 @@ const AddVisitTabs: React.FC<Props> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [internalSelectedServices, setInternalSelectedServices] = useState<ServiceSelection[]>([]);
+  
+  // Doctor selection state
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [appointmentDoctor, setAppointmentDoctor] = useState<string | null>(null);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
+  const [isDoctorModalOpen, setIsDoctorModalOpen] = useState(false);
+  const [isVisitTypeModalOpen, setIsVisitTypeModalOpen] = useState(false);
   
   // Add refresh triggers for file displays
   const [mediaRefreshTrigger, setMediaRefreshTrigger] = useState(0);
@@ -309,6 +325,53 @@ const AddVisitTabs: React.FC<Props> = ({
     console.log('✅ New visit form initialized');
   }, []);
 
+  // Fetch doctors
+  useEffect(() => {
+    const fetchDoctors = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, full_name, role')
+          .eq('role', 'doctor')
+          .order('full_name');
+
+        if (error) throw error;
+        setDoctors(data || []);
+      } catch (error) {
+        console.error('Error fetching doctors:', error);
+      } finally {
+        setLoadingDoctors(false);
+      }
+    };
+
+    fetchDoctors();
+  }, []);
+
+  // Fetch appointment doctor if appointmentId is provided
+  useEffect(() => {
+    const fetchAppointmentDoctor = async () => {
+      if (!appointmentId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('appointments')
+          .select('doctor_id')
+          .eq('id', appointmentId)
+          .single();
+
+        if (error) throw error;
+        if (data?.doctor_id) {
+          setAppointmentDoctor(data.doctor_id);
+          setValue('doctor_id', data.doctor_id);
+        }
+      } catch (error) {
+        console.error('Error fetching appointment doctor:', error);
+      }
+    };
+
+    fetchAppointmentDoctor();
+  }, [appointmentId, setValue]);
+
   const onSubmit = async (data: EditVisitFormData) => {
     console.log('📝 Form submitted - this should only happen when clicking Create Visit button');
     console.log('Submit event triggered by:', document.activeElement);
@@ -317,13 +380,17 @@ const AddVisitTabs: React.FC<Props> = ({
     try {
       setIsSubmitting(true);
 
-      // Get current user for doctor_id
+      // Get current user for fallback doctor_id
       const { data: { user } } = await supabase.auth.getUser();
+
+      // Determine the doctor ID - prioritize appointment doctor over selected doctor over current user
+      const finalDoctorId = appointmentDoctor || data.doctor_id || user?.id;
 
       // Create the visit record
       const visitData = {
         patient_id: patientId,
-        doctor_id: user?.id,
+        doctor_id: finalDoctorId,
+        appointment_id: appointmentId || null,
         visit_type: data.visit_type,
         encounter_date: data.encounter_date ? data.encounter_date.toISOString() : undefined,
         visit_date: data.encounter_date ? data.encounter_date.toISOString().split('T')[0] : undefined,
@@ -335,7 +402,7 @@ const AddVisitTabs: React.FC<Props> = ({
         follow_up_required: data.follow_up_required || false,
         follow_up_date: data.follow_up_date && data.follow_up_date.trim() ? data.follow_up_date : undefined,
         notes: data.notes || undefined,
-        status: 'completed',
+        status: 'in-progress',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -944,7 +1011,7 @@ const AddVisitTabs: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={() => setIsDatePickerOpen(true)}
-                          className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[60px]"
+                          className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[45px]"
                         >
                           <div className="flex items-center gap-3">
                             <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-blue-400 to-cyan-500">
@@ -986,7 +1053,7 @@ const AddVisitTabs: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={() => setIsTimePickerOpen(true)}
-                          className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[60px]"
+                          className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[45px]"
                         >
                           <div className="flex items-center gap-3">
                             <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-purple-400 to-pink-500">
@@ -1013,17 +1080,81 @@ const AddVisitTabs: React.FC<Props> = ({
                       Visit Type
                     </label>
                     <div className="relative">
-                      <ProfessionalDropdown
-                        value={watch('visit_type') || ''}
-                        onChange={(value) => setValue('visit_type', value as any)}
-                        options={visitTypeOptions}
-                        placeholder="Select visit type"
-                        hasIcon={true}
-                      />
-                      <Stethoscope className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-amber-500 pointer-events-none z-10" />
+                      <button
+                        type="button"
+                        onClick={() => setIsVisitTypeModalOpen(true)}
+                        className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[45px]"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-amber-400 to-orange-500">
+                            <Stethoscope className="w-4 h-4 text-white" />
+                          </div>
+                          <div>
+                            {(() => {
+                              const selectedType = visitTypeOptions.find(opt => opt.value === watch('visit_type'));
+                              return (
+                                <>
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {selectedType ? selectedType.label : 'Select Visit Type'}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {selectedType ? 'Visit category' : 'Choose type'}
+                                  </p>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                        <ChevronDown className="w-5 h-5 transition-transform text-[#01b9d5]" />
+                      </button>
                     </div>
                     {errors.visit_type && (
                       <p className="text-sm text-red-600 mt-1">{errors.visit_type.message}</p>
+                    )}
+                  </div>
+
+                  {/* Doctor Selection Container */}
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Treating Doctor
+                      {appointmentDoctor && (
+                        <span className="text-sm text-blue-600 ml-1">(From Appointment)</span>
+                      )}
+                    </label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => !appointmentDoctor && !loadingDoctors && setIsDoctorModalOpen(true)}
+                        disabled={!!appointmentDoctor || loadingDoctors}
+                        className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[45px] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-green-400 to-emerald-500">
+                            <Stethoscope className="w-4 h-4 text-white" />
+                          </div>
+                          <div>
+                            {(() => {
+                              const selectedDoctor = doctors.find(d => d.id === (appointmentDoctor || watch('doctor_id')));
+                              return (
+                                <>
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {selectedDoctor ? selectedDoctor.full_name : (loadingDoctors ? 'Loading...' : 'Select Doctor')}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {selectedDoctor ? 'Treating physician' : (appointmentDoctor ? 'From appointment' : 'Choose doctor')}
+                                  </p>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                        <ChevronDown className="w-5 h-5 transition-transform text-[#01b9d5]" />
+                      </button>
+                    </div>
+                    {appointmentDoctor && (
+                      <p className="text-sm text-blue-600 mt-1">
+                        Doctor automatically selected from appointment
+                      </p>
                     )}
                   </div>
                 </div>
@@ -2941,6 +3072,157 @@ const AddVisitTabs: React.FC<Props> = ({
           )}
         </button>
       </div>
+
+      {/* Premium Doctor Selection Modal */}
+      <AnimatePresence>
+        {isDoctorModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setIsDoctorModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden"
+            >
+              <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-white">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <Stethoscope className="w-6 h-6" />
+                  Select Treating Doctor
+                </h3>
+                <p className="text-green-100 mt-2">Choose the physician for this visit</p>
+              </div>
+              
+              <div className="p-6 max-h-96 overflow-y-auto">
+                {loadingDoctors ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-green-500" />
+                    <span className="ml-2 text-gray-600">Loading doctors...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {doctors.map((doctor) => (
+                      <button
+                        key={doctor.id}
+                        type="button"
+                        onClick={() => {
+                          setValue('doctor_id', doctor.id);
+                          setIsDoctorModalOpen(false);
+                        }}
+                        className={`w-full p-4 rounded-xl border-2 transition-all text-left hover:bg-green-50 hover:border-green-300 ${
+                          watch('doctor_id') === doctor.id
+                            ? 'border-green-500 bg-green-50'
+                            : 'border-gray-200'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">
+                            <Stethoscope className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">{doctor.full_name}</p>
+                            <p className="text-sm text-gray-500">Doctor</p>
+                          </div>
+                          {watch('doctor_id') === doctor.id && (
+                            <CheckCircle2 className="w-5 h-5 text-green-500 ml-auto" />
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <div className="p-6 border-t border-gray-100 bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => setIsDoctorModalOpen(false)}
+                  className="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Premium Visit Type Selection Modal */}
+      <AnimatePresence>
+        {isVisitTypeModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setIsVisitTypeModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden"
+            >
+              <div className="bg-gradient-to-r from-amber-500 to-orange-600 p-6 text-white">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <Stethoscope className="w-6 h-6" />
+                  Select Visit Type
+                </h3>
+                <p className="text-orange-100 mt-2">Choose the type of medical visit</p>
+              </div>
+              
+              <div className="p-6">
+                <div className="space-y-2">
+                  {visitTypeOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        setValue('visit_type', option.value as any);
+                        setIsVisitTypeModalOpen(false);
+                      }}
+                      className={`w-full p-4 rounded-xl border-2 transition-all text-left hover:bg-amber-50 hover:border-amber-300 ${
+                        watch('visit_type') === option.value
+                          ? 'border-amber-500 bg-amber-50'
+                          : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+                          <Stethoscope className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">{option.label}</p>
+                          <p className="text-sm text-gray-500">Medical visit</p>
+                        </div>
+                        {watch('visit_type') === option.value && (
+                          <CheckCircle2 className="w-5 h-5 text-amber-500 ml-auto" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="p-6 border-t border-gray-100 bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => setIsVisitTypeModalOpen(false)}
+                  className="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

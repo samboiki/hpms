@@ -116,7 +116,12 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ type = 'photo', onUpload }) =
               <Button
                 variant="outline"
                 size="sm"
-                onClick={startCamera}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  startCamera();
+                }}
                 disabled={isUploading}
               >
                 <Camera size={16} className="mr-2" />
@@ -167,11 +172,26 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ type = 'photo', onUpload }) =
             className="w-full rounded-lg"
           />
           <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-2">
-            <Button onClick={capturePhoto}>
+            <Button 
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                capturePhoto();
+              }}
+            >
               <Camera size={16} className="mr-2" />
               Capture
             </Button>
-            <Button variant="outline" onClick={stopCamera}>
+            <Button 
+              variant="outline" 
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                stopCamera();
+              }}
+            >
               <X size={16} className="mr-2" />
               Cancel
             </Button>
@@ -193,8 +213,13 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ type = 'photo', onUpload }) =
           <Button
             variant="outline"
             size="sm"
+            type="button"
             className="absolute top-2 right-2 bg-white/80"
-            onClick={() => setPreview(null)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setPreview(null);
+            }}
           >
             <X size={14} />
           </Button>
