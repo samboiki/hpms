@@ -741,7 +741,12 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                                             <td className="px-4 py-2 text-right text-gray-900">N$ {service.unit_price.toFixed(2)}</td>
                                             <td className="px-4 py-2 text-right font-medium text-gray-900">N$ {service.total_price.toFixed(2)}</td>
                                             <td className="px-4 py-2 text-right text-sm text-green-600">N$ {(service.medical_aid_covered || 0).toFixed(2)}</td>
-                                            <td className="px-4 py-2 text-right text-sm font-semibold text-gray-900">N$ {(service.patient_portion || service.total_price).toFixed(2)}</td>
+                                            <td className="px-4 py-2 text-right text-sm font-semibold text-gray-900">
+                                              {service.patient_portion && service.patient_portion > 0 ? 
+                                                `N$ ${service.patient_portion.toFixed(2)}` : 
+                                                '-'
+                                              }
+                                            </td>
                                           </tr>
                                         ))}
                                       </tbody>
