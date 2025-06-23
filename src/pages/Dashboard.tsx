@@ -816,7 +816,7 @@ function Dashboard() {
     <div className="min-h-screen bg-gray-100">
       <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
         {/* Compact Professional Header */}
-        <div className="bg-white/60 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">
+        <div className=" backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">
           <div className="p-4 md:p-5">
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
               <div className="flex items-center gap-4">

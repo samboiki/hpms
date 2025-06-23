@@ -198,7 +198,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
           unit_price: service.unit_price,
           total_price: service.total_price,
           medical_aid_covered: service.medical_aid_covered || 0,
-          patient_portion: service.patient_portion || service.total_price
+          patient_portion: service.patient_portion || 0
         });
       });
 
