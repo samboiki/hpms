@@ -521,7 +521,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredInvoices.map((invoice) => {
+                filteredInvoices.map((invoice, index) => {
                   const isExpanded = expandedInvoices.has(invoice.id);
                   const statusColors = getStatusColor(invoice.payment_status);
 
