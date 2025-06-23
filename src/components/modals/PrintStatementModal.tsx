@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   X,
   Calendar,
@@ -29,8 +29,19 @@ interface Invoice {
   payment_status: 'paid' | 'pending' | 'overdue' | 'cancelled';
   total: number;
   created_at: string;
-  services: any[];
+  services: Service[];
   medical_aid_covered: number;
+}
+
+interface Service {
+  id: string;
+  code: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  medical_aid_covered: number;
+  patient_portion: number;
 }
 
 interface PrintStatementModalProps {
@@ -53,30 +64,32 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Create portal root for modal to render at document body level
+  console.log('🎯 PrintStatementModal render:', { isOpen, patientId, invoicesCount: invoices.length });
+
+  // Lock body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
+      console.log('🔒 Locking body scroll');
       document.body.style.overflow = 'hidden';
+      document.body.style.paddingRight = '15px'; // Prevent layout shift
     } else {
+      console.log('🔓 Unlocking body scroll');
       document.body.style.overflow = 'unset';
+      document.body.style.paddingRight = '0px';
     }
     
     return () => {
       document.body.style.overflow = 'unset';
+      document.body.style.paddingRight = '0px';
     };
   }, [isOpen]);
 
   if (!isOpen) {
-    console.log('🚫 PrintStatementModal not rendering - isOpen:', isOpen);
+    console.log('❌ Modal not open, returning null');
     return null;
   }
-  
-  console.log('✅ PrintStatementModal rendering with props:', {
-    isOpen,
-    patientId,
-    invoicesCount: invoices.length,
-    domElement: 'About to render'
-  });
+
+  console.log('✅ Modal is open, rendering...');
 
   const getDateRange = () => {
     const now = new Date();
@@ -139,6 +152,7 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
   };
 
   const generateStatementPDF = async () => {
+    console.log('🖨️ Starting statement PDF generation...');
     setIsGenerating(true);
     
     try {
@@ -150,6 +164,8 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
         toast.error('No invoices found for the selected period');
         return;
       }
+
+      console.log('📄 Filtered invoices:', filteredInvoices.length);
 
       // Fetch patient details
       const { data: patientData, error: patientError } = await supabase
@@ -226,113 +242,123 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
       const totalPending = filteredInvoices.filter(inv => inv.payment_status === 'pending').reduce((sum, inv) => sum + inv.total, 0);
       const totalOverdue = filteredInvoices.filter(inv => inv.payment_status === 'overdue').reduce((sum, inv) => sum + inv.total, 0);
 
-      // Create HTML for statement
+      // Get all services from all invoices with detailed breakdown
+      const allServices: any[] = [];
+      filteredInvoices.forEach(invoice => {
+        invoice.services.forEach(service => {
+          allServices.push({
+            ...service,
+            invoice_number: invoice.invoice_number,
+            invoice_date: invoice.created_at,
+            payment_status: invoice.payment_status
+          });
+        });
+      });
+
+      console.log('📋 Total services found:', allServices.length);
+
+      // Create HTML for statement using EXACT invoice/receipt style from screenshot
       const statementHTML = `
         <div style="width: 800px; margin: 0 auto; background: white; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; line-height: 1.6;">
-          <!-- Header -->
-          <div style="background: linear-gradient(135deg, ${primaryColor} 0%, ${lightColor} 50%, ${darkColor} 100%); padding: 40px 30px; color: white; position: relative; overflow: hidden;">
-            <div style="position: absolute; top: -20px; right: -20px; width: 200px; height: 200px; background: rgba(255,255,255,0.1); border-radius: 50%; opacity: 0.3;"></div>
-            <div style="position: absolute; bottom: -30px; left: -30px; width: 150px; height: 150px; background: rgba(255,255,255,0.08); border-radius: 50%;"></div>
+          
+          <!-- Header Section -->
+          <div style="padding: 40px 40px 30px 40px; background: white; border-bottom: 2px solid #e5e7eb;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+              <div>
+                <h1 style="margin: 0; font-size: 32px; font-weight: 800; color: #1f2937; font-family: 'Rubik', sans-serif;">${practiceData.name}</h1>
+                <p style="margin: 8px 0 0 0; font-size: 16px; color: #6b7280; font-weight: 500;">${practiceData.hero_subtitle || 'Professional Healthcare Services'}</p>
+              </div>
+              <div style="text-align: right; font-size: 14px; color: #4b5563;">
+                ${practiceData.contact_phone ? `<div style="margin-bottom: 4px;">${practiceData.contact_phone}</div>` : ''}
+                ${practiceData.contact_email ? `<div>${practiceData.contact_email}</div>` : ''}
+              </div>
+            </div>
             
-            <div style="position: relative; z-index: 2;">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 25px;">
-                <div>
-                  <h1 style="margin: 0; font-size: 28px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.1); font-family: 'Rubik', sans-serif;">${practiceData.name}</h1>
-                  <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9; font-weight: 500;">${practiceData.hero_subtitle || 'Professional Healthcare Services'}</p>
-                </div>
-                <div style="text-align: right; font-size: 12px; opacity: 0.9;">
-                  ${practiceData.contact_phone ? `<div>${practiceData.contact_phone}</div>` : ''}
-                  ${practiceData.contact_email ? `<div>${practiceData.contact_email}</div>` : ''}
-                </div>
-              </div>
-              
-              <div style="border-top: 2px solid rgba(255,255,255,0.3); padding-top: 20px;">
-                <h2 style="margin: 0; font-size: 24px; font-weight: 700; font-family: 'Rubik', sans-serif;">ACCOUNT STATEMENT</h2>
-                <p style="margin: 8px 0 0 0; font-size: 16px; font-weight: 500;">Period: ${label}</p>
-              </div>
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h2 style="margin: 0; font-size: 28px; font-weight: 700; color: #1f2937; font-family: 'Rubik', sans-serif;">ACCOUNT STATEMENT</h2>
+              <p style="margin: 8px 0 0 0; font-size: 16px; color: #6b7280; font-weight: 500;">Period: ${label}</p>
             </div>
-          </div>
-
-          <!-- Patient Info -->
-          <div style="padding: 30px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-            <h3 style="margin: 0 0 15px 0; font-size: 18px; font-weight: 600; color: #2d3748;">Patient Information</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            
+            <!-- Patient Information -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 20px;">
               <div>
-                <p style="margin: 0; font-size: 14px; color: #4a5568;"><strong>Name:</strong> ${patientData.first_name} ${patientData.last_name}</p>
-                ${patientData.email ? `<p style="margin: 8px 0 0 0; font-size: 14px; color: #4a5568;"><strong>Email:</strong> ${patientData.email}</p>` : ''}
+                <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #374151;">Patient Information</h3>
+                <p style="margin: 0 0 6px 0; font-size: 14px; color: #4b5563;"><span style="font-weight: 600;">Name:</span> ${patientData.first_name} ${patientData.last_name}</p>
+                ${patientData.email ? `<p style="margin: 0 0 6px 0; font-size: 14px; color: #4b5563;"><span style="font-weight: 600;">Email:</span> ${patientData.email}</p>` : ''}
+                ${patientData.cell_number ? `<p style="margin: 0 0 6px 0; font-size: 14px; color: #4b5563;"><span style="font-weight: 600;">Phone:</span> ${patientData.cell_number}</p>` : ''}
               </div>
               <div>
-                ${patientData.cell_number ? `<p style="margin: 0; font-size: 14px; color: #4a5568;"><strong>Phone:</strong> ${patientData.cell_number}</p>` : ''}
-                ${patientData.home_address ? `<p style="margin: 8px 0 0 0; font-size: 14px; color: #4a5568;"><strong>Address:</strong> ${patientData.home_address}</p>` : ''}
+                <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #374151;">Statement Summary</h3>
+                <p style="margin: 0 0 6px 0; font-size: 14px; color: #4b5563;"><span style="font-weight: 600;">Total Invoices:</span> ${filteredInvoices.length}</p>
+                <p style="margin: 0 0 6px 0; font-size: 14px; color: #4b5563;"><span style="font-weight: 600;">Total Services:</span> ${allServices.length}</p>
+                <p style="margin: 0 0 6px 0; font-size: 14px; color: #4b5563;"><span style="font-weight: 600;">Generated:</span> ${format(new Date(), 'dd MMM yyyy')}</p>
               </div>
             </div>
           </div>
 
-          <!-- Summary Cards -->
-          <div style="padding: 30px; background: white;">
-            <h3 style="margin: 0 0 20px 0; font-size: 18px; font-weight: 600; color: #2d3748;">Financial Summary</h3>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px;">
-              <div style="padding: 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; color: white; text-align: center;">
-                <div style="font-size: 24px; font-weight: 700; margin-bottom: 5px;">N$ ${totalPaid.toFixed(2)}</div>
-                <div style="font-size: 12px; opacity: 0.9; font-weight: 500;">Paid</div>
-              </div>
-              <div style="padding: 20px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 12px; color: white; text-align: center;">
-                <div style="font-size: 24px; font-weight: 700; margin-bottom: 5px;">N$ ${totalPending.toFixed(2)}</div>
-                <div style="font-size: 12px; opacity: 0.9; font-weight: 500;">Pending</div>
-              </div>
-              <div style="padding: 20px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-radius: 12px; color: white; text-align: center;">
-                <div style="font-size: 24px; font-weight: 700; margin-bottom: 5px;">N$ ${totalOverdue.toFixed(2)}</div>
-                <div style="font-size: 12px; opacity: 0.9; font-weight: 500;">Overdue</div>
-              </div>
-              <div style="padding: 20px; background: linear-gradient(135deg, ${primaryColor} 0%, ${darkColor} 100%); border-radius: 12px; color: white; text-align: center;">
-                <div style="font-size: 24px; font-weight: 700; margin-bottom: 5px;">N$ ${totalAmount.toFixed(2)}</div>
-                <div style="font-size: 12px; opacity: 0.9; font-weight: 500;">Total</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Invoice Table -->
-          <div style="padding: 0 30px 30px 30px;">
-            <h3 style="margin: 0 0 20px 0; font-size: 18px; font-weight: 600; color: #2d3748;">Invoice Details</h3>
-            <div style="overflow: hidden; border-radius: 12px; border: 1px solid #e2e8f0;">
-              <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                <thead>
-                  <tr style="background: #f7fafc;">
-                    <th style="padding: 15px 10px; text-align: left; font-weight: 600; color: #4a5568; border-bottom: 1px solid #e2e8f0;">Invoice #</th>
-                    <th style="padding: 15px 10px; text-align: left; font-weight: 600; color: #4a5568; border-bottom: 1px solid #e2e8f0;">Date</th>
-                    <th style="padding: 15px 10px; text-align: left; font-weight: 600; color: #4a5568; border-bottom: 1px solid #e2e8f0;">Status</th>
-                    <th style="padding: 15px 10px; text-align: right; font-weight: 600; color: #4a5568; border-bottom: 1px solid #e2e8f0;">Amount</th>
+          <!-- Services Table - EXACT style from screenshot -->
+          <div style="padding: 40px;">
+            <table style="width: 100%; border-collapse: collapse; font-family: 'Montserrat', sans-serif;">
+              <thead>
+                <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                  <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 12px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Code</th>
+                  <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 12px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Description</th>
+                  <th style="padding: 16px 12px; text-align: center; font-weight: 600; font-size: 12px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Qty</th>
+                  <th style="padding: 16px 12px; text-align: right; font-weight: 600; font-size: 12px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Service Price</th>
+                  <th style="padding: 16px 12px; text-align: right; font-weight: 600; font-size: 12px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Medical Aid</th>
+                  <th style="padding: 16px 12px; text-align: right; font-weight: 600; font-size: 12px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Patient Portion</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${allServices.map((service, index) => `
+                  <tr style="border-bottom: 1px solid #f3f4f6; ${index % 2 === 0 ? 'background: white;' : 'background: #fafbfc;'}">
+                    <td style="padding: 14px 12px; font-size: 14px; font-weight: 600; color: #1f2937;">${service.code}</td>
+                    <td style="padding: 14px 12px; font-size: 13px; color: #4b5563; line-height: 1.4;">${service.description}</td>
+                    <td style="padding: 14px 12px; text-align: center; font-size: 14px; font-weight: 500; color: #1f2937;">${service.quantity}</td>
+                    <td style="padding: 14px 12px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">N$ ${service.total_price.toFixed(2)}</td>
+                    <td style="padding: 14px 12px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">N$ ${(service.medical_aid_covered || 0).toFixed(2)}</td>
+                    <td style="padding: 14px 12px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">N$ ${(service.total_price - (service.medical_aid_covered || 0)).toFixed(2)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  ${filteredInvoices.map((invoice, index) => `
-                    <tr style="background: ${index % 2 === 0 ? 'white' : '#f8fafc'};">
-                      <td style="padding: 12px 10px; border-bottom: 1px solid #f1f5f9; font-weight: 500;">${invoice.invoice_number}</td>
-                      <td style="padding: 12px 10px; border-bottom: 1px solid #f1f5f9; color: #4a5568;">${format(parseISO(invoice.created_at), 'MMM dd, yyyy')}</td>
-                      <td style="padding: 12px 10px; border-bottom: 1px solid #f1f5f9;">
-                        <span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; 
-                          ${invoice.payment_status === 'paid' ? 'background: #dcfce7; color: #166534;' :
-                            invoice.payment_status === 'pending' ? 'background: #fef3c7; color: #92400e;' :
-                            invoice.payment_status === 'overdue' ? 'background: #fee2e2; color: #991b1b;' :
-                            'background: #f3f4f6; color: #374151;'}">
-                          ${invoice.payment_status}
-                        </span>
-                      </td>
-                      <td style="padding: 12px 10px; border-bottom: 1px solid #f1f5f9; text-align: right; font-weight: 600;">N$ ${invoice.total.toFixed(2)}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
+                `).join('')}
+                
+                <!-- Subtotal Row -->
+                <tr style="background: #f9fafb; border-top: 2px solid #e5e7eb;">
+                  <td colspan="5" style="padding: 16px 12px; text-align: right; font-weight: 600; font-size: 14px; color: #374151;">Subtotal:</td>
+                  <td style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 16px; color: #1f2937;">N$ ${totalAmount.toFixed(2)}</td>
+                </tr>
+                
+                <!-- Patient Portion Row -->
+                <tr style="background: #fff7ed; border-bottom: 1px solid #fed7aa;">
+                  <td colspan="5" style="padding: 16px 12px; text-align: right; font-weight: 600; font-size: 14px; color: #ea580c;">Patient Portion:</td>
+                  <td style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 16px; color: #ea580c;">N$ ${(totalAmount - filteredInvoices.reduce((sum, inv) => sum + (inv.medical_aid_covered || 0), 0)).toFixed(2)}</td>
+                </tr>
+                
+                <!-- Total Amount Due Row -->
+                <tr style="background: #5f6578;">
+                  <td colspan="5" style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 14px; color: white; text-transform: uppercase;">Total Amount Due:</td>
+                  <td style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 18px; color: white;">N$ ${totalAmount.toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Banking Details Section - EXACT style from screenshot -->
+          <div style="margin: 30px 40px 40px 40px; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Banking Details</h3>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; font-size: 13px; color: #4b5563;">
+              <div><span style="font-weight: 600;">Bank:</span> Bank Windhoek</div>
+              <div><span style="font-weight: 600;">Account:</span> 4433221009</div>
+              <div><span style="font-weight: 600;">Branch:</span> 484519</div>
             </div>
           </div>
 
-          <!-- Footer -->
-          <div style="padding: 20px 30px; background: #f8fafc; border-top: 1px solid #e2e8f0;">
-            <div style="text-align: center; font-size: 12px; color: #6b7280;">
-              <p style="margin: 0 0 10px 0;">Thank you for choosing <strong>${practiceData.name}</strong></p>
-              <p style="margin: 0; font-size: 11px; color: #9ca3af;">
-                Statement generated on ${format(new Date(), 'MMMM dd, yyyy')} by OneHealth Systems
-              </p>
+          <!-- Footer Section - EXACT style from screenshot -->
+          <div style="padding: 30px 40px; background: #f8fafc; border-top: 1px solid #e5e7eb; text-align: center;">
+            <p style="margin: 0 0 8px 0; font-size: 12px; color: #6b7280;">
+              Payment is due within 30 days. Thank you for choosing <strong style="color: #374151;">${practiceData.name}</strong> For inquiries: ${practiceData.contact_phone} • ${practiceData.contact_email}
+            </p>
+            <div style="margin-top: 15px; font-size: 11px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 12px;">
+              Statement generated by <strong style="color: #6b7280;">OneHealth Systems</strong> • www.onehealthsystems.com • © 2024
             </div>
           </div>
         </div>
@@ -369,11 +395,10 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
       
       pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight, '', 'FAST');
 
-      // Download PDF
+      // Download the PDF
       pdf.save(`statement-${patientData.first_name}-${patientData.last_name}-${label.replace(/\s+/g, '-')}.pdf`);
-
-      // Clean up
-      document.body.removeChild(tempContainer);
+      
+      console.log('✅ Multi-page statement with EXACT invoice styling generated successfully!');
       
       toast.success('Statement generated successfully!');
       onClose();
@@ -389,32 +414,33 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
   const { label } = getDateRange();
   const filteredInvoices = filterInvoicesByDateRange();
 
-  // Create portal to render modal at document.body level
   const modalContent = (
     <div 
       className="fixed inset-0" 
-      style={{ 
-        zIndex: 2147483649, // Higher than FormModal (2147483648)
-      }}
+      style={{ zIndex: 2147483649 }}
       data-testid="print-statement-modal"
     >
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-xl"
-        onClick={onClose}
+        className="fixed inset-0 bg-black/60 backdrop-blur-xl" 
+        onClick={() => {
+          console.log('🔙 Backdrop clicked, closing modal');
+          onClose();
+        }}
       />
       
       {/* Modal Container */}
       <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
-        <div className="pointer-events-auto">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden"
-        style={{ zIndex: 2147483647 }}
-        onClick={(e) => e.stopPropagation()}
-      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden pointer-events-auto"
+          onClick={(e) => {
+            e.stopPropagation();
+            console.log('📱 Modal content clicked, preventing close');
+          }}
+        >
           {/* Header */}
           <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 text-white">
             <div className="flex items-center justify-between">
@@ -423,7 +449,10 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
                 <p className="text-purple-100 text-sm">Patient account statement</p>
               </div>
               <button
-                onClick={onClose}
+                onClick={() => {
+                  console.log('❌ Close button clicked');
+                  onClose();
+                }}
                 className="p-1 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
                 disabled={isGenerating}
               >
@@ -454,7 +483,10 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
                       name="period"
                       value={period.value}
                       checked={selectedPeriod === period.value}
-                      onChange={(e) => setSelectedPeriod(e.target.value)}
+                      onChange={(e) => {
+                        console.log('📅 Period changed to:', e.target.value);
+                        setSelectedPeriod(e.target.value);
+                      }}
                       className="w-4 h-4 text-blue-600"
                     />
                     <span className="text-gray-700">{period.label}</span>
@@ -497,6 +529,9 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
               <p className="text-sm text-gray-600">Period: {label}</p>
               <p className="text-sm text-gray-600">Invoices: {filteredInvoices.length} found</p>
               <p className="text-sm text-gray-600">
+                Services: {filteredInvoices.reduce((sum, inv) => sum + inv.services.length, 0)} total
+              </p>
+              <p className="text-sm text-gray-600">
                 Total Amount: N$ {filteredInvoices.reduce((sum, inv) => sum + inv.total, 0).toFixed(2)}
               </p>
             </div>
@@ -505,13 +540,19 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
           {/* Footer */}
           <div className="flex gap-3 p-6 bg-gray-50 border-t">
             <button
-              onClick={onClose}
+              onClick={() => {
+                console.log('🚫 Cancel button clicked');
+                onClose();
+              }}
               className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
             >
               Cancel
             </button>
             <button
-              onClick={generateStatementPDF}
+              onClick={() => {
+                console.log('🖨️ Generate button clicked');
+                generateStatementPDF();
+              }}
               disabled={isGenerating || filteredInvoices.length === 0}
               className={`flex-1 px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 ${
                 isGenerating || filteredInvoices.length === 0
@@ -532,13 +573,13 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
               )}
             </button>
           </div>
-      </motion.div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );
 
-  // Use portal to render at document.body level, outside any parent containers
+  // Use React Portal to render modal at document.body level
+  console.log('🚀 Rendering modal with portal to document.body');
   return createPortal(modalContent, document.body);
 };
 
