@@ -383,14 +383,32 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
       document.body.appendChild(tempContainer);
       tempContainer.innerHTML = statementHTML;
 
-      // Generate canvas
-      const canvas = await html2canvas(tempContainer.firstElementChild as HTMLElement, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff'
-      });
+      // SMART MULTI-PAGE GENERATION
+      console.log('📄 Implementing smart multi-page logic for', allServices.length, 'services');
+      
+      // Smart pagination logic based on service count (like invoice)
+      const serviceChunks = [];
+      if (allServices.length <= 9) {
+        // Single page with footer
+        serviceChunks.push(allServices);
+        console.log('📑 Single page (≤9 services):', allServices.length);
+      } else if (allServices.length <= 13) {
+        // First page: 10 services, second page: rest with footer
+        serviceChunks.push(allServices.slice(0, 10));
+        serviceChunks.push(allServices.slice(10));
+        console.log('📑 Two pages (10-13 services): page 1 =', 10, ', page 2 =', allServices.length - 10);
+      } else {
+        // First page: 14 services (no footer), continuation pages: 20 services each
+        serviceChunks.push(allServices.slice(0, 14));
+        let remaining = allServices.slice(14);
+        while (remaining.length > 0) {
+          serviceChunks.push(remaining.slice(0, 20));
+          remaining = remaining.slice(20);
+        }
+        console.log('📑 Multi-page (≥14 services): first page = 14, continuation pages of 20, total pages =', serviceChunks.length);
+      }
 
-      // Create PDF
+      // Create PDF with proper multi-page support
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'pt',
@@ -400,11 +418,186 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      // Generate each page
+      for (let pageIndex = 0; pageIndex < serviceChunks.length; pageIndex++) {
+        const pageServices = serviceChunks[pageIndex];
+        const isFirstPage = pageIndex === 0;
+        const isLastPage = pageIndex === serviceChunks.length - 1;
+        
+        console.log(`🏗️ Generating page ${pageIndex + 1}/${serviceChunks.length} with ${pageServices.length} services`);
+        
+        // Create page-specific HTML
+        const pageHTML = `
+          <div style="width: 800px; margin: 0 auto; background: white; font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #1a1a1a; line-height: 1.6; min-height: 1000px;">
+            
+            ${isFirstPage ? `
+            <!-- Header Section (only on first page) -->
+            <div style="padding: 40px 40px 30px 40px; background: white; border-bottom: 2px solid #e5e7eb;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
+                <div>
+                  ${practiceData.logo_url ? `
+                    <div style="flex-shrink: 0; margin-bottom: 8px;">
+                      <img src="${practiceData.logo_url}" alt="Practice Logo" style="width: 120px; height: auto; max-height: 65px; border-radius: 8px; object-fit: contain;" />
+                    </div>
+                  ` : ''}
+                  <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #5f6578; font-family: 'Rubik', sans-serif; letter-spacing: -0.2px;">${practiceData.name}</h1>
+                </div>
+                <div style="text-align: right; max-width: 300px;">
+                  <div style="font-size: 10px; line-height: 1.6; color: #5a5a5a; font-weight: 400;">
+                    ${practiceData.address ? `<div style="margin-bottom: 2px;">${practiceData.address}</div>` : ''}
+                    <div style="margin-bottom: 2px;">${practiceData.city}, ${practiceData.country} ${practiceData.postal_code || ''}</div>
+                    ${practiceData.contact_phone ? `<div style="margin-bottom: 2px;">Tel: ${practiceData.contact_phone}</div>` : ''}
+                    ${practiceData.contact_email ? `<div style="margin-bottom: 2px;">Email: ${practiceData.contact_email}</div>` : ''}
+                    ${practiceData.domain ? `<div>www.${practiceData.domain}</div>` : ''}
+                  </div>
+                </div>
+              </div>
+              
+              <div style="text-align: center; margin-bottom: 30px;">
+                <h2 style="margin: 0; font-size: 28px; font-weight: 700; color: #1f2937; font-family: 'Rubik', sans-serif;">ACCOUNT STATEMENT</h2>
+                <p style="margin: 8px 0 0 0; font-size: 16px; color: #6b7280; font-weight: 500;">Period: ${label}</p>
+              </div>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 20px;">
+                <div>
+                  <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #374151;">Patient Information</h3>
+                  <p style="margin: 0 0 6px 0; font-size: 14px; color: #4b5563;"><span style="font-weight: 600;">Name:</span> ${patientData.first_name} ${patientData.last_name}</p>
+                  ${patientData.email ? `<p style="margin: 0 0 6px 0; font-size: 14px; color: #4b5563;"><span style="font-weight: 600;">Email:</span> ${patientData.email}</p>` : ''}
+                  ${patientData.cell_number ? `<p style="margin: 0 0 6px 0; font-size: 14px; color: #4b5563;"><span style="font-weight: 600;">Phone:</span> ${patientData.cell_number}</p>` : ''}
+                </div>
+                <div>
+                  <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #374151;">Statement Summary</h3>
+                  <p style="margin: 0 0 6px 0; font-size: 14px; color: #4b5563;"><span style="font-weight: 600;">Total Invoices:</span> ${filteredInvoices.length}</p>
+                  <p style="margin: 0 0 6px 0; font-size: 14px; color: #4b5563;"><span style="font-weight: 600;">Total Services:</span> ${allServices.length}</p>
+                  <p style="margin: 0 0 6px 0; font-size: 14px; color: #4b5563;"><span style="font-weight: 600;">Generated:</span> ${format(new Date(), 'dd MMM yyyy')}</p>
+                </div>
+              </div>
+            </div>
+            ` : `
+            <!-- Continuation Header -->
+            <div style="padding: 20px 40px; background: #5f6578; color: white; text-align: center;">
+              <h2 style="margin: 0; font-size: 20px; font-weight: 700; font-family: 'Rubik', sans-serif;">ACCOUNT STATEMENT (CONTINUED)</h2>
+              <p style="margin: 5px 0 0 0; font-size: 14px;">Page ${pageIndex + 1} of ${serviceChunks.length} • ${patientData.first_name} ${patientData.last_name}</p>
+            </div>
+            `}
+
+            <!-- Services Table -->
+            <div style="padding: 40px;">
+              <table style="width: 100%; border-collapse: collapse; font-family: 'Montserrat', sans-serif;">
+                <thead>
+                  <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                    <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 12px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Code</th>
+                    <th style="padding: 16px 12px; text-align: left; font-weight: 600; font-size: 12px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Description</th>
+                    <th style="padding: 16px 12px; text-align: center; font-weight: 600; font-size: 12px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Qty</th>
+                    <th style="padding: 16px 12px; text-align: right; font-weight: 600; font-size: 12px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Service Price</th>
+                    <th style="padding: 16px 12px; text-align: right; font-weight: 600; font-size: 12px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Medical Aid</th>
+                    <th style="padding: 16px 12px; text-align: right; font-weight: 600; font-size: 12px; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Patient Portion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${pageServices.map((service, index) => `
+                    <tr style="border-bottom: 1px solid #f3f4f6; ${index % 2 === 0 ? 'background: white;' : 'background: #fafbfc;'}">
+                      <td style="padding: 14px 12px; font-size: 14px; font-weight: 600; color: #1f2937;">${service.code}</td>
+                      <td style="padding: 14px 12px; font-size: 13px; color: #4b5563; line-height: 1.4;">${service.description}</td>
+                      <td style="padding: 14px 12px; text-align: center; font-size: 14px; font-weight: 500; color: #1f2937;">${service.quantity}</td>
+                      <td style="padding: 14px 12px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">N$ ${service.total_price.toFixed(2)}</td>
+                      <td style="padding: 14px 12px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">N$ ${(service.medical_aid_covered || 0).toFixed(2)}</td>
+                      <td style="padding: 14px 12px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">N$ ${(service.total_price - (service.medical_aid_covered || 0)).toFixed(2)}</td>
+                    </tr>
+                  `).join('')}
+                  
+                  ${isLastPage ? `
+                  <!-- Totals (only on last page) -->
+                  <tr style="background: #f9fafb; border-top: 2px solid #e5e7eb;">
+                    <td colspan="5" style="padding: 16px 12px; text-align: right; font-weight: 600; font-size: 14px; color: #374151;">Subtotal:</td>
+                    <td style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 16px; color: #1f2937;">N$ ${totalAmount.toFixed(2)}</td>
+                  </tr>
+                  <tr style="background: #fff7ed; border-bottom: 1px solid #fed7aa;">
+                    <td colspan="5" style="padding: 16px 12px; text-align: right; font-weight: 600; font-size: 14px; color: #ea580c;">Patient Portion:</td>
+                    <td style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 16px; color: #ea580c;">N$ ${(totalAmount - filteredInvoices.reduce((sum, inv) => sum + (inv.medical_aid_covered || 0), 0)).toFixed(2)}</td>
+                  </tr>
+                  <tr style="background: #5f6578;">
+                    <td colspan="5" style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 14px; color: white; text-transform: uppercase;">Total Amount Due:</td>
+                    <td style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 18px; color: white;">N$ ${totalAmount.toFixed(2)}</td>
+                  </tr>
+                  ` : ''}
+                </tbody>
+              </table>
+            </div>
+
+            ${isLastPage ? `
+            <!-- Banking Details and Footer (only on last page) -->
+            <div style="margin: 30px 40px 40px 40px; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e5e7eb;">
+              <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Banking Details</h3>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; font-size: 13px; color: #4b5563;">
+                <div><span style="font-weight: 600;">Bank:</span> Bank Windhoek</div>
+                <div><span style="font-weight: 600;">Account:</span> 4433221009</div>
+                <div><span style="font-weight: 600;">Branch:</span> 484519</div>
+              </div>
+            </div>
+            <div style="padding: 30px 40px; background: #f8fafc; border-top: 1px solid #e5e7eb; text-align: center;">
+              <p style="margin: 0 0 8px 0; font-size: 12px; color: #6b7280;">
+                Payment is due within 30 days. Thank you for choosing <strong style="color: #374151;">${practiceData.name}</strong> For inquiries: ${practiceData.contact_phone} • ${practiceData.contact_email}
+              </p>
+              <div style="margin-top: 15px; font-size: 11px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 12px;">
+                Statement generated by <strong style="color: #6b7280;">OneHealth Systems</strong> • www.onehealthsystems.com • © 2024
+              </div>
+            </div>
+            ` : `
+            <!-- Page footer for continuation pages -->
+            <div style="padding: 20px 40px; background: #f8fafc; border-top: 1px solid #e5e7eb; text-align: center; margin-top: auto;">
+              <p style="margin: 0; font-size: 11px; color: #6b7280;">Page ${pageIndex + 1} of ${serviceChunks.length} • Continued on next page</p>
+            </div>
+            `}
+          </div>
+        `;
+        
+        // Create temporary container for this page
+        const pageContainer = document.createElement('div');
+        pageContainer.style.position = 'absolute';
+        pageContainer.style.left = '-9999px';
+        pageContainer.style.top = '-9999px';
+        document.body.appendChild(pageContainer);
+        pageContainer.innerHTML = pageHTML;
+
+        // Generate canvas for this page
+        const canvas = await html2canvas(pageContainer.firstElementChild as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          width: 800,
+          height: 1000,
+          scrollX: 0,
+          scrollY: 0
+        });
+        
+        // Clean up page container
+        document.body.removeChild(pageContainer);
+
+        // Add page to PDF
+        if (pageIndex > 0) {
+          pdf.addPage();
+        }
+        
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgWidth = pdfWidth;
+        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        // If image is taller than page, scale it to fit
+        if (imgHeight > pdfHeight) {
+          const scaledHeight = pdfHeight;
+          const scaledWidth = (canvas.width * pdfHeight) / canvas.height;
+          pdf.addImage(imgData, 'JPEG', (pdfWidth - scaledWidth) / 2, 0, scaledWidth, scaledHeight, '', 'FAST');
+        } else {
+          pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight, '', 'FAST');
+        }
+        
+        console.log(`✅ Page ${pageIndex + 1}/${serviceChunks.length} generated successfully`);
+      }
       
-      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight, '', 'FAST');
+      // Clean up temp container
+      document.body.removeChild(tempContainer);
 
       // Download the PDF
       pdf.save(`statement-${patientData.first_name}-${patientData.last_name}-${label.replace(/\s+/g, '-')}.pdf`);
