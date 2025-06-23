@@ -18,7 +18,9 @@ import {
   Share2
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { downloadInvoicePDF } from '../billing/SimpleProfessionalInvoicePDF';
+import { downloadInvoicePDF } from '../billing/WowInvoicePDF';
+import { useAuthStore } from '../../stores/authStore';
+import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 
 interface Invoice {
@@ -72,6 +74,37 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   membershipNumber
 }) => {
   const [isGeneratingPDF, setIsGeneratingPDF] = React.useState(false);
+  const [practiceData, setPracticeData] = React.useState<any>(null);
+  const { user } = useAuthStore();
+  const practiceId = user?.practice_id;
+
+  // Fetch practice data
+  React.useEffect(() => {
+    const fetchPracticeData = async () => {
+      if (!practiceId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('practices')
+          .select('*')
+          .eq('id', practiceId)
+          .single();
+          
+        if (error) {
+          console.error('Error fetching practice:', error);
+          return;
+        }
+        
+        setPracticeData(data);
+      } catch (error) {
+        console.error('Error fetching practice data:', error);
+      }
+    };
+
+    if (practiceId) {
+      fetchPracticeData();
+    }
+  }, [practiceId]);
 
   if (!isOpen || !invoice) return null;
 
@@ -89,6 +122,14 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
           address: patientAddress !== 'N/A' ? patientAddress : undefined,
           medicalAidProvider,
           membershipNumber,
+        },
+        practiceData || {
+          id: practiceId || '',
+          name: 'OneHealth Medical Practice',
+          contact_phone: '+264 61 123 4567',
+          contact_email: 'info@onehealth.com.na',
+          address: '123 Healthcare Avenue, Windhoek, Namibia',
+          country: 'Namibia'
         }
       );
       toast.success('Invoice PDF downloaded successfully!');

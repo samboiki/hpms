@@ -91,11 +91,12 @@ import { usePatientModalState } from '../../hooks/usePatientModalState';
 import { useAiSearch } from '../../hooks/useAiSearch';
 import { defaultSMSService } from '../../services/smsPortal';
 import { medicalAidService } from '../../services/medicalAidService';
+import { useAuthStore } from '../../stores/authStore';
 import { LabResultsContent, DocumentsContent, BillingContent } from './DirectTabContent';
 import CleanInvoiceTable from '../billing/CleanInvoiceTable';
 import InvoicePreviewModal from '../modals/InvoicePreviewModal';
 import ManageBeneficiariesModal from '../modals/ManageBeneficiariesModal';
-import { downloadInvoicePDF, generateInvoicePDF } from '../billing/SimpleProfessionalInvoicePDF';
+import { downloadInvoicePDF, generateInvoicePDF } from '../billing/WowInvoicePDF';
 
 interface MessageConfirmationData {
   type: 'sms' | 'email';
@@ -329,8 +330,41 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   const [beneficiariesCount, setBeneficiariesCount] = useState<number>(0);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
+  const [practiceData, setPracticeData] = useState<any>(null);
+  const { user } = useAuthStore();
 
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  // Get practice_id from user
+  const practiceId = user?.practice_id;
+
+  // Fetch practice data
+  const fetchPracticeData = useCallback(async () => {
+    if (!practiceId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('practices')
+        .select('*')
+        .eq('id', practiceId)
+        .single();
+        
+      if (error) {
+        console.error('Error fetching practice:', error);
+        return;
+      }
+      
+      setPracticeData(data);
+    } catch (error) {
+      console.error('Error fetching practice data:', error);
+    }
+  }, [practiceId]);
+
+  useEffect(() => {
+    if (practiceId) {
+      fetchPracticeData();
+    }
+  }, [practiceId, fetchPracticeData]);
 
   // Fetch beneficiaries count for medical aid
   const fetchBeneficiariesCount = useCallback(async (membershipNumber: string) => {
@@ -2622,6 +2656,14 @@ OneHealth Medical Team`;
                                             address: selectedPatientDetails.home_address,
                                             medicalAidProvider: medicalAid?.provider,
                                             membershipNumber: medicalAid?.membership_number,
+                                          },
+                                          practiceData || {
+                                            id: practiceId || '',
+                                            name: 'OneHealth Medical Practice',
+                                            contact_phone: '+264 61 123 4567',
+                                            contact_email: 'info@onehealth.com.na',
+                                            address: '123 Healthcare Avenue, Windhoek, Namibia',
+                                            country: 'Namibia'
                                           }
                                         );
                                         
@@ -2658,6 +2700,14 @@ OneHealth Medical Team`;
                                             address: selectedPatientDetails.home_address,
                                             medicalAidProvider: medicalAid?.provider,
                                             membershipNumber: medicalAid?.membership_number,
+                                          },
+                                          practiceData || {
+                                            id: practiceId || '',
+                                            name: 'OneHealth Medical Practice',
+                                            contact_phone: '+264 61 123 4567',
+                                            contact_email: 'info@onehealth.com.na',
+                                            address: '123 Healthcare Avenue, Windhoek, Namibia',
+                                            country: 'Namibia'
                                           }
                                         );
                                       } catch (error) {
