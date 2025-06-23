@@ -82,6 +82,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [statusDropdown, setStatusDropdown] = useState<string | null>(null);
   const [showPrintStatementModal, setShowPrintStatementModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
 
   useEffect(() => {
     if (patientId) {
@@ -103,6 +104,51 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [statusDropdown]);
+
+  // Handle invoice deletion with real-time update
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    try {
+      console.log('🗑️ Starting deletion for invoice:', invoiceId);
+      
+      // Delete invoice services first
+      const { error: servicesError } = await supabase
+        .from('invoice_services')
+        .delete()
+        .eq('invoice_id', invoiceId);
+      
+      if (servicesError) {
+        throw new Error(`Failed to delete invoice services: ${servicesError.message}`);
+      }
+      
+      // Delete the invoice
+      const { error: invoiceError } = await supabase
+        .from('invoices_enhanced')
+        .delete()
+        .eq('id', invoiceId);
+      
+      if (invoiceError) {
+        throw new Error(`Failed to delete invoice: ${invoiceError.message}`);
+      }
+      
+      // Update local state immediately without refresh
+      setInvoices(prevInvoices => prevInvoices.filter(inv => inv.id !== invoiceId));
+      
+      console.log('✅ Invoice deleted successfully');
+      setShowDeleteModal(null);
+      
+      // Optional: call parent callback if provided
+      if (onDeleteInvoice) {
+        const deletedInvoice = invoices.find(inv => inv.id === invoiceId);
+        if (deletedInvoice) {
+          onDeleteInvoice(deletedInvoice);
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ Error deleting invoice:', error);
+      setShowDeleteModal(null);
+    }
+  };
 
   const fetchInvoices = async () => {
     try {
@@ -307,8 +353,8 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase">Total Invoiced</p>
-              <p className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                N$ {totalAmount.toFixed(2)}
+              <p className="text-2xl font-bold" style={{ fontFamily: 'Rubik, sans-serif', color: '#4f575e' }}>
+                N$ <span style={{ color: '#4f575e' }}>{Math.floor(totalAmount)}</span><span style={{ color: '#8B9197' }}>.{(totalAmount % 1).toFixed(2).slice(2)}</span>
               </p>
             </div>
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -321,8 +367,8 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase">Paid</p>
-              <p className="text-2xl font-bold text-green-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                N$ {paidAmount.toFixed(2)}
+              <p className="text-2xl font-bold" style={{ fontFamily: 'Rubik, sans-serif', color: '#4f575e' }}>
+                N$ <span style={{ color: '#4f575e' }}>{Math.floor(paidAmount)}</span><span style={{ color: '#8B9197' }}>.{(paidAmount % 1).toFixed(2).slice(2)}</span>
               </p>
             </div>
             <div className="p-2 bg-green-100 rounded-lg">
@@ -335,8 +381,8 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase">Pending</p>
-              <p className="text-2xl font-bold text-yellow-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                N$ {pendingAmount.toFixed(2)}
+              <p className="text-2xl font-bold" style={{ fontFamily: 'Rubik, sans-serif', color: '#4f575e' }}>
+                N$ <span style={{ color: '#4f575e' }}>{Math.floor(pendingAmount)}</span><span style={{ color: '#8B9197' }}>.{(pendingAmount % 1).toFixed(2).slice(2)}</span>
               </p>
             </div>
             <div className="p-2 bg-yellow-100 rounded-lg">
@@ -349,8 +395,8 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase">Overdue</p>
-              <p className="text-2xl font-bold text-red-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                N$ {overdueAmount.toFixed(2)}
+              <p className="text-2xl font-bold" style={{ fontFamily: 'Rubik, sans-serif', color: '#4f575e' }}>
+                N$ <span style={{ color: '#4f575e' }}>{Math.floor(overdueAmount)}</span><span style={{ color: '#8B9197' }}>.{(overdueAmount % 1).toFixed(2).slice(2)}</span>
               </p>
             </div>
             <div className="p-2 bg-red-100 rounded-lg">
@@ -489,8 +535,8 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                         {/* Invoice Info */}
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gray-100 rounded-lg">
-                              <Receipt className="w-5 h-5 text-gray-600" />
+                            <div className="flex items-center justify-center w-8 h-8 bg-gray-100 rounded-full text-sm font-semibold text-gray-600">
+                              {index + 1}
                             </div>
                             <div>
                               <p className="font-medium text-gray-900">
@@ -511,13 +557,13 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                                 e.stopPropagation();
                                 onVisitClick?.(invoice.visit_id);
                               }}
-                              className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 transition-colors text-sm"
+                              className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 border border-gray-200 rounded-md hover:bg-gray-200 transition-colors text-sm"
                             >
-                              <Calendar className="w-3 h-3 text-blue-600" />
-                              <span className="font-medium text-blue-700">
+                              <Calendar className="w-3 h-3 text-gray-600" />
+                              <span className="font-medium text-gray-700">
                                 Visit #{invoice.visit_number || 'N/A'}
                               </span>
-                              <ExternalLink className="w-3 h-3 text-blue-500" />
+                              <ExternalLink className="w-3 h-3 text-gray-500" />
                             </button>
                           ) : (
                             <span className="text-gray-400 text-sm">No visit linked</span>
@@ -541,11 +587,11 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
 
                         {/* Amount */}
                         <td className="px-6 py-4 text-right">
-                          <p className="font-semibold text-gray-900">
+                          <p className="font-bold text-gray-900">
                             N$ {invoice.total.toFixed(2)}
                           </p>
                           {invoice.medical_aid_covered > 0 && (
-                            <p className="text-xs text-green-600">
+                            <p className="text-xs text-green-600 font-semibold">
                               Aid: N$ {invoice.medical_aid_covered.toFixed(2)}
                             </p>
                           )}
@@ -569,10 +615,10 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                                 console.log('📧 Email invoice button clicked for invoice:', invoice.invoice_number);
                                 onEmailInvoice?.(invoice);
                               }}
-                              className="p-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg transition-colors shadow-sm border border-green-200"
+                              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors shadow-sm border border-gray-200"
                               title="Email Invoice"
                             >
-                              <Mail className="w-4 h-4" />
+                              <Mail className="w-4 h-4 text-green-600" />
                             </button>
                             <button
                               onClick={(e) => {
@@ -584,26 +630,26 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                               className={`p-2 rounded-lg transition-colors shadow-sm border ${
                                 isPrintingPDF 
                                   ? 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed' 
-                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-200'
+                                  : 'bg-gray-100 hover:bg-gray-200 border-gray-200'
                               }`}
                               title={isPrintingPDF ? "Generating PDF..." : "Print Invoice"}
                             >
                               {isPrintingPDF ? (
                                 <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
                               ) : (
-                                <Printer className="w-4 h-4" />
+                                <Printer className="w-4 h-4 text-gray-600" />
                               )}
                             </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 console.log('🗑️ Delete invoice button clicked for invoice:', invoice.invoice_number);
-                                onDeleteInvoice?.(invoice);
+                                setShowDeleteModal(invoice.id);
                               }}
-                              className="p-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors shadow-sm border border-red-200"
+                              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors shadow-sm border border-gray-200"
                               title="Delete Invoice"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4 text-red-600" />
                             </button>
                             <div className="relative">
                               <button
@@ -612,10 +658,10 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                                   console.log('✏️ Edit status button clicked for invoice:', invoice.invoice_number);
                                   setStatusDropdown(statusDropdown === invoice.id ? null : invoice.id);
                                 }}
-                                className="p-2 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg transition-colors shadow-sm border border-orange-200"
+                                className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors shadow-sm border border-gray-200"
                                 title="Change Status"
                               >
-                                <Edit3 className="w-4 h-4" />
+                                <Edit3 className="w-4 h-4 text-orange-600" />
                               </button>
                               
                               {/* Status Dropdown */}
@@ -682,6 +728,8 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                                           <th className="px-4 py-2 text-center text-xs font-medium text-gray-500">Qty</th>
                                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Unit Price</th>
                                           <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Total</th>
+                                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Medical Aid</th>
+                                          <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Patient Portion</th>
                                         </tr>
                                       </thead>
                                       <tbody className="divide-y divide-gray-100">
@@ -692,6 +740,8 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                                             <td className="px-4 py-2 text-center text-gray-600">{service.quantity}</td>
                                             <td className="px-4 py-2 text-right text-gray-900">N$ {service.unit_price.toFixed(2)}</td>
                                             <td className="px-4 py-2 text-right font-medium text-gray-900">N$ {service.total_price.toFixed(2)}</td>
+                                            <td className="px-4 py-2 text-right text-sm text-green-600">N$ {(service.medical_aid_covered || 0).toFixed(2)}</td>
+                                            <td className="px-4 py-2 text-right text-sm font-semibold text-gray-900">N$ {(service.patient_portion || service.total_price).toFixed(2)}</td>
                                           </tr>
                                         ))}
                                       </tbody>
@@ -719,6 +769,52 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
         patientId={patientId}
         invoices={filteredInvoices}
       />
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-medium text-gray-900">Delete Invoice</h3>
+                <p className="text-sm text-gray-500">
+                  Are you sure you want to delete this invoice? This action cannot be undone.
+                </p>
+              </div>
+            </div>
+            
+            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+              <p className="text-sm font-medium text-gray-900">
+                Invoice: #{invoices.find(inv => inv.id === showDeleteModal)?.invoice_number}
+              </p>
+              <p className="text-xs text-gray-600">
+                Total: N$ {invoices.find(inv => inv.id === showDeleteModal)?.total.toFixed(2)}
+              </p>
+              <p className="text-xs text-gray-600">
+                Services: {invoices.find(inv => inv.id === showDeleteModal)?.services.length || 0}
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteModal(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteInvoice(showDeleteModal)}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete Invoice
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
