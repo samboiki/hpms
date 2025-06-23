@@ -16,16 +16,17 @@ import {
   Activity,
   Building2,
   User,
-  Eye,
   Printer,
   Mail,
   Edit3,
+  Trash2,
   TrendingUp,
   TrendingDown,
   AlertCircle
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '../../lib/supabase';
+import PrintStatementModal from '../modals/PrintStatementModal';
 
 interface Invoice {
   id: string;
@@ -57,19 +58,21 @@ interface Service {
 interface CleanInvoiceTableProps {
   patientId: string;
   onVisitClick?: (visitId: string) => void;
-  onInvoiceView?: (invoice: Invoice) => void;
   onStatusChange?: (invoiceId: string, newStatus: 'paid' | 'pending' | 'overdue' | 'cancelled') => void;
   onEmailInvoice?: (invoice: Invoice) => void;
   onPrintInvoice?: (invoice: Invoice) => void;
+  onDeleteInvoice?: (invoice: Invoice) => void;
+  isPrintingPDF?: boolean;
 }
 
 const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
   patientId,
   onVisitClick,
-  onInvoiceView,
   onStatusChange,
   onEmailInvoice,
-  onPrintInvoice
+  onPrintInvoice,
+  onDeleteInvoice,
+  isPrintingPDF = false
 }) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +81,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'status'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [statusDropdown, setStatusDropdown] = useState<string | null>(null);
+  const [showPrintStatementModal, setShowPrintStatementModal] = useState(false);
 
   useEffect(() => {
     if (patientId) {
@@ -369,6 +373,37 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
 
         {/* Filters and Sort */}
         <div className="flex items-center gap-3">
+          {/* Print Statement Button */}
+          <button
+            onClick={() => {
+              console.log('🖨️ Print Statement button clicked');
+              console.log('📊 Current invoices:', invoices.length);
+              console.log('🔍 Filtered invoices:', filteredInvoices.length);
+              console.log('📋 Current modal state:', showPrintStatementModal);
+              setShowPrintStatementModal(true);
+              console.log('✅ Modal state set to true');
+              
+              // Debug: Check if modal renders in DOM after state change
+              setTimeout(() => {
+                const modalElement = document.querySelector('[data-testid="print-statement-modal"]');
+                console.log('🔍 Modal element found in DOM:', !!modalElement);
+                if (!modalElement) {
+                  console.error('❌ PrintStatementModal not found in DOM!');
+                  // Fallback alert
+                  alert('PrintStatementModal debug: Modal not appearing in DOM. Check console for details.');
+                } else {
+                  console.log('✅ Modal found with z-index:', modalElement.style.zIndex);
+                  console.log('📍 Modal computed style:', window.getComputedStyle(modalElement));
+                }
+              }, 100);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-md hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-sm text-xs font-medium"
+            title="Print Statement"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Statement
+          </button>
+          
           {/* Status Filter */}
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
             {(['all', 'paid', 'pending', 'overdue'] as const).map((status) => (
@@ -527,23 +562,14 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
 
                         {/* Actions */}
                         <td className="px-6 py-4">
-                          <div className="flex items-center justify-center gap-1">
+                          <div className="flex items-center justify-center gap-2">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onInvoiceView?.(invoice);
-                              }}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                              title="View Invoice"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
+                                console.log('📧 Email invoice button clicked for invoice:', invoice.invoice_number);
                                 onEmailInvoice?.(invoice);
                               }}
-                              className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                              className="p-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg transition-colors shadow-sm border border-green-200"
                               title="Email Invoice"
                             >
                               <Mail className="w-4 h-4" />
@@ -551,20 +577,42 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                console.log('🖨️ Print invoice button clicked for invoice:', invoice.invoice_number);
                                 onPrintInvoice?.(invoice);
                               }}
-                              className="p-1.5 text-gray-600 hover:bg-gray-50 rounded transition-colors"
-                              title="Print Invoice"
+                              disabled={isPrintingPDF}
+                              className={`p-2 rounded-lg transition-colors shadow-sm border ${
+                                isPrintingPDF 
+                                  ? 'bg-gray-300 text-gray-500 border-gray-300 cursor-not-allowed' 
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-gray-200'
+                              }`}
+                              title={isPrintingPDF ? "Generating PDF..." : "Print Invoice"}
                             >
-                              <Printer className="w-4 h-4" />
+                              {isPrintingPDF ? (
+                                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                              ) : (
+                                <Printer className="w-4 h-4" />
+                              )}
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                console.log('🗑️ Delete invoice button clicked for invoice:', invoice.invoice_number);
+                                onDeleteInvoice?.(invoice);
+                              }}
+                              className="p-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors shadow-sm border border-red-200"
+                              title="Delete Invoice"
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </button>
                             <div className="relative">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  console.log('✏️ Edit status button clicked for invoice:', invoice.invoice_number);
                                   setStatusDropdown(statusDropdown === invoice.id ? null : invoice.id);
                                 }}
-                                className="p-1.5 text-orange-600 hover:bg-orange-50 rounded transition-colors"
+                                className="p-2 bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg transition-colors shadow-sm border border-orange-200"
                                 title="Change Status"
                               >
                                 <Edit3 className="w-4 h-4" />
@@ -663,6 +711,14 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
           </table>
         </div>
       </div>
+      
+      {/* Print Statement Modal */}
+      <PrintStatementModal 
+        isOpen={showPrintStatementModal}
+        onClose={() => setShowPrintStatementModal(false)}
+        patientId={patientId}
+        invoices={filteredInvoices}
+      />
     </div>
   );
 };

@@ -526,7 +526,7 @@ const EditVisitTabs: React.FC<Props> = ({
       // Update the visit record
       const visitData = {
         visit_type: data.visit_type,
-        doctor_id: finalDoctorId,
+        doctor_id: finalDoctorId || null, // Ensure empty strings become null for UUID fields
         encounter_date: data.encounter_date ? data.encounter_date.toISOString() : undefined,
         visit_date: data.encounter_date ? data.encounter_date.toISOString().split('T')[0] : undefined,
         visit_time: data.encounter_date ? data.encounter_date.toLocaleTimeString('en-US', { hour12: false }) : undefined,

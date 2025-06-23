@@ -94,9 +94,11 @@ import { medicalAidService } from '../../services/medicalAidService';
 import { useAuthStore } from '../../stores/authStore';
 import { LabResultsContent, DocumentsContent, BillingContent } from './DirectTabContent';
 import CleanInvoiceTable from '../billing/CleanInvoiceTable';
+import InvoiceGenerationModal from '../modals/InvoiceGenerationModal';
 import InvoicePreviewModal from '../modals/InvoicePreviewModal';
 import ManageBeneficiariesModal from '../modals/ManageBeneficiariesModal';
-import { downloadInvoicePDF, generateInvoicePDF } from '../billing/WowInvoicePDF';
+import UnifiedPDFGenerator from '../billing/UnifiedPDFGenerator';
+import { fetchPatientDetailsOptimized } from './OptimizedPatientQueries';
 
 interface MessageConfirmationData {
   type: 'sms' | 'email';
@@ -331,12 +333,782 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
   const [practiceData, setPracticeData] = useState<any>(null);
+  const [isPrintingPDF, setIsPrintingPDF] = useState(false);
+  const [isInvoiceGenerationModalOpen, setIsInvoiceGenerationModalOpen] = useState(false);
+  const [generationType, setGenerationType] = useState<'invoice' | 'receipt' | null>(null);
+
+  // Debug modal state changes
+  React.useEffect(() => {
+    console.log('🔄 Modal state changed:', { 
+      isInvoiceGenerationModalOpen, 
+      hasSelectedInvoice: !!selectedInvoice,
+      selectedInvoiceNumber: selectedInvoice?.invoice_number
+    });
+  }, [isInvoiceGenerationModalOpen, selectedInvoice]);
   const { user } = useAuthStore();
 
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
   // Get practice_id from user
   const practiceId = user?.practice_id;
+
+  // Create a function to generate and download PDF directly
+  const handleDirectPrintPDF = useCallback(async (invoice: any) => {
+    if (!selectedPatientDetails) {
+      console.error('❌ No patient details available for PDF generation');
+      return;
+    }
+
+    setIsPrintingPDF(true);
+    console.log('🎯 Starting enhanced multi-page PDF generation for invoice:', invoice.invoice_number);
+
+    try {
+      // Create patient info object
+      const patientInfo = {
+        name: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
+        phone: selectedPatientDetails.cell_number || undefined,
+        email: selectedPatientDetails.email || undefined,
+        address: selectedPatientDetails.home_address || undefined,
+        medicalAidProvider: medicalAid?.provider,
+        membershipNumber: medicalAid?.membership_number,
+      };
+
+      // Fetch practice data directly from database
+      console.log('🔍 Fetching practice data for user:', user?.id);
+      
+      // Get user's practice_id
+      let userPracticeId = user?.practice_id;
+      if (!userPracticeId && user?.user_metadata?.practice_id) {
+        userPracticeId = user.user_metadata.practice_id;
+      }
+      
+      if (!userPracticeId) {
+        throw new Error('No practice_id found for user. Please ensure you are logged in and associated with a practice.');
+      }
+      
+      console.log('🏥 Fetching practice details for practice_id:', userPracticeId);
+      
+      // Fetch practice details from database
+      const { data: practiceInfo, error: practiceError } = await supabase
+        .from('practices')
+        .select(`
+          id, name, slug, domain, logo_url, primary_color, secondary_color,
+          contact_email, contact_phone, address, city, country, postal_code,
+          tax_number, license_number, practice_number, hero_subtitle,
+          bank_name, account_holder_name, account_number, branch_code, swift_code, account_type
+        `)
+        .eq('id', userPracticeId)
+        .single();
+        
+      if (practiceError || !practiceInfo) {
+        console.error('Error fetching practice data:', practiceError);
+        throw new Error('Failed to fetch practice data from database.');
+      }
+      
+      console.log('✅ Practice data fetched successfully:', practiceInfo);
+      console.log('📄 Patient info for PDF:', patientInfo);
+      console.log('🏥 Practice info for PDF:', practiceInfo);
+      console.log('💰 Invoice data:', invoice);
+
+      // Fetch medical aid provider details if available
+      let medicalAidProviderName = medicalAid?.provider || 'N/A';
+      if (medicalAid?.medical_aid_provider_id) {
+        try {
+          const { data: providerData, error: providerError } = await supabase
+            .from('medical_aid_providers')
+            .select('name, short_name')
+            .eq('id', medicalAid.medical_aid_provider_id)
+            .single();
+          
+          if (!providerError && providerData) {
+            medicalAidProviderName = providerData.short_name || providerData.name;
+            console.log('✅ Medical aid provider fetched:', medicalAidProviderName);
+          }
+        } catch (error) {
+          console.log('⚠️ Could not fetch medical aid provider details:', error);
+        }
+      }
+
+      // Import jsPDF for enhanced multi-page PDF generation
+      const jsPDF = (await import('jspdf')).default;
+
+      // Load Montserrat and Rubik fonts
+      const fontLink = document.createElement('link');
+      fontLink.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Rubik:wght@400;500;600;700;800;900&display=swap';
+      fontLink.rel = 'stylesheet';
+      document.head.appendChild(fontLink);
+
+      // Wait for font to load
+      await document.fonts.ready;
+
+      // Get practice primary color with fallback
+      const primaryColor = practiceData?.primary_color || practiceInfo?.primary_color || '#01b9d4';
+      
+      // Generate gradient colors
+      function hexToRgb(hex: string) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? [
+          parseInt(result[1], 16),
+          parseInt(result[2], 16),
+          parseInt(result[3], 16)
+        ] : [1, 185, 212];
+      }
+      
+      function adjustBrightness(hex: string, percent: number) {
+        const [r, g, b] = hexToRgb(hex);
+        const adjust = (color: number) => Math.max(0, Math.min(255, Math.round(color * (1 + percent / 100))));
+        return `#${((1 << 24) + (adjust(r) << 16) + (adjust(g) << 8) + adjust(b)).toString(16).slice(1)}`;
+      }
+      
+      const lightColor = adjustBrightness(primaryColor, 20);
+      const darkColor = adjustBrightness(primaryColor, -15);
+      
+      // Create function to generate page HTML with your exact styling
+      const createPageHTML = (pageServices: any[], pageNumber: number, totalPages: number, isLastPage: boolean) => {
+        return `
+          <div style="width: 794px; height: 1123px; font-family: 'Montserrat', sans-serif; font-size: 11px; line-height: 1.5; color: #2c2c2c; background-color: #ffffff; padding: 25px; margin: 0; box-sizing: border-box; position: relative;">
+            
+            <!-- Premium Header Section -->
+            <div style="padding: 0; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-start;">
+              
+              <!-- Logo and Title on Left (Stacked) -->
+              <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; flex: 1;">
+                ${practiceInfo.logo_url ? `
+                  <div style="flex-shrink: 0;">
+                    <img src="${practiceInfo.logo_url}" alt="Practice Logo" style="width: 120px; height: auto; max-height: 65px; border-radius: 8px; object-fit: contain;" />
+                  </div>
+                ` : ''}
+                <div>
+                  <div style="font-family: 'Rubik', sans-serif; font-size: 22px; font-weight: 800; color: #5f6578; letter-spacing: -0.2px;">
+                    ${practiceInfo.name}
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Practice Details (right aligned) -->
+              <div style="text-align: right; flex: 1; max-width: 300px;">
+                <div style="font-size: 10px; line-height: 1.6; color: #5a5a5a; font-weight: 400;">
+                  ${practiceInfo.address ? `<div style="margin-bottom: 2px;">${practiceInfo.address}</div>` : ''}
+                  <div style="margin-bottom: 2px;">${practiceInfo.city}, ${practiceInfo.country} ${practiceInfo.postal_code || ''}</div>
+                  ${practiceInfo.contact_phone ? `<div style="margin-bottom: 2px;">Tel: ${practiceInfo.contact_phone}</div>` : ''}
+                  ${practiceInfo.contact_email ? `<div style="margin-bottom: 2px;">Email: ${practiceInfo.contact_email}</div>` : ''}
+                  ${practiceInfo.domain ? `<div>www.${practiceInfo.domain}</div>` : ''}
+                </div>
+              </div>
+            </div>
+            
+            ${pageNumber === 1 ? `
+            <!-- Refined Invoice Title Section -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 20px 0; border-bottom: 2px solid #d1d5db;">
+              <div style="display: flex; align-items: flex-end; gap: 15px;">
+                <div style="font-family: 'Rubik', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.5px;">
+                  <span style="color: #5f6578;">MEDICAL</span> <span style="color: #888;">INVOICE</span>
+                </div>
+                <span style="font-size: 14px; font-weight: 600; color: #666; letter-spacing: 0.3px; align-self: flex-end;">#${invoice.invoice_number}</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 15px; font-size: 9px; color: #666;">
+                <div style="text-align: center;">
+                  <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">DATE PREPARED</div>
+                  <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${format(new Date(invoice.created_at), 'dd MMM yyyy')}</div>
+                </div>
+                <div style="border-left: 1px solid #d1d5db; height: 30px; margin: 0 5px;"></div>
+                <div style="text-align: center;">
+                  <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">DUE DATE</div>
+                  <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy')}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PREPARED FOR Section -->
+            <div style="margin-bottom: 20px;">
+              <h3 style="font-size: 14px; font-weight: 700; color: #5f6578; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.3px;">PREPARED FOR</h3>
+              <div style="display: flex; justify-content: space-between; gap: 25px;">
+                <!-- Patient Details -->
+                <div style="flex: 1;">
+                  <div style="line-height: 1.4;">
+                    <div style="font-weight: 700; font-size: 12px; color: #1a1a1a; margin-bottom: 3px;">
+                      ${patientInfo.name}
+                    </div>
+                    ${patientInfo.phone ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">${patientInfo.phone}</div>` : ''}
+                    ${patientInfo.email ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">${patientInfo.email}</div>` : ''}
+                    ${patientInfo.address ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">${patientInfo.address}</div>` : ''}
+                  </div>
+                </div>
+
+                <!-- Medical Aid Details (Right Aligned) -->
+                ${medicalAid?.scheme || medicalAidProviderName !== 'N/A' ? `
+                  <div style="flex: 1; text-align: right;">
+                    <div style="line-height: 1.4;">
+                      <div style="font-weight: 700; font-size: 12px; color: #1a1a1a; margin-bottom: 3px;">
+                        ${medicalAidProviderName}
+                      </div>
+                      ${medicalAid?.scheme ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">Scheme: ${medicalAid.scheme}</div>` : ''}
+                      ${medicalAid?.membership_number ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">Member: ${medicalAid.membership_number}</div>` : ''}
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+            ` : ''}
+
+            <!-- Service Details Section -->
+            <div style="margin-bottom: 30px;">
+              <h3 style="font-size: 14px; font-weight: 700; color: #5f6578; margin: 0 0 12px 0; padding-bottom: 10px; border-bottom: 1px solid #d1d5db; text-transform: uppercase; letter-spacing: 0.3px;">SERVICES ${pageNumber > 1 ? '(CONTINUED)' : ''}</h3>
+              
+              <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+                <thead>
+                  <tr style="background: #5f6578; color: white;">
+                    <th style="padding: 12px 10px; text-align: left; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Code</th>
+                    <th style="padding: 12px 10px; text-align: left; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Description</th>
+                    <th style="padding: 12px 10px; text-align: center; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Qty</th>
+                    <th style="padding: 12px 10px; text-align: right; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Unit Price</th>
+                    <th style="padding: 12px 10px; text-align: right; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Med Aid</th>
+                    <th style="padding: 12px 10px; text-align: right; font-weight: 600; font-size: 11px; text-transform: uppercase;">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${pageServices.map((service: any, index: number) => `
+                    <tr style="border-bottom: 1px solid #f3f4f6; ${index % 2 === 1 ? 'background: #f9fafb;' : ''}">
+                      <td style="padding: 12px 10px; border-right: 1px solid #e5e7eb; font-weight: 600; color: #1f2937; font-size: 11px;">${service.code || 'N/A'}</td>
+                      <td style="padding: 12px 10px; border-right: 1px solid #e5e7eb; font-size: 11px;">
+                        <div style="color: #4b5563;">${service.description}</div>
+                      </td>
+                      <td style="padding: 12px 10px; text-align: center; border-right: 1px solid #e5e7eb; font-size: 11px;">${service.quantity}</td>
+                      <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; font-size: 11px;">N$ ${service.unit_price.toFixed(2)}</td>
+                      <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; color: #374151; font-size: 11px;">N$ ${(service.medical_aid_covered || 0).toFixed(2)}</td>
+                      <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #1f2937; font-size: 11px;">N$ ${service.total_price.toFixed(2)}</td>
+                    </tr>
+                  `).join('')}
+                  
+                  ${isLastPage ? `
+                  <!-- Summary Rows -->
+                  <tr>
+                    <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; border-right: 1px solid #e5e7eb; font-size: 11px;">Subtotal:</td>
+                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; font-size: 11px;">N$ ${invoice.services.reduce((sum: number, s: any) => sum + s.total_price, 0).toFixed(2)}</td>
+                  </tr>
+                  
+                  <!-- Patient Portion Row -->
+                  <tr>
+                    <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; border-right: 1px solid #fed7aa; font-size: 11px; color: #ea580c;">Patient Portion:</td>
+                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; font-size: 11px; color: #ea580c;">N$ ${(invoice.total - (invoice.medical_aid_covered || 0)).toFixed(2)}</td>
+                  </tr>
+                  
+                  <!-- Total Row -->
+                  <tr>
+                    <td colspan="5" style="padding: 10px; text-align: right; font-weight: 700; font-size: 12px; background: #5f6578; color: white; border-right: 1px solid #5f6578; text-transform: uppercase;">Total Amount Due:</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 700; font-size: 14px; background: #5f6578; color: white;">N$ ${invoice.total.toFixed(2)}</td>
+                  </tr>
+                  ` : ''}
+                </tbody>
+              </table>
+            </div>
+
+            ${isLastPage ? `
+            <!-- Compact Banking Details Section -->
+            <div style="margin-bottom: 20px; padding: 10px 15px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e5e7eb;">
+              <h3 style="font-size: 10px; font-weight: 600; color: #5f6578; margin: 0 0 6px 0; text-transform: uppercase;">Banking Details</h3>
+              <div style="display: flex; gap: 20px; font-size: 10px; line-height: 1.3;">
+                <span style="color: #6b7280;">Bank: <strong style="color: #1f2937;">${practiceInfo.bank_name || ''}</strong></span>
+                <span style="color: #6b7280;">Account: <strong style="color: #1f2937;">${practiceInfo.account_number || ''}</strong></span>
+                <span style="color: #6b7280;">Branch: <strong style="color: #1f2937;">${practiceInfo.branch_code || ''}</strong></span>
+              </div>
+            </div>
+
+            <!-- Professional Footer -->
+            <div style="padding: 15px 0; border-top: 1px solid #e5e7eb; margin-top: 30px;">
+              <div style="text-align: center;">
+                <p style="margin: 0; font-size: 9px; color: #6b7280; line-height: 1.5;">
+                  Payment is due within 30 days. Thank you for choosing <strong style="color: #374151;">${practiceInfo.name}</strong> For inquiries: ${practiceInfo.contact_phone} • ${practiceInfo.contact_email}
+                </p>
+                <div style="margin-top: 12px; font-size: 8px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 8px;">
+                  Invoice generated by <strong style="color: #6b7280;">OneHealth Systems</strong> • www.onehealthsystems.com • © 2024
+                </div>
+              </div>
+            </div>
+            ` : ''}
+
+            <!-- Page number at bottom -->
+            <div style="position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 8px; color: #9ca3af;">
+              Page ${pageNumber} of ${totalPages}
+            </div>
+          </div>
+        `;
+      };
+
+      // Smart pagination logic based on content space optimization
+      const totalServices = invoice.services.length;
+      const serviceChunks = [];
+      
+      if (totalServices <= 9) {
+        // Single page with footer - all services fit
+        serviceChunks.push(invoice.services);
+      } else if (totalServices <= 13) {
+        // 10-13 services: 10 on page 1, rest on page 2 with footer
+        serviceChunks.push(invoice.services.slice(0, 10));
+        serviceChunks.push(invoice.services.slice(10));
+      } else {
+        // 14+ services: 14 on page 1, then 20 per continuation page
+        serviceChunks.push(invoice.services.slice(0, 14));
+        
+        let remainingServices = invoice.services.slice(14);
+        while (remainingServices.length > 0) {
+          const chunkSize = 20; // Continuation pages can fit 20 services
+          serviceChunks.push(remainingServices.slice(0, chunkSize));
+          remainingServices = remainingServices.slice(chunkSize);
+        }
+      }
+      
+      const totalPages = Math.max(1, serviceChunks.length);
+      console.log(`📊 Smart pagination: ${totalServices} services split into ${totalPages} pages`);
+      console.log(`📊 Page breakdown:`, serviceChunks.map((chunk, i) => `Page ${i+1}: ${chunk.length} services`));
+
+      // Create PDF
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'pt',
+        format: 'a4',
+        compress: true
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      // Import html2canvas dynamically
+      const html2canvas = (await import('html2canvas')).default;
+
+      // Generate each page
+      for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+        const pageNumber = pageIndex + 1;
+        const pageServices = serviceChunks[pageIndex] || [];
+        const isLastPage = pageIndex === totalPages - 1;
+
+        console.log(`🖼️ Generating page ${pageNumber} with ${pageServices.length} services...`);
+
+        // Create temporary container for this page
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.top = '-9999px';
+        document.body.appendChild(tempContainer);
+
+        // Set page HTML with your beautiful styling
+        tempContainer.innerHTML = createPageHTML(pageServices, pageNumber, totalPages, isLastPage);
+
+        // Generate canvas for this page
+        const canvas = await html2canvas(tempContainer.firstElementChild as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff'
+        });
+
+        // Add page to PDF
+        if (pageIndex > 0) {
+          pdf.addPage();
+        }
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgWidth = pdfWidth;
+        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight, '', 'FAST');
+
+        // Clean up
+        document.body.removeChild(tempContainer);
+      }
+
+      // Download the PDF
+      pdf.save(`invoice-${invoice.invoice_number}.pdf`);
+      
+      console.log('✅ Enhanced PDF with your original styling and proper multi-page headers/footers generated successfully!');
+
+    } catch (error) {
+      console.error('❌ Failed to generate PDF:', error);
+      alert('Failed to generate PDF. Please try again or use the preview option.');
+    } finally {
+      setIsPrintingPDF(false);
+    }
+  }, [selectedPatientDetails, medicalAid, practiceData, practiceId]);
+
+  // Create a function to generate receipt (similar to invoice but for paid items)
+  const handleDirectReceiptPDF = useCallback(async (invoice: any) => {
+    if (!selectedPatientDetails) {
+      console.error('❌ No patient details available for receipt generation');
+      return;
+    }
+
+    setIsPrintingPDF(true);
+    setGenerationType('receipt');
+    console.log('🧾 Starting Receipt generation for invoice:', invoice.invoice_number);
+
+    try {
+      // Create patient info object
+      const patientInfo = {
+        name: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
+        phone: selectedPatientDetails.cell_number || undefined,
+        email: selectedPatientDetails.email || undefined,
+        address: selectedPatientDetails.home_address || undefined,
+        medicalAidProvider: medicalAid?.provider,
+        membershipNumber: medicalAid?.membership_number,
+      };
+
+      // Fetch practice data directly from database for receipt
+      console.log('🔍 Fetching practice data for receipt generation, user:', user?.id);
+      
+      // Get user's practice_id
+      let userPracticeId = user?.practice_id;
+      if (!userPracticeId && user?.user_metadata?.practice_id) {
+        userPracticeId = user.user_metadata.practice_id;
+      }
+      
+      if (!userPracticeId) {
+        throw new Error('No practice_id found for user. Please ensure you are logged in and associated with a practice.');
+      }
+      
+      console.log('🏥 Fetching practice details for receipt, practice_id:', userPracticeId);
+      
+      // Fetch practice details from database
+      const { data: practiceInfo, error: practiceError } = await supabase
+        .from('practices')
+        .select(`
+          id, name, slug, domain, logo_url, primary_color, secondary_color,
+          contact_email, contact_phone, address, city, country, postal_code,
+          tax_number, license_number, practice_number, hero_subtitle,
+          bank_name, account_holder_name, account_number, branch_code, swift_code, account_type
+        `)
+        .eq('id', userPracticeId)
+        .single();
+        
+      if (practiceError || !practiceInfo) {
+        console.error('Error fetching practice data for receipt:', practiceError);
+        throw new Error('Failed to fetch practice data from database.');
+      }
+      
+      console.log('✅ Practice data fetched successfully for receipt:', practiceInfo);
+      console.log('🧾 Patient info for Receipt:', patientInfo);
+      console.log('🏥 Practice info for Receipt:', practiceInfo);
+
+      // Fetch medical aid provider details if available
+      let medicalAidProviderName = medicalAid?.provider || 'N/A';
+      if (medicalAid?.medical_aid_provider_id) {
+        try {
+          const { data: providerData, error: providerError } = await supabase
+            .from('medical_aid_providers')
+            .select('name, short_name')
+            .eq('id', medicalAid.medical_aid_provider_id)
+            .single();
+          
+          if (!providerError && providerData) {
+            medicalAidProviderName = providerData.short_name || providerData.name;
+            console.log('✅ Medical aid provider fetched for receipt:', medicalAidProviderName);
+          }
+        } catch (error) {
+          console.log('⚠️ Could not fetch medical aid provider details for receipt:', error);
+        }
+      }
+
+      // Create a temporary container for the HTML content
+      const tempContainer = document.createElement('div');
+      tempContainer.style.position = 'absolute';
+      tempContainer.style.left = '-9999px';
+      tempContainer.style.top = '-9999px';
+      document.body.appendChild(tempContainer);
+
+      // Import and use html2canvas and jsPDF directly
+      const html2canvas = (await import('html2canvas')).default;
+      const jsPDF = (await import('jspdf')).default;
+
+      // Load Montserrat and Rubik fonts
+      const receiptFontLink = document.createElement('link');
+      receiptFontLink.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Rubik:wght@400;500;600;700;800;900&display=swap';
+      receiptFontLink.rel = 'stylesheet';
+      document.head.appendChild(receiptFontLink);
+
+      // Wait for font to load
+      await document.fonts.ready;
+
+      // Helper functions for color manipulation
+      function hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? [
+          parseInt(result[1], 16),
+          parseInt(result[2], 16),
+          parseInt(result[3], 16)
+        ] : [1, 185, 212];
+      }
+      
+      function adjustBrightness(hex, percent) {
+        const [r, g, b] = hexToRgb(hex);
+        const adjust = (color) => Math.max(0, Math.min(255, Math.round(color * (1 + percent / 100))));
+        return `#${((1 << 24) + (adjust(r) << 16) + (adjust(g) << 8) + adjust(b)).toString(16).slice(1)}`;
+      }
+
+      // Get practice primary color for receipt
+      const primaryColor = practiceData?.primary_color || practiceInfo?.primary_color || '#01b9d4';
+      const lightColor = adjustBrightness(primaryColor, 20);
+      const darkColor = adjustBrightness(primaryColor, -15);
+
+      // Create function to generate receipt page HTML with your exact styling
+      const createReceiptPageHTML = (pageServices: any[], pageNumber: number, totalPages: number, isLastPage: boolean) => {
+        return `
+          <div style="width: 794px; height: 1123px; font-family: 'Montserrat', sans-serif; font-size: 11px; line-height: 1.5; color: #2c2c2c; background-color: #ffffff; padding: 25px; margin: 0; box-sizing: border-box; position: relative;">
+            
+            <!-- Premium Header Section -->
+            <div style="padding: 0; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-start;">
+              
+              <!-- Logo and Title on Left (Stacked) -->
+              <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; flex: 1;">
+                ${practiceInfo.logo_url ? `
+                  <div style="flex-shrink: 0;">
+                    <img src="${practiceInfo.logo_url}" alt="Practice Logo" style="width: 120px; height: auto; max-height: 65px; border-radius: 8px; object-fit: contain;" />
+                  </div>
+                ` : ''}
+                <div>
+                  <div style="font-family: 'Rubik', sans-serif; font-size: 22px; font-weight: 800; color: #5f6578; letter-spacing: -0.2px;">
+                    ${practiceInfo.name}
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Practice Details (right aligned) -->
+              <div style="text-align: right; flex: 1; max-width: 300px;">
+                <div style="font-size: 10px; line-height: 1.6; color: #5a5a5a; font-weight: 400;">
+                  ${practiceInfo.address ? `<div style="margin-bottom: 2px;">${practiceInfo.address}</div>` : ''}
+                  <div style="margin-bottom: 2px;">${practiceInfo.city}, ${practiceInfo.country} ${practiceInfo.postal_code || ''}</div>
+                  ${practiceInfo.contact_phone ? `<div style="margin-bottom: 2px;">Tel: ${practiceInfo.contact_phone}</div>` : ''}
+                  ${practiceInfo.contact_email ? `<div style="margin-bottom: 2px;">Email: ${practiceInfo.contact_email}</div>` : ''}
+                  ${practiceInfo.domain ? `<div>www.${practiceInfo.domain}</div>` : ''}
+                </div>
+              </div>
+            </div>
+            
+            ${pageNumber === 1 ? `
+            <!-- Receipt Title Section -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 20px 0; border-bottom: 2px solid #d1d5db;">
+              <div style="display: flex; align-items: flex-end; gap: 15px;">
+                <div style="font-family: 'Rubik', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.5px;">
+                  <span style="color: #5f6578;">PAYMENT</span> <span style="color: #888;">RECEIPT</span>
+                </div>
+                <span style="font-size: 14px; font-weight: 600; color: #666; letter-spacing: 0.3px; align-self: flex-end;">#REC-${invoice.invoice_number}</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 15px; font-size: 9px; color: #666;">
+                <div style="text-align: center;">
+                  <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">PAID DATE</div>
+                  <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${format(new Date(), 'dd MMM yyyy')}</div>
+                </div>
+                <div style="border-left: 1px solid #d1d5db; height: 30px; margin: 0 5px;"></div>
+                <div style="text-align: center;">
+                  <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">METHOD</div>
+                  <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${invoice.payment_method || 'Cash'}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- PAYMENT RECEIVED FROM Section -->
+            <div style="margin-bottom: 20px;">
+              <h3 style="font-size: 14px; font-weight: 700; color: #5f6578; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.3px;">PAYMENT RECEIVED FROM</h3>
+              <div style="display: flex; justify-content: space-between; gap: 25px;">
+                <!-- Patient Details -->
+                <div style="flex: 1;">
+                  <div style="line-height: 1.4;">
+                    <div style="font-weight: 700; font-size: 12px; color: #1a1a1a; margin-bottom: 3px;">
+                      ${patientInfo.name}
+                    </div>
+                    ${patientInfo.phone ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">${patientInfo.phone}</div>` : ''}
+                    ${patientInfo.email ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">${patientInfo.email}</div>` : ''}
+                    ${patientInfo.address ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">${patientInfo.address}</div>` : ''}
+                  </div>
+                </div>
+
+                <!-- Medical Aid Details (Right Aligned) -->
+                ${medicalAid?.scheme || medicalAidProviderName !== 'N/A' ? `
+                  <div style="flex: 1; text-align: right;">
+                    <div style="line-height: 1.4;">
+                      <div style="font-weight: 700; font-size: 12px; color: #1a1a1a; margin-bottom: 3px;">
+                        ${medicalAidProviderName}
+                      </div>
+                      ${medicalAid?.scheme ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">Scheme: ${medicalAid.scheme}</div>` : ''}
+                      ${medicalAid?.membership_number ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">Member: ${medicalAid.membership_number}</div>` : ''}
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+            ` : ''}
+
+            <!-- Service Details Section -->
+            <div style="margin-bottom: 30px;">
+              <h3 style="font-size: 14px; font-weight: 700; color: #5f6578; margin: 0 0 12px 0; padding-bottom: 10px; border-bottom: 1px solid #d1d5db; text-transform: uppercase; letter-spacing: 0.3px;">SERVICES ${pageNumber > 1 ? '(CONTINUED)' : ''}</h3>
+              
+              <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+                <thead>
+                  <tr style="background: #5f6578; color: white;">
+                    <th style="padding: 12px 10px; text-align: left; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Code</th>
+                    <th style="padding: 12px 10px; text-align: left; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Description</th>
+                    <th style="padding: 12px 10px; text-align: center; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Qty</th>
+                    <th style="padding: 12px 10px; text-align: right; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Unit Price</th>
+                    <th style="padding: 12px 10px; text-align: right; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Med Aid</th>
+                    <th style="padding: 12px 10px; text-align: right; font-weight: 600; font-size: 11px; text-transform: uppercase;">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${pageServices.map((service: any, index: number) => `
+                    <tr style="border-bottom: 1px solid #f3f4f6; ${index % 2 === 1 ? 'background: #f9fafb;' : ''}">
+                      <td style="padding: 12px 10px; border-right: 1px solid #e5e7eb; font-weight: 600; color: #1f2937; font-size: 11px;">${service.code || 'N/A'}</td>
+                      <td style="padding: 12px 10px; border-right: 1px solid #e5e7eb; font-size: 11px;">
+                        <div style="color: #4b5563;">${service.description}</div>
+                      </td>
+                      <td style="padding: 12px 10px; text-align: center; border-right: 1px solid #e5e7eb; font-size: 11px;">${service.quantity}</td>
+                      <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; font-size: 11px;">N$ ${service.unit_price.toFixed(2)}</td>
+                      <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; color: #374151; font-size: 11px;">N$ ${(service.medical_aid_covered || 0).toFixed(2)}</td>
+                      <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #1f2937; font-size: 11px;">N$ ${service.total_price.toFixed(2)}</td>
+                    </tr>
+                  `).join('')}
+                  
+                  ${isLastPage ? `
+                  <!-- Summary Rows -->
+                  <tr>
+                    <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; border-right: 1px solid #e5e7eb; font-size: 11px;">Subtotal:</td>
+                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; font-size: 11px;">N$ ${invoice.services.reduce((sum: number, s: any) => sum + s.total_price, 0).toFixed(2)}</td>
+                  </tr>
+                  
+                  <!-- Patient Portion Row -->
+                  <tr>
+                    <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; border-right: 1px solid #fed7aa; font-size: 11px; color: #ea580c;">Patient Portion:</td>
+                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; font-size: 11px; color: #ea580c;">N$ ${(invoice.total - (invoice.medical_aid_covered || 0)).toFixed(2)}</td>
+                  </tr>
+                  
+                  <!-- Total Row -->
+                  <tr>
+                    <td colspan="5" style="padding: 10px; text-align: right; font-weight: 700; font-size: 12px; background: #5f6578; color: white; border-right: 1px solid #5f6578; text-transform: uppercase;">Amount Paid:</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 700; font-size: 14px; background: #5f6578; color: white;">N$ ${invoice.total.toFixed(2)}</td>
+                  </tr>
+                  ` : ''}
+                </tbody>
+              </table>
+            </div>
+
+            ${isLastPage ? `
+            <!-- Compact Banking Details Section -->
+            <div style="margin-bottom: 20px; padding: 10px 15px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e5e7eb;">
+              <h3 style="font-size: 10px; font-weight: 600; color: #5f6578; margin: 0 0 6px 0; text-transform: uppercase;">Banking Details</h3>
+              <div style="display: flex; gap: 20px; font-size: 10px; line-height: 1.3;">
+                <span style="color: #6b7280;">Bank: <strong style="color: #1f2937;">${practiceInfo.bank_name || ''}</strong></span>
+                <span style="color: #6b7280;">Account: <strong style="color: #1f2937;">${practiceInfo.account_number || ''}</strong></span>
+                <span style="color: #6b7280;">Branch: <strong style="color: #1f2937;">${practiceInfo.branch_code || ''}</strong></span>
+              </div>
+            </div>
+
+            <!-- Professional Footer -->
+            <div style="padding: 15px 0; border-top: 1px solid #e5e7eb; margin-top: 30px;">
+              <div style="text-align: center;">
+                <p style="margin: 0; font-size: 9px; color: #6b7280; line-height: 1.5;">
+                  Thank you for choosing <strong style="color: #374151;">${practiceInfo.name}</strong> For inquiries: ${practiceInfo.contact_phone} • ${practiceInfo.contact_email}
+                </p>
+                <div style="margin-top: 12px; font-size: 8px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 8px;">
+                  Receipt generated by <strong style="color: #6b7280;">OneHealth Systems</strong> • www.onehealthsystems.com • © 2024
+                </div>
+              </div>
+            </div>
+            ` : ''}
+
+            <!-- Page number at bottom -->
+            <div style="position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 8px; color: #9ca3af;">
+              Page ${pageNumber} of ${totalPages}
+            </div>
+          </div>
+        `;
+      };
+
+      // Smart pagination logic for receipts (same as invoices)
+      const totalServices = invoice.services.length;
+      const serviceChunks = [];
+      
+      if (totalServices <= 9) {
+        // Single page with footer - all services fit
+        serviceChunks.push(invoice.services);
+      } else if (totalServices <= 13) {
+        // 10-13 services: 10 on page 1, rest on page 2 with footer
+        serviceChunks.push(invoice.services.slice(0, 10));
+        serviceChunks.push(invoice.services.slice(10));
+      } else {
+        // 14+ services: 14 on page 1, then 20 per continuation page
+        serviceChunks.push(invoice.services.slice(0, 14));
+        
+        let remainingServices = invoice.services.slice(14);
+        while (remainingServices.length > 0) {
+          const chunkSize = 20; // Continuation pages can fit 20 services
+          serviceChunks.push(remainingServices.slice(0, chunkSize));
+          remainingServices = remainingServices.slice(chunkSize);
+        }
+      }
+      
+      const totalPages = Math.max(1, serviceChunks.length);
+      console.log(`📊 Smart receipt pagination: ${totalServices} services split into ${totalPages} pages`);
+      console.log(`📊 Receipt page breakdown:`, serviceChunks.map((chunk, i) => `Page ${i+1}: ${chunk.length} services`));
+
+      // Create PDF
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'pt',
+        format: 'a4',
+        compress: true
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+
+      // Generate each page
+      for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+        const pageNumber = pageIndex + 1;
+        const pageServices = serviceChunks[pageIndex] || [];
+        const isLastPage = pageIndex === totalPages - 1;
+
+        console.log(`🖼️ Generating receipt page ${pageNumber} with ${pageServices.length} services...`);
+
+        // Create temporary container for this page
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.top = '-9999px';
+        document.body.appendChild(tempContainer);
+
+        // Set page HTML with your beautiful styling
+        tempContainer.innerHTML = createReceiptPageHTML(pageServices, pageNumber, totalPages, isLastPage);
+
+        // Generate canvas for this page
+        const canvas = await html2canvas(tempContainer.firstElementChild as HTMLElement, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff'
+        });
+
+        // Add page to PDF
+        if (pageIndex > 0) {
+          pdf.addPage();
+        }
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgWidth = pdfWidth;
+        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+        
+        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight, '', 'FAST');
+
+        // Clean up
+        document.body.removeChild(tempContainer);
+      }
+
+      // Download the PDF
+      pdf.save(`receipt-${invoice.invoice_number}.pdf`);
+      
+      console.log('✅ Multi-page receipt with beautiful styling generated successfully!');
+
+    } catch (error) {
+      console.error('❌ Failed to generate receipt:', error);
+      alert('Failed to generate receipt. Please try again.');
+    } finally {
+      setIsPrintingPDF(false);
+      setGenerationType(null);
+    }
+  }, [selectedPatientDetails, medicalAid, practiceData, practiceId]);
 
   // Fetch practice data
   const fetchPracticeData = useCallback(async () => {
@@ -345,7 +1117,12 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
     try {
       const { data, error } = await supabase
         .from('practices')
-        .select('*')
+        .select(`
+          id, name, slug, domain, logo_url, primary_color, secondary_color,
+          contact_email, contact_phone, address, city, country, postal_code,
+          tax_number, license_number, practice_number, hero_subtitle,
+          bank_name, account_holder_name, account_number, branch_code, swift_code, account_type
+        `)
         .eq('id', practiceId)
         .single();
         
@@ -354,6 +1131,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         return;
       }
       
+      console.log('✅ Practice data fetched successfully:', data);
       setPracticeData(data);
     } catch (error) {
       console.error('Error fetching practice data:', error);
@@ -389,19 +1167,17 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
     }
   }, []);
 
-  // Fetch patient details
+  // Fetch patient details - OPTIMIZED VERSION
   const fetchPatientDetails = useCallback(async (patientId: string) => {
-    const startTime = performance.now();
-    console.log(`🚀 STARTING fetchPatientDetails for patient: ${patientId}`);
-    
     if (!patientId || !UUID_REGEX.test(patientId)) {
       setDetailsError('Invalid patient ID format');
       setIsLoadingDetails(false);
       return;
     }
 
+    const startTime = performance.now();
     try {
-      // ⚡ CRITICAL: Clear previous patient data IMMEDIATELY to prevent showing old data
+      // Clear previous patient data IMMEDIATELY
       setSelectedPatientDetails(null);
       setVisits([]);
       setVisitCounts({});
@@ -418,6 +1194,26 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       
       setIsLoadingDetails(true);
       setDetailsError(null);
+
+      // Use ultra-optimized fetch function
+      const result = await fetchPatientDetailsOptimized(patientId);
+
+      // Set all data from optimized fetch
+      setSelectedPatientDetails(result.patient);
+      setNextOfKin(result.nextOfKin);
+      setVisits(result.visits);
+      setVisitCounts(result.visitCounts);
+      setAppointments(result.appointments);
+      setVitals(result.vitals);
+      setLabRequests(result.labRequests);
+      setLabResults(result.labResults);
+      setMedications(result.medications);
+      setMediaRequests(result.mediaRequests);
+      setImagingRequests(result.imagingRequests);
+      setBillingData(result.billingData);
+      setMedicalAid(result.medicalAid);
+      setDocuments(result.documents);
+      setPracticeData(result.practiceData);
       
       // ⏱️ TIMING: Initial parallel queries (MAJOR OPTIMIZATION)
       const initialStartTime = performance.now();
@@ -434,7 +1230,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         // Next of kin (optimized)
         supabase
           .from('next_of_kin')
-          .select('id, first_name, last_name, relationship, phone_number, email')
+          .select('id, name, relationship, phone, address')
           .eq('patient_id', patientId)
           .limit(1)
           .maybeSingle(),
@@ -2617,10 +3413,6 @@ OneHealth Medical Team`;
                                         modalState.openEditVisitModal();
                                       }
                                     }}
-                                    onInvoiceView={(invoice) => {
-                                      setSelectedInvoice(invoice);
-                                      setIsInvoicePreviewOpen(true);
-                                    }}
                                     onStatusChange={async (invoiceId, newStatus) => {
                                       try {
                                         const { error } = await supabase
@@ -2689,32 +3481,73 @@ OneHealth Medical Team`;
                                         toast.error('Failed to prepare invoice for email');
                                       }
                                     }}
-                                    onPrintInvoice={async (invoice) => {
-                                      try {
-                                        await downloadInvoicePDF(
-                                          invoice,
-                                          {
-                                            name: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
-                                            phone: selectedPatientDetails.cell_number,
-                                            email: selectedPatientDetails.email,
-                                            address: selectedPatientDetails.home_address,
-                                            medicalAidProvider: medicalAid?.provider,
-                                            membershipNumber: medicalAid?.membership_number,
-                                          },
-                                          practiceData || {
-                                            id: practiceId || '',
-                                            name: 'OneHealth Medical Practice',
-                                            contact_phone: '+264 61 123 4567',
-                                            contact_email: 'info@onehealth.com.na',
-                                            address: '123 Healthcare Avenue, Windhoek, Namibia',
-                                            country: 'Namibia'
+                                    onPrintInvoice={(invoice) => {
+                                      console.log('🖨️ Print invoice handler called for:', invoice.invoice_number);
+                                      console.log('📄 Setting selected invoice:', invoice);
+                                      setSelectedInvoice(invoice);
+                                      console.log('🔓 Opening invoice generation modal...');
+                                      setIsInvoiceGenerationModalOpen(true);
+                                      console.log('✅ Modal state should be true now');
+                                      
+                                      // Temporary test alert to ensure handler works
+                                      setTimeout(() => {
+                                        if (!document.querySelector('[data-testid="invoice-generation-modal"]')) {
+                                          console.error('❌ Modal did not appear in DOM!');
+                                          alert('Modal not appearing. Using fallback...');
+                                          // Fallback to direct generation
+                                          const choice = window.confirm('Generate Invoice (OK) or Receipt (Cancel)?');
+                                          if (choice) {
+                                            handleDirectPrintPDF(invoice);
+                                          } else {
+                                            handleDirectReceiptPDF(invoice);
                                           }
-                                        );
-                                      } catch (error) {
-                                        console.error('Error generating PDF:', error);
-                                        toast.error('Failed to generate invoice PDF');
+                                        } else {
+                                          console.log('✅ Modal found in DOM');
+                                        }
+                                      }, 100);
+                                    }}
+                                    onDeleteInvoice={async (invoice) => {
+                                      if (window.confirm(`Are you sure you want to delete invoice ${invoice.invoice_number}? This action cannot be undone and will also delete all associated services.`)) {
+                                        try {
+                                          console.log('🗑️ Deleting invoice:', invoice.invoice_number);
+                                          
+                                          // Delete invoice services first
+                                          const { error: servicesError } = await supabase
+                                            .from('invoice_services')
+                                            .delete()
+                                            .eq('invoice_id', invoice.id);
+                                          
+                                          if (servicesError) {
+                                            throw new Error('Failed to delete invoice services: ' + servicesError.message);
+                                          }
+                                          
+                                          // Delete the invoice
+                                          const { error: invoiceError } = await supabase
+                                            .from('invoices_enhanced')
+                                            .delete()
+                                            .eq('id', invoice.id);
+                                          
+                                          if (invoiceError) {
+                                            throw new Error('Failed to delete invoice: ' + invoiceError.message);
+                                          }
+                                          
+                                          console.log('✅ Invoice and services deleted successfully');
+                                          toast.success(`Invoice ${invoice.invoice_number} deleted successfully`);
+                                          
+                                          // Refresh billing data
+                                          const { data: updatedBilling } = await supabase
+                                            .from('invoices_enhanced')
+                                            .select('*')
+                                            .eq('patient_id', selectedPatientDetails.id);
+                                          setBillingData(updatedBilling || []);
+                                          
+                                        } catch (error) {
+                                          console.error('Error deleting invoice:', error);
+                                          toast.error('Failed to delete invoice: ' + (error as Error).message);
+                                        }
                                       }
                                     }}
+                                    isPrintingPDF={isPrintingPDF}
                                   />
                                 </div>
                               )}
@@ -3093,6 +3926,37 @@ OneHealth Medical Team`;
         type={messageConfirmationData?.type || 'sms'}
         recipientName={messageConfirmationData?.recipientName}
         recipientContact={messageConfirmationData?.recipientContact}
+      />
+
+      {/* Invoice Generation Modal */}
+      <InvoiceGenerationModal
+        isOpen={isInvoiceGenerationModalOpen}
+        onClose={() => {
+          setIsInvoiceGenerationModalOpen(false);
+          setSelectedInvoice(null);
+        }}
+        invoice={selectedInvoice}
+        patientName={selectedPatientDetails ? `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}` : ''}
+        onGenerateInvoice={async () => {
+          if (selectedInvoice) {
+            setGenerationType('invoice');
+            await handleDirectPrintPDF(selectedInvoice);
+            setIsInvoiceGenerationModalOpen(false);
+          }
+        }}
+        onGenerateReceipt={async () => {
+          if (selectedInvoice) {
+            setGenerationType('receipt');
+            await handleDirectReceiptPDF(selectedInvoice);
+            setIsInvoiceGenerationModalOpen(false);
+          }
+        }}
+        onPreview={() => {
+          setIsInvoiceGenerationModalOpen(false);
+          setIsInvoicePreviewOpen(true);
+        }}
+        isGenerating={isPrintingPDF}
+        generationType={generationType}
       />
 
       {/* Invoice Preview Modal */}

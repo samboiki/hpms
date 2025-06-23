@@ -30,93 +30,196 @@ async function executeSql(query) {
 }
 
 async function main() {
-  console.log('🚀 Checking RLS policies for medical_aid_details...\n');
+  console.log('🔍 Checking existing practices and their banking details...\n');
 
-  // Check RLS policies
-  const checkPoliciesQuery = `
-    SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check
-    FROM pg_policies 
-    WHERE tablename = 'medical_aid_details';
+  // First, check existing practices
+  const checkPracticesQuery = `
+    SELECT id, name, bank_name, account_holder_name, account_number, branch_code, swift_code, account_type 
+    FROM practices 
+    ORDER BY name;
   `;
 
-  const policiesResult = await executeSql(checkPoliciesQuery);
+  console.log('🏥 Fetching current practices...');
+  const practicesResult = await executeSql(checkPracticesQuery);
   
-  if (!policiesResult.success) {
-    console.log('❌ Failed to check policies');
+  if (!practicesResult.success) {
+    console.log('❌ Failed to fetch practices');
     return;
   }
 
-  console.log('\n📋 Current RLS Policies:');
-  
-  // Check if RLS is enabled
-  const checkRlsQuery = `
-    SELECT schemaname, tablename, rowsecurity 
-    FROM pg_tables 
-    WHERE tablename = 'medical_aid_details';
-  `;
+  console.log('✅ Current practices fetched!');
+  console.log('📊 Found practices:', practicesResult.data);
 
-  const rlsResult = await executeSql(checkRlsQuery);
-  
-  if (rlsResult.success) {
-    console.log('\n🔒 RLS Status checked');
+  // Now update each practice with realistic Namibian banking details
+  console.log('\n🏦 Updating practices with realistic Namibian banking details...');
+
+  const bankingUpdates = [
+    {
+      bank_name: 'FNB Namibia',
+      branch_code: '282273',
+      swift_code: 'FIRNNANX',
+      account_type: 'Business Cheque Account',
+      account_number: '12345678901'
+    },
+    {
+      bank_name: 'Nedbank Namibia', 
+      branch_code: '281610',
+      swift_code: 'NEDSNANX',
+      account_type: 'Current Account',
+      account_number: '98765432109'
+    },
+    {
+      bank_name: 'Standard Bank Namibia',
+      branch_code: '083179', 
+      swift_code: 'SBNMNANX',
+      account_type: 'Business Cheque Account',
+      account_number: '55667788990'
+    },
+    {
+      bank_name: 'Bank Windhoek',
+      branch_code: '484519',
+      swift_code: 'BWIBNANX', 
+      account_type: 'Current Account',
+      account_number: '44332211009'
+    }
+  ];
+
+  // Parse the practices data to get the actual results
+  let practicesList = [];
+  try {
+    // The data might be a string that needs parsing
+    if (typeof practicesResult.data === 'string' && practicesResult.data.includes('SUCCESS')) {
+      console.log('⚠️  Need to query practices differently - executing direct query');
+      
+      // First, let's get a list of practice IDs to update
+      const getPracticesQuery = `
+        SELECT id, name FROM practices ORDER BY name;
+      `;
+      
+      const practicesListResult = await executeSql(getPracticesQuery);
+      console.log('📋 Practice IDs fetched:', practicesListResult.data);
+      
+      // Define realistic banking details for each practice
+      const bankingDetails = [
+        {
+          bank_name: 'FNB Namibia',
+          branch_code: '282273',
+          swift_code: 'FIRNNANX',
+          account_type: 'Business Cheque Account',
+          account_number: '12345678901'
+        },
+        {
+          bank_name: 'Nedbank Namibia', 
+          branch_code: '281610',
+          swift_code: 'NEDSNANX',
+          account_type: 'Current Account',
+          account_number: '98765432109'
+        },
+        {
+          bank_name: 'Standard Bank Namibia',
+          branch_code: '083179', 
+          swift_code: 'SBNMNANX',
+          account_type: 'Business Cheque Account',
+          account_number: '55667788990'
+        },
+        {
+          bank_name: 'Bank Windhoek',
+          branch_code: '484519',
+          swift_code: 'BWIBNANX', 
+          account_type: 'Current Account',
+          account_number: '44332211009'
+        },
+        {
+          bank_name: 'FNB Namibia',
+          branch_code: '282273',
+          swift_code: 'FIRNNANX',
+          account_type: 'Current Account',
+          account_number: '11223344556'
+        }
+      ];
+
+      // Update all practices at once
+      const directQuery = `
+        WITH practice_list AS (
+          SELECT id, name, ROW_NUMBER() OVER (ORDER BY name) as rn
+          FROM practices
+        ),
+        banking_data AS (
+          SELECT 
+            id,
+            name,
+            CASE 
+              WHEN rn = 1 THEN 'FNB Namibia'
+              WHEN rn = 2 THEN 'Nedbank Namibia'  
+              WHEN rn = 3 THEN 'Standard Bank Namibia'
+              WHEN rn = 4 THEN 'Bank Windhoek'
+              ELSE 'FNB Namibia'
+            END as bank_name,
+            CASE
+              WHEN rn = 1 THEN '282273'
+              WHEN rn = 2 THEN '281610'
+              WHEN rn = 3 THEN '083179' 
+              WHEN rn = 4 THEN '484519'
+              ELSE '282273'
+            END as branch_code,
+            CASE
+              WHEN rn = 1 THEN 'FIRNNANX'
+              WHEN rn = 2 THEN 'NEDSNANX'
+              WHEN rn = 3 THEN 'SBNMNANX'
+              WHEN rn = 4 THEN 'BWIBNANX'
+              ELSE 'FIRNNANX'
+            END as swift_code,
+            CASE
+              WHEN rn % 2 = 1 THEN 'Business Cheque Account'
+              ELSE 'Current Account'
+            END as account_type,
+            name as account_holder_name,
+            CASE
+              WHEN rn = 1 THEN '12345678901'
+              WHEN rn = 2 THEN '98765432109'
+              WHEN rn = 3 THEN '55667788990' 
+              WHEN rn = 4 THEN '44332211009'
+              ELSE '11223344556'
+            END as account_number
+          FROM practice_list
+        )
+        UPDATE practices 
+        SET 
+          bank_name = banking_data.bank_name,
+          branch_code = banking_data.branch_code,
+          swift_code = banking_data.swift_code,
+          account_type = banking_data.account_type,
+          account_holder_name = banking_data.account_holder_name,
+          account_number = banking_data.account_number
+        FROM banking_data
+        WHERE practices.id = banking_data.id;
+      `;
+      
+      const updateResult = await executeSql(directQuery);
+      
+      if (updateResult.success) {
+        console.log('✅ Banking details updated successfully!');
+        
+        // Verify the updates
+        const verifyQuery = `
+          SELECT id, name, bank_name, account_holder_name, account_number, branch_code, swift_code, account_type 
+          FROM practices 
+          ORDER BY name;
+        `;
+        
+        console.log('\n🔍 Verifying updated banking details...');
+        const verifyResult = await executeSql(verifyQuery);
+        console.log('📊 Updated practices:', verifyResult.data);
+        
+      } else {
+        console.log('❌ Failed to update banking details');
+      }
+    }
+  } catch (error) {
+    console.log('⚠️  Error processing practices data:', error);
   }
 
-  // Now create proper RLS policies for medical_aid_details
-  console.log('\n🔧 Creating proper RLS policies for medical_aid_details...');
-
-  // Enable RLS if not already enabled
-  const enableRlsQuery = `
-    ALTER TABLE medical_aid_details ENABLE ROW LEVEL SECURITY;
-  `;
-
-  await executeSql(enableRlsQuery);
-
-  // Drop existing policies if they exist (to recreate them properly)
-  const dropPoliciesQuery = `
-    DROP POLICY IF EXISTS "medical_aid_select_policy" ON medical_aid_details;
-    DROP POLICY IF EXISTS "medical_aid_insert_policy" ON medical_aid_details;
-    DROP POLICY IF EXISTS "medical_aid_update_policy" ON medical_aid_details;
-    DROP POLICY IF EXISTS "medical_aid_delete_policy" ON medical_aid_details;
-  `;
-
-  await executeSql(dropPoliciesQuery);
-
-  // Create new comprehensive RLS policies
-  const createPoliciesQuery = `
-    -- Allow authenticated users to select medical aid details
-    CREATE POLICY "medical_aid_select_policy" ON medical_aid_details
-    FOR SELECT USING (auth.role() = 'authenticated');
-
-    -- Allow authenticated users to insert medical aid details
-    CREATE POLICY "medical_aid_insert_policy" ON medical_aid_details
-    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
-
-    -- Allow authenticated users to update medical aid details
-    CREATE POLICY "medical_aid_update_policy" ON medical_aid_details
-    FOR UPDATE USING (auth.role() = 'authenticated')
-    WITH CHECK (auth.role() = 'authenticated');
-
-    -- Allow authenticated users to delete medical aid details
-    CREATE POLICY "medical_aid_delete_policy" ON medical_aid_details
-    FOR DELETE USING (auth.role() = 'authenticated');
-  `;
-
-  const createResult = await executeSql(createPoliciesQuery);
-  
-  if (createResult.success) {
-    console.log('✅ RLS policies created successfully!');
-  }
-
-  // Verify the new policies
-  console.log('\n🔍 Verifying new policies...');
-  const verifyResult = await executeSql(checkPoliciesQuery);
-  
-  if (verifyResult.success) {
-    console.log('✅ Policy verification successful!');
-  }
-
-  console.log('\n🎉 SUCCESS! Medical aid details RLS policies are now properly configured!');
-  console.log('✅ Authenticated users can now perform all operations on medical_aid_details');
+  console.log('\n🎉 Banking details update process completed!');
 }
 
 main().catch(console.error);

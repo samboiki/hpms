@@ -144,8 +144,8 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
     return File;
   };
 
-  // Fetch files from database
-  const fetchFiles = async () => {
+  // Fetch files from database with retry logic
+  const fetchFiles = async (retryCount = 0) => {
     try {
       setLoading(true);
       
@@ -186,10 +186,22 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
         console.error('❌ Table:', tableName);
         console.error('❌ Error details:', error);
         
+        // Handle network errors with retry logic
+        if (error.message && error.message.includes('Failed to fetch') && retryCount < 3) {
+          console.log(`🔄 Network error detected, retrying... (attempt ${retryCount + 1}/3)`);
+          setTimeout(() => fetchFiles(retryCount + 1), 1000 * (retryCount + 1));
+          return;
+        }
+        
         // Provide more helpful error message
         if (error.code === '42703') {
           console.error('💡 Column missing - this might be due to table schema mismatch');
+        } else if (error.message && error.message.includes('Failed to fetch')) {
+          console.error('💡 Network connection issue - check internet connectivity or try refreshing the page');
         }
+        
+        setFiles([]);
+        setLoading(false);
         return;
       }
 
@@ -234,6 +246,18 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
 
     } catch (error) {
       console.error('💥 Error in fetchFiles:', error);
+      
+      // Handle network errors with retry logic at the catch level too
+      if (error && typeof error === 'object' && 'message' in error) {
+        const errorMessage = (error as Error).message;
+        if (errorMessage.includes('Failed to fetch') && retryCount < 3) {
+          console.log(`🔄 Catch: Network error detected, retrying... (attempt ${retryCount + 1}/3)`);
+          setTimeout(() => fetchFiles(retryCount + 1), 1000 * (retryCount + 1));
+          return;
+        }
+      }
+      
+      setFiles([]);
     } finally {
       setLoading(false);
     }

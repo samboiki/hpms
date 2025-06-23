@@ -18,7 +18,7 @@ import {
   Share2
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { downloadInvoicePDF } from '../billing/WowInvoicePDF';
+import UnifiedPDFGenerator from '../billing/UnifiedPDFGenerator';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
@@ -108,38 +108,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
 
   if (!isOpen || !invoice) return null;
 
-  const handleDownloadPDF = async () => {
-    if (!invoice) return;
-    
-    setIsGeneratingPDF(true);
-    try {
-      await downloadInvoicePDF(
-        invoice,
-        {
-          name: patientName,
-          phone: patientPhone !== 'N/A' ? patientPhone : undefined,
-          email: patientEmail !== 'N/A' ? patientEmail : undefined,
-          address: patientAddress !== 'N/A' ? patientAddress : undefined,
-          medicalAidProvider,
-          membershipNumber,
-        },
-        practiceData || {
-          id: practiceId || '',
-          name: 'OneHealth Medical Practice',
-          contact_phone: '+264 61 123 4567',
-          contact_email: 'info@onehealth.com.na',
-          address: '123 Healthcare Avenue, Windhoek, Namibia',
-          country: 'Namibia'
-        }
-      );
-      toast.success('Invoice PDF downloaded successfully!');
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      toast.error('Failed to generate PDF. Please try again.');
-    } finally {
-      setIsGeneratingPDF(false);
-    }
-  };
+  // PDF generation is now handled by UnifiedPDFGenerator component
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -405,31 +374,30 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              onClick={() => {
+                console.log('🖨️ Print button clicked - opening browser print dialog');
+                window.print();
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 border border-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Printer className="w-4 h-4" />
               Print
             </motion.button>
             
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleDownloadPDF}
-              disabled={isGeneratingPDF}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-700 text-white rounded-lg hover:from-blue-700 hover:to-purple-800 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isGeneratingPDF ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4" />
-                  Download PDF
-                </>
-              )}
-            </motion.button>
+            {/* PDF Generation with multiple methods */}
+            <div className="w-full">
+              <UnifiedPDFGenerator
+                invoice={invoice}
+                patient={{
+                  name: patientName,
+                  phone: patientPhone !== 'N/A' ? patientPhone : undefined,
+                  email: patientEmail !== 'N/A' ? patientEmail : undefined,
+                  address: patientAddress !== 'N/A' ? patientAddress : undefined,
+                  medicalAidProvider,
+                  membershipNumber,
+                }}
+              />
+            </div>
           </div>
         </div>
       </motion.div>

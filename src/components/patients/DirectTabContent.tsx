@@ -794,6 +794,15 @@ export const BillingContent: React.FC<{
         onClose={() => setShowDetails(false)}
         service={selectedService}
       />
+
+      {/* Premium Invoice Modal */}
+      <PremiumInvoiceModal
+        isOpen={isInvoiceModalOpen}
+        onClose={() => setIsInvoiceModalOpen(false)}
+        invoice={selectedInvoice}
+        patient={patient}
+        medicalAid={medicalAid}
+      />
     </div>
   );
 };

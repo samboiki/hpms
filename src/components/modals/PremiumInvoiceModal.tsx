@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -23,6 +23,8 @@ import {
 import { format, parseISO } from 'date-fns';
 import { useTheme } from '../../stores/themeStore';
 import { toast } from 'react-hot-toast';
+import jsPDF from 'jspdf';
+import { supabase } from '../../lib/supabase';
 
 interface PremiumInvoiceModalProps {
   isOpen: boolean;
@@ -50,6 +52,30 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
   const [emailMessage, setEmailMessage] = useState('Please find your invoice attached.');
   const [smsMessage, setSmsMessage] = useState(`Hi ${patient?.first_name}, your invoice #${invoice?.invoice_number} for N$${invoice?.total?.toFixed(2)} is ready. Visit our portal to view details.`);
   const [isLoading, setIsLoading] = useState(false);
+  const [practice, setPractice] = useState<any>(null);
+  const [generating, setGenerating] = useState(false);
+
+  // Fetch practice info on mount
+  useEffect(() => {
+    const fetchPracticeInfo = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('practice_info')
+          .select('*')
+          .limit(1)
+          .single();
+
+        if (error) throw error;
+        setPractice(data);
+      } catch (error) {
+        console.error('Error fetching practice info:', error);
+      }
+    };
+
+    if (isOpen) {
+      fetchPracticeInfo();
+    }
+  }, [isOpen]);
 
   if (!isOpen || !invoice) return null;
 
@@ -65,24 +91,328 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
     overdue: <AlertCircle className="w-4 h-4" />
   };
 
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(generateInvoiceHTML());
-      printWindow.document.close();
-      printWindow.print();
+  const generateEnhancedPDF = async () => {
+    if (!practice) {
+      toast.error('Practice information not loaded');
+      return;
+    }
+
+    try {
+      setGenerating(true);
+      console.log('🎯 Starting enhanced multi-page PDF generation...');
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      const contentWidth = pageWidth - (margin * 2);
+      
+      // Page layout constants
+      const headerHeight = 40;
+      const footerHeight = 25;
+      const contentHeight = pageHeight - headerHeight - footerHeight - (margin * 2);
+      
+      // Service table constants
+      const tableStartY = headerHeight + margin + 60; // After header + invoice details
+      const rowHeight = 8;
+      const maxRowsPerPage = Math.floor((contentHeight - 60) / rowHeight); // Reserve space for totals
+      
+      // Colors
+      const primaryColor = practice.primary_color || '#01b9d4';
+
+      // Helper function to convert hex to RGB
+      const hexToRgb = (hex: string) => {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+          r: parseInt(result[1], 16),
+          g: parseInt(result[2], 16),
+          b: parseInt(result[3], 16)
+        } : { r: 1, g: 185, b: 212 }; // fallback to cyan
+      };
+
+      const primaryRgb = hexToRgb(primaryColor);
+
+      // Helper function to add header to each page
+      const addHeader = (pageNum: number, totalPages: number) => {
+        // Header background
+        pdf.setFillColor(primaryRgb.r, primaryRgb.g, primaryRgb.b);
+        pdf.rect(0, 0, pageWidth, headerHeight, 'F');
+
+        // Practice logo/name
+        pdf.setFontSize(18);
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(practice.name, margin, 20);
+
+        // Practice details
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        let yPos = 28;
+        if (practice.contact_phone) {
+          pdf.text(`Phone: ${practice.contact_phone}`, margin, yPos);
+          yPos += 4;
+        }
+        if (practice.contact_email) {
+          pdf.text(`Email: ${practice.contact_email}`, margin, yPos);
+        }
+
+        // Invoice number and date (right side)
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('INVOICE', pageWidth - margin - 30, 15);
+        
+        pdf.setFontSize(9);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`#${invoice.invoice_number}`, pageWidth - margin - 30, 22);
+        pdf.text(format(parseISO(invoice.created_at), 'dd/MM/yyyy'), pageWidth - margin - 30, 28);
+        
+        // Page number
+        pdf.text(`Page ${pageNum} of ${totalPages}`, pageWidth - margin - 30, 35);
+      };
+
+      // Helper function to add footer to each page
+      const addFooter = (pageNum: number) => {
+        const footerY = pageHeight - footerHeight;
+        
+        // Footer line
+        pdf.setDrawColor(200, 200, 200);
+        pdf.line(margin, footerY, pageWidth - margin, footerY);
+        
+        pdf.setFontSize(8);
+        pdf.setTextColor(100, 100, 100);
+        pdf.setFont('helvetica', 'normal');
+        
+        let yPos = footerY + 8;
+        
+        // Practice details in footer
+        if (practice.license_number) {
+          pdf.text(`License: ${practice.license_number}`, margin, yPos);
+          yPos += 4;
+        }
+        
+        if (practice.tax_number) {
+          pdf.text(`Tax No: ${practice.tax_number}`, margin, yPos);
+        }
+        
+        // Bank details (right side)
+        if (practice.bank_name && practice.account_number) {
+          pdf.text(`${practice.bank_name}`, pageWidth - margin - 60, footerY + 8);
+          pdf.text(`Acc: ${practice.account_number}`, pageWidth - margin - 60, footerY + 12);
+          if (practice.branch_code) {
+            pdf.text(`Branch: ${practice.branch_code}`, pageWidth - margin - 60, footerY + 16);
+          }
+        }
+      };
+
+      // Get invoice services
+      const services = invoice.services || [];
+      const totalPages = Math.max(1, Math.ceil(services.length / maxRowsPerPage));
+
+      // Generate pages
+      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        if (pageNum > 1) {
+          pdf.addPage();
+        }
+
+        // Add header and footer
+        addHeader(pageNum, totalPages);
+        addFooter(pageNum);
+
+        // Content area starts after header
+        let currentY = headerHeight + margin + 10;
+
+        // First page: Add invoice details and patient info
+        if (pageNum === 1) {
+          // Patient information section
+          pdf.setFontSize(11);
+          pdf.setTextColor(0, 0, 0);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('Bill To:', margin, currentY);
+          
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(10);
+          currentY += 6;
+          pdf.text(patient.name || `${patient.first_name} ${patient.last_name}`, margin, currentY);
+          currentY += 5;
+          
+          if (patient.phone || patient.cell_number) {
+            pdf.text(`Phone: ${patient.phone || patient.cell_number}`, margin, currentY);
+            currentY += 4;
+          }
+          
+          if (patient.email) {
+            pdf.text(`Email: ${patient.email}`, margin, currentY);
+            currentY += 4;
+          }
+          
+          if (medicalAid?.provider && patient.membershipNumber) {
+            pdf.text(`Medical Aid: ${medicalAid.provider} - ${patient.membershipNumber}`, margin, currentY);
+            currentY += 4;
+          }
+
+          // Visit details (right side)
+          if (invoice.visit_date) {
+            pdf.text(`Visit Date: ${format(parseISO(invoice.visit_date), 'dd/MM/yyyy')}`, pageWidth - margin - 80, headerHeight + margin + 16);
+          }
+          
+          if (invoice.chief_complaint) {
+            const maxComplaintLength = 50;
+            const complaint = invoice.chief_complaint.length > maxComplaintLength 
+              ? invoice.chief_complaint.substring(0, maxComplaintLength) + '...'
+              : invoice.chief_complaint;
+            pdf.text(`Chief Complaint: ${complaint}`, pageWidth - margin - 80, headerHeight + margin + 22);
+          }
+
+          currentY += 10;
+        }
+
+        // Services table header
+        const tableY = pageNum === 1 ? currentY : headerHeight + margin + 10;
+        
+        // Table header background
+        pdf.setFillColor(243, 244, 246);
+        pdf.rect(margin, tableY, contentWidth, rowHeight, 'F');
+        
+        // Table header text
+        pdf.setFontSize(9);
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFont('helvetica', 'bold');
+        
+        const colWidths = {
+          code: 25,
+          description: 80,
+          quantity: 20,
+          unitPrice: 25,
+          total: 30
+        };
+        
+        let colX = margin + 2;
+        pdf.text('Code', colX, tableY + 5);
+        colX += colWidths.code;
+        pdf.text('Description', colX, tableY + 5);
+        colX += colWidths.description;
+        pdf.text('Qty', colX, tableY + 5);
+        colX += colWidths.quantity;
+        pdf.text('Unit Price', colX, tableY + 5);
+        colX += colWidths.unitPrice;
+        pdf.text('Total', colX, tableY + 5);
+
+        // Services for this page
+        const startIndex = (pageNum - 1) * maxRowsPerPage;
+        const endIndex = Math.min(startIndex + maxRowsPerPage, services.length);
+        const pageServices = services.slice(startIndex, endIndex);
+
+        // Table rows
+        pdf.setFont('helvetica', 'normal');
+        let rowY = tableY + rowHeight;
+        
+        pageServices.forEach((service: any, index: number) => {
+          // Alternate row background
+          if (index % 2 === 1) {
+            pdf.setFillColor(248, 249, 250);
+            pdf.rect(margin, rowY, contentWidth, rowHeight, 'F');
+          }
+          
+          pdf.setTextColor(0, 0, 0);
+          
+          let colX = margin + 2;
+          pdf.text(service.code || '', colX, rowY + 5);
+          colX += colWidths.code;
+          
+          // Truncate long descriptions
+          const maxDescLength = 45;
+          const description = service.description.length > maxDescLength 
+            ? service.description.substring(0, maxDescLength) + '...'
+            : service.description;
+          pdf.text(description, colX, rowY + 5);
+          colX += colWidths.description;
+          
+          pdf.text(service.quantity.toString(), colX, rowY + 5);
+          colX += colWidths.quantity;
+          
+          pdf.text(`R ${service.unit_price.toFixed(2)}`, colX, rowY + 5);
+          colX += colWidths.unitPrice;
+          
+          pdf.text(`R ${service.total_price.toFixed(2)}`, colX, rowY + 5);
+          
+          rowY += rowHeight;
+        });
+
+        // Last page: Add totals
+        if (pageNum === totalPages) {
+          rowY += 10;
+          
+          // Totals section
+          const totalsX = pageWidth - margin - 80;
+          
+          pdf.setFont('helvetica', 'normal');
+          pdf.text('Subtotal:', totalsX, rowY);
+          pdf.text(`R ${invoice.total.toFixed(2)}`, totalsX + 40, rowY);
+          rowY += 6;
+          
+          if (invoice.medical_aid_covered > 0) {
+            pdf.text('Medical Aid:', totalsX, rowY);
+            pdf.text(`R ${invoice.medical_aid_covered.toFixed(2)}`, totalsX + 40, rowY);
+            rowY += 6;
+          }
+          
+          pdf.setFont('helvetica', 'bold');
+          pdf.text('Patient Portion:', totalsX, rowY);
+          pdf.text(`R ${invoice.patient_portion.toFixed(2)}`, totalsX + 40, rowY);
+          
+          // Payment status
+          rowY += 10;
+          pdf.setFont('helvetica', 'normal');
+          const statusColor = invoice.payment_status === 'paid' ? [16, 185, 129] : 
+                             invoice.payment_status === 'pending' ? [245, 158, 11] : [239, 68, 68];
+          pdf.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+          pdf.text(`Status: ${invoice.payment_status.toUpperCase()}`, totalsX, rowY);
+        }
+      }
+
+      return pdf;
+    } catch (error) {
+      console.error('❌ Enhanced PDF generation failed:', error);
+      throw new Error(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setGenerating(false);
     }
   };
 
-  const handleDownload = () => {
-    const invoiceHTML = generateInvoiceHTML();
-    const blob = new Blob([invoiceHTML], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Invoice-${invoice.invoice_number}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handlePrint = async () => {
+    try {
+      const pdf = await generateEnhancedPDF();
+      if (pdf) {
+        // Open PDF in new window for printing
+        const pdfBlob = pdf.output('blob');
+        const url = URL.createObjectURL(pdfBlob);
+        const printWindow = window.open(url, '_blank');
+        if (printWindow) {
+          printWindow.onload = () => {
+            printWindow.print();
+          };
+        }
+      }
+    } catch (error) {
+      toast.error('Failed to generate PDF for printing');
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      const pdf = await generateEnhancedPDF();
+      if (pdf) {
+        pdf.save(`invoice-${invoice.invoice_number}.pdf`);
+        toast.success('Enhanced multi-page PDF downloaded successfully!');
+      }
+    } catch (error) {
+      toast.error('Failed to generate PDF for download');
+    }
   };
 
   const handleEmailSend = async () => {
@@ -364,23 +694,43 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
                 </motion.button>
 
                 <motion.button
-                  whileHover={{ scale: 1.05, y: -2 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: generating ? 1 : 1.05, y: generating ? 0 : -2 }}
+                  whileTap={{ scale: generating ? 1 : 0.95 }}
                   onClick={handlePrint}
-                  className="flex items-center justify-center gap-3 px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                  disabled={generating}
+                  className={`flex items-center justify-center gap-3 px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 ${generating ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <Printer className="w-5 h-5" />
-                  <span>Print</span>
+                  {generating ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Printer className="w-5 h-5" />
+                      <span>Print Enhanced PDF</span>
+                    </>
+                  )}
                 </motion.button>
 
                 <motion.button
-                  whileHover={{ scale: 1.05, y: -2 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: generating ? 1 : 1.05, y: generating ? 0 : -2 }}
+                  whileTap={{ scale: generating ? 1 : 0.95 }}
                   onClick={handleDownload}
-                  className="flex items-center justify-center gap-3 px-4 py-3 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                  disabled={generating}
+                  className={`flex items-center justify-center gap-3 px-4 py-3 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 ${generating ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  <Download className="w-5 h-5" />
-                  <span>Download</span>
+                  {generating ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-5 h-5" />
+                      <span>Download Enhanced PDF</span>
+                    </>
+                  )}
                 </motion.button>
               </div>
             </div>

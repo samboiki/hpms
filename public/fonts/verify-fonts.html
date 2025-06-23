@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Font Verification</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .font-test {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .regular { font-family: 'Montserrat', Arial, sans-serif; font-weight: 400; }
+        .medium { font-family: 'Montserrat', Arial, sans-serif; font-weight: 500; }
+        .semibold { font-family: 'Montserrat', Arial, sans-serif; font-weight: 600; }
+        .bold { font-family: 'Montserrat', Arial, sans-serif; font-weight: 700; }
+        
+        @font-face {
+            font-family: 'Montserrat';
+            src: url('./montserrat-regular.ttf') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+        }
+        
+        @font-face {
+            font-family: 'Montserrat';
+            src: url('./montserrat-medium.ttf') format('truetype');
+            font-weight: 500;
+            font-style: normal;
+        }
+        
+        @font-face {
+            font-family: 'Montserrat';
+            src: url('./montserrat-semibold.ttf') format('truetype');
+            font-weight: 600;
+            font-style: normal;
+        }
+        
+        @font-face {
+            font-family: 'Montserrat';
+            src: url('./montserrat-bold.ttf') format('truetype');
+            font-weight: 700;
+            font-style: normal;
+        }
+    </style>
+</head>
+<body>
+    <h1>Montserrat Font Verification</h1>
+    
+    <div class="test-section">
+        <h2>Font Loading Test</h2>
+        <div class="font-test regular">
+            <strong>Regular (400):</strong> The quick brown fox jumps over the lazy dog. 0123456789
+        </div>
+        <div class="font-test medium">
+            <strong>Medium (500):</strong> The quick brown fox jumps over the lazy dog. 0123456789
+        </div>
+        <div class="font-test semibold">
+            <strong>SemiBold (600):</strong> The quick brown fox jumps over the lazy dog. 0123456789
+        </div>
+        <div class="font-test bold">
+            <strong>Bold (700):</strong> The quick brown fox jumps over the lazy dog. 0123456789
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Invoice Sample Text</h2>
+        <div class="font-test bold" style="font-size: 24px;">
+            INVOICE
+        </div>
+        <div class="font-test semibold" style="font-size: 16px;">
+            #INV-2025-001
+        </div>
+        <div class="font-test regular" style="font-size: 12px;">
+            Date: 23 June 2025
+        </div>
+        <div class="font-test medium" style="font-size: 14px;">
+            OneHealth Medical Practice
+        </div>
+    </div>
+    
+    <script>
+        // Check if fonts are loaded
+        document.fonts.ready.then(() => {
+            console.log('✅ All fonts loaded successfully');
+            const status = document.createElement('div');
+            status.innerHTML = '<h3 style="color: green;">✅ Fonts loaded successfully!</h3>';
+            document.body.appendChild(status);
+        }).catch(error => {
+            console.error('❌ Font loading failed:', error);
+            const status = document.createElement('div');
+            status.innerHTML = '<h3 style="color: red;">❌ Font loading failed!</h3>';
+            document.body.appendChild(status);
+        });
+        
+        // Test individual font files
+        const fontFiles = [
+            'montserrat-regular.ttf',
+            'montserrat-medium.ttf',
+            'montserrat-semibold.ttf',
+            'montserrat-bold.ttf'
+        ];
+        
+        fontFiles.forEach(async (filename) => {
+            try {
+                const response = await fetch(`./${filename}`);
+                if (response.ok) {
+                    console.log(`✅ ${filename} is accessible`);
+                } else {
+                    console.error(`❌ ${filename} failed to load: ${response.status}`);
+                }
+            } catch (error) {
+                console.error(`❌ ${filename} error:`, error);
+            }
+        });
+    </script>
+</body>
+</html>

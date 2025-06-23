@@ -21,6 +21,17 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   global: {
     headers: {
       'x-application-name': 'HPMS'
+    },
+    fetch: (url, options = {}) => {
+      console.log(`🌐 Supabase request to: ${url}`);
+      return fetch(url, {
+        ...options,
+        // Add DNS prefetch and cache control
+        cache: 'no-cache',
+      }).catch(error => {
+        console.error(`🚨 Network error for ${url}:`, error);
+        throw error;
+      });
     }
   }
 });
