@@ -386,26 +386,21 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
       // SMART MULTI-PAGE GENERATION
       console.log('📄 Implementing smart multi-page logic for', allServices.length, 'services');
       
-      // Smart pagination logic based on service count (like invoice)
+      // Smart pagination logic - first page cuts at 7th row to prevent cutting
       const serviceChunks = [];
-      if (allServices.length <= 9) {
+      if (allServices.length <= 7) {
         // Single page with footer
         serviceChunks.push(allServices);
-        console.log('📑 Single page (≤9 services):', allServices.length);
-      } else if (allServices.length <= 13) {
-        // First page: 10 services, second page: rest with footer
-        serviceChunks.push(allServices.slice(0, 10));
-        serviceChunks.push(allServices.slice(10));
-        console.log('📑 Two pages (10-13 services): page 1 =', 10, ', page 2 =', allServices.length - 10);
+        console.log('📑 Single page (≤7 services):', allServices.length);
       } else {
-        // First page: 14 services (no footer), continuation pages: 20 services each
-        serviceChunks.push(allServices.slice(0, 14));
-        let remaining = allServices.slice(14);
+        // First page: 7 services (to prevent cutting), continuation pages: 20 services each
+        serviceChunks.push(allServices.slice(0, 7));
+        let remaining = allServices.slice(7);
         while (remaining.length > 0) {
           serviceChunks.push(remaining.slice(0, 20));
           remaining = remaining.slice(20);
         }
-        console.log('📑 Multi-page (≥14 services): first page = 14, continuation pages of 20, total pages =', serviceChunks.length);
+        console.log('📑 Multi-page: first page = 7, continuation pages of 20, total pages =', serviceChunks.length);
       }
 
       // Create PDF with proper multi-page support
