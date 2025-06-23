@@ -265,12 +265,23 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
           <div style="padding: 40px 40px 30px 40px; background: white; border-bottom: 2px solid #e5e7eb;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px;">
               <div>
-                <h1 style="margin: 0; font-size: 32px; font-weight: 800; color: #1f2937; font-family: 'Rubik', sans-serif;">${practiceData.name}</h1>
-                <p style="margin: 8px 0 0 0; font-size: 16px; color: #6b7280; font-weight: 500;">${practiceData.hero_subtitle || 'Professional Healthcare Services'}</p>
+                <!-- EXACT invoice header structure -->
+                ${practiceData.logo_url ? `
+                  <div style="flex-shrink: 0; margin-bottom: 8px;">
+                    <img src="${practiceData.logo_url}" alt="Practice Logo" style="width: 120px; height: auto; max-height: 65px; border-radius: 8px; object-fit: contain;" />
+                  </div>
+                ` : ''}
+                <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #5f6578; font-family: 'Rubik', sans-serif; letter-spacing: -0.2px;">${practiceData.name}</h1>
               </div>
-              <div style="text-align: right; font-size: 14px; color: #4b5563;">
-                ${practiceData.contact_phone ? `<div style="margin-bottom: 4px;">${practiceData.contact_phone}</div>` : ''}
-                ${practiceData.contact_email ? `<div>${practiceData.contact_email}</div>` : ''}
+              <!-- EXACT practice details from invoice -->
+              <div style="text-align: right; max-width: 300px;">
+                <div style="font-size: 10px; line-height: 1.6; color: #5a5a5a; font-weight: 400;">
+                  ${practiceData.address ? `<div style="margin-bottom: 2px;">${practiceData.address}</div>` : ''}
+                  <div style="margin-bottom: 2px;">${practiceData.city}, ${practiceData.country} ${practiceData.postal_code || ''}</div>
+                  ${practiceData.contact_phone ? `<div style="margin-bottom: 2px;">Tel: ${practiceData.contact_phone}</div>` : ''}
+                  ${practiceData.contact_email ? `<div style="margin-bottom: 2px;">Email: ${practiceData.contact_email}</div>` : ''}
+                  ${practiceData.domain ? `<div>www.${practiceData.domain}</div>` : ''}
+                </div>
               </div>
             </div>
             
