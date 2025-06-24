@@ -8,6 +8,7 @@ import { format, setHours, setMinutes, addMinutes } from 'date-fns';
 import { checkAppointmentConflict } from '../../utils/appointments';
 import { PremiumTimeRangePicker } from '../ui/PremiumTimeRangePicker';
 import { PremiumDatePickerModal } from '../ui/PremiumDatePickerModal';
+import { AppointmentTypeModal } from '../ui/AppointmentTypeModal';
 import { useAuthStore } from '../../stores/authStore';
 import { debounce } from 'lodash';
 
@@ -97,6 +98,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
   const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
   const [businessHours, setBusinessHours] = useState<{ start: string; end: string }>({ start: '08:00', end: '18:00' });
   const [allBusinessHours, setAllBusinessHours] = useState<any>(null);
+  const [showTypeModal, setShowTypeModal] = useState(false);
   
   const selectedPatientId = watch('patient_id');
   const selectedDate = watch('date');
@@ -492,11 +494,13 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
   }, [setValue]);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {error && (
         <motion.div 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
           className="bg-red-50 border border-red-200 rounded-lg p-4"
         >
           <div className="flex items-center gap-3">
@@ -508,12 +512,17 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
 
       {/* Patient Section */}
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.1 }}
         className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm"
       >
-        <div className="flex items-center gap-3 mb-6">
+        <motion.div 
+          className="flex items-center gap-3 mb-6 -ml-2"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+        >
           <div className="p-2 bg-blue-100 rounded-lg">
             <Icon icon="solar:user-rounded-bold-duotone" className="w-5 h-5 text-blue-600" />
           </div>
@@ -521,16 +530,16 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
             <h3 className="text-lg font-semibold text-gray-900">Patient Information</h3>
             <p className="text-sm text-gray-500">Select the patient for this appointment</p>
           </div>
-        </div>
+        </motion.div>
         <div className="relative">
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-              <Icon icon="solar:user-rounded-bold-duotone" className="w-4 h-4 text-blue-500" />
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Patient
             </label>
             <motion.div 
               className="relative"
-              whileHover={{ scale: 1.01 }}
-              transition={{ type: "spring", stiffness: 300 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2 }}
             >
               <Icon 
                 icon="solar:user-rounded-bold-duotone" 
@@ -549,22 +558,27 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
                 }}
                 onFocus={() => !initialPatientId && !selectedPatientId && setShowPatientDropdown(true)}
                 disabled={!!initialPatientId}
-                className={`w-full pl-10 ${selectedPatientId && !initialPatientId ? 'pr-12' : 'pr-4'} py-3 bg-white border border-gray-300 rounded-lg 
-                  focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 
+                className={`w-full pl-10 ${selectedPatientId && !initialPatientId ? 'pr-12' : 'pr-4'} py-3 bg-gray-100 border-0 rounded-lg 
+                  focus:outline-none focus:ring-2 focus:ring-purple-500 
                   transition-all duration-200 text-gray-700
-                  ${initialPatientId ? 'bg-gray-50 cursor-not-allowed' : ''}
-                  hover:border-gray-400`}
+                  ${initialPatientId ? 'bg-gray-200 cursor-not-allowed' : ''}
+                  hover:bg-gray-200`}
               />
               {selectedPatientId && !initialPatientId && (
                 <motion.button
                   type="button"
-                  initial={{ opacity: 0, scale: 0.8 }}
+                  initial={{ opacity: 0, scale: 0.5 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
+                  exit={{ opacity: 0, scale: 0.5 }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 500,
+                    damping: 25
+                  }}
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={clearPatient}
-                  className="absolute right-3 inset-y-0 my-auto h-8 w-8 hover:bg-gray-100 rounded-full transition-all duration-200 z-10 flex items-center justify-center"
+                  className="absolute right-3 inset-y-0 m-auto h-8 w-8 hover:bg-gray-200 rounded-full transition-all duration-200 z-10 flex items-center justify-center"
                 >
                   <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-400 hover:text-gray-600" />
                 </motion.button>
@@ -580,9 +594,8 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
                   transition={{ 
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30
+                    duration: 0.2,
+                    ease: [0.23, 1, 0.32, 1]
                   }}
                   className="absolute z-20 w-full mt-2 bg-white rounded-xl shadow-xl border border-gray-100 max-h-60 overflow-auto"
                   style={{ zIndex: 9999 }}
@@ -603,11 +616,10 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
                         key={patient.id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.03, duration: 0.2 }}
                         whileHover={{ 
-                          backgroundColor: '#f3f4f6',
-                          x: 5,
-                          transition: { duration: 0.2 }
+                          backgroundColor: 'rgba(243, 244, 246, 0.8)',
+                          x: 4,
+                          transition: { duration: 0.15, ease: "easeOut" }
                         }}
                         onClick={() => handlePatientSelect(patient)}
                         className="px-4 py-3 cursor-pointer flex items-center gap-3 transition-all duration-200"
@@ -642,12 +654,17 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
 
       {/* Appointment Details Section */}
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.2 }}
         className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm"
       >
-        <div className="flex items-center gap-3 mb-6">
+        <motion.div 
+          className="flex items-center gap-3 mb-6 -ml-2"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
           <div className="p-2 bg-purple-100 rounded-lg">
             <Icon icon="solar:calendar-add-bold-duotone" className="w-5 h-5 text-purple-600" />
           </div>
@@ -655,31 +672,26 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
             <h3 className="text-lg font-semibold text-gray-900">Appointment Details</h3>
             <p className="text-sm text-gray-500">Configure the appointment settings</p>
           </div>
-        </div>
+        </motion.div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Doctor Selection - Only show if more than one doctor */}
           {doctors.length > 1 ? (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                <Icon icon="solar:stethoscope-bold-duotone" className="w-4 h-4 text-purple-500" />
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Doctor
               </label>
               <div className="relative">
-                <Icon 
-                  icon="solar:stethoscope-bold-duotone" 
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" 
-                />
                 <select
                   {...register('doctor_id', { required: 'Doctor is required' })}
                   onChange={(e) => {
                     const doctor = doctors.find(d => d.id === e.target.value);
                     if (doctor) setSelectedDoctor(doctor);
                   }}
-                  className="w-full pl-10 pr-10 py-3 bg-white border border-gray-300 rounded-lg 
-                    focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 
+                  className="w-full px-4 pr-10 py-3 bg-gray-100 border-0 rounded-lg 
+                    focus:outline-none focus:ring-2 focus:ring-purple-500 
                     transition-all duration-200 text-gray-700 appearance-none
-                    hover:border-gray-400"
+                    hover:bg-gray-200"
                 >
                 <option value="">Select doctor</option>
                 {doctors.map((doctor) => (
@@ -711,7 +723,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
                   <Icon icon="solar:stethoscope-bold-duotone" className="w-4 h-4 text-purple-500" />
                   Doctor
                 </label>
-                <div className="px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg flex items-center gap-3">
+                <div className="px-4 py-3 bg-gray-200 border-0 rounded-lg flex items-center gap-3">
                   <Icon icon="solar:stethoscope-bold-duotone" className="w-5 h-5 text-gray-600" />
                   <span className="text-gray-700">{selectedDoctor.full_name}</span>
                 </div>
@@ -721,8 +733,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
 
           {/* Appointment Type */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-              <Icon icon="solar:clipboard-heart-bold-duotone" className="w-4 h-4 text-purple-500" />
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Appointment Type
             </label>
             <div className="relative">
@@ -730,21 +741,26 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
                 icon="solar:clipboard-heart-bold-duotone" 
                 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" 
               />
-              <select
+              <input
+                type="hidden"
                 {...register('type', { required: 'Type is required' })}
+              />
+              <button
+                type="button"
+                onClick={() => !initialType && setShowTypeModal(true)}
                 disabled={!!initialType}
-                className={`w-full pl-10 pr-10 py-3 bg-white border border-gray-300 rounded-lg 
-                  focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 
-                  transition-all duration-200 text-gray-700 appearance-none
-                  hover:border-gray-400
-                  ${initialType ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                className={`w-full pl-10 pr-10 py-3 bg-gray-100 border-0 rounded-lg 
+                  focus:outline-none focus:ring-2 focus:ring-purple-500 
+                  transition-all duration-200 text-gray-700 text-left
+                  hover:bg-gray-200
+                  ${initialType ? 'bg-gray-200 cursor-not-allowed' : 'cursor-pointer'}`}
               >
-                <option value="">Select type</option>
-                <option value="consultation">Consultation</option>
-                <option value="follow-up">Follow-up</option>
-                <option value="procedure">Procedure</option>
-                <option value="emergency">Emergency</option>
-              </select>
+                {watch('type') ? (
+                  <span className="capitalize">{watch('type').replace('-', ' ')}</span>
+                ) : (
+                  <span className="text-gray-500">Select type</span>
+                )}
+              </button>
               <Icon 
                 icon="solar:alt-arrow-down-bold-duotone" 
                 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" 
@@ -768,8 +784,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
           {/* Date Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-              <Icon icon="solar:calendar-date-bold-duotone" className="w-4 h-4 text-purple-500" />
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Date
             </label>
             <PremiumDatePickerModal
@@ -783,8 +798,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
 
         {/* Time Range Selection */}
         <div className="mt-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-            <Icon icon="solar:clock-circle-bold-duotone" className="w-4 h-4 text-purple-500" />
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Time Selection
           </label>
           <PremiumTimeRangePicker
@@ -837,12 +851,17 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
 
       {/* Notes Section */}
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.3 }}
         className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm"
       >
-        <div className="flex items-center gap-3 mb-6">
+        <motion.div 
+          className="flex items-center gap-3 mb-6 -ml-2"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+        >
           <div className="p-2 bg-green-100 rounded-lg">
             <Icon icon="solar:notes-bold-duotone" className="w-5 h-5 text-green-600" />
           </div>
@@ -850,7 +869,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
             <h3 className="text-lg font-semibold text-gray-900">Additional Notes</h3>
             <p className="text-sm text-gray-500">Add any special instructions or concerns</p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Notes */}
         <div>
@@ -858,17 +877,25 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
             {...register('notes')}
             rows={3}
             placeholder="Add any special instructions or notes..."
-            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg 
-              focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 
+            className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg 
+              focus:outline-none focus:ring-2 focus:ring-cyan-500 
               transition-all duration-200 text-gray-700 resize-none
-              hover:border-gray-400"
+              hover:bg-gray-200"
           />
         </div>
       </motion.div>
 
       {/* Action Buttons */}
-      <div className="flex justify-end gap-3 pt-4">
-        <button
+      <motion.div 
+        className="flex justify-end gap-3 pt-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.4, duration: 0.3 }}
+      >
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          transition={{ type: "spring", stiffness: 400, damping: 17 }}
           type="button"
           onClick={() => {
             if (onCancel) {
@@ -881,15 +908,18 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
             hover:bg-gray-50 transition-all duration-200 font-medium flex items-center gap-2"
         >
           Cancel
-        </button>
+        </motion.button>
         
-        <button
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          transition={{ type: "spring", stiffness: 400, damping: 17 }}
           type="submit"
           disabled={isLoading}
-          className="px-6 py-2.5 bg-cyan-600 text-white rounded-lg 
-            hover:bg-cyan-700 transition-all duration-200 font-medium 
+          className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg 
+            hover:from-purple-600 hover:to-indigo-700 transition-all duration-200 font-medium 
             flex items-center gap-2 disabled:opacity-50 
-            disabled:cursor-not-allowed"
+            disabled:cursor-not-allowed shadow-lg"
         >
           {isLoading ? (
             <>
@@ -902,9 +932,23 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
               Schedule Appointment
             </>
           )}
-        </button>
-      </div>
-    </form>
+        </motion.button>
+      </motion.div>
+      </form>
+
+      {/* Appointment Type Modal - Outside form to prevent submission */}
+      <AppointmentTypeModal
+        isOpen={showTypeModal}
+        onClose={() => setShowTypeModal(false)}
+        onSelect={(type) => {
+          setValue('type', type);
+          if (errors.type) {
+            clearErrors('type');
+          }
+        }}
+        selectedType={watch('type')}
+      />
+    </>
   );
 };
 

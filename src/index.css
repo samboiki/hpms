@@ -41,13 +41,8 @@
     letter-spacing: -0.02em;
   }
 
-  /* Hide header and sidebar when modal is open */
-  body.modal-open header,
-  body.modal-open nav {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease-in-out;
-  }
+  /* Keep header and sidebar visible when modal is open */
+  /* Removed the rule that was hiding header and nav when modal opens */
 
   /* Custom styles for react-day-picker */
   .custom-day-picker {

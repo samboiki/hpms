@@ -131,7 +131,7 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
               onClick={() => handleDurationSelect(option.value)}
               className={`py-2.5 px-3 rounded-xl font-medium text-sm transition-all duration-200
                 ${selectedDuration === option.value
-                  ? 'bg-cyan-600 text-white shadow-lg'
+                  ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg'
                   : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200'
                 }`}
             >
@@ -158,10 +158,10 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
                   onClick={() => handleStartTimeChange(slot.time)}
                   className={`w-full py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200
                     ${startTime === slot.time
-                      ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-white shadow-md'
+                      ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md'
                       : slot.isBooked
                       ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-40 line-through'
-                      : 'bg-white hover:bg-cyan-50 text-gray-700 border border-gray-200 hover:border-cyan-300'
+                      : 'bg-white hover:bg-purple-50 text-gray-700 border border-gray-200 hover:border-purple-300'
                     }`}
                 >
                   <div className="flex items-center justify-between">
@@ -179,9 +179,9 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
         {/* End Time Display */}
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-gray-700">{endLabel}</label>
-          <div className="bg-cyan-50/50 rounded-xl p-4 h-full flex flex-col justify-center">
+          <div className="bg-purple-50/50 rounded-xl p-4 h-full flex flex-col justify-center">
             <div className="text-center space-y-3">
-              <Icon icon="solar:clock-circle-bold-duotone" className="w-16 h-16 text-cyan-500 mx-auto" />
+              <Icon icon="solar:clock-circle-bold-duotone" className="w-16 h-16 text-purple-500 mx-auto" />
               <div>
                 <p className="text-sm text-gray-600 mb-1">Appointment ends at</p>
                 <p className="text-2xl font-bold text-gray-800">
@@ -190,7 +190,7 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
               </div>
               {duration > 0 && (
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white rounded-full text-sm">
-                  <Icon icon="solar:timer-bold-duotone" className="w-4 h-4 text-cyan-500" />
+                  <Icon icon="solar:timer-bold-duotone" className="w-4 h-4 text-purple-500" />
                   <span className="font-medium text-gray-700">{duration} minutes</span>
                 </div>
               )}

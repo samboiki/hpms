@@ -15,6 +15,7 @@ import {
   X,
   LogOut
 } from 'lucide-react';
+import SearchDuotone from '../components/icons/SearchDuotone';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { format, eachDayOfInterval, isToday, isSameDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
@@ -517,7 +518,32 @@ function Dashboard() {
                   </div>
                 </div>
               </div>
+              
               <div className="flex items-center justify-end gap-3">
+                {/* Search Bar - Theme Styled */}
+                <div className="w-[500px]">
+                  <div className={`relative group bg-gradient-to-b ${currentTheme.gradients.sidebar} rounded-xl shadow-lg border border-white/10 overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-white/20`}>
+                    {/* Duo-tone Search Icon */}
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                      <SearchDuotone 
+                        className="w-5 h-5 transition-all duration-300 group-hover:scale-110"
+                        primaryColor="#ffffff"
+                        secondaryColor="#ffffff80"
+                      />
+                    </div>
+                    
+                    <input
+                      type="text"
+                      placeholder="Search patients, appointments, or records..."
+                      className="relative w-full pl-12 pr-4 py-3.5 bg-white/10 backdrop-blur-sm text-base text-white placeholder-white/60 focus:outline-none focus:bg-white/20 hover:bg-white/15 transition-all duration-300 rounded-xl"
+                      onChange={(e) => {
+                        // TODO: Implement search functionality
+                        console.log('Search:', e.target.value);
+                      }}
+                    />
+                  </div>
+                </div>
+                
                 {/* User Avatar with Dropdown */}
                 {user && (
                   <div className="relative">
