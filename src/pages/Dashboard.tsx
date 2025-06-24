@@ -46,6 +46,7 @@ import { useCommunicationStats } from '../hooks/useCommunicationStats';
 import { usePatientStats } from '../hooks/usePatientStats';
 import { useInvoiceStats } from '../hooks/useInvoiceStats';
 import { useEncounterStats } from '../hooks/useEncounterStats';
+import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
 
 interface Appointment {
   id: string;
@@ -1705,6 +1706,11 @@ function Dashboard() {
         isOpen={isPatientModalOpen}
         onClose={() => setIsPatientModalOpen(false)}
       />
+
+      {/* Floating Visit Tracker */}
+      {currentPracticeId && (
+        <FloatingVisitTracker practiceId={currentPracticeId} />
+      )}
     </div>
   );
 
