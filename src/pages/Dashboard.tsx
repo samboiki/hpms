@@ -520,27 +520,35 @@ function Dashboard() {
               </div>
               
               <div className="flex items-center justify-end gap-3">
-                {/* Search Bar - Theme Styled */}
+                {/* Search Bar - Premium Grey with Hover Effects */}
                 <div className="w-[500px]">
-                  <div className={`relative group bg-gradient-to-b ${currentTheme.gradients.sidebar} rounded-xl shadow-lg border border-white/10 overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-white/20`}>
-                    {/* Duo-tone Search Icon */}
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
-                      <SearchDuotone 
-                        className="w-5 h-5 transition-all duration-300 group-hover:scale-110"
-                        primaryColor="#ffffff"
-                        secondaryColor="#ffffff80"
-                      />
-                    </div>
+                  <div className="relative group">
+                    {/* Animated gradient glow on hover */}
+                    <div className={`absolute -inset-0.5 bg-gradient-to-r ${currentTheme.gradients.sidebar} rounded-xl opacity-0 group-hover:opacity-75 blur transition duration-500 group-hover:duration-200`}></div>
                     
-                    <input
-                      type="text"
-                      placeholder="Search patients, appointments, or records..."
-                      className="relative w-full pl-12 pr-4 py-3.5 bg-white/10 backdrop-blur-sm text-base text-white placeholder-white/60 focus:outline-none focus:bg-white/20 hover:bg-white/15 transition-all duration-300 rounded-xl"
-                      onChange={(e) => {
-                        // TODO: Implement search functionality
-                        console.log('Search:', e.target.value);
-                      }}
-                    />
+                    <div className="relative bg-gray-200 rounded-xl overflow-hidden transition-all duration-300 group-hover:bg-gray-100">
+                      {/* Duo-tone Search Icon */}
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                        <SearchDuotone 
+                          className="w-5 h-5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12"
+                          primaryColor="#374151"
+                          secondaryColor="#37415180"
+                        />
+                      </div>
+                      
+                      <input
+                        type="text"
+                        placeholder="Search patients, appointments, or records..."
+                        className="relative w-full pl-12 pr-4 py-3.5 bg-transparent text-base text-gray-800 placeholder-gray-600 focus:outline-none focus:placeholder-gray-500 transition-all duration-300"
+                        onChange={(e) => {
+                          // TODO: Implement search functionality
+                          console.log('Search:', e.target.value);
+                        }}
+                      />
+                      
+                      {/* Shimmer effect on hover */}
+                      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none"></div>
+                    </div>
                   </div>
                 </div>
                 

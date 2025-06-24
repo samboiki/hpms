@@ -55,6 +55,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
   initialType 
 }) => {
   const { user } = useAuthStore();
+  const [dataFetched, setDataFetched] = useState(false);
   
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -88,14 +89,14 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
   const [error, setError] = useState<string | null>(null);
   const [patientSearchTerm, setPatientSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [filteredPatients, setFilteredPatients] = useState<Patient[]>([]);
+  // Remove this state - we'll use the memoized value directly
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [bookedTimes, setBookedTimes] = useState<string[]>([]);
   const [endTime, setEndTime] = useState<string>('');
-  const [isLoadingPatients, setIsLoadingPatients] = useState(true);
-  const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
+  const [isLoadingPatients, setIsLoadingPatients] = useState(false);
+  const [isLoadingDoctors, setIsLoadingDoctors] = useState(false);
   const [businessHours, setBusinessHours] = useState<{ start: string; end: string }>({ start: '08:00', end: '18:00' });
   const [allBusinessHours, setAllBusinessHours] = useState<any>(null);
   const [showTypeModal, setShowTypeModal] = useState(false);
@@ -115,29 +116,27 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
   
   const fetchBookedTimes = async (doctorId: string, date: string) => {
     try {
-      // Fetch scheduled visits excluding cancelled ones
-      const { data: visits, error } = await supabase
-        .from('visits')
-        .select('scheduled_time, visit_time')
+      // Fetch from appointments table which is the source of truth
+      const { data: appointments, error } = await supabase
+        .from('appointments')
+        .select('time, duration')
         .eq('doctor_id', doctorId)
-        .eq('scheduled_date', date)
-        .eq('is_scheduled', true)
-        .eq('is_cancelled', false) // Exclude cancelled visits
-        .in('status', ['scheduled', 'in-progress', 'ready']);
+        .eq('date', date)
+        .in('status', ['scheduled', 'confirmed']);
       
       if (error) throw error;
       
       // Generate array of booked time slots
       const bookedSlots: string[] = [];
-      visits?.forEach(visit => {
-        const time = visit.scheduled_time || visit.visit_time;
-        if (time) {
-          const [hours, minutes] = time.split(':').map(Number);
+      appointments?.forEach(appointment => {
+        if (appointment.time) {
+          const [hours, minutes] = appointment.time.split(':').map(Number);
           const startTime = new Date();
           startTime.setHours(hours, minutes, 0, 0);
           
-          // Mark every 15-minute slot within 30 minutes as booked
-          for (let i = 0; i < 30; i += 15) {
+          // Mark slots for the duration of the appointment
+          const duration = appointment.duration || 30;
+          for (let i = 0; i < duration; i += 15) {
             const slotTime = new Date(startTime.getTime() + (i * 60000));
             bookedSlots.push(format(slotTime, 'HH:mm'));
           }
@@ -153,7 +152,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
 
   // Calculate end time whenever start time changes
   useEffect(() => {
-    if (selectedTime) {
+    if (selectedTime && !endTime) {
       const [hours, minutes] = selectedTime.split(':').map(Number);
       const startDate = new Date();
       startDate.setHours(hours, minutes, 0, 0);
@@ -165,13 +164,124 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
       setValue('end_time', calculatedEndTime);
       setValue('duration', 30);
     }
-  }, [selectedTime, setValue]);
+  }, [selectedTime, setValue, endTime]);
 
+  // Fetch all data in parallel on mount
   useEffect(() => {
-    fetchPatients();
-    fetchDoctors();
-    fetchBusinessHours();
-  }, []);
+    const fetchAllData = async () => {
+      try {
+        // Early return if no user or already fetched
+        if (!user?.id) {
+          console.log('Waiting for user authentication...');
+          return;
+        }
+        
+        if (dataFetched) {
+          console.log('Data already fetched, skipping...');
+          return;
+        }
+
+        // Get practice_id once
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('practice_id')
+          .eq('id', user.id)
+          .single();
+
+        if (userError) {
+          console.error('Error fetching user data:', userError);
+          throw userError;
+        }
+        
+        const practiceId = userData?.practice_id;
+        if (!practiceId) {
+          console.error('No practice_id found for user');
+          setIsLoadingPatients(false);
+          setIsLoadingDoctors(false);
+          return;
+        }
+
+        // Start loading states
+        setIsLoadingPatients(true);
+        setIsLoadingDoctors(true);
+
+        // Fetch all data in parallel
+        const [patientsResult, doctorsResult, practiceResult] = await Promise.all([
+          // Fetch patients
+          supabase
+            .from('patients')
+            .select('id, first_name, last_name')
+            .eq('practice_id', practiceId)
+            .order('last_name', { ascending: true }),
+          
+          // Fetch doctors
+          supabase
+            .from('users')
+            .select('id, full_name, role')
+            .eq('role', 'doctor')
+            .eq('practice_id', practiceId)
+            .order('full_name', { ascending: true }),
+          
+          // Fetch practice for business hours
+          supabase
+            .from('practices')
+            .select('business_hours')
+            .eq('id', practiceId)
+            .single()
+        ]);
+
+        // Process patients
+        if (!patientsResult.error) {
+          setPatients(patientsResult.data || []);
+          console.log('Loaded patients:', patientsResult.data?.length);
+        } else {
+          console.error('Error loading patients:', patientsResult.error);
+        }
+        setIsLoadingPatients(false);
+
+        // Process doctors
+        if (!doctorsResult.error) {
+          setDoctors(doctorsResult.data || []);
+          console.log('Loaded doctors:', doctorsResult.data?.length);
+        } else {
+          console.error('Error loading doctors:', doctorsResult.error);
+        }
+        setIsLoadingDoctors(false);
+
+        // Process business hours
+        if (!practiceResult.error && practiceResult.data?.business_hours) {
+          const hours = practiceResult.data.business_hours;
+          setAllBusinessHours(hours);
+          
+          // Set initial business hours
+          const today = new Date();
+          const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+          const currentDay = dayNames[today.getDay()];
+          
+          let dayHours = hours[currentDay];
+          if (!dayHours || dayHours.closed) {
+            dayHours = hours.monday || Object.values(hours).find((h: any) => h && !h.closed && h.open && h.close);
+          }
+          
+          if (dayHours && dayHours.open && dayHours.close) {
+            setBusinessHours({
+              start: dayHours.open,
+              end: dayHours.close
+            });
+          }
+        }
+        
+        // Mark data as fetched
+        setDataFetched(true);
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
+        setIsLoadingPatients(false);
+        setIsLoadingDoctors(false);
+      }
+    };
+
+    fetchAllData();
+  }, [user, dataFetched]);
 
   // Update default time when business hours are loaded
   useEffect(() => {
@@ -248,157 +358,34 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
     }
   }, [initialPatientId, patients, patientSearchTerm, setValue]);
 
-  // Debounce search term with reduced delay for better performance
+  // Debounce search term
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(patientSearchTerm);
-    }, 150); // Reduced from 300ms to 150ms
+    }, 100); // Fast debounce for responsive feel
     
     return () => clearTimeout(timer);
   }, [patientSearchTerm]);
 
-  // Memoize filtered patients for better performance
-  const filteredPatientsResult = useMemo(() => {
+  // Optimized patient filtering with memoization
+  const filteredPatients = useMemo(() => {
     if (!debouncedSearchTerm || selectedPatientId) {
       return patients.slice(0, 10); // Show limited results initially
     }
     
     const searchLower = debouncedSearchTerm.toLowerCase();
+    const searchTerms = searchLower.split(' ').filter(Boolean);
+    
     return patients
       .filter(patient => {
         const fullName = `${patient.first_name} ${patient.last_name}`.toLowerCase();
-        return fullName.includes(searchLower) || 
-               patient.first_name.toLowerCase().startsWith(searchLower) || 
-               patient.last_name.toLowerCase().startsWith(searchLower);
+        // Check if all search terms match
+        return searchTerms.every(term => fullName.includes(term));
       })
       .slice(0, 20); // Limit results for performance
   }, [debouncedSearchTerm, patients, selectedPatientId]);
 
-  useEffect(() => {
-    setFilteredPatients(filteredPatientsResult);
-  }, [filteredPatientsResult]);
-
-  const fetchPatients = async () => {
-    try {
-      setIsLoadingPatients(true);
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('id', user?.id)
-        .single();
-
-      if (userError) throw userError;
-      const practiceId = userData?.practice_id || user?.practice_id;
-
-      const { data, error } = await supabase
-        .from('patients')
-        .select('id, first_name, last_name')
-        .eq('practice_id', practiceId)
-        .order('last_name', { ascending: true });
-
-      if (error) throw error;
-      setPatients(data || []);
-      setFilteredPatients(data || []);
-    } catch (err) {
-      console.error('Error fetching patients:', err);
-    } finally {
-      setIsLoadingPatients(false);
-    }
-  };
-
-  const fetchDoctors = async () => {
-    try {
-      setIsLoadingDoctors(true);
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('id', user?.id)
-        .single();
-
-      if (userError) throw userError;
-      const practiceId = userData?.practice_id || user?.practice_id;
-
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, full_name, role')
-        .eq('role', 'doctor')
-        .eq('practice_id', practiceId)
-        .order('full_name', { ascending: true });
-
-      if (error) throw error;
-      setDoctors(data || []);
-    } catch (err) {
-      console.error('Error fetching doctors:', err);
-    } finally {
-      setIsLoadingDoctors(false);
-    }
-  };
-
-  const fetchBusinessHours = async () => {
-    try {
-      // Get user's practice_id
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('practice_id')
-        .eq('id', user?.id)
-        .single();
-
-      if (userError) throw userError;
-      const practiceId = userData?.practice_id || user?.practice_id;
-
-      // Fetch practice business hours
-      const { data: practiceData, error: practiceError } = await supabase
-        .from('practices')
-        .select('business_hours')
-        .eq('id', practiceId)
-        .single();
-
-      if (practiceError) throw practiceError;
-
-      if (practiceData?.business_hours) {
-        // Store all business hours for later use
-        setAllBusinessHours(practiceData.business_hours);
-        
-        // Business hours structure: { monday: { open: "08:00", close: "17:00" }, ... }
-        const hours = practiceData.business_hours;
-        
-        // Get the current day or use Monday as default for appointment scheduling
-        const today = new Date();
-        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-        const currentDay = dayNames[today.getDay()];
-        
-        // Try to get today's hours first, fallback to Monday, or find any open day
-        let dayHours = hours[currentDay];
-        
-        if (!dayHours || dayHours.closed) {
-          // If today is closed, try Monday
-          dayHours = hours.monday;
-          
-          // If Monday is also closed, find the first open day
-          if (!dayHours || dayHours.closed) {
-            for (const day of dayNames) {
-              if (hours[day] && !hours[day].closed && hours[day].open && hours[day].close) {
-                dayHours = hours[day];
-                break;
-              }
-            }
-          }
-        }
-        
-        // Set the business hours if we found valid hours
-        if (dayHours && dayHours.open && dayHours.close) {
-          setBusinessHours({
-            start: dayHours.open,
-            end: dayHours.close
-          });
-          console.log('Business hours set:', dayHours.open, '-', dayHours.close);
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching business hours:', err);
-      // Keep default hours if fetch fails
-    }
-  };
+  // Remove individual fetch functions - they're now handled in the parallel fetch
 
   const onSubmit = async (data: AddAppointmentFormData) => {
     try {
@@ -492,6 +479,21 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
     setPatientSearchTerm('');
     setShowPatientDropdown(false);
   }, [setValue]);
+
+  // Show loading only when actively fetching, not on initial mount
+  const isInitialLoading = isLoadingPatients || isLoadingDoctors;
+  
+  // Don't render form until user is loaded
+  if (!user?.id) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <Icon icon="solar:refresh-circle-bold-duotone" className="w-12 h-12 text-purple-500 animate-spin mx-auto mb-3" />
+          <p className="text-gray-600">Loading appointment form...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
