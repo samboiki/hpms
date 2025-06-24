@@ -45,7 +45,7 @@ import {
   getAppointmentStats
 } from '../utils/appointments';
 import FormModal from './modals/FormModal';
-import AddAppointmentForm from './forms/AddAppointmentForm';
+import PremiumAddAppointmentForm from './forms/PremiumAddAppointmentForm';
 import RescheduleAppointmentModal from './modals/RescheduleAppointmentModal';
 
 // --- Interfaces ---
@@ -895,7 +895,7 @@ const PremiumAppointmentSchedule: React.FC<PremiumAppointmentScheduleProps> = ({
         }}
         title="Schedule New Appointment"
       >
-        <AddAppointmentForm 
+        <PremiumAddAppointmentForm 
           initialDate={selectedTimeSlot?.date}
           initialTime={selectedTimeSlot?.time}
           onSuccess={(newAppointment) => {

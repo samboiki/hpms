@@ -17,7 +17,7 @@ import {
 import FullScreenModal from '../ui/FullScreenModal';
 import EditVisitTabs from './EditVisitTabs';
 import FormModal from '../modals/FormModal';
-import AddAppointmentForm from '../forms/AddAppointmentForm';
+import PremiumAddAppointmentForm from '../forms/PremiumAddAppointmentForm';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { ServiceSelection } from '../../types/billing';
@@ -512,7 +512,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
         }}
         title="Schedule Follow-up Appointment"
       >
-        <AddAppointmentForm
+        <PremiumAddAppointmentForm
           onSuccess={() => {
             setIsScheduleModalOpen(false);
             setFollowUpRequired(true);

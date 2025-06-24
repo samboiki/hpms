@@ -46,7 +46,7 @@ import {
 } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import FormModal from './modals/FormModal';
-import AddAppointmentForm from './forms/AddAppointmentForm';
+import PremiumAddAppointmentForm from './forms/PremiumAddAppointmentForm';
 import { PremiumDayGridView } from './appointments/PremiumDayGridView';
 import { PremiumWeekGridView } from './appointments/PremiumWeekGridView';
 import { supabase } from '../lib/supabase';
@@ -1043,7 +1043,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
         }}
         title="Schedule Appointment"
       >
-        <AddAppointmentForm
+        <PremiumAddAppointmentForm
           initialDate={selectedTimeSlot?.date || selectedDate}
           initialTime={selectedTimeSlot?.time}
           initialDoctorId={selectedTimeSlot?.doctorId}

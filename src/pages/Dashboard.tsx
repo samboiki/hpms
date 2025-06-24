@@ -7,7 +7,6 @@ import {
   Microscope,
   AlertCircle,
   Plus,
-  CheckCircle2,
   MessageSquare,
   ChevronRight,
   DollarSign,
@@ -19,17 +18,10 @@ import {
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { format, eachDayOfInterval, isToday, isSameDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
-import { practiceDataService, PracticeDetails } from '../lib/practiceDataService';
-import FormModal from '../components/modals/FormModal';
-import AddAppointmentForm from '../components/forms/AddAppointmentForm';
-import PremiumAppointmentScheduler from '../components/PremiumAppointmentScheduler';
-import AppointmentDetailsModal from '../components/modals/AppointmentDetailsModal';
-import RescheduleAppointmentModal from '../components/modals/RescheduleAppointmentModal';
-import AppointmentActionModal from '../components/modals/AppointmentActionModal';
-import AppointmentApprovalModal from '../components/modals/AppointmentApprovalModal';
-import AppointmentGridView from '../components/appointments/AppointmentGridView';
+import { practiceDataService } from '../lib/practiceDataService';
+import AddScheduledVisitForm from '../components/forms/AddScheduledVisitForm';
 import { motion } from 'framer-motion';
-import { useRealtimeAppointments } from '../hooks/useRealtimeAppointments';
+import { useVisitsStore } from '../stores/visitsStore';
 import { useTheme } from '../stores/themeStore';
 import { toast } from 'react-hot-toast';
 import PremiumStatCard from '../components/dashboard/PremiumStatCard';
@@ -39,7 +31,6 @@ import PracticeOverviewTile from '../components/dashboard/PracticeOverviewTile';
 import { dashboardStatsService, DashboardStats } from '../services/dashboardStatsService';
 import { useAuthStore } from '../stores/authStore';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
-import { ServiceLimitsWidget } from '../components/practice/ServiceLimitsWidget';
 import CommunicationsModal from '../components/modals/CommunicationsModal';
 import ComprehensivePatientModal from '../components/patients/ComprehensivePatientModal';
 import { useCommunicationStats } from '../hooks/useCommunicationStats';
@@ -47,30 +38,17 @@ import { usePatientStats } from '../hooks/usePatientStats';
 import { useInvoiceStats } from '../hooks/useInvoiceStats';
 import { useEncounterStats } from '../hooks/useEncounterStats';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
+import PremiumAppointmentScheduler from '../components/PremiumAppointmentScheduler';
+import FormModal from '../components/modals/FormModal';
+import PremiumAddAppointmentForm from '../components/forms/PremiumAddAppointmentForm';
+import AppointmentDetailsModal from '../components/modals/AppointmentDetailsModal';
+import RescheduleAppointmentModal from '../components/modals/RescheduleAppointmentModal';
+import AppointmentActionModal from '../components/modals/AppointmentActionModal';
+import AppointmentApprovalModal from '../components/modals/AppointmentApprovalModal';
+import AppointmentGridView from '../components/appointments/AppointmentGridView';
 
-interface Appointment {
-  id: string;
-  patient_id: string;
-  doctor_id: string;
-  date: string;
-  time: string;
-  duration: number;
-  type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
-  status: 'pending' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'no-show' | 'ready';
-  notes?: string;
-  patient: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    cell_number?: string;
-    date_of_birth?: string;
-    gender?: string;
-  };
-  doctor?: {
-    id: string;
-    full_name: string;
-  };
-}
+// Using Visit type from enhanced-visit.types
+import { Visit } from '../types/enhanced-visit.types';
 
 interface Doctor {
   id: string;
@@ -96,18 +74,21 @@ interface ActivityItem {
 function Dashboard() {
   const { user, logout } = useAuthStore();
   const { currentTheme } = useTheme();
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patientsData, setPatientsData] = useState<any[]>([]);
+  const [isAddVisitModalOpen, setIsAddVisitModalOpen] = useState(false);
   const [isAddAppointmentModalOpen, setIsAddAppointmentModalOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
-  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+  const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<'admin' | 'doctor' | 'nurse' | 'receptionist'>('admin');
   const [currentUserId, setCurrentUserId] = useState('');
   const [currentPracticeId, setCurrentPracticeId] = useState<string | null>(null);
@@ -184,102 +165,40 @@ function Dashboard() {
     };
   }, [showCalendarPicker]);
 
-  // Real-time appointment updates
-  useRealtimeAppointments({
-    practiceId: currentPracticeId,
-    onAppointmentChange: (change) => {
-      
-      if (change.eventType === 'INSERT') {
-        // New appointment - add to list and show notification
-        setAppointments(prev => [...prev, change.new]);
-        toast.success(`New appointment for ${change.new.patient?.first_name} ${change.new.patient?.last_name}`, {
-          duration: 5000,
-          position: 'top-right',
-          icon: '📅'
-        });
-        
-        // Update recent activities
-        const newActivity: ActivityItem = {
-          id: `act-${Date.now()}`,
-          type: 'appointment',
-          message: 'New appointment booked',
-          details: `${change.new.patient?.first_name} ${change.new.patient?.last_name} - ${change.new.type}`,
-          time: 'Just now',
-          icon: Calendar,
-          color: 'text-blue-600'
-        };
-        setRecentActivities(prev => [newActivity, ...prev.slice(0, 4)]);
-        
-        // Add real-time notification if appointment is pending
-        if (change.new.status === 'pending') {
-          const newNotification: Notification = {
-            id: `booking-${change.new.id}`,
-            type: 'booking',
-            priority: 'high',
-            title: 'New Booking Request',
-            description: `${change.new.patient?.first_name} ${change.new.patient?.last_name} requested a ${change.new.type} appointment for ${format(new Date(change.new.date + 'T' + change.new.time), 'MMM d, h:mm a')}`,
-            time: new Date(),
-            actionRequired: true,
-            read: false,
-            data: change.new,
-            actions: {
-              primary: {
-                label: 'Approve',
-                variant: 'approve',
-                onClick: () => {
-                  setSelectedAppointment(change.new);
-                  setIsApprovalModalOpen(true);
-                }
-              },
-              secondary: {
-                label: 'View Details',
-                onClick: () => {
-                  setSelectedAppointment(change.new);
-                  setIsDetailsModalOpen(true);
-                }
-              }
-            }
-          };
-          setNotifications(prev => [newNotification, ...prev]);
-        }
-      } else if (change.eventType === 'UPDATE') {
-        // Updated appointment - update in list
-        setAppointments(prev => 
-          prev.map(apt => apt.id === change.new.id ? change.new : apt)
-        );
-        
-        // Show notification if status changed
-        if (change.old.status !== change.new.status) {
-          const statusMessages: Record<string, string> = {
-            'scheduled': 'Appointment approved',
-            'in-progress': 'Visit started',
-            'completed': 'Visit completed',
-            'cancelled': 'Appointment cancelled',
-            'no-show': 'Marked as no-show'
-          };
-          
-          toast(statusMessages[change.new.status] || 'Appointment updated', {
-            duration: 4000,
-            position: 'top-right',
-            icon: change.new.status === 'cancelled' ? '❌' : '✅'
-          });
-          
-          // Remove notification if appointment was pending and is now handled
-          if (change.old.status === 'pending' && ['scheduled', 'cancelled'].includes(change.new.status)) {
-            setNotifications(prev => prev.filter(notif => notif.id !== `booking-${change.new.id}`));
-          }
-        }
-      } else if (change.eventType === 'DELETE') {
-        // Deleted appointment - remove from list
-        setAppointments(prev => prev.filter(apt => apt.id !== change.old.id));
-        // Remove related notification
-        setNotifications(prev => prev.filter(notif => notif.id !== `booking-${change.old.id}`));
-      }
-    },
-    onError: (error) => {
-      console.error('Real-time error:', error);
+  // Get visits data from store
+  const { 
+    visits, 
+    unconfirmedCount, 
+    checkedInCount, 
+    readyCount, 
+    inProgressCount, 
+    todayCount,
+    fetchTodayVisits,
+    subscribeToVisitChanges,
+    unsubscribeFromVisitChanges
+  } = useVisitsStore();
+
+  // Subscribe to real-time visit changes
+  useEffect(() => {
+    if (currentPracticeId) {
+      fetchTodayVisits();
+      subscribeToVisitChanges(currentPracticeId);
     }
-  });
+    return () => {
+      unsubscribeFromVisitChanges();
+    };
+  }, [currentPracticeId, fetchTodayVisits, subscribeToVisitChanges, unsubscribeFromVisitChanges]);
+
+  // Show notification for unconfirmed visits
+  useEffect(() => {
+    if (unconfirmedCount > 0) {
+      toast(`You have ${unconfirmedCount} unconfirmed booking${unconfirmedCount > 1 ? 's' : ''} requiring attention`, {
+        duration: 6000,
+        position: 'top-right',
+        icon: '⚠️'
+      });
+    }
+  }, [unconfirmedCount]);
 
   // Note: fetchPatientStats removed - now using usePatientStats hook for real-time practice-specific data
 
@@ -307,38 +226,10 @@ function Dashboard() {
       const debugData = await practiceDataService.debugPracticeData(authContext.practiceId);
 
       // Use robust practice data service
-      const practiceAppointments = await practiceDataService.getPracticeAppointments(authContext.practiceId);
       const practicePatients = await practiceDataService.getPracticePatients(authContext.practiceId);
       const practiceDoctors = await practiceDataService.getPracticeDoctors(authContext.practiceId);
 
-
-      // Get unique patient IDs for lab/media requests
-      const uniquePatientIds = [...new Set(practiceAppointments.map(apt => apt.patient_id))];
-
-      // Fetch lab requests (only if we have patients)
-      let labRequestsData = [];
-      if (uniquePatientIds.length > 0) {
-        const { data } = await supabase
-          .from('lab_requests')
-          .select('*')
-          .eq('status', 'pending')
-          .in('patient_id', uniquePatientIds);
-        labRequestsData = data || [];
-      }
-
-      // Fetch media requests (only if we have patients)
-      let mediaRequestsData = [];
-      if (uniquePatientIds.length > 0) {
-        const { data } = await supabase
-          .from('media_requests')
-          .select('*')
-          .eq('status', 'pending')
-          .in('patient_id', uniquePatientIds);
-        mediaRequestsData = data || [];
-      }
-
       // Set state
-      setAppointments(practiceAppointments);
       setPatientsData(practicePatients);
 
       // Format doctors for dropdown
@@ -352,30 +243,20 @@ function Dashboard() {
       }));
       setDoctors(formattedDoctors);
 
-      // Generate recent activities from practice data
+      // Generate recent activities from visits data
       const activities: ActivityItem[] = [];
       
-      practiceAppointments.slice(0, 3).forEach((apt) => {
+      // Get today's visits for activities
+      const todayVisits = visits.slice(0, 3);
+      todayVisits.forEach((visit) => {
         activities.push({
-          id: `apt-${apt.id}`,
+          id: `visit-${visit.id}`,
           type: 'appointment',
-          message: `${apt.patient?.first_name} ${apt.patient?.last_name}`,
-          details: `${apt.type} appointment scheduled`,
-          time: apt.time ? format(new Date(apt.date + 'T' + apt.time), 'h:mm a') : 'TBD',
+          message: `${visit.patient?.first_name} ${visit.patient?.last_name}`,
+          details: `${visit.visit_type} visit ${visit.status}`,
+          time: visit.scheduled_time || visit.visit_time || 'TBD',
           icon: Calendar,
           color: 'text-blue-500'
-        });
-      });
-
-      labRequestsData.slice(0, 2).forEach((lab) => {
-        activities.push({
-          id: `lab-${lab.id}`,
-          type: 'lab',
-          message: 'Lab request pending',
-          details: lab.test_name || 'Blood test',
-          time: 'Pending',
-          icon: Microscope,
-          color: 'text-purple-500'
         });
       });
 
@@ -392,35 +273,35 @@ function Dashboard() {
 
       // Note: Patient statistics now fetched via usePatientStats hook
 
-      // Generate real-time notifications based on actual data
+      // Generate real-time notifications based on visits data
       const newNotifications: Notification[] = [];
 
-      // Pending appointment bookings that need approval
-      const pendingBookings = practiceAppointments.filter(apt => apt.status === 'pending');
-      pendingBookings.forEach((apt) => {
+      // Unconfirmed bookings that need confirmation
+      const unconfirmedVisits = visits.filter(v => v.is_scheduled && !v.is_confirmed && !v.is_cancelled);
+      unconfirmedVisits.forEach((visit) => {
         newNotifications.push({
-          id: `booking-${apt.id}`,
+          id: `booking-${visit.id}`,
           type: 'booking',
           priority: 'high',
           title: 'New Booking Request',
-          description: `${apt.patient?.first_name} ${apt.patient?.last_name} requested a ${apt.type} appointment for ${format(new Date(apt.date + 'T' + apt.time), 'MMM d, h:mm a')}`,
-          time: new Date(apt.created_at || new Date()),
+          description: `${visit.patient?.first_name} ${visit.patient?.last_name} requested a ${visit.visit_type} visit for ${format(new Date(visit.scheduled_date + 'T' + visit.scheduled_time), 'MMM d, h:mm a')}`,
+          time: new Date(visit.created_at || new Date()),
           actionRequired: true,
           read: false,
-          data: apt,
+          data: visit,
           actions: {
             primary: {
-              label: 'Approve',
+              label: 'Confirm',
               variant: 'approve',
               onClick: () => {
-                setSelectedAppointment(apt);
-                setIsApprovalModalOpen(true);
+                setSelectedVisit(visit);
+                setIsConfirmationModalOpen(true);
               }
             },
             secondary: {
               label: 'View Details',
               onClick: () => {
-                setSelectedAppointment(apt);
+                setSelectedVisit(visit);
                 setIsDetailsModalOpen(true);
               }
             }
@@ -428,69 +309,27 @@ function Dashboard() {
         });
       });
 
-      // Lab results pending review
-      labRequestsData.forEach((lab) => {
-        newNotifications.push({
-          id: `lab-${lab.id}`,
-          type: 'lab-result',
-          priority: lab.is_urgent ? 'urgent' : 'normal',
-          title: 'Lab Results Ready',
-          description: `${lab.test_name || 'Lab test'} results are ready for review`,
-          time: new Date(lab.created_at || new Date()),
-          actionRequired: true,
-          read: false,
-          data: lab,
-          actions: {
-            primary: {
-              label: 'Review Results',
-              onClick: () => navigate('/requests')
-            }
-          }
-        });
-      });
-
       // Upcoming follow-ups for today
-      const todayFollowUps = practiceAppointments.filter(apt => 
-        apt.type === 'follow-up' && 
-        apt.status === 'scheduled' &&
-        apt.date === format(new Date(), 'yyyy-MM-dd')
+      const todayFollowUps = visits.filter(visit => 
+        visit.visit_type === 'follow-up' && 
+        visit.is_confirmed &&
+        visit.scheduled_date === format(new Date(), 'yyyy-MM-dd')
       );
-      todayFollowUps.forEach((apt) => {
+      todayFollowUps.forEach((visit) => {
         newNotifications.push({
-          id: `followup-${apt.id}`,
+          id: `followup-${visit.id}`,
           type: 'follow-up',
           priority: 'normal',
           title: 'Follow-up Reminder',
-          description: `${apt.patient?.first_name} ${apt.patient?.last_name} has a follow-up appointment at ${apt.time ? format(new Date(apt.date + 'T' + apt.time), 'h:mm a') : 'TBD'}`,
-          time: new Date(apt.date + 'T' + apt.time),
+          description: `${visit.patient?.first_name} ${visit.patient?.last_name} has a follow-up visit at ${visit.scheduled_time || 'TBD'}`,
+          time: new Date(visit.scheduled_date + 'T' + visit.scheduled_time),
           actionRequired: false,
           read: false,
-          data: apt,
+          data: visit,
           actions: {
             primary: {
               label: 'Start Visit',
-              onClick: () => handleStartVisit(apt.id)
-            }
-          }
-        });
-      });
-
-      // Media requests pending
-      mediaRequestsData.forEach((media) => {
-        newNotifications.push({
-          id: `media-${media.id}`,
-          type: 'system',
-          priority: 'normal',
-          title: 'Media Upload Pending',
-          description: `${media.request_type || 'Media'} upload requested for patient`,
-          time: new Date(media.created_at || new Date()),
-          actionRequired: true,
-          read: false,
-          data: media,
-          actions: {
-            primary: {
-              label: 'Upload Media',
-              onClick: () => navigate('/requests')
+              onClick: () => handleStartVisit(visit.id)
             }
           }
         });
@@ -522,8 +361,8 @@ function Dashboard() {
 
 
 
-  const handleEditAppointment = (appointment: Appointment) => {
-    setSelectedAppointment(appointment);
+  const handleEditVisit = (visit: Visit) => {
+    setSelectedVisit(visit);
     setIsRescheduleModalOpen(true);
   };
 
@@ -533,242 +372,124 @@ function Dashboard() {
     time: string;
   } | null>(null);
 
-  const handleCreateAppointment = async (doctorId: string, date: string, time: string) => {
+  const handleCreateVisit = async (doctorId: string, date: string, time: string) => {
     setSelectedTimeSlot({ doctorId, date, time });
-    setIsAddAppointmentModalOpen(true);
+    setIsAddVisitModalOpen(true);
   };
 
-  const handleDeleteAppointment = async (appointmentId: string) => {
+  const handleDeleteVisit = async (visitId: string) => {
     try {
       const { error } = await supabase
-        .from('appointments')
+        .from('visits')
         .delete()
-        .eq('id', appointmentId);
+        .eq('id', visitId);
       
       if (error) throw error;
       // Real-time updates will handle the refresh
     } catch (error) {
-      console.error('Error deleting appointment:', error);
+      console.error('Error deleting visit:', error);
     }
   };
 
-  const handleApproveAppointment = async (appointmentId: string, doctorId: string) => {
+  const handleConfirmVisit = async (visitId: string, doctorId?: string) => {
     try {
-      const { error } = await supabase
-        .from('appointments')
-        .update({ 
-          status: 'scheduled',
-          doctor_id: doctorId,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', appointmentId);
-
-      if (error) throw error;
+      const { confirmVisit } = useVisitsStore.getState();
+      await confirmVisit(visitId, doctorId);
       
-      setIsApprovalModalOpen(false);
-      setSelectedAppointment(null);
-      // Real-time updates will handle the refresh
+      setIsConfirmationModalOpen(false);
+      setSelectedVisit(null);
+      toast.success('Visit confirmed successfully');
     } catch (error) {
-      console.error('Error approving appointment:', error);
-      throw error;
+      console.error('Error confirming visit:', error);
+      toast.error('Failed to confirm visit');
     }
   };
 
-  const handleRejectAppointment = async (appointmentId: string, reason?: string) => {
+  const handleRejectVisit = async (visitId: string, reason?: string) => {
     try {
-      const { error } = await supabase
-        .from('appointments')
-        .update({ 
-          status: 'cancelled',
-          notes: reason ? `Rejected: ${reason}` : 'Rejected by practice',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', appointmentId);
-
-      if (error) throw error;
+      const { rejectVisit } = useVisitsStore.getState();
+      await rejectVisit(visitId, reason);
       
-      setIsApprovalModalOpen(false);
-      setSelectedAppointment(null);
-      // Real-time updates will handle the refresh
+      setIsConfirmationModalOpen(false);
+      setSelectedVisit(null);
+      toast.success('Visit rejected');
     } catch (error) {
-      console.error('Error rejecting appointment:', error);
-      throw error;
+      console.error('Error rejecting visit:', error);
+      toast.error('Failed to reject visit');
     }
   };
 
-  const handleStartVisit = async (appointmentId: string) => {
+  const handleStartVisit = async (visitId: string) => {
     try {
-      const appointment = appointments.find(apt => apt.id === appointmentId);
-      if (!appointment) {
-        toast.error('Appointment not found');
+      const { startVisit } = useVisitsStore.getState();
+      const visit = visits.find(v => v.id === visitId);
+      if (!visit) {
+        toast.error('Visit not found');
         return;
       }
 
-      // Start a database transaction by creating visit first
-      const { data: visit, error: visitError } = await supabase
-        .from('visits')
-        .insert([{
-          appointment_id: appointmentId,
-          patient_id: appointment.patient_id,
-          doctor_id: appointment.doctor_id || currentUserId, // Use current doctor if not assigned
-          visit_date: appointment.date,
-          visit_time: appointment.time,
-          visit_type: appointment.type || 'consultation',
-          chief_complaint: appointment.notes || 'See appointment notes',
-          status: 'in-progress',
-          created_at: new Date().toISOString()
-        }])
-        .select()
-        .single();
-      
-      if (visitError) {
-        console.error('Visit creation error:', visitError);
-        throw new Error('Failed to create visit record');
-      }
-      
-      // Update appointment status to in-progress
-      const { error: updateError } = await supabase
-        .from('appointments')
-        .update({ 
-          status: 'in-progress',
-          doctor_id: appointment.doctor_id || currentUserId, // Assign doctor if not already assigned
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', appointmentId);
-      
-      if (updateError) {
-        console.error('Appointment update error:', updateError);
-        // Try to rollback by deleting the visit
-        await supabase.from('visits').delete().eq('id', visit.id);
-        throw new Error('Failed to update appointment status');
-      }
+      await startVisit(visitId);
       
       // Close any open modals
       setIsActionModalOpen(false);
-      setIsApprovalModalOpen(false);
-      setSelectedAppointment(null);
+      setIsConfirmationModalOpen(false);
+      setSelectedVisit(null);
       
       // Show success message with patient name
       toast.success(
-        `Visit started for ${appointment.patient?.first_name} ${appointment.patient?.last_name}`,
+        `Visit started for ${visit.patient?.first_name} ${visit.patient?.last_name}`,
         { duration: 3000, icon: '🏥' }
       );
       
-      // Add to activity log
-      const newActivity: ActivityItem = {
-        id: `visit-${Date.now()}`,
-        type: 'appointment',
-        message: 'Visit started',
-        details: `${appointment.patient?.first_name} ${appointment.patient?.last_name} - ${appointment.type}`,
-        time: 'Just now',
-        icon: Activity,
-        color: 'text-green-600'
-      };
-      setRecentActivities(prev => [newActivity, ...prev.slice(0, 4)]);
-      
       // Navigate to patient detail page after a short delay
       setTimeout(() => {
-        navigate(`/patients/${appointment.patient_id}`);
+        navigate(`/patients/${visit.patient_id}`);
       }, 500);
       
     } catch (error) {
       console.error('Error starting visit:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to start visit');
+      toast.error('Failed to start visit');
     }
   };
 
-  const handleCompleteVisit = async (appointmentId: string) => {
+  const handleCompleteVisit = async (visitId: string) => {
     try {
-      const appointment = appointments.find(apt => apt.id === appointmentId);
-      if (!appointment) {
-        toast.error('Appointment not found');
+      const { completeVisit } = useVisitsStore.getState();
+      const visit = visits.find(v => v.id === visitId);
+      if (!visit) {
+        toast.error('Visit not found');
         return;
       }
       
-      // Update visit status first
-      const { data: visit, error: visitError } = await supabase
-        .from('visits')
-        .update({ 
-          status: 'completed',
-          updated_at: new Date().toISOString()
-        })
-        .eq('appointment_id', appointmentId)
-        .eq('status', 'in-progress')
-        .select()
-        .single();
-      
-      if (visitError && visitError.code !== 'PGRST116') { // Ignore "no rows returned" error
-        console.error('Visit update error:', visitError);
-        throw new Error('Failed to update visit status');
-      }
-      
-      // Update appointment status to completed
-      const { error: appointmentError } = await supabase
-        .from('appointments')
-        .update({ 
-          status: 'completed',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', appointmentId);
-      
-      if (appointmentError) {
-        console.error('Appointment update error:', appointmentError);
-        // Try to rollback visit status if appointment update fails
-        if (visit) {
-          await supabase
-            .from('visits')
-            .update({ status: 'in-progress' })
-            .eq('id', visit.id);
-        }
-        throw new Error('Failed to update appointment status');
-      }
+      await completeVisit(visitId);
       
       // Close modals
       setIsActionModalOpen(false);
-      setSelectedAppointment(null);
+      setSelectedVisit(null);
       
       // Show success message
       toast.success(
-        `Visit completed for ${appointment.patient?.first_name} ${appointment.patient?.last_name}`,
+        `Visit completed for ${visit.patient?.first_name} ${visit.patient?.last_name}`,
         { duration: 3000, icon: '✅' }
       );
       
-      // Add to activity log
-      const newActivity: ActivityItem = {
-        id: `complete-${Date.now()}`,
-        type: 'appointment',
-        message: 'Visit completed',
-        details: `${appointment.patient?.first_name} ${appointment.patient?.last_name} - ${appointment.type}`,
-        time: 'Just now',
-        icon: CheckCircle2,
-        color: 'text-blue-600'
-      };
-      setRecentActivities(prev => [newActivity, ...prev.slice(0, 4)]);
-      
-      // Update stats immediately for better UX
-      const todayStr = format(new Date(), 'yyyy-MM-dd');
-      if (appointment.date === todayStr) {
-        // Force immediate UI update
-        setAppointments(prev => 
-          prev.map(apt => apt.id === appointmentId ? { ...apt, status: 'completed' } : apt)
-        );
-      }
-      
     } catch (error) {
       console.error('Error completing visit:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to complete visit');
+      toast.error('Failed to complete visit');
     }
   };
 
 
-  // Calculate today's statistics
-  const todayAppointments = appointments.filter(apt => 
-    apt.date === format(new Date(), 'yyyy-MM-dd')
+  // Calculate today's statistics using visits
+  const todayVisits = visits.filter(v => 
+    (v.scheduled_date === format(new Date(), 'yyyy-MM-dd') || 
+     v.visit_date === format(new Date(), 'yyyy-MM-dd')) && 
+    !v.is_cancelled
   );
-  const pendingAppointments = appointments.filter(apt => apt.status === 'pending');
-  const completedToday = todayAppointments.filter(apt => apt.status === 'completed').length;
-  // const scheduledToday = todayAppointments.filter(apt => apt.status === 'scheduled').length;
-  // const inProgressAppointments = appointments.filter(apt => apt.status === 'in-progress');
+  const pendingVisits = visits.filter(v => v.is_scheduled && !v.is_confirmed && !v.is_cancelled);
+  const completedToday = todayVisits.filter(v => v.status === 'completed').length;
+  const todayAppointments = todayVisits; // For compatibility
+  const pendingAppointments = pendingVisits; // For compatibility
 
 
   return (
@@ -788,7 +509,10 @@ function Dashboard() {
                     <Building2 className="w-8 h-8 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-2xl font-semibold text-gray-800">Dashboard</h1>
+                    <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
+                      <Activity className="w-6 h-6 text-[#01b9d4]" />
+                      Dashboard
+                    </h1>
                     <p className="text-sm text-gray-500 mt-0.5">Welcome back! Here's your practice dashboard</p>
                   </div>
                 </div>
@@ -1166,10 +890,12 @@ function Dashboard() {
                         const dayIsSelected = isSameDay(day, selectedDate);
                         
                         // Check if day has appointments
-                        const dayAppointments = appointments.filter(apt => 
-                          apt.date === format(day, 'yyyy-MM-dd')
+                        const dayVisits = visits.filter(v => 
+                          (v.scheduled_date === format(day, 'yyyy-MM-dd') || 
+                           v.visit_date === format(day, 'yyyy-MM-dd')) &&
+                          !v.is_cancelled
                         );
-                        const hasAppointments = dayAppointments.length > 0;
+                        const hasVisits = dayVisits.length > 0;
                         
                         return (
                           <button
@@ -1212,26 +938,26 @@ function Dashboard() {
                               {format(day, 'EEE')}
                             </div>
                             
-                            {/* Appointment indicators */}
-                            {hasAppointments && (
+                            {/* Visit indicators */}
+                            {hasVisits && (
                               <div className="flex gap-0.5 mt-1">
-                                {dayAppointments.slice(0, 3).map((apt, idx) => (
+                                {dayVisits.slice(0, 3).map((v, idx) => (
                                   <div
                                     key={idx}
                                     className={`w-1.5 h-1.5 rounded-full ${
-                                      apt.status === 'completed' 
+                                      v.status === 'completed' 
                                         ? 'bg-green-400' 
-                                        : apt.status === 'pending'
+                                        : v.is_scheduled && !v.is_confirmed
                                         ? 'bg-amber-400'
-                                        : apt.status === 'cancelled'
+                                        : v.is_cancelled
                                         ? 'bg-red-400'
                                         : 'bg-blue-400'
                                     }`}
                                   />
                                 ))}
-                                {dayAppointments.length > 3 && (
+                                {dayVisits.length > 3 && (
                                   <div className="text-xs text-gray-500 ml-1">
-                                    +{dayAppointments.length - 3}
+                                    +{dayVisits.length - 3}
                                   </div>
                                 )}
                               </div>
@@ -1258,7 +984,27 @@ function Dashboard() {
                       {/* Appointment Scheduler */}
                       <div className="flex-1 overflow-hidden">
                         <PremiumAppointmentScheduler
-                          appointments={appointments}
+                          appointments={visits.map(v => ({
+                            id: v.id,
+                            patient: v.patient || {
+                              id: v.patient_id,
+                              first_name: 'Unknown',
+                              last_name: 'Patient'
+                            },
+                            patient_id: v.patient_id,
+                            doctor_id: v.doctor_id || '',
+                            date: v.scheduled_date || v.visit_date || format(new Date(), 'yyyy-MM-dd'),
+                            time: v.scheduled_time || v.visit_time || '09:00',
+                            duration: 30,
+                            type: (v.visit_type || 'consultation') as any,
+                            status: v.is_cancelled ? 'cancelled' : 
+                                   v.status === 'completed' ? 'completed' :
+                                   v.status === 'in-progress' ? 'in-progress' :
+                                   v.is_ready ? 'ready' :
+                                   v.is_checked_in ? 'ready' :
+                                   v.is_confirmed ? 'scheduled' : 'pending',
+                            notes: v.chief_complaint || v.notes
+                          }))} // Transform visits to appointments format
                           doctors={doctors}
                           blockedTimes={[]}
                           isLoading={isLoading}
@@ -1266,19 +1012,50 @@ function Dashboard() {
                           selectedDate={selectedDate}
                           onDateChange={setSelectedDate}
                           onAppointmentClick={(apt) => {
-                            setSelectedAppointment(apt);
-                            if (apt.status === 'pending') {
-                              setIsApprovalModalOpen(true);
-                            } else {
-                              setIsActionModalOpen(true);
+                            // Find the original visit
+                            const visit = visits.find(v => v.id === apt.id);
+                            if (visit) {
+                              setSelectedVisit(visit);
+                              setSelectedAppointment(apt); // Also set the appointment format
+                              if (visit.is_scheduled && !visit.is_confirmed) {
+                                setIsApprovalModalOpen(true);
+                              } else {
+                                setIsActionModalOpen(true);
+                              }
                             }
                           }}
-                          onEditAppointment={handleEditAppointment}
-                          onCreateAppointment={handleCreateAppointment}
+                          onEditAppointment={async (appointment) => {
+                            const visit = visits.find(v => v.id === appointment.id);
+                            if (visit) {
+                              setSelectedVisit(visit);
+                              setSelectedAppointment(appointment);
+                              setIsRescheduleModalOpen(true);
+                            }
+                          }}
+                          onCreateAppointment={async (appointmentData) => {
+                            // appointmentData is the full appointment object
+                            const visitData = {
+                              patient_id: appointmentData.patient_id,
+                              doctor_id: appointmentData.doctor_id,
+                              scheduled_date: appointmentData.date,
+                              scheduled_time: appointmentData.time,
+                              visit_type: appointmentData.type,
+                              chief_complaint: appointmentData.notes,
+                              is_scheduled: true,
+                              is_confirmed: false,
+                              practice_id: currentPracticeId
+                            };
+                            const { addVisit } = useVisitsStore.getState();
+                            await addVisit(visitData);
+                            return appointmentData; // Return appointment data for compatibility
+                          }}
                           viewMode={viewMode}
                           onBlockTime={(doctorId, startTime, endTime, reason) => {
                           }}
-                          onDeleteAppointment={handleDeleteAppointment}
+                          onDeleteAppointment={async (appointmentId) => {
+                            const { deleteVisit } = useVisitsStore.getState();
+                            await deleteVisit(appointmentId);
+                          }}
                           currentUserRole={currentUserRole}
                           currentUserId={currentUserId}
                           onRefresh={() => {
@@ -1342,28 +1119,23 @@ function Dashboard() {
         }}
         title="Schedule New Appointment"
       >
-        <AddAppointmentForm
+        <PremiumAddAppointmentForm
           initialDate={selectedTimeSlot ? new Date(selectedTimeSlot.date) : undefined}
           initialTime={selectedTimeSlot?.time}
           initialDoctorId={selectedTimeSlot?.doctorId}
-          onSuccess={(newAppointment) => {
+          onSuccess={(newVisit) => {
             setIsAddAppointmentModalOpen(false);
             setSelectedTimeSlot(null);
             
-            // Instantly add new appointment to the state for immediate UI update
-            if (newAppointment) {
-              setAppointments(prevAppointments => {
-                const updated = [...prevAppointments, newAppointment];
-                return updated;
-              });
-              
-              // Notify patient timeline if it's open for this patient
-              if (window.addAppointmentToPatientTimeline) {
-                window.addAppointmentToPatientTimeline(newAppointment);
-              } else {
-              }
-            } else {
+            // The form already creates a visit in the visits table
+            // So we just need to refresh the visits list
+            if (newVisit) {
+              fetchTodayVisits();
             }
+          }}
+          onCancel={() => {
+            setIsAddAppointmentModalOpen(false);
+            setSelectedTimeSlot(null);
           }}
         />
       </FormModal>
@@ -1398,7 +1170,7 @@ function Dashboard() {
               time: selectedAppointment.time,
               type: selectedAppointment.type
             }}
-            onReschedule={() => {
+            onReschedule={async () => {
               setIsRescheduleModalOpen(false);
               setSelectedAppointment(null);
               // Real-time updates will handle the refresh
@@ -1437,8 +1209,22 @@ function Dashboard() {
             setSelectedAppointment(null);
           }}
           appointment={selectedAppointment}
-          onApprove={handleApproveAppointment}
-          onReject={handleRejectAppointment}
+          onApprove={async () => {
+            const visit = visits.find(v => v.id === selectedAppointment.id);
+            if (visit) {
+              await handleConfirmVisit(visit.id);
+            }
+            setIsApprovalModalOpen(false);
+            setSelectedAppointment(null);
+          }}
+          onReject={async (reason) => {
+            const visit = visits.find(v => v.id === selectedAppointment.id);
+            if (visit) {
+              await handleRejectVisit(visit.id, reason);
+            }
+            setIsApprovalModalOpen(false);
+            setSelectedAppointment(null);
+          }}
           onReschedule={() => {
             setIsApprovalModalOpen(false);
             setIsRescheduleModalOpen(true);
@@ -1453,6 +1239,127 @@ function Dashboard() {
           practiceId={currentPracticeId}
           onClose={() => setShowGridView(false)}
         />
+      )}
+
+      {/* Add Visit Modal (keeping for direct visit creation) */}
+      {isAddVisitModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900">Schedule New Visit</h2>
+                <button
+                  onClick={() => setIsAddVisitModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              <AddScheduledVisitForm
+                practiceId={currentPracticeId || ''}
+                onSuccess={() => {
+                  setIsAddVisitModalOpen(false);
+                  toast.success('Visit scheduled successfully');
+                }}
+                onCancel={() => setIsAddVisitModalOpen(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Visit Confirmation Modal */}
+      {isConfirmationModalOpen && selectedVisit && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Confirm Visit</h3>
+              <p className="text-gray-600 mb-6">
+                Confirm visit for {selectedVisit.patient?.first_name} {selectedVisit.patient?.last_name} 
+                on {format(new Date(selectedVisit.scheduled_date + 'T' + selectedVisit.scheduled_time), 'MMM d, h:mm a')}?
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => {
+                    setIsConfirmationModalOpen(false);
+                    setSelectedVisit(null);
+                  }}
+                  className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleConfirmVisit(selectedVisit.id)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => handleRejectVisit(selectedVisit.id, 'Rejected by practice')}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Visit Details Modal */}
+      {isDetailsModalOpen && selectedVisit && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900">Visit Details</h2>
+                <button
+                  onClick={() => {
+                    setIsDetailsModalOpen(false);
+                    setSelectedVisit(null);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              {/* Visit details content */}
+              <div className="space-y-4">
+                <div>
+                  <h4 className="font-medium text-gray-700">Patient</h4>
+                  <p className="text-gray-900">{selectedVisit.patient?.first_name} {selectedVisit.patient?.last_name}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-700">Date & Time</h4>
+                  <p className="text-gray-900">
+                    {format(new Date(selectedVisit.scheduled_date + 'T' + selectedVisit.scheduled_time), 'MMMM d, yyyy h:mm a')}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-700">Type</h4>
+                  <p className="text-gray-900">{selectedVisit.visit_type || 'Consultation'}</p>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-700">Status</h4>
+                  <p className="text-gray-900">
+                    {selectedVisit.is_cancelled ? 'Cancelled' : 
+                     selectedVisit.status === 'completed' ? 'Completed' :
+                     selectedVisit.is_ready ? 'Ready' :
+                     selectedVisit.is_checked_in ? 'Checked In' :
+                     selectedVisit.is_confirmed ? 'Confirmed' :
+                     'Unconfirmed'}
+                  </p>
+                </div>
+                {selectedVisit.chief_complaint && (
+                  <div>
+                    <h4 className="font-medium text-gray-700">Chief Complaint</h4>
+                    <p className="text-gray-900">{selectedVisit.chief_complaint}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Detailed Report Modal */}

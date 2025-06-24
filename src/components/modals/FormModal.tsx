@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { X } from 'lucide-react';
+import { Icon } from '@iconify/react';
 
 interface FormModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface FormModalProps {
   children: React.ReactNode;
   className?: string;
   hideHeader?: boolean;
+  icon?: string;
 }
 
 const FormModal: React.FC<FormModalProps> = ({ 
@@ -17,7 +19,8 @@ const FormModal: React.FC<FormModalProps> = ({
   title, 
   children,
   className,
-  hideHeader = false
+  hideHeader = false,
+  icon = "solar:calendar-add-bold-duotone"
 }) => {
   
 
@@ -64,9 +67,7 @@ const FormModal: React.FC<FormModalProps> = ({
               <div className="relative flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                    <div className="w-6 h-6 flex items-center justify-center">
-                      <div className="w-5 h-5 bg-white rounded"></div>
-                    </div>
+                    <Icon icon={icon} className="w-7 h-7 text-white" />
                   </div>
                   <div>
                     <h2 className="text-xl font-bold" style={{ fontFamily: 'Poppins, sans-serif' }}>{title}</h2>
