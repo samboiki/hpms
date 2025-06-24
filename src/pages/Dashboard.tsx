@@ -1,21 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { 
-  Activity, 
-  Users, 
-  Calendar,
-  Microscope,
-  AlertCircle,
-  Plus,
-  MessageSquare,
-  ChevronRight,
-  DollarSign,
-  Building2,
-  ChevronLeft,
-  X,
-  LogOut
-} from 'lucide-react';
 import SearchDuotone from '../components/icons/SearchDuotone';
+import { Icon } from '@iconify/react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { format, eachDayOfInterval, isToday, isSameDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
@@ -34,10 +20,7 @@ import { useAuthStore } from '../stores/authStore';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
 import CommunicationsModal from '../components/modals/CommunicationsModal';
 import ComprehensivePatientModal from '../components/patients/ComprehensivePatientModal';
-import { useCommunicationStats } from '../hooks/useCommunicationStats';
-import { usePatientStats } from '../hooks/usePatientStats';
-import { useInvoiceStats } from '../hooks/useInvoiceStats';
-import { useEncounterStats } from '../hooks/useEncounterStats';
+import { useDashboardStats } from '../hooks/useDashboardStats';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
 import PremiumAppointmentScheduler from '../components/PremiumAppointmentScheduler';
 import FormModal from '../components/modals/FormModal';
@@ -114,17 +97,40 @@ function Dashboard() {
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   
-  // Fetch real-time communication stats
-  const { communicationStats, isLoading: isCommStatsLoading } = useCommunicationStats();
+  // Fetch all dashboard stats in a single optimized call
+  const { stats: dashboardData, isLoading: isDashboardLoading } = useDashboardStats();
   
-  // Fetch real-time patient stats
-  const { patientStats: realPatientStats, isLoading: isPatientStatsLoading } = usePatientStats();
-  
-  // Fetch real-time invoice stats
-  const { invoiceStats, isLoading: isInvoiceStatsLoading } = useInvoiceStats();
-  
-  // Fetch real-time encounter stats
-  const { encounterStats, isLoading: isEncounterStatsLoading } = useEncounterStats();
+  // Extract individual stats for compatibility
+  const communicationStats = dashboardData?.communication || null;
+  const realPatientStats = dashboardData?.patient || {
+    total: 0,
+    male: 0,
+    female: 0,
+    newThisMonth: 0,
+    newThisWeek: 0,
+    averageAge: 0,
+    activePatients: 0
+  };
+  const invoiceStats = dashboardData?.invoice || {
+    totalInvoices: 0,
+    totalRevenue: 0,
+    quarterlyRevenue: 0,
+    quarterlyInvoices: 0,
+    quarterlyPaidInvoices: 0,
+    quarterlyOutstandingInvoices: 0,
+    quarterlyPercentagePaid: 0,
+    quarterlyPercentageOutstanding: 0,
+    currentQuarter: Math.floor(new Date().getMonth() / 3) + 1
+  };
+  const encounterStats = dashboardData?.encounter || {
+    total: 0,
+    completed: 0,
+    pending: 0,
+    inProgress: 0,
+    percentageCompleted: 0,
+    percentagePending: 0,
+    newThisMonth: 0
+  };
   
   const navigate = useNavigate();
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
@@ -256,7 +262,7 @@ function Dashboard() {
           message: `${visit.patient?.first_name} ${visit.patient?.last_name}`,
           details: `${visit.visit_type} visit ${visit.status}`,
           time: visit.scheduled_time || visit.visit_time || 'TBD',
-          icon: Calendar,
+          icon: 'solar:calendar-bold-duotone',
           color: 'text-blue-500'
         });
       });
@@ -507,11 +513,11 @@ function Dashboard() {
                 <div className="flex items-center gap-3">
                   {/* Practice Logo */}
                   <div className="p-3 bg-gradient-to-br from-[#01b9d4] to-cyan-600 rounded-xl shadow-lg">
-                    <Building2 className="w-8 h-8 text-white" />
+                    <Icon icon="solar:buildings-bold-duotone" className="w-8 h-8 text-white" />
                   </div>
                   <div>
                     <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-                      <Activity className="w-6 h-6 text-[#01b9d4]" />
+                      <Icon icon="solar:pulse-bold-duotone" className="w-6 h-6 text-[#01b9d4]" />
                       Dashboard
                     </h1>
                     <p className="text-sm text-gray-500 mt-0.5">Welcome back! Here's your practice dashboard</p>
@@ -603,7 +609,7 @@ function Dashboard() {
                               onClick={() => setIsAvatarDropdownOpen(false)}
                               className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                             >
-                              <X className="w-5 h-5 text-gray-500" />
+                              <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
                             </button>
                           </div>
                           
@@ -638,7 +644,7 @@ function Dashboard() {
                             }}
                             className="w-full px-4 py-3 text-sm bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl transition-all font-semibold hover:shadow-lg hover:scale-[1.02] flex items-center justify-center gap-2"
                           >
-                            <LogOut className="w-4 h-4" />
+                            <Icon icon="solar:logout-3-bold-duotone" className="w-4 h-4" />
                             Logout
                           </button>
                         </div>
@@ -660,7 +666,8 @@ function Dashboard() {
                   title="Patients"
                   mainValue={realPatientStats.total}
                   subtitle="Total registered patients"
-                  icon={Users}
+                  icon={null}
+                  iconName="solar:users-group-rounded-bold-duotone"
                   gradient="from-[#489bfd] to-[#a4c8ff]"
                   cardType="patients"
                   stats={[
@@ -691,7 +698,8 @@ function Dashboard() {
                   title="Communication"
                   mainValue={communicationStats?.overall_percentage_available ? `${communicationStats.overall_percentage_available}%` : '88%'}
                   subtitle="Service usage"
-                  icon={MessageSquare}
+                  icon={null}
+                  iconName="solar:chat-square-bold-duotone"
                   gradient="from-amber-500 to-orange-600"
                   cardType="communication"
                   stats={[
@@ -719,7 +727,8 @@ function Dashboard() {
                   title="Encounters"
                   mainValue={encounterStats.total}
                   subtitle="Total patient visits"
-                  icon={Activity}
+                  icon={null}
+                  iconName="solar:pulse-bold-duotone"
                   gradient="from-red-500 to-pink-500"
                   cardType="encounters"
                   stats={[
@@ -750,7 +759,8 @@ function Dashboard() {
                   title="Finance"
                   mainValue={`N$${invoiceStats.quarterlyRevenue.toLocaleString()}`}
                   subtitle={`Q${invoiceStats.currentQuarter} ${new Date().getFullYear()} revenue`}
-                  icon={DollarSign}
+                  icon={null}
+                  iconName="solar:dollar-circle-bold-duotone"
                   gradient="from-cyan-500 to-blue-500"
                   cardType="finance"
                   stats={[
@@ -845,7 +855,7 @@ function Dashboard() {
                                   : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
                               }`}
                             >
-                              <Calendar className="h-3 w-3" />
+                              <Icon icon="solar:calendar-bold-duotone" className="h-3 w-3" />
                               Timeline
                             </button>
                             <button
@@ -856,7 +866,7 @@ function Dashboard() {
                                   : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
                               }`}
                             >
-                              <Activity className="h-3 w-3" />
+                              <Icon icon="solar:pulse-bold-duotone" className="h-3 w-3" />
                               Grid
                             </button>
                           </div>
@@ -870,7 +880,7 @@ function Dashboard() {
                           className={`bg-gradient-to-r ${currentTheme.gradients.button} text-white px-3 py-1.5 rounded-xl flex items-center gap-2 hover:shadow-lg hover:shadow-[${currentTheme.colors.primary.from}]/20 transition-all duration-200 font-medium text-xs`}
                           title="Schedule New Appointment"
                         >
-                          <Plus className="w-3 h-3" />
+                          <Icon icon="solar:add-circle-bold-duotone" className="w-3 h-3" />
                           <span className="hidden sm:inline">New</span>
                         </motion.button>
                       </div>
@@ -879,13 +889,13 @@ function Dashboard() {
                           onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
                           className="p-1.5 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
                         >
-                          <ChevronLeft className="w-4 h-4 text-gray-600" />
+                          <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-4 h-4 text-gray-600" />
                         </button>
                         <button
                           onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
                           className="p-1.5 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
                         >
-                          <ChevronRight className="w-4 h-4 text-gray-600" />
+                          <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-4 h-4 text-gray-600" />
                         </button>
                       </div>
                     </div>
@@ -896,20 +906,20 @@ function Dashboard() {
                         onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
                         className="p-2 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
                       >
-                        <ChevronLeft className="w-5 h-5 text-gray-600" />
+                        <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-5 h-5 text-gray-600" />
                       </button>
                       <button
                         onClick={() => setShowCalendarPicker(!showCalendarPicker)}
                         className="text-lg font-bold text-gray-700 min-w-[140px] text-center hover:bg-white/20 rounded-lg px-2 py-1 transition-all duration-200 flex items-center justify-center gap-2"
                       >
                         <span>{format(selectedDate, 'MMMM yyyy')}</span>
-                        <Calendar className="w-4 h-4" />
+                        <Icon icon="solar:calendar-bold-duotone" className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
                         className="p-2 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
                       >
-                        <ChevronRight className="w-5 h-5 text-gray-600" />
+                        <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-5 h-5 text-gray-600" />
                       </button>
                     </div>
                     
@@ -1286,7 +1296,7 @@ function Dashboard() {
                   onClick={() => setIsAddVisitModalOpen(false)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  <X className="w-5 h-5 text-gray-500" />
+                  <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
               <AddScheduledVisitForm
@@ -1354,7 +1364,7 @@ function Dashboard() {
                   }}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  <X className="w-5 h-5 text-gray-500" />
+                  <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
               {/* Visit details content */}
@@ -1481,7 +1491,7 @@ function Dashboard() {
                 }}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <X className="w-5 h-5 text-gray-500" />
+                <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
               </button>
             </div>
             
@@ -1491,7 +1501,7 @@ function Dashboard() {
                 onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
                 className="p-3 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <ChevronLeft className="w-5 h-5 text-gray-700" />
+                <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-5 h-5 text-gray-700" />
               </button>
               
               {/* Month and Year Dropdowns */}
@@ -1506,7 +1516,7 @@ function Dashboard() {
                     className="px-4 py-2 text-lg font-bold text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
                   >
                     {format(selectedDate, 'MMMM')}
-                    <ChevronLeft className={`w-4 h-4 transition-transform ${showMonthDropdown ? 'rotate-90' : '-rotate-90'}`} />
+                    <Icon icon="solar:alt-arrow-down-bold-duotone" className={`w-4 h-4 transition-transform ${showMonthDropdown ? 'rotate-180' : ''}`} />
                   </button>
                   
                   {showMonthDropdown && (
@@ -1542,7 +1552,7 @@ function Dashboard() {
                     className="px-4 py-2 text-lg font-bold text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
                   >
                     {format(selectedDate, 'yyyy')}
-                    <ChevronLeft className={`w-4 h-4 transition-transform ${showYearDropdown ? 'rotate-90' : '-rotate-90'}`} />
+                    <Icon icon="solar:alt-arrow-down-bold-duotone" className={`w-4 h-4 transition-transform ${showYearDropdown ? 'rotate-180' : ''}`} />
                   </button>
                   
                   {showYearDropdown && (
@@ -1573,7 +1583,7 @@ function Dashboard() {
                 onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
                 className="p-3 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <ChevronRight className="w-5 h-5 text-gray-700" />
+                <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-5 h-5 text-gray-700" />
               </button>
             </div>
             

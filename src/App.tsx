@@ -16,6 +16,7 @@ import TariffManagement from './pages/admin/TariffManagement';
 import BillingWorkflow from './pages/BillingWorkflow';
 import { Toaster } from 'react-hot-toast';
 import { PracticeTariffsProvider } from './contexts/PracticeTariffsContext';
+import { PracticeProvider } from './contexts/PracticeContext';
 import ThemeProvider from './components/providers/ThemeProvider';
 import EmergencySchemaExporter from './emergency-schema-exporter';
 
@@ -52,42 +53,44 @@ function App() {
 
   return (
     <ThemeProvider>
-      <PracticeTariffsProvider>
-        <Toaster 
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: '#363636',
-              color: '#fff',
-            },
-            success: {
+      <PracticeProvider>
+        <PracticeTariffsProvider>
+          <Toaster 
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
               style: {
-                background: '#10b981',
+                background: '#363636',
+                color: '#fff',
               },
-            },
-            error: {
-              style: {
-                background: '#ef4444',
+              success: {
+                style: {
+                  background: '#10b981',
+                },
               },
-            },
-          }}
-        />
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="patients" element={<Patients />} />
-            <Route path="billing/workflow" element={<BillingWorkflow />} />
-            <Route path="practice-profile" element={<EnhancedPracticeProfile />} />
-            <Route path="admin/practices" element={<PracticesManagement />} />
-            <Route path="admin/tariffs" element={<TariffManagement />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="emergency-export" element={<EmergencySchemaExporter />} />
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </PracticeTariffsProvider>
+              error: {
+                style: {
+                  background: '#ef4444',
+                },
+              },
+            }}
+          />
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="patients" element={<Patients />} />
+              <Route path="billing/workflow" element={<BillingWorkflow />} />
+              <Route path="practice-profile" element={<EnhancedPracticeProfile />} />
+              <Route path="admin/practices" element={<PracticesManagement />} />
+              <Route path="admin/tariffs" element={<TariffManagement />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="emergency-export" element={<EmergencySchemaExporter />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </PracticeTariffsProvider>
+      </PracticeProvider>
     </ThemeProvider>
   );
 }

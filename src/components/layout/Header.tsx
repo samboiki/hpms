@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, ChevronDown, LogOut, Settings, User } from 'lucide-react';
+import { Icon } from '@iconify/react';
 import { useAuthStore } from '../../stores/authStore';
 import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
@@ -35,7 +35,7 @@ const Header: React.FC = () => {
         <PracticeSwitcher />
         
         <button className="relative p-2 text-gray-600 hover:bg-gray-50 rounded-lg">
-          <Bell size={20} strokeWidth={1.5} />
+          <Icon icon="solar:bell-bold-duotone" width={20} height={20} />
           <span className="absolute top-2 right-2 w-2 h-2 bg-brand-red rounded-full" />
         </button>
 
@@ -65,7 +65,7 @@ const Header: React.FC = () => {
                   {user?.role}
                 </div>
               </div>
-              <ChevronDown size={16} className="ml-2 text-gray-500" />
+              <Icon icon="solar:alt-arrow-down-bold-duotone" width={16} height={16} className="ml-2 text-gray-500" />
             </div>
           </Button>
 
@@ -86,7 +86,7 @@ const Header: React.FC = () => {
                     }}
                     className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
                   >
-                    <Settings size={16} className="mr-2" />
+                    <Icon icon="solar:settings-bold-duotone" width={16} height={16} className="mr-2" />
                     Manage Practices
                   </button>
                   <div className="border-t border-gray-100 my-1" />
@@ -100,7 +100,7 @@ const Header: React.FC = () => {
                 }}
                 className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
               >
-                <Settings size={16} className="mr-2" />
+                <Icon icon="solar:settings-bold-duotone" width={16} height={16} className="mr-2" />
                 Settings
               </button>
               
@@ -108,7 +108,7 @@ const Header: React.FC = () => {
                 onClick={handleLogout}
                 className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center"
               >
-                <LogOut size={16} className="mr-2" />
+                <Icon icon="solar:logout-2-bold-duotone" width={16} height={16} className="mr-2" />
                 Logout
               </button>
             </div>

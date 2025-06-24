@@ -37,6 +37,7 @@
     "@fontsource/montserrat": "^5.2.6",
     "@fontsource/poppins": "^5.2.6",
     "@fontsource/rubik": "^5.0.17",
+    "@iconify-json/solar": "^1.2.2",
     "@iconify/react": "^6.0.0",
     "@react-pdf/renderer": "^4.3.0",
     "@supabase/supabase-js": "^2.39.8",

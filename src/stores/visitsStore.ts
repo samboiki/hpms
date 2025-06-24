@@ -96,8 +96,7 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
         .select(`
           *,
           patient:patients!visits_patient_id_fkey(id, first_name, last_name, cell_number, email, date_of_birth),
-          doctor:users!doctor_id(id, full_name, role),
-          practice:practices!practice_id(id, name)
+          doctor:users!doctor_id(id, full_name, role)
         `)
         .order('scheduled_date', { ascending: false })
         .order('scheduled_time', { ascending: false });

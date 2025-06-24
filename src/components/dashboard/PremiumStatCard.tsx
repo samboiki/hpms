@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
+import { Icon } from '@iconify/react';
 import { CommunicationStats } from '../../services/communicationStatsService';
 import { PatientStats } from '../../services/patientStatsService';
 import { InvoiceStats } from '../../services/invoiceStatsService';
@@ -25,7 +26,8 @@ interface PremiumStatCardProps {
   title: string;
   mainValue: string | number;
   subtitle: string;
-  icon: LucideIcon;
+  icon?: LucideIcon | null;
+  iconName?: string;
   gradient: string;
   stats: StatItem[];
   comparison?: ComparisonData;
@@ -47,7 +49,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
   title,
   mainValue,
   subtitle,
-  icon: Icon,
+  icon: IconComponent,
+  iconName,
   gradient,
   stats,
   comparison,
@@ -308,7 +311,11 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className={`p-3 bg-gradient-to-br ${settings.gradientFrom} ${settings.gradientTo} rounded-xl shadow-md group-hover:shadow-lg transition-all duration-300`}>
-                <Icon className="w-6 h-6 text-white" />
+                {IconComponent ? (
+                  <IconComponent className="w-6 h-6 text-white" />
+                ) : iconName ? (
+                  <Icon icon={iconName} className="w-6 h-6 text-white" />
+                ) : null}
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>
@@ -451,4 +458,4 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
   );
 };
 
-export default PremiumStatCard;
+export default React.memo(PremiumStatCard);

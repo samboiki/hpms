@@ -11,49 +11,19 @@ export interface PatientStats {
 }
 
 export class PatientStatsService {
-  static async getPatientStatsByPractice(practiceId?: string): Promise<PatientStats> {
+  static async getPatientStatsByPractice(practiceId: string): Promise<PatientStats> {
     try {
-      // Get the current user's practice if not provided
-      let currentPracticeId = practiceId;
-      if (!currentPracticeId) {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError || !user) {
-          throw new Error('User not authenticated');
-        }
-        
-        // First try to get practice_id from user metadata (auth.users table)
-        currentPracticeId = user.user_metadata?.practice_id;
-        
-        // If not found in metadata, try to get from users table
-        if (!currentPracticeId) {
-          console.log('🔍 Practice ID not found in metadata, checking users table...');
-          const { data: userData, error: dbUserError } = await supabase
-            .from('users')
-            .select('practice_id')
-            .eq('id', user.id)
-            .single();
-          
-          if (!dbUserError && userData?.practice_id) {
-            currentPracticeId = userData.practice_id;
-            console.log('✅ Found practice_id in users table:', currentPracticeId);
-          }
-        } else {
-          console.log('✅ Found practice_id in user metadata:', currentPracticeId);
-        }
-        
-        // If still no practice_id found, throw an error
-        if (!currentPracticeId) {
-          throw new Error('No practice_id found for current user. User may not be assigned to a practice.');
-        }
+      if (!practiceId) {
+        throw new Error('Practice ID is required');
       }
 
-      console.log('🔍 Fetching patient statistics for practice:', currentPracticeId);
+      console.log('🔍 Fetching patient statistics for practice:', practiceId);
 
       // Main patient statistics query
       const { data: patientData, error: patientError } = await supabase
         .from('patients')
         .select('id, gender, date_of_birth, created_at')
-        .eq('practice_id', currentPracticeId);
+        .eq('practice_id', practiceId);
 
       if (patientError) {
         console.error('❌ Error fetching patient data:', patientError);
@@ -61,7 +31,7 @@ export class PatientStatsService {
       }
 
       if (!patientData) {
-        console.log('⚠️ No patient data found for practice:', currentPracticeId);
+        console.log('⚠️ No patient data found for practice:', practiceId);
         return {
           total: 0,
           male: 0,

@@ -122,7 +122,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId 
         .from('appointments')
         .select(`
           *,
-          patient:patients(first_name, last_name, avatar)
+          patient:patients!appointments_patient_id_fkey(first_name, last_name, avatar)
         `)
         .in('patient_id', patientIds)
         .eq('date', todayDate)

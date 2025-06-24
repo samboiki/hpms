@@ -17,49 +17,19 @@ export interface CommunicationStats {
 }
 
 export class CommunicationStatsService {
-  static async getCommunicationStats(practiceId?: string): Promise<CommunicationStats> {
+  static async getCommunicationStats(practiceId: string): Promise<CommunicationStats> {
     try {
-      // Get the current user's practice if not provided
-      let currentPracticeId = practiceId;
-      if (!currentPracticeId) {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        if (userError || !user) {
-          throw new Error('User not authenticated');
-        }
-        
-        // First try to get practice_id from user metadata (auth.users table)
-        currentPracticeId = user.user_metadata?.practice_id;
-        
-        // If not found in metadata, try to get from users table
-        if (!currentPracticeId) {
-          console.log('🔍 Practice ID not found in metadata, checking users table...');
-          const { data: userData, error: dbUserError } = await supabase
-            .from('users')
-            .select('practice_id')
-            .eq('id', user.id)
-            .single();
-          
-          if (!dbUserError && userData?.practice_id) {
-            currentPracticeId = userData.practice_id;
-            console.log('✅ Found practice_id in users table:', currentPracticeId);
-          }
-        } else {
-          console.log('✅ Found practice_id in user metadata:', currentPracticeId);
-        }
-        
-        // If still no practice_id found, throw an error
-        if (!currentPracticeId) {
-          throw new Error('No practice_id found for current user. User may not be assigned to a practice.');
-        }
+      if (!practiceId) {
+        throw new Error('Practice ID is required');
       }
 
-      console.log('🔍 Fetching SMS subscription data for practice:', currentPracticeId);
+      console.log('🔍 Fetching SMS subscription data for practice:', practiceId);
       
       // Fetch SMS subscription data for the user's practice
       const { data: smsData, error: smsError } = await supabase
         .from('practice_sms_subscriptions')
         .select('current_usage, monthly_limit, additional_sms_purchased')
-        .eq('practice_id', currentPracticeId)
+        .eq('practice_id', practiceId)
         .eq('is_active', true)
         .single();
 
@@ -68,16 +38,16 @@ export class CommunicationStatsService {
       } else if (smsData) {
         console.log('✅ SMS subscription data found:', smsData);
       } else {
-        console.log('⚠️ No SMS subscription data found for practice:', currentPracticeId);
+        console.log('⚠️ No SMS subscription data found for practice:', practiceId);
       }
 
-      console.log('🔍 Fetching email subscription data for practice:', currentPracticeId);
+      console.log('🔍 Fetching email subscription data for practice:', practiceId);
       
       // Fetch email subscription data for the user's practice
       const { data: emailData, error: emailError } = await supabase
         .from('practice_email_subscriptions')
         .select('current_usage, monthly_limit, additional_emails_purchased')
-        .eq('practice_id', currentPracticeId)
+        .eq('practice_id', practiceId)
         .eq('is_active', true)
         .single();
 
@@ -86,7 +56,7 @@ export class CommunicationStatsService {
       } else if (emailData) {
         console.log('✅ Email subscription data found:', emailData);
       } else {
-        console.log('⚠️ No email subscription data found for practice:', currentPracticeId);
+        console.log('⚠️ No email subscription data found for practice:', practiceId);
       }
 
       // Calculate SMS stats - Percentage Available = ((Monthly Limit - Current Usage) / Monthly Limit) × 100

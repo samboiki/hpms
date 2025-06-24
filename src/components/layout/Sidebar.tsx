@@ -1,23 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../../utils/cn';
-import { 
-  LayoutDashboard, 
-  Users, 
-  ChevronRight,
-  ChevronLeft,
-  X,
-  UserRound,
-  Cog,
-  Bell,
-  Building2,
-  DollarSign,
-  Crown,
-  Expand,
-  Minimize,
-  Moon,
-  Sun,
-} from 'lucide-react';
+import { Icon } from '@iconify/react';
 import { useAuthStore } from '../../stores/authStore';
 import { useTheme } from '../../stores/themeStore';
 
@@ -47,14 +31,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/', isRoute: true },
-    { icon: Users, label: 'Patients', path: '/patients', isRoute: false, onClick: onOpenPatients },
-    { icon: Bell, label: 'Messages', path: '/messages', isRoute: false, onClick: onOpenCommunications },
+    { icon: 'solar:widget-bold-duotone', label: 'Dashboard', path: '/', isRoute: true },
+    { icon: 'solar:users-group-rounded-bold-duotone', label: 'Patients', path: '/patients', isRoute: false, onClick: onOpenPatients },
+    { icon: 'solar:bell-bold-duotone', label: 'Messages', path: '/messages', isRoute: false, onClick: onOpenCommunications },
   ];
 
   const adminItems = [
-    { icon: Crown, label: 'Manage Practices', path: '/admin/practices' },
-    { icon: DollarSign, label: 'Tariff Management', path: '/admin/tariffs' },
+    { icon: 'solar:crown-bold-duotone', label: 'Manage Practices', path: '/admin/practices' },
+    { icon: 'solar:dollar-circle-bold-duotone', label: 'Tariff Management', path: '/admin/tariffs' },
   ];
 
   return (
@@ -73,7 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             onClick={onMobileClose}
             className="absolute right-4 top-4 p-2 rounded-md text-white/80 hover:text-white md:hidden"
           >
-            <X size={20} />
+            <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
           </button>
         )}
       </div>
@@ -93,7 +77,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 )}
                 onClick={isMobile ? onMobileClose : undefined}
               >
-                <item.icon size={20} strokeWidth={1.5} />
+                <Icon icon={item.icon} className="w-5 h-5" />
                 {(!collapsed || isMobile) && (
                   <span className="ml-3 text-sm font-medium">{item.label}</span>
                 )}
@@ -113,7 +97,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   collapsed && !isMobile && "justify-center"
                 )}
               >
-                <item.icon size={20} strokeWidth={1.5} />
+                <Icon icon={item.icon} className="w-5 h-5" />
                 {(!collapsed || isMobile) && (
                   <span className="ml-3 text-sm font-medium">{item.label}</span>
                 )}
@@ -133,7 +117,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
           onClick={isMobile ? onMobileClose : undefined}
         >
-          <Cog size={20} strokeWidth={1.5} />
+          <Icon icon="solar:settings-bold-duotone" className="w-5 h-5" />
           {(!collapsed || isMobile) && (
             <span className="ml-3 text-sm font-medium">Settings</span>
           )}
@@ -150,9 +134,9 @@ const Sidebar: React.FC<SidebarProps> = ({
             title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
           >
             {isFullscreen ? (
-              <Minimize size={20} strokeWidth={1.5} />
+              <Icon icon="solar:minimize-square-bold-duotone" className="w-5 h-5" />
             ) : (
-              <Expand size={20} strokeWidth={1.5} />
+              <Icon icon="solar:maximize-square-bold-duotone" className="w-5 h-5" />
             )}
             {(!collapsed || isMobile) && (
               <span className="ml-3 text-sm font-medium">
@@ -170,10 +154,10 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
         >
           {collapsed ? (
-            <ChevronRight size={20} strokeWidth={1.5} />
+            <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-5 h-5" />
           ) : (
             <>
-              <ChevronLeft size={20} strokeWidth={1.5} />
+              <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-5 h-5" />
               {(!collapsed || isMobile) && <span className="ml-3 text-sm font-medium">Collapse</span>}
             </>
           )}
@@ -189,9 +173,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
         >
           {isDarkMode ? (
-            <Sun size={20} strokeWidth={1.5} />
+            <Icon icon="solar:sun-bold-duotone" className="w-5 h-5" />
           ) : (
-            <Moon size={20} strokeWidth={1.5} />
+            <Icon icon="solar:moon-bold-duotone" className="w-5 h-5" />
           )}
           {(!collapsed || isMobile) && (
             <span className="ml-3 text-sm font-medium">
@@ -222,7 +206,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 )}
                 onClick={isMobile ? onMobileClose : undefined}
               >
-                <item.icon size={20} strokeWidth={1.5} />
+                <Icon icon={item.icon} className="w-5 h-5" />
                 {(!collapsed || isMobile) && (
                   <span className="ml-3 text-sm font-medium">{item.label}</span>
                 )}

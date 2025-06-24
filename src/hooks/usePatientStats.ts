@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { PatientStatsService, PatientStats } from '../services/patientStatsService';
+import { usePractice } from '../contexts/PracticeContext';
 
-export const usePatientStats = (practiceId?: string) => {
+export const usePatientStats = (overridePracticeId?: string) => {
+  const { practiceId: contextPracticeId } = usePractice();
+  const practiceId = overridePracticeId || contextPracticeId;
   const [patientStats, setPatientStats] = useState<PatientStats>({
     total: 0,
     male: 0,
@@ -16,6 +19,11 @@ export const usePatientStats = (practiceId?: string) => {
 
   useEffect(() => {
     const fetchPatientStats = async () => {
+      if (!practiceId) {
+        console.log('⏳ usePatientStats: Waiting for practiceId...');
+        return;
+      }
+      
       try {
         console.log('🔄 usePatientStats: Starting fetch for practiceId:', practiceId);
         setIsLoading(true);
