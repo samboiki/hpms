@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 import { useTheme } from '../../stores/themeStore';
+import { useTodayAppointments, useRealtimeAppointments } from '../../hooks/useAppointments';
 
 interface Visit {
   id: string;
@@ -23,14 +23,18 @@ interface Visit {
 }
 
 interface FloatingVisitTrackerProps {
-  practiceId: string;
+  practiceId?: string; // Make optional since we get it from context
 }
 
-const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId }) => {
+const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = () => {
   const { currentTheme } = useTheme();
-  const [visits, setVisits] = useState<Visit[]>([]);
   const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  
+  // Use shared appointments hook
+  const { data: visits = [], isLoading } = useTodayAppointments();
+  
+  // Subscribe to real-time updates
+  useRealtimeAppointments();
   
   // Ensure currentTheme is available
   if (!currentTheme || !currentTheme.gradients || !currentTheme.gradients.sidebar) {
@@ -61,88 +65,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId 
   const completionPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
   const remainingPercentage = totalCount > 0 ? 100 - completionPercentage : 0;
 
-  useEffect(() => {
-    fetchTodayVisits();
-    
-    // Set up real-time subscription
-    const channel = supabase
-      .channel('appointments-today')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'appointments',
-          filter: `date=eq.${format(new Date(), 'yyyy-MM-dd')}`
-        },
-        () => {
-          fetchTodayVisits();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [practiceId]);
-
-  const fetchTodayVisits = async () => {
-    try {
-      setIsLoading(true);
-      const todayDate = format(new Date(), 'yyyy-MM-dd');
-      
-      console.log('🔍 FloatingVisitTracker: Fetching appointments for practice:', practiceId);
-      console.log('🔍 FloatingVisitTracker: Today date:', todayDate);
-      
-      // Get all patients for this practice
-      const { data: patients, error: patientsError } = await supabase
-        .from('patients')
-        .select('id')
-        .eq('practice_id', practiceId);
-
-      console.log('🔍 FloatingVisitTracker: Patients found:', patients?.length || 0);
-      
-      if (patientsError) {
-        console.error('❌ FloatingVisitTracker: Error fetching patients:', patientsError);
-        setVisits([]);
-        return;
-      }
-
-      if (!patients || patients.length === 0) {
-        console.log('⚠️ FloatingVisitTracker: No patients found for practice');
-        setVisits([]);
-        return;
-      }
-
-      const patientIds = patients.map(p => p.id);
-      console.log('🔍 FloatingVisitTracker: Patient IDs:', patientIds.length);
-      
-      // Get today's appointments (using appointments table)
-      const { data: appointmentsData, error } = await supabase
-        .from('appointments')
-        .select(`
-          *,
-          patient:patients!appointments_patient_id_fkey(first_name, last_name, avatar)
-        `)
-        .in('patient_id', patientIds)
-        .eq('date', todayDate)
-        .order('time', { ascending: true });
-
-      console.log('🔍 FloatingVisitTracker: Raw appointments data:', appointmentsData);
-      console.log('🔍 FloatingVisitTracker: Appointments count:', appointmentsData?.length || 0);
-
-      if (error) {
-        console.error('❌ FloatingVisitTracker: Error fetching appointments:', error);
-        throw error;
-      }
-
-      setVisits(appointmentsData || []);
-    } catch (error) {
-      console.error('❌ FloatingVisitTracker: Error in fetchTodayVisits:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // The data is now fetched via the useTodayAppointments hook
 
   // SVG path for donut chart
   const createPath = (percentage: number, offset: number = 0) => {

@@ -89,6 +89,8 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
   // Fetch visits with filters
   fetchVisits: async (filters?: VisitFilters) => {
     set({ loading: true, error: null });
+    const startTime = performance.now();
+    console.log('⏱️ visitsStore: Starting fetchVisits with filters:', filters);
     
     try {
       let query = supabase
@@ -97,9 +99,18 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
           *,
           patient:patients!visits_patient_id_fkey(id, first_name, last_name, cell_number, email, date_of_birth),
           doctor:users!doctor_id(id, full_name, role)
-        `)
-        .order('scheduled_date', { ascending: false })
-        .order('scheduled_time', { ascending: false });
+        `);
+      
+      // Optimize ordering - only order by one field for better performance
+      if (filters?.date) {
+        // For specific date, sort by time only
+        query = query.order('scheduled_time', { ascending: true });
+      } else {
+        // For date ranges, sort by date then time
+        query = query
+          .order('scheduled_date', { ascending: false })
+          .order('scheduled_time', { ascending: false });
+      }
 
       // Apply filters
       if (filters?.practiceId) {
@@ -132,8 +143,16 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
       } else if (filters?.status === 'cancelled') {
         query = query.or('is_cancelled.eq.true,status.eq.cancelled');
       }
+      
+      // Add limit for performance - can implement pagination later
+      if (!filters?.date && !filters?.patientId) {
+        query = query.limit(100);
+      }
 
       const { data, error } = await query;
+      
+      const queryTime = performance.now() - startTime;
+      console.log(`⏱️ visitsStore: Query completed in ${queryTime.toFixed(2)}ms, returned ${data?.length || 0} visits`);
 
       if (error) throw error;
 
@@ -153,7 +172,13 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
   // Fetch today's visits
   fetchTodayVisits: async () => {
     const today = new Date().toISOString().split('T')[0];
+    console.log('⏱️ visitsStore: Fetching today\'s visits for date:', today);
+    const startTime = performance.now();
+    
     await get().fetchVisits({ date: today });
+    
+    const totalTime = performance.now() - startTime;
+    console.log(`⏱️ visitsStore: Today's visits fetched in ${totalTime.toFixed(2)}ms`);
   },
 
   // Confirm a visit

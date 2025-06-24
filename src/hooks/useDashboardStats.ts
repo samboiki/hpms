@@ -52,33 +52,96 @@ export const useDashboardStats = (): DashboardStatsResult => {
     }
 
     try {
-      console.log('🔄 useDashboardStats: Fetching all stats in parallel for practiceId:', practiceId);
+      const startTime = performance.now();
+      console.log('⚡ useDashboardStats: Using optimized materialized view for practiceId:', practiceId);
       setIsLoading(true);
       setError(null);
 
-      // Fetch all stats in parallel
-      const [patientStats, communicationStats, invoiceStats, encounterStats] = await Promise.all([
-        fetchPatientStats(practiceId),
-        fetchCommunicationStats(practiceId),
-        fetchInvoiceStats(practiceId),
-        fetchEncounterStats(practiceId)
-      ]);
+      // Use the optimized function that queries the materialized view
+      const { data, error: rpcError } = await supabase.rpc('get_dashboard_stats', {
+        p_practice_id: practiceId
+      });
 
-      const allStats: DashboardStats = {
-        patient: patientStats,
-        communication: communicationStats,
-        invoice: invoiceStats,
-        encounter: encounterStats
-      };
+      if (rpcError) {
+        console.warn('⚠️ Materialized view not available, falling back to parallel queries');
+        // Fall back to original method if materialized view is not available
+        const [patientStats, communicationStats, invoiceStats, encounterStats] = await Promise.all([
+          fetchPatientStats(practiceId),
+          fetchCommunicationStats(practiceId),
+          fetchInvoiceStats(practiceId),
+          fetchEncounterStats(practiceId)
+        ]);
 
-      // Cache the results
-      cachedStats = {
-        data: allStats,
-        practiceId,
-        timestamp: Date.now()
-      };
+        const allStats: DashboardStats = {
+          patient: patientStats,
+          communication: communicationStats,
+          invoice: invoiceStats,
+          encounter: encounterStats
+        };
 
-      setStats(allStats);
+        // Cache the results
+        cachedStats = {
+          data: allStats,
+          practiceId,
+          timestamp: Date.now()
+        };
+
+        setStats(allStats);
+      } else {
+        // Parse the optimized response
+        const optimizedStats = data as any;
+        const allStats: DashboardStats = {
+          patient: {
+            total: optimizedStats.patient.total || 0,
+            male: optimizedStats.patient.male || 0,
+            female: optimizedStats.patient.female || 0,
+            newThisMonth: optimizedStats.patient.newThisMonth || 0,
+            newThisWeek: optimizedStats.patient.newThisWeek || 0,
+            averageAge: optimizedStats.patient.averageAge || 0,
+            activePatients: optimizedStats.patient.activePatients || 0
+          },
+          communication: {
+            sms: {
+              current_usage: optimizedStats.communication.smsUsed || 0,
+              monthly_limit: optimizedStats.communication.smsLimit || 1000,
+              percentage_available: 100 - (optimizedStats.communication.smsPercentage || 0),
+              available: (optimizedStats.communication.smsLimit || 1000) - (optimizedStats.communication.smsUsed || 0)
+            },
+            email: {
+              current_usage: optimizedStats.communication.emailUsed || 0,
+              monthly_limit: optimizedStats.communication.emailLimit || 500,
+              percentage_available: 100 - (optimizedStats.communication.emailPercentage || 0),
+              available: (optimizedStats.communication.emailLimit || 500) - (optimizedStats.communication.emailUsed || 0)
+            },
+            overall_percentage_available: Math.round(
+              ((100 - (optimizedStats.communication.smsPercentage || 0)) + 
+               (100 - (optimizedStats.communication.emailPercentage || 0))) / 2
+            )
+          },
+          invoice: optimizedStats.invoice,
+          encounter: optimizedStats.encounter
+        };
+
+        // Cache the results
+        cachedStats = {
+          data: allStats,
+          practiceId,
+          timestamp: Date.now()
+        };
+
+        setStats(allStats);
+        
+        const queryTime = performance.now() - startTime;
+        console.log(`⚡ Dashboard stats fetched in ${queryTime.toFixed(2)}ms using materialized view`);
+        
+        // Log cache age if available
+        if (optimizedStats.lastRefreshed) {
+          const cacheAge = Date.now() - new Date(optimizedStats.lastRefreshed).getTime();
+          const cacheAgeMinutes = Math.floor(cacheAge / 60000);
+          console.log(`📊 Stats cache age: ${cacheAgeMinutes} minutes`);
+        }
+      }
+      
       console.log('✅ useDashboardStats: Successfully fetched all stats');
     } catch (err) {
       setError(err as Error);

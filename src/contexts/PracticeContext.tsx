@@ -94,15 +94,16 @@ export const PracticeProvider: React.FC<{ children: ReactNode }> = ({ children }
     fetchPracticeData();
 
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
         // Clear cache on logout
         cachedPracticeData = null;
         setPracticeId(null);
         setUserId(null);
         setUserRole(null);
-      } else {
-        // Refetch on login
+        setIsLoading(false);
+      } else if (event === 'SIGNED_IN' && session) {
+        // Only refetch on actual sign in, not on token refresh
         fetchPracticeData();
       }
     });

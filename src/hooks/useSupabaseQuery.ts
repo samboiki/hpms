@@ -88,6 +88,9 @@ export function useAppointments(filters?: {
   return useQuery({
     queryKey: ['appointments', filters],
     queryFn: async () => {
+      const startTime = performance.now();
+      console.log('⏱️ useAppointments: Starting query with filters:', filters);
+      
       let query = supabase
         .from('appointments')
         .select(`
@@ -109,6 +112,9 @@ export function useAppointments(filters?: {
       }
       
       const { data, error } = await query;
+      
+      const queryTime = performance.now() - startTime;
+      console.log(`⏱️ useAppointments: Query completed in ${queryTime.toFixed(2)}ms, returned ${data?.length || 0} records`);
       
       if (error) throw error;
       return data;

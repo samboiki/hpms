@@ -263,14 +263,14 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
       tabIndex={0}
       onClick={onClick}
     >
-      <div className="relative bg-white/80 backdrop-blur-xl rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden border border-white/20 p-5 h-36" style={{ backdropFilter: 'blur(20px)' }}>
+      <div className="relative bg-gray-100 backdrop-blur-xl rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200/50 p-5 h-36" style={{ backdropFilter: 'blur(20px)' }}>
         {/* Glassmorphic Background with Rich Patterns */}
         <div className="absolute inset-0 overflow-hidden">
           {/* Primary glass gradient */}
-          <div className={`absolute inset-0 bg-gradient-to-br ${settings.gradientFrom} ${settings.gradientTo} opacity-[0.08] group-hover:opacity-[0.12] transition-opacity duration-300`}></div>
+          <div className={`absolute inset-0 bg-gradient-to-br ${settings.gradientFrom} ${settings.gradientTo} opacity-[0.15] group-hover:opacity-[0.20] transition-opacity duration-300`}></div>
           
           {/* Secondary glass layer */}
-          <div className="absolute inset-0 bg-gradient-to-tl from-white/40 via-transparent to-white/20 opacity-60"></div>
+          <div className="absolute inset-0 bg-gradient-to-tl from-gray-50/40 via-transparent to-gray-100/30 opacity-60"></div>
           
           {/* Rich Pattern Elements */}
           {/* Top right cluster */}
@@ -451,8 +451,11 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         {/* Glassmorphic border accent */}
         <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} opacity-[0.25] group-hover:opacity-[0.4] transition-opacity duration-300 rounded-b-xl`}></div>
         
+        {/* Glassmorphic shimmer effect */}
+        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
+        
         {/* Glass edge highlight */}
-        <div className="absolute inset-0 rounded-xl border border-white/30 group-hover:border-white/40 transition-colors duration-300"></div>
+        <div className="absolute inset-0 rounded-xl border border-gray-300/50 group-hover:border-gray-400/60 transition-colors duration-300"></div>
       </div>
     </motion.div>
   );

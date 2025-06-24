@@ -5,7 +5,7 @@ import { Icon } from '@iconify/react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { format, eachDayOfInterval, isToday, isSameDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
-import { practiceDataService } from '../lib/practiceDataService';
+import { usePractice } from '../contexts/PracticeContext';
 import AddScheduledVisitForm from '../components/forms/AddScheduledVisitForm';
 import { motion } from 'framer-motion';
 import { useVisitsStore } from '../stores/visitsStore';
@@ -20,7 +20,8 @@ import { useAuthStore } from '../stores/authStore';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
 import CommunicationsModal from '../components/modals/CommunicationsModal';
 import ComprehensivePatientModal from '../components/patients/ComprehensivePatientModal';
-import { useDashboardStats } from '../hooks/useDashboardStats';
+import { useOptimizedDashboardStats } from '../hooks/useOptimizedDashboardStats';
+import { useTodayAppointments, useRealtimeAppointments } from '../hooks/useAppointments';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
 import PremiumAppointmentScheduler from '../components/PremiumAppointmentScheduler';
 import FormModal from '../components/modals/FormModal';
@@ -63,7 +64,7 @@ function Dashboard() {
   const [isAddVisitModalOpen, setIsAddVisitModalOpen] = useState(false);
   const [isAddAppointmentModalOpen, setIsAddAppointmentModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
-  const [appointments, setAppointments] = useState<any[]>([]);
+  // appointments now come from useTodayAppointments hook
   const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
@@ -97,8 +98,14 @@ function Dashboard() {
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   
-  // Fetch all dashboard stats in a single optimized call
-  const { stats: dashboardData, isLoading: isDashboardLoading } = useDashboardStats();
+  // Fetch all dashboard stats using optimized hook
+  const { data: dashboardData, isLoading: isDashboardLoading } = useOptimizedDashboardStats();
+  
+  // Use shared appointments data
+  const { data: todayAppointments = [], isLoading: isAppointmentsLoading } = useTodayAppointments();
+  
+  // Subscribe to real-time appointment updates
+  useRealtimeAppointments();
   
   // Extract individual stats for compatibility
   const communicationStats = dashboardData?.communication || null;
@@ -209,38 +216,36 @@ function Dashboard() {
 
   // Note: fetchPatientStats removed - now using usePatientStats hook for real-time practice-specific data
 
-  const fetchData = async () => {
+  // Get practice context data
+  const { practiceId, userId, userRole, isLoading: isPracticeLoading, error: practiceError } = usePractice();
+
+  // Update current user data from practice context
+  useEffect(() => {
+    if (practiceId && userId && userRole) {
+      setCurrentPracticeId(practiceId);
+      setCurrentUserId(userId);
+      setCurrentUserRole(userRole as any);
+    }
+  }, [practiceId, userId, userRole]);
+
+  const fetchDashboardData = async () => {
+    if (!practiceId) return;
+    
+    const startTime = performance.now();
     try {
       setIsLoading(true);
       
-      // Get authenticated user context
-      const authContext = await practiceDataService.getAuthContext();
-      if (!authContext) {
-        setError(new Error('Authentication failed'));
-        return;
-      }
+      // Fetch doctors for the practice
+      const { data: practiceDoctors, error: doctorsError } = await supabase
+        .from('users')
+        .select('id, email, full_name, role')
+        .eq('practice_id', practiceId)
+        .eq('role', 'doctor');
 
-      setCurrentUserId(authContext.userId);
-      setCurrentUserRole(authContext.userRole as any);
-      setCurrentPracticeId(authContext.practiceId);
-
-      // Fetch practice details including logo
-      const practiceData = await practiceDataService.getPracticeDetails(authContext.practiceId);
-      if (practiceData) {
-      }
-
-      // Debug practice data
-      const debugData = await practiceDataService.debugPracticeData(authContext.practiceId);
-
-      // Use robust practice data service
-      const practicePatients = await practiceDataService.getPracticePatients(authContext.practiceId);
-      const practiceDoctors = await practiceDataService.getPracticeDoctors(authContext.practiceId);
-
-      // Set state
-      setPatientsData(practicePatients);
+      if (doctorsError) throw doctorsError;
 
       // Format doctors for dropdown
-      const formattedDoctors = practiceDoctors.map(doctor => ({
+      const formattedDoctors = (practiceDoctors || []).map(doctor => ({
         id: doctor.id,
         email: doctor.email,
         user_metadata: {
@@ -249,6 +254,17 @@ function Dashboard() {
         }
       }));
       setDoctors(formattedDoctors);
+
+      // Fetch patients for activities (limit to recent for performance)
+      const { data: practicePatients, error: patientsError } = await supabase
+        .from('patients')
+        .select('id, first_name, last_name, gender, date_of_birth, created_at')
+        .eq('practice_id', practiceId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (patientsError) throw patientsError;
+      setPatientsData(practicePatients || []);
 
       // Generate recent activities from visits data
       const activities: ActivityItem[] = [];
@@ -269,16 +285,7 @@ function Dashboard() {
 
       setRecentActivities(activities);
 
-      // Fetch comprehensive dashboard stats
-      try {
-        const stats = await dashboardStatsService.getComprehensiveStats(authContext.practiceId);
-        setDashboardStats(stats);
-      } catch (statsError) {
-        console.error('❌ [Dashboard] Error loading stats:', statsError);
-        // Continue without stats if there's an error
-      }
-
-      // Note: Patient statistics now fetched via usePatientStats hook
+      // Dashboard stats are fetched by useOptimizedDashboardStats hook
 
       // Generate real-time notifications based on visits data
       const newNotifications: Notification[] = [];
@@ -354,6 +361,8 @@ function Dashboard() {
       setNotifications(newNotifications);
 
       
+      const totalTime = performance.now() - startTime;
+      console.log(`✅ [Dashboard] Data fetched in ${totalTime.toFixed(2)}ms`);
     } catch (error) {
       console.error('❌ [Dashboard] Error fetching data:', error);
       setError(error as Error);
@@ -362,9 +371,12 @@ function Dashboard() {
     }
   };
 
+  // Fetch dashboard data when practice ID is available
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (practiceId && !isPracticeLoading) {
+      fetchDashboardData();
+    }
+  }, [practiceId, isPracticeLoading]);
 
 
 
@@ -516,8 +528,7 @@ function Dashboard() {
                     <Icon icon="solar:buildings-bold-duotone" className="w-8 h-8 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-2xl font-semibold text-gray-800 flex items-center gap-2">
-                      <Icon icon="solar:pulse-bold-duotone" className="w-6 h-6 text-[#01b9d4]" />
+                    <h1 className="text-2xl font-semibold text-gray-800">
                       Dashboard
                     </h1>
                     <p className="text-sm text-gray-500 mt-0.5">Welcome back! Here's your practice dashboard</p>
@@ -667,7 +678,7 @@ function Dashboard() {
                   mainValue={realPatientStats.total}
                   subtitle="Total registered patients"
                   icon={null}
-                  iconName="solar:users-group-rounded-bold-duotone"
+                  iconName="solar:users-group-two-rounded-bold-duotone"
                   gradient="from-[#489bfd] to-[#a4c8ff]"
                   cardType="patients"
                   stats={[
@@ -699,7 +710,7 @@ function Dashboard() {
                   mainValue={communicationStats?.overall_percentage_available ? `${communicationStats.overall_percentage_available}%` : '88%'}
                   subtitle="Service usage"
                   icon={null}
-                  iconName="solar:chat-square-bold-duotone"
+                  iconName="solar:monitor-smartphone-bold-duotone"
                   gradient="from-amber-500 to-orange-600"
                   cardType="communication"
                   stats={[
@@ -728,7 +739,7 @@ function Dashboard() {
                   mainValue={encounterStats.total}
                   subtitle="Total patient visits"
                   icon={null}
-                  iconName="solar:pulse-bold-duotone"
+                  iconName="solar:clipboard-heart-bold-duotone"
                   gradient="from-red-500 to-pink-500"
                   cardType="encounters"
                   stats={[
@@ -760,7 +771,7 @@ function Dashboard() {
                   mainValue={`N$${invoiceStats.quarterlyRevenue.toLocaleString()}`}
                   subtitle={`Q${invoiceStats.currentQuarter} ${new Date().getFullYear()} revenue`}
                   icon={null}
-                  iconName="solar:dollar-circle-bold-duotone"
+                  iconName="solar:wallet-money-bold-duotone"
                   gradient="from-cyan-500 to-blue-500"
                   cardType="finance"
                   stats={[
@@ -889,13 +900,13 @@ function Dashboard() {
                           onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
                           className="p-1.5 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
                         >
-                          <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-4 h-4 text-gray-600" />
+                          <Icon icon="solar:map-arrow-left-bold-duotone" className="w-4 h-4 text-gray-600" />
                         </button>
                         <button
                           onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
                           className="p-1.5 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
                         >
-                          <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-4 h-4 text-gray-600" />
+                          <Icon icon="solar:map-arrow-right-bold-duotone" className="w-4 h-4 text-gray-600" />
                         </button>
                       </div>
                     </div>
@@ -906,7 +917,7 @@ function Dashboard() {
                         onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
                         className="p-2 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
                       >
-                        <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-5 h-5 text-gray-600" />
+                        <Icon icon="solar:map-arrow-left-bold-duotone" className="w-5 h-5 text-gray-600" />
                       </button>
                       <button
                         onClick={() => setShowCalendarPicker(!showCalendarPicker)}
@@ -919,7 +930,7 @@ function Dashboard() {
                         onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
                         className="p-2 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
                       >
-                        <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-5 h-5 text-gray-600" />
+                        <Icon icon="solar:map-arrow-right-bold-duotone" className="w-5 h-5 text-gray-600" />
                       </button>
                     </div>
                     
@@ -1501,7 +1512,7 @@ function Dashboard() {
                 onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
                 className="p-3 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-5 h-5 text-gray-700" />
+                <Icon icon="solar:map-arrow-left-bold-duotone" className="w-5 h-5 text-gray-700" />
               </button>
               
               {/* Month and Year Dropdowns */}
@@ -1583,7 +1594,7 @@ function Dashboard() {
                 onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
                 className="p-3 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-5 h-5 text-gray-700" />
+                <Icon icon="solar:map-arrow-right-bold-duotone" className="w-5 h-5 text-gray-700" />
               </button>
             </div>
             
