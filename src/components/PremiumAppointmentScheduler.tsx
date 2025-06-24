@@ -1,27 +1,18 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
-  ChevronLeft,
-  ChevronRight,
-  Calendar as CalendarIcon,
-  Clock,
-  User,
   Plus,
   RefreshCw,
-  Grid3X3,
-  List,
   Phone,
   AlertCircle,
-  CheckCircle,
-  XCircle,
-  Activity,
-  Stethoscope,
   Trash2,
   Edit2,
   MoreVertical,
-  CalendarDays,
-  Star,
-  Sparkles,
-  Bot
+  Calendar as CalendarIcon,
+  CheckCircle,
+  Clock,
+  XCircle,
+  Stethoscope,
+  Activity
 } from 'lucide-react';
 import {
   format,
@@ -52,6 +43,7 @@ import { PremiumWeekGridView } from './appointments/PremiumWeekGridView';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { useTheme } from '../stores/themeStore';
+import DuotoneIcon from './icons/DuotoneIcon';
 
 interface AppointmentPatient {
   id: string;
@@ -471,130 +463,170 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                   initial={{ opacity: 0, y: 20, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  className={`
-                    relative bg-white rounded-lg shadow-sm hover:shadow-md
-                    border border-gray-200 transition-shadow cursor-pointer
-                    overflow-hidden
-                  `}
+                  whileHover={{ y: -3 }}
+                  className="relative bg-white rounded-lg shadow-sm hover:shadow-lg transition-all cursor-pointer overflow-hidden group"
                   onClick={() => onAppointmentClick(appointment)}
                 >
-                  {/* Status accent */}
-                  <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${getStatusGradient(appointment.status)}`} />
-                  
-                  <div className="relative p-5">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="text-lg font-medium text-gray-900">
-                            {appointment.patient.first_name} {appointment.patient.last_name}
-                          </h3>
-                          <StatusIcon className="w-5 h-5 text-gray-400" />
-                        </div>
-                        <div className="flex items-center gap-3 text-sm text-gray-600">
-                          <span className="font-medium">
-                            {format(aptDate, 'MMM d')} • {time ? format(parseISO(`2000-01-01T${time}`), 'h:mm a') : 'No time'}
-                          </span>
-                          {appointment.patient.gender && (
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              appointment.patient.gender === 'Female' 
-                                ? 'bg-pink-100 text-pink-700' 
-                                : 'bg-blue-100 text-blue-700'
-                            }`}>
-                              {appointment.patient.gender}
+                  {/* Trapezoid shape on the left side */}
+                  <div 
+                    className={`absolute top-0 left-0 h-full w-14 ${
+                      appointment.status === 'scheduled' ? 'bg-blue-500' :
+                      appointment.status === 'ready' ? 'bg-green-500' :
+                      appointment.status === 'in-progress' ? 'bg-yellow-500' :
+                      appointment.status === 'completed' ? 'bg-gray-500' :
+                      appointment.status === 'cancelled' ? 'bg-red-500' :
+                      'bg-purple-500'
+                    } transition-all duration-300`}
+                    style={{
+                      clipPath: 'polygon(0 0, 85% 10%, 85% 90%, 0 100%)',
+                      boxShadow: 'inset -2px 0 4px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    {/* Status icon inside trapezoid */}
+                    <div className="absolute inset-0 flex items-center justify-center text-white">
+                      <DuotoneIcon 
+                        icon={
+                          appointment.type === 'consultation' ? 'Stethoscope' :
+                          appointment.type === 'follow-up' ? 'UserCheck' :
+                          appointment.type === 'procedure' ? 'Syringe' :
+                          appointment.type === 'emergency' ? 'AlertTriangle' :
+                          'Calendar'
+                        }
+                        className="h-6 w-6 transform -rotate-6"
+                        primaryColor="white"
+                        secondaryOpacity={0.3}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Compact card content */}
+                  <div className="pl-16 pr-3 py-3">
+                    {/* Header with patient name and time */}
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 text-base truncate">
+                          {appointment.patient.first_name} {appointment.patient.last_name}
+                        </h3>
+                        <div className="flex items-center gap-3 text-xs text-gray-600 mt-0.5">
+                          <div className="flex items-center gap-1">
+                            <DuotoneIcon icon="Clock" className="h-3.5 w-3.5" />
+                            <span className="font-medium">
+                              {time ? format(parseISO(`2000-01-01T${time}`), 'h:mm a') : 'No time'}
                             </span>
-                          )}
+                          </div>
+                          <span className="text-gray-400">•</span>
+                          <span className="capitalize">{appointment.type}</span>
                         </div>
                       </div>
-                      
-                      {isUpcoming && (
-                        <div className="relative">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowActionMenu(showActionMenu === appointment.id ? null : appointment.id);
-                            }}
-                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                          >
-                            <MoreVertical className="h-4 w-4 text-gray-500" />
-                          </button>
-                          {showActionMenu === appointment.id && (
-                            <motion.div 
-                              initial={{ opacity: 0, scale: 0.95 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50"
+
+                      {/* Time badge in top right */}
+                      <div className="flex items-center gap-2">
+                        <div className="bg-gray-100 rounded-md px-2 py-1 flex items-center gap-1">
+                          <DuotoneIcon icon="Timer" className="h-3 w-3 text-gray-600" />
+                          <span className="text-xs font-medium text-gray-700">{appointment.duration}m</span>
+                        </div>
+                        {isUpcoming && (
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowActionMenu(showActionMenu === appointment.id ? null : appointment.id);
+                              }}
+                              className="p-1 hover:bg-gray-100 rounded transition-colors opacity-0 group-hover:opacity-100"
                             >
-                              {onEditAppointment && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onEditAppointment(appointment);
-                                    setShowActionMenu(null);
-                                  }}
-                                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700"
-                                >
-                                  <Edit2 className="h-3 w-3" />
-                                  Reschedule
-                                </button>
-                              )}
-                              {appointment.status === 'cancelled' && onDeleteAppointment && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (confirm('Delete this cancelled appointment?')) {
-                                      onDeleteAppointment(appointment.id);
-                                    }
-                                    setShowActionMenu(null);
-                                  }}
-                                  className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                  Delete
-                                </button>
-                              )}
-                            </motion.div>
-                          )}
+                              <MoreVertical className="h-3.5 w-3.5 text-gray-500" />
+                            </button>
+                            {showActionMenu === appointment.id && (
+                              <motion.div 
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="absolute right-0 mt-1 w-36 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-50"
+                              >
+                                {onEditAppointment && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onEditAppointment(appointment);
+                                      setShowActionMenu(null);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-xs hover:bg-gray-50 flex items-center gap-2 text-gray-700"
+                                  >
+                                    <Edit2 className="h-3 w-3" />
+                                    Reschedule
+                                  </button>
+                                )}
+                                {appointment.status === 'cancelled' && onDeleteAppointment && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (confirm('Delete this cancelled appointment?')) {
+                                        onDeleteAppointment(appointment.id);
+                                      }
+                                      setShowActionMenu(null);
+                                    }}
+                                    className="w-full px-3 py-1.5 text-left text-xs hover:bg-red-50 text-red-600 flex items-center gap-2"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                    Delete
+                                  </button>
+                                )}
+                              </motion.div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Compact info row */}
+                    <div className="flex items-center gap-3 text-xs text-gray-600 mb-2">
+                      {appointment.patient.cell_number && (
+                        <div className="flex items-center gap-1">
+                          <DuotoneIcon icon="Phone" className="h-3 w-3" />
+                          <span>{appointment.patient.cell_number}</span>
+                        </div>
+                      )}
+                      {appointment.patient.gender && (
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          appointment.patient.gender === 'Female' 
+                            ? 'bg-pink-50 text-pink-600 border border-pink-200' 
+                            : 'bg-blue-50 text-blue-600 border border-blue-200'
+                        }`}>
+                          {appointment.patient.gender}
+                        </span>
+                      )}
+                      {appointment.patient.medical_aid_details?.provider && (
+                        <div className="flex items-center gap-1 text-gray-500">
+                          <DuotoneIcon icon="Shield" className="h-3 w-3" />
+                          <span className="truncate max-w-[80px]">{appointment.patient.medical_aid_details.provider}</span>
                         </div>
                       )}
                     </div>
 
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-6 text-sm text-gray-600">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          <span>{appointment.duration} min</span>
-                        </div>
-                        {appointment.patient.cell_number && (
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4" />
-                            <span>{appointment.patient.cell_number}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <Stethoscope className="h-4 w-4" />
-                          <span className="capitalize">{appointment.type}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                        <div className="flex items-center gap-3">
-                          <span className={`px-3 py-1.5 rounded-lg text-sm font-medium ${getStatusColorClasses(appointment.status)}`}>
-                            {appointment.status}
-                          </span>
-                          {appointment.status === 'scheduled' && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMarkReady(appointment.id);
-                              }}
-                              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg font-medium transition-colors"
-                            >
-                              Mark Ready
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                    {/* Status and action */}
+                    <div className="flex items-center justify-between">
+                      <span className={`px-2.5 py-1 rounded-md text-xs font-medium ${getStatusColorClasses(appointment.status)}`}>
+                        {appointment.status}
+                      </span>
+                      {appointment.status === 'scheduled' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkReady(appointment.id);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded-md font-medium transition-all flex items-center gap-1"
+                        >
+                          <DuotoneIcon icon="CheckCircle" className="h-3 w-3" />
+                          Ready
+                        </button>
+                      )}
                     </div>
+
+                    {/* Notes preview if available */}
+                    {appointment.notes && (
+                      <p className="text-xs text-gray-500 mt-2 line-clamp-1 italic">
+                        "{appointment.notes}"
+                      </p>
+                    )}
                   </div>
                 </motion.div>
               );

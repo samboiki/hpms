@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
+import { CommunicationStatsService, CommunicationStats } from '../services/communicationStatsService';
 
 export interface DashboardStats {
   patient: {
@@ -56,18 +57,39 @@ export function useOptimizedDashboardStats() {
       console.log('⚡ Fetching optimized dashboard stats for practice:', practiceId);
 
       try {
-        // Use the optimized function that queries the materialized view
+        // Fetch main dashboard stats from RPC function
         const { data, error } = await supabase.rpc('get_dashboard_stats', {
           p_practice_id: practiceId
         });
 
         if (error) throw error;
 
+        // Fetch communication stats separately
+        console.log('🔍 Fetching communication stats separately...');
+        const communicationStats = await CommunicationStatsService.getCommunicationStats(practiceId);
+        console.log('📞 Communication stats fetched:', communicationStats);
+
         const queryTime = performance.now() - startTime;
         console.log(`⚡ Dashboard stats fetched in ${queryTime.toFixed(2)}ms`);
 
-        // Parse the JSONB response
-        const stats = data as DashboardStats;
+        // Parse the JSONB response from RPC
+        const baseStats = data as Omit<DashboardStats, 'communication'>;
+        
+        // Transform communication stats to match the DashboardStats interface
+        const transformedCommunicationStats = {
+          smsUsed: communicationStats.sms.current_usage,
+          smsLimit: communicationStats.sms.monthly_limit,
+          smsPercentage: communicationStats.sms.percentage_available,
+          emailUsed: communicationStats.email.current_usage,
+          emailLimit: communicationStats.email.monthly_limit,
+          emailPercentage: communicationStats.email.percentage_available
+        };
+
+        // Combine base stats with communication stats
+        const stats: DashboardStats = {
+          ...baseStats,
+          communication: transformedCommunicationStats
+        };
         
         // Log cache age if available
         if (stats.lastRefreshed) {
@@ -76,6 +98,7 @@ export function useOptimizedDashboardStats() {
           console.log(`📊 Stats cache age: ${cacheAgeMinutes} minutes`);
         }
 
+        console.log('✅ Final combined dashboard stats:', stats);
         return stats;
       } catch (error) {
         console.error('❌ Error fetching optimized dashboard stats:', error);
@@ -120,3 +143,30 @@ export function useRefreshDashboardStats() {
 }
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+// Hook for communication stats specifically for PremiumStatCard
+export function useCommunicationStats() {
+  const { user } = useAuthStore();
+  const practiceId = user?.practice_id;
+
+  return useQuery({
+    queryKey: ['communication-stats', practiceId],
+    queryFn: async (): Promise<CommunicationStats | null> => {
+      if (!practiceId) return null;
+
+      console.log('📞 Fetching communication stats for PremiumStatCard...');
+      try {
+        const stats = await CommunicationStatsService.getCommunicationStats(practiceId);
+        console.log('✅ Communication stats for card:', stats);
+        return stats;
+      } catch (error) {
+        console.error('❌ Error fetching communication stats for card:', error);
+        return null;
+      }
+    },
+    enabled: !!practiceId,
+    staleTime: 1000 * 60, // 1 minute
+    gcTime: 1000 * 60 * 5, // 5 minutes
+    refetchInterval: 1000 * 60 * 2, // Auto-refresh every 2 minutes
+  });
+}

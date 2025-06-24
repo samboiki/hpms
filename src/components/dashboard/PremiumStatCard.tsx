@@ -149,19 +149,19 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         if (communicationStats) {
           return {
             subtitle: 'Service Availability',
-            mainValue: `${communicationStats.overall_percentage_available}%`,
+            mainValue: `${communicationStats.overall_percentage_available || 0}%`,
             segments: [
               { 
-                value: communicationStats.sms.percentage_available, 
+                value: communicationStats.sms?.percentage_available || 0, 
                 color: '#F59E0B', 
                 label: 'SMS Available', 
-                count: `${communicationStats.sms.available}/${communicationStats.sms.monthly_limit}` 
+                count: `${communicationStats.sms?.available || 0}/${communicationStats.sms?.monthly_limit || 0}` 
               },
               { 
-                value: communicationStats.email.percentage_available, 
+                value: communicationStats.email?.percentage_available || 0, 
                 color: '#EF4444', 
                 label: 'Email Available', 
-                count: `${communicationStats.email.available}/${communicationStats.email.monthly_limit}` 
+                count: `${communicationStats.email?.available || 0}/${communicationStats.email?.monthly_limit || 0}` 
               }
             ],
             totalLabel: 'Available/Total'
@@ -217,19 +217,19 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           console.log('🎯 PremiumStatCard: Using real quarterly invoice stats:', invoiceStats);
           return {
             subtitle: `Q${invoiceStats.currentQuarter} ${new Date().getFullYear()} Breakdown`,
-            mainValue: `N$${invoiceStats.quarterlyRevenue.toLocaleString()}`,
+            mainValue: `N$${(invoiceStats.quarterlyRevenue || 0).toLocaleString()}`,
             segments: [
               { 
-                value: invoiceStats.quarterlyPercentagePaid, 
+                value: invoiceStats.quarterlyPercentagePaid || 0, 
                 color: '#10B981', 
                 label: 'Paid', 
-                count: `${invoiceStats.quarterlyPaidInvoices} invoices` 
+                count: `${invoiceStats.quarterlyPaidInvoices || 0} invoices` 
               },
               { 
-                value: invoiceStats.quarterlyPercentageOutstanding, 
+                value: invoiceStats.quarterlyPercentageOutstanding || 0, 
                 color: '#EF4444', 
                 label: 'Outstanding', 
-                count: `${invoiceStats.quarterlyOutstandingInvoices} invoices` 
+                count: `${invoiceStats.quarterlyOutstandingInvoices || 0} invoices` 
               }
             ],
             totalLabel: `Q${invoiceStats.currentQuarter} Revenue`

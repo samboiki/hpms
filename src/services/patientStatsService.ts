@@ -47,8 +47,8 @@ export class PatientStatsService {
 
       // Calculate statistics
       const total = patientData.length;
-      const male = patientData.filter(p => p.gender === 'male').length;
-      const female = patientData.filter(p => p.gender === 'female').length;
+      const male = patientData.filter(p => p.gender && p.gender.toLowerCase() === 'male').length;
+      const female = patientData.filter(p => p.gender && p.gender.toLowerCase() === 'female').length;
 
       // Calculate new patients this month
       const thisMonth = new Date();

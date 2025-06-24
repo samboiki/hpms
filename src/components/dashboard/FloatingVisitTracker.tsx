@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import { format } from 'date-fns';
 import { useTheme } from '../../stores/themeStore';
-import { useTodayAppointments, useRealtimeAppointments } from '../../hooks/useAppointments';
+import { useVisitsStore } from '../../stores/visitsStore';
 
 interface Visit {
   id: string;
@@ -23,44 +23,49 @@ interface Visit {
 }
 
 interface FloatingVisitTrackerProps {
-  practiceId?: string; // Make optional since we get it from context
+  practiceId: string;
 }
 
-const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = () => {
+const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId }) => {
   const { currentTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
+  const [showTopShadow, setShowTopShadow] = useState(false);
+  const [showBottomShadow, setShowBottomShadow] = useState(true);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   
-  // Use shared appointments hook
-  const { data: visits = [], isLoading } = useTodayAppointments();
+  // Use visits store instead of appointments
+  const { visits, loading, fetchTodayVisits } = useVisitsStore();
   
-  // Subscribe to real-time updates
-  useRealtimeAppointments();
+  // Fetch today's visits when component mounts or practiceId changes
+  useEffect(() => {
+    if (practiceId) {
+      fetchTodayVisits(practiceId);
+    }
+  }, [practiceId, fetchTodayVisits]);
+
+  // Handle scroll shadows
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+      setShowTopShadow(scrollTop > 0);
+      setShowBottomShadow(scrollTop < scrollHeight - clientHeight - 10);
+    }
+  };
   
   // Ensure currentTheme is available
   if (!currentTheme || !currentTheme.gradients || !currentTheme.gradients.sidebar) {
     return null; // Return early if theme is not loaded
   }
   
-  // Calculate visit statistics like in PremiumAppointmentScheduler with error handling
+  // Calculate visit statistics using the enhanced visits structure
   const safeVisits = visits || [];
   const totalCount = safeVisits.length;
-  const scheduledCount = safeVisits.filter(v => v?.status && ['scheduled', 'confirmed'].includes(v.status)).length;
-  const readyCount = safeVisits.filter(v => v?.status === 'ready').length;
-  const inProgressCount = safeVisits.filter(v => v?.status === 'in_progress').length;
+  const scheduledCount = safeVisits.filter(v => v?.is_confirmed && !v?.is_cancelled).length;
+  const readyCount = safeVisits.filter(v => v?.is_ready && !v?.is_cancelled).length;
+  const inProgressCount = safeVisits.filter(v => v?.status === 'in-progress' && !v?.is_cancelled).length;
   const completedCount = safeVisits.filter(v => v?.status === 'completed').length;
   const cancelledCount = safeVisits.filter(v => v?.status === 'cancelled').length;
   const noShowCount = safeVisits.filter(v => v?.status === 'no_show').length;
-  
-  console.log('📊 FloatingVisitTracker Stats:', {
-    total: totalCount,
-    scheduled: scheduledCount,
-    ready: readyCount,
-    inProgress: inProgressCount,
-    completed: completedCount,
-    cancelled: cancelledCount,
-    noShow: noShowCount,
-    statuses: safeVisits.map(v => v.status)
-  });
   
   const completionPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
   const remainingPercentage = totalCount > 0 ? 100 - completionPercentage : 0;
@@ -214,11 +219,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = () => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: "spring", damping: 20 }}
-              className="fixed inset-x-4 bottom-20 md:right-6 md:left-auto md:w-[480px] bg-white rounded-2xl shadow-2xl z-50 max-h-[80vh] overflow-hidden"
+              className="fixed inset-x-4 bottom-20 md:right-6 md:left-auto md:w-[580px] bg-white rounded-2xl shadow-2xl z-50 max-h-[85vh] overflow-hidden"
             >
               {/* Header */}
               <div className="p-6 border-b border-gray-100">
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between mb-4">
                   <div>
                     <h2 className="text-2xl font-bold text-gray-800">Today's Visits</h2>
                     <p className="text-sm text-gray-500 mt-1">
@@ -232,75 +237,86 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = () => {
                     <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-400" />
                   </button>
                 </div>
-
-                {/* Premium Visit Status Segments */}
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Visit Status Overview</h3>
-                  <div className="bg-gradient-to-r from-gray-100 to-gray-200 rounded-2xl p-2 shadow-lg">
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { status: 'total', label: 'Total', count: totalCount, icon: 'solar:calendar-minimalistic-bold-duotone' },
-                        { status: 'scheduled', label: 'Scheduled', count: scheduledCount, icon: 'solar:clock-circle-bold-duotone' },
-                        { status: 'ready', label: 'Ready', count: readyCount, icon: 'solar:check-circle-bold-duotone' },
-                        { status: 'in_progress', label: 'In Progress', count: inProgressCount, icon: 'solar:play-circle-bold-duotone' },
-                        { status: 'completed', label: 'Completed', count: completedCount, icon: 'solar:verified-check-bold-duotone' },
-                        { status: 'cancelled', label: 'Cancelled', count: cancelledCount, icon: 'solar:close-circle-bold-duotone' }
-                      ].map((segment) => (
-                        <motion.div
-                          key={segment.status}
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: 0.1 }}
-                          className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-white/50 hover:bg-white/90 transition-all duration-200 group cursor-pointer shadow-sm hover:shadow-md"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className={`p-2 rounded-lg bg-gradient-to-br ${currentTheme?.gradients?.sidebar || 'from-cyan-500 to-blue-600'} shadow-sm group-hover:scale-110 transition-transform duration-200`}>
-                                <Icon icon={segment.icon} className="w-4 h-4 text-white" />
-                              </div>
-                              <div>
-                                <p className="text-sm font-semibold text-gray-700 group-hover:text-gray-900 transition-colors">{segment.label}</p>
-                                <p className="text-xs text-gray-500">visits</p>
-                              </div>
-                            </div>
-                            <div className={`px-3 py-1 rounded-full bg-gradient-to-r ${currentTheme?.gradients?.sidebar || 'from-cyan-500 to-blue-600'} shadow-sm`}>
-                              <span className="text-lg font-bold text-white">{segment.count}</span>
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
+                
+                {/* Full Width Progress Bar */}
+                <div className="w-full">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-gray-700">Daily Progress</span>
+                      <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                        {completedCount} of {totalCount} visits completed
+                      </span>
                     </div>
+                    <span className="text-lg font-bold text-gray-800">{completionPercentage}%</span>
                   </div>
-                  
-                  {/* Premium Progress Section */}
-                  <div className={`mt-6 p-6 bg-gradient-to-br ${currentTheme?.gradients?.sidebar || 'from-cyan-500 to-blue-600'} rounded-2xl border border-white/20 backdrop-blur-xl shadow-xl`}>
-                    <div className="text-center mb-4">
-                      <h4 className="text-lg font-bold text-white mb-2">Daily Progress</h4>
-                      <div className="text-4xl font-bold text-white mb-1">{completionPercentage}%</div>
-                      <p className="text-sm text-white/80">Completion Rate</p>
-                    </div>
-                    
-                    <div className="h-4 bg-white/20 rounded-full overflow-hidden backdrop-blur-sm border border-white/30">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${completionPercentage}%` }}
-                        transition={{ duration: 1.2, ease: "easeOut" }}
-                        className="h-full bg-gradient-to-r from-emerald-400 via-green-400 to-teal-400 rounded-full shadow-lg"
-                      />
-                    </div>
-                    
-                    <div className="flex justify-between text-xs text-white/80 mt-2">
-                      <span>{completedCount} completed</span>
-                      <span>{totalCount - completedCount} remaining</span>
-                    </div>
+                  <div className="h-3 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${completionPercentage}%` }}
+                      transition={{ duration: 1.2, ease: "easeOut" }}
+                      className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-full shadow-sm"
+                    />
                   </div>
                 </div>
 
+                {/* In Progress Section - Always Visible */}
+                {inProgressCount > 0 && (
+                  <div className="mt-4 p-3 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Icon icon="solar:play-circle-bold-duotone" className="w-5 h-5 text-orange-600" />
+                      <h3 className="font-semibold text-orange-700">Currently In Progress</h3>
+                      <span className="ml-auto text-sm font-medium text-orange-600 bg-white px-2 py-0.5 rounded-full">
+                        {inProgressCount} {inProgressCount === 1 ? 'visit' : 'visits'}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {safeVisits.filter(v => v?.status === 'in-progress' && !v?.is_cancelled).map((visit) => (
+                        <div
+                          key={visit.id}
+                          className="flex items-center gap-3 p-2 bg-white/80 backdrop-blur rounded-lg border border-orange-100"
+                        >
+                          <div className="flex items-center justify-center w-10 h-10 bg-orange-100 rounded-full">
+                            <Icon icon="solar:stethoscope-bold-duotone" className="w-5 h-5 text-orange-600" />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-800 text-sm">
+                              {visit.patient?.first_name} {visit.patient?.last_name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Dr. {visit.doctor?.full_name || 'Unassigned'} • Started {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : '--:--'}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+                            <span className="text-xs font-medium text-orange-600">Active</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Visits List */}
-              <div className="overflow-y-auto max-h-[400px] p-6 space-y-3">
-                {isLoading ? (
+              {/* Visits Grouped by Status */}
+              <div className="relative">
+                {/* Scroll Shadow Indicators */}
+                <div className={`absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white via-white/95 to-transparent z-10 pointer-events-none transition-opacity duration-300 ${showTopShadow ? 'opacity-100' : 'opacity-0'}`}></div>
+                <div className={`absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white via-white/95 to-transparent z-10 pointer-events-none transition-opacity duration-300 ${showBottomShadow ? 'opacity-100' : 'opacity-0'}`}></div>
+                
+                {/* Scrollable Content */}
+                <div 
+                  ref={scrollContainerRef}
+                  onScroll={handleScroll}
+                  className="overflow-y-auto max-h-[600px] p-6 space-y-6 scroll-smooth 
+                    scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300/50 
+                    hover:scrollbar-thumb-gray-400/70 scrollbar-thumb-rounded-full 
+                    scrollbar-track-rounded-full"
+                  style={{
+                    scrollbarWidth: 'thin',
+                    scrollBehavior: 'smooth'
+                  }}
+                >
+                {loading ? (
                   <div className="text-center py-8">
                     <Icon icon="solar:refresh-circle-bold-duotone" className="w-8 h-8 text-gray-400 animate-spin mx-auto" />
                     <p className="text-sm text-gray-500 mt-2">Loading visits...</p>
@@ -311,50 +327,111 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = () => {
                     <p className="text-sm text-gray-500 mt-2">No visits scheduled for today</p>
                   </div>
                 ) : (
-                  safeVisits.map((visit) => (
-                    <motion.div
-                      key={visit.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                    >
-                      {/* Time */}
-                      <div className="text-center min-w-[60px]">
-                        <p className="text-lg font-semibold text-gray-800">
-                          {visit.time ? format(new Date(`2000-01-01T${visit.time}`), 'HH:mm') : '--:--'}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {visit.time ? format(new Date(`2000-01-01T${visit.time}`), 'a') : ''}
-                        </p>
-                      </div>
+                  // Group visits by status and render each category
+                  (() => {
+                    const statusCategories = [
+                      { 
+                        key: 'scheduled', 
+                        label: 'Scheduled', 
+                        icon: 'solar:clock-circle-bold-duotone',
+                        color: 'text-blue-600',
+                        bgColor: 'bg-blue-50',
+                        borderColor: 'border-blue-200',
+                        visits: safeVisits.filter(v => v?.is_confirmed && !v?.is_cancelled && v?.status !== 'in-progress' && v?.status !== 'completed' && !v?.is_ready)
+                      },
+                      { 
+                        key: 'ready', 
+                        label: 'Ready', 
+                        icon: 'solar:check-circle-bold-duotone',
+                        color: 'text-emerald-600',
+                        bgColor: 'bg-emerald-50',
+                        borderColor: 'border-emerald-200',
+                        visits: safeVisits.filter(v => v?.is_ready && !v?.is_cancelled)
+                      },
+                      { 
+                        key: 'completed', 
+                        label: 'Completed', 
+                        icon: 'solar:verified-check-bold-duotone',
+                        color: 'text-green-600',
+                        bgColor: 'bg-green-50',
+                        borderColor: 'border-green-200',
+                        visits: safeVisits.filter(v => v?.status === 'completed')
+                      },
+                      { 
+                        key: 'cancelled', 
+                        label: 'Cancelled', 
+                        icon: 'solar:close-circle-bold-duotone',
+                        color: 'text-red-600',
+                        bgColor: 'bg-red-50',
+                        borderColor: 'border-red-200',
+                        visits: safeVisits.filter(v => v?.status === 'cancelled')
+                      }
+                    ];
 
-                      {/* Patient Info */}
-                      <div className="flex-1">
-                        <p className="font-semibold text-gray-800">
-                          {visit.patient?.first_name} {visit.patient?.last_name}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Dr. {visit.doctor?.first_name || 'Unassigned'}
-                        </p>
-                      </div>
+                    return statusCategories.map((category) => {
+                      if (category.visits.length === 0) return null;
 
-                      {/* Status */}
-                      <div className="flex items-center gap-2">
-                        <Icon 
-                          icon={getStatusIcon(visit.status)} 
-                          className="w-5 h-5"
-                          style={{ color: getStatusColor(visit.status) }}
-                        />
-                        <span 
-                          className="text-sm font-medium capitalize"
-                          style={{ color: getStatusColor(visit.status) }}
+                      return (
+                        <motion.div
+                          key={category.key}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="space-y-3"
                         >
-                          {visit.status.replace('_', ' ')}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))
+                          {/* Status Header */}
+                          <div className={`flex items-center gap-3 p-3 rounded-lg ${category.bgColor} ${category.borderColor} border`}>
+                            <Icon icon={category.icon} className={`w-5 h-5 ${category.color}`} />
+                            <h3 className={`font-semibold ${category.color}`}>
+                              {category.label}
+                            </h3>
+                            <span className={`ml-auto text-sm font-medium ${category.color} bg-white px-2 py-1 rounded-full`}>
+                              {category.visits.length}
+                            </span>
+                          </div>
+
+                          {/* Patients in this status */}
+                          <div className="space-y-2 ml-8">
+                            {category.visits.map((visit, index) => (
+                              <motion.div
+                                key={visit.id}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: index * 0.05 }}
+                                className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all cursor-pointer"
+                              >
+                                {/* Time */}
+                                <div className="text-center min-w-[50px]">
+                                  <p className="text-sm font-semibold text-gray-800">
+                                    {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : 
+                                     visit.visit_time ? format(new Date(`2000-01-01T${visit.visit_time}`), 'HH:mm') : '--:--'}
+                                  </p>
+                                </div>
+
+                                {/* Patient Info */}
+                                <div className="flex-1">
+                                  <p className="font-medium text-gray-800">
+                                    {visit.patient?.first_name} {visit.patient?.last_name}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {visit.visit_type || 'Consultation'} • Dr. {visit.doctor?.full_name || 'Unassigned'}
+                                  </p>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="flex items-center gap-1">
+                                  <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
+                                    <Icon icon="solar:eye-bold-duotone" className="w-4 h-4 text-gray-400" />
+                                  </button>
+                                </div>
+                              </motion.div>
+                            ))}
+                          </div>
+                        </motion.div>
+                      );
+                    });
+                  })()
                 )}
+                </div>
               </div>
             </motion.div>
           </>

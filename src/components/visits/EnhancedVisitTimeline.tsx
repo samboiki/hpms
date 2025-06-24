@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Calendar, Clock, User, ChevronDown, ChevronUp, 
-  CheckCircle, XCircle, AlertCircle, Play, UserCheck,
-  Activity, FileText, Pill, Heart, UserX
-} from 'lucide-react';
+import { Icon } from '@iconify/react';
 import { format, isToday, isFuture, isPast } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { Visit, getVisitDisplayStatus, getVisitActions } from '../../types/enhanced-visit.types';
 import { motion, AnimatePresence } from 'framer-motion';
+import DuotoneIcon from '../icons/DuotoneIcon';
 
 interface EnhancedVisitTimelineProps {
   patientId?: string;
@@ -178,23 +175,71 @@ export default function EnhancedVisitTimeline({
   const getIcon = (iconName?: string) => {
     switch (iconName) {
       case 'alert-circle':
-        return <AlertCircle className="w-5 h-5" />;
+        return <Icon icon="solar:danger-circle-bold-duotone" className="w-5 h-5" />;
       case 'calendar':
-        return <Calendar className="w-5 h-5" />;
+        return <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5" />;
       case 'user-check':
-        return <UserCheck className="w-5 h-5" />;
+        return <Icon icon="solar:user-check-rounded-bold-duotone" className="w-5 h-5" />;
       case 'activity':
-        return <Activity className="w-5 h-5" />;
+        return <Icon icon="solar:pulse-bold-duotone" className="w-5 h-5" />;
       case 'play':
-        return <Play className="w-5 h-5" />;
+        return <Icon icon="solar:play-circle-bold-duotone" className="w-5 h-5" />;
       case 'check-circle':
-        return <CheckCircle className="w-5 h-5" />;
+        return <Icon icon="solar:check-circle-bold-duotone" className="w-5 h-5" />;
       case 'x-circle':
-        return <XCircle className="w-5 h-5" />;
+        return <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />;
       case 'user-x':
-        return <UserX className="w-5 h-5" />;
+        return <Icon icon="solar:user-cross-rounded-bold-duotone" className="w-5 h-5" />;
       default:
-        return <Calendar className="w-5 h-5" />;
+        return <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5" />;
+    }
+  };
+
+  const getStatusColor = (visit: Visit) => {
+    if (visit.status === 'completed') return '#10b981'; // emerald-500
+    if (visit.is_cancelled) return '#ef4444'; // red-500
+    if (visit.is_ready) return '#10b981'; // emerald-500
+    if (visit.is_checked_in) return '#3b82f6'; // blue-500
+    if (visit.is_confirmed) return '#3b82f6'; // blue-500
+    return '#f59e0b'; // amber-500
+  };
+
+  const getStatusIcon = (visit: Visit) => {
+    if (visit.status === 'completed') return 'check-circle';
+    if (visit.is_cancelled) return 'x-circle';
+    if (visit.is_ready) return 'activity';
+    if (visit.is_checked_in) return 'user-check';
+    if (visit.is_confirmed) return 'calendar';
+    return 'alert-circle';
+  };
+
+  const getVisitTypeIcon = (type: string) => {
+    switch (type) {
+      case 'consultation':
+        return 'stethoscope';
+      case 'follow-up':
+        return 'calendar';
+      case 'procedure':
+        return 'activity';
+      case 'emergency':
+        return 'alert-circle';
+      default:
+        return 'file-text';
+    }
+  };
+
+  const getVisitTypeColor = (type: string) => {
+    switch (type) {
+      case 'consultation':
+        return '#01b9d4'; // brand-primary
+      case 'follow-up':
+        return '#a855f7'; // purple-500
+      case 'procedure':
+        return '#3b82f6'; // blue-500
+      case 'emergency':
+        return '#ef4444'; // red-500
+      default:
+        return '#6b7280'; // gray-500
     }
   };
 
@@ -319,135 +364,181 @@ export default function EnhancedVisitTimeline({
                       key={visit.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="relative"
+                      className="relative group"
                     >
                       {/* Timeline Dot */}
-                      <div className={`absolute left-7 top-6 w-4 h-4 rounded-full border-2 border-white z-10 ${
-                        visit.status === 'completed' ? 'bg-gray-400' :
-                        visit.is_cancelled ? 'bg-red-400' :
-                        visit.is_ready ? 'bg-green-400 animate-pulse' :
-                        visit.is_checked_in ? 'bg-green-400' :
-                        visit.is_confirmed ? 'bg-blue-400' :
-                        'bg-orange-400'
-                      }`}></div>
+                      <div 
+                        className="absolute left-7 top-4 w-4 h-4 rounded-full border-2 border-white z-10 shadow-lg"
+                        style={{ 
+                          backgroundColor: getStatusColor(visit),
+                          boxShadow: `0 0 10px ${getStatusColor(visit)}30`
+                        }}
+                      >
+                        <div className="w-1.5 h-1.5 bg-white rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                      </div>
 
-                      {/* Visit Card */}
-                      <div className="ml-16 bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
-                        <div
-                          className="p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                          onClick={() => toggleExpanded(visit.id)}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
+                      {/* Compact Visit Card with Trapezoidal Cutout */}
+                      <div className="ml-12 relative overflow-hidden">
+                        {/* Trapezoidal cutout on the left side */}
+                        <div 
+                          className="absolute left-0 top-0 bottom-0 w-6 z-10"
+                          style={{
+                            background: getStatusColor(visit),
+                            clipPath: 'polygon(0% 0%, 70% 15%, 70% 85%, 0% 100%)',
+                            boxShadow: `0 0 20px ${getStatusColor(visit)}20`
+                          }}
+                        />
+                        
+                        {/* Status indicator icon in the cutout */}
+                        <div className="absolute left-1 top-1/2 transform -translate-y-1/2 z-20">
+                          <DuotoneIcon 
+                            icon={getStatusIcon(visit)}
+                            className="w-4 h-4 text-white"
+                          />
+                        </div>
+
+                        {/* Main card content */}
+                        <div className="relative bg-white/80 backdrop-blur-sm border border-white/40 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 group-hover:bg-white/90 ml-4">
+                          <div
+                            className="p-4 cursor-pointer"
+                            onClick={() => toggleExpanded(visit.id)}
+                          >
+                            {/* Header Section */}
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center space-x-3 flex-1">
+                                <div 
+                                  className="p-2 rounded-lg backdrop-blur-sm border border-white/50"
+                                  style={{ 
+                                    backgroundColor: `${getVisitTypeColor(visit.visit_type)}15`,
+                                    borderColor: `${getVisitTypeColor(visit.visit_type)}30`
+                                  }}
+                                >
+                                  <DuotoneIcon 
+                                    icon={getVisitTypeIcon(visit.visit_type)}
+                                    className="w-4 h-4"
+                                    primaryColor={getVisitTypeColor(visit.visit_type)}
+                                    secondaryColor={`${getVisitTypeColor(visit.visit_type)}60`}
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="text-sm font-semibold text-gray-900 truncate capitalize">
+                                    {visit.visit_type} Visit
+                                  </h3>
+                                  <p className="text-xs text-gray-500 flex items-center">
+                                    <DuotoneIcon icon="clock" className="w-3 h-3 mr-1" />
+                                    {getVisitTime(visit) || 'No time set'}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center space-x-2">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${displayStatus.bgColor} ${displayStatus.color}`}>
                                   {getIcon(displayStatus.icon)}
                                   <span className="ml-1">{displayStatus.label}</span>
                                 </span>
-                                <span className="text-sm text-gray-500">
-                                  {getVisitTime(visit) || 'No time set'}
-                                </span>
+                                <div className="ml-2">
+                                  {isExpanded ? (
+                                    <DuotoneIcon icon="chevron-up" className="w-4 h-4 text-gray-400" />
+                                  ) : (
+                                    <DuotoneIcon icon="chevron-down" className="w-4 h-4 text-gray-400" />
+                                  )}
+                                </div>
                               </div>
-                              
-                              <div className="flex items-center gap-4 text-sm">
-                                {patientId ? (
-                                  <div className="flex items-center gap-2">
-                                    <User className="w-4 h-4 text-gray-400" />
-                                    <span className="font-medium">
-                                      Dr. {visit.doctor?.full_name || 'Not assigned'}
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-2">
-                                    <User className="w-4 h-4 text-gray-400" />
-                                    <span className="font-medium">
-                                      {visit.patient?.first_name} {visit.patient?.last_name}
-                                    </span>
-                                  </div>
-                                )}
-                                
-                                <span className="text-gray-500 capitalize">
-                                  {visit.visit_type}
-                                </span>
-                              </div>
+                            </div>
 
-                              {visit.chief_complaint && (
-                                <p className="mt-2 text-sm text-gray-600">
-                                  {visit.chief_complaint}
-                                </p>
-                              )}
-                            </div>
-                            
-                            <div className="ml-4">
-                              {isExpanded ? (
-                                <ChevronUp className="w-5 h-5 text-gray-400" />
+                            {/* Patient/Doctor Info */}
+                            <div className="flex items-center text-xs text-gray-600 mb-3">
+                              <DuotoneIcon icon="user-round" className="w-3 h-3 mr-1" />
+                              {patientId ? (
+                                <span>Dr. {visit.doctor?.full_name || 'Not assigned'}</span>
                               ) : (
-                                <ChevronDown className="w-5 h-5 text-gray-400" />
+                                <span>{visit.patient?.first_name} {visit.patient?.last_name}</span>
                               )}
                             </div>
+
+                            {/* Chief Complaint */}
+                            {visit.chief_complaint && (
+                              <div className="mb-3">
+                                <p className="text-xs text-gray-600 line-clamp-2">
+                                  <span className="font-medium">Chief Complaint:</span> {visit.chief_complaint}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
+                      </div>
 
-                        {/* Expanded Content */}
-                        <AnimatePresence>
-                          {isExpanded && (
-                            <motion.div
-                              initial={{ height: 0 }}
-                              animate={{ height: 'auto' }}
-                              exit={{ height: 0 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="px-4 pb-4 border-t border-gray-100 pt-4">
+                      {/* Expanded Content */}
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0 }}
+                            animate={{ height: 'auto' }}
+                            exit={{ height: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="ml-16 bg-white/90 backdrop-blur-sm border border-white/50 rounded-b-xl shadow-sm">
+                              <div className="px-4 pb-4 pt-4">
                                 {/* Visit Details */}
-                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                                   {visit.diagnosis && (
                                     <div>
-                                      <p className="text-xs text-gray-500 mb-1">Diagnosis</p>
-                                      <p className="text-sm">{visit.diagnosis}</p>
+                                      <p className="text-xs text-gray-500 mb-1 font-medium">Diagnosis</p>
+                                      <p className="text-sm text-gray-700">{visit.diagnosis}</p>
                                     </div>
                                   )}
                                   {visit.treatment_plan && (
                                     <div>
-                                      <p className="text-xs text-gray-500 mb-1">Treatment Plan</p>
-                                      <p className="text-sm">{visit.treatment_plan}</p>
+                                      <p className="text-xs text-gray-500 mb-1 font-medium">Treatment Plan</p>
+                                      <p className="text-sm text-gray-700">{visit.treatment_plan}</p>
                                     </div>
                                   )}
                                 </div>
 
-                                {/* Metrics */}
-                                <div className="flex items-center gap-6 text-sm text-gray-600 mb-4">
+                                {/* Compact Stats Grid */}
+                                <div className="grid grid-cols-3 gap-2 mb-4">
                                   {visit.vitals && visit.vitals.length > 0 && (
-                                    <div className="flex items-center gap-1">
-                                      <Heart className="w-4 h-4" />
-                                      <span>Vitals recorded</span>
+                                    <div className="bg-white/50 backdrop-blur-sm rounded-lg p-2 border border-white/30">
+                                      <div className="flex items-center text-xs text-gray-600">
+                                        <DuotoneIcon icon="activity" className="w-3 h-3 mr-1" primaryColor="#6b7280" />
+                                        Vitals
+                                      </div>
+                                      <p className="text-sm font-semibold text-gray-900">Recorded</p>
                                     </div>
                                   )}
                                   {visit.lab_results && visit.lab_results[0]?.count > 0 && (
-                                    <div className="flex items-center gap-1">
-                                      <FileText className="w-4 h-4" />
-                                      <span>{visit.lab_results[0].count} lab results</span>
+                                    <div className="bg-white/50 backdrop-blur-sm rounded-lg p-2 border border-white/30">
+                                      <div className="flex items-center text-xs text-gray-600">
+                                        <DuotoneIcon icon="file-text" className="w-3 h-3 mr-1" primaryColor="#6b7280" />
+                                        Labs
+                                      </div>
+                                      <p className="text-sm font-semibold text-gray-900">{visit.lab_results[0].count}</p>
                                     </div>
                                   )}
                                   {visit.prescription && (
-                                    <div className="flex items-center gap-1">
-                                      <Pill className="w-4 h-4" />
-                                      <span>Prescription given</span>
+                                    <div className="bg-white/50 backdrop-blur-sm rounded-lg p-2 border border-white/30">
+                                      <div className="flex items-center text-xs text-gray-600">
+                                        <DuotoneIcon icon="pill" className="w-3 h-3 mr-1" primaryColor="#6b7280" />
+                                        Prescription
+                                      </div>
+                                      <p className="text-sm font-semibold text-gray-900">Given</p>
                                     </div>
                                   )}
                                 </div>
 
-                                {/* Actions */}
+                                {/* Compact Action Buttons */}
                                 {showActions && actions.length > 0 && (
-                                  <div className="flex flex-wrap gap-2">
+                                  <div className="flex flex-wrap gap-1 pt-3 border-t border-gray-200/50">
                                     {actions.includes('confirm') && (
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           handleAction(visit.id, 'confirm');
                                         }}
-                                        className="px-3 py-1.5 text-xs font-medium text-green-700 bg-green-100 rounded-lg hover:bg-green-200 transition-colors"
+                                        className="flex items-center px-2 py-1 text-xs text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
                                       >
-                                        Confirm Booking
+                                        <DuotoneIcon icon="check-circle" className="w-3 h-3 mr-1" />
+                                        Confirm
                                       </button>
                                     )}
                                     {actions.includes('check-in') && (
@@ -456,8 +547,9 @@ export default function EnhancedVisitTimeline({
                                           e.stopPropagation();
                                           handleAction(visit.id, 'check-in');
                                         }}
-                                        className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors"
+                                        className="flex items-center px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                                       >
+                                        <DuotoneIcon icon="user-check" className="w-3 h-3 mr-1" />
                                         Check In
                                       </button>
                                     )}
@@ -467,8 +559,9 @@ export default function EnhancedVisitTimeline({
                                           e.stopPropagation();
                                           handleAction(visit.id, 'mark-ready');
                                         }}
-                                        className="px-3 py-1.5 text-xs font-medium text-green-700 bg-green-100 rounded-lg hover:bg-green-200 transition-colors"
+                                        className="flex items-center px-2 py-1 text-xs text-emerald-600 hover:bg-emerald-50 rounded-md transition-colors"
                                       >
+                                        <DuotoneIcon icon="activity" className="w-3 h-3 mr-1" />
                                         Mark Ready
                                       </button>
                                     )}
@@ -478,18 +571,19 @@ export default function EnhancedVisitTimeline({
                                           e.stopPropagation();
                                           handleAction(visit.id, 'start-visit');
                                         }}
-                                        className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors"
+                                        className="flex items-center px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                                       >
+                                        <DuotoneIcon icon="activity" className="w-3 h-3 mr-1" />
                                         Start Visit
                                       </button>
                                     )}
                                   </div>
                                 )}
                               </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </motion.div>
                   );
                 })}
@@ -500,7 +594,7 @@ export default function EnhancedVisitTimeline({
 
         {visits.length === 0 && (
           <div className="text-center py-12 text-gray-500">
-            <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+            <DuotoneIcon icon="calendar" className="w-12 h-12 mx-auto mb-3 text-gray-300" />
             <p>No visits found</p>
           </div>
         )}

@@ -27,7 +27,7 @@ interface VisitsActions {
   // Data fetching
   fetchVisits: (filters?: VisitFilters) => Promise<void>;
   fetchVisitsByPatient: (patientId: string) => Promise<void>;
-  fetchTodayVisits: () => Promise<void>;
+  fetchTodayVisits: (practiceId?: string) => Promise<void>;
   
   // Visit state transitions
   confirmVisit: (visitId: string, doctorId?: string) => Promise<void>;
@@ -170,12 +170,24 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
   },
 
   // Fetch today's visits
-  fetchTodayVisits: async () => {
+  fetchTodayVisits: async (practiceId?: string) => {
     const today = new Date().toISOString().split('T')[0];
-    console.log('⏱️ visitsStore: Fetching today\'s visits for date:', today);
+    const state = get();
+    const currentPracticeId = practiceId || state.practiceId;
+    
+    console.log('⏱️ visitsStore: Fetching today\'s visits for date:', today, 'practice:', currentPracticeId);
     const startTime = performance.now();
     
-    await get().fetchVisits({ date: today });
+    if (!currentPracticeId) {
+      console.warn('⚠️ visitsStore: No practice ID provided for fetchTodayVisits');
+      set({ visits: [], loading: false });
+      return;
+    }
+    
+    await get().fetchVisits({ 
+      date: today, 
+      practiceId: currentPracticeId 
+    });
     
     const totalTime = performance.now() - startTime;
     console.log(`⏱️ visitsStore: Today's visits fetched in ${totalTime.toFixed(2)}ms`);

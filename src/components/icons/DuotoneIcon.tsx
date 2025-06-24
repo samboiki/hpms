@@ -20,6 +20,8 @@ export const iconMap: Record<string, string> = {
   // UI Controls
   'chevron-left': 'solar:alt-arrow-left-bold-duotone',
   'chevron-right': 'solar:alt-arrow-right-bold-duotone',
+  'chevron-up': 'solar:alt-arrow-up-bold-duotone',
+  'chevron-down': 'solar:alt-arrow-down-bold-duotone',
   'x': 'solar:close-circle-bold-duotone',
   'x-circle': 'solar:close-circle-bold-duotone',
   'plus': 'solar:add-circle-bold-duotone',
@@ -29,6 +31,7 @@ export const iconMap: Record<string, string> = {
   // Status & Alerts
   'alert-circle': 'solar:danger-circle-bold-duotone',
   'check-circle-2': 'solar:check-circle-bold-duotone',
+  'check-circle': 'solar:check-circle-bold-duotone',
   'bell': 'solar:bell-bold-duotone',
   'clock': 'solar:clock-circle-bold-duotone',
   

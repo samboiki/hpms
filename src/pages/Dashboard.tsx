@@ -20,7 +20,7 @@ import { useAuthStore } from '../stores/authStore';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
 import CommunicationsModal from '../components/modals/CommunicationsModal';
 import ComprehensivePatientModal from '../components/patients/ComprehensivePatientModal';
-import { useOptimizedDashboardStats } from '../hooks/useOptimizedDashboardStats';
+import { useOptimizedDashboardStats, useCommunicationStats } from '../hooks/useOptimizedDashboardStats';
 import { useTodayAppointments, useRealtimeAppointments } from '../hooks/useAppointments';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
 import PremiumAppointmentScheduler from '../components/PremiumAppointmentScheduler';
@@ -100,6 +100,9 @@ function Dashboard() {
   
   // Fetch all dashboard stats using optimized hook
   const { data: dashboardData, isLoading: isDashboardLoading } = useOptimizedDashboardStats();
+  
+  // Fetch communication stats separately for PremiumStatCard
+  const { data: realCommunicationStats, isLoading: isCommunicationLoading } = useCommunicationStats();
   
   // Use shared appointments data
   const { data: todayAppointments = [], isLoading: isAppointmentsLoading } = useTodayAppointments();
@@ -188,6 +191,7 @@ function Dashboard() {
     inProgressCount, 
     todayCount,
     fetchTodayVisits,
+    fetchVisits,
     subscribeToVisitChanges,
     unsubscribeFromVisitChanges
   } = useVisitsStore();
@@ -195,13 +199,25 @@ function Dashboard() {
   // Subscribe to real-time visit changes
   useEffect(() => {
     if (currentPracticeId) {
-      fetchTodayVisits();
+      fetchTodayVisits(currentPracticeId);
       subscribeToVisitChanges(currentPracticeId);
     }
     return () => {
       unsubscribeFromVisitChanges();
     };
   }, [currentPracticeId, fetchTodayVisits, subscribeToVisitChanges, unsubscribeFromVisitChanges]);
+
+  // Fetch visits when selected date changes
+  useEffect(() => {
+    if (currentPracticeId && selectedDate) {
+      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+      console.log('📅 Dashboard: Selected date changed to:', formattedDate);
+      fetchVisits({ 
+        date: formattedDate, 
+        practiceId: currentPracticeId 
+      });
+    }
+  }, [selectedDate, currentPracticeId, fetchVisits]);
 
   // Show notification for unconfirmed visits
   useEffect(() => {
@@ -507,7 +523,6 @@ function Dashboard() {
   );
   const pendingVisits = visits.filter(v => v.is_scheduled && !v.is_confirmed && !v.is_cancelled);
   const completedToday = todayVisits.filter(v => v.status === 'completed').length;
-  const todayAppointments = todayVisits; // For compatibility
   const pendingAppointments = pendingVisits; // For compatibility
 
 
@@ -707,21 +722,21 @@ function Dashboard() {
                 <PremiumStatCard
                   key="communication"
                   title="Communication"
-                  mainValue={communicationStats?.overall_percentage_available ? `${communicationStats.overall_percentage_available}%` : '88%'}
+                  mainValue={realCommunicationStats?.overall_percentage_available ? `${realCommunicationStats.overall_percentage_available}%` : '88%'}
                   subtitle="Service usage"
                   icon={null}
                   iconName="solar:monitor-smartphone-bold-duotone"
                   gradient="from-amber-500 to-orange-600"
                   cardType="communication"
                   stats={[
-                    { label: 'SMS Available', value: communicationStats?.sms.available || 850, color: '#EF4444' },
-                    { label: 'Email Available', value: communicationStats?.email.available || 460, color: '#F59E0B' }
+                    { label: 'SMS Available', value: realCommunicationStats?.sms?.available || 850, color: '#EF4444' },
+                    { label: 'Email Available', value: realCommunicationStats?.email?.available || 460, color: '#F59E0B' }
                   ]}
                   comparison={{
                     label1: 'SMS Available',
-                    value1: communicationStats?.sms.available || 850,
+                    value1: realCommunicationStats?.sms?.available || 850,
                     label2: 'Email Available', 
-                    value2: communicationStats?.email.available || 460,
+                    value2: realCommunicationStats?.email?.available || 460,
                     color1: '#EF4444',
                     color2: '#F97316'
                   }}
@@ -729,7 +744,7 @@ function Dashboard() {
                     setIsCommunicationsModalOpen(true);
                   }}
                   dashboardStats={dashboardStats}
-                  communicationStats={communicationStats}
+                  communicationStats={realCommunicationStats}
                 />,
                 
                 // Encounters Card - Now using real database stats
@@ -1184,8 +1199,8 @@ function Dashboard() {
             
             // The form already creates a visit in the visits table
             // So we just need to refresh the visits list
-            if (newVisit) {
-              fetchTodayVisits();
+            if (newVisit && currentPracticeId) {
+              fetchTodayVisits(currentPracticeId);
             }
           }}
           onCancel={() => {
