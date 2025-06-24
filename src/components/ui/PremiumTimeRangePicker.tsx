@@ -35,12 +35,12 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
 
   // Common duration options
   const durationOptions = [
-    { value: 15, label: '15 min', color: 'from-green-400 to-green-500' },
-    { value: 30, label: '30 min', color: 'from-cyan-400 to-cyan-500' },
-    { value: 45, label: '45 min', color: 'from-blue-400 to-blue-500' },
-    { value: 60, label: '1 hour', color: 'from-purple-400 to-purple-500' },
-    { value: 90, label: '1.5 hours', color: 'from-pink-400 to-pink-500' },
-    { value: 120, label: '2 hours', color: 'from-orange-400 to-orange-500' }
+    { value: 15, label: '15 min' },
+    { value: 30, label: '30 min' },
+    { value: 45, label: '45 min' },
+    { value: 60, label: '1 hour' },
+    { value: 90, label: '1.5 hours' },
+    { value: 120, label: '2 hours' }
   ];
 
   useEffect(() => {
@@ -131,7 +131,7 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
               onClick={() => handleDurationSelect(option.value)}
               className={`py-2.5 px-3 rounded-xl font-medium text-sm transition-all duration-200
                 ${selectedDuration === option.value
-                  ? `bg-gradient-to-r ${option.color} text-white shadow-lg`
+                  ? 'bg-cyan-600 text-white shadow-lg'
                   : 'bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200'
                 }`}
             >

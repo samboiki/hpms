@@ -497,20 +497,36 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-red-50/80 backdrop-blur-sm border border-red-200 rounded-xl p-4"
+          className="bg-red-50 border border-red-200 rounded-lg p-4"
         >
           <div className="flex items-center gap-3">
             <Icon icon="solar:danger-triangle-bold-duotone" className="w-5 h-5 text-red-600" />
-            <p className="text-sm text-red-700 font-medium">{error}</p>
+            <p className="text-sm text-red-700">{error}</p>
           </div>
         </motion.div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {/* Patient Selection */}
-        <div className="col-span-2">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Patient</label>
-          <div className="relative">
+      {/* Patient Section */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm"
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <Icon icon="solar:user-rounded-bold-duotone" className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Patient Information</h3>
+            <p className="text-sm text-gray-500">Select the patient for this appointment</p>
+          </div>
+        </div>
+        <div className="relative">
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+              <Icon icon="solar:user-rounded-bold-duotone" className="w-4 h-4 text-blue-500" />
+              Patient
+            </label>
             <motion.div 
               className="relative"
               whileHover={{ scale: 1.01 }}
@@ -533,21 +549,22 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
                 }}
                 onFocus={() => !initialPatientId && !selectedPatientId && setShowPatientDropdown(true)}
                 disabled={!!initialPatientId}
-                className={`w-full pl-10 ${selectedPatientId && !initialPatientId ? 'pr-12' : 'pr-4'} py-3 bg-white border border-gray-200 rounded-xl 
-                  focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 
-                  transition-all duration-200 text-gray-700 font-medium
+                className={`w-full pl-10 ${selectedPatientId && !initialPatientId ? 'pr-12' : 'pr-4'} py-3 bg-white border border-gray-300 rounded-lg 
+                  focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 
+                  transition-all duration-200 text-gray-700
                   ${initialPatientId ? 'bg-gray-50 cursor-not-allowed' : ''}
-                  hover:border-gray-300`}
+                  hover:border-gray-400`}
               />
               {selectedPatientId && !initialPatientId && (
                 <motion.button
                   type="button"
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={clearPatient}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full transition-all duration-200 z-10 flex items-center justify-center"
+                  className="absolute right-3 inset-y-0 my-auto h-8 w-8 hover:bg-gray-100 rounded-full transition-all duration-200 z-10 flex items-center justify-center"
                 >
                   <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-400 hover:text-gray-600" />
                 </motion.button>
@@ -559,9 +576,14 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
               {showPatientDropdown && !selectedPatientId && (
                 <motion.div 
                   ref={dropdownRef}
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
+                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 30
+                  }}
                   className="absolute z-20 w-full mt-2 bg-white rounded-xl shadow-xl border border-gray-100 max-h-60 overflow-auto"
                   style={{ zIndex: 9999 }}
                 >
@@ -576,14 +598,26 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
                       <p className="text-sm text-gray-500">No patients found</p>
                     </div>
                   ) : (
-                    filteredPatients.map((patient) => (
+                    filteredPatients.map((patient, index) => (
                       <motion.div
                         key={patient.id}
-                        whileHover={{ backgroundColor: '#f3f4f6' }}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.03, duration: 0.2 }}
+                        whileHover={{ 
+                          backgroundColor: '#f3f4f6',
+                          x: 5,
+                          transition: { duration: 0.2 }
+                        }}
                         onClick={() => handlePatientSelect(patient)}
-                        className="px-4 py-3 cursor-pointer flex items-center gap-3 transition-colors"
+                        className="px-4 py-3 cursor-pointer flex items-center gap-3 transition-all duration-200"
                       >
-                        <Icon icon="solar:user-circle-bold-duotone" className="w-5 h-5 text-gray-400" />
+                        <motion.div
+                          whileHover={{ scale: 1.1 }}
+                          transition={{ type: "spring", stiffness: 400 }}
+                        >
+                          <Icon icon="solar:user-circle-bold-duotone" className="w-5 h-5 text-gray-400" />
+                        </motion.div>
                         <span className="font-medium text-gray-700">
                           {patient.first_name} {patient.last_name}
                         </span>
@@ -604,32 +638,49 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
               {errors.patient_id.message}
             </motion.p>
           )}
+      </motion.div>
+
+      {/* Appointment Details Section */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm"
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-purple-100 rounded-lg">
+            <Icon icon="solar:calendar-add-bold-duotone" className="w-5 h-5 text-purple-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Appointment Details</h3>
+            <p className="text-sm text-gray-500">Configure the appointment settings</p>
+          </div>
         </div>
 
-        {/* Doctor Selection - Only show if more than one doctor */}
-        {doctors.length > 1 ? (
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Doctor</label>
-            <motion.div 
-              className="relative"
-              whileHover={{ scale: 1.01 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              <Icon 
-                icon="solar:stethoscope-bold-duotone" 
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" 
-              />
-              <select
-                {...register('doctor_id', { required: 'Doctor is required' })}
-                onChange={(e) => {
-                  const doctor = doctors.find(d => d.id === e.target.value);
-                  if (doctor) setSelectedDoctor(doctor);
-                }}
-                className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl 
-                  focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 
-                  transition-all duration-200 text-gray-700 font-medium appearance-none
-                  hover:border-gray-300"
-              >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Doctor Selection - Only show if more than one doctor */}
+          {doctors.length > 1 ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Icon icon="solar:stethoscope-bold-duotone" className="w-4 h-4 text-purple-500" />
+                Doctor
+              </label>
+              <div className="relative">
+                <Icon 
+                  icon="solar:stethoscope-bold-duotone" 
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" 
+                />
+                <select
+                  {...register('doctor_id', { required: 'Doctor is required' })}
+                  onChange={(e) => {
+                    const doctor = doctors.find(d => d.id === e.target.value);
+                    if (doctor) setSelectedDoctor(doctor);
+                  }}
+                  className="w-full pl-10 pr-10 py-3 bg-white border border-gray-300 rounded-lg 
+                    focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 
+                    transition-all duration-200 text-gray-700 appearance-none
+                    hover:border-gray-400"
+                >
                 <option value="">Select doctor</option>
                 {doctors.map((doctor) => (
                   <option key={doctor.id} value={doctor.id}>
@@ -637,11 +688,11 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
                   </option>
                 ))}
               </select>
-              <Icon 
-                icon="solar:alt-arrow-down-bold-duotone" 
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" 
-              />
-            </motion.div>
+                <Icon 
+                  icon="solar:alt-arrow-down-bold-duotone" 
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" 
+                />
+              </div>
             {errors.doctor_id && (
               <motion.p 
                 initial={{ opacity: 0 }}
@@ -653,31 +704,89 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
               </motion.p>
             )}
           </div>
-        ) : (
-          selectedDoctor && (
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Doctor</label>
-              <div className="px-4 py-3 bg-cyan-50/50 border border-cyan-200 rounded-xl flex items-center gap-3">
-                <Icon icon="solar:stethoscope-bold-duotone" className="w-5 h-5 text-cyan-600" />
-                <span className="font-medium text-gray-700">{selectedDoctor.full_name}</span>
+          ) : (
+            selectedDoctor && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Icon icon="solar:stethoscope-bold-duotone" className="w-4 h-4 text-purple-500" />
+                  Doctor
+                </label>
+                <div className="px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg flex items-center gap-3">
+                  <Icon icon="solar:stethoscope-bold-duotone" className="w-5 h-5 text-gray-600" />
+                  <span className="text-gray-700">{selectedDoctor.full_name}</span>
+                </div>
               </div>
-            </div>
-          )
-        )}
+            )
+          )}
 
-        {/* Date - Premium Modal Date Picker */}
-        <div>
-          <PremiumDatePickerModal
-            value={watch('date')}
-            onChange={(date) => setValue('date', date)}
-            label="Date"
-            error={errors.date?.message}
-            min={new Date()}
-          />
+          {/* Appointment Type */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+              <Icon icon="solar:clipboard-heart-bold-duotone" className="w-4 h-4 text-purple-500" />
+              Appointment Type
+            </label>
+            <div className="relative">
+              <Icon 
+                icon="solar:clipboard-heart-bold-duotone" 
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" 
+              />
+              <select
+                {...register('type', { required: 'Type is required' })}
+                disabled={!!initialType}
+                className={`w-full pl-10 pr-10 py-3 bg-white border border-gray-300 rounded-lg 
+                  focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 
+                  transition-all duration-200 text-gray-700 appearance-none
+                  hover:border-gray-400
+                  ${initialType ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+              >
+                <option value="">Select type</option>
+                <option value="consultation">Consultation</option>
+                <option value="follow-up">Follow-up</option>
+                <option value="procedure">Procedure</option>
+                <option value="emergency">Emergency</option>
+              </select>
+              <Icon 
+                icon="solar:alt-arrow-down-bold-duotone" 
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" 
+              />
+            </div>
+            {errors.type && (
+              <motion.p 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="mt-1 text-sm text-red-600 flex items-center gap-1"
+              >
+                <Icon icon="solar:danger-circle-bold" className="w-4 h-4" />
+                {errors.type.message}
+              </motion.p>
+            )}
+          </div>
+
+        </div>
+
+        {/* Date and Time Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          {/* Date Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+              <Icon icon="solar:calendar-date-bold-duotone" className="w-4 h-4 text-purple-500" />
+              Date
+            </label>
+            <PremiumDatePickerModal
+              value={watch('date')}
+              onChange={(date) => setValue('date', date)}
+              error={errors.date?.message}
+              min={new Date()}
+            />
+          </div>
         </div>
 
         {/* Time Range Selection */}
-        <div className="col-span-2">
+        <div className="mt-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+            <Icon icon="solar:clock-circle-bold-duotone" className="w-4 h-4 text-purple-500" />
+            Time Selection
+          </label>
           <PremiumTimeRangePicker
             startTime={watch('time') || '09:00'}
             endTime={endTime}
@@ -724,81 +833,43 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
             bookedTimes={bookedTimes}
           />
         </div>
+      </motion.div>
 
-        {/* Type */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Appointment Type</label>
-          <motion.div 
-            className="relative"
-            whileHover={{ scale: 1.01 }}
-            transition={{ type: "spring", stiffness: 300 }}
-          >
-            <Icon 
-              icon="solar:clipboard-heart-bold-duotone" 
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" 
-            />
-            <select
-              {...register('type', { required: 'Type is required' })}
-              disabled={!!initialType}
-              className={`w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl 
-                focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 
-                transition-all duration-200 text-gray-700 font-medium appearance-none
-                hover:border-gray-300
-                ${initialType ? 'bg-gray-50 cursor-not-allowed' : ''}`}
-            >
-              <option value="consultation">Consultation</option>
-              <option value="follow-up">Follow-up</option>
-              <option value="procedure">Procedure</option>
-              <option value="emergency">Emergency</option>
-            </select>
-            <Icon 
-              icon="solar:alt-arrow-down-bold-duotone" 
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" 
-            />
-          </motion.div>
-          {errors.type && (
-            <motion.p 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-1 text-sm text-red-600 flex items-center gap-1"
-            >
-              <Icon icon="solar:danger-circle-bold" className="w-4 h-4" />
-              {errors.type.message}
-            </motion.p>
-          )}
+      {/* Notes Section */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm"
+      >
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-green-100 rounded-lg">
+            <Icon icon="solar:notes-bold-duotone" className="w-5 h-5 text-green-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Additional Notes</h3>
+            <p className="text-sm text-gray-500">Add any special instructions or concerns</p>
+          </div>
         </div>
 
         {/* Notes */}
-        <div className="col-span-2">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Notes (Optional)</label>
-          <motion.div 
-            className="relative"
-            whileHover={{ scale: 1.01 }}
-            transition={{ type: "spring", stiffness: 300 }}
-          >
-            <Icon 
-              icon="solar:notes-bold-duotone" 
-              className="absolute left-3 top-3 w-5 h-5 text-gray-400 pointer-events-none" 
-            />
-            <textarea
-              {...register('notes')}
-              rows={3}
-              placeholder="Add any additional notes..."
-              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl 
-                focus:outline-none focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 
-                transition-all duration-200 text-gray-700 font-medium resize-none
-                hover:border-gray-300"
-            />
-          </motion.div>
+        <div>
+          <textarea
+            {...register('notes')}
+            rows={3}
+            placeholder="Add any special instructions or notes..."
+            className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg 
+              focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 
+              transition-all duration-200 text-gray-700 resize-none
+              hover:border-gray-400"
+          />
         </div>
-      </div>
+      </motion.div>
 
       {/* Action Buttons */}
       <div className="flex justify-end gap-3 pt-4">
-        <motion.button
+        <button
           type="button"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
           onClick={() => {
             if (onCancel) {
               onCancel();
@@ -806,21 +877,18 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
               onSuccess();
             }
           }}
-          className="px-6 py-3 text-gray-700 bg-white border border-gray-200 rounded-xl 
-            hover:bg-gray-50 transition-all duration-200 font-semibold flex items-center gap-2"
+          className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg 
+            hover:bg-gray-50 transition-all duration-200 font-medium flex items-center gap-2"
         >
-          <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
           Cancel
-        </motion.button>
+        </button>
         
-        <motion.button
+        <button
           type="submit"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
           disabled={isLoading}
-          className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-xl 
-            hover:from-cyan-600 hover:to-cyan-700 transition-all duration-200 font-semibold 
-            flex items-center gap-2 shadow-lg shadow-cyan-500/25 disabled:opacity-50 
+          className="px-6 py-2.5 bg-cyan-600 text-white rounded-lg 
+            hover:bg-cyan-700 transition-all duration-200 font-medium 
+            flex items-center gap-2 disabled:opacity-50 
             disabled:cursor-not-allowed"
         >
           {isLoading ? (
@@ -834,7 +902,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
               Schedule Appointment
             </>
           )}
-        </motion.button>
+        </button>
       </div>
     </form>
   );

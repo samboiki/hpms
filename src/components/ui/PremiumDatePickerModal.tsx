@@ -31,7 +31,7 @@ interface PremiumDatePickerModalProps {
 export const PremiumDatePickerModal: React.FC<PremiumDatePickerModalProps> = ({
   value,
   onChange,
-  label = 'Select Date',
+  label,
   error,
   min,
   max,
