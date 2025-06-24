@@ -1,7 +1,10 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { LucideIcon, ChevronRight } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { LucideIcon } from 'lucide-react';
+import { CommunicationStats } from '../../services/communicationStatsService';
+import { PatientStats } from '../../services/patientStatsService';
+import { InvoiceStats } from '../../services/invoiceStatsService';
+import { EncounterStats } from '../../services/encounterStatsService';
 
 interface StatItem {
   label: string;
@@ -34,6 +37,10 @@ interface PremiumStatCardProps {
   unsplashQuery?: string;
   cardType?: 'patients' | 'communication' | 'encounters' | 'finance';
   dashboardStats?: any;
+  communicationStats?: CommunicationStats | null;
+  patientStats?: PatientStats | null;
+  invoiceStats?: InvoiceStats | null;
+  encounterStats?: EncounterStats | null;
 }
 
 const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
@@ -48,7 +55,11 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
   trend,
   unsplashQuery,
   cardType = 'patients',
-  dashboardStats
+  dashboardStats,
+  communicationStats,
+  patientStats,
+  invoiceStats,
+  encounterStats
 }) => {
 
   // Get card-specific colors and settings
@@ -56,521 +67,385 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
     switch (cardType) {
       case 'patients':
         return {
-          primaryColor: '#489bfd',
-          secondaryColor: '#7db3fe',
-          gradientFrom: 'from-[#489bfd]',
-          gradientTo: 'to-[#7db3fe]',
-          bgImage: 'https://plus.unsplash.com/premium_photo-1731410157801-dbea9a996cde?w=400&h=300&fit=crop&auto=format&q=80',
-          bgOpacity: 'opacity-10 group-hover:opacity-15',
-          comparisonData: [
-            { label: 'Male', value: 120, color: '#489bfd' },
-            { label: 'Female', value: 130, color: '#7db3fe' }
-          ],
-          donutData: [
-            { label: 'New', value: 15, color: '#10B981' },
-            { label: 'Active', value: 235, color: '#489bfd' }
-          ]
+          primaryColor: '#6366f1',
+          secondaryColor: '#a855f7',
+          tertiaryColor: '#ec4899',
+          gradientFrom: 'from-indigo-500',
+          gradientTo: 'to-purple-600',
         };
       case 'communication':
         return {
-          primaryColor: '#F59E0B',
-          secondaryColor: '#FCD34D',
+          primaryColor: '#f59e0b',
+          secondaryColor: '#ef4444',
+          tertiaryColor: '#10b981',
           gradientFrom: 'from-amber-500',
-          gradientTo: 'to-orange-600',
-          bgImage: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=400&h=300&fit=crop&auto=format&q=80',
-          bgOpacity: 'opacity-10 group-hover:opacity-15',
-          comparisonData: [
-            { label: 'Read', value: 23, color: '#F59E0B' },
-            { label: 'Unread', value: 5, color: '#FCD34D' }
-          ],
-          donutData: [
-            { label: 'Urgent', value: 2, color: '#EF4444' },
-            { label: 'Normal', value: 26, color: '#F59E0B' }
-          ]
+          gradientTo: 'to-red-500',
         };
       case 'encounters':
         return {
-          primaryColor: '#ff4f5a',
-          secondaryColor: '#ff8a92',
-          gradientFrom: 'from-red-500',
-          gradientTo: 'to-pink-500',
-          bgImage: '/images/medical-aids/enc.png',
-          bgOpacity: 'opacity-10 group-hover:opacity-15',
-          comparisonData: [
-            { label: 'Completed', value: 142, color: '#ff4f5a' },
-            { label: 'Pending', value: 14, color: '#ff8a92' }
-          ],
-          donutData: [
-            { label: 'This Month', value: 23, color: '#10B981' },
-            { label: 'Previous', value: 133, color: '#ff4f5a' }
-          ]
+          primaryColor: '#06b6d4',
+          secondaryColor: '#3b82f6',
+          tertiaryColor: '#8b5cf6',
+          gradientFrom: 'from-cyan-500',
+          gradientTo: 'to-blue-500',
         };
       case 'finance':
         return {
-          primaryColor: '#01b9d5',
-          secondaryColor: '#67e8f9',
-          gradientFrom: 'from-cyan-500',
-          gradientTo: 'to-blue-500',
-          bgImage: 'https://plus.unsplash.com/premium_photo-1679922389798-8b38c78b5670?w=400&h=300&fit=crop&auto=format&q=80',
-          bgOpacity: 'opacity-10 group-hover:opacity-15',
-          comparisonData: [
-            { label: 'Paid', value: 119800, color: '#01b9d5' },
-            { label: 'Outstanding', value: 5200, color: '#67e8f9' }
-          ],
-          donutData: [
-            { label: 'This Month', value: 18500, color: '#10B981' },
-            { label: 'Previous', value: 106500, color: '#01b9d5' }
-          ]
+          primaryColor: '#10b981',
+          secondaryColor: '#059669',
+          tertiaryColor: '#0d9488',
+          gradientFrom: 'from-emerald-500',
+          gradientTo: 'to-teal-600',
         };
       default:
         return {
           primaryColor: '#6B7280',
           secondaryColor: '#9CA3AF',
+          tertiaryColor: '#d1d5db',
           gradientFrom: 'from-gray-400',
           gradientTo: 'to-gray-500',
-          bgImage: '',
-          bgOpacity: 'opacity-10',
-          comparisonData: [],
-          donutData: []
         };
     }
   };
 
   const settings = getCardSettings();
 
-  // Render legend without bar chart
-  const renderLegendOnly = () => {
-    // Use comparison prop if provided, otherwise fall back to settings
-    const comparisonData = comparison ? [
-      { label: comparison.label1, value: comparison.value1, color: comparison.color1 },
-      { label: comparison.label2, value: comparison.value2, color: comparison.color2 }
-    ] : settings.comparisonData;
-
-    if (!comparisonData || comparisonData.length !== 2) return null;
-
-    const [item1, item2] = comparisonData;
-    const total = item1.value + item2.value;
-    
-    // For communication card with zero values, show 0% for both
-    let percentage1, percentage2;
-    if (cardType === 'communication' && total === 0) {
-      percentage1 = 0;
-      percentage2 = 0;
-    } else {
-      percentage1 = total > 0 ? (item1.value / total) * 100 : 0;
-      percentage2 = total > 0 ? (item2.value / total) * 100 : 0;
-    }
-
-    return (
-      <div className="mt-3">
-        {/* Premium Legend with enhanced styling */}
-        <div className="space-y-2">
-          {/* SMS Legend Item */}
-          <div className="flex items-center justify-between text-xs group">
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <div 
-                  className="w-3 h-3 rounded-full shadow-sm transition-all duration-300 group-hover:scale-110" 
-                  style={{ 
-                    backgroundColor: item1.color,
-                    boxShadow: `0 0 8px ${item1.color}20`
-                  }}
-                />
-                {/* Pulse effect for 0% */}
-                {percentage1 === 0 && (
-                  <div 
-                    className="absolute inset-0 w-3 h-3 rounded-full animate-ping opacity-30"
-                    style={{ backgroundColor: item1.color }}
-                  />
-                )}
-              </div>
-              <span className="font-semibold text-gray-800 tracking-wide">{item1.label}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span 
-                className="font-bold text-xs px-2 py-1 rounded-full"
-                style={{ 
-                  backgroundColor: `${item1.color}15`,
-                  color: item1.color
-                }}
-              >
-                {percentage1.toFixed(0)}%
-              </span>
-            </div>
-          </div>
+  // Generate single perfect stacked bar data
+  const getStackedData = () => {
+    switch (cardType) {
+      case 'patients':
+        if (patientStats) {
+          console.log('🎯 PremiumStatCard: Using real patient stats:', patientStats);
+          const total = patientStats.total;
+          const malePercentage = total > 0 ? Math.round((patientStats.male / total) * 100) : 0;
+          const femalePercentage = total > 0 ? Math.round((patientStats.female / total) * 100) : 0;
           
-          {/* Email Legend Item */}
-          <div className="flex items-center justify-between text-xs group">
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <div 
-                  className="w-3 h-3 rounded-full shadow-sm transition-all duration-300 group-hover:scale-110" 
-                  style={{ 
-                    backgroundColor: item2.color,
-                    boxShadow: `0 0 8px ${item2.color}20`
-                  }}
-                />
-                {/* Pulse effect for 0% */}
-                {percentage2 === 0 && (
-                  <div 
-                    className="absolute inset-0 w-3 h-3 rounded-full animate-ping opacity-30"
-                    style={{ backgroundColor: item2.color }}
-                  />
-                )}
-              </div>
-              <span className="font-semibold text-gray-800 tracking-wide">{item2.label}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span 
-                className="font-bold text-xs px-2 py-1 rounded-full"
-                style={{ 
-                  backgroundColor: `${item2.color}15`,
-                  color: item2.color
-                }}
-              >
-                {percentage2.toFixed(0)}%
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Render mini donut chart or mini stat cards for patients
-  const renderMiniStats = () => {
-    if (cardType === 'patients') {
-      // No mini stats for patients card
-      return null;
-    } else if (cardType === 'communication' || cardType === 'encounters' || cardType === 'finance') {
-      // No mini stats for communication, encounters, and finance cards
-      return null;
-    } else {
-      // Mini donut chart for other cards (encounters, finance)
-      if (!settings.donutData || settings.donutData.length === 0) return null;
-
-      return (
-        <div className="flex items-center justify-center mt-2">
-          <div className="w-12 h-12 opacity-60">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={settings.donutData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={12}
-                  outerRadius={20}
-                  paddingAngle={2}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {settings.donutData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      );
+          return {
+            subtitle: 'Demographics & Growth',
+            mainValue: total.toString(),
+            segments: [
+              { value: malePercentage, color: '#4F46E5', label: 'Male', count: patientStats.male.toString() },
+              { value: femalePercentage, color: '#8B0000', label: 'Female', count: patientStats.female.toString() }
+            ],
+            totalLabel: 'Total Patients'
+          };
+        } else {
+          console.log('⚠️ PremiumStatCard: No patient stats provided, using fallback');
+        }
+        // Fallback to default values if no real data
+        return {
+          subtitle: 'Demographics & Growth',
+          mainValue: '0',
+          segments: [
+            { value: 0, color: '#4F46E5', label: 'Male', count: '0' },
+            { value: 0, color: '#8B0000', label: 'Female', count: '0' }
+          ],
+          totalLabel: 'Total Patients'
+        };
+      case 'communication':
+        if (communicationStats) {
+          return {
+            subtitle: 'Service Availability',
+            mainValue: `${communicationStats.overall_percentage_available}%`,
+            segments: [
+              { 
+                value: communicationStats.sms.percentage_available, 
+                color: '#F59E0B', 
+                label: 'SMS Available', 
+                count: `${communicationStats.sms.available}/${communicationStats.sms.monthly_limit}` 
+              },
+              { 
+                value: communicationStats.email.percentage_available, 
+                color: '#EF4444', 
+                label: 'Email Available', 
+                count: `${communicationStats.email.available}/${communicationStats.email.monthly_limit}` 
+              }
+            ],
+            totalLabel: 'Available/Total'
+          };
+        }
+        // Fallback to default values if no real data
+        return {
+          subtitle: 'Service Availability',
+          mainValue: '88%',
+          segments: [
+            { value: 85, color: '#F59E0B', label: 'SMS Available', count: '850/1000' },
+            { value: 92, color: '#EF4444', label: 'Email Available', count: '460/500' }
+          ],
+          totalLabel: 'Available/Total'
+        };
+      case 'encounters':
+        if (encounterStats) {
+          console.log('🎯 PremiumStatCard: Using real encounter stats:', encounterStats);
+          return {
+            subtitle: 'Visit Analytics',
+            mainValue: encounterStats.total.toString(),
+            segments: [
+              { 
+                value: encounterStats.percentageCompleted, 
+                color: '#10B981', 
+                label: 'Completed', 
+                count: encounterStats.completed.toString() 
+              },
+              { 
+                value: encounterStats.percentagePending, 
+                color: '#EF4444', 
+                label: 'Pending', 
+                count: encounterStats.pending.toString() 
+              }
+            ],
+            totalLabel: 'Total Encounters'
+          };
+        } else {
+          console.log('⚠️ PremiumStatCard: No encounter stats provided, using fallback');
+        }
+        // Fallback to default values if no real data
+        return {
+          subtitle: 'Visit Analytics',
+          mainValue: '0',
+          segments: [
+            { value: 0, color: '#10B981', label: 'Completed', count: '0' },
+            { value: 0, color: '#EF4444', label: 'Pending', count: '0' }
+          ],
+          totalLabel: 'Total Encounters'
+        };
+      case 'finance':
+        if (invoiceStats) {
+          console.log('🎯 PremiumStatCard: Using real quarterly invoice stats:', invoiceStats);
+          return {
+            subtitle: `Q${invoiceStats.currentQuarter} ${new Date().getFullYear()} Breakdown`,
+            mainValue: `N$${invoiceStats.quarterlyRevenue.toLocaleString()}`,
+            segments: [
+              { 
+                value: invoiceStats.quarterlyPercentagePaid, 
+                color: '#10B981', 
+                label: 'Paid', 
+                count: `${invoiceStats.quarterlyPaidInvoices} invoices` 
+              },
+              { 
+                value: invoiceStats.quarterlyPercentageOutstanding, 
+                color: '#EF4444', 
+                label: 'Outstanding', 
+                count: `${invoiceStats.quarterlyOutstandingInvoices} invoices` 
+              }
+            ],
+            totalLabel: `Q${invoiceStats.currentQuarter} Revenue`
+          };
+        } else {
+          console.log('⚠️ PremiumStatCard: No invoice stats provided, using fallback');
+        }
+        // Fallback to default values if no real data
+        return {
+          subtitle: 'Quarterly Breakdown',
+          mainValue: 'N$0',
+          segments: [
+            { value: 0, color: '#10B981', label: 'Paid', count: '0 invoices' },
+            { value: 0, color: '#EF4444', label: 'Outstanding', count: '0 invoices' }
+          ],
+          totalLabel: 'Quarterly Revenue'
+        };
+      default:
+        return { subtitle: '', mainValue: '', segments: [], totalLabel: '' };
     }
   };
+
+  const stackedData = getStackedData();
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -2 }}
+      whileHover={{ y: -1 }}
       className="relative group cursor-pointer"
       tabIndex={0}
       onClick={onClick}
     >
-      <div className="relative bg-gray-100 rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200/50">
-        {/* Background Image */}
-        <div className={`absolute inset-0 ${settings.bgOpacity} transition-opacity duration-300`}>
-          <img 
-            src={settings.bgImage} 
-            alt="" 
-            className="w-full h-full object-cover"
-          />
+      <div className="relative bg-white/80 backdrop-blur-xl rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden border border-white/20 p-5 h-36" style={{ backdropFilter: 'blur(20px)' }}>
+        {/* Glassmorphic Background with Rich Patterns */}
+        <div className="absolute inset-0 overflow-hidden">
+          {/* Primary glass gradient */}
+          <div className={`absolute inset-0 bg-gradient-to-br ${settings.gradientFrom} ${settings.gradientTo} opacity-[0.08] group-hover:opacity-[0.12] transition-opacity duration-300`}></div>
+          
+          {/* Secondary glass layer */}
+          <div className="absolute inset-0 bg-gradient-to-tl from-white/40 via-transparent to-white/20 opacity-60"></div>
+          
+          {/* Rich Pattern Elements */}
+          {/* Top right cluster */}
+          <div className={`absolute top-2 right-3 w-12 h-0.5 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.3]`}></div>
+          <div className={`absolute top-4 right-5 w-8 h-0.5 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.2]`}></div>
+          <div className={`absolute top-3 right-1 w-2 h-2 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.25]`}></div>
+          <div className={`absolute top-5 right-8 w-1 h-1 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.4]`}></div>
+          
+          {/* Left side pattern */}
+          <div className={`absolute bottom-2 left-2 w-0.5 h-8 bg-gradient-to-b ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.2]`}></div>
+          <div className={`absolute bottom-4 left-4 w-0.5 h-6 bg-gradient-to-b ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.15]`}></div>
+          <div className={`absolute bottom-6 left-3 w-0.5 h-4 bg-gradient-to-b ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.25]`}></div>
+          
+          {/* Center floating elements */}
+          <div className={`absolute top-8 left-1/3 w-1.5 h-1.5 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.2] transform rotate-45`}></div>
+          <div className={`absolute bottom-8 right-1/3 w-1 h-1 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.3]`}></div>
+          
+          {/* Corner accents */}
+          <div className={`absolute top-1 left-1 w-3 h-3 border border-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.15]`} style={{ borderImage: `linear-gradient(45deg, ${settings.primaryColor}40, ${settings.secondaryColor}40) 1` }}></div>
+          <div className={`absolute bottom-1 right-1 w-2 h-2 border border-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-sm opacity-[0.2] transform rotate-45`} style={{ borderColor: `${settings.primaryColor}40` }}></div>
+          
+          {/* Scattered micro dots */}
+          <div className={`absolute top-6 left-8 w-0.5 h-0.5 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.3]`}></div>
+          <div className={`absolute top-10 right-12 w-0.5 h-0.5 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.25]`}></div>
+          <div className={`absolute bottom-10 left-12 w-0.5 h-0.5 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.35]`}></div>
+          
+          {/* Wave pattern */}
+          <div className={`absolute top-1/2 left-0 w-full h-0.5 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} opacity-[0.08] transform -translate-y-1/2`} style={{ 
+            clipPath: 'polygon(0% 0%, 15% 100%, 35% 0%, 50% 100%, 65% 0%, 85% 100%, 100% 0%, 100% 100%, 0% 100%)'
+          }}></div>
+          
+          {/* Glass reflection highlight */}
+          <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white/30 to-transparent opacity-60 rounded-t-xl"></div>
         </div>
         
-        {/* Large Background Icon */}
-        <div className="absolute top-2 right-2 opacity-5 group-hover:opacity-10 transition-opacity duration-300">
-          <Icon className="w-20 h-20 text-gray-400" />
-        </div>
-        
-        {/* Gradient Overlay */}
-        <div className={`absolute inset-0 bg-gradient-to-br ${settings.gradientFrom} ${settings.gradientTo} opacity-5 group-hover:opacity-10 transition-opacity duration-300`}></div>
-        
-        <div className="relative p-4 z-10">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-3">
+        <div className="relative z-10 h-full flex flex-col">
+          {/* Header with Main Value on Right */}
+          <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className={cardType === 'patients' 
-                ? `p-2 rounded-xl shadow-md` 
-                : `p-2 bg-gradient-to-br ${settings.gradientFrom} ${settings.gradientTo} rounded-xl shadow-md`}
-                style={cardType === 'patients' ? { backgroundColor: settings.primaryColor } : {}}
-              >
-                <Icon className="w-5 h-5 text-white" />
+              <div className={`p-3 bg-gradient-to-br ${settings.gradientFrom} ${settings.gradientTo} rounded-xl shadow-md group-hover:shadow-lg transition-all duration-300`}>
+                <Icon className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-800" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                <h3 className="text-lg font-semibold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>
                   {title}
                 </h3>
+                <p className="text-xs text-gray-500 font-normal mt-0.5" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                  {stackedData.subtitle}
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            
+            {/* Main Value in Top Right */}
+            <div className="text-right">
+              <div className="text-2xl font-bold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>
+                {stackedData.mainValue}
+              </div>
+              <div className="text-xs font-light mt-0.5" style={{ fontFamily: 'Rubik, sans-serif', color: '#4f575e' }}>
+                {stackedData.totalLabel}
+              </div>
+              
+              {/* Clean Trend Badge below main value */}
               {trend && (
-                <div className="text-xs text-gray-600 font-medium">
-                  <span className="opacity-60">{trend.isPositive ? '↗' : '↘'}</span>
-                  <span className="ml-1">{trend.value}</span>
+                <div className="flex items-center justify-end gap-1.5 mt-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${trend.isPositive ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
+                  <div className="text-xs font-medium">
+                    <span className={`${trend.isPositive ? 'text-emerald-600' : 'text-red-600'}`}>
+                      {trend.isPositive ? '↗' : '↘'}
+                    </span>
+                    <span className="ml-1 text-gray-700">{trend.value}</span>
+                  </div>
                 </div>
               )}
-              <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
             </div>
-          </div>
-          
-          {/* Main Content */}
-          <div className="space-y-3">
-            {cardType === 'communication' ? (
-              /* Communication Card with Separate Mini Charts */
-              <div>
-                {/* Main Value */}
-                <div className="mb-3">
-                  <p 
-                    className="text-3xl font-bold mb-1" 
-                    style={{ 
-                      fontFamily: 'Rubik, sans-serif',
-                      color: settings.primaryColor
-                    }}
-                  >
-                    {mainValue}
-                  </p>
-                  <p className="text-sm text-gray-600 font-medium">{subtitle}</p>
-                </div>
-
-                {/* SMS and Email Mini Charts in One Row */}
-                <div className="flex items-center justify-between gap-4">
-                  {/* SMS Available with Mini Chart */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-800">SMS Available</span>
-                    <div className="relative w-8 h-8">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={(() => {
-                              const allocated = (dashboardStats?.communications?.smsAllocated || 0);
-                              const used = (dashboardStats?.communications?.smsUsed || 0);
-                              
-                              if (allocated === 0) {
-                                return [{ name: 'No Plan', value: 100, color: '#9CA3AF' }];
-                              }
-                              
-                              const usedPercentage = (used / allocated) * 100;
-                              const availablePercentage = Math.max(0, 100 - usedPercentage);
-                              
-                              return [
-                                { name: 'Used', value: usedPercentage, color: '#F97316' }, // Orange theme
-                                { name: 'Available', value: availablePercentage, color: '#FCD34D' } // Light orange theme
-                              ];
-                            })()}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={10}
-                            outerRadius={16}
-                            dataKey="value"
-                            stroke="none"
-                          >
-                            {(() => {
-                              const allocated = (dashboardStats?.communications?.smsAllocated || 0);
-                              const used = (dashboardStats?.communications?.smsUsed || 0);
-                              
-                              if (allocated === 0) {
-                                return [<Cell key="no-plan" fill="#9CA3AF" />];
-                              }
-                              
-                              return [
-                                <Cell key="used" fill="#F97316" />, // Orange theme
-                                <Cell key="available" fill="#FCD34D" /> // Light orange theme
-                              ];
-                            })()}
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-xs font-bold text-gray-700">
-                          {(() => {
-                            const allocated = (dashboardStats?.communications?.smsAllocated || 0);
-                            const used = (dashboardStats?.communications?.smsUsed || 0);
-                            const percentage = allocated > 0 ? Math.round((used / allocated) * 100) : 0;
-                            return `${percentage}%`;
-                          })()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Email Available with Mini Chart */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-800">Email Available</span>
-                    <div className="relative w-8 h-8">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={(() => {
-                              const allocated = (dashboardStats?.communications?.emailAllocated || 0);
-                              const used = (dashboardStats?.communications?.emailUsed || 0);
-                              
-                              if (allocated === 0) {
-                                return [{ name: 'No Plan', value: 100, color: '#9CA3AF' }];
-                              }
-                              
-                              const usedPercentage = (used / allocated) * 100;
-                              const availablePercentage = Math.max(0, 100 - usedPercentage);
-                              
-                              return [
-                                { name: 'Used', value: usedPercentage, color: '#EA580C' }, // Darker orange theme
-                                { name: 'Available', value: availablePercentage, color: '#FDBA74' } // Light orange theme
-                              ];
-                            })()}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={10}
-                            outerRadius={16}
-                            dataKey="value"
-                            stroke="none"
-                          >
-                            {(() => {
-                              const allocated = (dashboardStats?.communications?.emailAllocated || 0);
-                              const used = (dashboardStats?.communications?.emailUsed || 0);
-                              
-                              if (allocated === 0) {
-                                return [<Cell key="no-plan" fill="#9CA3AF" />];
-                              }
-                              
-                              return [
-                                <Cell key="used" fill="#EA580C" />, // Darker orange theme
-                                <Cell key="available" fill="#FDBA74" /> // Light orange theme
-                              ];
-                            })()}
-                          </Pie>
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-xs font-bold text-gray-700">
-                          {(() => {
-                            const allocated = (dashboardStats?.communications?.emailAllocated || 0);
-                            const used = (dashboardStats?.communications?.emailUsed || 0);
-                            const percentage = allocated > 0 ? Math.round((used / allocated) * 100) : 0;
-                            return `${percentage}%`;
-                          })()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : cardType === 'patients' ? (
-              /* Patients Card with Main Donut Chart */
-              <div className="flex items-center justify-between">
-                <div className="relative">
-                  {/* Premium Donut Chart for Patients */}
-                  <div className="relative w-24 h-24 group">
-                    {/* Glow effect */}
-                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-400/20 to-cyan-400/20 blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                    
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={comparison ? [
-                            { name: comparison.label1, value: comparison.value1 },
-                            { name: comparison.label2, value: comparison.value2 }
-                          ] : [
-                            { name: 'Male', value: 120 },
-                            { name: 'Female', value: 130 }
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={28}
-                          outerRadius={42}
-                          paddingAngle={3}
-                          dataKey="value"
-                          stroke="rgba(255,255,255,0.3)"
-                          strokeWidth={1}
-                        >
-                          <defs>
-                            <linearGradient id="maleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" stopColor="#489bfd" stopOpacity={0.9} />
-                              <stop offset="100%" stopColor="#3b82f6" stopOpacity={1} />
-                            </linearGradient>
-                            <linearGradient id="femaleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" stopColor="#7db3fe" stopOpacity={0.9} />
-                              <stop offset="100%" stopColor="#06b6d4" stopOpacity={1} />
-                            </linearGradient>
-                          </defs>
-                          <Cell fill="url(#maleGradient)" />
-                          <Cell fill="url(#femaleGradient)" />
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  
-                  {/* Center Value for Patients */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center relative">
-                      <div className="absolute inset-0 bg-white/80 backdrop-blur-sm rounded-full scale-150 opacity-60"></div>
-                      <div className="relative">
-                        <p 
-                          className="text-xl font-bold tracking-tight relative z-10" 
-                          style={{ 
-                            fontFamily: 'Rubik, sans-serif',
-                            color: settings.primaryColor,
-                            textShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                          }}
-                        >
-                          {mainValue}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex-1 ml-4">
-                  <p className="text-sm text-gray-600 font-medium mb-2">{subtitle}</p>
-                  {renderLegendOnly()}
-                </div>
-              </div>
-            ) : (
-              /* Default layout for other cards */
-              <div>
-                <p 
-                  className="text-3xl font-bold mb-1" 
-                  style={{ 
-                    fontFamily: 'Rubik, sans-serif',
-                    color: settings.primaryColor
-                  }}
-                >
-                  {mainValue}
-                </p>
-                <p className="text-sm text-gray-600 font-medium">{subtitle}</p>
-              </div>
-            )}
-
-            {cardType !== 'communication' && cardType !== 'patients' && (
-              <>
-                {/* Legend Only */}
-                {renderLegendOnly()}
-
-                {/* Mini Stats or Donut Chart */}
-                {renderMiniStats()}
-              </>
-            )}
           </div>
         </div>
 
-        {/* Bottom Gradient Bar */}
-        <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} opacity-40 group-hover:opacity-60 transition-opacity duration-300`}></div>
+        {/* Mini Stats with Center Bars - Bottom Left */}
+        <div className="absolute bottom-2 left-2 z-20">
+          <div className="flex items-end gap-1">
+            {/* First segment: Label + Percentage */}
+            <motion.span 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.8 }}
+              className="text-xs font-medium text-gray-600"
+              style={{ fontFamily: 'Rubik, sans-serif' }}
+            >
+              {stackedData.segments[0]?.label}
+            </motion.span>
+            
+            <motion.span 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.8 }}
+              className="text-xs font-bold text-gray-700"
+              style={{ fontFamily: 'Rubik, sans-serif' }}
+            >
+              {stackedData.segments[0]?.value}%
+            </motion.span>
+            
+            {/* Bar container with fixed height for alignment */}
+            <div className="flex items-end gap-0.5 h-6">
+              {stackedData.segments.slice(0, 2).map((segment, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, scale: 0, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ 
+                    delay: 0.3 + index * 0.1, 
+                    duration: 0.4,
+                    type: "spring",
+                    stiffness: 200,
+                    damping: 15
+                  }}
+                  className="w-1 bg-gray-200 rounded-full overflow-hidden"
+                  style={{ height: `${Math.max(8, segment.value * 0.25)}px` }}
+                >
+                  <motion.div
+                    initial={{ height: 0 }}
+                    animate={{ height: '100%' }}
+                    transition={{ 
+                      delay: 0.5 + index * 0.1, 
+                      duration: 0.6,
+                      ease: "easeOut"
+                    }}
+                    className="w-full rounded-full"
+                    style={{ backgroundColor: segment.color }}
+                  ></motion.div>
+                </motion.div>
+              ))}
+            </div>
+            
+            {/* Second segment: Percentage + Label */}
+            <motion.span 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.9 }}
+              className="text-xs font-bold text-gray-700"
+              style={{ fontFamily: 'Rubik, sans-serif' }}
+            >
+              {stackedData.segments[1]?.value}%
+            </motion.span>
+            
+            <motion.span 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.9 }}
+              className="text-xs font-medium text-gray-600"
+              style={{ fontFamily: 'Rubik, sans-serif' }}
+            >
+              {stackedData.segments[1]?.label}
+            </motion.span>
+          </div>
+        </div>
+
+        {/* Beautiful Trapezoid Cutout */}
+        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2">
+          <div 
+            className={`w-16 h-3 bg-gradient-to-t ${settings.gradientFrom} ${settings.gradientTo} opacity-[0.3] group-hover:opacity-[0.5] transition-all duration-300`}
+            style={{
+              clipPath: 'polygon(25% 0%, 75% 0%, 100% 100%, 0% 100%)'
+            }}
+          ></div>
+          {/* Inner glow for trapezoid */}
+          <div 
+            className={`absolute inset-0 w-16 h-3 bg-gradient-to-t from-white/40 to-transparent opacity-60`}
+            style={{
+              clipPath: 'polygon(25% 0%, 75% 0%, 100% 100%, 0% 100%)'
+            }}
+          ></div>
+        </div>
+        
+        {/* Glassmorphic border accent */}
+        <div className={`absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} opacity-[0.25] group-hover:opacity-[0.4] transition-opacity duration-300 rounded-b-xl`}></div>
+        
+        {/* Glass edge highlight */}
+        <div className="absolute inset-0 rounded-xl border border-white/30 group-hover:border-white/40 transition-colors duration-300"></div>
       </div>
     </motion.div>
   );

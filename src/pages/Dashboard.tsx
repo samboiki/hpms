@@ -42,6 +42,10 @@ import { NotificationsPanel, Notification } from '../components/dashboard/Notifi
 import { ServiceLimitsWidget } from '../components/practice/ServiceLimitsWidget';
 import CommunicationsModal from '../components/modals/CommunicationsModal';
 import ComprehensivePatientModal from '../components/patients/ComprehensivePatientModal';
+import { useCommunicationStats } from '../hooks/useCommunicationStats';
+import { usePatientStats } from '../hooks/usePatientStats';
+import { useInvoiceStats } from '../hooks/useInvoiceStats';
+import { useEncounterStats } from '../hooks/useEncounterStats';
 
 interface Appointment {
   id: string;
@@ -112,12 +116,7 @@ function Dashboard() {
   const [showGridView, setShowGridView] = useState(false);
   const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress' | 'ready'>('pending');
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
-  const [patientStats, setPatientStats] = useState<{
-    total: number;
-    male: number;
-    female: number;
-    newThisMonth: number;
-  }>({ total: 0, male: 0, female: 0, newThisMonth: 0 });
+  // Note: patientStats now comes from usePatientStats hook - no longer using local state
   const [selectedReportModal, setSelectedReportModal] = useState<{
     isOpen: boolean;
     type: 'patients' | 'notifications' | 'encounters' | 'finance' | null;
@@ -131,6 +130,19 @@ function Dashboard() {
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
+  
+  // Fetch real-time communication stats
+  const { communicationStats, isLoading: isCommStatsLoading } = useCommunicationStats();
+  
+  // Fetch real-time patient stats
+  const { patientStats: realPatientStats, isLoading: isPatientStatsLoading } = usePatientStats();
+  
+  // Fetch real-time invoice stats
+  const { invoiceStats, isLoading: isInvoiceStatsLoading } = useInvoiceStats();
+  
+  // Fetch real-time encounter stats
+  const { encounterStats, isLoading: isEncounterStatsLoading } = useEncounterStats();
+  
   const navigate = useNavigate();
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
 
@@ -268,60 +280,7 @@ function Dashboard() {
     }
   });
 
-  const fetchPatientStats = async () => {
-    try {
-      
-      // Get total patients count
-      const { count: totalCount, error: totalError } = await supabase
-        .from('patients')
-        .select('*', { count: 'exact', head: true });
-
-      if (totalError) {
-        console.error('❌ Error fetching total patients:', totalError);
-        return;
-      }
-
-      // Get gender breakdown
-      const { data: genderData, error: genderError } = await supabase
-        .from('patients')
-        .select('gender')
-        .not('gender', 'is', null);
-
-      if (genderError) {
-        console.error('❌ Error fetching gender data:', genderError);
-        return;
-      }
-
-      // Calculate gender counts
-      const maleCount = genderData?.filter(p => p.gender?.toLowerCase() === 'male').length || 0;
-      const femaleCount = genderData?.filter(p => p.gender?.toLowerCase() === 'female').length || 0;
-
-      // Get new patients this month
-      const currentMonth = new Date();
-      const startOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-      
-      const { count: newThisMonth, error: newError } = await supabase
-        .from('patients')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', startOfMonth.toISOString());
-
-      if (newError) {
-        console.error('❌ Error fetching new patients:', newError);
-        return;
-      }
-
-      setPatientStats({
-        total: totalCount || 0,
-        male: maleCount,
-        female: femaleCount,
-        newThisMonth: newThisMonth || 0
-      });
-
-
-    } catch (error) {
-      console.error('❌ [Dashboard] Error fetching patient stats:', error);
-    }
-  };
+  // Note: fetchPatientStats removed - now using usePatientStats hook for real-time practice-specific data
 
   const fetchData = async () => {
     try {
@@ -430,8 +389,7 @@ function Dashboard() {
         // Continue without stats if there's an error
       }
 
-      // Fetch patient statistics
-      await fetchPatientStats();
+      // Note: Patient statistics now fetched via usePatientStats hook
 
       // Generate real-time notifications based on actual data
       const newNotifications: Notification[] = [];
@@ -813,7 +771,10 @@ function Dashboard() {
 
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 relative" style={{
+      backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.1) 1px, transparent 0)',
+      backgroundSize: '20px 20px'
+    }}>
       <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
         {/* Compact Professional Header */}
         <div className=" backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">
@@ -822,8 +783,8 @@ function Dashboard() {
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3">
                   {/* Practice Logo */}
-                  <div className="p-2 bg-gradient-to-br from-[#01b9d5] to-cyan-600 rounded-xl shadow-md">
-                    <Building2 className="w-6 h-6 text-white" />
+                  <div className="p-3 bg-gradient-to-br from-[#01b9d4] to-cyan-600 rounded-xl shadow-lg">
+                    <Building2 className="w-8 h-8 text-white" />
                   </div>
                   <div>
                     <h1 className="text-2xl font-semibold text-gray-800">Dashboard</h1>
@@ -832,14 +793,6 @@ function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center justify-end gap-3">
-                {/* Quick Patients Access Button */}
-                <button
-                  onClick={() => setIsPatientModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-medium text-sm"
-                >
-                  <Users className="w-4 h-4" />
-                  <span className="hidden sm:inline">Patients</span>
-                </button>
                 {/* User Avatar with Dropdown */}
                 {user && (
                   <div className="relative">
@@ -942,54 +895,55 @@ function Dashboard() {
             {/* Premium Dashboard Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
               {true ? [
-                // Patients Card
+                // Patients Card - Now using real database stats by practice
                 <PremiumStatCard
                   key="patients"
                   title="Patients"
-                  mainValue={patientStats.total}
+                  mainValue={realPatientStats.total}
                   subtitle="Total registered patients"
                   icon={Users}
                   gradient="from-[#489bfd] to-[#a4c8ff]"
                   cardType="patients"
                   stats={[
-                    { label: 'Male', value: patientStats.male, color: '#489bfd' },
-                    { label: 'Female', value: patientStats.female, color: '#7db3fe' }
+                    { label: 'Male', value: realPatientStats.male, color: '#489bfd' },
+                    { label: 'Female', value: realPatientStats.female, color: '#7db3fe' }
                   ]}
                   comparison={{
                     label1: 'Male',
-                    value1: patientStats.male,
+                    value1: realPatientStats.male,
                     label2: 'Female',
-                    value2: patientStats.female,
+                    value2: realPatientStats.female,
                     color1: '#489bfd',
                     color2: '#7db3fe'
                   }}
                   trend={{
-                    value: `+${patientStats.newThisMonth}`,
-                    isPositive: patientStats.newThisMonth > 0
+                    value: `+${realPatientStats.newThisMonth}`,
+                    isPositive: realPatientStats.newThisMonth > 0
                   }}
                   onClick={() => {
                     setIsPatientModalOpen(true);
                   }}
+                  patientStats={realPatientStats}
                 />,
                 
                 // Communication Card (Light Mode)
                 <PremiumStatCard
                   key="communication"
                   title="Communication"
-                  mainValue={dashboardStats?.communications?.total || 28}
-                  subtitle="Active communications"
+                  mainValue={communicationStats?.overall_percentage_available ? `${communicationStats.overall_percentage_available}%` : '88%'}
+                  subtitle="Service usage"
                   icon={MessageSquare}
                   gradient="from-amber-500 to-orange-600"
                   cardType="communication"
                   stats={[
-                    { label: 'SMS Available', value: dashboardStats?.communications?.smsAvailable || 0, color: '#EF4444' },
-                    { label: 'Email Available', value: dashboardStats?.communications?.emailAvailable || 0, color: '#F59E0B' }
+                    { label: 'SMS Available', value: communicationStats?.sms.available || 850, color: '#EF4444' },
+                    { label: 'Email Available', value: communicationStats?.email.available || 460, color: '#F59E0B' }
                   ]}
                   comparison={{
                     label1: 'SMS Available',
-                    value1: dashboardStats?.communications?.smsAvailable || 0,
+                    value1: communicationStats?.sms.available || 850,
                     label2: 'Email Available', 
-                    value2: dashboardStats?.communications?.emailAvailable || 0,
+                    value2: communicationStats?.email.available || 460,
                     color1: '#EF4444',
                     color2: '#F97316'
                   }}
@@ -997,66 +951,69 @@ function Dashboard() {
                     setIsCommunicationsModalOpen(true);
                   }}
                   dashboardStats={dashboardStats}
+                  communicationStats={communicationStats}
                 />,
                 
-                // Encounters Card
+                // Encounters Card - Now using real database stats
                 <PremiumStatCard
                   key="encounters"
                   title="Encounters"
-                  mainValue={156}
+                  mainValue={encounterStats.total}
                   subtitle="Total patient visits"
                   icon={Activity}
                   gradient="from-red-500 to-pink-500"
                   cardType="encounters"
                   stats={[
-                    { label: 'This Month', value: 23, color: '#10B981' },
-                    { label: 'Previous', value: 133, color: '#047857' }
+                    { label: 'Completed', value: encounterStats.completed, color: '#10B981' },
+                    { label: 'Pending', value: encounterStats.pending, color: '#EF4444' }
                   ]}
                   comparison={{
-                    label1: 'This Month',
-                    value1: 23,
-                    label2: 'Previous',
-                    value2: 133,
+                    label1: 'Completed',
+                    value1: encounterStats.completed,
+                    label2: 'Pending',
+                    value2: encounterStats.pending,
                     color1: '#10B981',
-                    color2: '#047857'
+                    color2: '#EF4444'
                   }}
                   trend={{
-                    value: '+23',
-                    isPositive: true
+                    value: `+${encounterStats.newThisMonth}`,
+                    isPositive: encounterStats.newThisMonth > 0
                   }}
                   onClick={() => {
                     setSelectedReportModal({ isOpen: true, type: 'encounters' });
                   }}
+                  encounterStats={encounterStats}
                 />,
                 
-                // Finance Card
+                // Finance Card - Now using real quarterly invoice data
                 <PremiumStatCard
                   key="finance"
                   title="Finance"
-                  mainValue="N$125,000"
-                  subtitle="Total revenue"
+                  mainValue={`N$${invoiceStats.quarterlyRevenue.toLocaleString()}`}
+                  subtitle={`Q${invoiceStats.currentQuarter} ${new Date().getFullYear()} revenue`}
                   icon={DollarSign}
                   gradient="from-cyan-500 to-blue-500"
                   cardType="finance"
                   stats={[
-                    { label: 'Paid', value: 'N$119,800', color: '#8B5CF6' },
-                    { label: 'Outstanding', value: 'N$5,200', color: '#EF4444' }
+                    { label: 'Paid', value: `${invoiceStats.quarterlyPercentagePaid}%`, color: '#8B5CF6' },
+                    { label: 'Outstanding', value: `${invoiceStats.quarterlyPercentageOutstanding}%`, color: '#EF4444' }
                   ]}
                   comparison={{
                     label1: 'Paid',
-                    value1: 119800,
+                    value1: invoiceStats.quarterlyPercentagePaid,
                     label2: 'Outstanding',
-                    value2: 5200,
+                    value2: invoiceStats.quarterlyPercentageOutstanding,
                     color1: '#8B5CF6',
                     color2: '#EF4444'
                   }}
                   trend={{
-                    value: 'N$18,500',
-                    isPositive: true
+                    value: `${invoiceStats.quarterlyInvoices} invoices`,
+                    isPositive: invoiceStats.quarterlyInvoices > 0
                   }}
                   onClick={() => {
                     setIsEnhancedFinancialModalOpen(true);
                   }}
+                  invoiceStats={invoiceStats}
                 />
               ] : (
                 // Loading skeleton
@@ -1356,9 +1313,6 @@ function Dashboard() {
                       );
                     }}
                   />
-
-                  {/* Service Limits Widget */}
-                  <ServiceLimitsWidget />
 
                   {/* Practice Overview */}
                   <PracticeOverviewTile
