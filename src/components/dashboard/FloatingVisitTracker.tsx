@@ -385,57 +385,6 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                       </div>
                     )}
 
-                    {/* Handed Off Section */}
-                    {handedOffCount > 0 && (
-                      <div className="p-3 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Icon icon="solar:hand-shake-bold-duotone" className="w-5 h-5 text-purple-600" />
-                          <h3 className="font-semibold text-purple-700">Handed Off</h3>
-                          <span className="ml-auto text-sm font-medium text-purple-600 bg-white px-2 py-0.5 rounded-full">
-                            {handedOffCount} {handedOffCount === 1 ? 'patient' : 'patients'}
-                          </span>
-                        </div>
-                        <div className="space-y-2">
-                          {safeVisits.filter(v => v?.is_handoff && v?.status !== 'completed').map((visit, index) => (
-                            <div
-                              key={visit.id}
-                              className="relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-purple-100 cursor-pointer hover:bg-white transition-colors"
-                              onClick={() => handlePatientClick(visit.patient_id)}
-                            >
-                              {/* Handoff Number Badge */}
-                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
-                                {index + 1}
-                              </div>
-                              
-                              <div className="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-full">
-                                <Icon icon="solar:clipboard-check-bold-duotone" className="w-5 h-5 text-purple-600" />
-                              </div>
-                              <div className="flex-1">
-                                <p className="font-medium text-gray-800 text-sm">
-                                  {visit.patient?.first_name} {visit.patient?.last_name}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  Dr. {visit.doctor?.full_name || 'Unassigned'} • Ready for checkout
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const { completeVisit } = useVisitsStore.getState();
-                                    completeVisit(visit.id);
-                                  }}
-                                  className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md transition-colors"
-                                >
-                                  Complete
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Visits Grouped by Status */}
                     {loading ? (
                       <div className="text-center py-8">
