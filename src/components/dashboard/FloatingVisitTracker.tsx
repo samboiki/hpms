@@ -7,6 +7,9 @@ import { useVisitsStore } from '../../stores/visitsStore';
 import { useNavigate } from 'react-router-dom';
 import ComprehensivePatientModal from '../patients/ComprehensivePatientModal';
 import FullScreenEditVisitModal from '../visits/FullScreenEditVisitModal';
+import VisitActionModal from '../modals/VisitActionModal';
+import EnhancedSmsModal from '../messages/EnhancedSmsModal';
+import { Settings, MessageCircle } from 'lucide-react';
 
 interface Visit {
   id: string;
@@ -368,6 +371,16 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                 </p>
                               </div>
                               <div className="flex items-center gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const { handoffVisit } = useVisitsStore.getState();
+                                    handoffVisit(visit.id);
+                                  }}
+                                  className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-md transition-colors"
+                                >
+                                  Handoff
+                                </button>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();

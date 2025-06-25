@@ -2133,17 +2133,6 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
         )}
       </div>
 
-      {/* Premium Floating Add Button */}
-      <button
-        onClick={() => {
-          setSelectedTimeSlot(null);
-          setIsAddModalOpen(true);
-        }}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-[#01b9d5] to-purple-600 
-          text-white rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all flex items-center justify-center group"
-      >
-        <Plus className="h-6 w-6 group-hover:rotate-90 transition-transform" />
-      </button>
 
       {/* Add Appointment Modal */}
       <FormModal
