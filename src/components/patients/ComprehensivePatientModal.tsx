@@ -111,6 +111,7 @@ interface ComprehensivePatientModalProps {
   onClose: () => void;
   patientId?: string | null;
   onAppointmentCreated?: (appointment: any) => void;
+  defaultDetailTab?: 'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'audit';
 }
 
 interface PatientDetails {
@@ -189,14 +190,14 @@ const MaleIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ isOpen, onClose, patientId, onAppointmentCreated }) => {
+const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ isOpen, onClose, patientId, onAppointmentCreated, defaultDetailTab }) => {
   const { currentTheme } = useTheme();
   const { patients, isLoading, error, fetchPatients: fetchPatientsFromStore, searchPatients } = usePatientsStoreNew();
   
   // Main tab state - automatically switch to details if patientId is provided
   const [activeTab, setActiveTab] = useState<'patients' | 'details'>(patientId ? 'details' : 'patients');
   const [activeMainTab, setActiveMainTab] = useState<'patients' | 'analytics'>('patients');
-  const [activeDetailTab, setActiveDetailTab] = useState<'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'audit'>('overview');
+  const [activeDetailTab, setActiveDetailTab] = useState<'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'audit'>(defaultDetailTab || 'overview');
   
   // Patients list state
   const [searchTerm, setSearchTerm] = useState('');
@@ -1591,13 +1592,16 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
     if (isOpen) {
       if (patientId) {
         setActiveTab('details');
+        if (defaultDetailTab) {
+          setActiveDetailTab(defaultDetailTab);
+        }
         fetchPatientDetails(patientId);
       } else {
         setActiveTab('patients');
         fetchPatientsFromStore();
       }
     }
-  }, [isOpen, patientId, fetchPatientDetails, fetchPatientsFromStore]);
+  }, [isOpen, patientId, defaultDetailTab, fetchPatientDetails, fetchPatientsFromStore]);
 
   // Keyboard shortcuts
   useEffect(() => {

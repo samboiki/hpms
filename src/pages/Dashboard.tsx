@@ -150,6 +150,7 @@ function Dashboard() {
   
   const navigate = useNavigate();
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
   const handleLogout = async () => {
     // Clear any pending navigation
@@ -874,8 +875,8 @@ function Dashboard() {
                 <div className="relative col-span-8">
                   {/* Glassmorphic background */}
                   <div className="bg-white/20 backdrop-blur-xl rounded-2xl p-4 shadow-2xl border border-white/30">
-                    {/* Month Navigation Header */}
-                    <div className="flex items-center justify-between mb-4">
+                    {/* Month Navigation Header - Using grid for true centering */}
+                    <div className="grid grid-cols-3 items-center mb-4">
                       {/* Grid/Timeline Filters on left */}
                       <div className="flex items-center gap-3">
                         {(viewMode === 'day' || viewMode === 'week') && (
@@ -906,8 +907,8 @@ function Dashboard() {
                         )}
                       </div>
                       
-                      {/* Selected Date in center */}
-                      <div className="flex items-center gap-3">
+                      {/* Selected Date truly centered */}
+                      <div className="flex items-center justify-center gap-3">
                         <button
                           onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
                           className="p-2 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
@@ -930,7 +931,8 @@ function Dashboard() {
                       </div>
                       
                       {/* Today Button on right */}
-                      <motion.button
+                      <div className="flex justify-end">
+                        <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => {
@@ -952,9 +954,10 @@ function Dashboard() {
                         }}
                         className={`px-4 py-2 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl flex items-center gap-2 hover:shadow-lg transition-all duration-200 font-medium text-sm`}
                       >
-                        <Icon icon="solar:calendar-mark-bold-duotone" className="w-4 h-4" />
-                        <span>Today</span>
-                      </motion.button>
+                          <Icon icon="solar:calendar-mark-bold-duotone" className="w-4 h-4" />
+                          <span>Today</span>
+                        </motion.button>
+                      </div>
                     </div>
                     
                     
@@ -1017,8 +1020,8 @@ function Dashboard() {
                               {format(day, 'EEE')}
                             </div>
                             
-                            {/* Visit indicators */}
-                            {hasVisits && (
+                            {/* Visit indicators - only show if not selected */}
+                            {hasVisits && !dayIsSelected && (
                               <div className="flex gap-0.5 mt-1">
                                 {dayVisits.slice(0, 3).map((v, idx) => (
                                   <div
@@ -1091,16 +1094,10 @@ function Dashboard() {
                           selectedDate={selectedDate}
                           onDateChange={setSelectedDate}
                           onAppointmentClick={(apt) => {
-                            // Find the original visit
-                            const visit = visits.find(v => v.id === apt.id);
-                            if (visit) {
-                              setSelectedVisit(visit);
-                              setSelectedAppointment(apt); // Also set the appointment format
-                              if (visit.is_scheduled && !visit.is_confirmed) {
-                                setIsApprovalModalOpen(true);
-                              } else {
-                                setIsActionModalOpen(true);
-                              }
+                            // Open patient modal on encounters tab
+                            if (apt.patient_id) {
+                              setSelectedPatientId(apt.patient_id);
+                              setIsPatientModalOpen(true);
                             }
                           }}
                           onEditAppointment={async (appointment) => {
@@ -1711,7 +1708,12 @@ function Dashboard() {
       {/* Enhanced Patient Modal */}
       <ComprehensivePatientModal
         isOpen={isPatientModalOpen}
-        onClose={() => setIsPatientModalOpen(false)}
+        onClose={() => {
+          setIsPatientModalOpen(false);
+          setSelectedPatientId(null);
+        }}
+        patientId={selectedPatientId}
+        defaultDetailTab="encounters"
       />
 
       {/* Floating Visit Tracker */}
