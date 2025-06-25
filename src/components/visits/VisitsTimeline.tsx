@@ -99,10 +99,40 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
       setError(null);
 
       const { data, error } = await supabase
-        .from('visit_timeline_view')
-        .select('*')
+        .from('visits')
+        .select(`
+          *,
+          doctor:users!doctor_id (
+            id,
+            email,
+            full_name,
+            role
+          ),
+          vitals (
+            id,
+            blood_pressure_systolic,
+            blood_pressure_diastolic,
+            heart_rate,
+            temperature,
+            respiratory_rate,
+            oxygen_saturation,
+            weight,
+            height,
+            bmi
+          ),
+          lab_requests (
+            id,
+            test_name,
+            status
+          ),
+          prescriptions:medical_records (
+            id,
+            prescriptions
+          )
+        `)
         .eq('patient_id', patientId)
-        .order('visit_date', { ascending: false });
+        .order('visit_date', { ascending: false })
+        .order('visit_time', { ascending: false });
 
       if (error) throw error;
       setVisits(data || []);

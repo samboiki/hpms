@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { useTheme } from '../../stores/themeStore';
 import { useVisitsStore } from '../../stores/visitsStore';
+import { useNavigate } from 'react-router-dom';
+import ComprehensivePatientModal from '../patients/ComprehensivePatientModal';
 
 interface Visit {
   id: string;
@@ -24,30 +26,44 @@ interface Visit {
 
 interface FloatingVisitTrackerProps {
   practiceId: string;
+  selectedDate?: Date;
 }
 
-const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId }) => {
+const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId, selectedDate }) => {
   const { currentTheme } = useTheme();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [showTopShadow, setShowTopShadow] = useState(false);
   const [showBottomShadow, setShowBottomShadow] = useState(true);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   // Use visits store instead of appointments
-  const { visits, loading, fetchTodayVisits } = useVisitsStore();
+  const { visits, loading, fetchTodayVisits, fetchVisits } = useVisitsStore();
   
-  // Fetch today's visits when component mounts or practiceId changes
+  // Fetch visits for selected date when component mounts or date/practiceId changes
   useEffect(() => {
     if (practiceId) {
-      fetchTodayVisits(practiceId);
+      if (selectedDate) {
+        // Fetch visits for the selected date
+        const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+        fetchVisits({ 
+          date: formattedDate, 
+          practiceId 
+        });
+      } else {
+        // Fallback to today's visits if no date selected
+        fetchTodayVisits(practiceId);
+      }
     }
-  }, [practiceId, fetchTodayVisits]);
+  }, [practiceId, selectedDate, fetchVisits, fetchTodayVisits]);
 
   // Handle scroll shadows
   const handleScroll = () => {
     if (scrollContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-      setShowTopShadow(scrollTop > 0);
+      setShowTopShadow(scrollTop > 10);
       setShowBottomShadow(scrollTop < scrollHeight - clientHeight - 10);
     }
   };
@@ -64,26 +80,27 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId 
   const readyCount = safeVisits.filter(v => v?.is_ready && !v?.is_cancelled).length;
   const inProgressCount = safeVisits.filter(v => v?.status === 'in-progress' && !v?.is_cancelled).length;
   const completedCount = safeVisits.filter(v => v?.status === 'completed').length;
-  const cancelledCount = safeVisits.filter(v => v?.status === 'cancelled').length;
+  const cancelledCount = safeVisits.filter(v => v?.is_cancelled || v?.status === 'cancelled').length;
   const noShowCount = safeVisits.filter(v => v?.status === 'no_show').length;
   
-  const completionPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-  const remainingPercentage = totalCount > 0 ? 100 - completionPercentage : 0;
+  // Calculate percentage: completed vs all other statuses (excluding cancelled)
+  const nonCancelledVisits = safeVisits.filter(v => !v?.is_cancelled && v?.status !== 'cancelled');
+  const nonCancelledCount = nonCancelledVisits.length;
+  const completionPercentage = nonCancelledCount > 0 ? Math.round((completedCount / nonCancelledCount) * 100) : 0;
+  const remainingPercentage = nonCancelledCount > 0 ? 100 - completionPercentage : 0;
 
   // The data is now fetched via the useTodayAppointments hook
 
   // SVG path for donut chart
-  const createPath = (percentage: number, offset: number = 0) => {
-    const radius = 40;
-    const strokeWidth = 8;
-    const normalizedRadius = radius - strokeWidth / 2;
-    const circumference = normalizedRadius * 2 * Math.PI;
-    const strokeDasharray = `${(percentage / 100) * circumference} ${circumference}`;
-    const transform = `rotate(${-90 + offset * 3.6} 50 50)`;
-
+  const createPath = (percentage: number) => {
+    const radius = 36; // Match the actual circle radius
+    const circumference = radius * 2 * Math.PI;
+    const strokeLength = (percentage / 100) * circumference;
+    const strokeDasharray = `${strokeLength} ${circumference}`;
+    
     return {
       strokeDasharray,
-      transform
+      strokeDashoffset: 0
     };
   };
 
@@ -119,6 +136,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId 
     }
   };
 
+  const handlePatientClick = (patientId: string) => {
+    setSelectedPatientId(patientId);
+    setIsPatientModalOpen(true);
+  };
+
   return (
     <>
       {/* Floating Button */}
@@ -139,48 +161,37 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId 
           }}
         >
           {/* Donut Chart */}
-          <svg className="absolute inset-0 w-full h-full -rotate-90">
-            {/* Background circle */}
+          <svg className="absolute inset-0 w-full h-full">
+            {/* Full background circle in light grey */}
             <circle
               cx="50%"
               cy="50%"
               r="36"
               fill="none"
-              stroke="#E5E7EB"
+              stroke="#D1D5DB"
               strokeWidth="8"
+              style={{
+                transformOrigin: '50% 50%',
+                transform: 'rotate(-90deg)'
+              }}
             />
             
-            {/* Completed segment */}
+            {/* Completed segment - darker grey, overlays on top */}
             {completionPercentage > 0 && (
               <circle
                 cx="50%"
                 cy="50%"
                 r="36"
                 fill="none"
-                stroke="#10B981"
+                stroke="#6B7280"
                 strokeWidth="8"
                 strokeLinecap="round"
                 style={{
                   strokeDasharray: createPath(completionPercentage).strokeDasharray,
-                  transition: 'stroke-dasharray 0.5s ease'
-                }}
-              />
-            )}
-            
-            {/* Scheduled segment */}
-            {remainingPercentage > 0 && (
-              <circle
-                cx="50%"
-                cy="50%"
-                r="36"
-                fill="none"
-                stroke="#F59E0B"
-                strokeWidth="8"
-                strokeLinecap="round"
-                style={{
-                  strokeDasharray: createPath(remainingPercentage).strokeDasharray,
-                  strokeDashoffset: -(completionPercentage / 100) * 226.19,
-                  transition: 'all 0.5s ease'
+                  strokeDashoffset: createPath(completionPercentage).strokeDashoffset,
+                  transition: 'all 0.5s ease',
+                  transformOrigin: '50% 50%',
+                  transform: 'rotate(-90deg)'
                 }}
               />
             )}
@@ -189,13 +200,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId 
           {/* Center content */}
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
-              <p className="text-2xl font-bold text-gray-800">{totalCount}</p>
+              <p className="text-2xl font-bold text-gray-800">{nonCancelledCount}</p>
               <p className="text-xs text-gray-500 -mt-1">Visits</p>
             </div>
           </div>
 
-          {/* Pulse effect */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-400 to-cyan-400 opacity-20 group-hover:opacity-30 transition-opacity animate-pulse" />
         </motion.button>
 
       </motion.div>
@@ -219,15 +228,17 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId 
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: "spring", damping: 20 }}
-              className="fixed inset-x-4 bottom-20 md:right-6 md:left-auto md:w-[580px] bg-white rounded-2xl shadow-2xl z-50 max-h-[85vh] overflow-hidden"
+              className="fixed inset-x-4 bottom-20 md:right-6 md:left-auto md:w-[580px] bg-white rounded-2xl shadow-2xl z-50 max-h-[85vh] h-[85vh] overflow-hidden flex flex-col"
             >
-              {/* Header */}
-              <div className="p-6 border-b border-gray-100">
-                <div className="flex items-start justify-between mb-4">
+              {/* Fixed Header */}
+              <div className="flex-shrink-0 p-6 border-b border-gray-100 bg-white">
+                <div className="flex items-start justify-between">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-800">Today's Visits</h2>
+                    <h2 className="text-2xl font-bold text-gray-800">
+                      {selectedDate && !isSameDay(selectedDate, new Date()) ? 'Visits' : "Today's Visits"}
+                    </h2>
                     <p className="text-sm text-gray-500 mt-1">
-                      {format(new Date(), 'EEEE, MMMM d, yyyy')}
+                      {format(selectedDate || new Date(), 'EEEE, MMMM d, yyyy')}
                     </p>
                   </div>
                   <button
@@ -237,206 +248,273 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId 
                     <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-400" />
                   </button>
                 </div>
-                
-                {/* Full Width Progress Bar */}
-                <div className="w-full">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-semibold text-gray-700">Daily Progress</span>
-                      <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                        {completedCount} of {totalCount} visits completed
-                      </span>
-                    </div>
-                    <span className="text-lg font-bold text-gray-800">{completionPercentage}%</span>
-                  </div>
-                  <div className="h-3 bg-gray-200 rounded-full overflow-hidden shadow-inner">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${completionPercentage}%` }}
-                      transition={{ duration: 1.2, ease: "easeOut" }}
-                      className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-full shadow-sm"
-                    />
-                  </div>
-                </div>
-
-                {/* In Progress Section - Always Visible */}
-                {inProgressCount > 0 && (
-                  <div className="mt-4 p-3 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Icon icon="solar:play-circle-bold-duotone" className="w-5 h-5 text-orange-600" />
-                      <h3 className="font-semibold text-orange-700">Currently In Progress</h3>
-                      <span className="ml-auto text-sm font-medium text-orange-600 bg-white px-2 py-0.5 rounded-full">
-                        {inProgressCount} {inProgressCount === 1 ? 'visit' : 'visits'}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {safeVisits.filter(v => v?.status === 'in-progress' && !v?.is_cancelled).map((visit) => (
-                        <div
-                          key={visit.id}
-                          className="flex items-center gap-3 p-2 bg-white/80 backdrop-blur rounded-lg border border-orange-100"
-                        >
-                          <div className="flex items-center justify-center w-10 h-10 bg-orange-100 rounded-full">
-                            <Icon icon="solar:stethoscope-bold-duotone" className="w-5 h-5 text-orange-600" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-800 text-sm">
-                              {visit.patient?.first_name} {visit.patient?.last_name}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Dr. {visit.doctor?.full_name || 'Unassigned'} • Started {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : '--:--'}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
-                            <span className="text-xs font-medium text-orange-600">Active</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
 
-              {/* Visits Grouped by Status */}
-              <div className="relative">
+              {/* Single Scrollable Content Area */}
+              <div className="relative flex-1 overflow-hidden">
                 {/* Scroll Shadow Indicators */}
-                <div className={`absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white via-white/95 to-transparent z-10 pointer-events-none transition-opacity duration-300 ${showTopShadow ? 'opacity-100' : 'opacity-0'}`}></div>
-                <div className={`absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white via-white/95 to-transparent z-10 pointer-events-none transition-opacity duration-300 ${showBottomShadow ? 'opacity-100' : 'opacity-0'}`}></div>
+                <div className={`absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-white via-white/90 to-transparent z-10 pointer-events-none transition-opacity duration-200 ${showTopShadow ? 'opacity-100' : 'opacity-0'}`}></div>
+                <div className={`absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white via-white/90 to-transparent z-10 pointer-events-none transition-opacity duration-200 ${showBottomShadow ? 'opacity-100' : 'opacity-0'}`}></div>
                 
-                {/* Scrollable Content */}
+                {/* High-performance Scrollable Container */}
                 <div 
                   ref={scrollContainerRef}
                   onScroll={handleScroll}
-                  className="overflow-y-auto max-h-[600px] p-6 space-y-6 scroll-smooth 
-                    scrollbar-thin scrollbar-track-transparent scrollbar-thumb-gray-300/50 
-                    hover:scrollbar-thumb-gray-400/70 scrollbar-thumb-rounded-full 
-                    scrollbar-track-rounded-full"
+                  className="overflow-y-auto h-full scroll-smooth overscroll-contain"
                   style={{
                     scrollbarWidth: 'thin',
-                    scrollBehavior: 'smooth'
+                    scrollbarGutter: 'stable',
+                    WebkitOverflowScrolling: 'touch',
+                    scrollBehavior: 'smooth',
+                    willChange: 'scroll-position'
                   }}
                 >
-                {loading ? (
-                  <div className="text-center py-8">
-                    <Icon icon="solar:refresh-circle-bold-duotone" className="w-8 h-8 text-gray-400 animate-spin mx-auto" />
-                    <p className="text-sm text-gray-500 mt-2">Loading visits...</p>
-                  </div>
-                ) : safeVisits.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Icon icon="solar:calendar-minimalistic-bold-duotone" className="w-12 h-12 text-gray-300 mx-auto" />
-                    <p className="text-sm text-gray-500 mt-2">No visits scheduled for today</p>
-                  </div>
-                ) : (
-                  // Group visits by status and render each category
-                  (() => {
-                    const statusCategories = [
-                      { 
-                        key: 'scheduled', 
-                        label: 'Scheduled', 
-                        icon: 'solar:clock-circle-bold-duotone',
-                        color: 'text-blue-600',
-                        bgColor: 'bg-blue-50',
-                        borderColor: 'border-blue-200',
-                        visits: safeVisits.filter(v => v?.is_confirmed && !v?.is_cancelled && v?.status !== 'in-progress' && v?.status !== 'completed' && !v?.is_ready)
-                      },
-                      { 
-                        key: 'ready', 
-                        label: 'Ready', 
-                        icon: 'solar:check-circle-bold-duotone',
-                        color: 'text-emerald-600',
-                        bgColor: 'bg-emerald-50',
-                        borderColor: 'border-emerald-200',
-                        visits: safeVisits.filter(v => v?.is_ready && !v?.is_cancelled)
-                      },
-                      { 
-                        key: 'completed', 
-                        label: 'Completed', 
-                        icon: 'solar:verified-check-bold-duotone',
-                        color: 'text-green-600',
-                        bgColor: 'bg-green-50',
-                        borderColor: 'border-green-200',
-                        visits: safeVisits.filter(v => v?.status === 'completed')
-                      },
-                      { 
-                        key: 'cancelled', 
-                        label: 'Cancelled', 
-                        icon: 'solar:close-circle-bold-duotone',
-                        color: 'text-red-600',
-                        bgColor: 'bg-red-50',
-                        borderColor: 'border-red-200',
-                        visits: safeVisits.filter(v => v?.status === 'cancelled')
-                      }
-                    ];
-
-                    return statusCategories.map((category) => {
-                      if (category.visits.length === 0) return null;
-
-                      return (
+                  <div className="p-6 space-y-6">
+                    {/* Full Width Progress Bar */}
+                    <div className="w-full">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-semibold text-gray-700">Daily Progress</span>
+                          <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                            {completedCount} of {totalCount} visits completed
+                          </span>
+                        </div>
+                        <span className="text-lg font-bold text-gray-800">{completionPercentage}%</span>
+                      </div>
+                      <div className="h-3 bg-gray-200 rounded-full overflow-hidden shadow-inner">
                         <motion.div
-                          key={category.key}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="space-y-3"
-                        >
-                          {/* Status Header */}
-                          <div className={`flex items-center gap-3 p-3 rounded-lg ${category.bgColor} ${category.borderColor} border`}>
-                            <Icon icon={category.icon} className={`w-5 h-5 ${category.color}`} />
-                            <h3 className={`font-semibold ${category.color}`}>
-                              {category.label}
-                            </h3>
-                            <span className={`ml-auto text-sm font-medium ${category.color} bg-white px-2 py-1 rounded-full`}>
-                              {category.visits.length}
-                            </span>
-                          </div>
+                          initial={{ width: 0 }}
+                          animate={{ width: `${completionPercentage}%` }}
+                          transition={{ duration: 1.2, ease: "easeOut" }}
+                          className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-full shadow-sm"
+                        />
+                      </div>
+                    </div>
 
-                          {/* Patients in this status */}
-                          <div className="space-y-2 ml-8">
-                            {category.visits.map((visit, index) => (
-                              <motion.div
-                                key={visit.id}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: index * 0.05 }}
-                                className="flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all cursor-pointer"
-                              >
-                                {/* Time */}
-                                <div className="text-center min-w-[50px]">
-                                  <p className="text-sm font-semibold text-gray-800">
-                                    {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : 
-                                     visit.visit_time ? format(new Date(`2000-01-01T${visit.visit_time}`), 'HH:mm') : '--:--'}
-                                  </p>
-                                </div>
+                    {/* Called/Ready Section */}
+                    {readyCount > 0 && (
+                      <div className="p-3 bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg border border-emerald-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon icon="solar:notification-bold-duotone" className="w-5 h-5 text-emerald-600 animate-pulse" />
+                          <h3 className="font-semibold text-emerald-700">Called & Ready</h3>
+                          <span className="ml-auto text-sm font-medium text-emerald-600 bg-white px-2 py-0.5 rounded-full">
+                            {readyCount} {readyCount === 1 ? 'patient' : 'patients'} waiting
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {safeVisits.filter(v => v?.is_ready && !v?.is_cancelled && v?.status !== 'in-progress').map((visit, index) => (
+                            <div
+                              key={visit.id}
+                              className="relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-emerald-200 cursor-pointer hover:bg-white transition-colors animate-pulse"
+                              onClick={() => handlePatientClick(visit.patient_id)}
+                            >
+                              {/* Ready Number Badge */}
+                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm animate-bounce">
+                                {index + 1}
+                              </div>
+                              
+                              <div className="flex items-center justify-center w-10 h-10 bg-emerald-100 rounded-full">
+                                <Icon icon="solar:bell-bing-bold-duotone" className="w-5 h-5 text-emerald-600" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-800 text-sm">
+                                  {visit.patient?.first_name} {visit.patient?.last_name}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  Dr. {visit.doctor?.full_name || 'Unassigned'} • Ready since {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : '--:--'}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Icon icon="solar:hand-shake-bold-duotone" className="w-4 h-4 text-emerald-600 animate-pulse" />
+                                <span className="text-xs font-medium text-emerald-600">Waiting</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                                {/* Patient Info */}
-                                <div className="flex-1">
-                                  <p className="font-medium text-gray-800">
-                                    {visit.patient?.first_name} {visit.patient?.last_name}
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    {visit.visit_type || 'Consultation'} • Dr. {visit.doctor?.full_name || 'Unassigned'}
-                                  </p>
-                                </div>
+                    {/* In Progress Section */}
+                    {inProgressCount > 0 && (
+                      <div className="p-3 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon icon="solar:play-circle-bold-duotone" className="w-5 h-5 text-orange-600" />
+                          <h3 className="font-semibold text-orange-700">Currently In Progress</h3>
+                          <span className="ml-auto text-sm font-medium text-orange-600 bg-white px-2 py-0.5 rounded-full">
+                            {inProgressCount} {inProgressCount === 1 ? 'visit' : 'visits'}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {safeVisits.filter(v => v?.status === 'in-progress' && !v?.is_cancelled).map((visit, index) => (
+                            <div
+                              key={visit.id}
+                              className="relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-orange-100 cursor-pointer hover:bg-white transition-colors"
+                              onClick={() => handlePatientClick(visit.patient_id)}
+                            >
+                              {/* Progress Number Badge */}
+                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                                {index + 1}
+                              </div>
+                              
+                              <div className="flex items-center justify-center w-10 h-10 bg-orange-100 rounded-full">
+                                <Icon icon="solar:stethoscope-bold-duotone" className="w-5 h-5 text-orange-600" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-800 text-sm">
+                                  {visit.patient?.first_name} {visit.patient?.last_name}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  Dr. {visit.doctor?.full_name || 'Unassigned'} • Started {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : '--:--'}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+                                <span className="text-xs font-medium text-orange-600">Active</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                                {/* Actions */}
-                                <div className="flex items-center gap-1">
-                                  <button className="p-1.5 hover:bg-gray-100 rounded-full transition-colors">
-                                    <Icon icon="solar:eye-bold-duotone" className="w-4 h-4 text-gray-400" />
-                                  </button>
-                                </div>
-                              </motion.div>
-                            ))}
-                          </div>
-                        </motion.div>
-                      );
-                    });
-                  })()
-                )}
+                    {/* Visits Grouped by Status */}
+                    {loading ? (
+                      <div className="text-center py-8">
+                        <Icon icon="solar:refresh-circle-bold-duotone" className="w-8 h-8 text-gray-400 animate-spin mx-auto" />
+                        <p className="text-sm text-gray-500 mt-2">Loading visits...</p>
+                      </div>
+                    ) : safeVisits.length === 0 ? (
+                      <div className="text-center py-8">
+                        <Icon icon="solar:calendar-minimalistic-bold-duotone" className="w-12 h-12 text-gray-300 mx-auto" />
+                        <p className="text-sm text-gray-500 mt-2">No visits scheduled for today</p>
+                      </div>
+                    ) : (
+                      // Group visits by status and render each category
+                      (() => {
+                        const statusCategories = [
+                          { 
+                            key: 'scheduled', 
+                            label: 'Scheduled', 
+                            icon: 'solar:clock-circle-bold-duotone',
+                            color: 'text-blue-600',
+                            bgColor: 'bg-blue-50',
+                            borderColor: 'border-blue-200',
+                            visits: safeVisits.filter(v => v?.is_confirmed && !v?.is_cancelled && v?.status !== 'in-progress' && v?.status !== 'completed' && !v?.is_ready)
+                          },
+                          { 
+                            key: 'completed', 
+                            label: 'Completed', 
+                            icon: 'solar:verified-check-bold-duotone',
+                            color: 'text-green-600',
+                            bgColor: 'bg-green-50',
+                            borderColor: 'border-green-200',
+                            visits: safeVisits.filter(v => v?.status === 'completed')
+                          },
+                          { 
+                            key: 'cancelled', 
+                            label: 'Cancelled', 
+                            icon: 'solar:close-circle-bold-duotone',
+                            color: 'text-red-600',
+                            bgColor: 'bg-red-50',
+                            borderColor: 'border-red-200',
+                            visits: safeVisits.filter(v => v?.is_cancelled || v?.status === 'cancelled')
+                          }
+                        ];
+
+                        let cardCounter = 0;
+                        return statusCategories.map((category) => {
+                          if (category.visits.length === 0) return null;
+
+                          const categoryStartNumber = cardCounter;
+                          
+                          return (
+                            <motion.div
+                              key={category.key}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="space-y-3"
+                            >
+                              {/* Status Header */}
+                              <div className={`flex items-center gap-3 p-3 rounded-lg ${category.bgColor} ${category.borderColor} border`}>
+                                <Icon icon={category.icon} className={`w-5 h-5 ${category.color}`} />
+                                <h3 className={`font-semibold ${category.color}`}>
+                                  {category.label}
+                                </h3>
+                                <span className={`ml-auto text-sm font-medium ${category.color} bg-white px-2 py-1 rounded-full`}>
+                                  {category.visits.length}
+                                </span>
+                              </div>
+
+                              {/* Patients in this status */}
+                              <div className="space-y-2 ml-4">
+                                {category.visits.map((visit, index) => {
+                                  cardCounter++;
+                                  const cardNumber = categoryStartNumber + index + 1;
+                                  
+                                  return (
+                                  <motion.div
+                                    key={visit.id}
+                                    initial={{ opacity: 0, x: -10 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: index * 0.05 }}
+                                    className="relative flex items-center gap-3 p-3 pl-12 bg-white rounded-lg border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all cursor-pointer group"
+                                    onClick={() => handlePatientClick(visit.patient_id)}
+                                  >
+                                    {/* Card Number Badge */}
+                                    <div className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-gradient-to-br from-brand-primary to-brand-primary/80 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
+                                      {cardNumber}
+                                    </div>
+                                    
+                                    {/* Time */}
+                                    <div className="text-center min-w-[50px]">
+                                      <p className="text-sm font-semibold text-gray-800">
+                                        {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : 
+                                         visit.visit_time ? format(new Date(`2000-01-01T${visit.visit_time}`), 'HH:mm') : '--:--'}
+                                      </p>
+                                    </div>
+
+                                    {/* Patient Info */}
+                                    <div className="flex-1">
+                                      <p className="font-medium text-gray-800 group-hover:text-brand-primary transition-colors">
+                                        {visit.patient?.first_name} {visit.patient?.last_name}
+                                      </p>
+                                      <p className="text-xs text-gray-500">
+                                        {visit.visit_type || 'Consultation'} • Dr. {visit.doctor?.full_name || 'Unassigned'}
+                                      </p>
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="flex items-center gap-2">
+                                      <Icon icon="solar:arrow-right-bold-duotone" className="w-4 h-4 text-gray-400 group-hover:text-brand-primary transition-colors" />
+                                    </div>
+                                  </motion.div>
+                                  );
+                                })}
+                              </div>
+                            </motion.div>
+                          );
+                        });
+                      })()
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.div>
           </>
         )}
       </AnimatePresence>
+
+      {/* Patient Modal */}
+      {selectedPatientId && (
+        <ComprehensivePatientModal
+          isOpen={isPatientModalOpen}
+          onClose={() => {
+            setIsPatientModalOpen(false);
+            setSelectedPatientId(null);
+          }}
+          selectedPatientId={selectedPatientId}
+        />
+      )}
     </>
   );
 };

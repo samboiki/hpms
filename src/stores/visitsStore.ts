@@ -123,7 +123,11 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
         query = query.eq('patient_id', filters.patientId);
       }
       if (filters?.date) {
-        query = query.eq('scheduled_date', filters.date);
+        // Handle both date formats (YYYY-MM-DD and M/D/YYYY)
+        const dateObj = new Date(filters.date);
+        const isoFormat = filters.date; // Already in YYYY-MM-DD format
+        const usFormat = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()}`;
+        query = query.or(`scheduled_date.eq.${isoFormat},scheduled_date.eq.${usFormat}`);
       }
       if (filters?.dateRange) {
         query = query
@@ -171,11 +175,14 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
 
   // Fetch today's visits
   fetchTodayVisits: async (practiceId?: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date();
+    const todayISO = today.toISOString().split('T')[0]; // 2025-06-25
+    const todayUS = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`; // 6/25/2025
+    
     const state = get();
     const currentPracticeId = practiceId || state.practiceId;
     
-    console.log('⏱️ visitsStore: Fetching today\'s visits for date:', today, 'practice:', currentPracticeId);
+    console.log('⏱️ visitsStore: Fetching today\'s visits for dates:', todayISO, 'or', todayUS, 'practice:', currentPracticeId);
     const startTime = performance.now();
     
     if (!currentPracticeId) {
@@ -184,13 +191,32 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
       return;
     }
     
-    await get().fetchVisits({ 
-      date: today, 
-      practiceId: currentPracticeId 
-    });
+    // Fetch visits matching either date format
+    set({ loading: true, error: null });
     
-    const totalTime = performance.now() - startTime;
-    console.log(`⏱️ visitsStore: Today's visits fetched in ${totalTime.toFixed(2)}ms`);
+    try {
+      const { data, error } = await supabase
+        .from('visits')
+        .select(`
+          *,
+          patient:patients!visits_patient_id_fkey(id, first_name, last_name, cell_number, email, date_of_birth),
+          doctor:users!doctor_id(id, full_name, role)
+        `)
+        .eq('practice_id', currentPracticeId)
+        .or(`scheduled_date.eq.${todayISO},scheduled_date.eq.${todayUS}`)
+        .order('scheduled_time', { ascending: true });
+      
+      if (error) throw error;
+      
+      set({ visits: data || [], loading: false });
+      get().updateCounts();
+      
+      const totalTime = performance.now() - startTime;
+      console.log(`⏱️ visitsStore: Today's visits fetched in ${totalTime.toFixed(2)}ms, found ${data?.length || 0} visits`);
+    } catch (error) {
+      console.error('Error fetching today\'s visits:', error);
+      set({ error: (error as Error).message, loading: false });
+    }
   },
 
   // Confirm a visit

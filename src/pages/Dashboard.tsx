@@ -4,7 +4,7 @@ import SearchDuotone from '../components/icons/SearchDuotone';
 import { Icon } from '@iconify/react';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { format, eachDayOfInterval, isToday, isSameDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import { format, eachDayOfInterval, isToday, isSameDay, isSameMonth, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { usePractice } from '../contexts/PracticeContext';
 import AddScheduledVisitForm from '../components/forms/AddScheduledVisitForm';
 import { motion } from 'framer-motion';
@@ -31,6 +31,7 @@ import RescheduleAppointmentModal from '../components/modals/RescheduleAppointme
 import AppointmentActionModal from '../components/modals/AppointmentActionModal';
 import AppointmentApprovalModal from '../components/modals/AppointmentApprovalModal';
 import AppointmentGridView from '../components/appointments/AppointmentGridView';
+import FullScreenEditVisitModal from '../components/visits/FullScreenEditVisitModal';
 
 // Using Visit type from enhanced-visit.types
 import { Visit } from '../types/enhanced-visit.types';
@@ -78,7 +79,7 @@ function Dashboard() {
   const [currentUserId, setCurrentUserId] = useState('');
   const [currentPracticeId, setCurrentPracticeId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
-  const [internalViewMode, setInternalViewMode] = useState<'timeline' | 'grid'>('timeline');
+  const [internalViewMode, setInternalViewMode] = useState<'timeline' | 'grid'>('grid');
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
   const [showGridView, setShowGridView] = useState(false);
   const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress' | 'ready'>('pending');
@@ -97,6 +98,11 @@ function Dashboard() {
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
+  const [isEditVisitModalOpen, setIsEditVisitModalOpen] = useState(false);
+  const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
+  const [editingAppointment, setEditingAppointment] = useState<any>(null);
+  const [isEditAppointmentModalOpen, setIsEditAppointmentModalOpen] = useState(false);
+  const calendarScrollRef = useRef<HTMLDivElement>(null);
   
   // Fetch all dashboard stats using optimized hook
   const { data: dashboardData, isLoading: isDashboardLoading } = useOptimizedDashboardStats();
@@ -218,6 +224,24 @@ function Dashboard() {
       });
     }
   }, [selectedDate, currentPracticeId, fetchVisits]);
+
+  // Auto-scroll to center today's date only on initial load
+  useEffect(() => {
+    const scrollToToday = () => {
+      const todayButton = document.querySelector('[data-is-today="true"]');
+      if (todayButton && calendarScrollRef.current) {
+        const container = calendarScrollRef.current;
+        const buttonRect = todayButton.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const scrollLeft = buttonRect.left - containerRect.left - (containerRect.width / 2) + (buttonRect.width / 2) + container.scrollLeft;
+        container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+      }
+    };
+
+    // Only scroll on initial mount
+    const timeoutId = setTimeout(scrollToToday, 100);
+    return () => clearTimeout(timeoutId);
+  }, []); // Empty dependency array - only run on mount
 
   // Show notification for unconfirmed visits
   useEffect(() => {
@@ -852,106 +876,94 @@ function Dashboard() {
                   <div className="bg-white/20 backdrop-blur-xl rounded-2xl p-4 shadow-2xl border border-white/30">
                     {/* Month Navigation Header */}
                     <div className="flex items-center justify-between mb-4">
+                      {/* Grid/Timeline Filters on left */}
                       <div className="flex items-center gap-3">
-                        {/* View Mode Toggles */}
-                        <div className="flex items-center bg-white/30 backdrop-blur-sm rounded-lg p-0.5 shadow-sm border border-white/20">
-                          {['day', 'week', 'month'].map((mode) => (
-                            <button
-                              key={mode}
-                              onClick={() => setViewMode(mode as any)}
-                              className={`px-2 py-1 text-xs font-medium rounded-md transition-all capitalize ${
-                                viewMode === mode
-                                  ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
-                                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-                              }`}
-                            >
-                              {mode}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Timeline/Grid Filters */}
                         {(viewMode === 'day' || viewMode === 'week') && (
-                          <div className="flex items-center bg-white/30 backdrop-blur-sm rounded-lg p-0.5 shadow-sm border border-white/20">
-                            <button
-                              onClick={() => setInternalViewMode('timeline')}
-                              className={`px-2 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
-                                internalViewMode === 'timeline'
-                                  ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
-                                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-                              }`}
-                            >
-                              <Icon icon="solar:calendar-bold-duotone" className="h-3 w-3" />
-                              Timeline
-                            </button>
+                          <div className="flex items-center bg-white/30 backdrop-blur-sm rounded-lg p-1 shadow-sm border border-white/20">
                             <button
                               onClick={() => setInternalViewMode('grid')}
-                              className={`px-2 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${
+                              className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${
                                 internalViewMode === 'grid'
                                   ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
                                   : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
                               }`}
                             >
-                              <Icon icon="solar:pulse-bold-duotone" className="h-3 w-3" />
+                              <Icon icon="solar:widget-2-bold-duotone" className="h-4 w-4" />
                               Grid
+                            </button>
+                            <button
+                              onClick={() => setInternalViewMode('timeline')}
+                              className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${
+                                internalViewMode === 'timeline'
+                                  ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                              }`}
+                            >
+                              <Icon icon="solar:calendar-line-duotone" className="h-4 w-4" />
+                              Timeline
                             </button>
                           </div>
                         )}
-
-                        {/* Premium New Appointment Button */}
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => setIsAddAppointmentModalOpen(true)}
-                          className={`bg-gradient-to-r ${currentTheme.gradients.button} text-white px-3 py-1.5 rounded-xl flex items-center gap-2 hover:shadow-lg hover:shadow-[${currentTheme.colors.primary.from}]/20 transition-all duration-200 font-medium text-xs`}
-                          title="Schedule New Appointment"
-                        >
-                          <Icon icon="solar:add-circle-bold-duotone" className="w-3 h-3" />
-                          <span className="hidden sm:inline">New</span>
-                        </motion.button>
                       </div>
-                      <div className="flex items-center gap-1">
+                      
+                      {/* Selected Date in center */}
+                      <div className="flex items-center gap-3">
                         <button
                           onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
-                          className="p-1.5 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
+                          className="p-2 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
                         >
-                          <Icon icon="solar:map-arrow-left-bold-duotone" className="w-4 h-4 text-gray-600" />
+                          <Icon icon="solar:map-arrow-left-bold-duotone" className="w-5 h-5 text-gray-600" />
+                        </button>
+                        <button
+                          onClick={() => setShowCalendarPicker(!showCalendarPicker)}
+                          className="text-lg font-bold text-gray-700 min-w-[140px] text-center hover:bg-white/20 rounded-lg px-2 py-1 transition-all duration-200 flex items-center justify-center gap-2"
+                        >
+                          <span>{format(selectedDate, 'MMMM yyyy')}</span>
+                          <Icon icon="solar:calendar-bold-duotone" className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
-                          className="p-1.5 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
+                          className="p-2 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
                         >
-                          <Icon icon="solar:map-arrow-right-bold-duotone" className="w-4 h-4 text-gray-600" />
+                          <Icon icon="solar:map-arrow-right-bold-duotone" className="w-5 h-5 text-gray-600" />
                         </button>
                       </div>
+                      
+                      {/* Today Button on right */}
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          const today = new Date();
+                          setSelectedDate(today);
+                          // Only scroll if we're not already looking at the current month
+                          if (!isSameMonth(selectedDate, today)) {
+                            setTimeout(() => {
+                              const todayButton = document.querySelector('[data-is-today="true"]');
+                              if (todayButton && calendarScrollRef.current) {
+                                const container = calendarScrollRef.current;
+                                const buttonRect = todayButton.getBoundingClientRect();
+                                const containerRect = container.getBoundingClientRect();
+                                const scrollLeft = buttonRect.left - containerRect.left - (containerRect.width / 2) + (buttonRect.width / 2) + container.scrollLeft;
+                                container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+                              }
+                            }, 100);
+                          }
+                        }}
+                        className={`px-4 py-2 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl flex items-center gap-2 hover:shadow-lg transition-all duration-200 font-medium text-sm`}
+                      >
+                        <Icon icon="solar:calendar-mark-bold-duotone" className="w-4 h-4" />
+                        <span>Today</span>
+                      </motion.button>
                     </div>
                     
-                    {/* Month Display with Navigation */}
-                    <div className="flex items-center justify-center gap-3 mb-4">
-                      <button
-                        onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
-                        className="p-2 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
-                      >
-                        <Icon icon="solar:map-arrow-left-bold-duotone" className="w-5 h-5 text-gray-600" />
-                      </button>
-                      <button
-                        onClick={() => setShowCalendarPicker(!showCalendarPicker)}
-                        className="text-lg font-bold text-gray-700 min-w-[140px] text-center hover:bg-white/20 rounded-lg px-2 py-1 transition-all duration-200 flex items-center justify-center gap-2"
-                      >
-                        <span>{format(selectedDate, 'MMMM yyyy')}</span>
-                        <Icon icon="solar:calendar-bold-duotone" className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
-                        className="p-2 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
-                      >
-                        <Icon icon="solar:map-arrow-right-bold-duotone" className="w-5 h-5 text-gray-600" />
-                      </button>
-                    </div>
                     
                     
                     {/* Month Days - All days in one horizontal row */}
-                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-transparent">
+                    <div 
+                      ref={calendarScrollRef}
+                      className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-transparent"
+                    >
                       {eachDayOfInterval({
                         start: startOfMonth(selectedDate),
                         end: endOfMonth(selectedDate)
@@ -970,11 +982,12 @@ function Dashboard() {
                         return (
                           <button
                             key={day.toISOString()}
+                            data-is-today={dayIsToday}
                             onClick={() => setSelectedDate(day)}
                             className={`relative flex flex-col items-center p-3 rounded-2xl transition-all duration-300 transform hover:scale-105 min-w-[4rem] flex-shrink-0 ${
-                              dayIsToday
+                              dayIsSelected
                                 ? `bg-gradient-to-br ${currentTheme.gradients.sidebar} shadow-lg backdrop-blur-sm text-white`
-                                : dayIsSelected
+                                : dayIsToday
                                 ? 'bg-white/40 backdrop-blur-sm shadow-md'
                                 : 'bg-white/20 backdrop-blur-sm hover:bg-white/30'
                             }`}
@@ -985,10 +998,8 @@ function Dashboard() {
                             {/* Date number */}
                             <div 
                               className={`text-lg font-bold mb-1 ${
-                                dayIsToday 
+                                dayIsSelected
                                   ? 'text-white' 
-                                  : dayIsSelected
-                                  ? 'text-gray-800'
                                   : 'text-gray-700'
                               }`}
                             >
@@ -998,10 +1009,8 @@ function Dashboard() {
                             {/* Day name */}
                             <div 
                               className={`text-xs font-medium mb-1 ${
-                                dayIsToday 
+                                dayIsSelected
                                   ? 'text-white/80'
-                                  : dayIsSelected
-                                  ? 'text-gray-600'
                                   : 'text-gray-500/70'
                               }`}
                             >
@@ -1033,26 +1042,22 @@ function Dashboard() {
                               </div>
                             )}
                             
-                            {/* Today indicator */}
-                            {dayIsToday && (
-                              <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full shadow-sm animate-pulse"></div>
-                            )}
                           </button>
                         );
                       })}
                     </div>
                   </div>
 
-                  {/* Appointment Schedule - moved under calendar */}
+                  {/* Appointment Schedule */}
                   <div className="mt-4">
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.2 }}
-                      className="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50 overflow-hidden h-[600px] flex flex-col"
+                      className="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50"
                     >
                       {/* Appointment Scheduler */}
-                      <div className="flex-1 overflow-hidden">
+                      <div>
                         <PremiumAppointmentScheduler
                           appointments={visits.map(v => ({
                             id: v.id,
@@ -1073,7 +1078,11 @@ function Dashboard() {
                                    v.is_ready ? 'ready' :
                                    v.is_checked_in ? 'ready' :
                                    v.is_confirmed ? 'scheduled' : 'pending',
-                            notes: v.chief_complaint || v.notes
+                            notes: v.chief_complaint || v.notes,
+                            is_checked_in: v.is_checked_in || false,
+                            is_ready: v.is_ready || false,
+                            is_confirmed: v.is_confirmed || false,
+                            is_cancelled: v.is_cancelled || false
                           }))} // Transform visits to appointments format
                           doctors={doctors}
                           blockedTimes={[]}
@@ -1095,12 +1104,8 @@ function Dashboard() {
                             }
                           }}
                           onEditAppointment={async (appointment) => {
-                            const visit = visits.find(v => v.id === appointment.id);
-                            if (visit) {
-                              setSelectedVisit(visit);
-                              setSelectedAppointment(appointment);
-                              setIsRescheduleModalOpen(true);
-                            }
+                            setEditingAppointment(appointment);
+                            setIsEditAppointmentModalOpen(true);
                           }}
                           onCreateAppointment={async (appointmentData) => {
                             // appointmentData is the full appointment object
@@ -1129,7 +1134,13 @@ function Dashboard() {
                           currentUserRole={currentUserRole}
                           currentUserId={currentUserId}
                           onRefresh={() => {
-                            fetchData();
+                            if (currentPracticeId) {
+                              const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+                              fetchVisits({ 
+                                date: formattedDate, 
+                                practiceId: currentPracticeId 
+                              });
+                            }
                           }}
                           internalViewMode={internalViewMode}
                           onInternalViewModeChange={setInternalViewMode}
@@ -1520,6 +1531,25 @@ function Dashboard() {
                 <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
               </button>
             </div>
+
+            {/* View Mode Toggles */}
+            <div className="flex items-center justify-center mb-4">
+              <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                {['day', 'week', 'month'].map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode as any)}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all capitalize ${
+                      viewMode === mode
+                        ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-white'
+                    }`}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+            </div>
             
             {/* Month/Year Navigation */}
             <div className="flex items-center justify-between mb-6">
@@ -1686,8 +1716,62 @@ function Dashboard() {
 
       {/* Floating Visit Tracker */}
       {currentPracticeId && (
-        <FloatingVisitTracker practiceId={currentPracticeId} />
+        <FloatingVisitTracker practiceId={currentPracticeId} selectedDate={selectedDate} />
       )}
+
+      {/* Full Screen Edit Visit Modal */}
+      {editingVisitId && (
+        <FullScreenEditVisitModal
+          isOpen={isEditVisitModalOpen}
+          onClose={() => {
+            setIsEditVisitModalOpen(false);
+            setEditingVisitId(null);
+          }}
+          visitId={editingVisitId}
+          patientId={visits.find(v => v.id === editingVisitId)?.patient_id || ''}
+          onSuccess={() => {
+            setIsEditVisitModalOpen(false);
+            setEditingVisitId(null);
+            // Refresh visits
+            if (currentPracticeId) {
+              fetchTodayVisits(currentPracticeId);
+            }
+          }}
+        />
+      )}
+
+      {/* Edit Appointment Modal */}
+      <FormModal
+        isOpen={isEditAppointmentModalOpen}
+        onClose={() => {
+          setIsEditAppointmentModalOpen(false);
+          setEditingAppointment(null);
+        }}
+        title="Edit Appointment"
+      >
+        <PremiumAddAppointmentForm
+          initialPatientId={editingAppointment?.patient_id}
+          initialDate={editingAppointment ? new Date(editingAppointment.date) : undefined}
+          initialTime={editingAppointment?.time}
+          initialDoctorId={editingAppointment?.doctor_id}
+          initialType={editingAppointment?.type}
+          initialDuration={editingAppointment?.duration}
+          initialNotes={editingAppointment?.notes}
+          editingAppointmentId={editingAppointment?.id}
+          onSuccess={() => {
+            setIsEditAppointmentModalOpen(false);
+            setEditingAppointment(null);
+            // Refresh visits
+            if (currentPracticeId) {
+              fetchTodayVisits(currentPracticeId);
+            }
+          }}
+          onCancel={() => {
+            setIsEditAppointmentModalOpen(false);
+            setEditingAppointment(null);
+          }}
+        />
+      </FormModal>
     </div>
   );
 

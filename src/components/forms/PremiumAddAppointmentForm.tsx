@@ -11,6 +11,7 @@ import { PremiumDatePickerModal } from '../ui/PremiumDatePickerModal';
 import { AppointmentTypeModal } from '../ui/AppointmentTypeModal';
 import { useAuthStore } from '../../stores/authStore';
 import { debounce } from 'lodash';
+import { toast } from 'react-hot-toast';
 
 interface AddAppointmentFormData {
   patient_id: string;
@@ -43,6 +44,9 @@ interface Props {
   initialDoctorId?: string;
   initialPatientId?: string;
   initialType?: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
+  initialDuration?: number;
+  initialNotes?: string;
+  editingAppointmentId?: string;
 }
 
 const PremiumAddAppointmentForm: React.FC<Props> = ({ 
@@ -52,7 +56,10 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
   initialTime, 
   initialDoctorId, 
   initialPatientId, 
-  initialType 
+  initialType,
+  initialDuration,
+  initialNotes,
+  editingAppointmentId
 }) => {
   const { user } = useAuthStore();
   const [dataFetched, setDataFetched] = useState(false);
@@ -75,10 +82,11 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
       date: initialDate ? format(initialDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
       time: initialTime || '09:00', // Will be updated when business hours load
       end_time: '',
-      duration: 30,
+      duration: initialDuration || 30,
       type: initialType || 'consultation',
       doctor_id: initialDoctorId || '',
-      patient_id: initialPatientId || ''
+      patient_id: initialPatientId || '',
+      notes: initialNotes || ''
     }
   });
 
@@ -404,12 +412,13 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
       
       const durationMinutes = Math.round((endDate.getTime() - startDate.getTime()) / 60000);
 
-      // Check for conflicting appointments
+      // Check for conflicting appointments (exclude current appointment if editing)
       const appointmentTime = setMinutes(setHours(new Date(data.date), startHours), startMinutes);
       const hasConflict = await checkAppointmentConflict(
         data.doctor_id,
         appointmentTime,
-        durationMinutes
+        durationMinutes,
+        editingAppointmentId // Pass the current appointment ID to exclude it from conflict check
       );
 
       if (hasConflict) {
@@ -427,42 +436,72 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
       if (userError) throw userError;
       const practiceId = userData?.practice_id || user?.practice_id;
 
-      // Create a scheduled visit
-      const { data: newVisit, error: visitError } = await supabase
-        .from('visits')
-        .insert([{
-          patient_id: data.patient_id,
-          doctor_id: data.doctor_id,
-          visit_date: data.date,
-          visit_time: data.time,
-          scheduled_date: data.date,
-          scheduled_time: data.time,
-          visit_type: data.type,
-          chief_complaint: data.notes || '',
-          notes: `Appointment scheduled for ${format(new Date(data.date), 'PPP')} at ${data.time} - ${data.end_time}`,
-          practice_id: practiceId,
-          is_scheduled: true,
-          is_confirmed: true,
-          is_checked_in: false,
-          is_ready: false,
-          is_cancelled: false,
-          status: 'scheduled',
-          created_at: new Date().toISOString()
-        }])
-        .select(`
-          *,
-          doctor:users!doctor_id(id, full_name),
-          patient:patients!visits_patient_id_fkey(id, first_name, last_name)
-        `)
-        .single();
+      if (editingAppointmentId) {
+        // Update existing visit
+        const { data: updatedVisit, error: updateError } = await supabase
+          .from('visits')
+          .update({
+            patient_id: data.patient_id,
+            doctor_id: data.doctor_id,
+            visit_date: data.date,
+            visit_time: data.time,
+            scheduled_date: data.date,
+            scheduled_time: data.time,
+            visit_type: data.type,
+            chief_complaint: data.notes || '',
+            notes: `Appointment scheduled for ${format(new Date(data.date), 'PPP')} at ${data.time} - ${data.end_time}`,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingAppointmentId)
+          .select(`
+            *,
+            doctor:users!doctor_id(id, full_name),
+            patient:patients!visits_patient_id_fkey(id, first_name, last_name)
+          `)
+          .single();
 
-      if (visitError) throw visitError;
+        if (updateError) throw updateError;
 
-      console.log('✅ Created scheduled visit:', newVisit);
-      onSuccess(newVisit);
+        console.log('✅ Updated visit:', updatedVisit);
+        onSuccess(updatedVisit);
+      } else {
+        // Create a new scheduled visit
+        const { data: newVisit, error: visitError } = await supabase
+          .from('visits')
+          .insert([{
+            patient_id: data.patient_id,
+            doctor_id: data.doctor_id,
+            visit_date: data.date,
+            visit_time: data.time,
+            scheduled_date: data.date,
+            scheduled_time: data.time,
+            visit_type: data.type,
+            chief_complaint: data.notes || '',
+            notes: `Appointment scheduled for ${format(new Date(data.date), 'PPP')} at ${data.time} - ${data.end_time}`,
+            practice_id: practiceId,
+            is_scheduled: true,
+            is_confirmed: true,
+            is_checked_in: false,
+            is_ready: false,
+            is_cancelled: false,
+            status: 'scheduled',
+            created_at: new Date().toISOString()
+          }])
+          .select(`
+            *,
+            doctor:users!doctor_id(id, full_name),
+            patient:patients!visits_patient_id_fkey(id, first_name, last_name)
+          `)
+          .single();
+
+        if (visitError) throw visitError;
+
+        console.log('✅ Created scheduled visit:', newVisit);
+        onSuccess(newVisit);
+      }
     } catch (err) {
-      console.error('Error creating appointment:', err);
-      setError('Failed to create appointment');
+      console.error('Error saving appointment:', err);
+      setError(editingAppointmentId ? 'Failed to update appointment' : 'Failed to create appointment');
     } finally {
       setIsLoading(false);
     }
@@ -479,6 +518,34 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
     setPatientSearchTerm('');
     setShowPatientDropdown(false);
   }, [setValue]);
+
+  const handleCancelAppointment = async () => {
+    if (!editingAppointmentId) return;
+    
+    try {
+      setIsLoading(true);
+      
+      const { error } = await supabase
+        .from('visits')
+        .update({ 
+          status: 'cancelled',
+          is_cancelled: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', editingAppointmentId);
+
+      if (error) throw error;
+      
+      console.log('✅ Appointment cancelled');
+      toast.success('Appointment cancelled successfully');
+      onSuccess(); // Close the modal after cancelling
+    } catch (err) {
+      console.error('Error cancelling appointment:', err);
+      setError('Failed to cancel appointment');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Show loading only when actively fetching, not on initial mount
   const isInitialLoading = isLoadingPatients || isLoadingDoctors;
@@ -889,52 +956,76 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
 
       {/* Action Buttons */}
       <motion.div 
-        className="flex justify-end gap-3 pt-4"
+        className="flex justify-between items-center pt-4"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4, duration: 0.3 }}
       >
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          transition={{ type: "spring", stiffness: 400, damping: 17 }}
-          type="button"
-          onClick={() => {
-            if (onCancel) {
-              onCancel();
-            } else {
-              onSuccess();
-            }
-          }}
-          className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg 
-            hover:bg-gray-50 transition-all duration-200 font-medium flex items-center gap-2"
-        >
-          Cancel
-        </motion.button>
-        
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          transition={{ type: "spring", stiffness: 400, damping: 17 }}
-          type="submit"
-          disabled={isLoading}
-          className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg 
-            hover:from-purple-600 hover:to-indigo-700 transition-all duration-200 font-medium 
-            flex items-center gap-2 disabled:opacity-50 
-            disabled:cursor-not-allowed shadow-lg"
-        >
+        {/* Cancel Appointment button - only show when editing */}
+        <div>
+          {editingAppointmentId && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              type="button"
+              onClick={handleCancelAppointment}
+              disabled={isLoading}
+              className="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg 
+                hover:from-red-600 hover:to-red-700 transition-all duration-200 font-medium 
+                flex items-center gap-2 disabled:opacity-50 
+                disabled:cursor-not-allowed shadow-lg"
+            >
+              <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
+              Cancel Appointment
+            </motion.button>
+          )}
+        </div>
+
+        {/* Right side buttons */}
+        <div className="flex gap-3 ml-auto">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            type="button"
+            onClick={() => {
+              if (onCancel) {
+                onCancel();
+              } else {
+                onSuccess();
+              }
+            }}
+            className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg 
+              hover:bg-gray-50 transition-all duration-200 font-medium flex items-center gap-2"
+          >
+            Close
+          </motion.button>
+          
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            type="submit"
+            disabled={isLoading}
+            className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg 
+              hover:from-purple-600 hover:to-indigo-700 transition-all duration-200 font-medium 
+              flex items-center gap-2 disabled:opacity-50 
+              disabled:cursor-not-allowed shadow-lg"
+          >
           {isLoading ? (
             <>
               <Icon icon="solar:refresh-bold-duotone" className="w-5 h-5 animate-spin" />
-              Scheduling...
+              {editingAppointmentId ? 'Updating...' : 'Scheduling...'}
             </>
           ) : (
             <>
-              <Icon icon="solar:calendar-add-bold-duotone" className="w-5 h-5" />
-              Schedule Appointment
+              <Icon icon={editingAppointmentId ? "solar:pen-bold-duotone" : "solar:calendar-add-bold-duotone"} className="w-5 h-5" />
+              {editingAppointmentId ? 'Update Appointment' : 'Schedule Appointment'}
             </>
           )}
         </motion.button>
+        </div>
       </motion.div>
       </form>
 

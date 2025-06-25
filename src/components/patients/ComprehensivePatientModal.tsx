@@ -1235,10 +1235,18 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
           .limit(1)
           .maybeSingle(),
           
-        // Visits with doctor info and pre-calculated counts from timeline view
+        // Visits with doctor info
         supabase
-          .from('visit_timeline_view')
-          .select('*')
+          .from('visits')
+          .select(`
+            *,
+            doctor:users!doctor_id (
+              id,
+              email,
+              full_name,
+              role
+            )
+          `)
           .eq('patient_id', patientId)
           .order('visit_date', { ascending: false })
           .order('visit_time', { ascending: false })
