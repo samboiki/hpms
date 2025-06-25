@@ -37,7 +37,7 @@ import {
   startOfMonth,
   endOfMonth
 } from 'date-fns';
-import { motion, AnimatePresence } from 'framer-motion';
+// Removed motion animations for professional stability
 import FormModal from './modals/FormModal';
 import PremiumAddAppointmentForm from './forms/PremiumAddAppointmentForm';
 import { PremiumDayGridView } from './appointments/PremiumDayGridView';
@@ -71,6 +71,7 @@ interface Appointment {
   is_ready?: boolean;
   is_confirmed?: boolean;
   is_cancelled?: boolean;
+  is_handoff?: boolean;
 }
 
 interface Doctor {
@@ -257,7 +258,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     }
   };
 
-  // Handle Start Visit - changes status to in-progress and opens edit form
+  // Handle Start Visit - changes status to in-progress
   const handleStartVisit = async (visitId: string) => {
     try {
       // Update visit status to in-progress
@@ -276,12 +277,6 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
       // Refresh the data
       if (props.onRefresh) {
         props.onRefresh();
-      }
-      
-      // Open the edit visit form
-      const appointment = appointments.find(a => a.id === visitId);
-      if (appointment && props.onEditAppointment) {
-        props.onEditAppointment(appointment);
       }
     } catch (error) {
       console.error('Error starting visit:', error);
@@ -321,6 +316,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
         .from('visits')
         .update({ 
           status: 'completed',
+          is_handoff: false, // Reset handoff flag when completing
           updated_at: new Date().toISOString()
         })
         .eq('id', visitId);
@@ -549,6 +545,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     const appointmentSections = useMemo(() => {
       const sections = {
         schedule: [] as typeof filteredAppointments,
+        handedOff: [] as typeof filteredAppointments,
         completed: [] as typeof filteredAppointments,
         cancelled: [] as typeof filteredAppointments
       };
@@ -558,6 +555,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
           sections.cancelled.push(apt);
         } else if (apt.status === 'completed') {
           sections.completed.push(apt);
+        } else if (apt.is_handoff && apt.status !== 'completed') {
+          sections.handedOff.push(apt);
         } else {
           // scheduled, ready, in-progress, checked-in all go to schedule section
           sections.schedule.push(apt);
@@ -591,7 +590,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             return timeA.localeCompare(timeB);
           });
         } else {
-          // For completed and cancelled sections: sort by time only
+          // For completed, cancelled, and handedOff sections: sort by time only
           sections[key as keyof typeof sections].sort((a, b) => {
             const timeA = a.time || '00:00';
             const timeB = b.time || '00:00';
@@ -625,6 +624,164 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
           </div>
         ) : (
           <div className="space-y-8">
+            {/* Handed Off Section */}
+            {appointmentSections.handedOff.length > 0 && (
+              <div className="relative">
+                {/* Section header */}
+                <div className="flex items-center mb-4">
+                  <div className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg px-5 py-2.5 shadow-lg flex items-center gap-2">
+                    <Icon icon="solar:hand-shake-bold-duotone" className="h-5 w-5" />
+                    <span className="font-bold text-base">Handed Off</span>
+                    <span className="text-sm bg-white/20 px-2 py-0.5 rounded-full">
+                      {appointmentSections.handedOff.length}
+                    </span>
+                  </div>
+                  <div className="flex-1 h-px bg-gradient-to-r from-purple-300 via-purple-200 to-transparent ml-4" />
+                </div>
+
+                {/* Appointments grid */}
+                <div className="grid grid-cols-1 gap-3">
+                  {appointmentSections.handedOff.map((appointment, index) => {
+                    const StatusIcon = getStatusIcon(appointment.status);
+                    const aptDate = parseISO(appointment.date);
+
+                    return (
+                      <div
+                        key={appointment.id}
+                        className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:border-purple-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
+                        onClick={() => onAppointmentClick(appointment)}
+                      >
+                          {/* Faint inside border with status color */}
+                          <div className="absolute inset-0 rounded-[11px] border-2 border-purple-500/20 pointer-events-none" />
+
+                          {/* Subtle geometric pattern */}
+                          <svg className="absolute right-0 top-0 w-32 h-32 opacity-[0.03]" viewBox="0 0 100 100">
+                            <pattern id={`pattern-handoff-${appointment.id}`} x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                              <circle cx="10" cy="10" r="1.5" fill="#a855f7" />
+                            </pattern>
+                            <rect width="100" height="100" fill={`url(#pattern-handoff-${appointment.id})`} />
+                          </svg>
+
+                          {/* Smaller number badge - top left */}
+                          <div className="absolute left-3 top-3 z-10">
+                            <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-purple-100 border border-purple-200">
+                              <span className="font-semibold text-sm text-purple-700">
+                                {index + 1}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Status badge - top right */}
+                          <div className="absolute top-3 right-3 z-10">
+                            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm bg-purple-100 text-purple-700">
+                              Handed Off
+                            </span>
+                          </div>
+
+                          {/* Clean compact content */}
+                          <div className="relative">
+                            {/* Top section with number badge and patient info side by side */}
+                            <div className="flex gap-3 px-4 pt-4 pb-4">
+                              {/* Space for number badge on the left */}
+                              <div className="w-8"></div>
+                              
+                              {/* Patient details column - positioned next to number badge */}
+                              <div className="flex-1 space-y-2">
+                                {/* Patient name with icon */}
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1.5 rounded-lg">
+                                    <Icon icon="duo-icons:user" className="h-4 w-4 text-purple-600" />
+                                  </div>
+                                  <h3 className="font-bold text-[#4f575e] text-base tracking-tight truncate flex-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                                    {appointment.patient.first_name} {appointment.patient.last_name}
+                                  </h3>
+                                </div>
+
+                                {/* Phone number with badge */}
+                                {appointment.patient.cell_number && (
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-1.5 rounded-lg bg-purple-50/70">
+                                      <Icon icon="solar:phone-bold-duotone" className="h-3.5 w-3.5 text-purple-600" />
+                                    </div>
+                                    <span className="text-sm text-gray-600">{appointment.patient.cell_number}</span>
+                                  </div>
+                                )}
+                                
+                                {/* Designated doctor with badge */}
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1.5 rounded-lg">
+                                    <Icon icon="solar:stethoscope-bold-duotone" className="h-3.5 w-3.5 text-purple-600" />
+                                  </div>
+                                  <span className="text-sm text-gray-600">Dr. {(() => {
+                                    const doctor = doctors.find(d => d.id === appointment.doctor_id);
+                                    return doctor?.user_metadata?.full_name || doctor?.email || 'Unassigned';
+                                  })()}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Full width grey line */}
+                            <div className="h-px bg-gray-200" />
+
+                            {/* Bottom section with info and button */}
+                            <div className="px-4 py-3">
+                              <div className="flex items-center justify-between">
+                                {/* Info sections */}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {/* Time section */}
+                                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg backdrop-blur-sm bg-purple-50 text-purple-700">
+                                    <Icon icon="duo-icons:clock" className="h-3.5 w-3.5" />
+                                    <span className="text-xs font-semibold">{appointment.time ? format(parseISO(`2000-01-01T${appointment.time}`), 'h:mm a') : 'No time'}</span>
+                                  </div>
+
+                                  {/* Type section */}
+                                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
+                                    <Icon icon={
+                                      appointment.type === 'consultation' ? 'duo-icons:stethoscope' :
+                                      appointment.type === 'follow-up' ? 'duo-icons:refresh' :
+                                      appointment.type === 'procedure' ? 'duo-icons:syringe' :
+                                      'duo-icons:calendar'
+                                    } className="h-3.5 w-3.5" />
+                                    <span className="text-xs font-semibold capitalize">{appointment.type}</span>
+                                  </div>
+
+                                  {/* Duration */}
+                                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
+                                    <Icon icon="duo-icons:timer" className="h-3.5 w-3.5" />
+                                    <span className="text-xs font-semibold">{appointment.duration}m</span>
+                                  </div>
+
+                                  {/* Handoff indicator */}
+                                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-100 text-purple-700">
+                                    <Icon icon="solar:clipboard-check-bold-duotone" className="h-3.5 w-3.5" />
+                                    <span className="text-xs font-semibold">Ready for checkout</span>
+                                  </div>
+                                </div>
+
+                                {/* Action buttons - bottom right */}
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCompleteVisit(appointment.id);
+                                    }}
+                                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg transition-all duration-200 font-medium flex items-center gap-2 shadow-lg text-sm"
+                                  >
+                                    <Icon icon="solar:check-circle-bold-duotone" className="h-4 w-4" />
+                                    <span>Complete</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  
+                </div>
+              </div>
+            )}
+
             {/* Schedule Section - Active appointments */}
             {appointmentSections.schedule.length > 0 && (
               <div className="relative">
@@ -642,29 +799,17 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
 
                 {/* Appointments grid */}
                 <div className="grid grid-cols-1 gap-3">
-                  <AnimatePresence mode="popLayout">
-                    {appointmentSections.schedule.map((appointment, index) => {
-                      const StatusIcon = getStatusIcon(appointment.status);
-                      const isUpcoming = appointment.status === 'scheduled';
-                      const aptDate = parseISO(appointment.date);
+                  {appointmentSections.schedule.map((appointment, index) => {
+                    const StatusIcon = getStatusIcon(appointment.status);
+                    const isUpcoming = appointment.status === 'scheduled';
+                    const aptDate = parseISO(appointment.date);
 
-                      return (
-                        <motion.div
-                          key={appointment.id}
-                          layout
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -20 }}
-                          transition={{ 
-                            delay: index * 0.02, 
-                            type: "spring", 
-                            stiffness: 500, 
-                            damping: 30 
-                          }}
-                          whileHover={{ }}
-                          className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
-                          onClick={() => onAppointmentClick(appointment)}
-                        >
+                    return (
+                      <div
+                        key={appointment.id}
+                        className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
+                        onClick={() => onAppointmentClick(appointment)}
+                      >
                             {/* Faint inside border with status color */}
                             <div className={`absolute inset-0 rounded-[11px] border-2 ${
                             appointment.status === 'scheduled' ? 'border-blue-500/20' :
@@ -734,47 +879,21 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                             
                             {/* Show ready badge for ready status */}
                             {appointment.status === 'ready' && (
-                              <motion.span 
-                                animate={{
-                                  scale: [1, 1.05, 1],
-                                  boxShadow: [
-                                    "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                                    "0 4px 8px 0 rgba(1, 184, 216, 0.3)",
-                                    "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
-                                  ]
-                                }}
-                                transition={{
-                                  duration: 2,
-                                  repeat: Infinity,
-                                  ease: "easeInOut"
-                                }}
-                                className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide text-white inline-block"
+                              <span 
+                                className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide text-white inline-block shadow-sm"
                                 style={{ backgroundColor: '#01b8d8' }}
                               >
                                 Ready
-                              </motion.span>
+                              </span>
                             )}
                             
                             {/* Show in-progress badge with animation */}
                             {appointment.status === 'in-progress' && (
-                              <motion.span 
-                                animate={{
-                                  scale: [1, 1.05, 1],
-                                  boxShadow: [
-                                    "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                                    "0 4px 8px 0 rgba(245, 158, 11, 0.3)",
-                                    "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
-                                  ]
-                                }}
-                                transition={{
-                                  duration: 1.5,
-                                  repeat: Infinity,
-                                  ease: "easeInOut"
-                                }}
-                                className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-amber-100 text-amber-700 inline-block"
+                              <span 
+                                className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-amber-100 text-amber-700 inline-block shadow-sm"
                               >
                                 In Progress
-                              </motion.span>
+                              </span>
                             )}
                             
                             {/* Show other status badges */}
@@ -1014,10 +1133,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                               </div>
                             </div>
                           </div>
-                        </motion.div>
+                        </div>
                       );
                     })}
-                  </AnimatePresence>
+                  
                 </div>
               </div>
             )}
@@ -1039,29 +1158,17 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
 
                 {/* Appointments grid */}
                 <div className="grid grid-cols-1 gap-3">
-                  <AnimatePresence mode="popLayout">
-                    {appointmentSections.completed.map((appointment, index) => {
-                      const StatusIcon = getStatusIcon(appointment.status);
-                      const isUpcoming = appointment.status === 'scheduled';
-                      const aptDate = parseISO(appointment.date);
+                  {appointmentSections.completed.map((appointment, index) => {
+                    const StatusIcon = getStatusIcon(appointment.status);
+                    const isUpcoming = appointment.status === 'scheduled';
+                    const aptDate = parseISO(appointment.date);
 
-                      return (
-                        <motion.div
-                          key={appointment.id}
-                          layout
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -20 }}
-                          transition={{ 
-                            delay: index * 0.02, 
-                            type: "spring", 
-                            stiffness: 500, 
-                            damping: 30 
-                          }}
-                          whileHover={{ }}
-                          className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
-                          onClick={() => onAppointmentClick(appointment)}
-                        >
+                    return (
+                      <div
+                        key={appointment.id}
+                        className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
+                        onClick={() => onAppointmentClick(appointment)}
+                      >
                             {/* Faint inside border with status color */}
                             <div className={`absolute inset-0 rounded-[11px] border-2 ${
                             appointment.status === 'scheduled' ? 'border-blue-500/20' :
@@ -1271,10 +1378,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                               </div>
                             </div>
                           </div>
-                        </motion.div>
+                        </div>
                       );
                     })}
-                  </AnimatePresence>
+                  
                 </div>
               </div>
             )}
@@ -1296,29 +1403,17 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
 
                 {/* Appointments grid */}
                 <div className="grid grid-cols-1 gap-3">
-                  <AnimatePresence mode="popLayout">
-                    {appointmentSections.cancelled.map((appointment, index) => {
-                      const StatusIcon = getStatusIcon(appointment.status);
-                      const isUpcoming = appointment.status === 'scheduled';
-                      const aptDate = parseISO(appointment.date);
+                  {appointmentSections.cancelled.map((appointment, index) => {
+                    const StatusIcon = getStatusIcon(appointment.status);
+                    const isUpcoming = appointment.status === 'scheduled';
+                    const aptDate = parseISO(appointment.date);
 
-                      return (
-                        <motion.div
-                          key={appointment.id}
-                          layout
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -20 }}
-                          transition={{ 
-                            delay: index * 0.02, 
-                            type: "spring", 
-                            stiffness: 500, 
-                            damping: 30 
-                          }}
-                          whileHover={{ }}
-                          className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
-                          onClick={() => onAppointmentClick(appointment)}
-                        >
+                    return (
+                      <div
+                        key={appointment.id}
+                        className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
+                        onClick={() => onAppointmentClick(appointment)}
+                      >
                             {/* Faint inside border with status color */}
                             <div className={`absolute inset-0 rounded-[11px] border-2 ${
                             appointment.status === 'scheduled' ? 'border-blue-500/20' :
@@ -1528,10 +1623,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                               </div>
                             </div>
                           </div>
-                        </motion.div>
+                        </div>
                       );
                     })}
-                  </AnimatePresence>
+                  
                 </div>
               </div>
             )}
@@ -1665,11 +1760,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                           const StatusIcon = getStatusIcon(appointment.status);
 
                           return (
-                            <motion.div
+                            <div
                               key={appointment.id}
-                              initial={{ opacity: 0, scale: 0.9 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              whileHover={{ scale: 1.05, zIndex: 30 }}
                               className={`absolute left-1 right-1 bg-white/70 backdrop-blur-sm rounded-md shadow-sm hover:shadow-md 
                                 border border-white/30 transition-shadow cursor-pointer overflow-hidden
                                 ${getTypeAccent(appointment.type)}`}
@@ -1750,7 +1842,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                   </button>
                                 )}
                               </div>
-                            </motion.div>
+                            </div>
                           );
                         })}
 
@@ -1791,11 +1883,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                           const StatusIcon = getStatusIcon(appointment.status);
 
                           return (
-                            <motion.div
+                            <div
                               key={appointment.id}
-                              initial={{ opacity: 0, scale: 0.9 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              whileHover={{ scale: 1.05, zIndex: 30 }}
                               className={`absolute left-2 right-2 bg-white/70 backdrop-blur-sm rounded-md shadow-sm hover:shadow-md 
                                 border border-white/30 transition-shadow cursor-pointer overflow-hidden
                                 ${getTypeAccent(appointment.type)}`}
@@ -1858,7 +1947,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                   </div>
                                 )}
                               </div>
-                            </motion.div>
+                            </div>
                           );
                         })}
 
@@ -1954,9 +2043,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             )}
 
             {/* Schedule Appointment Button on Far Right */}
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <button
               onClick={() => {
                 setSelectedTimeSlot(null);
                 setIsAddModalOpen(true);
@@ -1968,7 +2055,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             >
               <Icon icon="solar:calendar-add-bold-duotone" className="w-4 h-4" />
               <span>Schedule</span>
-            </motion.button>
+            </button>
           </div>
         </div>
 
@@ -2047,18 +2134,16 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
       </div>
 
       {/* Premium Floating Add Button */}
-      <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.95 }}
+      <button
         onClick={() => {
           setSelectedTimeSlot(null);
           setIsAddModalOpen(true);
         }}
         className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-[#01b9d5] to-purple-600 
-          text-white rounded-full shadow-xl hover:shadow-2xl transition-all flex items-center justify-center group"
+          text-white rounded-full shadow-xl hover:shadow-2xl hover:scale-110 transition-all flex items-center justify-center group"
       >
         <Plus className="h-6 w-6 group-hover:rotate-90 transition-transform" />
-      </motion.button>
+      </button>
 
       {/* Add Appointment Modal */}
       <FormModal
@@ -2085,32 +2170,17 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
 
       {/* Doctor Selection Modal */}
       {showDoctorModal && createPortal(
-        <AnimatePresence>
-          {showDoctorModal && (
-            <>
-              {/* Backdrop */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
-                onClick={() => setShowDoctorModal(false)}
-                className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100]"
-              />
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setShowDoctorModal(false)}
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-[100]"
+          />
 
               {/* Modal Container for Centering */}
               <div className="fixed inset-0 flex items-center justify-center z-[101] p-4 pointer-events-none">
                 {/* Modal */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                  transition={{ 
-                    type: "spring", 
-                    damping: 25,
-                    stiffness: 300,
-                    duration: 0.3
-                  }}
+                <div
                   className="w-full max-w-[400px] bg-white rounded-2xl shadow-2xl max-h-[70vh] overflow-hidden pointer-events-auto"
                 >
               {/* Header */}
@@ -2207,11 +2277,9 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                   })}
                 </div>
               </div>
-                </motion.div>
+                </div>
               </div>
-            </>
-          )}
-        </AnimatePresence>,
+        </>,
         document.body
       )}
     </div>

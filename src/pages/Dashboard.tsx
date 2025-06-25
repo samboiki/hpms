@@ -23,6 +23,7 @@ import ComprehensivePatientModal from '../components/patients/ComprehensivePatie
 import { useOptimizedDashboardStats, useCommunicationStats } from '../hooks/useOptimizedDashboardStats';
 import { useTodayAppointments, useRealtimeAppointments } from '../hooks/useAppointments';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
+import { useAutoPatientPrefetch } from '../hooks/usePatientPrefetch';
 import PremiumAppointmentScheduler from '../components/PremiumAppointmentScheduler';
 import FormModal from '../components/modals/FormModal';
 import PremiumAddAppointmentForm from '../components/forms/PremiumAddAppointmentForm';
@@ -115,6 +116,9 @@ function Dashboard() {
   
   // Subscribe to real-time appointment updates
   useRealtimeAppointments();
+  
+  // Prefetch patient data for today's appointments in the background
+  useAutoPatientPrefetch(todayAppointments, !isAppointmentsLoading && todayAppointments.length > 0);
   
   // Extract individual stats for compatibility
   const communicationStats = dashboardData?.communication || null;
@@ -1085,7 +1089,8 @@ function Dashboard() {
                             is_checked_in: v.is_checked_in || false,
                             is_ready: v.is_ready || false,
                             is_confirmed: v.is_confirmed || false,
-                            is_cancelled: v.is_cancelled || false
+                            is_cancelled: v.is_cancelled || false,
+                            is_handoff: v.is_handoff || false
                           }))} // Transform visits to appointments format
                           doctors={doctors}
                           blockedTimes={[]}

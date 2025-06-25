@@ -12,7 +12,7 @@ import VisitConfirmationModal from '../modals/VisitConfirmationModal';
 import RescheduleVisitModal from '../modals/RescheduleVisitModal';
 
 interface VisitGridViewProps {
-  filterStatus?: 'all' | 'unconfirmed' | 'scheduled' | 'in-practice' | 'completed' | 'cancelled';
+  filterStatus?: 'all' | 'unconfirmed' | 'scheduled' | 'in-practice' | 'completed' | 'cancelled' | 'handed-off';
   practiceId: string;
   onClose: () => void;
 }
@@ -88,6 +88,8 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
         query = query.eq('status', 'completed');
       } else if (filterStatus === 'cancelled') {
         query = query.or('is_cancelled.eq.true,status.eq.cancelled');
+      } else if (filterStatus === 'handed-off') {
+        query = query.eq('is_handoff', true).neq('status', 'completed');
       }
 
       const { data, error } = await query;
@@ -282,6 +284,44 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
     }
   };
 
+  const handleHandoffVisit = async (visitId: string) => {
+    try {
+      const { error } = await supabase
+        .from('visits')
+        .update({ 
+          is_handoff: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', visitId);
+
+      if (error) throw error;
+      
+      showNotification('Visit handed off');
+      fetchVisits();
+    } catch (error) {
+      console.error('Error handing off visit:', error);
+    }
+  };
+
+  const handleCompleteVisit = async (visitId: string) => {
+    try {
+      const { error } = await supabase
+        .from('visits')
+        .update({ 
+          status: 'completed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', visitId);
+
+      if (error) throw error;
+      
+      showNotification('Visit completed');
+      fetchVisits();
+    } catch (error) {
+      console.error('Error completing visit:', error);
+    }
+  };
+
   const renderActionButton = (visit: Visit, action: string) => {
     switch (action) {
       case 'confirm':
@@ -375,6 +415,32 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
           >
             <XCircle className="w-4 h-4 mr-2" />
             Cancel
+          </button>
+        );
+      case 'handoff':
+        return (
+          <button
+            onClick={() => {
+              handleHandoffVisit(visit.id);
+              setShowActionMenu(null);
+            }}
+            className="flex items-center px-3 py-2 text-sm text-purple-600 hover:bg-purple-50 w-full text-left"
+          >
+            <Activity className="w-4 h-4 mr-2" />
+            Handoff
+          </button>
+        );
+      case 'complete':
+        return (
+          <button
+            onClick={() => {
+              handleCompleteVisit(visit.id);
+              setShowActionMenu(null);
+            }}
+            className="flex items-center px-3 py-2 text-sm text-green-600 hover:bg-green-50 w-full text-left"
+          >
+            <CheckCircle className="w-4 h-4 mr-2" />
+            Complete
           </button>
         );
       default:

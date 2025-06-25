@@ -36,6 +36,7 @@ interface VisitsActions {
   markPatientReady: (visitId: string) => Promise<void>;
   startVisit: (visitId: string) => Promise<void>;
   completeVisit: (visitId: string) => Promise<void>;
+  handoffVisit: (visitId: string) => Promise<void>;
   cancelVisit: (visitId: string, reason?: string) => Promise<void>;
   markNoShow: (visitId: string) => Promise<void>;
   rescheduleVisit: (visitId: string, newDate: string, newTime: string, reason?: string) => Promise<void>;
@@ -399,6 +400,34 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
       get().updateCounts();
     } catch (error) {
       console.error('Error completing visit:', error);
+      set({ error: (error as Error).message });
+      throw error;
+    }
+  },
+
+  // Handoff visit
+  handoffVisit: async (visitId: string) => {
+    try {
+      const { error } = await supabase
+        .from('visits')
+        .update({
+          is_handoff: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', visitId);
+
+      if (error) throw error;
+
+      // Update local state
+      set(state => ({
+        visits: state.visits.map(visit =>
+          visit.id === visitId ? { ...visit, is_handoff: true } : visit
+        )
+      }));
+
+      get().updateCounts();
+    } catch (error) {
+      console.error('Error handing off visit:', error);
       set({ error: (error as Error).message });
       throw error;
     }

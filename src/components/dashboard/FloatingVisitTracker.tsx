@@ -6,6 +6,7 @@ import { useTheme } from '../../stores/themeStore';
 import { useVisitsStore } from '../../stores/visitsStore';
 import { useNavigate } from 'react-router-dom';
 import ComprehensivePatientModal from '../patients/ComprehensivePatientModal';
+import FullScreenEditVisitModal from '../visits/FullScreenEditVisitModal';
 
 interface Visit {
   id: string;
@@ -37,10 +38,12 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
   const [showBottomShadow, setShowBottomShadow] = useState(true);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
+  const [selectedVisitForEdit, setSelectedVisitForEdit] = useState<Visit | null>(null);
+  const [isEditVisitModalOpen, setIsEditVisitModalOpen] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   // Use visits store instead of appointments
-  const { visits, loading, fetchTodayVisits, fetchVisits } = useVisitsStore();
+  const { visits, loading, fetchTodayVisits, fetchVisits, startVisit } = useVisitsStore();
   
   // Fetch visits for selected date when component mounts or date/practiceId changes
   useEffect(() => {
@@ -78,7 +81,8 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
   const totalCount = safeVisits.length;
   const scheduledCount = safeVisits.filter(v => v?.is_confirmed && !v?.is_cancelled).length;
   const readyCount = safeVisits.filter(v => v?.is_ready && !v?.is_cancelled).length;
-  const inProgressCount = safeVisits.filter(v => v?.status === 'in-progress' && !v?.is_cancelled).length;
+  const inProgressCount = safeVisits.filter(v => v?.status === 'in-progress' && !v?.is_cancelled && !v?.is_handoff).length;
+  const handedOffCount = safeVisits.filter(v => v?.is_handoff && v?.status !== 'completed').length;
   const completedCount = safeVisits.filter(v => v?.status === 'completed').length;
   const cancelledCount = safeVisits.filter(v => v?.is_cancelled || v?.status === 'cancelled').length;
   const noShowCount = safeVisits.filter(v => v?.status === 'no_show').length;
@@ -139,6 +143,19 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
   const handlePatientClick = (patientId: string) => {
     setSelectedPatientId(patientId);
     setIsPatientModalOpen(true);
+  };
+
+  const handleStartVisit = async (visit: any) => {
+    try {
+      // Update visit status to in-progress
+      await startVisit(visit.id);
+      
+      // Open the edit visit modal
+      setSelectedVisitForEdit(visit);
+      setIsEditVisitModalOpen(true);
+    } catch (error) {
+      console.error('Error starting visit:', error);
+    }
   };
 
   return (
@@ -345,7 +362,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           </span>
                         </div>
                         <div className="space-y-2">
-                          {safeVisits.filter(v => v?.status === 'in-progress' && !v?.is_cancelled).map((visit, index) => (
+                          {safeVisits.filter(v => v?.status === 'in-progress' && !v?.is_cancelled && !v?.is_handoff).map((visit, index) => (
                             <div
                               key={visit.id}
                               className="relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-orange-100 cursor-pointer hover:bg-white transition-colors"
@@ -367,9 +384,78 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                   Dr. {visit.doctor?.full_name || 'Unassigned'} • Started {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : '--:--'}
                                 </p>
                               </div>
-                              <div className="flex items-center gap-1">
-                                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
-                                <span className="text-xs font-medium text-orange-600">Active</span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const { handoffVisit } = useVisitsStore.getState();
+                                    handoffVisit(visit.id);
+                                  }}
+                                  className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-md transition-colors"
+                                >
+                                  Handoff
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const { completeVisit } = useVisitsStore.getState();
+                                    completeVisit(visit.id);
+                                  }}
+                                  className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md transition-colors"
+                                >
+                                  Complete
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Handed Off Section */}
+                    {handedOffCount > 0 && (
+                      <div className="p-3 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Icon icon="solar:hand-shake-bold-duotone" className="w-5 h-5 text-purple-600" />
+                          <h3 className="font-semibold text-purple-700">Handed Off</h3>
+                          <span className="ml-auto text-sm font-medium text-purple-600 bg-white px-2 py-0.5 rounded-full">
+                            {handedOffCount} {handedOffCount === 1 ? 'patient' : 'patients'}
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {safeVisits.filter(v => v?.is_handoff && v?.status !== 'completed').map((visit, index) => (
+                            <div
+                              key={visit.id}
+                              className="relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-purple-100 cursor-pointer hover:bg-white transition-colors"
+                              onClick={() => handlePatientClick(visit.patient_id)}
+                            >
+                              {/* Handoff Number Badge */}
+                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                                {index + 1}
+                              </div>
+                              
+                              <div className="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-full">
+                                <Icon icon="solar:clipboard-check-bold-duotone" className="w-5 h-5 text-purple-600" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-800 text-sm">
+                                  {visit.patient?.first_name} {visit.patient?.last_name}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  Dr. {visit.doctor?.full_name || 'Unassigned'} • Ready for checkout
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const { completeVisit } = useVisitsStore.getState();
+                                    completeVisit(visit.id);
+                                  }}
+                                  className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md transition-colors"
+                                >
+                                  Complete
+                                </button>
                               </div>
                             </div>
                           ))}
@@ -399,7 +485,22 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                             color: 'text-blue-600',
                             bgColor: 'bg-blue-50',
                             borderColor: 'border-blue-200',
-                            visits: safeVisits.filter(v => v?.is_confirmed && !v?.is_cancelled && v?.status !== 'in-progress' && v?.status !== 'completed' && !v?.is_ready)
+                            visits: safeVisits.filter(v => 
+                              v?.is_confirmed && 
+                              !v?.is_cancelled && 
+                              v?.status !== 'in-progress' && 
+                              v?.status !== 'completed' && 
+                              !v?.is_ready
+                            ).sort((a, b) => {
+                              // First sort by checked-in status (checked-in first)
+                              if (a.is_checked_in && !b.is_checked_in) return -1;
+                              if (!a.is_checked_in && b.is_checked_in) return 1;
+                              
+                              // Then sort by time
+                              const timeA = a.scheduled_time || a.visit_time || '00:00';
+                              const timeB = b.scheduled_time || b.visit_time || '00:00';
+                              return timeA.localeCompare(timeB);
+                            })
                           },
                           { 
                             key: 'completed', 
@@ -409,6 +510,25 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                             bgColor: 'bg-green-50',
                             borderColor: 'border-green-200',
                             visits: safeVisits.filter(v => v?.status === 'completed')
+                              .sort((a, b) => {
+                                const timeA = a.scheduled_time || a.visit_time || '00:00';
+                                const timeB = b.scheduled_time || b.visit_time || '00:00';
+                                return timeA.localeCompare(timeB);
+                              })
+                          },
+                          { 
+                            key: 'handedoff', 
+                            label: 'Handed Off', 
+                            icon: 'solar:hand-shake-bold-duotone',
+                            color: 'text-purple-600',
+                            bgColor: 'bg-purple-50',
+                            borderColor: 'border-purple-200',
+                            visits: safeVisits.filter(v => v?.is_handoff && v?.status !== 'completed')
+                              .sort((a, b) => {
+                                const timeA = a.scheduled_time || a.visit_time || '00:00';
+                                const timeB = b.scheduled_time || b.visit_time || '00:00';
+                                return timeA.localeCompare(timeB);
+                              })
                           },
                           { 
                             key: 'cancelled', 
@@ -418,6 +538,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                             bgColor: 'bg-red-50',
                             borderColor: 'border-red-200',
                             visits: safeVisits.filter(v => v?.is_cancelled || v?.status === 'cancelled')
+                              .sort((a, b) => {
+                                const timeA = a.scheduled_time || a.visit_time || '00:00';
+                                const timeB = b.scheduled_time || b.visit_time || '00:00';
+                                return timeA.localeCompare(timeB);
+                              })
                           }
                         ];
 
@@ -460,8 +585,20 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                     className="relative flex items-center gap-3 p-3 pl-12 bg-white rounded-lg border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all cursor-pointer group"
                                     onClick={() => handlePatientClick(visit.patient_id)}
                                   >
-                                    {/* Card Number Badge */}
-                                    <div className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-gradient-to-br from-brand-primary to-brand-primary/80 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md">
+                                    {/* Card Number Badge - Colored based on status */}
+                                    <div className={`absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-md ${
+                                      category.key === 'scheduled' && visit.is_checked_in
+                                        ? 'bg-[#01b8d8] text-white'
+                                        : category.key === 'scheduled'
+                                        ? 'bg-[#489bfd] text-white'
+                                        : category.key === 'completed'
+                                        ? 'bg-green-500 text-white'
+                                        : category.key === 'handedoff'
+                                        ? 'bg-purple-500 text-white'
+                                        : category.key === 'cancelled'
+                                        ? 'bg-red-500 text-white'
+                                        : 'bg-white text-gray-700 border border-gray-200'
+                                    }`}>
                                       {cardNumber}
                                     </div>
                                     
@@ -483,9 +620,62 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                       </p>
                                     </div>
 
-                                    {/* Actions */}
+                                    {/* Status Indicator and Actions */}
                                     <div className="flex items-center gap-2">
-                                      <Icon icon="solar:arrow-right-bold-duotone" className="w-4 h-4 text-gray-400 group-hover:text-brand-primary transition-colors" />
+                                      {category.key === 'scheduled' && visit.is_checked_in && (
+                                        <>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              e.preventDefault();
+                                              handleStartVisit(visit);
+                                            }}
+                                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-md transition-colors"
+                                          >
+                                            Start Visit
+                                          </button>
+                                          <div className="flex items-center gap-1">
+                                            <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                                            <span className="text-xs font-medium text-emerald-600">Checked In</span>
+                                          </div>
+                                        </>
+                                      )}
+                                      {category.key === 'scheduled' && !visit.is_checked_in && (
+                                        <>
+                                          <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                                          <span className="text-xs font-medium text-blue-600">Scheduled</span>
+                                        </>
+                                      )}
+                                      {category.key === 'completed' && (
+                                        <>
+                                          <div className="w-2 h-2 bg-green-500 rounded-full" />
+                                          <span className="text-xs font-medium text-green-600">Completed</span>
+                                        </>
+                                      )}
+                                      {category.key === 'cancelled' && (
+                                        <>
+                                          <div className="w-2 h-2 bg-red-500 rounded-full" />
+                                          <span className="text-xs font-medium text-red-600">Cancelled</span>
+                                        </>
+                                      )}
+                                      {category.key === 'handedoff' && (
+                                        <>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              const { completeVisit } = useVisitsStore.getState();
+                                              completeVisit(visit.id);
+                                            }}
+                                            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md transition-colors"
+                                          >
+                                            Complete
+                                          </button>
+                                          <div className="flex items-center gap-1">
+                                            <div className="w-2 h-2 bg-purple-500 rounded-full" />
+                                            <span className="text-xs font-medium text-purple-600">Handed Off</span>
+                                          </div>
+                                        </>
+                                      )}
                                     </div>
                                   </motion.div>
                                   );
@@ -512,7 +702,36 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
             setIsPatientModalOpen(false);
             setSelectedPatientId(null);
           }}
-          selectedPatientId={selectedPatientId}
+          patientId={selectedPatientId}
+        />
+      )}
+
+      {/* Edit Visit Modal */}
+      {selectedVisitForEdit && (
+        <FullScreenEditVisitModal
+          isOpen={isEditVisitModalOpen}
+          onClose={() => {
+            setIsEditVisitModalOpen(false);
+            setSelectedVisitForEdit(null);
+          }}
+          visitId={selectedVisitForEdit.id}
+          patientId={selectedVisitForEdit.patient_id}
+          onSuccess={() => {
+            setIsEditVisitModalOpen(false);
+            setSelectedVisitForEdit(null);
+            // Refresh visits after editing
+            if (practiceId) {
+              if (selectedDate) {
+                const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+                fetchVisits({ 
+                  date: formattedDate, 
+                  practiceId 
+                });
+              } else {
+                fetchTodayVisits(practiceId);
+              }
+            }
+          }}
         />
       )}
     </>

@@ -99,6 +99,8 @@ import InvoicePreviewModal from '../modals/InvoicePreviewModal';
 import ManageBeneficiariesModal from '../modals/ManageBeneficiariesModal';
 import UnifiedPDFGenerator from '../billing/UnifiedPDFGenerator';
 import { fetchPatientDetailsOptimized } from './OptimizedPatientQueries';
+import { usePatientPrefetch } from '../../hooks/usePatientPrefetch';
+import { useQuery } from '@tanstack/react-query';
 
 interface MessageConfirmationData {
   type: 'sms' | 'email';
@@ -259,6 +261,45 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   
   // Extracted modal state management
   const modalState = usePatientModalState();
+  
+  // Use React Query for patient details with caching
+  const { getCachedPatientData } = usePatientPrefetch();
+  
+  const { data: patientDetailsData, isLoading: isQueryLoading, error: queryError } = useQuery({
+    queryKey: ['patient-details-optimized', patientId],
+    queryFn: () => fetchPatientDetailsOptimized(patientId!),
+    enabled: !!patientId && isOpen && activeTab === 'details',
+    staleTime: 1000 * 60 * 10, // 10 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes
+    refetchOnWindowFocus: false,
+    initialData: () => {
+      // Use cached data if available for instant loading
+      const cached = getCachedPatientData(patientId!);
+      return cached;
+    }
+  });
+  
+  // Sync React Query data with component state for instant loading
+  useEffect(() => {
+    if (patientDetailsData) {
+      console.log('📊 Using cached/fetched patient data for instant loading');
+      setSelectedPatientDetails(patientDetailsData.patient);
+      setNextOfKin(patientDetailsData.nextOfKin);
+      setVisits(patientDetailsData.visits);
+      setVisitCounts(patientDetailsData.visitCounts);
+      setAppointments(patientDetailsData.appointments);
+      setVitals(patientDetailsData.vitals);
+      setLabRequests(patientDetailsData.labRequests);
+      setLabResults(patientDetailsData.labResults);
+      setMedications(patientDetailsData.medications);
+      setMediaRequests(patientDetailsData.mediaRequests);
+      setImagingRequests(patientDetailsData.imagingRequests);
+      setBillingData(patientDetailsData.billingData);
+      setMedicalAid(patientDetailsData.medicalAid);
+      setDocuments(patientDetailsData.documents);
+      setPracticeData(patientDetailsData.practiceData);
+    }
+  }, [patientDetailsData]);
   
   // Function to handle new appointments created for this patient
   const handleNewAppointmentForPatient = useCallback((newAppointment: any) => {

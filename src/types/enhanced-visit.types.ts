@@ -129,6 +129,15 @@ export const getVisitDisplayStatus = (visit: Visit): {
     };
   }
   
+  if (visit.is_handoff && visit.status !== 'completed') {
+    return {
+      label: 'Handed Off',
+      color: 'text-purple-700',
+      bgColor: 'bg-purple-100',
+      icon: 'activity'
+    };
+  }
+  
   if (isInProgress(visit)) {
     return {
       label: 'In Progress',
@@ -192,8 +201,12 @@ export const getVisitActions = (visit: Visit): string[] => {
     actions.push('start-visit', 'cancel');
   }
   
-  if (isInProgress(visit)) {
-    actions.push('complete', 'add-notes', 'add-vitals');
+  if (isInProgress(visit) && !visit.is_handoff) {
+    actions.push('handoff', 'complete', 'add-notes', 'add-vitals');
+  }
+  
+  if (visit.is_handoff && visit.status !== 'completed') {
+    actions.push('complete', 'generate-invoice');
   }
   
   if (isCompleted(visit)) {
