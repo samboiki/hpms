@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+// Removed framer-motion for stable, premium experience
 import { Icon } from '@iconify/react';
 import { format, isSameDay } from 'date-fns';
 import { useTheme } from '../../stores/themeStore';
@@ -161,17 +161,10 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
   return (
     <>
       {/* Floating Button */}
-      <motion.div
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.5, type: "spring", stiffness: 260, damping: 20 }}
-        className="fixed bottom-6 right-6 z-40"
-      >
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+      <div className="fixed bottom-6 right-6 z-40">
+        <button
           onClick={() => setIsOpen(true)}
-          className="relative w-20 h-20 bg-white rounded-full shadow-2xl border-2 border-white/50 backdrop-blur-xl overflow-hidden group"
+          className="relative w-20 h-20 bg-white rounded-full shadow-2xl border-2 border-white/50 backdrop-blur-xl overflow-hidden group hover:scale-105 active:scale-95 transition-transform duration-200"
           style={{ 
             background: 'rgba(255, 255, 255, 0.9)',
             backdropFilter: 'blur(20px)'
@@ -222,30 +215,22 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
             </div>
           </div>
 
-        </motion.button>
+        </button>
 
-      </motion.div>
+      </div>
 
       {/* Modal */}
-      <AnimatePresence>
-        {isOpen && (
+      {isOpen && (
           <>
             {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+            <div
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50"
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 transition-opacity duration-200"
             />
 
             {/* Modal Content */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              transition={{ type: "spring", damping: 20 }}
-              className="fixed inset-x-4 bottom-20 md:right-6 md:left-auto md:w-[580px] bg-white rounded-2xl shadow-2xl z-50 max-h-[85vh] h-[85vh] overflow-hidden flex flex-col"
+            <div
+              className="fixed inset-x-4 bottom-20 md:right-6 md:left-auto md:w-[580px] bg-white rounded-2xl shadow-2xl z-50 max-h-[85vh] h-[85vh] overflow-hidden flex flex-col transition-all duration-200"
             >
               {/* Fixed Header */}
               <div className="flex-shrink-0 p-6 border-b border-gray-100 bg-white">
@@ -299,11 +284,9 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                         <span className="text-lg font-bold text-gray-800">{completionPercentage}%</span>
                       </div>
                       <div className="h-3 bg-gray-200 rounded-full overflow-hidden shadow-inner">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${completionPercentage}%` }}
-                          transition={{ duration: 1.2, ease: "easeOut" }}
-                          className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-full shadow-sm"
+                        <div
+                          style={{ width: `${completionPercentage}%` }}
+                          className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-full shadow-sm transition-all duration-500 ease-out"
                         />
                       </div>
                     </div>
@@ -322,11 +305,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           {safeVisits.filter(v => v?.is_ready && !v?.is_cancelled && v?.status !== 'in-progress').map((visit, index) => (
                             <div
                               key={visit.id}
-                              className="relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-emerald-200 cursor-pointer hover:bg-white transition-colors animate-pulse"
+                              className="relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-emerald-200 cursor-pointer hover:bg-white transition-colors"
                               onClick={() => handlePatientClick(visit.patient_id)}
                             >
                               {/* Ready Number Badge */}
-                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm animate-bounce">
+                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
                                 {index + 1}
                               </div>
                               
@@ -342,7 +325,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                 </p>
                               </div>
                               <div className="flex items-center gap-1">
-                                <Icon icon="solar:hand-shake-bold-duotone" className="w-4 h-4 text-emerald-600 animate-pulse" />
+                                <Icon icon="solar:hand-shake-bold-duotone" className="w-4 h-4 text-emerald-600" />
                                 <span className="text-xs font-medium text-emerald-600">Waiting</span>
                               </div>
                             </div>
@@ -385,16 +368,6 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                 </p>
                               </div>
                               <div className="flex items-center gap-2">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const { handoffVisit } = useVisitsStore.getState();
-                                    handoffVisit(visit.id);
-                                  }}
-                                  className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-md transition-colors"
-                                >
-                                  Handoff
-                                </button>
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -553,10 +526,8 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           const categoryStartNumber = cardCounter;
                           
                           return (
-                            <motion.div
+                            <div
                               key={category.key}
-                              initial={{ opacity: 0, y: 20 }}
-                              animate={{ opacity: 1, y: 0 }}
                               className="space-y-3"
                             >
                               {/* Status Header */}
@@ -577,11 +548,8 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                   const cardNumber = categoryStartNumber + index + 1;
                                   
                                   return (
-                                  <motion.div
+                                  <div
                                     key={visit.id}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: index * 0.05 }}
                                     className="relative flex items-center gap-3 p-3 pl-12 bg-white rounded-lg border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all cursor-pointer group"
                                     onClick={() => handlePatientClick(visit.patient_id)}
                                   >
@@ -677,11 +645,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                         </>
                                       )}
                                     </div>
-                                  </motion.div>
+                                  </div>
                                   );
                                 })}
                               </div>
-                            </motion.div>
+                            </div>
                           );
                         });
                       })()
@@ -689,10 +657,9 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </div>
           </>
-        )}
-      </AnimatePresence>
+      )}
 
       {/* Patient Modal */}
       {selectedPatientId && (
