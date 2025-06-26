@@ -1,34 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Settings as SettingsIcon, 
-  User, 
-  Shield, 
-  Bell, 
-  Globe, 
-  HardDrive,
-  CheckCircle2,
-  Lock,
-  Building2,
-  MapPin,
-  Phone,
-  Mail,
-  Clock,
-  Calendar,
-  Users,
-  Edit3,
-  Image,
-  Sparkles,
-  Palette,
-  Save,
-  Camera,
-  Plus
-} from 'lucide-react';
+import Icon, { SolarIcons } from '../components/ui/Icon';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../stores/themeStore';
 import { motion } from 'framer-motion';
+import BranchManagement from '../components/settings/BranchManagement';
+
+// Add Iconify script
+if (typeof window !== 'undefined' && !window.iconifyLoaded) {
+  const script = document.createElement('script');
+  script.src = 'https://code.iconify.design/3/3.1.1/iconify.min.js';
+  script.async = true;
+  document.head.appendChild(script);
+  window.iconifyLoaded = true;
+}
 
 const Settings: React.FC = () => {
   const { user } = useAuthStore();
@@ -36,33 +23,34 @@ const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'account' | 'security' | 'themes' | 'system' | 'practice'>('account');
 
   const tabIcons = {
-    account: User,
-    security: Shield,
-    themes: Palette,
-    system: Globe,
-    practice: Building2
+    account: SolarIcons.user,
+    security: SolarIcons.shield,
+    themes: SolarIcons.palette,
+    system: SolarIcons.globe,
+    practice: SolarIcons.building
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-50">
       <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
-        {/* Premium Header with Glassmorphic Design */}
-        <div className="bg-white/60 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">
-          <div className="p-4 md:p-6">
+        {/* Premium Header with Gradient Design */}
+        <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl shadow-2xl overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-indigo-600 opacity-20 backdrop-blur-sm"></div>
+          <div className="relative p-6 text-white">
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-gradient-to-br from-[#01b9d5] to-cyan-600 rounded-xl shadow-md">
-                  <SettingsIcon className="w-6 h-6 text-white" />
+                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                  <Icon icon={SolarIcons.settings} className="w-7 h-7 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-semibold text-gray-800">Settings</h1>
-                  <p className="text-sm text-gray-500 mt-0.5">Manage your account and application preferences</p>
+                  <h1 className="text-2xl font-bold">Settings</h1>
+                  <p className="text-blue-100 text-sm mt-0.5">Manage your account and application preferences</p>
                 </div>
               </div>
               {user && (
                 <div className="relative group">
-                  <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
-                  <div className={`absolute -inset-1 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full opacity-50`}></div>
+                  <div className={`absolute inset-0 bg-gradient-to-br from-white/20 to-white/10 rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
+                  <div className={`absolute -inset-1 bg-gradient-to-br from-white/20 to-white/10 rounded-full opacity-50`}></div>
                   <div className="relative h-14 w-14 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
                     <img 
                       src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
@@ -80,10 +68,10 @@ const Settings: React.FC = () => {
         </div>
 
         {/* Premium Navigation Tabs */}
-        <div className="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="grid grid-cols-5 gap-0 w-full">
             {(['account', 'security', 'themes', 'practice', 'system'] as const).map((tab, index) => {
-              const Icon = tabIcons[tab];
+              const iconName = tabIcons[tab];
               const isActive = activeTab === tab;
               const tabLabel = tab === 'themes' ? 'Themes' : tab;
               return (
@@ -92,11 +80,11 @@ const Settings: React.FC = () => {
                   onClick={() => setActiveTab(tab)}
                   className={`relative flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-all duration-200 capitalize min-h-[60px] ${
                     isActive
-                      ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                      ? `bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg`
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
+                  <Icon icon={iconName} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
                   <span className="truncate text-center sm:text-left">{tabLabel}</span>
                 </button>
               );
@@ -111,12 +99,17 @@ const Settings: React.FC = () => {
             <div className="min-h-[600px]">
               {activeTab === 'account' && (
                 <div className="space-y-6">
-                  <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+                  <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <User className="w-5 h-5 text-gray-600" />
-                        Profile Information
-                      </CardTitle>
+                      <div className="flex items-center gap-3 -ml-2">
+                        <div className="p-2 bg-purple-100 rounded-lg">
+                          <Icon icon={SolarIcons.userCircle} className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg font-semibold text-gray-900">Profile Information</CardTitle>
+                          <p className="text-sm text-gray-500">Update your personal details</p>
+                        </div>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="flex flex-col sm:flex-row sm:items-center mb-6">
@@ -125,11 +118,11 @@ const Settings: React.FC = () => {
                             <img 
                               src={user.avatar} 
                               alt={user.name} 
-                              className="w-20 h-20 rounded-full object-cover"
+                              className="w-20 h-20 rounded-full object-cover border-4 border-gray-200"
                             />
                           ) : (
-                            <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
-                              <User size={32} className="text-gray-500" />
+                            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                              <Icon icon={SolarIcons.user} className="w-10 h-10 text-white" />
                             </div>
                           )}
                         </div>
@@ -138,41 +131,49 @@ const Settings: React.FC = () => {
                           <p className="text-gray-500">{user?.email}</p>
                           <p className="text-sm text-gray-500 capitalize">{user?.role}</p>
                           <Button variant="outline" size="sm" className="mt-2">
+                            <Icon icon={SolarIcons.camera} className="w-4 h-4 mr-2" />
                             Change Avatar
                           </Button>
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
                             Full Name
                           </label>
                           <input
                             type="text"
                             id="name"
-                            className="px-3 py-2 w-full rounded-md border border-gray-300 focus:ring-primary-500 focus:border-primary-500"
+                            className="w-full pl-4 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
+                              focus:outline-none focus:ring-2 focus:ring-purple-500 
+                              transition-all duration-200 text-gray-700
+                              hover:bg-gray-200"
                             defaultValue={user?.name}
                           />
                         </div>
                         <div>
-                          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                             Email Address
                           </label>
                           <input
                             type="email"
                             id="email"
-                            className="px-3 py-2 w-full rounded-md border border-gray-300 focus:ring-primary-500 focus:border-primary-500"
+                            className="w-full pl-4 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
+                              focus:outline-none focus:ring-2 focus:ring-purple-500 
+                              transition-all duration-200 text-gray-700
+                              hover:bg-gray-200"
                             defaultValue={user?.email}
                           />
                         </div>
                         <div>
-                          <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
+                          <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
                             Role
                           </label>
                           <select
                             id="role"
-                            className="px-3 py-2 w-full rounded-md border border-gray-300 focus:ring-primary-500 focus:border-primary-500"
+                            className="w-full pl-4 pr-4 py-3 bg-gray-200 border-0 rounded-lg 
+                              transition-all duration-200 text-gray-700 cursor-not-allowed"
                             defaultValue={user?.role}
                             disabled
                           >
@@ -185,56 +186,67 @@ const Settings: React.FC = () => {
                       </div>
                       
                       <div className="mt-6">
-                        <Button>Save Changes</Button>
+                        <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+                          <Icon icon={SolarIcons.save} className="w-5 h-5 mr-2" />
+                          Save Changes
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
                   
-                  <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+                  <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <SettingsIcon className="w-5 h-5 text-gray-600" />
-                        Preferences
-                      </CardTitle>
+                      <div className="flex items-center gap-3 -ml-2">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <Icon icon={SolarIcons.settingsMinimalistic} className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg font-semibold text-gray-900">Preferences</CardTitle>
+                          <p className="text-sm text-gray-500">Manage your app settings</p>
+                        </div>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                           <div>
                             <h4 className="text-sm font-medium text-gray-900">Dark Mode</h4>
                             <p className="text-xs text-gray-500">Switch between light and dark mode</p>
                           </div>
                           <label className="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" className="sr-only peer" />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
                           </label>
                         </div>
                         
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                           <div>
                             <h4 className="text-sm font-medium text-gray-900">Show Online Status</h4>
                             <p className="text-xs text-gray-500">Allow others to see when you're online</p>
                           </div>
                           <label className="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" className="sr-only peer" defaultChecked />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
                           </label>
                         </div>
                         
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                           <div>
                             <h4 className="text-sm font-medium text-gray-900">Appointment Notification Sounds</h4>
                             <p className="text-xs text-gray-500">Play sounds for appointment notifications</p>
                           </div>
                           <label className="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" className="sr-only peer" defaultChecked />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
                           </label>
                         </div>
                       </div>
                       
                       <div className="mt-6">
-                        <Button>Save Preferences</Button>
+                        <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+                          <Icon icon={SolarIcons.save} className="w-5 h-5 mr-2" />
+                          Save Preferences
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -243,64 +255,95 @@ const Settings: React.FC = () => {
           
               {activeTab === 'security' && (
                 <div className="space-y-6">
-                  <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+                  <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
                     <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Lock className="w-5 h-5 text-gray-600" />
-                        Change Password
-                      </CardTitle>
+                      <div className="flex items-center gap-3 -ml-2">
+                        <div className="p-2 bg-red-100 rounded-lg">
+                          <Icon icon={SolarIcons.lock} className="w-5 h-5 text-red-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg font-semibold text-gray-900">Change Password</CardTitle>
+                          <p className="text-sm text-gray-500">Update your security credentials</p>
+                        </div>
+                      </div>
                     </CardHeader>
                     <CardContent>
                   <div className="space-y-4">
                     <div>
-                      <label htmlFor="current-password" className="block text-sm font-medium text-gray-700 mb-1">
+                      <label htmlFor="current-password" className="block text-sm font-medium text-gray-700 mb-2">
                         Current Password
                       </label>
-                      <input
-                        type="password"
-                        id="current-password"
-                        className="px-3 py-2 w-full rounded-md border border-gray-300 focus:ring-primary-500 focus:border-primary-500"
-                      />
+                      <div className="relative">
+                        <Icon icon={SolarIcons.lock} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input
+                          type="password"
+                          id="current-password"
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
+                            focus:outline-none focus:ring-2 focus:ring-purple-500 
+                            transition-all duration-200 text-gray-700
+                            hover:bg-gray-200"
+                        />
+                      </div>
                     </div>
                     <div>
-                      <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-1">
+                      <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-2">
                         New Password
                       </label>
-                      <input
-                        type="password"
-                        id="new-password"
-                        className="px-3 py-2 w-full rounded-md border border-gray-300 focus:ring-primary-500 focus:border-primary-500"
-                      />
+                      <div className="relative">
+                        <Icon icon={SolarIcons.lock} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input
+                          type="password"
+                          id="new-password"
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
+                            focus:outline-none focus:ring-2 focus:ring-purple-500 
+                            transition-all duration-200 text-gray-700
+                            hover:bg-gray-200"
+                        />
+                      </div>
                     </div>
                     <div>
-                      <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-1">
+                      <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-2">
                         Confirm Password
                       </label>
-                      <input
-                        type="password"
-                        id="confirm-password"
-                        className="px-3 py-2 w-full rounded-md border border-gray-300 focus:ring-primary-500 focus:border-primary-500"
-                      />
+                      <div className="relative">
+                        <Icon icon={SolarIcons.lock} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                        <input
+                          type="password"
+                          id="confirm-password"
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
+                            focus:outline-none focus:ring-2 focus:ring-purple-500 
+                            transition-all duration-200 text-gray-700
+                            hover:bg-gray-200"
+                        />
+                      </div>
                     </div>
                   </div>
                   
                   <div className="mt-6">
-                    <Button>Update Password</Button>
+                    <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+                      <Icon icon={SolarIcons.shield} className="w-5 h-5 mr-2" />
+                      Update Password
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
               
-              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+              <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-gray-600" />
-                    Two-Factor Authentication
-                  </CardTitle>
+                  <div className="flex items-center gap-3 -ml-2">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <Icon icon={SolarIcons.shield} className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-semibold text-gray-900">Two-Factor Authentication</CardTitle>
+                      <p className="text-sm text-gray-500">Add an extra layer of security</p>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-start">
                     <div className="flex-shrink-0 mt-0.5">
-                      <CheckCircle2 size={20} className="text-success-500" />
+                      <Icon icon={SolarIcons.checkCircle} className="w-6 h-6 text-green-500" />
                     </div>
                     <div className="ml-3">
                       <h3 className="text-sm font-medium text-gray-900">Two-factor authentication is enabled</h3>
@@ -310,7 +353,7 @@ const Settings: React.FC = () => {
                       </p>
                       <div className="mt-3">
                         <Button variant="outline" size="sm">
-                          <Lock size={14} className="mr-2" />
+                          <Icon icon={SolarIcons.settings} className="w-4 h-4 mr-2" />
                           Manage 2FA Settings
                         </Button>
                       </div>
@@ -319,19 +362,24 @@ const Settings: React.FC = () => {
                 </CardContent>
               </Card>
               
-              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+              <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <HardDrive className="w-5 h-5 text-gray-600" />
-                    Login Sessions
-                  </CardTitle>
+                  <div className="flex items-center gap-3 -ml-2">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Icon icon={SolarIcons.hardDrive} className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-semibold text-gray-900">Login Sessions</CardTitle>
+                      <p className="text-sm text-gray-500">Manage your active sessions</p>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center py-3 px-4 bg-green-50 border border-green-100 rounded-md">
+                    <div className="flex justify-between items-center py-3 px-4 bg-green-50 border border-green-100 rounded-lg">
                       <div className="flex items-center">
                         <div className="p-2 bg-green-100 rounded-full">
-                          <CheckCircle2 size={16} className="text-green-600" />
+                          <Icon icon={SolarIcons.checkCircle} className="w-4 h-4 text-green-600" />
                         </div>
                         <div className="ml-3">
                           <p className="text-sm font-medium text-gray-900">Current Session</p>
@@ -343,10 +391,10 @@ const Settings: React.FC = () => {
                       </Button>
                     </div>
                     
-                    <div className="flex justify-between items-center py-3 px-4 border border-gray-200 rounded-md">
+                    <div className="flex justify-between items-center py-3 px-4 border border-gray-200 rounded-lg">
                       <div className="flex items-center">
                         <div className="p-2 bg-gray-100 rounded-full">
-                          <HardDrive size={16} className="text-gray-600" />
+                          <Icon icon={SolarIcons.hardDrive} className="w-4 h-4 text-gray-600" />
                         </div>
                         <div className="ml-3">
                           <p className="text-sm font-medium text-gray-900">Mac OS • Chrome</p>
@@ -360,7 +408,7 @@ const Settings: React.FC = () => {
                   </div>
                   
                   <div className="mt-6">
-                    <Button variant="outline" className="text-error-600 hover:text-error-700 border-error-300 hover:border-error-400 hover:bg-error-50">
+                    <Button variant="outline" className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50">
                       Log Out of All Sessions
                     </Button>
                   </div>
@@ -372,12 +420,17 @@ const Settings: React.FC = () => {
           {activeTab === 'themes' && (
             <div className="space-y-6">
               {/* Premium Theme Selection Card */}
-              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+              <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Palette className="w-5 h-5 text-gray-600" />
-                    Color Themes
-                  </CardTitle>
+                  <div className="flex items-center gap-3 -ml-2">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <Icon icon={SolarIcons.palette} className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-semibold text-gray-900">Color Themes</CardTitle>
+                      <p className="text-sm text-gray-500">Choose your preferred color scheme</p>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
@@ -400,7 +453,7 @@ const Settings: React.FC = () => {
                           whileTap={{ scale: 0.98 }}
                           className={`group relative cursor-pointer rounded-2xl border-2 p-5 transition-all duration-300 ${
                             currentTheme.id === theme.id
-                              ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-white shadow-2xl ring-4 ring-blue-100'
+                              ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-white shadow-2xl ring-4 ring-purple-100'
                               : 'border-gray-200 hover:border-gray-300 hover:shadow-xl bg-gradient-to-br from-white to-gray-50'
                           }`}
                           onClick={() => setTheme(theme.id)}
@@ -447,7 +500,7 @@ const Settings: React.FC = () => {
                               <div className="text-right">
                                 <span className={`text-xs font-bold tracking-wide ${
                                   currentTheme.id === theme.id 
-                                    ? 'text-blue-600' 
+                                    ? 'text-purple-600' 
                                     : 'text-gray-400 group-hover:text-gray-500'
                                 }`}>
                                   {currentTheme.id === theme.id ? 'ACTIVE' : 'SELECT'}
@@ -462,9 +515,9 @@ const Settings: React.FC = () => {
                               initial={{ scale: 0, rotate: -180 }}
                               animate={{ scale: 1, rotate: 0 }}
                               transition={{ type: "spring", duration: 0.6 }}
-                              className="absolute -top-2 -right-2 w-7 h-7 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-xl ring-4 ring-white"
+                              className="absolute -top-2 -right-2 w-7 h-7 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-xl ring-4 ring-white"
                             >
-                              <CheckCircle2 className="w-4 h-4 text-white" />
+                              <Icon icon={SolarIcons.check} className="w-4 h-4 text-white" />
                             </motion.div>
                           )}
                           
@@ -475,10 +528,10 @@ const Settings: React.FC = () => {
                     </div>
                     
                     {/* Premium Theme Information */}
-                    <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-6 mt-8 border border-blue-100">
+                    <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 mt-8 border border-purple-100">
                       <div className="flex items-start gap-4">
-                        <div className="p-2 bg-blue-100 rounded-xl">
-                          <Sparkles className="w-6 h-6 text-blue-600" />
+                        <div className="p-2 bg-purple-100 rounded-xl">
+                          <Icon icon={SolarIcons.sparkles} className="w-6 h-6 text-purple-600" />
                         </div>
                         <div className="flex-1">
                           <h5 className="text-lg font-bold text-gray-900 mb-2">
@@ -509,12 +562,17 @@ const Settings: React.FC = () => {
               </Card>
 
               {/* Theme Preview Card */}
-              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+              <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <SettingsIcon className="w-5 h-5 text-gray-600" />
-                    Theme Preview
-                  </CardTitle>
+                  <div className="flex items-center gap-3 -ml-2">
+                    <div className="p-2 bg-indigo-100 rounded-lg">
+                      <Icon icon={SolarIcons.palette} className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-semibold text-gray-900">Theme Preview</CardTitle>
+                      <p className="text-sm text-gray-500">See how your theme looks</p>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -552,12 +610,17 @@ const Settings: React.FC = () => {
           
           {activeTab === 'system' && (
             <div className="space-y-6">
-              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+              <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Globe className="w-5 h-5 text-gray-600" />
-                    System Information
-                  </CardTitle>
+                  <div className="flex items-center gap-3 -ml-2">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Icon icon={SolarIcons.globe} className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-semibold text-gray-900">System Information</CardTitle>
+                      <p className="text-sm text-gray-500">View system details and status</p>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
@@ -572,7 +635,7 @@ const Settings: React.FC = () => {
                     <div className="flex justify-between py-2 border-b border-gray-100">
                       <span className="text-sm font-medium text-gray-500">Database Status</span>
                       <span className="text-sm text-green-600 flex items-center">
-                        <CheckCircle2 size={14} className="mr-1" />
+                        <Icon icon={SolarIcons.checkCircle} className="w-4 h-4 mr-1" />
                         Connected
                       </span>
                     </div>
@@ -594,43 +657,48 @@ const Settings: React.FC = () => {
               </Card>
               
               
-              <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+              <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-gray-600" />
-                    Compliance Settings
-                  </CardTitle>
+                  <div className="flex items-center gap-3 -ml-2">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <Icon icon={SolarIcons.shield} className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-semibold text-gray-900">Compliance Settings</CardTitle>
+                      <p className="text-sm text-gray-500">Manage security and compliance</p>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                       <div>
                         <h4 className="text-sm font-medium text-gray-900">HIPAA Audit Logging</h4>
                         <p className="text-xs text-gray-500">Log all data access for compliance</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
                       </label>
                     </div>
                     
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                       <div>
                         <h4 className="text-sm font-medium text-gray-900">Data Encryption</h4>
                         <p className="text-xs text-gray-500">End-to-end encryption for all data</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
                       </label>
                     </div>
                     
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                       <div>
                         <h4 className="text-sm font-medium text-gray-900">Session Timeout</h4>
                         <p className="text-xs text-gray-500">Auto-logout after inactivity</p>
                       </div>
-                      <select className="px-3 py-1 rounded-md border border-gray-300 focus:ring-primary-500 focus:border-primary-500 text-sm">
+                      <select className="px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm">
                         <option value="5">5 minutes</option>
                         <option value="15" selected>15 minutes</option>
                         <option value="30">30 minutes</option>
@@ -640,7 +708,8 @@ const Settings: React.FC = () => {
                   </div>
                   
                   <div className="mt-6">
-                    <Button>
+                    <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+                      <Icon icon={SolarIcons.save} className="w-5 h-5 mr-2" />
                       Save Compliance Settings
                     </Button>
                   </div>
@@ -663,7 +732,7 @@ const Settings: React.FC = () => {
 // Practice Profile Component
 const PracticeProfileContent: React.FC = () => {
   const { user } = useAuthStore();
-  const [practiceTab, setPracticeTab] = useState<'profile' | 'staff' | 'hours'>('profile');
+  const [practiceTab, setPracticeTab] = useState<'profile' | 'staff' | 'hours' | 'branches'>('profile');
   const [practiceData, setPracticeData] = useState({
     id: '',
     name: '',
@@ -808,7 +877,7 @@ const PracticeProfileContent: React.FC = () => {
         // Load staff data from users table
         const { data: staffData, error: staffError } = await supabase
           .from('users')
-          .select('id, full_name, email, role, avatar, hpcsa_number')
+          .select('id, full_name, email, role, avatar, hpcsa_number, branch_id')
           .eq('practice_id', user.practice_id);
 
         if (staffError) {
@@ -970,7 +1039,7 @@ const PracticeProfileContent: React.FC = () => {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#01b9d5] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading practice information...</p>
         </div>
       </div>
@@ -980,20 +1049,20 @@ const PracticeProfileContent: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Practice Profile Header */}
-      <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+      <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="p-2 bg-gradient-to-br from-[#01b9d5] to-cyan-600 rounded-lg shadow-md">
-                <Building2 size={20} className="text-white" />
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg shadow-md">
+                <Icon icon={SolarIcons.building} className="w-5 h-5 text-white" />
               </div>
-              <div className="ml-3">
-                <CardTitle>Practice Management</CardTitle>
+              <div>
+                <CardTitle className="text-lg font-semibold text-gray-900">Practice Management</CardTitle>
                 <p className="text-sm text-gray-600">Manage your practice information, staff, and settings</p>
               </div>
             </div>
-            <Button variant="outline" className="hover:bg-white/50">
-              <Globe size={16} className="mr-2" />
+            <Button variant="outline" className="hover:bg-gray-50">
+              <Icon icon={SolarIcons.globe} className="w-4 h-4 mr-2" />
               Preview Website
             </Button>
           </div>
@@ -1001,14 +1070,14 @@ const PracticeProfileContent: React.FC = () => {
       </Card>
 
       {/* Practice Tabs */}
-      <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+      <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
         <CardContent className="p-0">
           <div className="flex border-b border-gray-200">
             <button
               onClick={() => setPracticeTab('profile')}
               className={`px-4 py-3 text-sm font-medium border-b-2 ${
                 practiceTab === 'profile'
-                  ? 'text-primary-600 border-primary-500'
+                  ? 'text-purple-600 border-purple-500'
                   : 'text-gray-500 border-transparent hover:text-gray-700'
               }`}
             >
@@ -1018,7 +1087,7 @@ const PracticeProfileContent: React.FC = () => {
               onClick={() => setPracticeTab('staff')}
               className={`px-4 py-3 text-sm font-medium border-b-2 ${
                 practiceTab === 'staff'
-                  ? 'text-primary-600 border-primary-500'
+                  ? 'text-purple-600 border-purple-500'
                   : 'text-gray-500 border-transparent hover:text-gray-700'
               }`}
             >
@@ -1028,11 +1097,21 @@ const PracticeProfileContent: React.FC = () => {
               onClick={() => setPracticeTab('hours')}
               className={`px-4 py-3 text-sm font-medium border-b-2 ${
                 practiceTab === 'hours'
-                  ? 'text-primary-600 border-primary-500'
+                  ? 'text-purple-600 border-purple-500'
                   : 'text-gray-500 border-transparent hover:text-gray-700'
               }`}
             >
               Hours & Availability
+            </button>
+            <button
+              onClick={() => setPracticeTab('branches')}
+              className={`px-4 py-3 text-sm font-medium border-b-2 ${
+                practiceTab === 'branches'
+                  ? 'text-purple-600 border-purple-500'
+                  : 'text-gray-500 border-transparent hover:text-gray-700'
+              }`}
+            >
+              Branch Management
             </button>
           </div>
 
@@ -1041,18 +1120,18 @@ const PracticeProfileContent: React.FC = () => {
             {practiceTab === 'profile' && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1">
-                  <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+                  <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
                     <CardContent className="p-6">
                       <div className="flex flex-col items-center text-center">
                         {practiceData.logo_url ? (
                           <img 
                             src={practiceData.logo_url} 
                             alt={practiceData.name}
-                            className="w-24 h-24 rounded-full object-cover mb-4"
+                            className="w-24 h-24 rounded-full object-cover mb-4 border-4 border-gray-200"
                           />
                         ) : (
-                          <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-                            <Building2 size={40} className="text-gray-400" />
+                          <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center mb-4">
+                            <Icon icon={SolarIcons.building} className="w-12 h-12 text-white" />
                           </div>
                         )}
                         <h2 className="text-xl font-bold text-gray-900 mb-2">
@@ -1060,19 +1139,19 @@ const PracticeProfileContent: React.FC = () => {
                         </h2>
                         <div className="space-y-2 w-full mt-4">
                           <div className="flex items-center py-2">
-                            <MapPin size={16} className="text-gray-400 mr-3" />
+                            <Icon icon={SolarIcons.mapPin} className="w-4 h-4 text-gray-400 mr-3" />
                             <span className="text-sm text-gray-700">{practiceData.address || 'No address set'}</span>
                           </div>
                           <div className="flex items-center py-2">
-                            <Phone size={16} className="text-gray-400 mr-3" />
+                            <Icon icon={SolarIcons.phone} className="w-4 h-4 text-gray-400 mr-3" />
                             <span className="text-sm text-gray-700">{practiceData.contact_phone || 'No phone set'}</span>
                           </div>
                           <div className="flex items-center py-2">
-                            <Mail size={16} className="text-gray-400 mr-3" />
+                            <Icon icon={SolarIcons.mail} className="w-4 h-4 text-gray-400 mr-3" />
                             <span className="text-sm text-gray-700">{practiceData.contact_email || 'No email set'}</span>
                           </div>
                           <div className="flex items-center py-2">
-                            <Globe size={16} className="text-gray-400 mr-3" />
+                            <Icon icon={SolarIcons.globe} className="w-4 h-4 text-gray-400 mr-3" />
                             <span className="text-sm text-gray-700">{practiceData.city || 'No city set'}</span>
                           </div>
                         </div>
@@ -1082,14 +1161,14 @@ const PracticeProfileContent: React.FC = () => {
                           onClick={() => setEditingSection('basic_info')}
                           disabled={saving}
                         >
-                          <Edit3 size={16} className="mr-2" />
+                          <Icon icon={SolarIcons.edit} className="w-4 h-4 mr-2" />
                           {saving ? 'Saving...' : 'Edit Practice Info'}
                         </Button>
                       </div>
                     </CardContent>
                   </Card>
                   
-                  <Card className="mt-6 bg-white/90 backdrop-blur-md border border-gray-100/50">
+                  <Card className="mt-6 bg-white rounded-lg border border-gray-200 shadow-sm">
                     <CardHeader>
                       <CardTitle>Hours of Operation</CardTitle>
                     </CardHeader>
@@ -1103,7 +1182,7 @@ const PracticeProfileContent: React.FC = () => {
                         ))}
                       </div>
                       <Button variant="outline" size="sm" className="mt-4 w-full">
-                        <Clock size={14} className="mr-2" />
+                        <Icon icon={SolarIcons.clock} className="w-4 h-4 mr-2" />
                         Manage Hours
                       </Button>
                     </CardContent>
@@ -1113,7 +1192,7 @@ const PracticeProfileContent: React.FC = () => {
                 <div className="lg:col-span-2">
                   {/* Basic Info Edit Form */}
                   {editingSection === 'basic_info' && (
-                    <Card className="mb-6 bg-white/90 backdrop-blur-md border border-gray-100/50">
+                    <Card className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm">
                       <CardHeader>
                         <CardTitle>Edit Practice Information</CardTitle>
                       </CardHeader>
@@ -1127,7 +1206,7 @@ const PracticeProfileContent: React.FC = () => {
                               type="text"
                               value={formData.name}
                               onChange={(e) => handleInputChange('name', e.target.value)}
-                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent"
+                              className="w-full p-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                               placeholder="Enter practice name"
                             />
                           </div>
@@ -1139,7 +1218,7 @@ const PracticeProfileContent: React.FC = () => {
                               type="text"
                               value={formData.city}
                               onChange={(e) => handleInputChange('city', e.target.value)}
-                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent"
+                              className="w-full p-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                               placeholder="Enter city"
                             />
                           </div>
@@ -1151,7 +1230,7 @@ const PracticeProfileContent: React.FC = () => {
                               type="tel"
                               value={formData.contact_phone}
                               onChange={(e) => handleInputChange('contact_phone', e.target.value)}
-                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent"
+                              className="w-full p-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                               placeholder="Enter phone number"
                             />
                           </div>
@@ -1163,7 +1242,7 @@ const PracticeProfileContent: React.FC = () => {
                               type="email"
                               value={formData.contact_email}
                               onChange={(e) => handleInputChange('contact_email', e.target.value)}
-                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent"
+                              className="w-full p-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                               placeholder="Enter email address"
                             />
                           </div>
@@ -1175,7 +1254,7 @@ const PracticeProfileContent: React.FC = () => {
                               type="url"
                               value={formData.website_url}
                               onChange={(e) => handleInputChange('website_url', e.target.value)}
-                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent"
+                              className="w-full p-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                               placeholder="https://your-practice-website.com"
                             />
                           </div>
@@ -1187,18 +1266,18 @@ const PracticeProfileContent: React.FC = () => {
                               type="text"
                               value={formData.address}
                               onChange={(e) => handleInputChange('address', e.target.value)}
-                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent"
+                              className="w-full p-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                               placeholder="Enter full address"
                             />
                           </div>
                         </div>
                         <div className="flex gap-2 mt-6">
                           <Button 
-                            variant="outline" 
                             onClick={handleSave}
                             disabled={saving}
+                            className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
                           >
-                            <Save size={16} className="mr-2" />
+                            <Icon icon={SolarIcons.save} className="w-4 h-4 mr-2" />
                             {saving ? 'Saving...' : 'Save Changes'}
                           </Button>
                           <Button 
@@ -1213,7 +1292,7 @@ const PracticeProfileContent: React.FC = () => {
                     </Card>
                   )}
                   
-                  <Card className="mb-6 bg-white/90 backdrop-blur-md border border-gray-100/50">
+                  <Card className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm">
                     <CardHeader>
                       <div className="flex justify-between items-center">
                         <CardTitle>Practice Description</CardTitle>
@@ -1223,7 +1302,7 @@ const PracticeProfileContent: React.FC = () => {
                           onClick={() => setEditingSection('description')}
                           disabled={saving}
                         >
-                          <Edit3 size={16} />
+                          <Icon icon={SolarIcons.edit} className="w-4 h-4" />
                         </Button>
                       </div>
                     </CardHeader>
@@ -1233,17 +1312,17 @@ const PracticeProfileContent: React.FC = () => {
                           <textarea
                             value={formData.about_text}
                             onChange={(e) => handleInputChange('about_text', e.target.value)}
-                            className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent resize-none"
+                            className="w-full h-32 p-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none resize-none transition-all duration-200 hover:bg-gray-200"
                             placeholder="Enter practice description..."
                           />
                           <div className="flex gap-2">
                             <Button 
-                              variant="outline" 
                               size="sm" 
                               onClick={handleSave}
                               disabled={saving}
+                              className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
                             >
-                              <Save size={14} className="mr-2" />
+                              <Icon icon={SolarIcons.save} className="w-4 h-4 mr-2" />
                               {saving ? 'Saving...' : 'Save'}
                             </Button>
                             <Button 
@@ -1262,7 +1341,7 @@ const PracticeProfileContent: React.FC = () => {
                     </CardContent>
                   </Card>
                   
-                  <Card className="mb-6 bg-white/90 backdrop-blur-md border border-gray-100/50">
+                  <Card className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm">
                     <CardHeader>
                       <div className="flex justify-between items-center">
                         <CardTitle>Specialties & Services</CardTitle>
@@ -1272,7 +1351,7 @@ const PracticeProfileContent: React.FC = () => {
                           onClick={() => setEditingSection('services')}
                           disabled={saving}
                         >
-                          <Edit3 size={16} />
+                          <Icon icon={SolarIcons.edit} className="w-4 h-4" />
                         </Button>
                       </div>
                     </CardHeader>
@@ -1294,7 +1373,7 @@ const PracticeProfileContent: React.FC = () => {
                                     }
                                     handleInputChange('services', newServices);
                                   }}
-                                  className="flex-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent"
+                                  className="flex-1 p-2 bg-gray-100 border-0 rounded focus:ring-2 focus:ring-purple-500 focus:outline-none"
                                   placeholder="Service name"
                                 />
                                 <Button
@@ -1306,7 +1385,7 @@ const PracticeProfileContent: React.FC = () => {
                                   }}
                                   className="text-red-600 hover:text-red-700"
                                 >
-                                  ×
+                                  <Icon icon={SolarIcons.close} className="w-4 h-4" />
                                 </Button>
                               </div>
                             ))}
@@ -1321,17 +1400,17 @@ const PracticeProfileContent: React.FC = () => {
                             }}
                             className="mt-2"
                           >
-                            <Plus className="w-4 h-4 mr-2" />
+                            <Icon icon={SolarIcons.plus} className="w-4 h-4 mr-2" />
                             Add Service
                           </Button>
                           
                           <div className="flex gap-2 mt-6">
                             <Button 
-                              variant="outline" 
                               onClick={handleSave}
                               disabled={saving}
+                              className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
                             >
-                              <Save size={16} className="mr-2" />
+                              <Icon icon={SolarIcons.save} className="w-4 h-4 mr-2" />
                               {saving ? 'Saving...' : 'Save Services'}
                             </Button>
                             <Button 
@@ -1349,7 +1428,7 @@ const PracticeProfileContent: React.FC = () => {
                             {(Array.isArray(practiceData.services) ? practiceData.services : defaultMockData.specialties).map((service, idx) => (
                               <span 
                                 key={idx}
-                                className="px-3 py-1 bg-primary-50 text-primary-700 rounded-full text-sm"
+                                className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-sm"
                               >
                                 {typeof service === 'string' ? service : service.name}
                               </span>
@@ -1363,7 +1442,7 @@ const PracticeProfileContent: React.FC = () => {
                     </CardContent>
                   </Card>
                   
-                  <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+                  <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
                     <CardHeader>
                       <CardTitle>Practice Logo</CardTitle>
                     </CardHeader>
@@ -1391,7 +1470,7 @@ const PracticeProfileContent: React.FC = () => {
                                   }}
                                   disabled={saving}
                                 >
-                                  <Image size={16} className="mr-2" />
+                                  <Icon icon={SolarIcons.image} className="w-4 h-4 mr-2" />
                                   Change Logo
                                 </Button>
                                 <Button
@@ -1409,7 +1488,7 @@ const PracticeProfileContent: React.FC = () => {
                         ) : (
                           <div className="border border-dashed border-gray-300 rounded-lg p-8">
                             <div className="text-center">
-                              <Image size={48} className="text-gray-400 mx-auto mb-4" />
+                              <Icon icon={SolarIcons.image} className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                               <p className="text-sm text-gray-600 mb-4">No logo uploaded yet</p>
                               <Button
                                 variant="outline"
@@ -1422,7 +1501,7 @@ const PracticeProfileContent: React.FC = () => {
                                 }}
                                 disabled={saving}
                               >
-                                <Image size={16} className="mr-2" />
+                                <Icon icon={SolarIcons.image} className="w-4 h-4 mr-2" />
                                 {saving ? 'Uploading...' : 'Upload Logo'}
                               </Button>
                             </div>
@@ -1443,32 +1522,32 @@ const PracticeProfileContent: React.FC = () => {
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-medium text-gray-900">Practice Staff</h2>
-                  <Button>
-                    <Users size={16} className="mr-2" />
+                  <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+                    <Icon icon={SolarIcons.plus} className="w-4 h-4 mr-2" />
                     Add Staff Member
                   </Button>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {staff.map((staffMember) => (
-                    <Card key={staffMember.id} className="bg-white/90 backdrop-blur-md border border-gray-100/50 hover:shadow-lg transition-all duration-300">
+                    <Card key={staffMember.id} className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300">
                       <CardContent className="p-6">
                         <div className="flex flex-col items-center text-center">
                           {staffMember.avatar ? (
                             <img 
                               src={staffMember.avatar} 
                               alt={staffMember.full_name}
-                              className="w-20 h-20 rounded-full object-cover mb-3"
+                              className="w-20 h-20 rounded-full object-cover mb-3 border-4 border-gray-200"
                             />
                           ) : (
-                            <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-3">
-                              <User size={32} className="text-gray-400" />
+                            <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center mb-3">
+                              <Icon icon={SolarIcons.user} className="w-10 h-10 text-white" />
                             </div>
                           )}
                           <h3 className="text-lg font-bold text-gray-900">
                             {staffMember.full_name}
                           </h3>
-                          <p className="text-primary-600 font-medium capitalize">
+                          <p className="text-purple-600 font-medium capitalize">
                             {staffMember.role}
                           </p>
                           <p className="text-sm text-gray-500 mt-1">
@@ -1479,13 +1558,19 @@ const PracticeProfileContent: React.FC = () => {
                               HPCSA: {staffMember.hpcsa_number}
                             </p>
                           )}
+                          {staffMember.branch_id && (
+                            <p className="text-xs text-gray-500 mt-1 flex items-center justify-center gap-1">
+                              <Icon icon={SolarIcons.mapPin} className="w-3 h-3" />
+                              Branch Assigned
+                            </p>
+                          )}
                           <div className="flex mt-4 space-x-2">
                             <Button 
                               variant="outline" 
                               size="sm"
                               onClick={() => setEditingSection(`schedule_${staffMember.id}`)}
                             >
-                              <Calendar size={14} className="mr-1" />
+                              <Icon icon={SolarIcons.calendar} className="w-4 h-4 mr-1" />
                               Schedule
                             </Button>
                             <Button variant="ghost" size="sm">
@@ -1510,7 +1595,7 @@ const PracticeProfileContent: React.FC = () => {
                             size="sm"
                             onClick={() => setEditingSection(null)}
                           >
-                            ×
+                            <Icon icon={SolarIcons.close} className="w-5 h-5" />
                           </Button>
                         </div>
                         
@@ -1549,8 +1634,8 @@ const PracticeProfileContent: React.FC = () => {
                           ))}
                           
                           <div className="flex gap-2 mt-6">
-                            <Button variant="outline">
-                              <Save size={16} className="mr-2" />
+                            <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+                              <Icon icon={SolarIcons.save} className="w-4 h-4 mr-2" />
                               Save Schedule
                             </Button>
                             <Button 
@@ -1566,11 +1651,11 @@ const PracticeProfileContent: React.FC = () => {
                   )}
                   
                   {/* Add New Staff Card */}
-                  <Card className="border-2 border-dashed border-gray-300 bg-gray-50/50 backdrop-blur-md hover:bg-gray-100/50 transition-all duration-300">
+                  <Card className="border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 transition-all duration-300">
                     <CardContent className="p-6">
                       <div className="flex flex-col items-center justify-center text-center h-full py-8">
                         <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-3">
-                          <Users size={32} className="text-gray-400" />
+                          <Icon icon={SolarIcons.users} className="w-10 h-10 text-gray-400" />
                         </div>
                         <h3 className="text-lg font-medium text-gray-700">
                           Add Team Member
@@ -1578,7 +1663,7 @@ const PracticeProfileContent: React.FC = () => {
                         <p className="text-sm text-gray-500 mt-1 mb-4">
                           Add a new doctor or staff member
                         </p>
-                        <Button>
+                        <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
                           Add Staff
                         </Button>
                       </div>
@@ -1591,7 +1676,7 @@ const PracticeProfileContent: React.FC = () => {
             {/* Hours Tab */}
             {practiceTab === 'hours' && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+                <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
                   <CardHeader>
                     <div className="flex justify-between items-center">
                       <CardTitle>Hours of Operation</CardTitle>
@@ -1601,7 +1686,7 @@ const PracticeProfileContent: React.FC = () => {
                         onClick={() => setEditingSection('hours')}
                         disabled={saving}
                       >
-                        <Edit3 size={16} />
+                        <Icon icon={SolarIcons.edit} className="w-4 h-4" />
                       </Button>
                     </div>
                   </CardHeader>
@@ -1670,11 +1755,11 @@ const PracticeProfileContent: React.FC = () => {
                         })}
                         <div className="flex gap-2 mt-6">
                           <Button 
-                            variant="outline" 
                             onClick={handleSave}
                             disabled={saving}
+                            className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
                           >
-                            <Save size={16} className="mr-2" />
+                            <Icon icon={SolarIcons.save} className="w-4 h-4 mr-2" />
                             {saving ? 'Saving...' : 'Save Hours'}
                           </Button>
                           <Button 
@@ -1706,10 +1791,10 @@ const PracticeProfileContent: React.FC = () => {
                   </CardContent>
                 </Card>
                 
-                <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+                <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
                   <CardHeader>
                     <div className="flex items-center">
-                      <Users className="w-5 h-5 text-primary-600 mr-2" />
+                      <Icon icon={SolarIcons.users} className="w-5 h-5 text-purple-600 mr-2" />
                       <CardTitle>Staff Availability</CardTitle>
                     </div>
                   </CardHeader>
@@ -1727,11 +1812,11 @@ const PracticeProfileContent: React.FC = () => {
                                 <img 
                                   src={staffMember.avatar} 
                                   alt={staffMember.full_name}
-                                  className="w-12 h-12 rounded-full object-cover mr-3 border-2 border-primary-200"
+                                  className="w-12 h-12 rounded-full object-cover mr-3 border-2 border-purple-200"
                                 />
                               ) : (
-                                <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-purple-600 rounded-full flex items-center justify-center mr-3">
-                                  <User size={20} className="text-white" />
+                                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center mr-3">
+                                  <Icon icon={SolarIcons.user} className="w-6 h-6 text-white" />
                                 </div>
                               )}
                               <div>
@@ -1744,7 +1829,7 @@ const PracticeProfileContent: React.FC = () => {
                               </div>
                             </div>
                             <Button variant="outline" size="sm">
-                              <Calendar className="w-4 h-4 mr-2" />
+                              <Icon icon={SolarIcons.calendar} className="w-4 h-4 mr-2" />
                               Schedule
                             </Button>
                           </div>
@@ -1753,13 +1838,18 @@ const PracticeProfileContent: React.FC = () => {
                     </div>
                     
                     <div className="text-center mt-6">
-                      <Button className="w-full">
+                      <Button className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
                         Manage All Schedules
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
               </div>
+            )}
+            
+            {/* Branches Tab */}
+            {practiceTab === 'branches' && (
+              <BranchManagement />
             )}
           </div>
         </CardContent>
