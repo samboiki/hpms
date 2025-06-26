@@ -13,9 +13,9 @@ serve(async (req) => {
   }
 
   try {
-    const { formData, practiceSlug, captchaToken } = await req.json()
+    const { formData, practiceSlug, branchId, captchaToken } = await req.json()
     
-    console.log('Received booking request for practice:', practiceSlug)
+    console.log('Received booking request for practice:', practiceSlug, 'branch:', branchId)
 
     // Initialize Supabase client with service role key for elevated permissions
     const supabaseAdmin = createClient(
@@ -92,45 +92,65 @@ serve(async (req) => {
       console.log('Created new patient:', patient.id)
     }
 
-    // Create appointment
-    console.log('Creating appointment for patient:', patient.id)
+    // Get visit number for this patient
+    const { count: existingVisitsCount } = await supabaseAdmin
+      .from('visits')
+      .select('id', { count: 'exact', head: true })
+      .eq('patient_id', patient.id)
     
-    const appointmentData = {
+    const visitNumber = (existingVisitsCount || 0) + 1
+    
+    // Create visit (not appointment - using new unified system)
+    console.log('Creating visit for patient:', patient.id, 'Visit number:', visitNumber)
+    
+    // Ensure time is in HH:MM:SS format
+    const formattedTime = formData.time.includes(':') && formData.time.split(':').length === 2 
+      ? `${formData.time}:00` 
+      : formData.time;
+    
+    const visitData = {
       patient_id: patient.id,
       doctor_id: null, // Will be assigned in HPMS portal
-      date: formData.date,
-      time: formData.time,
-      duration: parseInt(formData.duration) || 30,
-      type: formData.categoryId || 'consultation',
-      status: 'pending', // Online bookings start as pending and need confirmation
+      scheduled_date: formData.date, // Should be in YYYY-MM-DD format
+      scheduled_time: formattedTime, // Ensure HH:MM:SS format
+      visit_date: null, // Only set when visit actually starts
+      visit_time: null, // Only set when visit actually starts
+      visit_type: formData.categoryId || 'consultation',
+      chief_complaint: null, // Don't set from web bookings
       notes: `Service: ${formData.service}
 Price: ${formData.price || ''}
 Duration: ${formData.duration || ''}
 Location: ${formData.location || ''}
 Additional Notes: ${formData.notes || ''}`,
-      practice_id: practice.id
+      status: 'scheduled', // Valid status for web bookings
+      is_confirmed: false, // Needs confirmation from practice - this differentiates from confirmed appointments
+      is_from_website: true, // Mark as website booking
+      practice_id: practice.id,
+      visit_number: visitNumber,
+      branch_id: branchId || null // Optional branch assignment
     }
 
-    console.log('Appointment data:', appointmentData)
+    console.log('Visit data:', visitData)
 
-    const { data: appointment, error: appointmentError } = await supabaseAdmin
-      .from('appointments')
-      .insert(appointmentData)
+    const { data: visit, error: visitError } = await supabaseAdmin
+      .from('visits')
+      .insert(visitData)
       .select()
       .single()
 
-    if (appointmentError) {
-      console.error('Appointment creation error:', appointmentError)
-      throw appointmentError
+    if (visitError) {
+      console.error('Visit creation error:', visitError)
+      throw visitError
     }
 
-    console.log('Successfully created appointment:', appointment.id)
+    console.log('Successfully created visit:', visit.id)
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Appointment booked successfully!',
-        appointmentId: appointment.id
+        message: 'Your booking request has been submitted successfully! The practice will confirm your appointment soon.',
+        visitId: visit.id,
+        appointmentId: visit.id // For backward compatibility
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

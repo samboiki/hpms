@@ -335,8 +335,13 @@ function Dashboard() {
       // Generate real-time notifications based on visits data
       const newNotifications: Notification[] = [];
 
-      // Unconfirmed bookings that need confirmation
-      const unconfirmedVisits = visits.filter(v => v.is_scheduled && !v.is_confirmed && !v.is_cancelled);
+      // Unconfirmed bookings that need confirmation - specifically from website
+      const unconfirmedVisits = visits.filter(v => 
+        v.status === 'scheduled' && 
+        !v.is_confirmed && 
+        v.is_from_website && 
+        !v.is_cancelled
+      );
       unconfirmedVisits.forEach((visit) => {
         newNotifications.push({
           id: `booking-${visit.id}`,
@@ -1059,7 +1064,19 @@ function Dashboard() {
                       {/* Appointment Scheduler */}
                       <div>
                         <PremiumAppointmentScheduler
-                          appointments={visits.map(v => ({
+                          appointments={visits.map(v => {
+                            // Debug logging for website bookings
+                            if (v.is_from_website) {
+                              console.log('Dashboard: Website booking visit:', {
+                                id: v.id,
+                                status: v.status,
+                                is_confirmed: v.is_confirmed,
+                                is_from_website: v.is_from_website,
+                                scheduled_date: v.scheduled_date,
+                                scheduled_time: v.scheduled_time
+                              });
+                            }
+                            return {
                             id: v.id,
                             patient: v.patient || {
                               id: v.patient_id,
@@ -1077,14 +1094,25 @@ function Dashboard() {
                                    v.status === 'in-progress' ? 'in-progress' :
                                    v.is_ready ? 'ready' :
                                    v.is_checked_in ? 'ready' :
-                                   v.is_confirmed ? 'scheduled' : 'pending',
+                                   v.status === 'scheduled' ? 'scheduled' : 'pending',
                             notes: v.chief_complaint || v.notes,
                             is_checked_in: v.is_checked_in || false,
                             is_ready: v.is_ready || false,
                             is_confirmed: v.is_confirmed || false,
                             is_cancelled: v.is_cancelled || false,
-                            is_handoff: v.is_handoff || false
-                          }))} // Transform visits to appointments format
+                            is_handoff: v.is_handoff || false,
+                            is_from_website: v.is_from_website || false
+                          };})} // Transform visits to appointments format
+                          visits={visits.map(v => ({
+                            id: v.id,
+                            patient_id: v.patient_id,
+                            doctor_id: v.doctor_id || '',
+                            scheduled_date: v.scheduled_date,
+                            scheduled_time: v.scheduled_time,
+                            visit_date: v.visit_date,
+                            visit_time: v.visit_time,
+                            is_cancelled: v.is_cancelled || false
+                          }))} // Pass raw visits for time slot blocking
                           doctors={doctors}
                           blockedTimes={[]}
                           isLoading={isLoading}

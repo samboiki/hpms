@@ -105,43 +105,9 @@ const Settings: React.FC = () => {
         </div>
 
         {/* Main Content Area */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar - Now shows additional info */}
-          <div className="lg:col-span-1">
-            <div className="space-y-4">
-              {/* User Quick Info Card */}
-              {user && (
-                <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
-                  <CardContent className="p-4">
-                    <div className="flex flex-col items-center text-center">
-                      <div className="relative group">
-                        <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-md opacity-30`}></div>
-                        <div className="relative h-16 w-16 rounded-full overflow-hidden border-3 border-white shadow-lg">
-                          <img 
-                            src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                            alt={user.name}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                        <button className="absolute -bottom-1 -right-1 p-1.5 bg-white rounded-full shadow-md hover:shadow-lg transition-all">
-                          <Camera className="w-3 h-3 text-gray-600" />
-                        </button>
-                      </div>
-                      <h3 className="text-lg font-semibold text-gray-900 mt-3">{user.name}</h3>
-                      <p className="text-sm text-gray-500">{user.email}</p>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-2 bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white`}>
-                        {user.role}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              
-            </div>
-          </div>
-
+        <div>
           {/* Content */}
-          <div className="lg:col-span-3">
+          <div>
             <div className="min-h-[600px]">
               {activeTab === 'account' && (
                 <div className="space-y-6">

@@ -55,10 +55,23 @@ interface Doctor {
   };
 }
 
+interface Visit {
+  id: string;
+  patient_id: string;
+  doctor_id: string;
+  scheduled_date: string;
+  scheduled_time: string;
+  visit_date?: string;
+  visit_time?: string;
+  status: string;
+  is_cancelled: boolean;
+}
+
 interface PremiumDayGridViewProps {
   selectedDate: Date;
   appointments: Appointment[];
   doctors: Doctor[];
+  visits?: Visit[];
   onAppointmentClick?: (appointment: Appointment) => void;
   onTimeSlotClick?: (time: Date, doctorId: string) => void;
   onAppointmentDrop?: (appointmentId: string, newTime: Date, newDoctorId: string) => Promise<boolean>;
@@ -71,6 +84,7 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
   selectedDate,
   appointments,
   doctors,
+  visits = [],
   onAppointmentClick,
   onTimeSlotClick,
   onAppointmentDrop,
@@ -221,16 +235,30 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
   // Check if slot is available
   const isSlotAvailable = (time: Date, doctorId: string) => {
     const slotEnd = addMinutes(time, slotDuration);
-    return !appointments.some(apt => {
-      if (apt.doctor_id !== doctorId || apt.status === 'cancelled') return false;
-      const aptStart = new Date(`${apt.date}T${apt.time}`);
-      const aptEnd = addMinutes(aptStart, apt.duration);
-      return (
-        (aptStart >= time && aptStart < slotEnd) ||
-        (aptEnd > time && aptEnd <= slotEnd) ||
-        (aptStart <= time && aptEnd >= slotEnd)
-      );
+    
+    // Only check visits table
+    const hasVisit = visits.some(visit => {
+      if (visit.doctor_id !== doctorId || visit.is_cancelled) return false;
+      
+      // Check scheduled time
+      if (visit.scheduled_date && visit.scheduled_time) {
+        const visitStart = new Date(`${visit.scheduled_date}T${visit.scheduled_time}`);
+        // Assuming 30 minute default duration for visits
+        const visitEnd = addMinutes(visitStart, 30);
+        
+        if (isSameDay(visitStart, time)) {
+          return (
+            (visitStart >= time && visitStart < slotEnd) ||
+            (visitEnd > time && visitEnd <= slotEnd) ||
+            (visitStart <= time && visitEnd >= slotEnd)
+          );
+        }
+      }
+      
+      return false;
     });
+    
+    return !hasVisit;
   };
 
   return (
@@ -301,10 +329,11 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                         className={cn(
                           "h-[60px] border-b border-dotted border-gray-400/30 relative transition-all duration-200",
                           isDropTarget && isDragging && "bg-[#01b9d5]/20 border-[#01b9d5] backdrop-blur-sm",
-                          !appointment && isAvailable && "hover:bg-white/30 backdrop-blur-sm cursor-pointer"
+                          !appointment && isAvailable && "hover:bg-white/30 backdrop-blur-sm cursor-pointer",
+                          !appointment && !isAvailable && "bg-gray-100/50 opacity-40"
                         )}
-                        onDragOver={(e) => handleDragOver(e, time, doctor.id)}
-                        onDrop={(e) => handleDrop(e, time, doctor.id)}
+                        onDragOver={(e) => isAvailable && handleDragOver(e, time, doctor.id)}
+                        onDrop={(e) => isAvailable && handleDrop(e, time, doctor.id)}
                         onClick={() => !appointment && isAvailable && onTimeSlotClick?.(time, doctor.id)}
                       >
                         {/* Add slot indicator */}
@@ -317,6 +346,12 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                               <Zap className="w-4 h-4 text-gray-400" />
                             </div>
                           </motion.div>
+                        )}
+                        {/* Show unavailable indicator */}
+                        {!appointment && !isAvailable && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-full h-px bg-gray-400/40"></div>
+                          </div>
                         )}
                       </div>
                     );

@@ -49,7 +49,9 @@ import { toast } from 'react-hot-toast';
 import { useTheme } from '../stores/themeStore';
 import DuotoneIcon from './icons/DuotoneIcon';
 import VisitActionModal from './modals/VisitActionModal';
+import BookingRequestModal from './modals/BookingRequestModal';
 import EnhancedSmsModal from './messages/EnhancedSmsModal';
+import { useVisitsStore } from '../stores/visitsStore';
 
 interface AppointmentPatient {
   id: string;
@@ -76,6 +78,7 @@ interface Appointment {
   is_confirmed?: boolean;
   is_cancelled?: boolean;
   is_handoff?: boolean;
+  is_from_website?: boolean;
 }
 
 interface Doctor {
@@ -95,10 +98,22 @@ interface BlockedTime {
   reason: string;
 }
 
+interface Visit {
+  id: string;
+  patient_id: string;
+  doctor_id: string;
+  scheduled_date?: string;
+  scheduled_time?: string;
+  visit_date?: string;
+  visit_time?: string;
+  is_cancelled: boolean;
+}
+
 interface PremiumAppointmentSchedulerProps {
   appointments: Appointment[];
   doctors: Doctor[];
   blockedTimes: BlockedTime[];
+  visits?: Visit[];
   isLoading: boolean;
   error: Error | null;
   selectedDate: Date;
@@ -208,6 +223,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     appointments,
     doctors,
     blockedTimes,
+    visits = [],
     isLoading,
     error,
     selectedDate,
@@ -239,25 +255,19 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   const [selectedVisitForSMS, setSelectedVisitForSMS] = useState<Appointment | null>(null);
   const [isSMSModalOpen, setIsSMSModalOpen] = useState(false);
+  const [selectedBookingRequest, setSelectedBookingRequest] = useState<Appointment | null>(null);
+  const [isBookingRequestModalOpen, setIsBookingRequestModalOpen] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Handle Mark Ready - sets is_ready flag in visits table
   const handleMarkReady = async (visitId: string) => {
     try {
-      const { error } = await supabase
-        .from('visits')
-        .update({ 
-          is_ready: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', visitId);
-
-      if (error) throw error;
+      // Use visitsStore action for immediate state update
+      const { markPatientReady } = useVisitsStore.getState();
+      await markPatientReady(visitId);
       
       toast.success('Patient marked as ready!');
-      
-      // Don't refresh - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error marking patient ready:', error);
       toast.error('Failed to mark patient ready');
@@ -267,20 +277,11 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   // Handle Start Visit - changes status to in-progress
   const handleStartVisit = async (visitId: string) => {
     try {
-      // Update visit status to in-progress
-      const { error } = await supabase
-        .from('visits')
-        .update({ 
-          status: 'in-progress',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', visitId);
-
-      if (error) throw error;
+      // Use visitsStore action for immediate state update
+      const { startVisit } = useVisitsStore.getState();
+      await startVisit(visitId);
       
       toast.success('Visit started!');
-      
-      // Don't refresh - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error starting visit:', error);
       toast.error('Failed to start visit');
@@ -290,20 +291,11 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   // Handle Check In - sets is_checked_in flag in visits table
   const handleCheckIn = async (visitId: string) => {
     try {
-      const { error } = await supabase
-        .from('visits')
-        .update({ 
-          is_checked_in: true,
-          is_confirmed: true, // Also confirm the visit when checking in
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', visitId);
-
-      if (error) throw error;
+      // Use visitsStore action for immediate state update
+      const { checkInPatient } = useVisitsStore.getState();
+      await checkInPatient(visitId);
       
       toast.success('Patient checked in successfully!');
-      
-      // Don't refresh - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error checking in patient:', error);
       toast.error('Failed to check in patient');
@@ -313,20 +305,11 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   // Handle Complete Visit - changes status to completed
   const handleCompleteVisit = async (visitId: string) => {
     try {
-      const { error } = await supabase
-        .from('visits')
-        .update({ 
-          status: 'completed',
-          is_handoff: false, // Reset handoff flag when completing
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', visitId);
-
-      if (error) throw error;
+      // Use visitsStore action for immediate state update
+      const { completeVisit } = useVisitsStore.getState();
+      await completeVisit(visitId);
       
       toast.success('Visit marked as completed!');
-      
-      // Don't refresh - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error completing visit:', error);
       toast.error('Failed to complete visit');
@@ -362,20 +345,11 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   // Handle Cancel Visit - marks visit as cancelled
   const handleCancelVisit = async (visitId: string) => {
     try {
-      const { error } = await supabase
-        .from('visits')
-        .update({ 
-          status: 'cancelled',
-          is_cancelled: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', visitId);
-
-      if (error) throw error;
+      // Use visitsStore action for immediate state update
+      const { cancelVisit } = useVisitsStore.getState();
+      await cancelVisit(visitId);
       
       toast.success('Visit cancelled successfully!');
-      
-      // Don't refresh - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error cancelling visit:', error);
       toast.error('Failed to cancel visit');
@@ -385,23 +359,31 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   // Handle No Show - marks visit as no-show
   const handleNoShow = async (visitId: string) => {
     try {
-      const { error } = await supabase
-        .from('visits')
-        .update({ 
-          status: 'no-show',
-          is_no_show: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', visitId);
-
-      if (error) throw error;
+      // Use visitsStore action for immediate state update
+      const { markNoShow } = useVisitsStore.getState();
+      await markNoShow(visitId);
       
       toast.success('Visit marked as no-show!');
-      
-      // Don't refresh - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error marking no-show:', error);
       toast.error('Failed to mark as no-show');
+    }
+  };
+
+  // Handle Confirm Booking - confirms a website booking request
+  const handleConfirmBooking = async (visitId: string) => {
+    try {
+      // Use visitsStore action for immediate state update
+      const { confirmVisit } = useVisitsStore.getState();
+      await confirmVisit(visitId);
+      
+      toast.success('Booking confirmed successfully!', {
+        icon: '✅',
+        duration: 4000
+      });
+    } catch (error) {
+      console.error('Error confirming booking:', error);
+      toast.error('Failed to confirm booking');
     }
   };
 
@@ -437,6 +419,22 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   // Filter appointments based on view mode
   const filteredAppointments = useMemo(() => {
     let filtered = appointments;
+    
+    // Log website bookings
+    const websiteBookings = appointments.filter(apt => apt.is_from_website);
+    if (websiteBookings.length > 0) {
+      console.log('Found website bookings:', websiteBookings.length, {
+        viewMode,
+        selectedDate: format(selectedDate, 'yyyy-MM-dd'),
+        selectedDoctorId,
+        bookings: websiteBookings.map(b => ({
+          id: b.id,
+          date: b.date,
+          status: b.status,
+          is_confirmed: b.is_confirmed
+        }))
+      });
+    }
 
     if (viewMode === 'all') {
       // No date filtering for "all" view - show everything
@@ -465,7 +463,13 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     }
 
     if (selectedDoctorId) {
-      filtered = filtered.filter((apt) => apt.doctor_id === selectedDoctorId);
+      filtered = filtered.filter((apt) => {
+        // Include website bookings (no doctor assigned yet) when viewing any doctor
+        if (!apt.doctor_id && apt.is_from_website) {
+          return true;
+        }
+        return apt.doctor_id === selectedDoctorId;
+      });
     }
 
 
@@ -587,6 +591,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     // Group appointments by sections
     const appointmentSections = useMemo(() => {
       const sections = {
+        bookingRequests: [] as typeof filteredAppointments,
         schedule: [] as typeof filteredAppointments,
         handedOff: [] as typeof filteredAppointments,
         completed: [] as typeof filteredAppointments,
@@ -594,12 +599,27 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
       };
 
       filteredAppointments.forEach(apt => {
+        // Debug logging for booking requests
+        if (apt.is_from_website) {
+          console.log('Website booking found:', {
+            id: apt.id,
+            status: apt.status,
+            is_confirmed: apt.is_confirmed,
+            is_from_website: apt.is_from_website,
+            notes: apt.notes?.substring(0, 50)
+          });
+        }
+        
         if (apt.status === 'cancelled' || apt.is_cancelled) {
           sections.cancelled.push(apt);
         } else if (apt.status === 'completed') {
           sections.completed.push(apt);
         } else if (apt.is_handoff && apt.status !== 'completed') {
           sections.handedOff.push(apt);
+        } else if (apt.status === 'scheduled' && !apt.is_confirmed && apt.is_from_website) {
+          // Booking requests from website (scheduled but not confirmed)
+          console.log('Adding to booking requests:', apt.id);
+          sections.bookingRequests.push(apt);
         } else {
           // scheduled, ready, in-progress, checked-in all go to schedule section
           sections.schedule.push(apt);
@@ -667,6 +687,183 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
           </div>
         ) : (
           <div className="space-y-8">
+            {/* Booking Request Section */}
+            {appointmentSections.bookingRequests.length > 0 && (
+              <div className="relative">
+                {/* Section header */}
+                <div className="flex items-center mb-4">
+                  <div className="bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-lg px-5 py-2.5 shadow-lg flex items-center gap-2">
+                    <Icon icon="solar:calendar-add-bold-duotone" className="h-5 w-5" />
+                    <span className="font-bold text-base">Booking Requests</span>
+                    <span className="text-sm bg-white/20 px-2 py-0.5 rounded-full">
+                      {appointmentSections.bookingRequests.length}
+                    </span>
+                  </div>
+                  <div className="flex-1 h-px bg-gradient-to-r from-orange-300 via-orange-200 to-transparent ml-4" />
+                </div>
+
+                {/* Appointments grid */}
+                <div className="grid grid-cols-1 gap-3">
+                  {appointmentSections.bookingRequests.map((appointment, index) => {
+                    const StatusIcon = getStatusIcon(appointment.status);
+                    const aptDate = parseISO(appointment.date);
+
+                    return (
+                      <div
+                        key={appointment.id}
+                        className="relative bg-white rounded-xl border border-gray-200 shadow-sm cursor-pointer overflow-hidden group"
+                        onClick={() => {
+                          setSelectedBookingRequest(appointment);
+                          setIsBookingRequestModalOpen(true);
+                        }}
+                      >
+                          {/* Faint inside border with status color */}
+                          <div className="absolute inset-0 rounded-[11px] border-2 border-orange-500/20 pointer-events-none" />
+
+                          {/* Subtle geometric pattern */}
+                          <svg className="absolute right-0 top-0 w-32 h-32 opacity-[0.03]" viewBox="0 0 100 100">
+                            <pattern id={`pattern-booking-${appointment.id}`} x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                              <circle cx="10" cy="10" r="1.5" fill="#f97316" />
+                            </pattern>
+                            <rect width="100" height="100" fill={`url(#pattern-booking-${appointment.id})`} />
+                          </svg>
+
+                          {/* Smaller number badge - top left */}
+                          <div className="absolute left-3 top-3 z-10">
+                            <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-orange-100 border border-orange-200">
+                              <span className="font-semibold text-sm text-orange-700">
+                                {index + 1}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Status badge - top right */}
+                          <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+                            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm bg-orange-100 text-orange-700">
+                              Website Booking
+                            </span>
+                            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm bg-yellow-100 text-yellow-700">
+                              Needs Confirmation
+                            </span>
+                          </div>
+
+                          {/* Clean compact content */}
+                          <div className="relative">
+                            {/* Top section with number badge and patient info side by side */}
+                            <div className="flex gap-3 px-4 pt-4 pb-4">
+                              {/* Space for number badge on the left */}
+                              <div className="w-8"></div>
+                              
+                              {/* Patient details column - positioned next to number badge */}
+                              <div className="flex-1 space-y-2">
+                                {/* Patient name with icon */}
+                                <div className="flex items-center gap-2">
+                                  <div className="p-1.5 rounded-lg">
+                                    <Icon icon="duo-icons:user" className="h-4 w-4 text-orange-600" />
+                                  </div>
+                                  <h3 className="font-bold text-[#4f575e] text-base tracking-tight truncate flex-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                                    {appointment.patient.first_name} {appointment.patient.last_name}
+                                  </h3>
+                                </div>
+
+                                {/* Phone number with badge */}
+                                {appointment.patient.cell_number && (
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-1.5 rounded-lg bg-orange-50/70">
+                                      <Icon icon="solar:phone-bold-duotone" className="h-3.5 w-3.5 text-orange-600" />
+                                    </div>
+                                    <span className="text-sm text-gray-600">{appointment.patient.cell_number}</span>
+                                  </div>
+                                )}
+                                
+                                {/* Service requested */}
+                                {appointment.notes && appointment.notes.includes('Service:') && (
+                                  <div className="flex items-center gap-2">
+                                    <div className="p-1.5 rounded-lg">
+                                      <Icon icon="solar:clipboard-text-bold-duotone" className="h-3.5 w-3.5 text-orange-600" />
+                                    </div>
+                                    <span className="text-sm text-gray-600">
+                                      {appointment.notes.match(/Service: ([^\n]*)/)?.[1] || 'Consultation'}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Full width grey line */}
+                            <div className="h-px bg-gray-200" />
+
+                            {/* Bottom section with info and button */}
+                            <div className="px-4 py-3">
+                              <div className="flex items-center justify-between">
+                                {/* Info sections */}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {/* Date section */}
+                                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg backdrop-blur-sm bg-orange-50 text-orange-700">
+                                    <Icon icon="duo-icons:calendar" className="h-3.5 w-3.5" />
+                                    <span className="text-xs font-semibold">{format(aptDate, 'MMM d, yyyy')}</span>
+                                  </div>
+
+                                  {/* Time section */}
+                                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg backdrop-blur-sm bg-orange-50 text-orange-700">
+                                    <Icon icon="duo-icons:clock" className="h-3.5 w-3.5" />
+                                    <span className="text-xs font-semibold">{appointment.time ? format(parseISO(`2000-01-01T${appointment.time}`), 'h:mm a') : 'No time'}</span>
+                                  </div>
+
+                                  {/* Type section */}
+                                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
+                                    <Icon icon={
+                                      appointment.type === 'consultation' ? 'duo-icons:stethoscope' :
+                                      appointment.type === 'follow-up' ? 'duo-icons:refresh' :
+                                      appointment.type === 'procedure' ? 'duo-icons:syringe' :
+                                      'duo-icons:calendar'
+                                    } className="h-3.5 w-3.5" />
+                                    <span className="text-xs font-semibold capitalize">{appointment.type}</span>
+                                  </div>
+
+                                  {/* Duration */}
+                                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
+                                    <Icon icon="duo-icons:timer" className="h-3.5 w-3.5" />
+                                    <span className="text-xs font-semibold">{appointment.duration}m</span>
+                                  </div>
+                                </div>
+
+                                {/* Action buttons - bottom right */}
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Confirm the booking
+                                      handleConfirmBooking(appointment.id);
+                                    }}
+                                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg font-medium flex items-center gap-2 shadow-lg text-sm"
+                                  >
+                                    <CheckCircle className="w-4 h-4" />
+                                    Confirm
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedBookingRequest(appointment);
+                                      setIsBookingRequestModalOpen(true);
+                                    }}
+                                    className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl  duration-200 group"
+                                    title="Manage Booking"
+                                  >
+                                    <Settings className="w-5 h-5 text-gray-600 group-hover:text-gray-800" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  
+                </div>
+              </div>
+            )}
+
             {/* Handed Off Section */}
             {appointmentSections.handedOff.length > 0 && (
               <div className="relative">
@@ -2020,6 +2217,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             selectedDate={selectedDate}
             appointments={filteredAppointments}
             doctors={doctors}
+            visits={visits}
             onAppointmentClick={onAppointmentClick}
             onTimeSlotClick={(time, doctorId) => {
               setSelectedTimeSlot({
@@ -2248,6 +2446,26 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
           patientId={selectedVisitForSMS.patient_id}
           patientName={`${selectedVisitForSMS.patient?.first_name || ''} ${selectedVisitForSMS.patient?.last_name || ''}`}
           patientPhone={selectedVisitForSMS.patient?.cell_number || ''}
+        />
+      )}
+
+      {/* Booking Request Modal */}
+      {selectedBookingRequest && (
+        <BookingRequestModal
+          isOpen={isBookingRequestModalOpen}
+          onClose={() => {
+            setIsBookingRequestModalOpen(false);
+            setSelectedBookingRequest(null);
+          }}
+          visit={selectedBookingRequest}
+          onConfirm={() => {
+            setIsBookingRequestModalOpen(false);
+            setSelectedBookingRequest(null);
+            // Refresh appointments
+            if (onRefresh) {
+              onRefresh();
+            }
+          }}
         />
       )}
     </div>

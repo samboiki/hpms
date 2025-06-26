@@ -124,26 +124,28 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
   
   const fetchBookedTimes = async (doctorId: string, date: string) => {
     try {
-      // Fetch from appointments table which is the source of truth
-      const { data: appointments, error } = await supabase
-        .from('appointments')
-        .select('time, duration')
+      // Only fetch from visits table
+      const { data: visits, error: visitsError } = await supabase
+        .from('visits')
+        .select('scheduled_time, visit_time')
         .eq('doctor_id', doctorId)
-        .eq('date', date)
-        .in('status', ['scheduled', 'confirmed']);
+        .eq('scheduled_date', date)
+        .eq('is_cancelled', false);
       
-      if (error) throw error;
+      if (visitsError) throw visitsError;
       
       // Generate array of booked time slots
       const bookedSlots: string[] = [];
-      appointments?.forEach(appointment => {
-        if (appointment.time) {
-          const [hours, minutes] = appointment.time.split(':').map(Number);
+      
+      // Process visits
+      visits?.forEach(visit => {
+        if (visit.scheduled_time) {
+          const [hours, minutes] = visit.scheduled_time.split(':').map(Number);
           const startTime = new Date();
           startTime.setHours(hours, minutes, 0, 0);
           
-          // Mark slots for the duration of the appointment
-          const duration = appointment.duration || 30;
+          // Mark slots for 30 minute duration (default visit length)
+          const duration = 30;
           for (let i = 0; i < duration; i += 15) {
             const slotTime = new Date(startTime.getTime() + (i * 60000));
             bookedSlots.push(format(slotTime, 'HH:mm'));
@@ -151,7 +153,9 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
         }
       });
       
-      setBookedTimes(bookedSlots);
+      // Remove duplicates
+      const uniqueBookedSlots = [...new Set(bookedSlots)];
+      setBookedTimes(uniqueBookedSlots);
     } catch (err) {
       console.error('Error fetching booked times:', err);
       setBookedTimes([]);
