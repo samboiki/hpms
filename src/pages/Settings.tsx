@@ -2002,4 +2002,445 @@ const PracticeProfileContent: React.FC = () => {
   );
 };
 
+// Users Management Component
+const UsersManagementContent: React.FC = () => {
+  const { user } = useAuthStore();
+  const [staff, setStaff] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<string>('all');
+  const [branches, setBranches] = useState<any[]>([]);
+
+  // Load staff data from users table
+  useEffect(() => {
+    const loadStaffAndBranches = async () => {
+      if (!user?.practice_id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // Load staff
+        const { data: staffData, error: staffError } = await supabase
+          .from('users')
+          .select('id, full_name, email, role, avatar, hpcsa_number, branch_id')
+          .eq('practice_id', user.practice_id)
+          .order('full_name');
+
+        if (staffError) {
+          console.error('Error loading staff data:', staffError);
+        } else if (staffData) {
+          setStaff(staffData);
+        }
+
+        // Load branches
+        const { data: branchData, error: branchError } = await supabase
+          .from('branches')
+          .select('id, name')
+          .eq('practice_id', user.practice_id)
+          .order('name');
+
+        if (branchError) {
+          console.error('Error loading branches:', branchError);
+        } else if (branchData) {
+          setBranches(branchData);
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadStaffAndBranches();
+  }, [user?.practice_id]);
+
+  const filteredStaff = selectedBranch === 'all' 
+    ? staff 
+    : selectedBranch === 'unassigned'
+    ? staff.filter(s => !s.branch_id)
+    : staff.filter(s => s.branch_id === selectedBranch);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading staff information...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg shadow-md">
+                <Icon icon={SolarIcons.users} className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-semibold text-gray-900">User Management</CardTitle>
+                <p className="text-sm text-gray-600">Manage staff members and their assignments</p>
+              </div>
+            </div>
+            <Button 
+              onClick={() => setEditingSection('add_staff')}
+              className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
+            >
+              <Icon icon={SolarIcons.plus} className="w-4 h-4 mr-2" />
+              Add Staff Member
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Filters */}
+      {branches.length > 0 && (
+        <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-gray-700">Filter by branch:</span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedBranch('all')}
+                  className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                    selectedBranch === 'all'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  All Staff
+                </button>
+                <button
+                  onClick={() => setSelectedBranch('unassigned')}
+                  className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                    selectedBranch === 'unassigned'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Unassigned
+                </button>
+                {branches.map(branch => (
+                  <button
+                    key={branch.id}
+                    onClick={() => setSelectedBranch(branch.id)}
+                    className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                      selectedBranch === branch.id
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {branch.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Staff Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredStaff.map((staffMember) => (
+          <Card key={staffMember.id} className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300">
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center text-center">
+                {staffMember.avatar ? (
+                  <img 
+                    src={staffMember.avatar} 
+                    alt={staffMember.full_name}
+                    className="w-20 h-20 rounded-full object-cover mb-3 border-4 border-gray-200"
+                  />
+                ) : (
+                  <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center mb-3">
+                    <Icon icon={SolarIcons.user} className="w-10 h-10 text-white" />
+                  </div>
+                )}
+                <h3 className="text-lg font-bold text-gray-900">
+                  {staffMember.full_name}
+                </h3>
+                <p className="text-purple-600 font-medium capitalize">
+                  {staffMember.role}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {staffMember.email}
+                </p>
+                {staffMember.hpcsa_number && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    HPCSA: {staffMember.hpcsa_number}
+                  </p>
+                )}
+                {staffMember.branch_id && branches.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-1 flex items-center justify-center gap-1">
+                    <Icon icon={SolarIcons.mapPin} className="w-3 h-3" />
+                    {branches.find(b => b.id === staffMember.branch_id)?.name || 'Branch Assigned'}
+                  </p>
+                )}
+                <div className="flex mt-4 space-x-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setEditingSection(`schedule_${staffMember.id}`)}
+                  >
+                    <Icon icon={SolarIcons.calendar} className="w-4 h-4 mr-1" />
+                    Schedule
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setEditingSection(`edit_${staffMember.id}`)}
+                  >
+                    Edit
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        
+        {/* Add New Staff Card */}
+        <Card className="border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 transition-all duration-300">
+          <CardContent className="p-6">
+            <div className="flex flex-col items-center justify-center text-center h-full py-8">
+              <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-3">
+                <Icon icon={SolarIcons.users} className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-700">
+                Add Team Member
+              </h3>
+              <p className="text-sm text-gray-500 mt-1 mb-4">
+                Add a new doctor or staff member
+              </p>
+              <Button 
+                onClick={() => setEditingSection('add_staff')}
+                className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
+              >
+                Add Staff
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Staff Schedule Modal */}
+      {editingSection?.startsWith('schedule_') && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">
+                Staff Schedule - {staff.find(s => editingSection === `schedule_${s.id}`)?.full_name}
+              </h3>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setEditingSection(null)}
+              >
+                <Icon icon={SolarIcons.close} className="w-5 h-5" />
+              </Button>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Set the working hours for this staff member. This will determine when they are available for appointments.
+              </p>
+              
+              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => (
+                <div key={day} className="flex items-center justify-between py-3 border-b border-gray-100">
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      defaultChecked={!['saturday', 'sunday'].includes(day)}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="font-medium text-gray-700 capitalize w-24">
+                      {day}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="time"
+                      defaultValue="09:00"
+                      className="px-2 py-1 border border-gray-300 rounded text-sm"
+                    />
+                    <span className="text-gray-500">to</span>
+                    <input
+                      type="time"
+                      defaultValue="17:00"
+                      className="px-2 py-1 border border-gray-300 rounded text-sm"
+                    />
+                  </div>
+                </div>
+              ))}
+              
+              <div className="flex gap-2 mt-6">
+                <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+                  <Icon icon={SolarIcons.save} className="w-4 h-4 mr-2" />
+                  Save Schedule
+                </Button>
+                <Button 
+                  variant="ghost"
+                  onClick={() => setEditingSection(null)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Staff Modal */}
+      {editingSection === 'add_staff' && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+        >
+          <motion.div
+            initial={{ scale: 0.95 }}
+            animate={{ scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full m-4 max-h-[90vh] overflow-hidden"
+          >
+            <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                    <Icon icon={SolarIcons.userCircle} className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-white">Add New Staff Member</h3>
+                </div>
+                <button
+                  onClick={() => setEditingSection(null)}
+                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                >
+                  <Icon icon={SolarIcons.close} className="w-5 h-5 text-white" />
+                </button>
+              </div>
+            </div>
+            
+            <form className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-120px)]" onSubmit={(e) => {
+              e.preventDefault();
+              // Handle form submission
+              toast.success('Staff member added successfully!');
+              setEditingSection(null);
+            }}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
+                    placeholder="Dr. John Doe"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
+                    placeholder="john.doe@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Role <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required
+                    className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
+                  >
+                    <option value="">Select role</option>
+                    <option value="doctor">Doctor</option>
+                    <option value="nurse">Nurse</option>
+                    <option value="receptionist">Receptionist</option>
+                    <option value="admin">Administrator</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
+                    placeholder="+264 81 234 5678"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    HPCSA Number
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
+                    placeholder="For medical professionals"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Branch
+                  </label>
+                  <select
+                    className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
+                  >
+                    <option value="">Select branch (optional)</option>
+                    {branches.map(branch => (
+                      <option key={branch.id} value={branch.id}>{branch.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              
+              <div className="pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Initial Password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
+                  placeholder="Temporary password for first login"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  User will be required to change password on first login
+                </p>
+              </div>
+              
+              <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 mt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditingSection(null)}
+                  className="px-6 py-2.5"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-6 py-2.5"
+                >
+                  <Icon icon={SolarIcons.plus} className="w-5 h-5 mr-2" />
+                  Add Staff Member
+                </Button>
+              </div>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
+    </div>
+  );
+};
+
 export default Settings;

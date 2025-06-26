@@ -488,7 +488,7 @@ const BranchManagement: React.FC = () => {
                   </Button>
                 </div>
               </form>
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
