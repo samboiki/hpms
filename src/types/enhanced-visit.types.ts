@@ -27,6 +27,7 @@ export interface Visit {
   is_ready: boolean;
   is_checked_in: boolean;
   is_cancelled: boolean;
+  is_no_show: boolean;
   scheduled_date: string | null;
   scheduled_time: string | null;
   
@@ -83,7 +84,7 @@ export const isCancelled = (visit: Visit): boolean => {
 };
 
 export const isNoShow = (visit: Visit): boolean => {
-  return visit.status === 'no-show';
+  return visit.is_no_show || visit.status === 'no-show';
 };
 
 // Get display status for UI
@@ -231,6 +232,7 @@ export const appointmentToEnhancedVisit = (appointment: any): Partial<Visit> => 
     is_ready: appointment.status === 'ready',
     is_checked_in: appointment.status === 'ready' || appointment.status === 'in-progress',
     is_cancelled: appointment.status === 'cancelled',
+    is_no_show: appointment.status === 'no-show',
     status: appointment.status === 'scheduled' ? 'scheduled' : appointment.status,
   };
 };

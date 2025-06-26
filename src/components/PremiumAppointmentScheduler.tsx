@@ -14,7 +14,9 @@ import {
   Clock,
   XCircle,
   Stethoscope,
-  Activity
+  Activity,
+  Settings,
+  MessageCircle
 } from 'lucide-react';
 import {
   format,
@@ -46,6 +48,8 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { useTheme } from '../stores/themeStore';
 import DuotoneIcon from './icons/DuotoneIcon';
+import VisitActionModal from './modals/VisitActionModal';
+import EnhancedSmsModal from './messages/EnhancedSmsModal';
 
 interface AppointmentPatient {
   id: string;
@@ -231,6 +235,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
   const [showDoctorModal, setShowDoctorModal] = useState(false);
+  const [selectedVisitForAction, setSelectedVisitForAction] = useState<Appointment | null>(null);
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+  const [selectedVisitForSMS, setSelectedVisitForSMS] = useState<Appointment | null>(null);
+  const [isSMSModalOpen, setIsSMSModalOpen] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -249,9 +257,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
       
       toast.success('Patient marked as ready!');
       
-      if (props.onRefresh) {
-        props.onRefresh();
-      }
+      // Don't refresh - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error marking patient ready:', error);
       toast.error('Failed to mark patient ready');
@@ -274,10 +280,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
       
       toast.success('Visit started!');
       
-      // Refresh the data
-      if (props.onRefresh) {
-        props.onRefresh();
-      }
+      // Don't refresh - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error starting visit:', error);
       toast.error('Failed to start visit');
@@ -300,9 +303,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
       
       toast.success('Patient checked in successfully!');
       
-      if (props.onRefresh) {
-        props.onRefresh();
-      }
+      // Don't refresh - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error checking in patient:', error);
       toast.error('Failed to check in patient');
@@ -325,9 +326,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
       
       toast.success('Visit marked as completed!');
       
-      if (props.onRefresh) {
-        props.onRefresh();
-      }
+      // Don't refresh - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error completing visit:', error);
       toast.error('Failed to complete visit');
@@ -353,12 +352,56 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
       
       toast.success('Visit rescheduled successfully!');
       
-      if (props.onRefresh) {
-        props.onRefresh();
-      }
+      // Don't refresh - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error rescheduling visit:', error);
       toast.error('Failed to reschedule visit');
+    }
+  };
+
+  // Handle Cancel Visit - marks visit as cancelled
+  const handleCancelVisit = async (visitId: string) => {
+    try {
+      const { error } = await supabase
+        .from('visits')
+        .update({ 
+          status: 'cancelled',
+          is_cancelled: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', visitId);
+
+      if (error) throw error;
+      
+      toast.success('Visit cancelled successfully!');
+      
+      // Don't refresh - let real-time subscription handle updates to prevent flickering
+    } catch (error) {
+      console.error('Error cancelling visit:', error);
+      toast.error('Failed to cancel visit');
+    }
+  };
+
+  // Handle No Show - marks visit as no-show
+  const handleNoShow = async (visitId: string) => {
+    try {
+      const { error } = await supabase
+        .from('visits')
+        .update({ 
+          status: 'no-show',
+          is_no_show: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', visitId);
+
+      if (error) throw error;
+      
+      toast.success('Visit marked as no-show!');
+      
+      // Don't refresh - let real-time subscription handle updates to prevent flickering
+    } catch (error) {
+      console.error('Error marking no-show:', error);
+      toast.error('Failed to mark as no-show');
     }
   };
 
@@ -649,7 +692,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                       <div
                         key={appointment.id}
                         className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:border-purple-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
-                        onClick={() => onAppointmentClick(appointment)}
+                        onClick={() => {
+                          setSelectedVisitForAction(appointment);
+                          setIsActionModalOpen(true);
+                        }}
                       >
                           {/* Faint inside border with status color */}
                           <div className="absolute inset-0 rounded-[11px] border-2 border-purple-500/20 pointer-events-none" />
@@ -808,7 +854,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                       <div
                         key={appointment.id}
                         className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
-                        onClick={() => onAppointmentClick(appointment)}
+                        onClick={() => {
+                          setSelectedVisitForAction(appointment);
+                          setIsActionModalOpen(true);
+                        }}
                       >
                             {/* Faint inside border with status color */}
                             <div className={`absolute inset-0 rounded-[11px] border-2 ${
@@ -1023,110 +1072,17 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
 
                                 {/* Action buttons - bottom right */}
                                 {(appointment.status === 'scheduled' || appointment.status === 'ready' || appointment.status === 'in-progress' || appointment.status === 'completed' || appointment.status === 'cancelled') && (
-                                  <div className="flex gap-2">
-                                    {/* Show different buttons based on status */}
-                                    {appointment.status === 'scheduled' && (
-                                      <>
-                                        {/* Check if patient is checked in */}
-                                        {(() => {
-                                          const isCheckedIn = appointment.is_checked_in;
-                                          
-                                          if (!isCheckedIn) {
-                                            // Show Check In button only if not checked in
-                                            return (
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleCheckIn(appointment.id);
-                                                }}
-                                                className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-lg transition-all duration-200 font-medium flex items-center gap-2 shadow-lg text-sm"
-                                              >
-                                                <Icon icon="solar:login-3-bold-duotone" className="h-4 w-4" />
-                                                <span>Check In</span>
-                                              </button>
-                                            );
-                                          } else {
-                                            // Show Mark Ready button after check in
-                                            return (
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleMarkReady(appointment.id);
-                                                }}
-                                                className="px-4 py-2 bg-gradient-to-r from-[#01b9d5] to-[#0196be] hover:from-[#0196be] hover:to-[#017a8a] text-white rounded-lg transition-all duration-200 font-medium flex items-center gap-2 shadow-lg text-sm"
-                                              >
-                                                <Icon icon="solar:check-circle-bold-duotone" className="h-4 w-4" />
-                                                <span>Mark Ready</span>
-                                              </button>
-                                            );
-                                          }
-                                        })()}
-                                      </>
-                                    )}
-                                    
-                                    {/* When ready, show Start Visit button */}
-                                    {appointment.status === 'ready' && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleStartVisit(appointment.id);
-                                        }}
-                                        className="px-4 py-2 text-white rounded-lg transition-all duration-200 font-medium flex items-center gap-2 shadow-lg text-sm"
-                                        style={{ background: '#079dbe', ':hover': { background: '#0689a8' } }}
-                                        onMouseEnter={(e) => e.currentTarget.style.background = '#0689a8'}
-                                        onMouseLeave={(e) => e.currentTarget.style.background = '#079dbe'}
-                                      >
-                                        <Icon icon="solar:play-bold-duotone" className="h-4 w-4" />
-                                        <span>Start Visit</span>
-                                      </button>
-                                    )}
-                                    
-                                    {/* When in-progress, show Mark Complete button */}
-                                    {appointment.status === 'in-progress' && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleCompleteVisit(appointment.id);
-                                        }}
-                                        className="px-4 py-2 text-white rounded-lg transition-all duration-200 font-medium flex items-center gap-2 shadow-lg text-sm"
-                                        style={{ background: '#01b9d5', ':hover': { background: '#0196be' } }}
-                                        onMouseEnter={(e) => e.currentTarget.style.background = '#0196be'}
-                                        onMouseLeave={(e) => e.currentTarget.style.background = '#01b9d5'}
-                                      >
-                                        <Icon icon="solar:check-circle-bold-duotone" className="h-4 w-4" />
-                                        <span>Mark Complete</span>
-                                      </button>
-                                    )}
-                                    
-                                    {/* When completed or cancelled, show Re-schedule button with radio switch style */}
-                                    {(appointment.status === 'completed' || appointment.status === 'cancelled') && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleRevertToScheduled(appointment.id);
-                                        }}
-                                        className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full cursor-pointer select-none transition-all duration-150 ease-out bg-gray-100 border border-gray-200 hover:bg-gray-200"
-                                      >
-                                        {/* Switch component */}
-                                        <div className="relative w-7 h-4 rounded-full transition-colors duration-150 ease-out bg-gray-400">
-                                          <div className="absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-150 ease-out transform translate-x-0.5" style={{ willChange: 'transform' }} />
-                                        </div>
-                                        <span className="text-xs font-medium transition-colors duration-150 text-gray-600">Re-schedule</span>
-                                      </button>
-                                    )}
-                                    
-                                    {/* Edit button - always visible */}
+                                  <div className="flex items-center gap-2">
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (props.onEditAppointment) {
-                                          props.onEditAppointment(appointment);
-                                        }
+                                        setSelectedVisitForAction(appointment);
+                                        setIsActionModalOpen(true);
                                       }}
-                                      className="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-200 font-medium flex items-center gap-2 shadow-lg text-sm"
+                                      className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl transition-all duration-200 group"
+                                      title="Actions"
                                     >
-                                      <Icon icon="solar:pen-bold-duotone" className="h-4 w-4" />
-                                      <span>Edit</span>
+                                      <Settings className="w-5 h-5 text-gray-600 group-hover:text-gray-800 transition-colors" />
                                     </button>
                                   </div>
                                 )}
@@ -1167,7 +1123,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                       <div
                         key={appointment.id}
                         className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
-                        onClick={() => onAppointmentClick(appointment)}
+                        onClick={() => {
+                          setSelectedVisitForAction(appointment);
+                          setIsActionModalOpen(true);
+                        }}
                       >
                             {/* Faint inside border with status color */}
                             <div className={`absolute inset-0 rounded-[11px] border-2 ${
@@ -1342,36 +1301,17 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
 
                                 {/* Action buttons - bottom right */}
                                 {(appointment.status === 'scheduled' || appointment.status === 'ready' || appointment.status === 'in-progress' || appointment.status === 'completed' || appointment.status === 'cancelled') && (
-                                  <div className="flex gap-2">
-                                    {/* When completed or cancelled, show Re-schedule button with radio switch style */}
-                                    {(appointment.status === 'completed' || appointment.status === 'cancelled') && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleRevertToScheduled(appointment.id);
-                                        }}
-                                        className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full cursor-pointer select-none transition-all duration-150 ease-out bg-gray-100 border border-gray-200 hover:bg-gray-200"
-                                      >
-                                        {/* Switch component */}
-                                        <div className="relative w-7 h-4 rounded-full transition-colors duration-150 ease-out bg-gray-400">
-                                          <div className="absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-150 ease-out transform translate-x-0.5" style={{ willChange: 'transform' }} />
-                                        </div>
-                                        <span className="text-xs font-medium transition-colors duration-150 text-gray-600">Re-schedule</span>
-                                      </button>
-                                    )}
-                                    
-                                    {/* Edit button - always visible */}
+                                  <div className="flex items-center gap-2">
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (props.onEditAppointment) {
-                                          props.onEditAppointment(appointment);
-                                        }
+                                        setSelectedVisitForAction(appointment);
+                                        setIsActionModalOpen(true);
                                       }}
-                                      className="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-200 font-medium flex items-center gap-2 shadow-lg text-sm"
+                                      className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl transition-all duration-200 group"
+                                      title="Actions"
                                     >
-                                      <Icon icon="solar:pen-bold-duotone" className="h-4 w-4" />
-                                      <span>Edit</span>
+                                      <Settings className="w-5 h-5 text-gray-600 group-hover:text-gray-800 transition-colors" />
                                     </button>
                                   </div>
                                 )}
@@ -1412,7 +1352,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                       <div
                         key={appointment.id}
                         className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
-                        onClick={() => onAppointmentClick(appointment)}
+                        onClick={() => {
+                          setSelectedVisitForAction(appointment);
+                          setIsActionModalOpen(true);
+                        }}
                       >
                             {/* Faint inside border with status color */}
                             <div className={`absolute inset-0 rounded-[11px] border-2 ${
@@ -1587,36 +1530,17 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
 
                                 {/* Action buttons - bottom right */}
                                 {(appointment.status === 'scheduled' || appointment.status === 'ready' || appointment.status === 'in-progress' || appointment.status === 'completed' || appointment.status === 'cancelled') && (
-                                  <div className="flex gap-2">
-                                    {/* When completed or cancelled, show Re-schedule button with radio switch style */}
-                                    {(appointment.status === 'completed' || appointment.status === 'cancelled') && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleRevertToScheduled(appointment.id);
-                                        }}
-                                        className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full cursor-pointer select-none transition-all duration-150 ease-out bg-gray-100 border border-gray-200 hover:bg-gray-200"
-                                      >
-                                        {/* Switch component */}
-                                        <div className="relative w-7 h-4 rounded-full transition-colors duration-150 ease-out bg-gray-400">
-                                          <div className="absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-150 ease-out transform translate-x-0.5" style={{ willChange: 'transform' }} />
-                                        </div>
-                                        <span className="text-xs font-medium transition-colors duration-150 text-gray-600">Re-schedule</span>
-                                      </button>
-                                    )}
-                                    
-                                    {/* Edit button - always visible */}
+                                  <div className="flex items-center gap-2">
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        if (props.onEditAppointment) {
-                                          props.onEditAppointment(appointment);
-                                        }
+                                        setSelectedVisitForAction(appointment);
+                                        setIsActionModalOpen(true);
                                       }}
-                                      className="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-200 font-medium flex items-center gap-2 shadow-lg text-sm"
+                                      className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl transition-all duration-200 group"
+                                      title="Actions"
                                     >
-                                      <Icon icon="solar:pen-bold-duotone" className="h-4 w-4" />
-                                      <span>Edit</span>
+                                      <Settings className="w-5 h-5 text-gray-600 group-hover:text-gray-800 transition-colors" />
                                     </button>
                                   </div>
                                 )}
@@ -1766,7 +1690,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                 border border-white/30 transition-shadow cursor-pointer overflow-hidden
                                 ${getTypeAccent(appointment.type)}`}
                               style={{ top: `${top}px`, height: `${height}px` }}
-                              onClick={() => onAppointmentClick(appointment)}
+                              onClick={() => {
+                          setSelectedVisitForAction(appointment);
+                          setIsActionModalOpen(true);
+                        }}
                             >
                               <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${getStatusGradient(appointment.status)}`} />
                               <div className="relative p-2 h-full flex flex-col">
@@ -1889,7 +1816,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                 border border-white/30 transition-shadow cursor-pointer overflow-hidden
                                 ${getTypeAccent(appointment.type)}`}
                               style={{ top: `${top}px`, height: `${height}px` }}
-                              onClick={() => onAppointmentClick(appointment)}
+                              onClick={() => {
+                          setSelectedVisitForAction(appointment);
+                          setIsActionModalOpen(true);
+                        }}
                             >
                               <div className={`absolute top-0 left-0 w-1 h-full bg-gradient-to-b ${getStatusGradient(appointment.status)}`} />
                               <div className="relative p-3 h-full">
@@ -2270,6 +2200,55 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               </div>
         </>,
         document.body
+      )}
+      
+      {/* Visit Action Modal */}
+      {selectedVisitForAction && (
+        <VisitActionModal
+          isOpen={isActionModalOpen}
+          onClose={() => {
+            setIsActionModalOpen(false);
+            setSelectedVisitForAction(null);
+          }}
+          visit={selectedVisitForAction}
+          visitStatus={
+            selectedVisitForAction.status === 'in-progress' ? 'in-progress' :
+            selectedVisitForAction.status === 'ready' ? 'ready' :
+            selectedVisitForAction.status === 'completed' ? 'completed' :
+            'scheduled'
+          }
+          isCheckedIn={selectedVisitForAction.is_checked_in}
+          onStartVisit={() => handleStartVisit(selectedVisitForAction.id)}
+          onCompleteVisit={() => handleCompleteVisit(selectedVisitForAction.id)}
+          onCheckIn={() => handleCheckIn(selectedVisitForAction.id)}
+          onMarkReady={() => handleMarkReady(selectedVisitForAction.id)}
+          onReschedule={() => {
+            if (props.onEditAppointment) {
+              props.onEditAppointment(selectedVisitForAction);
+            }
+          }}
+          onCancel={() => handleCancelVisit(selectedVisitForAction.id)}
+          onNoShow={() => handleNoShow(selectedVisitForAction.id)}
+          onViewDetails={() => onAppointmentClick(selectedVisitForAction)}
+          onSendSMS={() => {
+            setSelectedVisitForSMS(selectedVisitForAction);
+            setIsSMSModalOpen(true);
+          }}
+        />
+      )}
+
+      {/* SMS Modal */}
+      {selectedVisitForSMS && (
+        <EnhancedSmsModal
+          isOpen={isSMSModalOpen}
+          onClose={() => {
+            setIsSMSModalOpen(false);
+            setSelectedVisitForSMS(null);
+          }}
+          patientId={selectedVisitForSMS.patient_id}
+          patientName={`${selectedVisitForSMS.patient?.first_name || ''} ${selectedVisitForSMS.patient?.last_name || ''}`}
+          patientPhone={selectedVisitForSMS.patient?.cell_number || ''}
+        />
       )}
     </div>
   );

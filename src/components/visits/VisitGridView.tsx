@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react';
 import { 
   Calendar, Clock, User, Filter, Search, ChevronDown, 
-  CheckCircle, XCircle, AlertCircle, MoreVertical,
+  CheckCircle, XCircle, AlertCircle, Settings, MessageCircle,
   UserCheck, X, Activity, Play, UserX
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
-import { motion, AnimatePresence } from 'framer-motion';
+// Removed framer-motion to prevent flickering
 import { Visit, getVisitDisplayStatus, getVisitActions, isUnconfirmedBooking } from '../../types/enhanced-visit.types';
 import VisitConfirmationModal from '../modals/VisitConfirmationModal';
 import RescheduleVisitModal from '../modals/RescheduleVisitModal';
+import VisitActionModal from '../modals/VisitActionModal';
+import EnhancedSmsModal from '../messages/EnhancedSmsModal';
 
 interface VisitGridViewProps {
-  filterStatus?: 'all' | 'unconfirmed' | 'scheduled' | 'in-practice' | 'completed' | 'cancelled' | 'handed-off';
+  filterStatus?: 'all' | 'unconfirmed' | 'scheduled' | 'in-practice' | 'completed' | 'cancelled' | 'handed-off' | 'no-show' | 'booking-requests';
   practiceId: string;
   onClose: () => void;
 }
@@ -28,6 +30,10 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
   const [unconfirmedCount, setUnconfirmedCount] = useState(0);
+  const [selectedVisitForAction, setSelectedVisitForAction] = useState<Visit | null>(null);
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+  const [selectedVisitForSMS, setSelectedVisitForSMS] = useState<Visit | null>(null);
+  const [isSMSModalOpen, setIsSMSModalOpen] = useState(false);
 
   useEffect(() => {
     fetchVisits();
@@ -47,12 +53,18 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'visits', filter: `practice_id=eq.${practiceId}` },
         (payload) => {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          if (payload.eventType === 'INSERT') {
+            // Only fetch for new visits to add them to the list
             fetchVisits();
             // Alert for new unconfirmed bookings
             if (payload.new && payload.new.is_scheduled && !payload.new.is_confirmed) {
               showNotification('New booking requires confirmation!');
             }
+          } else if (payload.eventType === 'UPDATE') {
+            // For updates, modify the existing item instead of refetching everything
+            setVisits(prev => prev.map(v => 
+              v.id === payload.new.id ? { ...v, ...payload.new } : v
+            ));
           } else if (payload.eventType === 'DELETE') {
             setVisits(prev => prev.filter(v => v.id !== payload.old.id));
           }
@@ -80,6 +92,9 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
       // Apply status filters based on filterStatus prop
       if (filterStatus === 'unconfirmed') {
         query = query.eq('is_scheduled', true).eq('is_confirmed', false).eq('is_cancelled', false);
+      } else if (filterStatus === 'booking-requests') {
+        // Show only online booking requests that need confirmation
+        query = query.eq('is_scheduled', true).eq('is_confirmed', false).eq('is_cancelled', false);
       } else if (filterStatus === 'scheduled') {
         query = query.eq('is_confirmed', true).eq('is_checked_in', false).eq('is_cancelled', false);
       } else if (filterStatus === 'in-practice') {
@@ -90,6 +105,8 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
         query = query.or('is_cancelled.eq.true,status.eq.cancelled');
       } else if (filterStatus === 'handed-off') {
         query = query.eq('is_handoff', true).neq('status', 'completed');
+      } else if (filterStatus === 'no-show') {
+        query = query.or('is_no_show.eq.true,status.eq.no-show');
       }
 
       const { data, error } = await query;
@@ -180,7 +197,7 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
       
       showNotification('Visit confirmed successfully');
       setShowConfirmationModal(false);
-      fetchVisits();
+      // Don't refetch - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error confirming visit:', error);
     }
@@ -202,7 +219,7 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
       
       showNotification('Visit rejected');
       setShowConfirmationModal(false);
-      fetchVisits();
+      // Don't refetch - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error rejecting visit:', error);
     }
@@ -221,7 +238,7 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
       if (error) throw error;
       
       showNotification('Patient checked in');
-      fetchVisits();
+      // Don't refetch - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error checking in patient:', error);
     }
@@ -240,7 +257,7 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
       if (error) throw error;
       
       showNotification('Patient marked as ready');
-      fetchVisits();
+      // Don't refetch - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error marking patient ready:', error);
     }
@@ -259,7 +276,7 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
       if (error) throw error;
       
       showNotification('Visit started');
-      fetchVisits();
+      // Don't refetch - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error starting visit:', error);
     }
@@ -278,7 +295,7 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
       if (error) throw error;
       
       showNotification('Marked as no-show');
-      fetchVisits();
+      // Don't refetch - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error marking no-show:', error);
     }
@@ -297,7 +314,7 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
       if (error) throw error;
       
       showNotification('Visit handed off');
-      fetchVisits();
+      // Don't refetch - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error handing off visit:', error);
     }
@@ -316,7 +333,7 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
       if (error) throw error;
       
       showNotification('Visit completed');
-      fetchVisits();
+      // Don't refetch - let real-time subscription handle updates to prevent flickering
     } catch (error) {
       console.error('Error completing visit:', error);
     }
@@ -477,12 +494,18 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-semibold text-gray-900">
-              Visit Management
+              {filterStatus === 'booking-requests' ? 'Online Booking Requests' : 'Visit Management'}
             </h2>
-            {unconfirmedCount > 0 && (
-              <span className="px-3 py-1 text-sm font-medium text-orange-700 bg-orange-100 rounded-full animate-pulse">
-                {unconfirmedCount} Unconfirmed
+            {filterStatus === 'booking-requests' ? (
+              <span className="px-3 py-1 text-sm font-medium text-purple-700 bg-purple-100 rounded-full">
+                Website Bookings
               </span>
+            ) : (
+              unconfirmedCount > 0 && (
+                <span className="px-3 py-1 text-sm font-medium text-orange-700 bg-orange-100 rounded-full animate-pulse">
+                  {unconfirmedCount} Unconfirmed
+                </span>
+              )
             )}
           </div>
           <button
@@ -559,19 +582,15 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              <AnimatePresence>
-                {filteredVisits.map((visit) => {
-                  const displayStatus = getVisitDisplayStatus(visit);
-                  const actions = getVisitActions(visit);
-                  
-                  return (
-                    <motion.tr
-                      key={visit.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
+              {filteredVisits.map((visit) => {
+                const displayStatus = getVisitDisplayStatus(visit);
+                const actions = getVisitActions(visit);
+                
+                return (
+                  <tr
+                    key={visit.id}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10 bg-cyan-100 rounded-full flex items-center justify-center">
@@ -616,27 +635,34 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="relative">
+                        <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => setShowActionMenu(showActionMenu === visit.id ? null : visit.id)}
-                            className="text-gray-400 hover:text-gray-600"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedVisitForAction(visit);
+                              setIsActionModalOpen(true);
+                            }}
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Actions"
                           >
-                            <MoreVertical className="w-5 h-5" />
+                            <Settings className="w-4 h-4 text-gray-600" />
                           </button>
-                          
-                          {showActionMenu === visit.id && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
-                              <div className="py-1">
-                                {actions.map(action => renderActionButton(visit, action))}
-                              </div>
-                            </div>
-                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedVisitForSMS(visit);
+                              setIsSMSModalOpen(true);
+                            }}
+                            className="p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Send SMS"
+                          >
+                            <MessageCircle className="w-4 h-4 text-blue-600" />
+                          </button>
                         </div>
                       </td>
-                    </motion.tr>
+                    </tr>
                   );
                 })}
-              </AnimatePresence>
             </tbody>
           </table>
         )}
@@ -660,12 +686,67 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
           onSuccess={() => {
             setShowRescheduleModal(false);
             setSelectedVisit(null);
-            fetchVisits();
+            // Don't refetch - let real-time subscription handle updates to prevent flickering
           }}
           onClose={() => {
             setShowRescheduleModal(false);
             setSelectedVisit(null);
           }}
+        />
+      )}
+
+      {/* Visit Action Modal */}
+      {selectedVisitForAction && (
+        <VisitActionModal
+          isOpen={isActionModalOpen}
+          onClose={() => {
+            setIsActionModalOpen(false);
+            setSelectedVisitForAction(null);
+          }}
+          visit={selectedVisitForAction}
+          visitStatus={
+            selectedVisitForAction.status === 'in-progress' ? 'in-progress' :
+            selectedVisitForAction.is_handoff ? 'handed-off' :
+            selectedVisitForAction.is_ready ? 'ready' :
+            selectedVisitForAction.is_checked_in ? 'scheduled' :
+            selectedVisitForAction.is_confirmed ? 'scheduled' :
+            selectedVisitForAction.status === 'completed' ? 'completed' :
+            'scheduled'
+          }
+          isCheckedIn={selectedVisitForAction.is_checked_in}
+          onStartVisit={() => handleStartVisit(selectedVisitForAction.id)}
+          onCompleteVisit={() => handleCompleteVisit(selectedVisitForAction.id)}
+          onHandoffVisit={() => handleHandoffVisit(selectedVisitForAction.id)}
+          onCheckIn={() => handleCheckIn(selectedVisitForAction.id)}
+          onMarkReady={() => handleMarkReady(selectedVisitForAction.id)}
+          onNoShow={() => handleNoShow(selectedVisitForAction.id)}
+          onReschedule={() => {
+            setSelectedVisit(selectedVisitForAction);
+            setShowRescheduleModal(true);
+          }}
+          onCancel={() => handleRejectVisit(selectedVisitForAction.id, 'Cancelled by practice')}
+          onViewDetails={() => {
+            // Navigate to patient details or open patient modal
+            window.location.href = `/patients/${selectedVisitForAction.patient_id}`;
+          }}
+          onSendSMS={() => {
+            setSelectedVisitForSMS(selectedVisitForAction);
+            setIsSMSModalOpen(true);
+          }}
+        />
+      )}
+
+      {/* SMS Modal */}
+      {selectedVisitForSMS && (
+        <EnhancedSmsModal
+          isOpen={isSMSModalOpen}
+          onClose={() => {
+            setIsSMSModalOpen(false);
+            setSelectedVisitForSMS(null);
+          }}
+          patientId={selectedVisitForSMS.patient_id}
+          patientName={`${selectedVisitForSMS.patient?.first_name || ''} ${selectedVisitForSMS.patient?.last_name || ''}`}
+          patientPhone={selectedVisitForSMS.patient?.cell_number || ''}
         />
       )}
     </div>

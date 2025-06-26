@@ -25,7 +25,10 @@ interface EnhancedSmsModalProps {
   isOpen: boolean;
   onClose: () => void;
   patient?: Patient | null;
-  onSend: (phone: string, message: string) => void;
+  patientId?: string;
+  patientName?: string;
+  patientPhone?: string;
+  onSend?: (phone: string, message: string) => void;
   isSending?: boolean;
 }
 
@@ -109,6 +112,9 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
   isOpen,
   onClose,
   patient,
+  patientId,
+  patientName,
+  patientPhone,
   onSend,
   isSending = false
 }) => {
@@ -122,14 +128,16 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
   useEffect(() => {
     if (patient?.cell_number) {
       setPhone(patient.cell_number);
+    } else if (patientPhone) {
+      setPhone(patientPhone);
     }
-  }, [patient]);
+  }, [patient, patientPhone]);
 
   const replaceVariables = (text: string): string => {
-    if (!patient) return text;
+    const name = patient ? `${patient.first_name} ${patient.last_name}` : (patientName || 'Patient');
     
     const variables: Record<string, string> = {
-      '{{patientName}}': `${patient.first_name} ${patient.last_name}`,
+      '{{patientName}}': name,
       '{{date}}': new Date().toLocaleDateString(),
       '{{time}}': '2:00 PM',
       '{{doctor}}': 'Smith',
@@ -158,7 +166,7 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
   };
 
   const handleSend = () => {
-    if (phone && message) {
+    if (phone && message && onSend) {
       onSend(phone, message);
     }
   };
@@ -435,3 +443,5 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
     </FullScreenModal>
   );
 };
+
+export default EnhancedSmsModal;
