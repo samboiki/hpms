@@ -35,39 +35,6 @@ const Settings: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
-        {/* Premium Header with Gradient Design */}
-        <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 rounded-2xl shadow-2xl overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-indigo-600 opacity-20 backdrop-blur-sm"></div>
-          <div className="relative p-6 text-white">
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <Icon icon={SolarIcons.settings} className="w-7 h-7 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold">Settings</h1>
-                  <p className="text-blue-100 text-sm mt-0.5">Manage your account and application preferences</p>
-                </div>
-              </div>
-              {user && (
-                <div className="relative group">
-                  <div className={`absolute inset-0 bg-gradient-to-br from-white/20 to-white/10 rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
-                  <div className={`absolute -inset-1 bg-gradient-to-br from-white/20 to-white/10 rounded-full opacity-50`}></div>
-                  <div className="relative h-14 w-14 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
-                    <img 
-                      src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                      alt={user.name}
-                      className="h-full w-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
 
         {/* Premium Navigation Tabs */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
