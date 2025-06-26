@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, MapPin, Phone, Mail, Clock, Building2, CheckCircle, XCircle, Users, UserPlus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
@@ -285,8 +284,8 @@ const BranchManagement: React.FC = () => {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#01b9d4] mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading branches...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-700 font-medium">Loading branches...</p>
         </div>
       </div>
     );
@@ -294,23 +293,79 @@ const BranchManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Branch Management</h3>
-          <p className="text-sm text-gray-600 mt-1">Manage your practice branches and locations</p>
-        </div>
-        <Button
-          onClick={() => {
-            setEditingBranch(null);
-            resetForm();
-            setShowForm(true);
-          }}
-          className="bg-gradient-to-r from-[#01b9d4] to-cyan-600"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Branch
-        </Button>
+      {/* Premium Header Card */}
+      <Card className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white overflow-hidden">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                <Icon icon={SolarIcons.building} className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-white">Branch Management</h3>
+                <p className="text-purple-100 mt-1">Manage your practice branches and locations</p>
+              </div>
+            </div>
+            <Button
+              onClick={() => {
+                setEditingBranch(null);
+                resetForm();
+                setShowForm(true);
+              }}
+              className="bg-white text-purple-600 hover:bg-purple-50 font-semibold px-6 py-3 shadow-lg"
+            >
+              <Icon icon={SolarIcons.plus} className="w-5 h-5 mr-2" />
+              Add Branch
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all duration-300">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Branches</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{branches.length}</p>
+              </div>
+              <div className="p-3 bg-purple-100 rounded-xl">
+                <Icon icon={SolarIcons.building} className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all duration-300">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Active Branches</p>
+                <p className="text-3xl font-bold text-green-600 mt-1">
+                  {branches.filter(b => b.is_active).length}
+                </p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-xl">
+                <Icon icon={SolarIcons.checkCircle} className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-white border border-gray-200 hover:shadow-lg transition-all duration-300">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Staff</p>
+                <p className="text-3xl font-bold text-blue-600 mt-1">{allStaff.length}</p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-xl">
+                <Icon icon={SolarIcons.users} className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Branch Form Modal */}
@@ -608,166 +663,218 @@ const BranchManagement: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Branches List */}
         <div className="space-y-4">
-          <h4 className="font-medium text-gray-900">Your Branches</h4>
+          <div className="flex items-center gap-2 mb-4">
+            <Icon icon={SolarIcons.building} className="w-5 h-5 text-purple-600" />
+            <h4 className="text-lg font-semibold text-gray-900">Your Branches</h4>
+            <span className="ml-auto px-3 py-1 bg-purple-100 text-purple-700 text-sm font-medium rounded-full">
+              {branches.length} {branches.length === 1 ? 'Branch' : 'Branches'}
+            </span>
+          </div>
           
           {branches.length === 0 ? (
-            <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+            <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 hover:border-purple-400 transition-all duration-300">
               <CardContent className="py-12 text-center">
-                <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No branches created yet</p>
-                <p className="text-sm text-gray-500 mt-1">Add your first branch to get started</p>
+                <div className="p-4 bg-purple-100 rounded-full w-fit mx-auto mb-4">
+                  <Icon icon={SolarIcons.building} className="w-12 h-12 text-purple-600" />
+                </div>
+                <p className="text-gray-700 font-medium text-lg">No branches created yet</p>
+                <p className="text-sm text-gray-500 mt-2">Click "Add Branch" to create your first location</p>
               </CardContent>
             </Card>
           ) : (
             branches.map((branch) => (
-              <Card
+              <motion.div
                 key={branch.id}
-                className={`bg-white/90 backdrop-blur-md border cursor-pointer transition-all ${
-                  selectedBranch === branch.id 
-                    ? 'border-[#01b9d4] shadow-lg' 
-                    : 'border-gray-100/50 hover:border-gray-300'
-                }`}
-                onClick={() => setSelectedBranch(branch.id)}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                whileHover={{ scale: 1.02 }}
               >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h5 className="font-semibold text-gray-900">{branch.name}</h5>
-                        {branch.is_active ? (
-                          <span className="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full">
-                            Active
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-full">
-                            Inactive
-                          </span>
-                        )}
-                      </div>
+                <Card
+                  className={`relative bg-white border-2 cursor-pointer transition-all duration-300 overflow-hidden ${
+                    selectedBranch === branch.id 
+                      ? 'border-purple-500 shadow-xl ring-4 ring-purple-100' 
+                      : 'border-gray-200 hover:border-purple-300 hover:shadow-lg'
+                  }`}
+                  onClick={() => setSelectedBranch(branch.id)}
+                >
+                  {selectedBranch === branch.id && (
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-indigo-600" />
+                  )}
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="p-2 bg-purple-100 rounded-lg">
+                            <Icon icon={SolarIcons.building} className="w-5 h-5 text-purple-600" />
+                          </div>
+                          <div>
+                            <h5 className="font-bold text-gray-900 text-lg">{branch.name}</h5>
+                            {branch.is_active ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full">
+                                <div className="w-1.5 h-1.5 bg-green-600 rounded-full" />
+                                Active
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-full">
+                                <div className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
+                                Inactive
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       
-                      <div className="space-y-1 text-sm text-gray-600">
-                        {branch.address && (
-                          <div className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-gray-400" />
-                            <span>{branch.address}</span>
-                          </div>
-                        )}
-                        {branch.city && (
-                          <div className="flex items-center gap-2 ml-6">
-                            <span>{branch.city}{branch.state_province && `, ${branch.state_province}`}</span>
-                          </div>
-                        )}
-                        {branch.phone && (
-                          <div className="flex items-center gap-2">
-                            <Phone className="w-4 h-4 text-gray-400" />
-                            <span>{branch.phone}</span>
-                          </div>
-                        )}
-                        {branch.email && (
-                          <div className="flex items-center gap-2">
-                            <Mail className="w-4 h-4 text-gray-400" />
-                            <span>{branch.email}</span>
-                          </div>
-                        )}
+                        <div className="space-y-2 text-sm">
+                          {branch.address && (
+                            <div className="flex items-start gap-2 text-gray-600">
+                              <Icon icon={SolarIcons.mapPin} className="w-4 h-4 text-purple-500 mt-0.5" />
+                              <div>
+                                <span className="block">{branch.address}</span>
+                                {branch.city && (
+                                  <span className="text-gray-500">
+                                    {branch.city}{branch.state_province && `, ${branch.state_province}`}
+                                    {branch.postal_code && ` ${branch.postal_code}`}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {branch.phone && (
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <Icon icon={SolarIcons.phone} className="w-4 h-4 text-purple-500" />
+                              <span>{branch.phone}</span>
+                            </div>
+                          )}
+                          {branch.email && (
+                            <div className="flex items-center gap-2 text-gray-600">
+                              <Icon icon={SolarIcons.mail} className="w-4 h-4 text-purple-500" />
+                              <span className="truncate">{branch.email}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
                     
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleActive(branch);
-                        }}
-                        className={`p-1.5 rounded-lg transition-colors ${
-                          branch.is_active 
-                            ? 'text-green-600 hover:bg-green-50' 
-                            : 'text-gray-400 hover:bg-gray-50'
-                        }`}
-                        title={branch.is_active ? 'Deactivate branch' : 'Activate branch'}
-                      >
-                        {branch.is_active ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEdit(branch);
-                        }}
-                        className="p-1.5 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
-                        title="Edit branch"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(branch.id);
-                        }}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete branch"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                      <div className="flex flex-col gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleActive(branch);
+                          }}
+                          className={`p-2 rounded-lg transition-all duration-200 ${
+                            branch.is_active 
+                              ? 'text-green-600 bg-green-50 hover:bg-green-100' 
+                              : 'text-gray-500 bg-gray-50 hover:bg-gray-100'
+                          }`}
+                          title={branch.is_active ? 'Deactivate branch' : 'Activate branch'}
+                        >
+                          <Icon icon={branch.is_active ? SolarIcons.checkCircle : SolarIcons.dangerCircle} className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEdit(branch);
+                          }}
+                          className="p-2 text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg transition-all duration-200"
+                          title="Edit branch"
+                        >
+                          <Icon icon={SolarIcons.edit} className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(branch.id);
+                          }}
+                          className="p-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-all duration-200"
+                          title="Delete branch"
+                        >
+                          <Icon icon={SolarIcons.close} className="w-5 h-5" />
+                        </button>
+                      </div>
                   </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </motion.div>
             ))
           )}
         </div>
 
         {/* Branch Users */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="font-medium text-gray-900">Branch Staff</h4>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Icon icon={SolarIcons.users} className="w-5 h-5 text-purple-600" />
+              <h4 className="text-lg font-semibold text-gray-900">Branch Staff</h4>
+            </div>
             {selectedBranch && (
               <Button
                 size="sm"
                 onClick={() => setShowStaffModal(true)}
-                className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
+                className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:shadow-lg transition-all duration-200"
               >
-                <Icon icon={SolarIcons.plus} className="w-4 h-4 mr-1" />
-                Add Staff Member
+                <Icon icon={SolarIcons.userPlus} className="w-4 h-4 mr-1" />
+                Add Staff
               </Button>
             )}
           </div>
           
           {!selectedBranch ? (
-            <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+            <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200">
               <CardContent className="py-12 text-center">
-                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">Select a branch to view staff</p>
+                <div className="p-4 bg-purple-100 rounded-full w-fit mx-auto mb-4">
+                  <Icon icon={SolarIcons.users} className="w-12 h-12 text-purple-600" />
+                </div>
+                <p className="text-gray-700 font-medium">Select a branch to view staff</p>
+                <p className="text-sm text-gray-500 mt-1">Click on any branch card to see assigned staff</p>
               </CardContent>
             </Card>
           ) : branchUsers.length === 0 ? (
-            <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
+            <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300">
               <CardContent className="py-12 text-center">
-                <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No staff assigned to this branch</p>
-                <p className="text-sm text-gray-500 mt-1">Assign users from the Staff tab</p>
+                <div className="p-4 bg-orange-100 rounded-full w-fit mx-auto mb-4">
+                  <Icon icon={SolarIcons.users} className="w-12 h-12 text-orange-600" />
+                </div>
+                <p className="text-gray-700 font-medium">No staff assigned to this branch</p>
+                <p className="text-sm text-gray-500 mt-2">Click "Add Staff" to assign team members</p>
               </CardContent>
             </Card>
           ) : (
-            <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
-              <CardContent className="p-4">
+            <Card className="bg-white border border-gray-200 shadow-lg">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-semibold text-gray-900">
+                    {branches.find(b => b.id === selectedBranch)?.name} Staff
+                  </CardTitle>
+                  <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-medium rounded-full">
+                    {branchUsers.length} Members
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
                 <div className="space-y-3">
                   {branchUsers.map((user) => (
-                    <div key={user.id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50">
+                    <motion.div
+                      key={user.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="flex items-center gap-3 p-4 rounded-xl bg-gray-50 hover:bg-purple-50 transition-all duration-200 group"
+                    >
                       {user.avatar ? (
                         <img
                           src={user.avatar}
                           alt={user.full_name}
-                          className="w-10 h-10 rounded-full object-cover"
+                          className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-md group-hover:border-purple-200 transition-all duration-200"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                          <Users className="w-5 h-5 text-gray-500" />
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-md">
+                          <Icon icon={SolarIcons.user} className="w-6 h-6 text-white" />
                         </div>
                       )}
                       <div className="flex-1">
-                        <p className="font-medium text-gray-900">{user.full_name}</p>
-                        <p className="text-sm text-gray-600">{user.role}</p>
+                        <p className="font-semibold text-gray-900 group-hover:text-purple-700 transition-colors">{user.full_name}</p>
+                        <p className="text-sm text-gray-600 capitalize">{user.role}</p>
                       </div>
-                    </div>
+                      <Icon icon={SolarIcons.arrowRight} className="w-5 h-5 text-gray-400 group-hover:text-purple-600 transition-colors" />
+                    </motion.div>
                   ))}
                 </div>
               </CardContent>
