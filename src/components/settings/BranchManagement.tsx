@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, MapPin, Phone, Mail, Clock, Building2, CheckCircle, XCircle, Users } from 'lucide-react';
+import { Plus, Edit2, Trash2, MapPin, Phone, Mail, Clock, Building2, CheckCircle, XCircle, Users, UserPlus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import Icon, { SolarIcons } from '../ui/Icon';
 
 interface Branch {
   id: string;
@@ -38,9 +39,11 @@ const BranchManagement: React.FC = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showStaffModal, setShowStaffModal] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
   const [branchUsers, setBranchUsers] = useState<BranchUser[]>([]);
+  const [allStaff, setAllStaff] = useState<BranchUser[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
@@ -64,6 +67,12 @@ const BranchManagement: React.FC = () => {
       loadBranchUsers(selectedBranch);
     }
   }, [selectedBranch]);
+
+  useEffect(() => {
+    if (user?.practice_id) {
+      loadAllStaff();
+    }
+  }, [user?.practice_id]);
 
   const loadBranches = async () => {
     try {
@@ -100,6 +109,22 @@ const BranchManagement: React.FC = () => {
     } catch (error) {
       console.error('Error loading branch users:', error);
       toast.error('Failed to load branch users');
+    }
+  };
+
+  const loadAllStaff = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, full_name, email, role, branch_id, avatar')
+        .eq('practice_id', user?.practice_id)
+        .order('full_name');
+
+      if (error) throw error;
+
+      setAllStaff(data || []);
+    } catch (error) {
+      console.error('Error loading staff:', error);
     }
   };
 
@@ -216,18 +241,29 @@ const BranchManagement: React.FC = () => {
 
   const handleAssignUser = async (userId: string, branchId: string) => {
     try {
+      const updateData = branchId ? { branch_id: branchId } : { branch_id: null };
+      
       const { error } = await supabase
         .from('users')
-        .update({ branch_id: branchId })
+        .update(updateData)
         .eq('id', userId);
 
       if (error) throw error;
 
-      toast.success('User assigned to branch successfully');
-      loadBranchUsers(branchId);
+      if (branchId) {
+        toast.success('Staff member assigned to branch successfully');
+      } else {
+        toast.success('Staff member removed from branch');
+      }
+      
+      // Reload both staff lists
+      loadAllStaff();
+      if (selectedBranch) {
+        loadBranchUsers(selectedBranch);
+      }
     } catch (error) {
       console.error('Error assigning user:', error);
-      toast.error('Failed to assign user to branch');
+      toast.error('Failed to update staff assignment');
     }
   };
 
@@ -281,19 +317,42 @@ const BranchManagement: React.FC = () => {
       <AnimatePresence>
         {showForm && (
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
           >
-            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto m-4">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-xl font-semibold text-gray-900">
-                  {editingBranch ? 'Edit Branch' : 'Add New Branch'}
-                </h3>
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden m-4"
+            >
+              <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                      <Icon icon={SolarIcons.building} className="w-6 h-6 text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold text-white">
+                      {editingBranch ? 'Edit Branch' : 'Add New Branch'}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForm(false);
+                      setEditingBranch(null);
+                      resetForm();
+                    }}
+                    className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                  >
+                    <Icon icon={SolarIcons.close} className="w-5 h-5 text-white" />
+                  </button>
+                </div>
               </div>
               
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-120px)]">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -303,7 +362,7 @@ const BranchManagement: React.FC = () => {
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-[#01b9d4]"
+                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                       required
                     />
                   </div>
@@ -317,7 +376,7 @@ const BranchManagement: React.FC = () => {
                       value={formData.slug}
                       onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
                       placeholder="auto-generated from name"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-[#01b9d4]"
+                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                     />
                   </div>
                   
@@ -329,7 +388,7 @@ const BranchManagement: React.FC = () => {
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-[#01b9d4]"
+                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                     />
                   </div>
                   
@@ -341,7 +400,7 @@ const BranchManagement: React.FC = () => {
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-[#01b9d4]"
+                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                     />
                   </div>
                   
@@ -353,7 +412,7 @@ const BranchManagement: React.FC = () => {
                       type="text"
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-[#01b9d4]"
+                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                     />
                   </div>
                   
@@ -365,7 +424,7 @@ const BranchManagement: React.FC = () => {
                       type="text"
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-[#01b9d4]"
+                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                     />
                   </div>
                   
@@ -377,7 +436,7 @@ const BranchManagement: React.FC = () => {
                       type="text"
                       value={formData.state_province}
                       onChange={(e) => setFormData({ ...formData, state_province: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-[#01b9d4]"
+                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                     />
                   </div>
                   
@@ -389,7 +448,7 @@ const BranchManagement: React.FC = () => {
                       type="text"
                       value={formData.postal_code}
                       onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-[#01b9d4]"
+                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                     />
                   </div>
                   
@@ -399,7 +458,7 @@ const BranchManagement: React.FC = () => {
                       id="is_active"
                       checked={formData.is_active}
                       onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                      className="w-4 h-4 text-[#01b9d4] border-gray-300 rounded focus:ring-[#01b9d4]"
+                      className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500 focus:ring-offset-2"
                     />
                     <label htmlFor="is_active" className="ml-2 text-sm text-gray-700">
                       Active Branch
@@ -407,7 +466,7 @@ const BranchManagement: React.FC = () => {
                   </div>
                 </div>
                 
-                <div className="flex gap-3 justify-end pt-4">
+                <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 mt-6">
                   <Button
                     type="button"
                     variant="outline"
@@ -416,18 +475,131 @@ const BranchManagement: React.FC = () => {
                       setEditingBranch(null);
                       resetForm();
                     }}
+                    className="px-6 py-2.5"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    className="bg-gradient-to-r from-[#01b9d4] to-cyan-600"
+                    className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-6 py-2.5"
                   >
+                    <Icon icon={editingBranch ? SolarIcons.save : SolarIcons.plus} className="w-5 h-5 mr-2" />
                     {editingBranch ? 'Update Branch' : 'Create Branch'}
                   </Button>
                 </div>
               </form>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Staff Assignment Modal */}
+      <AnimatePresence>
+        {showStaffModal && selectedBranch && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden m-4"
+            >
+              <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                      <Icon icon={SolarIcons.users} className="w-6 h-6 text-white" />
+                    </div>
+                    <h3 className="text-xl font-bold text-white">
+                      Manage Branch Staff
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setShowStaffModal(false)}
+                    className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                  >
+                    <Icon icon={SolarIcons.close} className="w-5 h-5 text-white" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                <div className="mb-4">
+                  <h4 className="font-medium text-gray-900 mb-2">
+                    {branches.find(b => b.id === selectedBranch)?.name}
+                  </h4>
+                  <p className="text-sm text-gray-600">
+                    Assign staff members to work at this branch
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {allStaff.map((staffMember) => {
+                    const isAssigned = staffMember.branch_id === selectedBranch;
+                    return (
+                      <div 
+                        key={staffMember.id} 
+                        className={`flex items-center justify-between p-4 rounded-lg border transition-all ${
+                          isAssigned 
+                            ? 'bg-purple-50 border-purple-200' 
+                            : 'bg-white border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {staffMember.avatar ? (
+                            <img
+                              src={staffMember.avatar}
+                              alt={staffMember.full_name}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                              <Icon icon={SolarIcons.user} className="w-5 h-5 text-gray-500" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-medium text-gray-900">{staffMember.full_name}</p>
+                            <p className="text-sm text-gray-600 capitalize">{staffMember.role}</p>
+                          </div>
+                        </div>
+                        
+                        <Button
+                          variant={isAssigned ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleAssignUser(staffMember.id, isAssigned ? '' : selectedBranch)}
+                          className={isAssigned ? "bg-purple-600 hover:bg-purple-700" : ""}
+                        >
+                          {isAssigned ? (
+                            <>
+                              <Icon icon={SolarIcons.checkCircle} className="w-4 h-4 mr-1" />
+                              Assigned
+                            </>
+                          ) : (
+                            <>
+                              <Icon icon={SolarIcons.plus} className="w-4 h-4 mr-1" />
+                              Assign
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex justify-end mt-6 pt-4 border-t border-gray-200">
+                  <Button
+                    onClick={() => setShowStaffModal(false)}
+                    className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-6 py-2.5"
+                  >
+                    Done
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -545,7 +717,19 @@ const BranchManagement: React.FC = () => {
 
         {/* Branch Users */}
         <div className="space-y-4">
-          <h4 className="font-medium text-gray-900">Branch Staff</h4>
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium text-gray-900">Branch Staff</h4>
+            {selectedBranch && (
+              <Button
+                size="sm"
+                onClick={() => setShowStaffModal(true)}
+                className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
+              >
+                <Icon icon={SolarIcons.plus} className="w-4 h-4 mr-1" />
+                Add Staff Member
+              </Button>
+            )}
+          </div>
           
           {!selectedBranch ? (
             <Card className="bg-white/90 backdrop-blur-md border border-gray-100/50">
