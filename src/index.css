@@ -9,6 +9,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Simple no-shake solution - only prevent scale transforms */
+.hover\:scale-105:hover,
+.hover\:scale-110:hover,
+.hover\:scale-95:hover,
+.active\:scale-95:active,
+.active\:scale-105:active {
+  transform: none !important;
+}
+
+/* Floating animation for visit tracker button */
+@keyframes gentle-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.float-animation {
+  animation: gentle-float 3s ease-in-out infinite;
+}
+
 @layer base {
   html {
     font-family: 'Montserrat', sans-serif;

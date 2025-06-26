@@ -181,16 +181,16 @@
 
 /* Form inputs focus state */
 .input-focus {
-  @apply focus:ring-2 focus:ring-onehealth-500 focus:border-onehealth-500 transition-all duration-200;
+  @apply focus:ring-2 focus:ring-onehealth-500 focus:border-onehealth-500 transition-colors duration-200;
 }
 
 /* Button hover effects */
 .btn-primary {
-  @apply bg-onehealth-600 hover:bg-onehealth-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-onehealth-500 focus:ring-offset-2;
+  @apply bg-onehealth-600 hover:bg-onehealth-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-onehealth-500 focus:ring-offset-2;
 }
 
 .btn-secondary {
-  @apply bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2;
+  @apply bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2;
 }
 
 /* Dashboard grid */

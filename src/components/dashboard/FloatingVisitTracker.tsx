@@ -164,10 +164,10 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
   return (
     <>
       {/* Floating Button */}
-      <div className="fixed bottom-6 right-6 z-40">
+      <div className="fixed bottom-6 right-6 z-40 float-animation">
         <button
           onClick={() => setIsOpen(true)}
-          className="relative w-20 h-20 bg-white rounded-full shadow-2xl border-2 border-white/50 backdrop-blur-xl overflow-hidden group hover:scale-105 active:scale-95 transition-transform duration-200"
+          className="relative w-20 h-20 bg-white rounded-full shadow-2xl border-2 border-white/50 backdrop-blur-xl overflow-hidden group hover:shadow-3xl"
           style={{ 
             background: 'rgba(255, 255, 255, 0.9)',
             backdropFilter: 'blur(20px)'
@@ -202,7 +202,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                 style={{
                   strokeDasharray: createPath(completionPercentage).strokeDasharray,
                   strokeDashoffset: createPath(completionPercentage).strokeDashoffset,
-                  transition: 'all 0.5s ease',
+                  transition: 'none',
                   transformOrigin: '50% 50%',
                   transform: 'rotate(-90deg)'
                 }}
@@ -233,7 +233,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
 
             {/* Modal Content */}
             <div
-              className="fixed inset-x-4 bottom-20 md:right-6 md:left-auto md:w-[580px] bg-white rounded-2xl shadow-2xl z-50 max-h-[85vh] h-[85vh] overflow-hidden flex flex-col transition-all duration-200"
+              className="fixed inset-x-4 bottom-20 md:right-6 md:left-auto md:w-[580px] bg-white rounded-2xl shadow-2xl z-50 max-h-[85vh] h-[85vh] overflow-hidden flex flex-col"
             >
               {/* Fixed Header */}
               <div className="flex-shrink-0 p-6 border-b border-gray-100 bg-white">
@@ -248,7 +248,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                   </div>
                   <button
                     onClick={() => setIsOpen(false)}
-                    className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                    className="p-2 hover:bg-gray-100 rounded-xl"
                   >
                     <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-400" />
                   </button>
@@ -289,7 +289,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                       <div className="h-3 bg-gray-200 rounded-full overflow-hidden shadow-inner">
                         <div
                           style={{ width: `${completionPercentage}%` }}
-                          className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-full shadow-sm transition-all duration-500 ease-out"
+                          className="h-full bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-full shadow-sm"
                         />
                       </div>
                     </div>
@@ -308,7 +308,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           {safeVisits.filter(v => v?.is_ready && !v?.is_cancelled && v?.status !== 'in-progress').map((visit, index) => (
                             <div
                               key={visit.id}
-                              className="relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-emerald-200 cursor-pointer hover:bg-white transition-colors"
+                              className="relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-emerald-200 cursor-pointer hover:bg-white"
                               onClick={() => handlePatientClick(visit.patient_id)}
                             >
                               {/* Ready Number Badge */}
@@ -351,7 +351,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           {safeVisits.filter(v => v?.status === 'in-progress' && !v?.is_cancelled && !v?.is_handoff).map((visit, index) => (
                             <div
                               key={visit.id}
-                              className="relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-orange-100 cursor-pointer hover:bg-white transition-colors"
+                              className="relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-orange-100 cursor-pointer hover:bg-white"
                               onClick={() => handlePatientClick(visit.patient_id)}
                             >
                               {/* Progress Number Badge */}
@@ -377,7 +377,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                     const { handoffVisit } = useVisitsStore.getState();
                                     handoffVisit(visit.id);
                                   }}
-                                  className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-md transition-colors"
+                                  className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-md"
                                 >
                                   Handoff
                                 </button>
@@ -387,7 +387,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                     const { completeVisit } = useVisitsStore.getState();
                                     completeVisit(visit.id);
                                   }}
-                                  className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md transition-colors"
+                                  className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md"
                                 >
                                   Complete
                                 </button>
@@ -512,7 +512,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                   return (
                                   <div
                                     key={visit.id}
-                                    className="relative flex items-center gap-3 p-3 pl-12 bg-white rounded-lg border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all cursor-pointer group"
+                                    className="relative flex items-center gap-3 p-3 pl-12 bg-white rounded-lg border border-gray-100 hover:border-gray-200 hover:shadow-sm cursor-pointer group"
                                     onClick={() => handlePatientClick(visit.patient_id)}
                                   >
                                     {/* Card Number Badge - Colored based on status */}
@@ -542,7 +542,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
 
                                     {/* Patient Info */}
                                     <div className="flex-1">
-                                      <p className="font-medium text-gray-800 group-hover:text-brand-primary transition-colors">
+                                      <p className="font-medium text-gray-800 group-hover:text-brand-primary">
                                         {visit.patient?.first_name} {visit.patient?.last_name}
                                       </p>
                                       <p className="text-xs text-gray-500">
@@ -560,7 +560,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                               e.preventDefault();
                                               handleStartVisit(visit);
                                             }}
-                                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-md transition-colors"
+                                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-md"
                                           >
                                             Start Visit
                                           </button>
@@ -596,7 +596,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                               const { completeVisit } = useVisitsStore.getState();
                                               completeVisit(visit.id);
                                             }}
-                                            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md transition-colors"
+                                            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md"
                                           >
                                             Complete
                                           </button>

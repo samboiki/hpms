@@ -691,7 +691,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                     return (
                       <div
                         key={appointment.id}
-                        className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:border-purple-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
+                        className="relative bg-white rounded-xl border border-gray-200 shadow-sm cursor-pointer overflow-hidden group"
                         onClick={() => {
                           setSelectedVisitForAction(appointment);
                           setIsActionModalOpen(true);
@@ -811,7 +811,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                       e.stopPropagation();
                                       handleCompleteVisit(appointment.id);
                                     }}
-                                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg transition-all duration-200 font-medium flex items-center gap-2 shadow-lg text-sm"
+                                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg font-medium flex items-center gap-2 shadow-lg text-sm"
                                   >
                                     <Icon icon="solar:check-circle-bold-duotone" className="h-4 w-4" />
                                     <span>Complete</span>
@@ -853,7 +853,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                     return (
                       <div
                         key={appointment.id}
-                        className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
+                        className="relative bg-white rounded-xl border border-gray-200 shadow-sm cursor-pointer overflow-hidden group"
                         onClick={() => {
                           setSelectedVisitForAction(appointment);
                           setIsActionModalOpen(true);
@@ -1079,10 +1079,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                         setSelectedVisitForAction(appointment);
                                         setIsActionModalOpen(true);
                                       }}
-                                      className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl transition-all duration-200 group"
+                                      className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl  duration-200 group"
                                       title="Actions"
                                     >
-                                      <Settings className="w-5 h-5 text-gray-600 group-hover:text-gray-800 transition-colors" />
+                                      <Settings className="w-5 h-5 text-gray-600 group-hover:text-gray-800" />
                                     </button>
                                   </div>
                                 )}
@@ -1122,7 +1122,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                     return (
                       <div
                         key={appointment.id}
-                        className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
+                        className="relative bg-white rounded-xl border border-gray-200 shadow-sm cursor-pointer overflow-hidden group"
                         onClick={() => {
                           setSelectedVisitForAction(appointment);
                           setIsActionModalOpen(true);
@@ -1308,10 +1308,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                         setSelectedVisitForAction(appointment);
                                         setIsActionModalOpen(true);
                                       }}
-                                      className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl transition-all duration-200 group"
+                                      className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl  duration-200 group"
                                       title="Actions"
                                     >
-                                      <Settings className="w-5 h-5 text-gray-600 group-hover:text-gray-800 transition-colors" />
+                                      <Settings className="w-5 h-5 text-gray-600 group-hover:text-gray-800" />
                                     </button>
                                   </div>
                                 )}
@@ -1351,7 +1351,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                     return (
                       <div
                         key={appointment.id}
-                        className="relative bg-white rounded-xl border border-gray-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all cursor-pointer overflow-hidden group"
+                        className="relative bg-white rounded-xl border border-gray-200 shadow-sm cursor-pointer overflow-hidden group"
                         onClick={() => {
                           setSelectedVisitForAction(appointment);
                           setIsActionModalOpen(true);
@@ -1537,10 +1537,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                         setSelectedVisitForAction(appointment);
                                         setIsActionModalOpen(true);
                                       }}
-                                      className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl transition-all duration-200 group"
+                                      className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl  duration-200 group"
                                       title="Actions"
                                     >
-                                      <Settings className="w-5 h-5 text-gray-600 group-hover:text-gray-800 transition-colors" />
+                                      <Settings className="w-5 h-5 text-gray-600 group-hover:text-gray-800" />
                                     </button>
                                   </div>
                                 )}
@@ -1717,7 +1717,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                             e.stopPropagation();
                                             handleCheckIn(appointment.id);
                                           }}
-                                          className="px-1.5 py-0.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] rounded shadow-sm transition-colors"
+                                          className="px-1.5 py-0.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] rounded shadow-sm "
                                           title="Check In"
                                         >
                                           CI
@@ -1727,7 +1727,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                             e.stopPropagation();
                                             handleMarkReady(appointment.id);
                                           }}
-                                          className="px-1.5 py-0.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] rounded shadow-sm transition-colors"
+                                          className="px-1.5 py-0.5 bg-blue-500 hover:bg-blue-600 text-white text-[10px] rounded shadow-sm "
                                           title="Mark Ready"
                                         >
                                           R
@@ -1739,7 +1739,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                           e.stopPropagation();
                                           handleStartVisit(appointment.id);
                                         }}
-                                        className="px-1.5 py-0.5 bg-purple-500 hover:bg-purple-600 text-white text-[10px] rounded shadow-sm transition-colors"
+                                        className="px-1.5 py-0.5 bg-purple-500 hover:bg-purple-600 text-white text-[10px] rounded shadow-sm "
                                         title="Start Visit"
                                       >
                                         SV
@@ -1762,7 +1762,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                       appointment.status === 'scheduled' 
                                         ? 'bg-blue-500 hover:bg-blue-600' 
                                         : 'bg-purple-500 hover:bg-purple-600'
-                                    } text-white text-[10px] rounded shadow-sm transition-colors`}
+                                    } text-white text-[10px] rounded shadow-sm `}
                                     title={appointment.status === 'scheduled' ? 'Mark Ready' : 'Start Visit'}
                                   >
                                     {appointment.status === 'scheduled' ? 'Ready' : 'Start'}
@@ -1777,7 +1777,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                         {timeSlots.map((slot, slotIndex) => (
                           <div
                             key={`${date}-${slot}`}
-                            className="absolute left-0 right-0 hover:bg-[#01b9d5]/5 transition-colors cursor-pointer"
+                            className="absolute left-0 right-0 hover:bg-[#01b9d5]/5  cursor-pointer"
                             style={{ 
                               top: `${slotIndex * HOUR_HEIGHT}px`,
                               height: `${HOUR_HEIGHT}px`
@@ -1849,7 +1849,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                             e.stopPropagation();
                                             handleCheckIn(appointment.id);
                                           }}
-                                          className="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white text-xs rounded-md shadow-md transition-colors"
+                                          className="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white text-xs rounded-md shadow-md "
                                         >
                                           Check In
                                         </button>
@@ -1858,7 +1858,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                             e.stopPropagation();
                                             handleMarkReady(appointment.id);
                                           }}
-                                          className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded-md shadow-md transition-colors"
+                                          className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded-md shadow-md "
                                         >
                                           Ready
                                         </button>
@@ -1869,7 +1869,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                           e.stopPropagation();
                                           handleStartVisit(appointment.id);
                                         }}
-                                        className="px-2 py-1 bg-purple-500 hover:bg-purple-600 text-white text-xs rounded-md shadow-md transition-colors"
+                                        className="px-2 py-1 bg-purple-500 hover:bg-purple-600 text-white text-xs rounded-md shadow-md "
                                       >
                                         Start Visit
                                       </button>
@@ -1885,7 +1885,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                         {timeSlots.map((slot, index) => (
                           <div
                             key={`${doctor.id}-${slot}`}
-                            className="absolute left-0 right-0 hover:bg-[#01b9d5]/5 transition-colors cursor-pointer"
+                            className="absolute left-0 right-0 hover:bg-[#01b9d5]/5  cursor-pointer"
                             style={{ 
                               top: `${index * HOUR_HEIGHT}px`,
                               height: `${HOUR_HEIGHT}px`
@@ -1950,7 +1950,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
           <button
             onClick={() => setShowDoctorModal(true)}
             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg 
-              transition-all duration-200 font-medium flex items-center gap-2 text-sm
+              font-medium flex items-center gap-2 text-sm
               border border-gray-200 shadow-sm"
           >
             <Icon icon="solar:user-bold-duotone" className="w-4 h-4" />
@@ -1966,7 +1966,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             {onRefresh && (
               <button
                 onClick={onRefresh}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-lg "
               >
                 <RefreshCw className="h-4 w-4 text-gray-600" />
               </button>
@@ -1979,7 +1979,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                 setIsAddModalOpen(true);
               }}
               className="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg 
-                hover:from-purple-600 hover:to-indigo-700 transition-all duration-200 font-medium 
+                hover:from-purple-600 hover:to-indigo-700 font-medium 
                 flex items-center gap-2 disabled:opacity-50 
                 disabled:cursor-not-allowed shadow-lg text-sm"
             >
@@ -2000,7 +2000,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             ].map((filter) => (
               <button
                 key={filter.status}
-                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-all capitalize ${filter.bg} ${filter.text} hover:shadow-md border border-transparent hover:border-gray-300`}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md capitalize ${filter.bg} ${filter.text} hover:shadow-md border border-transparent hover:border-gray-300`}
               >
                 <span>{filter.label}</span>
                 <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r ${filter.gradient} text-white shadow-sm`}>
@@ -2111,7 +2111,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                   </div>
                   <button
                     onClick={() => setShowDoctorModal(false)}
-                    className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                    className="p-2 hover:bg-gray-100 rounded-xl "
                   >
                     <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-400" />
                   </button>
@@ -2126,7 +2126,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                     setSelectedDoctorId(null);
                     setShowDoctorModal(false);
                   }}
-                  className={`w-full p-3 rounded-lg flex items-center gap-3 transition-all ${
+                  className={`w-full p-3 rounded-lg flex items-center gap-3 ${
                     !selectedDoctorId 
                       ? 'bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200' 
                       : 'bg-gray-50 hover:bg-gray-100 border border-gray-200'
@@ -2166,7 +2166,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                           setSelectedDoctorId(doctor.id);
                           setShowDoctorModal(false);
                         }}
-                        className={`w-full p-3 rounded-lg flex items-center gap-3 transition-all ${
+                        className={`w-full p-3 rounded-lg flex items-center gap-3 ${
                           isSelected 
                             ? 'bg-gradient-to-r from-blue-50 to-cyan-50 border-2 border-blue-200' 
                             : 'bg-white hover:bg-gray-50 border border-gray-200'

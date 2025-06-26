@@ -587,11 +587,11 @@ function Dashboard() {
                     {/* Animated gradient glow on hover */}
                     <div className={`absolute -inset-0.5 bg-gradient-to-r ${currentTheme.gradients.sidebar} rounded-xl opacity-0 group-hover:opacity-75 blur transition duration-500 group-hover:duration-200`}></div>
                     
-                    <div className="relative bg-gray-200 rounded-xl overflow-hidden transition-all duration-300 group-hover:bg-gray-100">
+                    <div className="relative bg-gray-200 rounded-xl overflow-hidden transition-colors duration-300 group-hover:bg-gray-100">
                       {/* Duo-tone Search Icon */}
                       <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
                         <SearchDuotone 
-                          className="w-5 h-5 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12"
+                          className="w-5 h-5 transition-colors duration-300"
                           primaryColor="#374151"
                           secondaryColor="#37415180"
                         />
@@ -600,7 +600,7 @@ function Dashboard() {
                       <input
                         type="text"
                         placeholder="Search patients, appointments, or records..."
-                        className="relative w-full pl-12 pr-4 py-3.5 bg-transparent text-base text-gray-800 placeholder-gray-600 focus:outline-none focus:placeholder-gray-500 transition-all duration-300"
+                        className="relative w-full pl-12 pr-4 py-3.5 bg-transparent text-base text-gray-800 placeholder-gray-600 focus:outline-none focus:placeholder-gray-500 transition-colors duration-300"
                         onChange={(e) => {
                           // TODO: Implement search functionality
                           console.log('Search:', e.target.value);
@@ -697,7 +697,7 @@ function Dashboard() {
                               setIsAvatarDropdownOpen(false);
                               handleLogout();
                             }}
-                            className="w-full px-4 py-3 text-sm bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl transition-all font-semibold hover:shadow-lg hover:scale-[1.02] flex items-center justify-center gap-2"
+                            className="w-full px-4 py-3 text-sm bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl transition-colors font-semibold hover:shadow-lg flex items-center justify-center gap-2"
                           >
                             <Icon icon="solar:logout-3-bold-duotone" className="w-4 h-4" />
                             Logout
@@ -887,7 +887,7 @@ function Dashboard() {
                           <div className="flex items-center bg-white/30 backdrop-blur-sm rounded-lg p-1 shadow-sm border border-white/20">
                             <button
                               onClick={() => setInternalViewMode('grid')}
-                              className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${
+                              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
                                 internalViewMode === 'grid'
                                   ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
                                   : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
@@ -898,7 +898,7 @@ function Dashboard() {
                             </button>
                             <button
                               onClick={() => setInternalViewMode('timeline')}
-                              className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${
+                              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
                                 internalViewMode === 'timeline'
                                   ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
                                   : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
@@ -915,20 +915,20 @@ function Dashboard() {
                       <div className="flex items-center justify-center gap-3">
                         <button
                           onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
-                          className="p-2 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
+                          className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
                         >
                           <Icon icon="solar:map-arrow-left-bold-duotone" className="w-5 h-5 text-gray-600" />
                         </button>
                         <button
                           onClick={() => setShowCalendarPicker(!showCalendarPicker)}
-                          className="text-lg font-bold text-gray-700 min-w-[140px] text-center hover:bg-white/20 rounded-lg px-2 py-1 transition-all duration-200 flex items-center justify-center gap-2"
+                          className="text-lg font-bold text-gray-700 min-w-[140px] text-center hover:bg-white/20 rounded-lg px-2 py-1 transition-colors duration-200 flex items-center justify-center gap-2"
                         >
                           <span>{format(selectedDate, 'MMMM yyyy')}</span>
                           <Icon icon="solar:calendar-bold-duotone" className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
-                          className="p-2 hover:bg-white/30 rounded-full transition-all duration-200 backdrop-blur-sm"
+                          className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
                         >
                           <Icon icon="solar:map-arrow-right-bold-duotone" className="w-5 h-5 text-gray-600" />
                         </button>
@@ -936,9 +936,7 @@ function Dashboard() {
                       
                       {/* Today Button on right */}
                       <div className="flex justify-end">
-                        <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
+                        <button
                         onClick={() => {
                           const today = new Date();
                           setSelectedDate(today);
@@ -956,11 +954,11 @@ function Dashboard() {
                             }, 100);
                           }
                         }}
-                        className={`px-4 py-2 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl flex items-center gap-2 hover:shadow-lg transition-all duration-200 font-medium text-sm`}
+                        className={`px-4 py-2 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl flex items-center gap-2 hover:shadow-lg transition-colors duration-200 font-medium text-sm`}
                       >
                           <Icon icon="solar:calendar-mark-bold-duotone" className="w-4 h-4" />
                           <span>Today</span>
-                        </motion.button>
+                        </button>
                       </div>
                     </div>
                     
@@ -991,7 +989,7 @@ function Dashboard() {
                             key={day.toISOString()}
                             data-is-today={dayIsToday}
                             onClick={() => setSelectedDate(day)}
-                            className={`relative flex flex-col items-center p-3 rounded-2xl transition-all duration-300 transform hover:scale-105 min-w-[4rem] flex-shrink-0 ${
+                            className={`relative flex flex-col items-center p-3 rounded-2xl transition-colors duration-300 min-w-[4rem] flex-shrink-0 ${
                               dayIsSelected
                                 ? `bg-gradient-to-br ${currentTheme.gradients.sidebar} shadow-lg backdrop-blur-sm text-white`
                                 : dayIsToday
@@ -1057,12 +1055,7 @@ function Dashboard() {
 
                   {/* Appointment Schedule */}
                   <div className="mt-4">
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 }}
-                      className="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50"
-                    >
+                    <div className="bg-white/90 backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">
                       {/* Appointment Scheduler */}
                       <div>
                         <PremiumAppointmentScheduler
@@ -1148,7 +1141,7 @@ function Dashboard() {
                           onInternalViewModeChange={setInternalViewMode}
                         />
                       </div>
-                    </motion.div>
+                    </div>
                   </div>
                 </div>
 
@@ -1541,7 +1534,7 @@ function Dashboard() {
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode as any)}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all capitalize ${
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors capitalize ${
                       viewMode === mode
                         ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
                         : 'text-gray-600 hover:text-gray-900 hover:bg-white'
@@ -1668,7 +1661,7 @@ function Dashboard() {
                       setShowYearDropdown(false);
                       setShowMonthDropdown(false);
                     }}
-                    className={`h-12 w-12 text-sm rounded-xl transition-all duration-200 font-medium flex items-center justify-center ${
+                    className={`h-12 w-12 text-sm rounded-xl transition-colors duration-200 font-medium flex items-center justify-center ${
                       dayIsSelected
                         ? `bg-gradient-to-r ${currentTheme.gradients.button} text-white font-bold shadow-lg scale-110`
                         : dayIsToday
@@ -1690,7 +1683,7 @@ function Dashboard() {
                   setShowYearDropdown(false);
                   setShowMonthDropdown(false);
                 }}
-                className={`flex-1 px-4 py-3 text-sm bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl transition-all font-semibold hover:shadow-lg`}
+                className={`flex-1 px-4 py-3 text-sm bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl transition-colors font-semibold hover:shadow-lg`}
               >
                 Today
               </button>
