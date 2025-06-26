@@ -21,14 +21,15 @@ if (typeof window !== 'undefined' && !window.iconifyLoaded) {
 const Settings: React.FC = () => {
   const { user } = useAuthStore();
   const { currentTheme, themes, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'account' | 'security' | 'themes' | 'system' | 'practice'>('account');
+  const [activeTab, setActiveTab] = useState<'account' | 'security' | 'themes' | 'users' | 'practice' | 'system'>('account');
 
   const tabIcons = {
     account: SolarIcons.user,
     security: SolarIcons.shield,
     themes: SolarIcons.palette,
-    system: SolarIcons.globe,
-    practice: SolarIcons.building
+    users: SolarIcons.users,
+    practice: SolarIcons.building,
+    system: SolarIcons.globe
   };
 
   return (
@@ -70,8 +71,8 @@ const Settings: React.FC = () => {
 
         {/* Premium Navigation Tabs */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-5 gap-0 w-full">
-            {(['account', 'security', 'themes', 'practice', 'system'] as const).map((tab, index) => {
+          <div className="grid grid-cols-6 gap-0 w-full">
+            {(['account', 'security', 'themes', 'users', 'practice', 'system'] as const).map((tab, index) => {
               const iconName = tabIcons[tab];
               const isActive = activeTab === tab;
               const tabLabel = tab === 'themes' ? 'Themes' : tab;
@@ -719,6 +720,10 @@ const Settings: React.FC = () => {
             </div>
           )}
           
+          {activeTab === 'users' && (
+            <UsersManagementContent />
+          )}
+          
           {activeTab === 'practice' && (
             <PracticeProfileContent />
           )}
@@ -733,7 +738,7 @@ const Settings: React.FC = () => {
 // Practice Profile Component
 const PracticeProfileContent: React.FC = () => {
   const { user } = useAuthStore();
-  const [practiceTab, setPracticeTab] = useState<'profile' | 'staff' | 'hours' | 'branches'>('profile');
+  const [practiceTab, setPracticeTab] = useState<'profile' | 'hours' | 'branches'>('profile');
   const [practiceData, setPracticeData] = useState({
     id: '',
     name: '',
@@ -1083,16 +1088,6 @@ const PracticeProfileContent: React.FC = () => {
               }`}
             >
               Practice Info
-            </button>
-            <button
-              onClick={() => setPracticeTab('staff')}
-              className={`px-4 py-3 text-sm font-medium border-b-2 ${
-                practiceTab === 'staff'
-                  ? 'text-purple-600 border-purple-500'
-                  : 'text-gray-500 border-transparent hover:text-gray-700'
-              }`}
-            >
-              Staff
             </button>
             <button
               onClick={() => setPracticeTab('hours')}
