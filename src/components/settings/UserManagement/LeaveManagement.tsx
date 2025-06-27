@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../ui/Card';
 import { useAuthStore } from '../../../stores/authStore';
 import toast from 'react-hot-toast';
 import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from 'date-fns';
+import LeaveTypeModal from './LeaveTypeModal';
 
 interface LeaveType {
   id: string;
@@ -17,6 +18,8 @@ interface LeaveType {
   color: string;
   requires_approval: boolean;
   min_notice_days: number;
+  accrual_rate?: number;
+  accrual_frequency?: string;
 }
 
 interface LeaveBalance {
@@ -45,12 +48,27 @@ interface LeaveRequest {
   created_at: string;
 }
 
-export const LeaveManagement: React.FC = () => {
+interface LeaveManagementProps {
+  selectedUserId?: string;
+  isTeamView: boolean;
+}
+
+export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId, isTeamView }) => {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const [activeView, setActiveView] = useState<'my-leave' | 'team-leave' | 'calendar' | 'settings'>('my-leave');
+  const [activeView, setActiveView] = useState<'my-leave' | 'team-leave' | 'calendar' | 'settings'>(isTeamView ? 'team-leave' : 'my-leave');
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [showAddLeaveType, setShowAddLeaveType] = useState(false);
+  const [editingLeaveType, setEditingLeaveType] = useState<LeaveType | null>(null);
+  const [leaveRequestForm, setLeaveRequestForm] = useState({
+    leave_type_id: '',
+    start_date: format(new Date(), 'yyyy-MM-dd'),
+    end_date: format(new Date(), 'yyyy-MM-dd'),
+    reason: '',
+    is_half_day: false,
+    half_day_period: 'morning'
+  });
 
   const isManager = user?.role === 'admin' || user?.role === 'doctor';
   const currentYear = new Date().getFullYear();
@@ -69,31 +87,40 @@ export const LeaveManagement: React.FC = () => {
       if (error) throw error;
       return data as LeaveType[];
     },
-    enabled: !!user?.practice_id
+    enabled: !!user?.practice_id,
+    onError: (error) => {
+      console.error('Error fetching leave types:', error);
+      toast.error('Failed to load leave types');
+    }
   });
 
   // Fetch user's leave balances
   const { data: myBalances = [] } = useQuery({
-    queryKey: ['my-leave-balances', user?.id, currentYear],
+    queryKey: ['my-leave-balances', selectedUserId || user?.id, currentYear],
     queryFn: async () => {
+      const userId = selectedUserId || user?.id;
       const { data, error } = await supabase
         .from('leave_balances')
         .select(`
           *,
           leave_type:leave_type_id (*)
         `)
-        .eq('user_id', user?.id)
+        .eq('user_id', userId)
         .eq('year', currentYear);
 
       if (error) throw error;
       return data as LeaveBalance[];
     },
-    enabled: !!user?.id
+    enabled: !!(selectedUserId || user?.id),
+    onError: (error) => {
+      console.error('Error fetching leave balances:', error);
+      toast.error('Failed to load leave balances');
+    }
   });
 
   // Fetch leave requests
   const { data: leaveRequests = [] } = useQuery({
-    queryKey: ['leave-requests', user?.practice_id, activeView],
+    queryKey: ['leave-requests', user?.practice_id, activeView, selectedUserId, isTeamView],
     queryFn: async () => {
       let query = supabase
         .from('leave_requests')
@@ -116,7 +143,11 @@ export const LeaveManagement: React.FC = () => {
       if (error) throw error;
       return data as LeaveRequest[];
     },
-    enabled: !!user?.practice_id
+    enabled: !!user?.practice_id,
+    onError: (error) => {
+      console.error('Error fetching leave requests:', error);
+      toast.error('Failed to load leave requests');
+    }
   });
 
   // Calculate leave summary
@@ -149,6 +180,122 @@ export const LeaveManagement: React.FC = () => {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  // Calculate leave days between dates
+  const calculateLeaveDays = (startDate: string, endDate: string, isHalfDay: boolean) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    let days = 0;
+    
+    const current = new Date(start);
+    while (current <= end) {
+      if (!isWeekend(current)) {
+        days++;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+    
+    return isHalfDay ? days - 0.5 : days;
+  };
+
+  // Submit leave request mutation
+  const submitLeaveRequest = useMutation({
+    mutationFn: async (data: typeof leaveRequestForm) => {
+      const days = calculateLeaveDays(data.start_date, data.end_date, data.is_half_day);
+      
+      const { error } = await supabase
+        .from('leave_requests')
+        .insert({
+          user_id: selectedUserId || user?.id,
+          leave_type_id: data.leave_type_id,
+          start_date: data.start_date,
+          end_date: data.end_date,
+          days_requested: days,
+          reason: data.reason,
+          is_half_day: data.is_half_day,
+          half_day_period: data.is_half_day ? data.half_day_period : null,
+          status: 'pending'
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
+      toast.success('Leave request submitted successfully');
+      setShowRequestForm(false);
+      setLeaveRequestForm({
+        leave_type_id: '',
+        start_date: format(new Date(), 'yyyy-MM-dd'),
+        end_date: format(new Date(), 'yyyy-MM-dd'),
+        reason: '',
+        is_half_day: false,
+        half_day_period: 'morning'
+      });
+    },
+    onError: (error: any) => {
+      console.error('Error submitting leave request:', error);
+      toast.error(error.message || 'Failed to submit leave request');
+    }
+  });
+
+  // Delete leave type mutation
+  const deleteLeaveType = useMutation({
+    mutationFn: async (leaveTypeId: string) => {
+      // First check if there are any leave requests or balances using this type
+      const { data: requests } = await supabase
+        .from('leave_requests')
+        .select('id')
+        .eq('leave_type_id', leaveTypeId)
+        .limit(1);
+      
+      if (requests && requests.length > 0) {
+        throw new Error('Cannot delete leave type with existing leave requests');
+      }
+      
+      // Soft delete by setting is_active to false
+      const { error } = await supabase
+        .from('leave_types')
+        .update({ is_active: false })
+        .eq('id', leaveTypeId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leave-types'] });
+      queryClient.invalidateQueries({ queryKey: ['leave-balances'] });
+      toast.success('Leave type deactivated successfully');
+    },
+    onError: (error: any) => {
+      console.error('Error deleting leave type:', error);
+      toast.error(error.message || 'Failed to delete leave type');
+    }
+  });
+
+  // Approve/Reject leave request mutations
+  const updateLeaveStatus = useMutation({
+    mutationFn: async ({ requestId, status, comments }: { requestId: string; status: 'approved' | 'rejected'; comments?: string }) => {
+      const { error } = await supabase
+        .from('leave_requests')
+        .update({
+          status,
+          approver_id: user?.id,
+          approved_at: new Date().toISOString(),
+          approver_comments: comments
+        })
+        .eq('id', requestId);
+      
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['my-leave-balances'] });
+      toast.success(`Leave request ${variables.status}`);
+    },
+    onError: (error: any) => {
+      console.error('Error updating leave status:', error);
+      toast.error(error.message || 'Failed to update leave request');
+    }
+  });
 
   return (
     <div className="space-y-6">
@@ -354,7 +501,7 @@ export const LeaveManagement: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {leaveRequests.filter(r => r.user_id === user?.id).map((request) => (
+                {leaveRequests.filter((r: any) => r.user_id === user?.id).map((request) => (
                   <div
                     key={request.id}
                     className="bg-gray-50 rounded-lg p-4 border border-gray-200"
@@ -490,6 +637,8 @@ export const LeaveManagement: React.FC = () => {
                           <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => updateLeaveStatus.mutate({ requestId: request.id, status: 'approved' })}
+                            disabled={updateLeaveStatus.isPending}
                           >
                             <Icon icon={SolarIcons.checkCircle} className="w-4 h-4 mr-1" />
                             Approve
@@ -498,6 +647,8 @@ export const LeaveManagement: React.FC = () => {
                             size="sm"
                             variant="outline"
                             className="text-red-600 border-red-600 hover:bg-red-50"
+                            onClick={() => updateLeaveStatus.mutate({ requestId: request.id, status: 'rejected' })}
+                            disabled={updateLeaveStatus.isPending}
                           >
                             <Icon icon={SolarIcons.closeCircle} className="w-4 h-4 mr-1" />
                             Reject
@@ -597,7 +748,10 @@ export const LeaveManagement: React.FC = () => {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Leave Type Configuration</CardTitle>
-              <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+              <Button 
+                onClick={() => setShowAddLeaveType(true)}
+                className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
+              >
                 <Icon icon={SolarIcons.plus} className="w-4 h-4 mr-2" />
                 Add Leave Type
               </Button>
@@ -621,9 +775,26 @@ export const LeaveManagement: React.FC = () => {
                         {type.code}
                       </span>
                     </div>
-                    <Button variant="ghost" size="sm">
-                      <Icon icon={SolarIcons.edit} className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => setEditingLeaveType(type)}
+                      >
+                        <Icon icon={SolarIcons.edit} className="w-4 h-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          if (confirm(`Are you sure you want to deactivate the "${type.name}" leave type?`)) {
+                            deleteLeaveType.mutate(type.id);
+                          }
+                        }}
+                      >
+                        <Icon icon={SolarIcons.trash} className="w-4 h-4 text-red-500" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
@@ -655,6 +826,158 @@ export const LeaveManagement: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Leave Request Modal */}
+      {showRequestForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Request Leave</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Leave Type
+                  </label>
+                  <select
+                    value={leaveRequestForm.leave_type_id}
+                    onChange={(e) => setLeaveRequestForm({ ...leaveRequestForm, leave_type_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="">Select leave type</option>
+                    {leaveTypes.map((type) => (
+                      <option key={type.id} value={type.id}>
+                        {type.name} ({type.days_per_year} days/year)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={leaveRequestForm.start_date}
+                      onChange={(e) => setLeaveRequestForm({ ...leaveRequestForm, start_date: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={leaveRequestForm.end_date}
+                      onChange={(e) => setLeaveRequestForm({ ...leaveRequestForm, end_date: e.target.value })}
+                      min={leaveRequestForm.start_date}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={leaveRequestForm.is_half_day}
+                      onChange={(e) => setLeaveRequestForm({ ...leaveRequestForm, is_half_day: e.target.checked })}
+                      className="rounded text-purple-600 focus:ring-purple-500"
+                    />
+                    <span className="text-sm text-gray-700">Half day leave</span>
+                  </label>
+                  
+                  {leaveRequestForm.is_half_day && (
+                    <div className="mt-2 ml-6">
+                      <select
+                        value={leaveRequestForm.half_day_period}
+                        onChange={(e) => setLeaveRequestForm({ ...leaveRequestForm, half_day_period: e.target.value as any })}
+                        className="px-3 py-1 border border-gray-300 rounded text-sm"
+                      >
+                        <option value="morning">Morning</option>
+                        <option value="afternoon">Afternoon</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Reason for Leave
+                  </label>
+                  <textarea
+                    value={leaveRequestForm.reason}
+                    onChange={(e) => setLeaveRequestForm({ ...leaveRequestForm, reason: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    rows={3}
+                    placeholder="Please provide a reason for your leave request"
+                  />
+                </div>
+
+                {/* Display calculated days */}
+                {leaveRequestForm.start_date && leaveRequestForm.end_date && (
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      Total days requested: {' '}
+                      <span className="font-semibold">
+                        {calculateLeaveDays(leaveRequestForm.start_date, leaveRequestForm.end_date, leaveRequestForm.is_half_day)} days
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3 mt-6">
+                <Button
+                  onClick={() => submitLeaveRequest.mutate(leaveRequestForm)}
+                  disabled={!leaveRequestForm.leave_type_id || !leaveRequestForm.reason || submitLeaveRequest.isPending}
+                  className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
+                >
+                  {submitLeaveRequest.isPending ? 'Submitting...' : 'Submit Request'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowRequestForm(false);
+                    setLeaveRequestForm({
+                      leave_type_id: '',
+                      start_date: format(new Date(), 'yyyy-MM-dd'),
+                      end_date: format(new Date(), 'yyyy-MM-dd'),
+                      reason: '',
+                      is_half_day: false,
+                      half_day_period: 'morning'
+                    });
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Leave Type Modal */}
+      {(showAddLeaveType || editingLeaveType) && (
+        <LeaveTypeModal
+          isOpen={showAddLeaveType || !!editingLeaveType}
+          onClose={() => {
+            setShowAddLeaveType(false);
+            setEditingLeaveType(null);
+          }}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['leave-types'] });
+            queryClient.invalidateQueries({ queryKey: ['leave-balances'] });
+            setShowAddLeaveType(false);
+            setEditingLeaveType(null);
+          }}
+          existingLeaveType={editingLeaveType}
+        />
       )}
     </div>
   );

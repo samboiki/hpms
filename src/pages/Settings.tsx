@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Icon, { SolarIcons } from '../components/ui/Icon';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -7,21 +8,21 @@ import { supabase } from '../lib/supabase';
 import { useTheme } from '../stores/themeStore';
 import { motion } from 'framer-motion';
 import BranchManagement from '../components/settings/BranchManagement';
+import { EnhancedUserManagement } from '../components/settings/EnhancedUserManagement';
+import DepartmentManagement from '../components/settings/DepartmentManagement';
 import { toast } from 'react-hot-toast';
+import { usePractice } from '../contexts/PracticeContext';
+import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
 
-// Add Iconify script
-if (typeof window !== 'undefined' && !window.iconifyLoaded) {
-  const script = document.createElement('script');
-  script.src = 'https://code.iconify.design/3/3.1.1/iconify.min.js';
-  script.async = true;
-  document.head.appendChild(script);
-  window.iconifyLoaded = true;
-}
+// Iconify is now handled by @iconify/react package
 
 const Settings: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const { currentTheme, themes, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'account' | 'security' | 'themes' | 'users' | 'practice' | 'system'>('account');
+  const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
+  const avatarButtonRef = useRef<HTMLButtonElement>(null);
+  const { practiceId } = usePractice();
 
   const tabIcons = {
     account: SolarIcons.user,
@@ -35,6 +36,120 @@ const Settings: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+
+        {/* Header Section */}
+        <div className="backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50 bg-white">
+          <div className="p-4 md:p-5">
+            <div className="flex items-center justify-between">
+              {/* Page Title and Icon */}
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg">
+                  <Icon icon="solar:settings-bold-duotone" className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-semibold text-gray-800">Settings</h1>
+                  <p className="text-sm text-gray-500 mt-0.5">Manage your practice and account settings</p>
+                </div>
+              </div>
+
+              {/* User Avatar with Dropdown */}
+              {user && (
+                <div className="relative">
+                  <button
+                    ref={avatarButtonRef}
+                    onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
+                    className="relative group focus:outline-none"
+                  >
+                    {/* Pulsating outer ring */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
+                    <div className={`absolute -inset-1 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full opacity-50`}></div>
+                    
+                    {/* Avatar circle */}
+                    <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                      <img 
+                        src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
+                        alt={user.name}
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
+                        }}
+                      />
+                    </div>
+                  </button>
+
+                  {/* Premium Dropdown Modal - Using Portal for maximum z-index control */}
+                  {isAvatarDropdownOpen && createPortal(
+                    <>
+                      {/* Backdrop */}
+                      <div 
+                        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[99998] animate-in fade-in duration-200" 
+                        onClick={() => setIsAvatarDropdownOpen(false)}
+                      />
+                      
+                      {/* Premium Modal Dropdown */}
+                      <div 
+                        style={{
+                          position: 'fixed',
+                          top: avatarButtonRef.current ? avatarButtonRef.current.getBoundingClientRect().bottom + 16 : 0,
+                          right: avatarButtonRef.current ? window.innerWidth - avatarButtonRef.current.getBoundingClientRect().right : 0,
+                          zIndex: 99999
+                        }}
+                        className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 w-[320px] animate-in fade-in slide-in-from-top-3 duration-300"
+                      >
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-6">
+                          <h3 className="text-xl font-bold text-gray-900">User Profile</h3>
+                          <button 
+                            onClick={() => setIsAvatarDropdownOpen(false)}
+                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                          >
+                            <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
+                          </button>
+                        </div>
+                        
+                        {/* User Info Card */}
+                        <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl p-4 mb-6">
+                          <div className="flex items-center gap-4">
+                            <div className="relative">
+                              <div className="h-14 w-14 rounded-full overflow-hidden border-3 border-white shadow-lg">
+                                <img 
+                                  src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
+                                  alt={user.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              </div>
+                              <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-base font-semibold text-gray-900">{user.name}</p>
+                              <p className="text-sm text-gray-500">{user.email}</p>
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-500 to-indigo-600 text-white mt-1">
+                                {user.role}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Logout Button */}
+                        <button
+                          onClick={() => {
+                            setIsAvatarDropdownOpen(false);
+                            logout();
+                          }}
+                          className="w-full py-3 px-4 bg-gradient-to-r from-red-500 to-red-600 text-white font-medium rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                        >
+                          <Icon icon="solar:logout-3-bold-duotone" className="w-5 h-5" />
+                          <span>Sign Out</span>
+                        </button>
+                      </div>
+                    </>,
+                    document.body
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Premium Navigation Tabs */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
@@ -688,7 +803,7 @@ const Settings: React.FC = () => {
           )}
           
           {activeTab === 'users' && (
-            <UsersManagementContent />
+            <EnhancedUserManagement />
           )}
           
           {activeTab === 'practice' && (
@@ -698,6 +813,9 @@ const Settings: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Floating Visit Tracker */}
+      {practiceId && <FloatingVisitTracker practiceId={practiceId} />}
     </div>
   );
 };
@@ -705,7 +823,8 @@ const Settings: React.FC = () => {
 // Practice Profile Component
 const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> = ({ onTabChange }) => {
   const { user } = useAuthStore();
-  const [practiceTab, setPracticeTab] = useState<'profile' | 'hours' | 'branches'>('profile');
+  const { currentTheme } = useTheme();
+  const [practiceTab, setPracticeTab] = useState<'profile' | 'hours' | 'branches' | 'departments'>('profile');
   const [practiceData, setPracticeData] = useState({
     id: '',
     name: '',
@@ -969,1063 +1088,415 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
     );
   }
 
+  // Tab configuration
+  const tabs = [
+    { id: 'profile' as const, label: 'Practice Profile', icon: SolarIcons.building },
+    { id: 'hours' as const, label: 'Business Hours', icon: SolarIcons.clock },
+    { id: 'branches' as const, label: 'Branches', icon: SolarIcons.buildings },
+    { id: 'departments' as const, label: 'Departments', icon: SolarIcons.folder }
+  ];
+
   return (
-    <div className="space-y-6">
-      {/* Practice Profile Header */}
-      <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-        <CardHeader>
-          <div className="flex items-center justify-between">
+    <div className="flex gap-6">
+      {/* Left Sidebar - Practice Navigation */}
+      <div className="w-80 shrink-0">
+        <Card className="bg-white border border-gray-200 shadow-sm sticky top-4">
+          <CardHeader className="pb-3">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg shadow-md">
+              <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg">
                 <Icon icon={SolarIcons.building} className="w-5 h-5 text-white" />
               </div>
               <div>
-                <CardTitle className="text-lg font-semibold text-gray-900">Practice Management</CardTitle>
-                <p className="text-sm text-gray-600">Manage your practice information, staff, and settings</p>
+                <CardTitle className="text-base font-semibold text-gray-900">Practice Settings</CardTitle>
+                <p className="text-xs text-gray-500">Configure your practice</p>
               </div>
             </div>
-            <Button variant="outline" className="hover:bg-gray-50">
-              <Icon icon={SolarIcons.globe} className="w-4 h-4 mr-2" />
-              Preview Website
-            </Button>
-          </div>
-        </CardHeader>
-      </Card>
+          </CardHeader>
+          
+          <CardContent className="p-0">
+            {loading ? (
+              <div className="p-4 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-2"></div>
+                <p className="text-sm text-gray-500">Loading...</p>
+              </div>
+            ) : (
+              <div className="space-y-1 p-2">
+                {/* Practice Info */}
+                <div className="px-4 py-3 bg-purple-50 border-l-2 border-purple-500">
+                  {practiceData.logo_url ? (
+                    <img
+                      src={practiceData.logo_url}
+                      alt={practiceData.name}
+                      className="w-12 h-12 rounded-lg object-cover mb-2"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center mb-2">
+                      <Icon icon={SolarIcons.building} className="w-6 h-6 text-white" />
+                    </div>
+                  )}
+                  <p className="text-sm font-medium text-gray-900">{practiceData.name || 'Practice Name'}</p>
+                  <p className="text-xs text-gray-500">{practiceData.city || 'Location'}</p>
+                </div>
 
-      {/* Practice Tabs */}
-      <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-        <CardContent className="p-0">
-          <div className="flex border-b border-gray-200">
-            <button
-              onClick={() => setPracticeTab('profile')}
-              className={`px-4 py-3 text-sm font-medium border-b-2 ${
-                practiceTab === 'profile'
-                  ? 'text-purple-600 border-purple-500'
-                  : 'text-gray-500 border-transparent hover:text-gray-700'
-              }`}
-            >
-              Practice Info
-            </button>
-            <button
-              onClick={() => setPracticeTab('hours')}
-              className={`px-4 py-3 text-sm font-medium border-b-2 ${
-                practiceTab === 'hours'
-                  ? 'text-purple-600 border-purple-500'
-                  : 'text-gray-500 border-transparent hover:text-gray-700'
-              }`}
-            >
-              Hours & Availability
-            </button>
-            <button
-              onClick={() => setPracticeTab('branches')}
-              className={`px-4 py-3 text-sm font-medium border-b-2 ${
-                practiceTab === 'branches'
-                  ? 'text-purple-600 border-purple-500'
-                  : 'text-gray-500 border-transparent hover:text-gray-700'
-              }`}
-            >
-              Branch Management
-            </button>
-          </div>
+                {/* Navigation Buttons */}
+                <div className="mt-4">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start hover:bg-gray-50"
+                    onClick={() => window.open(`https://${practiceData.website_url}`, '_blank')}
+                  >
+                    <Icon icon={SolarIcons.globe} className="w-4 h-4 mr-2" />
+                    Preview Website
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-          <div className="p-6">
+      {/* Middle Column - Main Content */}
+      <div className="flex-1 space-y-4">
+        {/* Header with Tabs */}
+        <Card className="bg-white border border-gray-200 shadow-sm">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  {practiceData.name || 'Practice Management'}
+                </h2>
+                <p className="text-sm text-gray-600">
+                  Manage your practice information and settings
+                </p>
+              </div>
+              {editMode && (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCancel}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSave}
+                    disabled={saving}
+                  >
+                    {saving ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                </div>
+              )}
+            </div>
+            
+            {/* Compact Tabs */}
+            <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setPracticeTab(tab.id)}
+                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                    practiceTab === tab.id
+                      ? 'bg-white text-purple-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <Icon icon={tab.icon} className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tab Content */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+          <motion.div
+            key={practiceTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="p-6"
+          >
             {/* Practice Info Tab */}
             {practiceTab === 'profile' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-1">
-                  <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <CardContent className="p-6">
-                      <div className="flex flex-col items-center text-center">
-                        {practiceData.logo_url ? (
-                          <img 
-                            src={practiceData.logo_url} 
-                            alt={practiceData.name}
-                            className="w-24 h-24 rounded-full object-cover mb-4 border-4 border-gray-200"
-                          />
-                        ) : (
-                          <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center mb-4">
-                            <Icon icon={SolarIcons.building} className="w-12 h-12 text-white" />
-                          </div>
-                        )}
-                        <h2 className="text-xl font-bold text-gray-900 mb-2">
-                          {practiceData.name}
-                        </h2>
-                        <div className="space-y-2 w-full mt-4">
-                          <div className="flex items-center py-2">
-                            <Icon icon={SolarIcons.mapPin} className="w-4 h-4 text-gray-400 mr-3" />
-                            <span className="text-sm text-gray-700">{practiceData.address || 'No address set'}</span>
-                          </div>
-                          <div className="flex items-center py-2">
-                            <Icon icon={SolarIcons.phone} className="w-4 h-4 text-gray-400 mr-3" />
-                            <span className="text-sm text-gray-700">{practiceData.contact_phone || 'No phone set'}</span>
-                          </div>
-                          <div className="flex items-center py-2">
-                            <Icon icon={SolarIcons.mail} className="w-4 h-4 text-gray-400 mr-3" />
-                            <span className="text-sm text-gray-700">{practiceData.contact_email || 'No email set'}</span>
-                          </div>
-                          <div className="flex items-center py-2">
-                            <Icon icon={SolarIcons.globe} className="w-4 h-4 text-gray-400 mr-3" />
-                            <span className="text-sm text-gray-700">{practiceData.city || 'No city set'}</span>
-                          </div>
-                        </div>
-                        <Button 
-                          variant="outline" 
-                          className="mt-4 w-full"
-                          onClick={() => setEditingSection('basic_info')}
-                          disabled={saving}
-                        >
-                          <Icon icon={SolarIcons.edit} className="w-4 h-4 mr-2" />
-                          {saving ? 'Saving...' : 'Edit Practice Info'}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="mt-6 bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <CardHeader>
-                      <CardTitle>Hours of Operation</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        {(Array.isArray(practiceData.business_hours) ? practiceData.business_hours : defaultMockData.hours).map((day, idx) => (
-                          <div key={idx} className="flex justify-between py-2 text-sm">
-                            <span className="font-medium text-gray-700">{day.day}</span>
-                            <span className="text-gray-600">{day.hours}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <Button variant="outline" size="sm" className="mt-4 w-full">
-                        <Icon icon={SolarIcons.clock} className="w-4 h-4 mr-2" />
-                        Manage Hours
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </div>
-                
-                <div className="lg:col-span-2">
-                  {/* Basic Info Edit Form */}
-                  {editingSection === 'basic_info' && (
-                    <Card className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm">
-                      <CardHeader>
-                        <CardTitle>Edit Practice Information</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Practice Name
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.name}
-                              onChange={(e) => handleInputChange('name', e.target.value)}
-                              className="w-full p-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
-                              placeholder="Enter practice name"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              City
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.city}
-                              onChange={(e) => handleInputChange('city', e.target.value)}
-                              className="w-full p-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
-                              placeholder="Enter city"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Phone Number
-                            </label>
-                            <input
-                              type="tel"
-                              value={formData.contact_phone}
-                              onChange={(e) => handleInputChange('contact_phone', e.target.value)}
-                              className="w-full p-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
-                              placeholder="Enter phone number"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Email Address
-                            </label>
-                            <input
-                              type="email"
-                              value={formData.contact_email}
-                              onChange={(e) => handleInputChange('contact_email', e.target.value)}
-                              className="w-full p-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
-                              placeholder="Enter email address"
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Website URL
-                            </label>
-                            <input
-                              type="url"
-                              value={formData.website_url}
-                              onChange={(e) => handleInputChange('website_url', e.target.value)}
-                              className="w-full p-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
-                              placeholder="https://your-practice-website.com"
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Address
-                            </label>
-                            <input
-                              type="text"
-                              value={formData.address}
-                              onChange={(e) => handleInputChange('address', e.target.value)}
-                              className="w-full p-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
-                              placeholder="Enter full address"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex gap-2 mt-6">
-                          <Button 
-                            onClick={handleSave}
-                            disabled={saving}
-                            className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
-                          >
-                            <Icon icon={SolarIcons.save} className="w-4 h-4 mr-2" />
-                            {saving ? 'Saving...' : 'Save Changes'}
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            onClick={handleCancel}
-                            disabled={saving}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                  
-                  <Card className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <CardHeader>
-                      <div className="flex justify-between items-center">
-                        <CardTitle>Practice Description</CardTitle>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => setEditingSection('description')}
-                          disabled={saving}
-                        >
-                          <Icon icon={SolarIcons.edit} className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {editingSection === 'description' ? (
-                        <div className="space-y-4">
-                          <textarea
-                            value={formData.about_text}
-                            onChange={(e) => handleInputChange('about_text', e.target.value)}
-                            className="w-full h-32 p-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none resize-none transition-all duration-200 hover:bg-gray-200"
-                            placeholder="Enter practice description..."
-                          />
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              onClick={handleSave}
-                              disabled={saving}
-                              className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
-                            >
-                              <Icon icon={SolarIcons.save} className="w-4 h-4 mr-2" />
-                              {saving ? 'Saving...' : 'Save'}
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={handleCancel}
-                              disabled={saving}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-gray-700">{practiceData.about_text || 'No description set'}</p>
-                      )}
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="mb-6 bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <CardHeader>
-                      <div className="flex justify-between items-center">
-                        <CardTitle>Specialties & Services</CardTitle>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => setEditingSection('services')}
-                          disabled={saving}
-                        >
-                          <Icon icon={SolarIcons.edit} className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {editingSection === 'services' ? (
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {formData.services?.map((service, idx) => (
-                              <div key={idx} className="flex items-center space-x-2 p-3 border border-gray-200 rounded-lg">
-                                <input
-                                  type="text"
-                                  value={typeof service === 'string' ? service : service.name}
-                                  onChange={(e) => {
-                                    const newServices = [...(formData.services || [])];
-                                    if (typeof service === 'string') {
-                                      newServices[idx] = e.target.value;
-                                    } else {
-                                      newServices[idx] = { ...service, name: e.target.value };
-                                    }
-                                    handleInputChange('services', newServices);
-                                  }}
-                                  className="flex-1 p-2 bg-gray-100 border-0 rounded focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                                  placeholder="Service name"
-                                />
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    const newServices = formData.services?.filter((_, i) => i !== idx) || [];
-                                    handleInputChange('services', newServices);
-                                  }}
-                                  className="text-red-600 hover:text-red-700"
-                                >
-                                  <Icon icon={SolarIcons.close} className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            ))}
-                          </div>
-                          
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const newServices = [...(formData.services || []), ''];
-                              handleInputChange('services', newServices);
-                            }}
-                            className="mt-2"
-                          >
-                            <Icon icon={SolarIcons.plus} className="w-4 h-4 mr-2" />
-                            Add Service
-                          </Button>
-                          
-                          <div className="flex gap-2 mt-6">
-                            <Button 
-                              onClick={handleSave}
-                              disabled={saving}
-                              className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
-                            >
-                              <Icon icon={SolarIcons.save} className="w-4 h-4 mr-2" />
-                              {saving ? 'Saving...' : 'Save Services'}
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              onClick={handleCancel}
-                              disabled={saving}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="flex flex-wrap gap-2">
-                            {(Array.isArray(practiceData.services) ? practiceData.services : defaultMockData.specialties).map((service, idx) => (
-                              <span 
-                                key={idx}
-                                className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-sm"
-                              >
-                                {typeof service === 'string' ? service : service.name}
-                              </span>
-                            ))}
-                          </div>
-                          {(!practiceData.services || practiceData.services.length === 0) && (
-                            <p className="text-gray-500 text-sm mt-2">No services defined yet</p>
-                          )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <CardHeader>
-                      <CardTitle>Practice Logo</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        {practiceData.logo_url ? (
-                          <div className="flex items-center space-x-4">
-                            <img 
-                              src={practiceData.logo_url} 
-                              alt="Practice logo"
-                              className="w-20 h-20 object-contain border border-gray-200 rounded-lg"
-                            />
-                            <div>
-                              <p className="text-sm text-gray-600 mb-2">Current logo</p>
-                              <div className="flex space-x-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    const input = document.createElement('input');
-                                    input.type = 'file';
-                                    input.accept = 'image/*';
-                                    input.onchange = handleLogoUpload;
-                                    input.click();
-                                  }}
-                                  disabled={saving}
-                                >
-                                  <Icon icon={SolarIcons.image} className="w-4 h-4 mr-2" />
-                                  Change Logo
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => savePracticeData({ logo_url: '' })}
-                                  disabled={saving}
-                                  className="text-red-600 hover:text-red-700"
-                                >
-                                  Remove
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="border border-dashed border-gray-300 rounded-lg p-8">
-                            <div className="text-center">
-                              <Icon icon={SolarIcons.image} className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                              <p className="text-sm text-gray-600 mb-4">No logo uploaded yet</p>
-                              <Button
-                                variant="outline"
-                                onClick={() => {
-                                  const input = document.createElement('input');
-                                  input.type = 'file';
-                                  input.accept = 'image/*';
-                                  input.onchange = handleLogoUpload;
-                                  input.click();
-                                }}
-                                disabled={saving}
-                              >
-                                <Icon icon={SolarIcons.image} className="w-4 h-4 mr-2" />
-                                {saving ? 'Uploading...' : 'Upload Logo'}
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                        <div className="text-xs text-gray-500">
-                          <p>Recommended: PNG or JPG, max 2MB, square format for best results</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            )}
-            
-            
-            {/* Hours Tab */}
-            {practiceTab === 'hours' && (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                  <CardHeader>
-                    <div className="flex justify-between items-center">
-                      <CardTitle>Hours of Operation</CardTitle>
-                      <Button 
-                        variant="ghost" 
+              <div className="space-y-6">
+                {/* Basic Information Section */}
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <Icon icon={SolarIcons.info} className="w-5 h-5 text-purple-600" />
+                      Basic Information
+                    </h3>
+                    {editingSection !== 'basic_info' ? (
+                      <Button
                         size="sm"
-                        onClick={() => setEditingSection('hours')}
-                        disabled={saving}
+                        variant="outline"
+                        onClick={() => setEditingSection('basic_info')}
                       >
-                        <Icon icon={SolarIcons.edit} className="w-4 h-4" />
+                        <Icon icon={SolarIcons.edit} className="w-4 h-4 mr-1" />
+                        Edit
                       </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {editingSection === 'hours' ? (
-                      <div className="space-y-4">
-                        {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
-                          const dayData = formData.business_hours?.[day] || {};
-                          const isClosed = dayData.closed || false;
-                          
-                          return (
-                            <div key={day} className="flex items-center justify-between py-3 border-b border-gray-100">
-                              <div className="flex items-center space-x-3">
-                                <input
-                                  type="checkbox"
-                                  checked={!isClosed}
-                                  onChange={(e) => {
-                                    const newHours = {
-                                      ...formData.business_hours,
-                                      [day]: e.target.checked 
-                                        ? { open: "08:00", close: "17:00" }
-                                        : { closed: true }
-                                    };
-                                    handleInputChange('business_hours', newHours);
-                                  }}
-                                  className="rounded border-gray-300"
-                                />
-                                <span className="font-medium text-gray-700 capitalize w-24">
-                                  {day}
-                                </span>
-                              </div>
-                              
-                              {!isClosed ? (
-                                <div className="flex items-center space-x-2">
-                                  <input
-                                    type="time"
-                                    value={dayData.open || "08:00"}
-                                    onChange={(e) => {
-                                      const newHours = {
-                                        ...formData.business_hours,
-                                        [day]: { ...dayData, open: e.target.value }
-                                      };
-                                      handleInputChange('business_hours', newHours);
-                                    }}
-                                    className="px-2 py-1 border border-gray-300 rounded text-sm"
-                                  />
-                                  <span className="text-gray-500">to</span>
-                                  <input
-                                    type="time"
-                                    value={dayData.close || "17:00"}
-                                    onChange={(e) => {
-                                      const newHours = {
-                                        ...formData.business_hours,
-                                        [day]: { ...dayData, close: e.target.value }
-                                      };
-                                      handleInputChange('business_hours', newHours);
-                                    }}
-                                    className="px-2 py-1 border border-gray-300 rounded text-sm"
-                                  />
-                                </div>
-                              ) : (
-                                <span className="text-gray-500 text-sm">Closed</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                        <div className="flex gap-2 mt-6">
-                          <Button 
-                            onClick={handleSave}
-                            disabled={saving}
-                            className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
-                          >
-                            <Icon icon={SolarIcons.save} className="w-4 h-4 mr-2" />
-                            {saving ? 'Saving...' : 'Save Hours'}
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            onClick={handleCancel}
-                            disabled={saving}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
                     ) : (
-                      <div className="space-y-3">
-                        {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => {
-                          const dayData = practiceData.business_hours?.[day] || {};
-                          const isClosed = dayData.closed || false;
-                          
-                          return (
-                            <div key={day} className="flex justify-between items-center py-2">
-                              <span className="font-medium text-gray-700 capitalize">{day}</span>
-                              <span className="text-gray-600 text-sm">
-                                {isClosed ? 'Closed' : `${dayData.open || '08:00'} - ${dayData.close || '17:00'}`}
-                              </span>
-                            </div>
-                          );
-                        })}
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancel}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleSave}
+                          disabled={saving}
+                        >
+                          {saving ? 'Saving...' : 'Save'}
+                        </Button>
                       </div>
                     )}
-                  </CardContent>
-                </Card>
-                
-                <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                  <CardHeader>
-                    <div className="flex items-center">
-                      <Icon icon={SolarIcons.users} className="w-5 h-5 text-purple-600 mr-2" />
-                      <CardTitle>Staff Availability</CardTitle>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Practice Name</label>
+                      {editingSection === 'basic_info' ? (
+                        <input
+                          type="text"
+                          value={formData.name}
+                          onChange={(e) => handleInputChange('name', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <p className="text-gray-900">{practiceData.name || 'Not set'}</p>
+                      )}
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <p className="text-sm text-gray-600">
-                        To manage staff schedules and availability, please visit the Users tab.
-                      </p>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Contact Email</label>
+                      {editingSection === 'basic_info' ? (
+                        <input
+                          type="email"
+                          value={formData.contact_email}
+                          onChange={(e) => handleInputChange('contact_email', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <p className="text-gray-900">{practiceData.contact_email || 'Not set'}</p>
+                      )}
                     </div>
-                    
-                    <div className="text-center mt-6">
-                      <Button 
-                        className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
-                        onClick={() => onTabChange?.('users')}
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Contact Phone</label>
+                      {editingSection === 'basic_info' ? (
+                        <input
+                          type="tel"
+                          value={formData.contact_phone}
+                          onChange={(e) => handleInputChange('contact_phone', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <p className="text-gray-900">{practiceData.contact_phone || 'Not set'}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
+                      {editingSection === 'basic_info' ? (
+                        <input
+                          type="text"
+                          value={formData.website_url}
+                          onChange={(e) => handleInputChange('website_url', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <p className="text-gray-900">{practiceData.website_url || 'Not set'}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Address Information Section */}
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <Icon icon={SolarIcons.mapPin} className="w-5 h-5 text-purple-600" />
+                      Address Information
+                    </h3>
+                    {editingSection !== 'address' ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingSection('address')}
                       >
-                        <Icon icon={SolarIcons.users} className="w-4 h-4 mr-2" />
-                        Go to User Management
+                        <Icon icon={SolarIcons.edit} className="w-4 h-4 mr-1" />
+                        Edit
                       </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancel}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleSave}
+                          disabled={saving}
+                        >
+                          {saving ? 'Saving...' : 'Save'}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Street Address</label>
+                      {editingSection === 'address' ? (
+                        <input
+                          type="text"
+                          value={formData.address}
+                          onChange={(e) => handleInputChange('address', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <p className="text-gray-900">{practiceData.address || 'Not set'}</p>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                      {editingSection === 'address' ? (
+                        <input
+                          type="text"
+                          value={formData.city}
+                          onChange={(e) => handleInputChange('city', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <p className="text-gray-900">{practiceData.city || 'Not set'}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
+                      {editingSection === 'address' ? (
+                        <input
+                          type="text"
+                          value={formData.postal_code}
+                          onChange={(e) => handleInputChange('postal_code', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <p className="text-gray-900">{practiceData.postal_code || 'Not set'}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* About Section */}
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <Icon icon={SolarIcons.document} className="w-5 h-5 text-purple-600" />
+                      About Practice
+                    </h3>
+                    {editingSection !== 'about' ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingSection('about')}
+                      >
+                        <Icon icon={SolarIcons.edit} className="w-4 h-4 mr-1" />
+                        Edit
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancel}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleSave}
+                          disabled={saving}
+                        >
+                          {saving ? 'Saving...' : 'Save'}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    {editingSection === 'about' ? (
+                      <textarea
+                        value={formData.about_text}
+                        onChange={(e) => handleInputChange('about_text', e.target.value)}
+                        rows={4}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="Tell us about your practice..."
+                      />
+                    ) : (
+                      <p className="text-gray-900 whitespace-pre-wrap">
+                        {practiceData.about_text || 'No description provided'}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
-            
+
+            {/* Business Hours Tab */}
+            {practiceTab === 'hours' && (
+              <div className="space-y-6">
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <Icon icon={SolarIcons.clock} className="w-5 h-5 text-purple-600" />
+                      Business Hours
+                    </h3>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => toast.info('Business hours editing coming soon!')}
+                    >
+                      <Icon icon={SolarIcons.edit} className="w-4 h-4 mr-1" />
+                      Edit Hours
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {(Array.isArray(practiceData.business_hours) ? practiceData.business_hours : defaultMockData.hours).map((day, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+                        <span className="font-medium text-gray-900">{day.day}</span>
+                        <span className="text-gray-600">{day.hours}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Branches Tab */}
             {practiceTab === 'branches' && (
               <BranchManagement />
             )}
-          </div>
-          
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
 
-// Users Management Component
-const UsersManagementContent: React.FC = () => {
-  const { user } = useAuthStore();
-  const [staff, setStaff] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editingSection, setEditingSection] = useState<string | null>(null);
-  const [selectedBranch, setSelectedBranch] = useState<string>('all');
-  const [branches, setBranches] = useState<any[]>([]);
-
-  // Load staff data from users table
-  useEffect(() => {
-    const loadStaffAndBranches = async () => {
-      if (!user?.practice_id) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        // Load staff
-        const { data: staffData, error: staffError } = await supabase
-          .from('users')
-          .select('id, full_name, email, role, avatar, hpcsa_number, branch_id')
-          .eq('practice_id', user.practice_id)
-          .order('full_name');
-
-        if (staffError) {
-          console.error('Error loading staff data:', staffError);
-        } else if (staffData) {
-          setStaff(staffData);
-        }
-
-        // Load branches
-        const { data: branchData, error: branchError } = await supabase
-          .from('branches')
-          .select('id, name')
-          .eq('practice_id', user.practice_id)
-          .order('name');
-
-        if (branchError) {
-          console.error('Error loading branches:', branchError);
-        } else if (branchData) {
-          setBranches(branchData);
-        }
-      } catch (error) {
-        console.error('Error loading data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadStaffAndBranches();
-  }, [user?.practice_id]);
-
-  const filteredStaff = selectedBranch === 'all' 
-    ? staff 
-    : selectedBranch === 'unassigned'
-    ? staff.filter(s => !s.branch_id)
-    : staff.filter(s => s.branch_id === selectedBranch);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading staff information...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg shadow-md">
-                <Icon icon={SolarIcons.users} className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <CardTitle className="text-lg font-semibold text-gray-900">User Management</CardTitle>
-                <p className="text-sm text-gray-600">Manage staff members and their assignments</p>
-              </div>
-            </div>
-            <Button 
-              onClick={() => setEditingSection('add_staff')}
-              className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
-            >
-              <Icon icon={SolarIcons.plus} className="w-4 h-4 mr-2" />
-              Add Staff Member
-            </Button>
-          </div>
-        </CardHeader>
-      </Card>
-
-      {/* Filters */}
-      {branches.length > 0 && (
-        <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-          <CardContent className="py-4">
-            <div className="flex items-center gap-4">
-              <span className="text-sm font-medium text-gray-700">Filter by branch:</span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setSelectedBranch('all')}
-                  className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-                    selectedBranch === 'all'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  All Staff
-                </button>
-                <button
-                  onClick={() => setSelectedBranch('unassigned')}
-                  className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-                    selectedBranch === 'unassigned'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  Unassigned
-                </button>
-                {branches.map(branch => (
-                  <button
-                    key={branch.id}
-                    onClick={() => setSelectedBranch(branch.id)}
-                    className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-                      selectedBranch === branch.id
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    {branch.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Staff Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredStaff.map((staffMember) => (
-          <Card key={staffMember.id} className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300">
-            <CardContent className="p-6">
-              <div className="flex flex-col items-center text-center">
-                {staffMember.avatar ? (
-                  <img 
-                    src={staffMember.avatar} 
-                    alt={staffMember.full_name}
-                    className="w-20 h-20 rounded-full object-cover mb-3 border-4 border-gray-200"
-                  />
-                ) : (
-                  <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center mb-3">
-                    <Icon icon={SolarIcons.user} className="w-10 h-10 text-white" />
-                  </div>
-                )}
-                <h3 className="text-lg font-bold text-gray-900">
-                  {staffMember.full_name}
-                </h3>
-                <p className="text-purple-600 font-medium capitalize">
-                  {staffMember.role}
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {staffMember.email}
-                </p>
-                {staffMember.hpcsa_number && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    HPCSA: {staffMember.hpcsa_number}
-                  </p>
-                )}
-                {staffMember.branch_id && branches.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1 flex items-center justify-center gap-1">
-                    <Icon icon={SolarIcons.mapPin} className="w-3 h-3" />
-                    {branches.find(b => b.id === staffMember.branch_id)?.name || 'Branch Assigned'}
-                  </p>
-                )}
-                <div className="flex mt-4 space-x-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => setEditingSection(`schedule_${staffMember.id}`)}
-                  >
-                    <Icon icon={SolarIcons.calendar} className="w-4 h-4 mr-1" />
-                    Schedule
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    onClick={() => setEditingSection(`edit_${staffMember.id}`)}
-                  >
-                    Edit
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        
-        {/* Add New Staff Card */}
-        <Card className="border-2 border-dashed border-gray-300 bg-gray-50/50 hover:bg-gray-100/50 transition-all duration-300">
-          <CardContent className="p-6">
-            <div className="flex flex-col items-center justify-center text-center h-full py-8">
-              <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center mb-3">
-                <Icon icon={SolarIcons.users} className="w-10 h-10 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-700">
-                Add Team Member
-              </h3>
-              <p className="text-sm text-gray-500 mt-1 mb-4">
-                Add a new doctor or staff member
-              </p>
-              <Button 
-                onClick={() => setEditingSection('add_staff')}
-                className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
-              >
-                Add Staff
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Staff Schedule Modal */}
-      {editingSection?.startsWith('schedule_') && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">
-                Staff Schedule - {staff.find(s => editingSection === `schedule_${s.id}`)?.full_name}
-              </h3>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setEditingSection(null)}
-              >
-                <Icon icon={SolarIcons.close} className="w-5 h-5" />
-              </Button>
-            </div>
-            
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Set the working hours for this staff member. This will determine when they are available for appointments.
-              </p>
-              
-              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map((day) => (
-                <div key={day} className="flex items-center justify-between py-3 border-b border-gray-100">
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      defaultChecked={!['saturday', 'sunday'].includes(day)}
-                      className="rounded border-gray-300"
-                    />
-                    <span className="font-medium text-gray-700 capitalize w-24">
-                      {day}
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="time"
-                      defaultValue="09:00"
-                      className="px-2 py-1 border border-gray-300 rounded text-sm"
-                    />
-                    <span className="text-gray-500">to</span>
-                    <input
-                      type="time"
-                      defaultValue="17:00"
-                      className="px-2 py-1 border border-gray-300 rounded text-sm"
-                    />
-                  </div>
-                </div>
-              ))}
-              
-              <div className="flex gap-2 mt-6">
-                <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
-                  <Icon icon={SolarIcons.save} className="w-4 h-4 mr-2" />
-                  Save Schedule
-                </Button>
-                <Button 
-                  variant="ghost"
-                  onClick={() => setEditingSection(null)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Staff Modal */}
-      {editingSection === 'add_staff' && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
-        >
-          <motion.div
-            initial={{ scale: 0.95 }}
-            animate={{ scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full m-4 max-h-[90vh] overflow-hidden"
-          >
-            <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                    <Icon icon={SolarIcons.userCircle} className="w-6 h-6 text-white" />
-                  </div>
-                  <h3 className="text-xl font-bold text-white">Add New Staff Member</h3>
-                </div>
-                <button
-                  onClick={() => setEditingSection(null)}
-                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-                >
-                  <Icon icon={SolarIcons.close} className="w-5 h-5 text-white" />
-                </button>
-              </div>
-            </div>
-            
-            <form className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-120px)]" onSubmit={(e) => {
-              e.preventDefault();
-              // Handle form submission
-              toast.success('Staff member added successfully!');
-              setEditingSection(null);
-            }}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
-                    placeholder="Dr. John Doe"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
-                    placeholder="john.doe@example.com"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Role <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    required
-                    className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
-                  >
-                    <option value="">Select role</option>
-                    <option value="doctor">Doctor</option>
-                    <option value="nurse">Nurse</option>
-                    <option value="receptionist">Receptionist</option>
-                    <option value="admin">Administrator</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
-                    placeholder="+264 81 234 5678"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    HPCSA Number
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
-                    placeholder="For medical professionals"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Branch
-                  </label>
-                  <select
-                    className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
-                  >
-                    <option value="">Select branch (optional)</option>
-                    {branches.map(branch => (
-                      <option key={branch.id} value={branch.id}>{branch.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              
-              <div className="pt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Initial Password <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="password"
-                  required
-                  className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
-                  placeholder="Temporary password for first login"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  User will be required to change password on first login
-                </p>
-              </div>
-              
-              <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 mt-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setEditingSection(null)}
-                  className="px-6 py-2.5"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-6 py-2.5"
-                >
-                  <Icon icon={SolarIcons.plus} className="w-5 h-5 mr-2" />
-                  Add Staff Member
-                </Button>
-              </div>
-            </form>
+            {/* Departments Tab */}
+            {practiceTab === 'departments' && (
+              <DepartmentManagement />
+            )}
           </motion.div>
-        </motion.div>
-      )}
+        </div>
+      </div>
     </div>
   );
 };

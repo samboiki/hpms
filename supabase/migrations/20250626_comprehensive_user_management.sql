@@ -367,14 +367,14 @@ CREATE OR REPLACE FUNCTION calculate_leave_days(start_date date, end_date date, 
 RETURNS numeric AS $$
 DECLARE
   days numeric := 0;
-  current_date date := start_date;
+  curr_date date := start_date;
 BEGIN
-  WHILE current_date <= end_date LOOP
+  WHILE curr_date <= end_date LOOP
     -- Exclude weekends (Saturday = 6, Sunday = 0)
-    IF EXTRACT(DOW FROM current_date) NOT IN (0, 6) THEN
+    IF EXTRACT(DOW FROM curr_date) NOT IN (0, 6) THEN
       days := days + 1;
     END IF;
-    current_date := current_date + INTERVAL '1 day';
+    curr_date := curr_date + INTERVAL '1 day';
   END LOOP;
   
   IF is_half_day THEN

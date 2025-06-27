@@ -8,6 +8,10 @@ interface User {
   role: 'admin' | 'doctor' | 'nurse' | 'receptionist';
   avatar?: string | null;
   practice_id?: string;
+  practices?: {
+    id: string;
+    name: string;
+  };
   is_super_admin?: boolean;
   can_manage_practices?: boolean;
   permissions?: Record<string, any>;
@@ -49,12 +53,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // First try to get user data from users table
         let dbUser = null;
         try {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('users')
-            .select('id, email, full_name, role, avatar, practice_id, is_super_admin, can_manage_practices, permissions, last_active_at')
+            .select(`
+              id, 
+              email, 
+              full_name, 
+              role, 
+              avatar, 
+              practice_id, 
+              is_super_admin, 
+              can_manage_practices, 
+              permissions, 
+              last_active_at,
+              practices:practice_id (
+                id,
+                name
+              )
+            `)
             .eq('id', session.user.id)
             .single();
-          dbUser = data;
+          
+          if (error) {
+            console.error('Error fetching user from DB:', error);
+          } else {
+            dbUser = data;
+            console.log('✅ Session user data from DB:', dbUser);
+            console.log('📍 Session Practice ID from DB:', dbUser?.practice_id);
+          }
         } catch (e) {
           console.log('No user found in database, using auth metadata');
         }
@@ -68,6 +94,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           role: dbUser.role,
           avatar: dbUser.avatar || null,
           practice_id: dbUser.practice_id,
+          practices: dbUser.practices,
           is_super_admin: dbUser.is_super_admin || false,
           can_manage_practices: dbUser.can_manage_practices || false,
           permissions: dbUser.permissions || {},
@@ -121,12 +148,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       try {
         const result = await supabase
           .from('users')
-          .select('id, email, full_name, role, avatar, practice_id, is_super_admin, can_manage_practices, permissions, last_active_at')
+          .select(`
+            id, 
+            email, 
+            full_name, 
+            role, 
+            avatar, 
+            practice_id, 
+            is_super_admin, 
+            can_manage_practices, 
+            permissions, 
+            last_active_at,
+            practices:practice_id (
+              id,
+              name
+            )
+          `)
           .eq('id', authUser.id)
           .single();
           
         userData = result.data;
         userError = result.error;
+        
+        if (userData) {
+          console.log('✅ User data from DB:', userData);
+          console.log('📍 Practice ID from DB:', userData.practice_id);
+        }
       } catch (e) {
         console.log('⚠️ Users table query failed, using auth metadata');
         userError = e;
@@ -158,6 +205,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           role: userData.role,
           avatar: userData.avatar || null,
           practice_id: userData.practice_id,
+          practices: userData.practices,
           is_super_admin: userData.is_super_admin || false,
           can_manage_practices: userData.can_manage_practices || false,
           permissions: userData.permissions || {},

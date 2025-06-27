@@ -1,4 +1,5 @@
 import React from 'react';
+import { Icon as IconifyIcon } from '@iconify/react';
 
 interface IconProps {
   icon: string;
@@ -8,9 +9,9 @@ interface IconProps {
 
 const Icon: React.FC<IconProps> = ({ icon, className = '', style }) => {
   return (
-    <span 
-      className={`iconify ${className}`}
-      data-icon={icon}
+    <IconifyIcon 
+      icon={icon}
+      className={className}
       style={style}
     />
   );
@@ -39,6 +40,7 @@ export const SolarIcons = {
   palette: 'solar:palette-bold-duotone',
   paintbrush: 'solar:pallete-2-bold-duotone',
   sparkles: 'solar:magic-stick-2-bold-duotone',
+  info: 'solar:info-circle-bold-duotone',
   
   // Communication
   bell: 'solar:bell-bold-duotone',
@@ -64,6 +66,20 @@ export const SolarIcons = {
   plus: 'solar:add-circle-bold-duotone',
   close: 'solar:close-circle-bold-duotone',
   check: 'solar:check-circle-bold-duotone',
+  home: 'solar:home-bold-duotone',
+  documentText: 'solar:document-text-bold-duotone',
+  userCheck: 'solar:user-check-bold-duotone',
+  wallet: 'solar:wallet-bold-duotone',
+  cashOut: 'solar:cash-out-bold-duotone',
+  listCheck: 'solar:list-check-bold-duotone',
+  arrowUp: 'solar:arrow-up-bold-duotone',
+  arrowDown: 'solar:alt-arrow-down-bold-duotone',
+  plane: 'solar:plane-bold-duotone',
+  messageText: 'solar:chat-square-text-bold-duotone',
+  eye: 'solar:eye-bold-duotone',
+  download: 'solar:download-bold-duotone',
+  closeCircle: 'solar:close-circle-bold-duotone',
+  userEdit: 'solar:user-edit-bold-duotone',
   
   // Storage & Data
   hardDrive: 'solar:server-bold-duotone',
@@ -75,11 +91,19 @@ export const SolarIcons = {
   image: 'solar:gallery-bold-duotone',
   
   // Navigation
-  arrowDown: 'solar:alt-arrow-down-bold-duotone',
   arrowRight: 'solar:alt-arrow-right-bold-duotone',
   
   // Status
   checkCircle: 'solar:check-circle-bold-duotone',
   infoCircle: 'solar:info-circle-bold-duotone',
   dangerCircle: 'solar:danger-circle-bold-duotone',
+  
+  // Additional icons for HR features
+  history: 'solar:history-bold-duotone',
+  award: 'solar:medal-star-bold-duotone',
+  
+  // Additional action icons
+  trash: 'solar:trash-bin-trash-bold-duotone',
+  refresh: 'solar:refresh-bold-duotone',
+  logout: 'solar:logout-2-bold-duotone',
 };

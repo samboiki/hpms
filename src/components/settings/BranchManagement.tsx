@@ -24,6 +24,17 @@ interface Branch {
   updated_at: string;
 }
 
+interface Practice {
+  id: string;
+  name: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  logo_url?: string;
+}
+
 interface BranchUser {
   id: string;
   full_name: string;
@@ -35,6 +46,7 @@ interface BranchUser {
 
 const BranchManagement: React.FC = () => {
   const { user } = useAuthStore();
+  const [practice, setPractice] = useState<Practice | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -57,7 +69,7 @@ const BranchManagement: React.FC = () => {
 
   useEffect(() => {
     if (user?.practice_id) {
-      loadBranches();
+      loadPracticeAndBranches();
     }
   }, [user?.practice_id]);
 
@@ -73,9 +85,21 @@ const BranchManagement: React.FC = () => {
     }
   }, [user?.practice_id]);
 
-  const loadBranches = async () => {
+  const loadPracticeAndBranches = async () => {
     try {
       setLoading(true);
+      
+      // Load practice details
+      const { data: practiceData, error: practiceError } = await supabase
+        .from('practices')
+        .select('*')
+        .eq('id', user?.practice_id)
+        .single();
+
+      if (practiceError) throw practiceError;
+      setPractice(practiceData);
+
+      // Load branches
       const { data, error } = await supabase
         .from('branches')
         .select('*')
@@ -86,8 +110,8 @@ const BranchManagement: React.FC = () => {
 
       setBranches(data || []);
     } catch (error) {
-      console.error('Error loading branches:', error);
-      toast.error('Failed to load branches');
+      console.error('Error loading data:', error);
+      toast.error('Failed to load practice data');
     } finally {
       setLoading(false);
     }
@@ -152,27 +176,19 @@ const BranchManagement: React.FC = () => {
         if (error) throw error;
         toast.success('Branch updated successfully');
       } else {
-        console.log('Creating branch with data:', branchData);
-        console.log('Current user:', user);
-        
         const { data, error } = await supabase
           .from('branches')
           .insert(branchData)
           .select();
 
-        if (error) {
-          console.error('Branch creation error:', error);
-          throw error;
-        }
-        
-        console.log('Branch created:', data);
+        if (error) throw error;
         toast.success('Branch created successfully');
       }
 
       setShowForm(false);
       setEditingBranch(null);
       resetForm();
-      loadBranches();
+      loadPracticeAndBranches();
     } catch (error: any) {
       console.error('Error saving branch:', error);
       toast.error(error.message || 'Failed to save branch');
@@ -209,7 +225,7 @@ const BranchManagement: React.FC = () => {
       if (error) throw error;
 
       toast.success('Branch deleted successfully');
-      loadBranches();
+      loadPracticeAndBranches();
       
       if (selectedBranch === id) {
         setSelectedBranch(null);
@@ -231,7 +247,7 @@ const BranchManagement: React.FC = () => {
       if (error) throw error;
 
       toast.success(`Branch ${branch.is_active ? 'deactivated' : 'activated'} successfully`);
-      loadBranches();
+      loadPracticeAndBranches();
     } catch (error) {
       console.error('Error toggling branch status:', error);
       toast.error('Failed to update branch status');
@@ -285,22 +301,23 @@ const BranchManagement: React.FC = () => {
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-700 font-medium">Loading branches...</p>
+          <p className="text-gray-700 font-medium">Loading practice locations...</p>
         </div>
       </div>
     );
   }
 
+  const mainStaff = allStaff.filter(staff => !staff.branch_id);
+
   return (
     <div className="space-y-6">
-      <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-        <CardContent className="p-6">
+      {/* World-class Header Section */}
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Icon icon={SolarIcons.building} className="w-5 h-5 text-purple-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900">Branches</h3>
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-900">Practice Locations</h2>
+              <p className="text-gray-600 mt-1">Manage your practice branches and locations</p>
             </div>
             <Button
               onClick={() => {
@@ -311,174 +328,273 @@ const BranchManagement: React.FC = () => {
               className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:shadow-lg transition-all duration-200"
             >
               <Icon icon={SolarIcons.plus} className="w-5 h-5 mr-2" />
-              Add Branch
+              Add Location
             </Button>
           </div>
 
-          <div className="space-y-4">
-            {branches.length === 0 ? (
-              <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-12 text-center">
-                <div className="p-3 bg-purple-100 rounded-lg w-fit mx-auto mb-4">
-                  <Icon icon={SolarIcons.building} className="w-8 h-8 text-purple-600" />
+          {/* Stats Overview */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <div className="bg-gray-50 rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Locations</p>
+                  <p className="text-2xl font-bold text-gray-900">{branches.length + 1}</p>
                 </div>
-                <p className="text-gray-700 font-medium">No branches created yet</p>
-                <p className="text-sm text-gray-500 mt-1">Click "Add Branch" to create your first location</p>
+                <div className="p-3 bg-purple-100 rounded-lg">
+                  <Icon icon={SolarIcons.building} className="w-6 h-6 text-purple-600" />
+                </div>
               </div>
-            ) : (
-              branches.map((branch) => (
-                <div
-                  key={branch.id}
-                  className={`relative bg-white border rounded-xl p-5 cursor-pointer transition-all duration-200 ${
-                    selectedBranch === branch.id 
-                      ? 'border-purple-500 shadow-lg ring-2 ring-purple-100' 
-                      : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
-                  }`}
-                  onClick={() => setSelectedBranch(branch.id)}
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h5 className="font-semibold text-gray-900">{branch.name}</h5>
-                      {branch.is_active ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full mt-1">
-                          <div className="w-1.5 h-1.5 bg-green-600 rounded-full" />
-                          Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-full mt-1">
-                          <div className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
-                          Inactive
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleActive(branch);
-                        }}
-                        className={`p-1.5 rounded-lg transition-all duration-200 ${
-                          branch.is_active 
-                            ? 'text-green-600 hover:bg-green-50' 
-                            : 'text-gray-400 hover:bg-gray-50'
-                        }`}
-                        title={branch.is_active ? 'Deactivate branch' : 'Activate branch'}
-                      >
-                        <Icon icon={branch.is_active ? SolarIcons.checkCircle : SolarIcons.dangerCircle} className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEdit(branch);
-                        }}
-                        className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-all duration-200"
-                        title="Edit branch"
-                      >
-                        <Icon icon={SolarIcons.edit} className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(branch.id);
-                        }}
-                        className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-                        title="Delete branch"
-                      >
-                        <Icon icon={SolarIcons.close} className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Active Branches</p>
+                  <p className="text-2xl font-bold text-green-600">{branches.filter(b => b.is_active).length}</p>
+                </div>
+                <div className="p-3 bg-green-100 rounded-lg">
+                  <Icon icon={SolarIcons.checkCircle} className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Staff</p>
+                  <p className="text-2xl font-bold text-blue-600">{allStaff.length}</p>
+                </div>
+                <div className="p-3 bg-blue-100 rounded-lg">
+                  <Icon icon={SolarIcons.users} className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+            </div>
+          </div>
 
-                  <div className="space-y-2 text-sm">
-                    {branch.address && (
-                      <div className="flex items-start gap-2 text-gray-600">
-                        <Icon icon={SolarIcons.mapPin} className="w-4 h-4 text-gray-400 mt-0.5" />
-                        <div>
-                          <span className="block">{branch.address}</span>
-                          {branch.city && (
-                            <span className="text-gray-500">
-                              {branch.city}{branch.state_province && `, ${branch.state_province}`}
-                              {branch.postal_code && ` ${branch.postal_code}`}
-                            </span>
-                          )}
-                        </div>
+          {/* Main Practice (Parent) */}
+          {practice && (
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Main Practice</h3>
+              <div 
+                className={`relative bg-gradient-to-r from-purple-50 to-indigo-50 border-2 rounded-xl p-6 cursor-pointer transition-all duration-200 ${
+                  selectedBranch === 'main' 
+                    ? 'border-purple-500 shadow-lg ring-2 ring-purple-100' 
+                    : 'border-purple-200 hover:border-purple-400 hover:shadow-md'
+                }`}
+                onClick={() => setSelectedBranch('main')}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-4">
+                    {practice.logo_url ? (
+                      <img 
+                        src={practice.logo_url} 
+                        alt={practice.name}
+                        className="w-16 h-16 rounded-xl object-cover border-2 border-white shadow-md"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
+                        <Icon icon={SolarIcons.building} className="w-8 h-8 text-white" />
                       </div>
                     )}
-                    {branch.phone && (
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Icon icon={SolarIcons.phone} className="w-4 h-4 text-gray-400" />
-                        <span>{branch.phone}</span>
-                      </div>
-                    )}
-                    {branch.email && (
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Icon icon={SolarIcons.mail} className="w-4 h-4 text-gray-400" />
-                        <span className="truncate">{branch.email}</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Staff Section */}
-                  {selectedBranch === branch.id && branchUsers.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <div className="flex items-center justify-between mb-3">
-                        <h6 className="text-sm font-medium text-gray-900">Staff Members ({branchUsers.length})</h6>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowStaffModal(true);
-                          }}
-                          className="text-xs text-purple-600 hover:text-purple-700 font-medium"
-                        >
-                          Manage Staff
-                        </button>
-                      </div>
-                      <div className="space-y-2">
-                        {branchUsers.slice(0, 3).map((user) => (
-                          <div key={user.id} className="flex items-center gap-2">
-                            {user.avatar ? (
-                              <img
-                                src={user.avatar}
-                                alt={user.full_name}
-                                className="w-6 h-6 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center">
-                                <Icon icon={SolarIcons.user} className="w-3 h-3 text-purple-600" />
-                              </div>
-                            )}
-                            <span className="text-sm text-gray-700">{user.full_name}</span>
-                            <span className="text-xs text-gray-500 capitalize">({user.role})</span>
+                    <div>
+                      <h4 className="text-lg font-semibold text-gray-900">{practice.name}</h4>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-purple-700 bg-purple-100 rounded-full mt-1">
+                        <Icon icon={SolarIcons.shield} className="w-3 h-3" />
+                        Headquarters
+                      </span>
+                      
+                      <div className="mt-3 space-y-1.5 text-sm">
+                        {practice.address && (
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Icon icon={SolarIcons.mapPin} className="w-4 h-4 text-gray-400" />
+                            <span>{practice.address}, {practice.city} {practice.country}</span>
                           </div>
-                        ))}
-                        {branchUsers.length > 3 && (
-                          <p className="text-xs text-gray-500">+{branchUsers.length - 3} more</p>
+                        )}
+                        {practice.contact_phone && (
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Icon icon={SolarIcons.phone} className="w-4 h-4 text-gray-400" />
+                            <span>{practice.contact_phone}</span>
+                          </div>
+                        )}
+                        {practice.contact_email && (
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Icon icon={SolarIcons.mail} className="w-4 h-4 text-gray-400" />
+                            <span>{practice.contact_email}</span>
+                          </div>
                         )}
                       </div>
                     </div>
-                  )}
+                  </div>
+                  
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900">{mainStaff.length} Staff</p>
+                    <p className="text-xs text-gray-500">Members</p>
+                  </div>
+                </div>
 
-                  {selectedBranch === branch.id && branchUsers.length === 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-gray-500">No staff assigned</p>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowStaffModal(true);
-                          }}
-                          className="text-xs text-purple-600 hover:text-purple-700 font-medium"
-                        >
-                          Add Staff
-                        </button>
+                {selectedBranch === 'main' && mainStaff.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-purple-200">
+                    <h6 className="text-sm font-medium text-gray-900 mb-3">Staff at Main Practice</h6>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {mainStaff.slice(0, 4).map((user) => (
+                        <div key={user.id} className="flex items-center gap-3 bg-white rounded-lg p-3">
+                          {user.avatar ? (
+                            <img
+                              src={user.avatar}
+                              alt={user.full_name}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                              <Icon icon={SolarIcons.user} className="w-5 h-5 text-white" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{user.full_name}</p>
+                            <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {mainStaff.length > 4 && (
+                      <p className="text-sm text-gray-500 mt-3 text-center">+{mainStaff.length - 4} more staff members</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Branch Locations */}
+          <div>
+            <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">Branch Locations</h3>
+            <div className="space-y-4">
+              {branches.length === 0 ? (
+                <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-12 text-center">
+                  <Icon icon={SolarIcons.building} className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-700 font-medium">No branch locations yet</p>
+                  <p className="text-sm text-gray-500 mt-1">Add your first branch location to expand your practice</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {branches.map((branch) => (
+                    <div
+                      key={branch.id}
+                      className={`relative bg-white border rounded-xl p-5 cursor-pointer transition-all duration-200 ${
+                        selectedBranch === branch.id 
+                          ? 'border-purple-500 shadow-lg ring-2 ring-purple-100' 
+                          : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
+                      }`}
+                      onClick={() => setSelectedBranch(branch.id)}
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h5 className="font-semibold text-gray-900">{branch.name}</h5>
+                          {branch.is_active ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full mt-1">
+                              <div className="w-1.5 h-1.5 bg-green-600 rounded-full" />
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-full mt-1">
+                              <div className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
+                              Inactive
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleActive(branch);
+                            }}
+                            className={`p-1.5 rounded-lg transition-all duration-200 ${
+                              branch.is_active 
+                                ? 'text-green-600 hover:bg-green-50' 
+                                : 'text-gray-400 hover:bg-gray-50'
+                            }`}
+                            title={branch.is_active ? 'Deactivate branch' : 'Activate branch'}
+                          >
+                            <Icon icon={branch.is_active ? SolarIcons.checkCircle : SolarIcons.dangerCircle} className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(branch);
+                            }}
+                            className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-all duration-200"
+                            title="Edit branch"
+                          >
+                            <Icon icon={SolarIcons.edit} className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(branch.id);
+                            }}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                            title="Delete branch"
+                          >
+                            <Icon icon={SolarIcons.close} className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 text-sm">
+                        {branch.address && (
+                          <div className="flex items-start gap-2 text-gray-600">
+                            <Icon icon={SolarIcons.mapPin} className="w-4 h-4 text-gray-400 mt-0.5" />
+                            <div>
+                              <span className="block">{branch.address}</span>
+                              {branch.city && (
+                                <span className="text-gray-500">
+                                  {branch.city}{branch.state_province && `, ${branch.state_province}`}
+                                  {branch.postal_code && ` ${branch.postal_code}`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {branch.phone && (
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Icon icon={SolarIcons.phone} className="w-4 h-4 text-gray-400" />
+                            <span>{branch.phone}</span>
+                          </div>
+                        )}
+                        {branch.email && (
+                          <div className="flex items-center gap-2 text-gray-600">
+                            <Icon icon={SolarIcons.mail} className="w-4 h-4 text-gray-400" />
+                            <span className="truncate">{branch.email}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Staff count badge */}
+                      <div className="mt-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Icon icon={SolarIcons.users} className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm text-gray-600">
+                            {branchUsers.filter(u => u.branch_id === branch.id).length} Staff
+                          </span>
+                        </div>
+                        {selectedBranch === branch.id && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowStaffModal(true);
+                            }}
+                            className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+                          >
+                            Manage Staff
+                          </button>
+                        )}
                       </div>
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))
-            )}
+              )}
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Branch Form Modal */}
       <AnimatePresence>
