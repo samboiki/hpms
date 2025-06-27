@@ -1728,7 +1728,7 @@ const PracticeDocumentsContent: React.FC = () => {
           )
         `)
         .eq('practice_id', practiceId)
-        .eq('status', 'active')
+        .eq('is_active', true)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -1772,11 +1772,10 @@ const PracticeDocumentsContent: React.FC = () => {
             practice_id: practiceId,
             name: file.name.split('.').slice(0, -1).join('.'),
             file_path: fileName,
-            file_name: file.name,
             file_size: file.size,
             file_type: file.type,
-            mime_type: file.type,
-            category: 'other',
+            document_type: 'other',
+            is_active: true,
             uploaded_by: user?.id
           });
 
@@ -1807,7 +1806,7 @@ const PracticeDocumentsContent: React.FC = () => {
   const filteredDocuments = documents.filter(doc => {
     const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          doc.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || doc.category === categoryFilter;
+    const matchesCategory = categoryFilter === 'all' || doc.document_type === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
@@ -1961,7 +1960,7 @@ const PracticeDocumentsContent: React.FC = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredDocuments.map((doc) => {
-                      const category = documentCategories.find(cat => cat.value === doc.category) || documentCategories[documentCategories.length - 1];
+                      const category = documentCategories.find(cat => cat.value === doc.document_type) || documentCategories[documentCategories.length - 1];
                       return (
                         <tr key={doc.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -1971,7 +1970,7 @@ const PracticeDocumentsContent: React.FC = () => {
                               </div>
                               <div>
                                 <div className="text-sm font-medium text-gray-900">{doc.name}</div>
-                                <div className="text-sm text-gray-500">{doc.file_name}</div>
+                                <div className="text-sm text-gray-500">{doc.file_path.split('/').pop()}</div>
                               </div>
                             </div>
                           </td>
