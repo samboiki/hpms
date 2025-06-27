@@ -10,27 +10,27 @@ import { motion } from 'framer-motion';
 import BranchManagement from '../components/settings/BranchManagement';
 import { EnhancedUserManagement } from '../components/settings/EnhancedUserManagement';
 import DepartmentManagement from '../components/settings/DepartmentManagement';
-import { toast } from 'react-hot-toast';
 import { usePractice } from '../contexts/PracticeContext';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
+import TimePickerModal from '../components/ui/TimePickerModal';
 
 // Iconify is now handled by @iconify/react package
 
 const Settings: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { currentTheme, themes, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'account' | 'security' | 'themes' | 'users' | 'practice' | 'system'>('account');
+  const [activeTab, setActiveTab] = useState<'account' | 'users' | 'practice' | 'documents' | 'social' | 'system'>('account');
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   const { practiceId } = usePractice();
 
   const tabIcons = {
     account: SolarIcons.user,
-    security: SolarIcons.shield,
-    themes: SolarIcons.palette,
     users: SolarIcons.users,
     practice: SolarIcons.building,
-    system: SolarIcons.globe
+    documents: SolarIcons.document,
+    social: SolarIcons.globe,
+    system: SolarIcons.settings
   };
 
   return (
@@ -153,11 +153,11 @@ const Settings: React.FC = () => {
 
         {/* Premium Navigation Tabs */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-6 gap-0 w-full">
-            {(['account', 'security', 'themes', 'users', 'practice', 'system'] as const).map((tab, index) => {
+          <div className="grid grid-cols-5 gap-0 w-full">
+            {(['account', 'users', 'practice', 'documents', 'social'] as const).map((tab, index) => {
               const iconName = tabIcons[tab];
               const isActive = activeTab === tab;
-              const tabLabel = tab === 'themes' ? 'Themes' : tab;
+              const tabLabel = tab;
               return (
                 <button
                   key={tab}
@@ -182,159 +182,7 @@ const Settings: React.FC = () => {
           <div>
             <div className="min-h-[600px]">
               {activeTab === 'account' && (
-                <div className="space-y-6">
-                  <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <CardHeader>
-                      <div className="flex items-center gap-3 -ml-2">
-                        <div className="p-2 bg-purple-100 rounded-lg">
-                          <Icon icon={SolarIcons.userCircle} className="w-5 h-5 text-purple-600" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg font-semibold text-gray-900">Profile Information</CardTitle>
-                          <p className="text-sm text-gray-500">Update your personal details</p>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-col sm:flex-row sm:items-center mb-6">
-                        <div className="mb-4 sm:mb-0 sm:mr-6">
-                          {user?.avatar ? (
-                            <img 
-                              src={user.avatar} 
-                              alt={user.name} 
-                              className="w-20 h-20 rounded-full object-cover border-4 border-gray-200"
-                            />
-                          ) : (
-                            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-                              <Icon icon={SolarIcons.user} className="w-10 h-10 text-white" />
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-medium text-gray-900">{user?.name}</h3>
-                          <p className="text-gray-500">{user?.email}</p>
-                          <p className="text-sm text-gray-500 capitalize">{user?.role}</p>
-                          <Button variant="outline" size="sm" className="mt-2">
-                            <Icon icon={SolarIcons.camera} className="w-4 h-4 mr-2" />
-                            Change Avatar
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                            Full Name
-                          </label>
-                          <input
-                            type="text"
-                            id="name"
-                            className="w-full pl-4 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
-                              focus:outline-none focus:ring-2 focus:ring-purple-500 
-                              transition-all duration-200 text-gray-700
-                              hover:bg-gray-200"
-                            defaultValue={user?.name}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                            Email Address
-                          </label>
-                          <input
-                            type="email"
-                            id="email"
-                            className="w-full pl-4 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
-                              focus:outline-none focus:ring-2 focus:ring-purple-500 
-                              transition-all duration-200 text-gray-700
-                              hover:bg-gray-200"
-                            defaultValue={user?.email}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
-                            Role
-                          </label>
-                          <select
-                            id="role"
-                            className="w-full pl-4 pr-4 py-3 bg-gray-200 border-0 rounded-lg 
-                              transition-all duration-200 text-gray-700 cursor-not-allowed"
-                            defaultValue={user?.role}
-                            disabled
-                          >
-                            <option value="admin">Admin</option>
-                            <option value="doctor">Doctor</option>
-                            <option value="nurse">Nurse</option>
-                            <option value="receptionist">Receptionist</option>
-                          </select>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-6">
-                        <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
-                          <Icon icon={SolarIcons.save} className="w-5 h-5 mr-2" />
-                          Save Changes
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <CardHeader>
-                      <div className="flex items-center gap-3 -ml-2">
-                        <div className="p-2 bg-blue-100 rounded-lg">
-                          <Icon icon={SolarIcons.settingsMinimalistic} className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg font-semibold text-gray-900">Preferences</CardTitle>
-                          <p className="text-sm text-gray-500">Manage your app settings</p>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-900">Dark Mode</h4>
-                            <p className="text-xs text-gray-500">Switch between light and dark mode</p>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer" />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
-                          </label>
-                        </div>
-                        
-                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-900">Show Online Status</h4>
-                            <p className="text-xs text-gray-500">Allow others to see when you're online</p>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer" defaultChecked />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
-                          </label>
-                        </div>
-                        
-                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                          <div>
-                            <h4 className="text-sm font-medium text-gray-900">Appointment Notification Sounds</h4>
-                            <p className="text-xs text-gray-500">Play sounds for appointment notifications</p>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer" defaultChecked />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
-                          </label>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-6">
-                        <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
-                          <Icon icon={SolarIcons.save} className="w-5 h-5 mr-2" />
-                          Save Preferences
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                <AccountTabContent />
               )}
           
               {activeTab === 'security' && (
@@ -501,196 +349,6 @@ const Settings: React.FC = () => {
             </div>
           )}
           
-          {activeTab === 'themes' && (
-            <div className="space-y-6">
-              {/* Premium Theme Selection Card */}
-              <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                <CardHeader>
-                  <div className="flex items-center gap-3 -ml-2">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <Icon icon={SolarIcons.palette} className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg font-semibold text-gray-900">Color Themes</CardTitle>
-                      <p className="text-sm text-gray-500">Choose your preferred color scheme</p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    <div>
-                      <h4 className="text-lg font-medium text-gray-900 mb-2">Choose your preferred color theme</h4>
-                      <p className="text-sm text-gray-500 mb-6">
-                        Select a color theme to personalize the appearance of your dashboard and sidebar. 
-                        Changes are applied immediately and saved automatically.
-                      </p>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
-                      {themes.map((theme, index) => (
-                        <motion.div
-                          key={theme.id}
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: index * 0.05 }}
-                          whileHover={{ scale: 1.02, y: -2 }}
-                          whileTap={{ scale: 0.98 }}
-                          className={`group relative cursor-pointer rounded-2xl border-2 p-5 transition-all duration-300 ${
-                            currentTheme.id === theme.id
-                              ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-white shadow-2xl ring-4 ring-purple-100'
-                              : 'border-gray-200 hover:border-gray-300 hover:shadow-xl bg-gradient-to-br from-white to-gray-50'
-                          }`}
-                          onClick={() => setTheme(theme.id)}
-                        >
-                          {/* Theme Preview */}
-                          <div className="space-y-3">
-                            {/* Enhanced Gradient Preview with Glass Effect */}
-                            <div className={`h-10 rounded-xl bg-gradient-to-r ${theme.gradients.sidebar} shadow-lg relative overflow-hidden border border-white/20`}>
-                              <div className="absolute inset-0 bg-white/20 backdrop-blur-sm"></div>
-                              <div className="absolute bottom-1 left-2 right-2 h-0.5 bg-white/40 rounded-full"></div>
-                              <div className="absolute top-1 left-2 w-8 h-0.5 bg-white/60 rounded-full"></div>
-                            </div>
-                            
-                            {/* Theme Info */}
-                            <div>
-                              <h5 className="text-sm font-bold text-gray-900 group-hover:text-gray-800">{theme.name}</h5>
-                              <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{theme.description}</p>
-                            </div>
-                            
-                            {/* Enhanced Color Palette */}
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div
-                                  className="w-5 h-5 rounded-full border-2 border-white shadow-lg ring-1 ring-gray-200"
-                                  style={{ backgroundColor: theme.colors.primary.from }}
-                                ></div>
-                                <div
-                                  className="w-5 h-5 rounded-full border-2 border-white shadow-lg ring-1 ring-gray-200"
-                                  style={{ backgroundColor: theme.colors.primary.to }}
-                                ></div>
-                                {theme.colors.primary.via && (
-                                  <div
-                                    className="w-5 h-5 rounded-full border-2 border-white shadow-lg ring-1 ring-gray-200"
-                                    style={{ backgroundColor: theme.colors.primary.via }}
-                                  ></div>
-                                )}
-                                {theme.colors.accent && (
-                                  <div
-                                    className="w-5 h-5 rounded-full border-2 border-white shadow-lg ring-1 ring-gray-200"
-                                    style={{ backgroundColor: theme.colors.accent.from }}
-                                  ></div>
-                                )}
-                              </div>
-                              <div className="text-right">
-                                <span className={`text-xs font-bold tracking-wide ${
-                                  currentTheme.id === theme.id 
-                                    ? 'text-purple-600' 
-                                    : 'text-gray-400 group-hover:text-gray-500'
-                                }`}>
-                                  {currentTheme.id === theme.id ? 'ACTIVE' : 'SELECT'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* Premium Selected Indicator */}
-                          {currentTheme.id === theme.id && (
-                            <motion.div 
-                              initial={{ scale: 0, rotate: -180 }}
-                              animate={{ scale: 1, rotate: 0 }}
-                              transition={{ type: "spring", duration: 0.6 }}
-                              className="absolute -top-2 -right-2 w-7 h-7 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-xl ring-4 ring-white"
-                            >
-                              <Icon icon={SolarIcons.check} className="w-4 h-4 text-white" />
-                            </motion.div>
-                          )}
-                          
-                          {/* Hover Glow Effect */}
-                          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-                        </motion.div>
-                      ))}
-                    </div>
-                    
-                    {/* Premium Theme Information */}
-                    <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 mt-8 border border-purple-100">
-                      <div className="flex items-start gap-4">
-                        <div className="p-2 bg-purple-100 rounded-xl">
-                          <Icon icon={SolarIcons.sparkles} className="w-6 h-6 text-purple-600" />
-                        </div>
-                        <div className="flex-1">
-                          <h5 className="text-lg font-bold text-gray-900 mb-2">
-                            Active: {currentTheme.name}
-                          </h5>
-                          <p className="text-sm text-gray-700 mb-3">
-                            {currentTheme.description}
-                          </p>
-                          <div className="flex items-center gap-6 text-xs text-gray-600">
-                            <span className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                              Applied System-wide
-                            </span>
-                            <span className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                              {themes.length} Themes Available
-                            </span>
-                            <span className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-                              Auto-saved
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Theme Preview Card */}
-              <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                <CardHeader>
-                  <div className="flex items-center gap-3 -ml-2">
-                    <div className="p-2 bg-indigo-100 rounded-lg">
-                      <Icon icon={SolarIcons.palette} className="w-5 h-5 text-indigo-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg font-semibold text-gray-900">Theme Preview</CardTitle>
-                      <p className="text-sm text-gray-500">See how your theme looks</p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-900 mb-3">See how your theme looks</h4>
-                      <p className="text-xs text-gray-500 mb-4">
-                        Preview your selected theme with sample UI components
-                      </p>
-                    </div>
-                    
-                    {/* Theme Preview Components */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Sample Button */}
-                      <div className="space-y-2">
-                        <label className="text-xs font-medium text-gray-600">Primary Button</label>
-                        <button className={`w-full px-4 py-2 rounded-lg bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white font-medium shadow-md hover:shadow-lg transition-all`}>
-                          Sample Button
-                        </button>
-                      </div>
-                      
-                      {/* Sample Sidebar */}
-                      <div className="space-y-2">
-                        <label className="text-xs font-medium text-gray-600">Sidebar Style</label>
-                        <div className={`w-full h-12 rounded-lg bg-gradient-to-r ${currentTheme.gradients.sidebar} flex items-center px-3 shadow-md`}>
-                          <div className="w-6 h-6 bg-white/20 rounded-md mr-2"></div>
-                          <span className="text-white text-sm font-medium">Navigation</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
           
           {activeTab === 'system' && (
             <div className="space-y-6">
@@ -809,6 +467,14 @@ const Settings: React.FC = () => {
           {activeTab === 'practice' && (
             <PracticeProfileContent onTabChange={setActiveTab} />
           )}
+          
+          {activeTab === 'documents' && (
+            <PracticeDocumentsContent />
+          )}
+          
+          {activeTab === 'social' && (
+            <PracticeSocialAccountsContent />
+          )}
             </div>
           </div>
         </div>
@@ -820,11 +486,21 @@ const Settings: React.FC = () => {
   );
 };
 
+// Helper function to convert 24hr time to 12hr format
+const formatTime12Hour = (time24: string): string => {
+  if (!time24) return '';
+  const [hours, minutes] = time24.split(':');
+  const hour = parseInt(hours);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minutes} ${ampm}`;
+};
+
 // Practice Profile Component
-const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> = ({ onTabChange }) => {
+const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> = () => {
   const { user } = useAuthStore();
   const { currentTheme } = useTheme();
-  const [practiceTab, setPracticeTab] = useState<'profile' | 'hours' | 'branches' | 'departments'>('profile');
+  const [practiceTab, setPracticeTab] = useState<'profile' | 'hours' | 'branches' | 'departments' | 'themes'>('profile');
   const [practiceData, setPracticeData] = useState({
     id: '',
     name: '',
@@ -853,6 +529,11 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
   const [editMode, setEditMode] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [formData, setFormData] = useState(practiceData);
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
+  const [timePickerConfig, setTimePickerConfig] = useState<{
+    dayIndex: number;
+    field: string;
+  } | null>(null);
   
   // Default mock data structure (keeping for reference)
   const defaultMockData = {
@@ -1091,9 +772,9 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
   // Tab configuration
   const tabs = [
     { id: 'profile' as const, label: 'Practice Profile', icon: SolarIcons.building },
-    { id: 'hours' as const, label: 'Business Hours', icon: SolarIcons.clock },
     { id: 'branches' as const, label: 'Branches', icon: SolarIcons.buildings },
-    { id: 'departments' as const, label: 'Departments', icon: SolarIcons.folder }
+    { id: 'departments' as const, label: 'Departments', icon: SolarIcons.folder },
+    { id: 'themes' as const, label: 'Themes', icon: SolarIcons.palette }
   ];
 
   return (
@@ -1451,35 +1132,137 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
                     )}
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* Business Hours Tab */}
-            {practiceTab === 'hours' && (
-              <div className="space-y-6">
+                {/* Business Hours Section */}
                 <div className="bg-gray-50 rounded-lg p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                       <Icon icon={SolarIcons.clock} className="w-5 h-5 text-purple-600" />
                       Business Hours
                     </h3>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => toast.info('Business hours editing coming soon!')}
-                    >
-                      <Icon icon={SolarIcons.edit} className="w-4 h-4 mr-1" />
-                      Edit Hours
-                    </Button>
+                    {editingSection !== 'business_hours' ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingSection('business_hours')}
+                      >
+                        <Icon icon={SolarIcons.edit} className="w-4 h-4 mr-1" />
+                        Edit
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancel}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleSave}
+                          disabled={saving}
+                        >
+                          {saving ? 'Saving...' : 'Save'}
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="space-y-3">
-                    {(Array.isArray(practiceData.business_hours) ? practiceData.business_hours : defaultMockData.hours).map((day, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
-                        <span className="font-medium text-gray-900">{day.day}</span>
-                        <span className="text-gray-600">{day.hours}</span>
-                      </div>
-                    ))}
+                  <div className="space-y-2">
+                    {(Array.isArray(practiceData.business_hours) ? practiceData.business_hours : defaultMockData.hours).map((day, idx) => {
+                      const schedule = formData.business_hours?.[idx] || day;
+                      const isOpen = schedule.hours !== 'Closed';
+                      
+                      // Parse existing hours to get open/close times
+                      let openTime = '09:00';
+                      let closeTime = '17:00';
+                      if (isOpen && schedule.hours && schedule.hours.includes('-')) {
+                        const parts = schedule.hours.split('-').map(s => s.trim());
+                        // Convert to 24hr format for time inputs
+                        // This is simplified - in production you'd parse AM/PM properly
+                        openTime = schedule.openTime || '09:00';
+                        closeTime = schedule.closeTime || '17:00';
+                      }
+                      
+                      return (
+                        <div key={idx} className="bg-gray-50 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-700">{day.day}</span>
+                            {editingSection === 'business_hours' && (
+                              <label className="flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isOpen}
+                                  onChange={(e) => {
+                                    const updatedHours = [...(formData.business_hours || practiceData.business_hours || defaultMockData.hours)];
+                                    updatedHours[idx] = {
+                                      ...updatedHours[idx],
+                                      hours: e.target.checked ? `${formatTime12Hour(openTime)} - ${formatTime12Hour(closeTime)}` : 'Closed',
+                                      isOpen: e.target.checked,
+                                      openTime: e.target.checked ? openTime : '',
+                                      closeTime: e.target.checked ? closeTime : ''
+                                    };
+                                    handleInputChange('business_hours', updatedHours);
+                                  }}
+                                  className="sr-only"
+                                />
+                                <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                  isOpen ? 'bg-purple-600' : 'bg-gray-300'
+                                }`}>
+                                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    isOpen ? 'translate-x-6' : 'translate-x-1'
+                                  }`} />
+                                </div>
+                                <span className="ml-2 text-sm text-gray-600">
+                                  {isOpen ? 'Open' : 'Closed'}
+                                </span>
+                              </label>
+                            )}
+                          </div>
+                          
+                          {editingSection === 'business_hours' && isOpen ? (
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTimePickerConfig({ dayIndex: idx, field: 'open' });
+                                  setTimePickerOpen(true);
+                                }}
+                                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:border-purple-300 hover:shadow-md transition-all group"
+                              >
+                                <Icon icon={SolarIcons.sunrise} className="w-4 h-4 text-purple-500 group-hover:text-purple-600" />
+                                <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
+                                  {formatTime12Hour(openTime)}
+                                </span>
+                              </button>
+                              
+                              <div className="flex items-center gap-2">
+                                <div className="h-px w-6 bg-gray-300"></div>
+                                <span className="text-sm text-gray-500 font-medium">to</span>
+                                <div className="h-px w-6 bg-gray-300"></div>
+                              </div>
+                              
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setTimePickerConfig({ dayIndex: idx, field: 'close' });
+                                  setTimePickerOpen(true);
+                                }}
+                                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:border-purple-300 hover:shadow-md transition-all group"
+                              >
+                                <Icon icon={SolarIcons.sunset} className="w-4 h-4 text-indigo-500 group-hover:text-indigo-600" />
+                                <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
+                                  {formatTime12Hour(closeTime)}
+                                </span>
+                              </button>
+                            </div>
+                          ) : (
+                            !editingSection && <span className="text-sm text-gray-600">{day.hours}</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -1494,9 +1277,2134 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
             {practiceTab === 'departments' && (
               <DepartmentManagement />
             )}
+            
+            {/* Themes Tab */}
+            {practiceTab === 'themes' && (
+              <PracticeThemesContent />
+            )}
           </motion.div>
         </div>
       </div>
+      
+      {/* Time Picker Modal */}
+      <TimePickerModal
+        isOpen={timePickerOpen}
+        onClose={() => {
+          setTimePickerOpen(false);
+          setTimePickerConfig(null);
+        }}
+        onConfirm={(time) => {
+          if (timePickerConfig) {
+            const updatedHours = [...(formData.business_hours || practiceData.business_hours || defaultMockData.hours)];
+            const { dayIndex, field } = timePickerConfig;
+            
+            const currentSchedule = updatedHours[dayIndex];
+            const openTime = field === 'open' ? time : (currentSchedule.openTime || '09:00');
+            const closeTime = field === 'close' ? time : (currentSchedule.closeTime || '17:00');
+            
+            updatedHours[dayIndex] = {
+              ...currentSchedule,
+              openTime,
+              closeTime,
+              hours: `${formatTime12Hour(openTime)} - ${formatTime12Hour(closeTime)}`
+            };
+            
+            handleInputChange('business_hours', updatedHours);
+          }
+        }}
+        initialTime={
+          timePickerConfig
+            ? timePickerConfig.field === 'open'
+              ? (formData.business_hours?.[timePickerConfig.dayIndex]?.openTime || '09:00')
+              : (formData.business_hours?.[timePickerConfig.dayIndex]?.closeTime || '17:00')
+            : '09:00'
+        }
+        title={
+          timePickerConfig
+            ? `Select ${timePickerConfig.field === 'open' ? 'Opening' : 'Closing'} Time`
+            : 'Select Time'
+        }
+      />
+    </div>
+  );
+};
+
+// Account Tab Content Component with Security Integration
+const AccountTabContent: React.FC = () => {
+  const { user } = useAuthStore();
+  const [accountTab, setAccountTab] = useState<'profile' | 'preferences' | 'security'>('profile');
+
+  const accountTabs = [
+    { id: 'profile' as const, label: 'Profile', icon: SolarIcons.userCircle },
+    { id: 'preferences' as const, label: 'Preferences', icon: SolarIcons.settingsMinimalistic },
+    { id: 'security' as const, label: 'Security', icon: SolarIcons.lock }
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Account Navigation Tabs */}
+      <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+            {accountTabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setAccountTab(tab.id)}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                  accountTab === tab.id
+                    ? 'bg-white text-purple-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Icon icon={tab.icon} className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Profile Tab */}
+      {accountTab === 'profile' && (
+        <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <CardHeader>
+            <div className="flex items-center gap-3 -ml-2">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Icon icon={SolarIcons.userCircle} className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-semibold text-gray-900">Profile Information</CardTitle>
+                <p className="text-sm text-gray-500">Update your personal details</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row sm:items-center mb-6">
+              <div className="mb-4 sm:mb-0 sm:mr-6">
+                {user?.avatar ? (
+                  <img 
+                    src={user.avatar} 
+                    alt={user.name} 
+                    className="w-20 h-20 rounded-full object-cover border-4 border-gray-200"
+                  />
+                ) : (
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                    <Icon icon={SolarIcons.user} className="w-10 h-10 text-white" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-gray-900">{user?.name}</h3>
+                <p className="text-gray-500">{user?.email}</p>
+                <p className="text-sm text-gray-500 capitalize">{user?.role}</p>
+                <Button variant="outline" size="sm" className="mt-2">
+                  <Icon icon={SolarIcons.camera} className="w-4 h-4 mr-2" />
+                  Change Avatar
+                </Button>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  className="w-full pl-4 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
+                    focus:outline-none focus:ring-2 focus:ring-purple-500 
+                    transition-all duration-200 text-gray-700
+                    hover:bg-gray-200"
+                  defaultValue={user?.name}
+                />
+              </div>
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  className="w-full pl-4 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
+                    focus:outline-none focus:ring-2 focus:ring-purple-500 
+                    transition-all duration-200 text-gray-700
+                    hover:bg-gray-200"
+                  defaultValue={user?.email}
+                />
+              </div>
+              <div>
+                <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
+                  Role
+                </label>
+                <select
+                  id="role"
+                  className="w-full pl-4 pr-4 py-3 bg-gray-200 border-0 rounded-lg 
+                    transition-all duration-200 text-gray-700 cursor-not-allowed"
+                  defaultValue={user?.role}
+                  disabled
+                >
+                  <option value="admin">Admin</option>
+                  <option value="doctor">Doctor</option>
+                  <option value="nurse">Nurse</option>
+                  <option value="receptionist">Receptionist</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="mt-6">
+              <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+                <Icon icon={SolarIcons.save} className="w-5 h-5 mr-2" />
+                Save Changes
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Preferences Tab */}
+      {accountTab === 'preferences' && (
+        <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <CardHeader>
+            <div className="flex items-center gap-3 -ml-2">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Icon icon={SolarIcons.settingsMinimalistic} className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-semibold text-gray-900">Preferences</CardTitle>
+                <p className="text-sm text-gray-500">Manage your app settings</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900">Dark Mode</h4>
+                  <p className="text-xs text-gray-500">Switch between light and dark mode</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" className="sr-only peer" />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
+                </label>
+              </div>
+              
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900">Show Online Status</h4>
+                  <p className="text-xs text-gray-500">Allow others to see when you're online</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" className="sr-only peer" defaultChecked />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
+                </label>
+              </div>
+              
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900">Appointment Notification Sounds</h4>
+                  <p className="text-xs text-gray-500">Play sounds for appointment notifications</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" className="sr-only peer" defaultChecked />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
+                </label>
+              </div>
+            </div>
+            
+            <div className="mt-6">
+              <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+                <Icon icon={SolarIcons.save} className="w-5 h-5 mr-2" />
+                Save Preferences
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Security Tab (moved from main tabs) */}
+      {accountTab === 'security' && (
+        <div className="space-y-6">
+          <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+            <CardHeader>
+              <div className="flex items-center gap-3 -ml-2">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <Icon icon={SolarIcons.lock} className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg font-semibold text-gray-900">Change Password</CardTitle>
+                  <p className="text-sm text-gray-500">Update your security credentials</p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="current-password" className="block text-sm font-medium text-gray-700 mb-2">
+                    Current Password
+                  </label>
+                  <div className="relative">
+                    <Icon icon={SolarIcons.lock} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="password"
+                      id="current-password"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
+                        focus:outline-none focus:ring-2 focus:ring-purple-500 
+                        transition-all duration-200 text-gray-700
+                        hover:bg-gray-200"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-2">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <Icon icon={SolarIcons.lock} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="password"
+                      id="new-password"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
+                        focus:outline-none focus:ring-2 focus:ring-purple-500 
+                        transition-all duration-200 text-gray-700
+                        hover:bg-gray-200"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-2">
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <Icon icon={SolarIcons.lock} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="password"
+                      id="confirm-password"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
+                        focus:outline-none focus:ring-2 focus:ring-purple-500 
+                        transition-all duration-200 text-gray-700
+                        hover:bg-gray-200"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6">
+                <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+                  <Icon icon={SolarIcons.shield} className="w-5 h-5 mr-2" />
+                  Update Password
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+            <CardHeader>
+              <div className="flex items-center gap-3 -ml-2">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Icon icon={SolarIcons.shield} className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg font-semibold text-gray-900">Two-Factor Authentication</CardTitle>
+                  <p className="text-sm text-gray-500">Add an extra layer of security</p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-start">
+                <div className="flex-shrink-0 mt-0.5">
+                  <Icon icon={SolarIcons.checkCircle} className="w-6 h-6 text-green-500" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-gray-900">Two-factor authentication is enabled</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Two-factor authentication adds an extra layer of security to your account.
+                    In addition to your password, you'll need to enter a code that we text to your phone.
+                  </p>
+                  <div className="mt-3">
+                    <Button variant="outline" size="sm">
+                      <Icon icon={SolarIcons.settings} className="w-4 h-4 mr-2" />
+                      Manage 2FA Settings
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+            <CardHeader>
+              <div className="flex items-center gap-3 -ml-2">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Icon icon={SolarIcons.hardDrive} className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg font-semibold text-gray-900">Login Sessions</CardTitle>
+                  <p className="text-sm text-gray-500">Manage your active sessions</p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center py-3 px-4 bg-green-50 border border-green-100 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-green-100 rounded-full">
+                      <Icon icon={SolarIcons.checkCircle} className="w-4 h-4 text-green-600" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-gray-900">Current Session</p>
+                      <p className="text-xs text-gray-500">This device • 42.122.144.55 • San Francisco, USA</p>
+                    </div>
+                  </div>
+                  <Button variant="ghost" size="sm" disabled>
+                    Active
+                  </Button>
+                </div>
+                
+                <div className="flex justify-between items-center py-3 px-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="p-2 bg-gray-100 rounded-full">
+                      <Icon icon={SolarIcons.hardDrive} className="w-4 h-4 text-gray-600" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-gray-900">Mac OS • Chrome</p>
+                      <p className="text-xs text-gray-500">34.232.123.55 • New York, USA • 3 days ago</p>
+                    </div>
+                  </div>
+                  <Button variant="outline" size="sm">
+                    End Session
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="mt-6">
+                <Button variant="outline" className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50">
+                  Log Out of All Sessions
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Practice Documents Content Component
+const PracticeDocumentsContent: React.FC = () => {
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const { user } = useAuthStore();
+  const { practiceId } = usePractice();
+  const dropzoneRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const documentCategories = [
+    { value: 'certificate', label: 'Health Certificates', icon: SolarIcons.document, color: 'bg-green-100 text-green-600' },
+    { value: 'license', label: 'Practice License', icon: SolarIcons.shield, color: 'bg-blue-100 text-blue-600' },
+    { value: 'policy', label: 'Policies & Procedures', icon: SolarIcons.folder, color: 'bg-purple-100 text-purple-600' },
+    { value: 'contract', label: 'Contracts & Agreements', icon: SolarIcons.handshake, color: 'bg-orange-100 text-orange-600' },
+    { value: 'form', label: 'Forms & Templates', icon: SolarIcons.documentText, color: 'bg-indigo-100 text-indigo-600' },
+    { value: 'insurance', label: 'Insurance Documents', icon: SolarIcons.shield, color: 'bg-red-100 text-red-600' },
+    { value: 'other', label: 'Other Documents', icon: SolarIcons.document, color: 'bg-gray-100 text-gray-600' }
+  ];
+
+  const loadDocuments = async () => {
+    if (!practiceId) return;
+    
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('practice_documents')
+        .select(`
+          *,
+          uploaded_by_user:users!practice_documents_uploaded_by_fkey(
+            name,
+            email
+          )
+        `)
+        .eq('practice_id', practiceId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setDocuments(data || []);
+    } catch (error) {
+      console.error('Error loading documents:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDocuments();
+  }, [practiceId]);
+
+  const handleFileUpload = async (files: FileList) => {
+    if (!practiceId || !files.length) return;
+
+    try {
+      setUploading(true);
+      
+      for (const file of Array.from(files)) {
+        // Validate file
+        if (file.size > 50 * 1024 * 1024) {
+          alert(`File ${file.name} is too large. Maximum size is 50MB.`);
+          continue;
+        }
+
+        // Upload to storage
+        const fileName = `${practiceId}/documents/${Date.now()}_${file.name}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(fileName, file);
+
+        if (uploadError) throw uploadError;
+
+        // Save to database
+        const { error: dbError } = await supabase
+          .from('practice_documents')
+          .insert({
+            practice_id: practiceId,
+            name: file.name.split('.').slice(0, -1).join('.'),
+            file_path: fileName,
+            file_name: file.name,
+            file_size: file.size,
+            file_type: file.type,
+            mime_type: file.type,
+            category: 'other',
+            uploaded_by: user?.id
+          });
+
+        if (dbError) throw dbError;
+      }
+
+      await loadDocuments();
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      alert('Failed to upload some files. Please try again.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files.length) {
+      handleFileUpload(files);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const filteredDocuments = documents.filter(doc => {
+    const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = categoryFilter === 'all' || doc.category === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const downloadDocument = async (doc: any) => {
+    try {
+      const { data } = supabase.storage
+        .from('documents')
+        .getPublicUrl(doc.file_path);
+      
+      const link = document.createElement('a');
+      link.href = data.publicUrl;
+      link.download = doc.file_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading document:', error);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Icon icon={SolarIcons.document} className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-semibold text-gray-900">Practice Documents</CardTitle>
+                <p className="text-sm text-gray-500">Manage certificates, policies, and other practice documents</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setViewMode(viewMode === 'grid' ? 'table' : 'grid')}
+              >
+                <Icon icon={viewMode === 'grid' ? SolarIcons.list : SolarIcons.grid} className="w-4 h-4 mr-2" />
+                {viewMode === 'grid' ? 'Table' : 'Grid'}
+              </Button>
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white"
+              >
+                <Icon icon={SolarIcons.upload} className="w-4 h-4 mr-2" />
+                {uploading ? 'Uploading...' : 'Upload Documents'}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Dropzone */}
+      <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+        <CardContent className="p-6">
+          <div
+            ref={dropzoneRef}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Icon icon={SolarIcons.cloudUpload} className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Drop files here or click to upload</h3>
+            <p className="text-gray-500">Support for PDFs, images, and documents up to 50MB</p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+              onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
+              className="hidden"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Filters */}
+      <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Icon icon={SolarIcons.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search documents..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            <div className="w-full sm:w-48">
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Categories</option>
+                {documentCategories.map(cat => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Documents List */}
+      {loading ? (
+        <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <CardContent className="p-8 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading documents...</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <CardContent className="p-0">
+            {filteredDocuments.length === 0 ? (
+              <div className="p-8 text-center">
+                <Icon icon={SolarIcons.documentEmpty} className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No documents found</h3>
+                <p className="text-gray-500">Upload your first practice document to get started.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Uploaded</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredDocuments.map((doc) => {
+                      const category = documentCategories.find(cat => cat.value === doc.category) || documentCategories[documentCategories.length - 1];
+                      return (
+                        <tr key={doc.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className={`p-2 rounded-lg ${category.color} mr-3`}>
+                                <Icon icon={category.icon} className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">{doc.name}</div>
+                                <div className="text-sm text-gray-500">{doc.file_name}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${category.color}`}>
+                              {category.label}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatFileSize(doc.file_size)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(doc.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => downloadDocument(doc)}
+                              >
+                                <Icon icon={SolarIcons.download} className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Icon icon={SolarIcons.trash} className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+// Practice Social Accounts Content Component
+const PracticeSocialAccountsContent: React.FC = () => {
+  const [socialAccounts, setSocialAccounts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<any>(null);
+  const [formData, setFormData] = useState({
+    platform: '',
+    account_name: '',
+    profile_url: '',
+    username: '',
+    description: '',
+    is_business_account: false,
+    
+    // OAuth and API Integration
+    app_id: '',
+    client_id: '',
+    access_token: '',
+    refresh_token: '',
+    token_expires_at: '',
+    auth_scope: '',
+    page_id: '',
+    
+    // Broadcasting Capabilities
+    can_post_text: true,
+    can_post_images: true,
+    can_post_videos: false,
+    can_schedule_posts: false,
+    can_delete_posts: false,
+    can_edit_posts: false,
+    can_reply_comments: false,
+    can_moderate_comments: false,
+    
+    // Rate Limiting
+    rate_limit_posts_per_hour: 0,
+    rate_limit_posts_per_day: 0,
+    rate_limit_requests_per_hour: 0,
+    rate_limit_window_minutes: 0,
+    
+    // Content Limits
+    max_text_length: 0,
+    max_hashtags: 0,
+    image_max_size_mb: 0,
+    video_max_size_mb: 0,
+    max_images_per_post: 0,
+    max_videos_per_post: 0,
+    video_max_duration_seconds: 0,
+    
+    // Platform Features
+    supports_stories: false,
+    supports_polls: false,
+    supports_link_preview: true,
+    supports_mentions: false,
+    supports_hashtags: true,
+    supports_analytics: false,
+    supports_scheduling: false,
+    
+    // Content Adaptation
+    auto_resize_images: true,
+    auto_crop_images: false,
+    auto_compress_videos: true,
+    content_template: '',
+    hashtag_strategy: 'smart',
+    mention_strategy: 'manual',
+    
+    // Status and Health
+    is_active: true,
+    last_sync_at: '',
+    sync_status: 'pending',
+    error_count: 0,
+    last_error: '',
+    health_check_interval_hours: 24
+  });
+  const { user } = useAuthStore();
+  const { practiceId } = usePractice();
+
+  const socialPlatforms = [
+    { value: 'facebook', label: 'Facebook', icon: 'devicon:facebook', color: 'bg-blue-100 text-blue-600', description: 'Connect with patients and share practice updates' },
+    { value: 'instagram', label: 'Instagram', icon: 'skill-icons:instagram', color: 'bg-pink-100 text-pink-600', description: 'Share visual content and practice highlights' },
+    { value: 'twitter', label: 'Twitter/X', icon: 'garden:twitter-fill-12', color: 'bg-sky-100 text-sky-600', description: 'Share quick updates and health tips' },
+    { value: 'linkedin', label: 'LinkedIn', icon: 'logos:linkedin-icon', color: 'bg-blue-100 text-blue-600', description: 'Professional networking and practice promotion' },
+    { value: 'tiktok', label: 'TikTok', icon: 'logos:tiktok-icon', color: 'bg-black text-black', description: 'Engage younger audience with health content' },
+    { value: 'youtube', label: 'YouTube', icon: 'logos:youtube-icon', color: 'bg-red-100 text-red-600', description: 'Educational videos and practice content' },
+    { value: 'whatsapp_business', label: 'WhatsApp Business', icon: 'logos:whatsapp-icon', color: 'bg-green-100 text-green-600', description: 'Direct patient communication' },
+  ];
+
+  const loadSocialAccounts = async () => {
+    if (!practiceId) return;
+    
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('practice_social_accounts')
+        .select('*')
+        .eq('practice_id', practiceId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setSocialAccounts(data || []);
+    } catch (error) {
+      console.error('Error loading social accounts:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSocialAccounts();
+  }, [practiceId]);
+
+  const handleAddAccount = async (accountData: any) => {
+    if (!practiceId) return;
+
+    try {
+      const { error } = await supabase
+        .from('practice_social_accounts')
+        .insert({
+          practice_id: practiceId,
+          created_by: user?.id,
+          ...accountData
+        });
+
+      if (error) throw error;
+      await loadSocialAccounts();
+      setShowAddModal(false);
+    } catch (error) {
+      console.error('Error adding social account:', error);
+      alert('Failed to add social account. Please try again.');
+    }
+  };
+
+  const handleUpdateAccount = async (accountId: string, updates: any) => {
+    try {
+      const { error } = await supabase
+        .from('practice_social_accounts')
+        .update({
+          ...updates,
+          updated_by: user?.id
+        })
+        .eq('id', accountId);
+
+      if (error) throw error;
+      await loadSocialAccounts();
+      setEditingAccount(null);
+    } catch (error) {
+      console.error('Error updating social account:', error);
+      alert('Failed to update social account. Please try again.');
+    }
+  };
+
+  const handleDeleteAccount = async (accountId: string) => {
+    if (!confirm('Are you sure you want to delete this social media account?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('practice_social_accounts')
+        .delete()
+        .eq('id', accountId);
+
+      if (error) throw error;
+      await loadSocialAccounts();
+    } catch (error) {
+      console.error('Error deleting social account:', error);
+      alert('Failed to delete social account. Please try again.');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Icon icon={SolarIcons.globe} className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-semibold text-gray-900">Social Media Accounts</CardTitle>
+                <p className="text-sm text-gray-500">Manage practice social media presence for future broadcasting</p>
+              </div>
+            </div>
+            <Button
+              onClick={() => setShowAddModal(true)}
+              className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
+            >
+              <Icon icon={SolarIcons.add} className="w-4 h-4 mr-2" />
+              Add Account
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Available Platforms Overview */}
+      <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold text-gray-900">Supported Platforms</CardTitle>
+          <p className="text-sm text-gray-500">Connect your practice social media accounts for unified content management</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {socialPlatforms.map((platform) => {
+              const connectedAccount = socialAccounts.find(acc => acc.platform === platform.value);
+              return (
+                <div key={platform.value} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${platform.color}`}>
+                        <Icon icon={platform.icon} className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-900">{platform.label}</h3>
+                        <p className="text-xs text-gray-500">{platform.description}</p>
+                      </div>
+                    </div>
+                    {connectedAccount ? (
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-xs text-green-600 font-medium">Connected</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+                        <span className="text-xs text-gray-500">Not connected</span>
+                      </div>
+                    )}
+                  </div>
+                  {connectedAccount && (
+                    <div className="text-sm text-gray-600">
+                      <p className="font-medium">{connectedAccount.account_name}</p>
+                      <p className="text-xs text-gray-500">{connectedAccount.username}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Connected Accounts */}
+      {loading ? (
+        <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <CardContent className="p-8 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading social accounts...</p>
+          </CardContent>
+        </Card>
+      ) : socialAccounts.length > 0 ? (
+        <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold text-gray-900">Connected Accounts</CardTitle>
+            <p className="text-sm text-gray-500">Manage your connected social media accounts</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Platform</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Connected</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {socialAccounts.map((account) => {
+                    const platform = socialPlatforms.find(p => p.value === account.platform);
+                    return (
+                      <tr key={account.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className={`p-2 rounded-lg ${platform?.color || 'bg-gray-100 text-gray-600'} mr-3`}>
+                              <Icon icon={platform?.icon || SolarIcons.globe} className="w-4 h-4" />
+                            </div>
+                            <span className="text-sm font-medium text-gray-900">{platform?.label || account.platform}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{account.account_name}</div>
+                            <div className="text-sm text-gray-500">{account.username}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            account.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {account.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(account.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditingAccount(account)}
+                            >
+                              <Icon icon={SolarIcons.edit} className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => handleDeleteAccount(account.id)}
+                            >
+                              <Icon icon={SolarIcons.trash} className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <CardContent className="p-8 text-center">
+            <Icon icon={SolarIcons.globe} className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No social accounts connected</h3>
+            <p className="text-gray-500 mb-4">Connect your social media accounts to enable unified content broadcasting.</p>
+            <Button
+              onClick={() => setShowAddModal(true)}
+              className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
+            >
+              <Icon icon={SolarIcons.add} className="w-4 h-4 mr-2" />
+              Add First Account
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Add Account Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] pointer-events-auto flex flex-col overflow-hidden">
+            {/* Gradient Header */}
+            <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 p-6 text-white">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-indigo-600 opacity-20 backdrop-blur-sm"></div>
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                    <Icon icon={SolarIcons.globe} className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold" style={{fontFamily: 'Poppins, sans-serif'}}>Add Social Media Account</h2>
+                    <p className="text-blue-100 text-sm">Connect your practice social media account</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setFormData({
+                      platform: '', account_name: '', profile_url: '', username: '', description: '', is_business_account: false,
+                      app_id: '', client_id: '', access_token: '', refresh_token: '', token_expires_at: '', auth_scope: '', page_id: '',
+                      can_post_text: true, can_post_images: true, can_post_videos: false, can_schedule_posts: false,
+                      can_delete_posts: false, can_edit_posts: false, can_reply_comments: false, can_moderate_comments: false,
+                      rate_limit_posts_per_hour: 0, rate_limit_posts_per_day: 0, rate_limit_requests_per_hour: 0, rate_limit_window_minutes: 0,
+                      max_text_length: 0, max_hashtags: 0, image_max_size_mb: 0, video_max_size_mb: 0,
+                      max_images_per_post: 0, max_videos_per_post: 0, video_max_duration_seconds: 0,
+                      supports_stories: false, supports_polls: false, supports_link_preview: true,
+                      supports_mentions: false, supports_hashtags: true, supports_analytics: false, supports_scheduling: false,
+                      auto_resize_images: true, auto_crop_images: false, auto_compress_videos: true,
+                      content_template: '', hashtag_strategy: 'smart', mention_strategy: 'manual',
+                      is_active: true, last_sync_at: '', sync_status: 'pending', error_count: 0, last_error: '', health_check_interval_hours: 24
+                    });
+                  }}
+                  className="p-2 bg-white/20 hover:bg-red-500/30 rounded-xl transition-colors"
+                >
+                  <Icon icon={SolarIcons.close} className="w-6 h-6 text-white" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content Area */}
+            <div className="flex-1 overflow-auto p-6 bg-white">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                handleAddAccount(formData);
+              }} className="space-y-6">
+                {/* Account Information Section */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+                  <div className="flex items-center gap-3 mb-6 -ml-2">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <Icon icon={SolarIcons.globe} className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Account Information</h3>
+                      <p className="text-sm text-gray-500">Basic details about your social media account</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Platform</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.settings} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <select
+                          value={formData.platform}
+                          onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          required
+                        >
+                          <option value="">Select a platform</option>
+                          {socialPlatforms.map(platform => (
+                            <option key={platform.value} value={platform.value}>{platform.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Account Name</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.user} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="text"
+                          value={formData.account_name}
+                          onChange={(e) => setFormData({ ...formData, account_name: e.target.value })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="Your Practice Name"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Profile URL</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.link} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="url"
+                          value={formData.profile_url}
+                          onChange={(e) => setFormData({ ...formData, profile_url: e.target.value })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="https://facebook.com/yourpractice"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Username/Handle</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.at} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="text"
+                          value={formData.username}
+                          onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="@yourpractice"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <div className="relative">
+                      <textarea
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        className="w-full pl-4 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                        rows={3}
+                        placeholder="Brief description of your account"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex items-center">
+                    <input
+                      type="checkbox"
+                      id="business_account"
+                      checked={formData.is_business_account}
+                      onChange={(e) => setFormData({ ...formData, is_business_account: e.target.checked })}
+                      className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                    />
+                    <label htmlFor="business_account" className="ml-2 text-sm font-medium text-gray-700">
+                      This is a business account
+                    </label>
+                  </div>
+                </div>
+
+                {/* OAuth & API Integration Section */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+                  <div className="flex items-center gap-3 mb-6 -ml-2">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Icon icon={SolarIcons.key} className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">API Integration</h3>
+                      <p className="text-sm text-gray-500">Required for concurrent broadcasting functionality</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">App ID</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.code} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="text"
+                          value={formData.app_id}
+                          onChange={(e) => setFormData({ ...formData, app_id: e.target.value })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="Platform App ID"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Client ID</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.id} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="text"
+                          value={formData.client_id}
+                          onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="OAuth Client ID"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Page/Account ID</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.hashtag} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="text"
+                          value={formData.page_id}
+                          onChange={(e) => setFormData({ ...formData, page_id: e.target.value })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="Platform Page/Account ID"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Auth Scope</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.shield} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="text"
+                          value={formData.auth_scope}
+                          onChange={(e) => setFormData({ ...formData, auth_scope: e.target.value })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="e.g., pages_manage_posts,pages_read_engagement"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Broadcasting Capabilities Section */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+                  <div className="flex items-center gap-3 mb-6 -ml-2">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <Icon icon={SolarIcons.broadcast} className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Broadcasting Capabilities</h3>
+                      <p className="text-sm text-gray-500">Define what content types this account can broadcast</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="can_post_text"
+                        checked={formData.can_post_text}
+                        onChange={(e) => setFormData({ ...formData, can_post_text: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="can_post_text" className="ml-2 text-sm font-medium text-gray-700">
+                        Post Text
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="can_post_images"
+                        checked={formData.can_post_images}
+                        onChange={(e) => setFormData({ ...formData, can_post_images: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="can_post_images" className="ml-2 text-sm font-medium text-gray-700">
+                        Post Images
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="can_post_videos"
+                        checked={formData.can_post_videos}
+                        onChange={(e) => setFormData({ ...formData, can_post_videos: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="can_post_videos" className="ml-2 text-sm font-medium text-gray-700">
+                        Post Videos
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="can_schedule_posts"
+                        checked={formData.can_schedule_posts}
+                        onChange={(e) => setFormData({ ...formData, can_schedule_posts: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="can_schedule_posts" className="ml-2 text-sm font-medium text-gray-700">
+                        Schedule Posts
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="can_delete_posts"
+                        checked={formData.can_delete_posts}
+                        onChange={(e) => setFormData({ ...formData, can_delete_posts: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="can_delete_posts" className="ml-2 text-sm font-medium text-gray-700">
+                        Delete Posts
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="can_edit_posts"
+                        checked={formData.can_edit_posts}
+                        onChange={(e) => setFormData({ ...formData, can_edit_posts: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="can_edit_posts" className="ml-2 text-sm font-medium text-gray-700">
+                        Edit Posts
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="can_reply_comments"
+                        checked={formData.can_reply_comments}
+                        onChange={(e) => setFormData({ ...formData, can_reply_comments: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="can_reply_comments" className="ml-2 text-sm font-medium text-gray-700">
+                        Reply to Comments
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="can_moderate_comments"
+                        checked={formData.can_moderate_comments}
+                        onChange={(e) => setFormData({ ...formData, can_moderate_comments: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="can_moderate_comments" className="ml-2 text-sm font-medium text-gray-700">
+                        Moderate Comments
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rate Limiting Section */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+                  <div className="flex items-center gap-3 mb-6 -ml-2">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <Icon icon={SolarIcons.timer} className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Rate Limiting</h3>
+                      <p className="text-sm text-gray-500">Platform-specific posting and API request limits</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Posts per Hour</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.clock} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="number"
+                          value={formData.rate_limit_posts_per_hour}
+                          onChange={(e) => setFormData({ ...formData, rate_limit_posts_per_hour: parseInt(e.target.value) || 0 })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="0"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Posts per Day</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.calendar} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="number"
+                          value={formData.rate_limit_posts_per_day}
+                          onChange={(e) => setFormData({ ...formData, rate_limit_posts_per_day: parseInt(e.target.value) || 0 })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="0"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">API Requests per Hour</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.server} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="number"
+                          value={formData.rate_limit_requests_per_hour}
+                          onChange={(e) => setFormData({ ...formData, rate_limit_requests_per_hour: parseInt(e.target.value) || 0 })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="0"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Rate Window (minutes)</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.stopwatch} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="number"
+                          value={formData.rate_limit_window_minutes}
+                          onChange={(e) => setFormData({ ...formData, rate_limit_window_minutes: parseInt(e.target.value) || 0 })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="0"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Content Limits Section */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+                  <div className="flex items-center gap-3 mb-6 -ml-2">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <Icon icon={SolarIcons.document} className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Content Limits</h3>
+                      <p className="text-sm text-gray-500">Platform-specific content size and format restrictions</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Max Text Length</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.text} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="number"
+                          value={formData.max_text_length}
+                          onChange={(e) => setFormData({ ...formData, max_text_length: parseInt(e.target.value) || 0 })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="280"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Max Hashtags</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.hashtag} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="number"
+                          value={formData.max_hashtags}
+                          onChange={(e) => setFormData({ ...formData, max_hashtags: parseInt(e.target.value) || 0 })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="10"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Image Max Size (MB)</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.gallery} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="number"
+                          value={formData.image_max_size_mb}
+                          onChange={(e) => setFormData({ ...formData, image_max_size_mb: parseFloat(e.target.value) || 0 })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="10"
+                          min="0"
+                          step="0.1"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Video Max Size (MB)</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.videocamera} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="number"
+                          value={formData.video_max_size_mb}
+                          onChange={(e) => setFormData({ ...formData, video_max_size_mb: parseFloat(e.target.value) || 0 })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="100"
+                          min="0"
+                          step="0.1"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Max Images per Post</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.layers} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="number"
+                          value={formData.max_images_per_post}
+                          onChange={(e) => setFormData({ ...formData, max_images_per_post: parseInt(e.target.value) || 0 })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="10"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Video Duration (seconds)</label>
+                      <div className="relative">
+                        <Icon icon={SolarIcons.play} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <input
+                          type="number"
+                          value={formData.video_max_duration_seconds}
+                          onChange={(e) => setFormData({ ...formData, video_max_duration_seconds: parseInt(e.target.value) || 0 })}
+                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                          placeholder="300"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Platform Features Section */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+                  <div className="flex items-center gap-3 mb-6 -ml-2">
+                    <div className="p-2 bg-indigo-100 rounded-lg">
+                      <Icon icon={SolarIcons.sparkles} className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Platform Features</h3>
+                      <p className="text-sm text-gray-500">Available features for this social media platform</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="supports_stories"
+                        checked={formData.supports_stories}
+                        onChange={(e) => setFormData({ ...formData, supports_stories: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="supports_stories" className="ml-2 text-sm font-medium text-gray-700">
+                        Stories
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="supports_polls"
+                        checked={formData.supports_polls}
+                        onChange={(e) => setFormData({ ...formData, supports_polls: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="supports_polls" className="ml-2 text-sm font-medium text-gray-700">
+                        Polls
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="supports_link_preview"
+                        checked={formData.supports_link_preview}
+                        onChange={(e) => setFormData({ ...formData, supports_link_preview: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="supports_link_preview" className="ml-2 text-sm font-medium text-gray-700">
+                        Link Previews
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="supports_mentions"
+                        checked={formData.supports_mentions}
+                        onChange={(e) => setFormData({ ...formData, supports_mentions: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="supports_mentions" className="ml-2 text-sm font-medium text-gray-700">
+                        Mentions
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="supports_hashtags"
+                        checked={formData.supports_hashtags}
+                        onChange={(e) => setFormData({ ...formData, supports_hashtags: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="supports_hashtags" className="ml-2 text-sm font-medium text-gray-700">
+                        Hashtags
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="supports_analytics"
+                        checked={formData.supports_analytics}
+                        onChange={(e) => setFormData({ ...formData, supports_analytics: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="supports_analytics" className="ml-2 text-sm font-medium text-gray-700">
+                        Analytics
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="supports_scheduling"
+                        checked={formData.supports_scheduling}
+                        onChange={(e) => setFormData({ ...formData, supports_scheduling: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="supports_scheduling" className="ml-2 text-sm font-medium text-gray-700">
+                        Post Scheduling
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="is_active"
+                        checked={formData.is_active}
+                        onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="is_active" className="ml-2 text-sm font-medium text-gray-700">
+                        Account Active
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Content Adaptation Section */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+                  <div className="flex items-center gap-3 mb-6 -ml-2">
+                    <div className="p-2 bg-teal-100 rounded-lg">
+                      <Icon icon={SolarIcons.magic} className="w-5 h-5 text-teal-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">Content Adaptation</h3>
+                      <p className="text-sm text-gray-500">Automatic content optimization for this platform</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="auto_resize_images"
+                        checked={formData.auto_resize_images}
+                        onChange={(e) => setFormData({ ...formData, auto_resize_images: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="auto_resize_images" className="ml-2 text-sm font-medium text-gray-700">
+                        Auto-resize Images
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="auto_crop_images"
+                        checked={formData.auto_crop_images}
+                        onChange={(e) => setFormData({ ...formData, auto_crop_images: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="auto_crop_images" className="ml-2 text-sm font-medium text-gray-700">
+                        Auto-crop Images
+                      </label>
+                    </div>
+
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="auto_compress_videos"
+                        checked={formData.auto_compress_videos}
+                        onChange={(e) => setFormData({ ...formData, auto_compress_videos: e.target.checked })}
+                        className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                      />
+                      <label htmlFor="auto_compress_videos" className="ml-2 text-sm font-medium text-gray-700">
+                        Auto-compress Videos
+                      </label>
+                    </div>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Hashtag Strategy</label>
+                      <select
+                        value={formData.hashtag_strategy}
+                        onChange={(e) => setFormData({ ...formData, hashtag_strategy: e.target.value })}
+                        className="w-full px-3 py-2 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                      >
+                        <option value="smart">Smart (AI-generated)</option>
+                        <option value="manual">Manual only</option>
+                        <option value="template">Template-based</option>
+                        <option value="none">No hashtags</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Content Template</label>
+                    <textarea
+                      value={formData.content_template}
+                      onChange={(e) => setFormData({ ...formData, content_template: e.target.value })}
+                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                      rows={3}
+                      placeholder="Template for post content (use {title}, {description}, {hashtags} as placeholders)"
+                    />
+                  </div>
+                </div>
+
+                {/* Broadcasting Notice */}
+                <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="p-2 bg-emerald-100 rounded-lg">
+                      <Icon icon={SolarIcons.broadcast} className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">🔧 What's Needed for Concurrent Broadcasting</h4>
+                      <p className="text-sm text-gray-700 mb-3">
+                        With these comprehensive settings, you'll be able to broadcast to multiple platforms simultaneously. 
+                        <strong>Next steps for full implementation:</strong>
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                        <div>
+                          <p className="font-medium mb-2">✅ Field Alignment for Broadcasting:</p>
+                          <ul className="space-y-1">
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                              Rate limits ensure no API violations
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                              Content limits auto-adapt posts per platform
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                              Feature flags enable/disable per platform
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                              Content templates ensure brand consistency
+                            </li>
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="font-medium mb-2">🚀 Implementation Requirements:</p>
+                          <ul className="space-y-1">
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                              OAuth flow for each platform
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                              Token refresh automation
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                              Broadcasting service/API
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                              Queue management for rate limiting
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-4 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowAddModal(false);
+                      setFormData({
+                      platform: '', account_name: '', profile_url: '', username: '', description: '', is_business_account: false,
+                      app_id: '', client_id: '', access_token: '', refresh_token: '', token_expires_at: '', auth_scope: '', page_id: '',
+                      can_post_text: true, can_post_images: true, can_post_videos: false, can_schedule_posts: false,
+                      can_delete_posts: false, can_edit_posts: false, can_reply_comments: false, can_moderate_comments: false,
+                      rate_limit_posts_per_hour: 0, rate_limit_posts_per_day: 0, rate_limit_requests_per_hour: 0, rate_limit_window_minutes: 0,
+                      max_text_length: 0, max_hashtags: 0, image_max_size_mb: 0, video_max_size_mb: 0,
+                      max_images_per_post: 0, max_videos_per_post: 0, video_max_duration_seconds: 0,
+                      supports_stories: false, supports_polls: false, supports_link_preview: true,
+                      supports_mentions: false, supports_hashtags: true, supports_analytics: false, supports_scheduling: false,
+                      auto_resize_images: true, auto_crop_images: false, auto_compress_videos: true,
+                      content_template: '', hashtag_strategy: 'smart', mention_strategy: 'manual',
+                      is_active: true, last_sync_at: '', sync_status: 'pending', error_count: 0, last_error: '', health_check_interval_hours: 24
+                    });
+                    }}
+                    className="flex-1 py-3"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="flex-1 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:from-purple-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
+                  >
+                    <Icon icon={SolarIcons.add} className="w-5 h-5 mr-2" />
+                    Add Account
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Future Broadcasting Note */}
+      <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg">
+        <CardContent className="p-6">
+          <div className="flex items-start gap-4">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <Icon icon={SolarIcons.broadcast} className="w-6 h-6 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Coming Soon: Unified Broadcasting</h3>
+              <p className="text-gray-700 mb-3">
+                Once you've connected your social media accounts, you'll be able to create and broadcast 
+                promotional messages across all platforms simultaneously from the Communications tab.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                  <Icon icon={SolarIcons.broadcast} className="w-3 h-3 mr-1" />
+                  Multi-platform posting
+                </span>
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                  <Icon icon={SolarIcons.calendar} className="w-3 h-3 mr-1" />
+                  Scheduled posts
+                </span>
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  <Icon icon={SolarIcons.analytics} className="w-3 h-3 mr-1" />
+                  Analytics tracking
+                </span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+// Practice Themes Content Component (moved from main tabs)
+const PracticeThemesContent: React.FC = () => {
+  const { currentTheme, themes, setTheme } = useTheme();
+
+  return (
+    <div className="space-y-6">
+      {/* Premium Theme Selection Card */}
+      <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center gap-3 -ml-2">
+            <div className="p-2 bg-purple-100 rounded-lg">
+              <Icon icon={SolarIcons.palette} className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold text-gray-900">Color Themes</CardTitle>
+              <p className="text-sm text-gray-500">Choose your preferred color scheme</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            <div>
+              <h4 className="text-lg font-medium text-gray-900 mb-2">Choose your preferred color theme</h4>
+              <p className="text-sm text-gray-500 mb-6">
+                Select a color theme to personalize the appearance of your dashboard and sidebar. 
+                Changes are applied immediately and saved automatically.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
+              {themes.map((theme, index) => (
+                <motion.div
+                  key={theme.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.05 }}
+                  whileHover={{ scale: 1.02, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`group relative cursor-pointer rounded-2xl border-2 p-5 transition-all duration-300 ${
+                    currentTheme.id === theme.id
+                      ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-white shadow-2xl ring-4 ring-purple-100'
+                      : 'border-gray-200 hover:border-gray-300 hover:shadow-xl bg-gradient-to-br from-white to-gray-50'
+                  }`}
+                  onClick={() => setTheme(theme.id)}
+                >
+                  {/* Theme Preview */}
+                  <div className="space-y-3">
+                    {/* Enhanced Gradient Preview with Glass Effect */}
+                    <div className={`h-10 rounded-xl bg-gradient-to-r ${theme.gradients.sidebar} shadow-lg relative overflow-hidden border border-white/20`}>
+                      <div className="absolute inset-0 bg-white/20 backdrop-blur-sm"></div>
+                      <div className="absolute bottom-1 left-2 right-2 h-0.5 bg-white/40 rounded-full"></div>
+                      <div className="absolute top-1 left-2 w-8 h-0.5 bg-white/60 rounded-full"></div>
+                    </div>
+                    
+                    {/* Theme Info */}
+                    <div>
+                      <h5 className="text-sm font-bold text-gray-900 group-hover:text-gray-800">{theme.name}</h5>
+                      <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{theme.description}</p>
+                    </div>
+                    
+                    {/* Enhanced Color Palette */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-5 h-5 rounded-full border-2 border-white shadow-lg ring-1 ring-gray-200"
+                          style={{ backgroundColor: theme.colors.primary.from }}
+                        ></div>
+                        <div
+                          className="w-5 h-5 rounded-full border-2 border-white shadow-lg ring-1 ring-gray-200"
+                          style={{ backgroundColor: theme.colors.primary.to }}
+                        ></div>
+                        {theme.colors.primary.via && (
+                          <div
+                            className="w-5 h-5 rounded-full border-2 border-white shadow-lg ring-1 ring-gray-200"
+                            style={{ backgroundColor: theme.colors.primary.via }}
+                          ></div>
+                        )}
+                        {theme.colors.accent && (
+                          <div
+                            className="w-5 h-5 rounded-full border-2 border-white shadow-lg ring-1 ring-gray-200"
+                            style={{ backgroundColor: theme.colors.accent.from }}
+                          ></div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <span className={`text-xs font-bold tracking-wide ${
+                          currentTheme.id === theme.id 
+                            ? 'text-purple-600' 
+                            : 'text-gray-400 group-hover:text-gray-500'
+                        }`}>
+                          {currentTheme.id === theme.id ? 'ACTIVE' : 'SELECT'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Premium Selected Indicator */}
+                  {currentTheme.id === theme.id && (
+                    <motion.div 
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ type: "spring", duration: 0.6 }}
+                      className="absolute -top-2 -right-2 w-7 h-7 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-xl ring-4 ring-white"
+                    >
+                      <Icon icon={SolarIcons.check} className="w-4 h-4 text-white" />
+                    </motion.div>
+                  )}
+                  
+                  {/* Hover Glow Effect */}
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                </motion.div>
+              ))}
+            </div>
+            
+            {/* Premium Theme Information */}
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 mt-8 border border-purple-100">
+              <div className="flex items-start gap-4">
+                <div className="p-2 bg-purple-100 rounded-xl">
+                  <Icon icon={SolarIcons.sparkles} className="w-6 h-6 text-purple-600" />
+                </div>
+                <div className="flex-1">
+                  <h5 className="text-lg font-bold text-gray-900 mb-2">
+                    Active: {currentTheme.name}
+                  </h5>
+                  <p className="text-sm text-gray-700 mb-3">
+                    {currentTheme.description}
+                  </p>
+                  <div className="flex items-center gap-6 text-xs text-gray-600">
+                    <span className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                      Applied System-wide
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                      {themes.length} Themes Available
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                      Auto-saved
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Theme Preview Card */}
+      <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+        <CardHeader>
+          <div className="flex items-center gap-3 -ml-2">
+            <div className="p-2 bg-indigo-100 rounded-lg">
+              <Icon icon={SolarIcons.palette} className="w-5 h-5 text-indigo-600" />
+            </div>
+            <div>
+              <CardTitle className="text-lg font-semibold text-gray-900">Theme Preview</CardTitle>
+              <p className="text-sm text-gray-500">See how your theme looks</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-medium text-gray-900 mb-3">See how your theme looks</h4>
+              <p className="text-xs text-gray-500 mb-4">
+                Preview your selected theme with sample UI components
+              </p>
+            </div>
+            
+            {/* Theme Preview Components */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Sample Button */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-600">Primary Button</label>
+                <button className={`w-full px-4 py-2 rounded-lg bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white font-medium shadow-md hover:shadow-lg transition-all`}>
+                  Sample Button
+                </button>
+              </div>
+              
+              {/* Sample Sidebar */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-gray-600">Sidebar Style</label>
+                <div className={`w-full h-12 rounded-lg bg-gradient-to-r ${currentTheme.gradients.sidebar} flex items-center px-3 shadow-md`}>
+                  <div className="w-6 h-6 bg-white/20 rounded-md mr-2"></div>
+                  <span className="text-white text-sm font-medium">Navigation</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
