@@ -8,6 +8,8 @@ import { useAuthStore } from '../../../stores/authStore';
 import toast from 'react-hot-toast';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, parseISO, getYear } from 'date-fns';
 import { downloadTimesheetPDF } from './TimesheetPDF';
+import { downloadTimesheetHtml2CanvasPDF } from './TimesheetHtml2CanvasPDF';
+import TimesheetCalendarPDFGenerator from './TimesheetCalendarPDFGenerator';
 import MonthInput from '../../ui/MonthInput';
 import TimeInput from '../../ui/TimeInput';
 
@@ -34,6 +36,7 @@ interface Timesheet {
   regular_hours: number;
   overtime_hours: number;
   status: 'draft' | 'submitted' | 'approved' | 'rejected';
+  pdf_url?: string;
   user?: {
     full_name: string;
     email: string;
@@ -52,6 +55,7 @@ interface DayEntry {
   timeOut: string;
   comments: string;
   totalHours: number;
+  scheduledHours: number; // Practice operating hours for this day
 }
 
 // Namibia Public Holidays
@@ -179,12 +183,50 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
   const [currentTimesheet, setCurrentTimesheet] = useState<Timesheet | null>(null);
   const [practiceHours, setPracticeHours] = useState<{ start: string; end: string } | null>(null);
   const [practiceBusinessHours, setPracticeBusinessHours] = useState<Record<string, { open?: string; close?: string; closed?: boolean }> | null>(null);
+  const [generatingPremiumPDF, setGeneratingPremiumPDF] = useState(false);
+  const [showPDFGenerator, setShowPDFGenerator] = useState(false);
+  const [selectedTimesheet, setSelectedTimesheet] = useState<Timesheet | null>(null);
   
-  console.log('🚀 DEBUG: ExcelTimesheetManagement mounted', {
-    user: user?.email,
-    selectedUserId,
-    currentMonth: format(selectedMonth, 'yyyy-MM')
-  });
+  // Only log mount in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🚀 DEBUG: ExcelTimesheetManagement mounted', {
+      user: user?.email,
+      selectedUserId,
+      currentMonth: format(selectedMonth, 'yyyy-MM')
+    });
+  }
+
+  // Set up real-time subscription for timesheets
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const targetUserId = selectedUserId || user?.id;
+    
+    // Subscribe to timesheets table changes
+    const subscription = supabase
+      .channel('timesheets-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'timesheets',
+          filter: `user_id=eq.${targetUserId}`
+        },
+        (payload) => {
+          console.log('📡 Real-time update received:', payload);
+          // Immediately refetch both queries
+          queryClient.invalidateQueries({ queryKey: ['all-timesheets'] });
+          queryClient.invalidateQueries({ queryKey: ['current-timesheet'] });
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [user?.id, selectedUserId, queryClient]);
 
   const monthStart = startOfMonth(selectedMonth);
   const monthEnd = endOfMonth(selectedMonth);
@@ -316,7 +358,8 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
           timeIn: start,
           timeOut: end,
           comments: '',
-          totalHours
+          totalHours,
+          scheduledHours: totalHours // Store the scheduled hours
         };
       } else {
         return {
@@ -324,7 +367,8 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
           timeIn: '',
           timeOut: '',
           comments: '',
-          totalHours: 0
+          totalHours: 0,
+          scheduledHours: 0
         };
       }
     });
@@ -364,6 +408,11 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
     if (timesheet) {
       const updatedEntries = daysInMonth.map(day => {
         const dateStr = format(day, 'yyyy-MM-dd');
+        const dayName = format(day, 'EEEE').toLowerCase();
+        const dayHours = practiceBusinessHours?.[dayName];
+        const isClosed = dayHours?.closed === true;
+        const isOpen = !isClosed && dayHours?.open && dayHours?.close;
+        
         const existingEntry = timesheet.entries?.find(e => e.date === dateStr);
         if (existingEntry) {
           return {
@@ -371,13 +420,10 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
             timeIn: existingEntry.start_time || '',
             timeOut: existingEntry.end_time || '',
             comments: existingEntry.task_description || '',
-            totalHours: existingEntry.total_hours
+            totalHours: existingEntry.total_hours,
+            scheduledHours: isOpen && dayHours?.open && dayHours?.close ? calculateTotalHours(dayHours.open, dayHours.close) : 0
           };
         }
-        const dayName = format(day, 'EEEE').toLowerCase();
-        const dayHours = practiceBusinessHours?.[dayName];
-        const isClosed = dayHours?.closed === true;
-        const isOpen = !isClosed && dayHours?.open && dayHours?.close;
         
         if (isOpen && dayHours?.open && dayHours?.close) {
           return {
@@ -385,7 +431,8 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
             timeIn: dayHours.open,
             timeOut: dayHours.close,
             comments: '',
-            totalHours: calculateTotalHours(dayHours.open, dayHours.close)
+            totalHours: calculateTotalHours(dayHours.open, dayHours.close),
+            scheduledHours: calculateTotalHours(dayHours.open, dayHours.close)
           };
         } else {
           return {
@@ -393,7 +440,8 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
             timeIn: '',
             timeOut: '',
             comments: '',
-            totalHours: 0
+            totalHours: 0,
+            scheduledHours: 0
           };
         }
       });
@@ -410,25 +458,40 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
     mutationFn: async () => {
       const targetUserId = selectedUserId || user?.id;
       
-      // Create or get timesheet
+      // Check for existing timesheet for this month
       let timesheetId = currentTimesheet?.id;
+      
       if (!timesheetId) {
-        const { data: newTimesheet, error: timesheetError } = await supabase
+        // Check if there's already a timesheet for this month
+        const { data: existingTimesheet, error: checkError } = await supabase
           .from('timesheets')
-          .insert({
-            user_id: targetUserId,
-            period_start: monthStart.toISOString().split('T')[0],
-            period_end: monthEnd.toISOString().split('T')[0],
-            total_hours: 0,
-            regular_hours: 0,
-            overtime_hours: 0,
-            status: 'draft'
-          })
-          .select()
+          .select('id')
+          .eq('user_id', targetUserId)
+          .eq('period_start', monthStart.toISOString().split('T')[0])
+          .eq('period_end', monthEnd.toISOString().split('T')[0])
           .single();
+        
+        if (existingTimesheet) {
+          timesheetId = existingTimesheet.id;
+        } else {
+          // Create new timesheet only if none exists
+          const { data: newTimesheet, error: timesheetError } = await supabase
+            .from('timesheets')
+            .insert({
+              user_id: targetUserId,
+              period_start: monthStart.toISOString().split('T')[0],
+              period_end: monthEnd.toISOString().split('T')[0],
+              total_hours: 0,
+              regular_hours: 0,
+              overtime_hours: 0,
+              status: 'draft'
+            })
+            .select()
+            .single();
 
-        if (timesheetError) throw timesheetError;
-        timesheetId = newTimesheet.id;
+          if (timesheetError) throw timesheetError;
+          timesheetId = newTimesheet.id;
+        }
       }
 
       // Save entries
@@ -441,29 +504,54 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
           end_time: entry.timeOut,
           total_hours: entry.totalHours,
           task_description: entry.comments || null,
-          is_overtime: entry.totalHours > 8,
+          is_overtime: entry.totalHours > (entry.scheduledHours || 0),
           is_holiday: false
         }));
 
-      // Delete existing entries
-      await supabase
-        .from('timesheet_entries')
-        .delete()
-        .eq('timesheet_id', timesheetId);
+      // First, delete all existing entries for this timesheet in one batch
+      if (timesheetId) {
+        const { error: deleteError } = await supabase
+          .from('timesheet_entries')
+          .delete()
+          .eq('timesheet_id', timesheetId);
+          
+        if (deleteError && deleteError.code !== 'PGRST116') {
+          throw deleteError;
+        }
+      }
 
-      // Insert new entries
+      // Then insert all new entries in a single batch
       if (entries.length > 0) {
-        const { error: entriesError } = await supabase
+        // For team view, check if current user is admin/doctor to handle RLS properly
+        const isAdminOrDoctor = user?.role === 'admin' || user?.role === 'doctor';
+        const isEditingOtherUser = selectedUserId && selectedUserId !== user?.id;
+        
+        if (isEditingOtherUser && !isAdminOrDoctor) {
+          throw new Error('You do not have permission to edit timesheets for other users');
+        }
+        
+        // Insert all entries in one batch operation
+        const { error: insertError } = await supabase
           .from('timesheet_entries')
           .insert(entries);
-
-        if (entriesError) throw entriesError;
+          
+        if (insertError) throw insertError;
       }
 
       // Update timesheet totals
       const totalHours = entries.reduce((sum, e) => sum + e.total_hours, 0);
-      const overtimeHours = entries.reduce((sum, e) => sum + (e.total_hours > 8 ? e.total_hours - 8 : 0), 0);
-      const regularHours = totalHours - overtimeHours;
+      // Calculate regular and overtime based on scheduled hours for each day
+      let regularHours = 0;
+      let overtimeHours = 0;
+      
+      dayEntries.forEach((dayEntry, index) => {
+        const entry = entries.find(e => e.date === dayEntry.date);
+        if (entry) {
+          const scheduled = dayEntry.scheduledHours || 0;
+          regularHours += Math.min(entry.total_hours, scheduled);
+          overtimeHours += Math.max(entry.total_hours - scheduled, 0);
+        }
+      });
 
       await supabase
         .from('timesheets')
@@ -477,7 +565,9 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       return timesheetId;
     },
     onSuccess: () => {
+      // Invalidate both current timesheet and list to ensure immediate updates
       queryClient.invalidateQueries({ queryKey: ['current-timesheet'] });
+      queryClient.invalidateQueries({ queryKey: ['all-timesheets'] });
       toast.success('Timesheet saved successfully');
     },
     onError: (error: Error) => {
@@ -495,9 +585,9 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
     if (diffMinutes < 0) diffMinutes += 24 * 60; // Handle overnight
     
     const totalHours = diffMinutes / 60;
-    // Only subtract lunch break if working 6+ hours
-    const hours = totalHours >= 6 ? totalHours - 1 : totalHours;
-    return Math.max(0, Math.round(hours * 100) / 100);
+    // Return total hours without subtracting lunch break
+    // The practice operating hours are the regular hours employees work
+    return Math.max(0, Math.round(totalHours * 100) / 100);
   };
 
   const updateDayEntry = (index: number, field: keyof DayEntry, value: string | number) => {
@@ -528,7 +618,8 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
           ...entry,
           timeIn: dayHours.open,
           timeOut: dayHours.close,
-          totalHours: calculateTotalHours(dayHours.open, dayHours.close)
+          totalHours: calculateTotalHours(dayHours.open, dayHours.close),
+          scheduledHours: calculateTotalHours(dayHours.open, dayHours.close)
         };
       }
       // Keep existing values if practice is closed on this day
@@ -543,17 +634,25 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       timeIn: '',
       timeOut: '',
       comments: '',
-      totalHours: 0
+      totalHours: 0,
+      scheduledHours: entry.scheduledHours || 0
     }));
     setDayEntries(newEntries);
   };
 
   const totalHours = dayEntries.reduce((sum, entry) => sum + entry.totalHours, 0);
-  const regularHours = dayEntries.reduce((sum, entry) => sum + Math.min(entry.totalHours, 8), 0);
-  const overtimeHours = totalHours - regularHours;
+  // Regular hours: up to scheduled hours per day, overtime is anything above scheduled
+  const regularHours = dayEntries.reduce((sum, entry) => {
+    const scheduled = entry.scheduledHours || 0;
+    return sum + Math.min(entry.totalHours, scheduled);
+  }, 0);
+  const overtimeHours = dayEntries.reduce((sum, entry) => {
+    const scheduled = entry.scheduledHours || 0;
+    return sum + Math.max(entry.totalHours - scheduled, 0);
+  }, 0);
 
-  // Fetch all timesheets for list view
-  const { data: allTimesheets = [] } = useQuery<Timesheet[]>({
+  // Fetch all timesheets for list view - always enabled for immediate updates
+  const { data: allTimesheets = [], refetch: refetchTimesheets } = useQuery<Timesheet[]>({
     queryKey: ['all-timesheets', user?.id, selectedUserId],
     queryFn: async () => {
       const targetUserId = selectedUserId || user?.id;
@@ -572,7 +671,8 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       if (error) throw error;
       return data as Timesheet[];
     },
-    enabled: !!user?.id && activeTab === 'list'
+    enabled: !!user?.id, // Always enabled for real-time updates
+    refetchInterval: activeTab === 'list' ? 5000 : false // Auto-refresh every 5 seconds when on list tab
   });
 
   // Submit timesheet mutation
@@ -630,6 +730,27 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
     if (confirm(confirmMessage)) {
       deleteTimesheetMutation.mutate(timesheetId);
     }
+  };
+
+  // Handle timesheet card click to navigate to entry
+  const handleTimesheetCardClick = (timesheet: Timesheet) => {
+    // Show loading toast
+    toast.loading('Loading timesheet...', { id: 'loading-timesheet' });
+    
+    // Set the selected month based on the timesheet period
+    const timesheetMonth = parseISO(timesheet.period_start);
+    setSelectedMonth(timesheetMonth);
+    
+    // Switch to the timesheet entry tab
+    setActiveTab('timesheet');
+    
+    // Scroll to top of page for better UX
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Dismiss loading toast after a short delay
+    setTimeout(() => {
+      toast.dismiss('loading-timesheet');
+    }, 500);
   };
 
   const getStatusColor = (status: string) => {
@@ -910,7 +1031,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                           <div className="col-span-2 flex items-center justify-center">
                             <div className="text-center">
                               <div className={`font-bold ${
-                                entry.totalHours > 8 
+                                entry.totalHours > entry.scheduledHours && entry.scheduledHours > 0
                                   ? 'text-orange-600' 
                                   : entry.totalHours > 0 
                                   ? 'text-teal-600' 
@@ -919,13 +1040,13 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                                 <span className="text-xl">{Math.floor(entry.totalHours)}</span>
                                 <span className="text-sm">.{Math.round((entry.totalHours % 1) * 10)}h</span>
                               </div>
-                              {entry.totalHours > 8 && (
+                              {entry.totalHours > entry.scheduledHours && entry.scheduledHours > 0 && (
                                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 mt-1">
                                   <Icon icon="solar:alarm-bold-duotone" className="w-3 h-3 mr-1" />
-                                  Overtime
+                                  {(entry.totalHours - entry.scheduledHours).toFixed(1)}h OT
                                 </span>
                               )}
-                              {entry.totalHours > 0 && entry.totalHours <= 8 && (
+                              {entry.totalHours > 0 && entry.totalHours <= entry.scheduledHours && (
                                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-800 mt-1">
                                   <Icon icon="solar:check-circle-bold-duotone" className="w-3 h-3 mr-1" />
                                   Regular
@@ -966,9 +1087,12 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                   <button
                     onClick={() => saveTimesheetMutation.mutate()}
                     disabled={saveTimesheetMutation.isPending}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg text-sm"
+                    className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg text-sm transition-all duration-200 hover:shadow-xl"
                   >
-                    <Icon icon="solar:floppy-disk-bold-duotone" className="w-4 h-4" />
+                    <Icon 
+                      icon={saveTimesheetMutation.isPending ? "solar:refresh-bold-duotone" : "solar:floppy-disk-bold-duotone"} 
+                      className={`w-4 h-4 ${saveTimesheetMutation.isPending ? 'animate-spin' : ''}`} 
+                    />
                     <span>{saveTimesheetMutation.isPending ? 'Saving...' : 'Save Timesheet'}</span>
                   </button>
                 </div>
@@ -982,10 +1106,27 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Icon icon="solar:list-bold-duotone" className="w-5 h-5" />
-                Timesheet History
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Icon icon="solar:list-bold-duotone" className="w-5 h-5" />
+                  Timesheet History
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {/* Real-time indicator */}
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span>Live updates</span>
+                  </div>
+                  <Button
+                    onClick={() => refetchTimesheets()}
+                    size="sm"
+                    variant="outline"
+                    className="border-gray-300"
+                  >
+                    <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {allTimesheets.length === 0 ? (
@@ -996,25 +1137,49 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
               ) : (
                 <div className="space-y-4">
                   {allTimesheets.map((ts) => (
-                    <div key={ts.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                    <div 
+                      key={ts.id} 
+                      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-all duration-200 hover:shadow-md"
+                      onClick={() => handleTimesheetCardClick(ts)}
+                    >
                       <div className="flex items-center justify-between">
-                        <div>
-                          <h3 className="font-medium text-gray-900">
+                        <div className="flex-1">
+                          <h3 className="font-medium text-gray-900 text-lg">
                             {format(parseISO(ts.period_start), 'MMMM yyyy')}
                           </h3>
                           <p className="text-sm text-gray-600 mt-1">
                             {format(parseISO(ts.period_start), 'MMM dd')} - {format(parseISO(ts.period_end), 'MMM dd, yyyy')}
                           </p>
-                          <div className="flex items-center gap-4 mt-2 text-sm">
-                            <span>Total: {ts.total_hours.toFixed(1)}h</span>
-                            <span>Regular: {ts.regular_hours.toFixed(1)}h</span>
-                            <span>Overtime: {ts.overtime_hours.toFixed(1)}h</span>
+                          <div className="flex items-center gap-4 mt-3 text-sm">
+                            <span className="flex items-center gap-1">
+                              <Icon icon="solar:clock-bold-duotone" className="w-4 h-4 text-gray-400" />
+                              <span className="font-medium">{ts.total_hours.toFixed(1)}h</span> total
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Icon icon="solar:calendar-mark-bold-duotone" className="w-4 h-4 text-teal-500" />
+                              <span className="font-medium">{ts.regular_hours.toFixed(1)}h</span> regular
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Icon icon="solar:alarm-bold-duotone" className="w-4 h-4 text-orange-500" />
+                              <span className="font-medium">{ts.overtime_hours.toFixed(1)}h</span> overtime
+                            </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                           <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(ts.status)}`}>
                             {ts.status.charAt(0).toUpperCase() + ts.status.slice(1)}
                           </span>
+                          {ts.pdf_url && (
+                            <Button
+                              onClick={() => window.open(ts.pdf_url, '_blank')}
+                              size="sm"
+                              variant="ghost"
+                              className="text-purple-600 hover:text-purple-700"
+                              title="View generated PDF"
+                            >
+                              <Icon icon="solar:document-text-bold-duotone" className="w-5 h-5" />
+                            </Button>
+                          )}
                           {ts.status === 'draft' && (
                             <Button
                               onClick={() => submitTimesheetMutation.mutate(ts.id)}
@@ -1032,6 +1197,17 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                           >
                             <Icon icon="solar:download-bold-duotone" className="w-4 h-4 mr-2" />
                             PDF
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setSelectedTimesheet(ts);
+                              setShowPDFGenerator(true);
+                            }}
+                            size="sm"
+                            className="bg-purple-600 text-white hover:bg-purple-700"
+                          >
+                            <Icon icon="solar:document-medicine-bold-duotone" className="w-4 h-4 mr-2" />
+                            Premium PDF
                           </Button>
                           <Button
                             onClick={() => handleDeleteTimesheet(
@@ -1092,7 +1268,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                   </div>
 
                   {/* Export Options */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <Card>
                       <CardContent className="p-6">
                         <div className="flex items-center gap-3 mb-4">
@@ -1100,8 +1276,8 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                             <Icon icon="solar:document-bold-duotone" className="w-6 h-6 text-red-600" />
                           </div>
                           <div>
-                            <h4 className="font-medium">Download PDF</h4>
-                            <p className="text-sm text-gray-600">Professional timesheet document</p>
+                            <h4 className="font-medium">Standard PDF</h4>
+                            <p className="text-sm text-gray-600">Basic timesheet document</p>
                           </div>
                         </div>
                         <Button
@@ -1110,6 +1286,30 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                         >
                           <Icon icon="solar:download-bold-duotone" className="w-4 h-4 mr-2" />
                           Download PDF
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardContent className="p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="p-2 bg-purple-100 rounded-lg">
+                            <Icon icon="solar:document-medicine-bold-duotone" className="w-6 h-6 text-purple-600" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium">Premium PDF</h4>
+                            <p className="text-sm text-gray-600">Enhanced with branding</p>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => {
+                            setSelectedTimesheet(currentTimesheet);
+                            setShowPDFGenerator(true);
+                          }}
+                          className="w-full bg-purple-600 text-white hover:bg-purple-700"
+                        >
+                          <Icon icon="solar:download-minimalistic-bold-duotone" className="w-4 h-4 mr-2" />
+                          Generate Premium PDF
                         </Button>
                       </CardContent>
                     </Card>
@@ -1148,6 +1348,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                       <li>• Summary of regular and overtime hours</li>
                       <li>• Signature sections for employee and supervisor</li>
                       <li>• Print-optimized formatting</li>
+                      <li>• Premium PDF with custom fonts and enhanced styling</li>
                     </ul>
                   </div>
                 </div>
@@ -1165,6 +1366,45 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
               )}
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* PDF Generator Modal */}
+      {showPDFGenerator && selectedTimesheet && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <Icon icon="solar:document-medicine-bold-duotone" className="w-6 h-6 text-purple-600" />
+                Generate Premium Timesheet PDF
+              </h2>
+              <button
+                onClick={() => {
+                  setShowPDFGenerator(false);
+                  setSelectedTimesheet(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6">
+              <TimesheetCalendarPDFGenerator
+                timesheet={selectedTimesheet}
+                onGenerating={(generating) => {
+                  if (!generating) {
+                    // Refresh timesheet list after generation
+                    queryClient.invalidateQueries({ queryKey: ['all-timesheets'] });
+                  }
+                }}
+                onGenerated={() => {
+                  toast.success('Premium PDF generated successfully!');
+                  setShowPDFGenerator(false);
+                  setSelectedTimesheet(null);
+                }}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

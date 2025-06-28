@@ -94,6 +94,7 @@ import { medicalAidService } from '../../services/medicalAidService';
 import { useAuthStore } from '../../stores/authStore';
 import { LabResultsContent, DocumentsContent, BillingContent } from './DirectTabContent';
 import CleanInvoiceTable from '../billing/CleanInvoiceTable';
+import html2canvas from 'html2canvas';
 import InvoiceGenerationModal from '../modals/InvoiceGenerationModal';
 import InvoicePreviewModal from '../modals/InvoicePreviewModal';
 import ManageBeneficiariesModal from '../modals/ManageBeneficiariesModal';
@@ -716,7 +717,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
       // Import html2canvas dynamically
-      const html2canvas = (await import('html2canvas')).default;
+      // html2canvas is already imported at the top
 
       // Generate each page
       for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
@@ -856,7 +857,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       document.body.appendChild(tempContainer);
 
       // Import and use html2canvas and jsPDF directly
-      const html2canvas = (await import('html2canvas')).default;
+      // html2canvas is already imported at the top
       const jsPDF = (await import('jspdf')).default;
 
       // Load Montserrat and Rubik fonts

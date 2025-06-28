@@ -19,6 +19,7 @@ import { format, parseISO, startOfMonth, endOfMonth, subMonths, startOfYear, end
 import { useTheme } from '../../stores/themeStore';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
+import html2canvas from 'html2canvas';
 import { useAuthStore } from '../../stores/authStore';
 
 interface Invoice {
@@ -203,7 +204,7 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
       }
 
       // Import required libraries
-      const html2canvas = (await import('html2canvas')).default;
+      // html2canvas is already imported at the top
       const jsPDF = (await import('jspdf')).default;
 
       // Load fonts
