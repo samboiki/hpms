@@ -182,12 +182,48 @@ export const TimesheetManagement: React.FC<TimesheetManagementProps> = ({ select
     }
   });
 
+  // Delete timesheet mutation
+  const deleteTimesheetMutation = useMutation({
+    mutationFn: async (timesheetId: string) => {
+      // First, delete all related timesheet entries
+      const { error: entriesError } = await supabase
+        .from('timesheet_entries')
+        .delete()
+        .eq('timesheet_id', timesheetId);
+
+      if (entriesError) throw entriesError;
+
+      // Then delete the timesheet itself
+      const { error: timesheetError } = await supabase
+        .from('timesheets')
+        .delete()
+        .eq('id', timesheetId);
+
+      if (timesheetError) throw timesheetError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['timesheets'] });
+      toast.success('Timesheet deleted successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete timesheet');
+    }
+  });
+
   const handleEditEntry = (timesheet: Timesheet, date: string) => {
     const entry = timesheet.entries?.find(e => e.date === date);
     setSelectedTimesheet(timesheet);
     setSelectedDate(date);
     setSelectedEntry(entry || null);
     setShowEntryModal(true);
+  };
+
+  const handleDeleteTimesheet = async (timesheetId: string, timesheetOwner: string) => {
+    const confirmMessage = `Are you sure you want to delete this timesheet for ${timesheetOwner}? This will permanently delete all time entries for this period.`;
+    
+    if (confirm(confirmMessage)) {
+      deleteTimesheetMutation.mutate(timesheetId);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -581,6 +617,21 @@ export const TimesheetManagement: React.FC<TimesheetManagementProps> = ({ select
                           Reject
                         </Button>
                       </div>
+                    )}
+                    
+                    {/* Delete button - show only for draft timesheets or for team view */}
+                    {(timesheet.status === 'draft' || (isTeamView && activeView === 'team')) && (
+                      <Button
+                        onClick={() => handleDeleteTimesheet(
+                          timesheet.id, 
+                          timesheet.user?.full_name || 'this user'
+                        )}
+                        className="bg-red-600 text-white hover:bg-red-700"
+                        disabled={deleteTimesheetMutation.isPending}
+                      >
+                        <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4 mr-2" />
+                        {deleteTimesheetMutation.isPending ? 'Deleting...' : 'Delete'}
+                      </Button>
                     )}
                   </div>
                 </div>

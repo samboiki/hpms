@@ -22,14 +22,14 @@ const TimePickerModal: React.FC<TimePickerModalProps> = ({
   const [period, setPeriod] = useState<'AM' | 'PM'>('AM');
 
   useEffect(() => {
-    if (initialTime) {
+    if (isOpen && initialTime) {
       const [h, m] = initialTime.split(':').map(Number);
       const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
       setHours(hour12);
       setMinutes(m);
       setPeriod(h >= 12 ? 'PM' : 'AM');
     }
-  }, [initialTime]);
+  }, [isOpen]);
 
   const handleConfirm = () => {
     let hour24 = hours;

@@ -6,7 +6,7 @@ import Button from '../../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/Card';
 import { useAuthStore } from '../../../stores/authStore';
 import toast from 'react-hot-toast';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, parseISO, getYear } from 'date-fns';
 import { downloadTimesheetPDF } from './TimesheetPDF';
 import MonthInput from '../../ui/MonthInput';
 import TimeInput from '../../ui/TimeInput';
@@ -54,6 +54,118 @@ interface DayEntry {
   totalHours: number;
 }
 
+// Namibia Public Holidays
+const getNamibiaPublicHolidays = (year: number): string[] => {
+  const baseHolidays = [
+    `${year}-01-01`, // New Year's Day
+    `${year}-03-21`, // Independence Day
+    `${year}-05-01`, // Workers' Day
+    `${year}-05-04`, // Cassinga Day
+    `${year}-05-25`, // Africa Day
+    `${year}-08-26`, // Heroes' Day
+    `${year}-09-10`, // Day of the Namibian Child
+    `${year}-12-10`, // International Human Rights Day
+    `${year}-12-25`, // Christmas Day
+    `${year}-12-26`, // Family Day
+  ];
+  
+  // Add Good Friday and Easter Monday (these move each year)
+  // Easter dates for different years
+  const easterDates: Record<number, { goodFriday: string; easterMonday: string }> = {
+    2024: { goodFriday: `${year}-03-29`, easterMonday: `${year}-04-01` },
+    2025: { goodFriday: `${year}-04-18`, easterMonday: `${year}-04-21` },
+    2026: { goodFriday: `${year}-04-03`, easterMonday: `${year}-04-06` },
+    2027: { goodFriday: `${year}-03-26`, easterMonday: `${year}-03-29` },
+    2028: { goodFriday: `${year}-04-14`, easterMonday: `${year}-04-17` },
+  };
+  
+  if (easterDates[year]) {
+    baseHolidays.push(easterDates[year].goodFriday);
+    baseHolidays.push(easterDates[year].easterMonday);
+  }
+  
+  // Add Ascension Day (39 days after Easter)
+  const ascensionDates: Record<number, string> = {
+    2024: `${year}-05-09`,
+    2025: `${year}-05-29`,
+    2026: `${year}-05-14`,
+    2027: `${year}-05-06`,
+    2028: `${year}-05-25`,
+  };
+  
+  if (ascensionDates[year]) {
+    baseHolidays.push(ascensionDates[year]);
+  }
+  
+  // Process holidays and add Monday if holiday falls on Sunday
+  const allHolidays = [...baseHolidays];
+  
+  baseHolidays.forEach(holiday => {
+    const holidayDate = parseISO(holiday);
+    // If holiday falls on Sunday (day 0), add the following Monday
+    if (holidayDate.getDay() === 0) {
+      const monday = new Date(holidayDate);
+      monday.setDate(monday.getDate() + 1);
+      const mondayStr = format(monday, 'yyyy-MM-dd');
+      if (!allHolidays.includes(mondayStr)) {
+        allHolidays.push(mondayStr);
+      }
+    }
+  });
+  
+  return allHolidays;
+};
+
+const getHolidayName = (date: string): string | null => {
+  const monthDay = date.substring(5);
+  const year = parseInt(date.substring(0, 4));
+  
+  const holidayMap: Record<string, string> = {
+    '01-01': "New Year's Day",
+    '03-21': 'Independence Day',
+    '05-01': "Workers' Day",
+    '05-04': 'Cassinga Day',
+    '05-25': 'Africa Day',
+    '08-26': "Heroes' Day",
+    '09-10': 'Day of the Namibian Child',
+    '12-10': 'International Human Rights Day',
+    '12-25': 'Christmas Day',
+    '12-26': 'Family Day',
+  };
+  
+  // Handle moveable holidays
+  const moveableHolidays: Record<number, Record<string, string>> = {
+    2024: { '03-29': 'Good Friday', '04-01': 'Easter Monday', '05-09': 'Ascension Day' },
+    2025: { '04-18': 'Good Friday', '04-21': 'Easter Monday', '05-29': 'Ascension Day' },
+    2026: { '04-03': 'Good Friday', '04-06': 'Easter Monday', '05-14': 'Ascension Day' },
+    2027: { '03-26': 'Good Friday', '03-29': 'Easter Monday', '05-06': 'Ascension Day' },
+    2028: { '04-14': 'Good Friday', '04-17': 'Easter Monday', '05-25': 'Ascension Day' },
+  };
+  
+  if (moveableHolidays[year] && moveableHolidays[year][monthDay]) {
+    return moveableHolidays[year][monthDay];
+  }
+  
+  // Check if this is a Monday following a Sunday holiday
+  const currentDate = parseISO(date);
+  if (currentDate.getDay() === 1) { // Monday
+    const sunday = new Date(currentDate);
+    sunday.setDate(sunday.getDate() - 1);
+    const sundayStr = format(sunday, 'yyyy-MM-dd');
+    const sundayMonthDay = sundayStr.substring(5);
+    
+    // Check if Sunday was a holiday
+    if (holidayMap[sundayMonthDay]) {
+      return holidayMap[sundayMonthDay] + ' (Observed)';
+    }
+    if (moveableHolidays[year] && moveableHolidays[year][sundayMonthDay]) {
+      return moveableHolidays[year][sundayMonthDay] + ' (Observed)';
+    }
+  }
+  
+  return holidayMap[monthDay] || null;
+};
+
 export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> = ({ 
   selectedUserId, 
   isTeamView 
@@ -66,6 +178,13 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
   const [standardHours, setStandardHours] = useState({ start: '08:00', end: '17:00' });
   const [currentTimesheet, setCurrentTimesheet] = useState<Timesheet | null>(null);
   const [practiceHours, setPracticeHours] = useState<{ start: string; end: string } | null>(null);
+  const [practiceBusinessHours, setPracticeBusinessHours] = useState<Record<string, { open?: string; close?: string; closed?: boolean }> | null>(null);
+  
+  console.log('🚀 DEBUG: ExcelTimesheetManagement mounted', {
+    user: user?.email,
+    selectedUserId,
+    currentMonth: format(selectedMonth, 'yyyy-MM')
+  });
 
   const monthStart = startOfMonth(selectedMonth);
   const monthEnd = endOfMonth(selectedMonth);
@@ -73,12 +192,14 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
   // Get all days in month
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-  // Fetch user's practice hours
+  // Fetch user's branch and practice hours
   const { data: userPracticeInfo } = useQuery({
     queryKey: ['user-practice-hours', selectedUserId || user?.id],
     queryFn: async () => {
       const targetUserId = selectedUserId || user?.id;
-      const { data, error } = await supabase
+      
+      // First try to get user's practice through practice_staff
+      const { data: staffData, error: staffError } = await supabase
         .from('practice_staff')
         .select(`
           practice_id,
@@ -91,36 +212,126 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
         .eq('is_active', true)
         .single();
 
-      if (error) return null;
-      return data;
+      if (!staffError && staffData) {
+        return staffData;
+      }
+      
+      // If no practice_staff record, try to get user's practice_id directly
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('id', targetUserId)
+        .single();
+        
+      if (userError || !userData?.practice_id) {
+        console.log('⚠️ DEBUG: No practice found for user');
+        return null;
+      }
+      
+      // Get practice details
+      const { data: practiceData, error: practiceError } = await supabase
+        .from('practices')
+        .select('name, business_hours')
+        .eq('id', userData.practice_id)
+        .single();
+        
+      if (practiceError) {
+        console.log('❌ DEBUG: Error fetching practice:', practiceError);
+        return null;
+      }
+      
+      return {
+        practice_id: userData.practice_id,
+        practices: practiceData
+      };
     },
     enabled: !!user?.id
   });
 
-  // Set practice hours when data loads
+  // Set practice/branch hours when data loads
   useEffect(() => {
-    if (userPracticeInfo?.practices?.business_hours) {
-      const businessHours = userPracticeInfo.practices.business_hours as Record<string, { open?: string; close?: string }>;
+    console.log('🔍 DEBUG: userPracticeInfo changed:', userPracticeInfo);
+    let businessHours = null;
+    
+    // Check for branch hours first
+    if (userPracticeInfo?.branches?.business_hours) {
+      console.log('✅ DEBUG: Found branch business hours:', userPracticeInfo.branches.business_hours);
+      businessHours = userPracticeInfo.branches.business_hours as Record<string, { open?: string; close?: string; closed?: boolean }>;
+    } 
+    // Otherwise use practice hours
+    else if (userPracticeInfo?.practices?.business_hours) {
+      console.log('✅ DEBUG: Found practice business hours:', userPracticeInfo.practices.business_hours);
+      businessHours = userPracticeInfo.practices.business_hours as Record<string, { open?: string; close?: string; closed?: boolean }>;
+    } else {
+      console.log('❌ DEBUG: No business hours found in userPracticeInfo');
+    }
+    
+    if (businessHours) {
+      console.log('🔧 DEBUG: Setting practiceBusinessHours:', businessHours);
+      setPracticeBusinessHours(businessHours);
+      // Set standard hours based on most common weekday hours (Monday)
       if (businessHours.monday?.open && businessHours.monday?.close) {
-        const practiceStart = businessHours.monday.open;
-        const practiceEnd = businessHours.monday.close;
-        setPracticeHours({ start: practiceStart, end: practiceEnd });
-        setStandardHours({ start: practiceStart, end: practiceEnd });
+        const start = businessHours.monday.open;
+        const end = businessHours.monday.close;
+        console.log('🕐 DEBUG: Setting standard hours from Monday:', { start, end });
+        setPracticeHours({ start, end });
+        setStandardHours({ start, end });
+      } else {
+        console.log('⚠️ DEBUG: No Monday hours found in businessHours');
       }
     }
   }, [userPracticeInfo]);
 
   // Initialize day entries for the month
   useEffect(() => {
-    const entries: DayEntry[] = daysInMonth.map(day => ({
-      date: format(day, 'yyyy-MM-dd'),
-      timeIn: isWeekend(day) ? '' : standardHours.start,
-      timeOut: isWeekend(day) ? '' : standardHours.end,
-      comments: '',
-      totalHours: isWeekend(day) ? 0 : 8
-    }));
+    console.log('📅 DEBUG: Initializing day entries. practiceBusinessHours:', practiceBusinessHours);
+    const entries: DayEntry[] = daysInMonth.map(day => {
+      const dayName = format(day, 'EEEE').toLowerCase();
+      const dayHours = practiceBusinessHours?.[dayName];
+      
+      console.log(`📆 DEBUG: Day ${format(day, 'yyyy-MM-dd')} (${dayName}):`, {
+        dayName,
+        dayHours,
+        hasDayHours: !!dayHours,
+        hasOpen: !!dayHours?.open,
+        hasClose: !!dayHours?.close,
+        openValue: dayHours?.open,
+        closeValue: dayHours?.close
+      });
+      
+      // Check if the practice is open on this day
+      // Handle both formats: { closed: true } or { open: "...", close: "..." }
+      const isClosed = dayHours?.closed === true;
+      const isOpen = !isClosed && dayHours?.open && dayHours?.close;
+      
+      console.log(`${isOpen ? '✅' : '❌'} DEBUG: Day ${dayName} is ${isOpen ? 'OPEN' : 'CLOSED'} (isClosed: ${isClosed})`);
+      
+      if (isOpen && dayHours?.open && dayHours?.close) {
+        const start = dayHours.open;
+        const end = dayHours.close;
+        const totalHours = calculateTotalHours(start, end);
+        console.log(`⏱️ DEBUG: ${dayName} hours: ${start} - ${end} = ${totalHours}h`);
+        return {
+          date: format(day, 'yyyy-MM-dd'),
+          timeIn: start,
+          timeOut: end,
+          comments: '',
+          totalHours
+        };
+      } else {
+        return {
+          date: format(day, 'yyyy-MM-dd'),
+          timeIn: '',
+          timeOut: '',
+          comments: '',
+          totalHours: 0
+        };
+      }
+    });
+    console.log('📊 DEBUG: Total entries created:', entries.length);
+    console.log('📊 DEBUG: Entries with hours:', entries.filter(e => e.totalHours > 0).length);
     setDayEntries(entries);
-  }, [selectedMonth, standardHours, daysInMonth]);
+  }, [selectedMonth, practiceBusinessHours]);
 
   // Fetch current timesheet
   const { data: timesheet } = useQuery<Timesheet>({
@@ -150,24 +361,49 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
 
   // Update day entries when timesheet loads
   useEffect(() => {
-    if (timesheet?.entries) {
-      const updatedEntries = dayEntries.map(entry => {
-        const existingEntry = timesheet.entries?.find(e => e.date === entry.date);
+    if (timesheet) {
+      const updatedEntries = daysInMonth.map(day => {
+        const dateStr = format(day, 'yyyy-MM-dd');
+        const existingEntry = timesheet.entries?.find(e => e.date === dateStr);
         if (existingEntry) {
           return {
-            ...entry,
+            date: dateStr,
             timeIn: existingEntry.start_time || '',
             timeOut: existingEntry.end_time || '',
             comments: existingEntry.task_description || '',
             totalHours: existingEntry.total_hours
           };
         }
-        return entry;
+        const dayName = format(day, 'EEEE').toLowerCase();
+        const dayHours = practiceBusinessHours?.[dayName];
+        const isClosed = dayHours?.closed === true;
+        const isOpen = !isClosed && dayHours?.open && dayHours?.close;
+        
+        if (isOpen && dayHours?.open && dayHours?.close) {
+          return {
+            date: dateStr,
+            timeIn: dayHours.open,
+            timeOut: dayHours.close,
+            comments: '',
+            totalHours: calculateTotalHours(dayHours.open, dayHours.close)
+          };
+        } else {
+          return {
+            date: dateStr,
+            timeIn: '',
+            timeOut: '',
+            comments: '',
+            totalHours: 0
+          };
+        }
       });
       setDayEntries(updatedEntries);
       setCurrentTimesheet(timesheet);
+    } else {
+      // No timesheet exists for this month, reset to default entries
+      setCurrentTimesheet(null);
     }
-  }, [timesheet, dayEntries]);
+  }, [timesheet, selectedMonth, practiceBusinessHours]);
 
   // Create/Update timesheet mutation
   const saveTimesheetMutation = useMutation({
@@ -258,7 +494,9 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
     
     if (diffMinutes < 0) diffMinutes += 24 * 60; // Handle overnight
     
-    const hours = (diffMinutes - 60) / 60; // Subtract 1 hour lunch break
+    const totalHours = diffMinutes / 60;
+    // Only subtract lunch break if working 6+ hours
+    const hours = totalHours >= 6 ? totalHours - 1 : totalHours;
     return Math.max(0, Math.round(hours * 100) / 100);
   };
 
@@ -278,14 +516,22 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
   const applyToAllWeekdays = () => {
     const newEntries = dayEntries.map(entry => {
       const date = parseISO(entry.date);
-      if (!isWeekend(date)) {
+      const dayName = format(date, 'EEEE').toLowerCase();
+      const dayHours = practiceBusinessHours?.[dayName];
+      
+      // Apply practice hours for each specific day
+      const isClosed = dayHours?.closed === true;
+      const isOpen = !isClosed && dayHours?.open && dayHours?.close;
+      
+      if (isOpen && dayHours?.open && dayHours?.close) {
         return {
           ...entry,
-          timeIn: standardHours.start,
-          timeOut: standardHours.end,
-          totalHours: calculateTotalHours(standardHours.start, standardHours.end)
+          timeIn: dayHours.open,
+          timeOut: dayHours.close,
+          totalHours: calculateTotalHours(dayHours.open, dayHours.close)
         };
       }
+      // Keep existing values if practice is closed on this day
       return entry;
     });
     setDayEntries(newEntries);
@@ -348,6 +594,43 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       toast.error(error.message || 'Failed to submit timesheet');
     }
   });
+
+  // Delete timesheet mutation
+  const deleteTimesheetMutation = useMutation({
+    mutationFn: async (timesheetId: string) => {
+      // First, delete all related timesheet entries
+      const { error: entriesError } = await supabase
+        .from('timesheet_entries')
+        .delete()
+        .eq('timesheet_id', timesheetId);
+
+      if (entriesError) throw entriesError;
+
+      // Then delete the timesheet itself
+      const { error: timesheetError } = await supabase
+        .from('timesheets')
+        .delete()
+        .eq('id', timesheetId);
+
+      if (timesheetError) throw timesheetError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['all-timesheets'] });
+      queryClient.invalidateQueries({ queryKey: ['current-timesheet'] });
+      toast.success('Timesheet deleted successfully');
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Failed to delete timesheet');
+    }
+  });
+
+  const handleDeleteTimesheet = async (timesheetId: string, period: string) => {
+    const confirmMessage = `Are you sure you want to delete the timesheet for ${period}? This will permanently delete all time entries for this period.`;
+    
+    if (confirm(confirmMessage)) {
+      deleteTimesheetMutation.mutate(timesheetId);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -420,10 +703,24 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                 <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-lg">
                   <div className="flex items-center gap-2 text-sm text-teal-800">
                     <Icon icon="solar:buildings-2-bold-duotone" className="w-4 h-4" />
-                    <span className="font-medium">Practice Hours:</span>
+                    <span className="font-medium">Default Hours (Monday):</span>
                     <span>{practiceHours.start} - {practiceHours.end}</span>
-                    <span className="text-teal-600">({userPracticeInfo?.practices?.name})</span>
+                    <span className="text-teal-600">({userPracticeInfo?.branches?.name || userPracticeInfo?.practices?.name})</span>
                   </div>
+                  {practiceBusinessHours && (
+                    <div className="mt-2 text-xs text-teal-700">
+                      <details>
+                        <summary className="cursor-pointer font-medium">View all practice hours</summary>
+                        <div className="mt-1 space-y-1">
+                          {Object.entries(practiceBusinessHours).map(([day, hours]) => (
+                            <div key={day} className="capitalize">
+                              {day}: {hours.closed ? 'Closed' : `${hours.open} - ${hours.close}`}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -441,11 +738,14 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                 />
                 <div className="flex items-end">
                   <Button
-                    onClick={applyToAllWeekdays}
+                    onClick={() => {
+                      console.log('🔄 DEBUG: Apply to Weekdays clicked');
+                      applyToAllWeekdays();
+                    }}
                     className="w-full bg-teal-600 text-white hover:bg-teal-700"
                   >
                     <Icon icon="solar:copy-bold-duotone" className="w-4 h-4 mr-2" />
-                    Apply to Weekdays
+                    Apply Practice Hours
                   </Button>
                 </div>
                 <div className="flex items-end">
@@ -464,22 +764,16 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
 
           {/* Premium Timesheet Grid */}
           <Card className="shadow-xl border-0 bg-gradient-to-br from-white to-gray-50">
-            <CardHeader className="bg-gradient-to-r from-teal-600 to-blue-600 text-white rounded-t-lg">
+            <CardHeader className="border-b">
               <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-3 text-xl font-bold">
-                  <div className="p-2 bg-white/20 rounded-lg">
-                    <Icon icon="solar:calendar-bold-duotone" className="w-6 h-6" />
-                  </div>
+                <CardTitle className="flex items-center gap-3 text-xl font-bold text-gray-900">
+                  <Icon icon="solar:calendar-bold-duotone" className="w-6 h-6 text-teal-600" />
                   {format(selectedMonth, 'MMMM yyyy')} Timesheet
                 </CardTitle>
-                <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2">
-                  <div className="text-sm font-medium">
-                    <div className="flex items-center gap-4">
-                      <span>Total: {totalHours.toFixed(1)}h</span>
-                      <span>Regular: {regularHours.toFixed(1)}h</span>
-                      <span>Overtime: {overtimeHours.toFixed(1)}h</span>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-gray-600">Total: <span className="font-semibold text-gray-900">{totalHours.toFixed(1)}h</span></span>
+                  <span className="text-gray-600">Regular: <span className="font-semibold text-gray-900">{regularHours.toFixed(1)}h</span></span>
+                  <span className="text-gray-600">Overtime: <span className="font-semibold text-orange-600">{overtimeHours.toFixed(1)}h</span></span>
                 </div>
               </div>
             </CardHeader>
@@ -487,25 +781,25 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
               <div className="overflow-x-auto">
                 <div className="min-w-full">
                   {/* Premium Table Header */}
-                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                  <div className="border-b border-gray-200">
                     <div className="grid grid-cols-12 gap-4 px-6 py-4">
-                      <div className="col-span-3 font-semibold text-gray-700 text-sm uppercase tracking-wide">
+                      <div className="col-span-3 font-semibold text-gray-700 text-sm uppercase tracking-wide" style={{ fontFamily: 'Rubik, sans-serif' }}>
                         <Icon icon="solar:calendar-date-bold-duotone" className="w-4 h-4 inline mr-2" />
                         Date
                       </div>
-                      <div className="col-span-2 font-semibold text-gray-700 text-sm uppercase tracking-wide">
+                      <div className="col-span-2 font-semibold text-gray-700 text-sm uppercase tracking-wide" style={{ fontFamily: 'Rubik, sans-serif' }}>
                         <Icon icon="solar:login-bold-duotone" className="w-4 h-4 inline mr-2" />
                         Time In
                       </div>
-                      <div className="col-span-2 font-semibold text-gray-700 text-sm uppercase tracking-wide">
+                      <div className="col-span-2 font-semibold text-gray-700 text-sm uppercase tracking-wide" style={{ fontFamily: 'Rubik, sans-serif' }}>
                         <Icon icon="solar:logout-bold-duotone" className="w-4 h-4 inline mr-2" />
                         Time Out
                       </div>
-                      <div className="col-span-3 font-semibold text-gray-700 text-sm uppercase tracking-wide">
+                      <div className="col-span-3 font-semibold text-gray-700 text-sm uppercase tracking-wide" style={{ fontFamily: 'Rubik, sans-serif' }}>
                         <Icon icon="solar:chat-round-bold-duotone" className="w-4 h-4 inline mr-2" />
                         Comments
                       </div>
-                      <div className="col-span-2 font-semibold text-gray-700 text-sm uppercase tracking-wide text-center">
+                      <div className="col-span-2 font-semibold text-gray-700 text-sm uppercase tracking-wide text-center" style={{ fontFamily: 'Rubik, sans-serif' }}>
                         <Icon icon="solar:clock-circle-bold-duotone" className="w-4 h-4 inline mr-2" />
                         Total Hours
                       </div>
@@ -518,16 +812,20 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                       const date = parseISO(entry.date);
                       const isWeekendDay = isWeekend(date);
                       const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+                      const holidays = getNamibiaPublicHolidays(getYear(date));
+                      const isHoliday = holidays.includes(entry.date);
                       
                       return (
                         <div 
                           key={entry.date} 
                           className={`grid grid-cols-12 gap-4 px-6 py-4 transition-all duration-200 hover:bg-teal-50 ${
-                            isWeekendDay 
+                            isHoliday
+                              ? 'bg-blue-50'
+                              : isWeekendDay 
                               ? 'bg-gray-50/50' 
                               : isToday 
                               ? 'bg-teal-50 border-l-4 border-teal-500' 
-                              : 'bg-white'
+                              : 'bg-purple-50/30'
                           }`}
                         >
                           {/* Date Column */}
@@ -536,18 +834,25 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                               <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold ${
                                 isToday 
                                   ? 'bg-teal-100 text-teal-700 ring-2 ring-teal-200'
+                                  : isHoliday
+                                  ? 'bg-blue-100 text-blue-700'
                                   : isWeekendDay 
                                   ? 'bg-gray-100 text-gray-500' 
-                                  : 'bg-blue-50 text-blue-700'
+                                  : 'bg-purple-100 text-purple-700'
                               }`}>
                                 {format(date, 'd')}
                               </div>
                               <div>
-                                <div className="font-medium text-gray-900">
+                                <div className="font-medium text-gray-900" style={{ fontFamily: 'Rubik, sans-serif' }}>
                                   {format(date, 'EEEE')}
                                 </div>
                                 <div className="text-sm text-gray-500">
                                   {format(date, 'MMM dd, yyyy')}
+                                  {isHoliday && (
+                                    <span className="ml-2 text-purple-600 font-medium">
+                                      • {getHolidayName(entry.date)}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -555,7 +860,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
 
                           {/* Time In Column */}
                           <div className="col-span-2 flex items-center">
-                            {!isWeekendDay ? (
+                            {entry.timeIn && !isHoliday ? (
                               <TimeInput
                                 value={entry.timeIn}
                                 onChange={(value) => updateDayEntry(index, 'timeIn', value)}
@@ -564,13 +869,15 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                                 size="sm"
                               />
                             ) : (
-                              <div className="text-gray-400 text-sm font-medium">Weekend</div>
+                              <div className="text-gray-400 text-sm font-medium">
+                                {isHoliday ? 'Holiday' : 'Closed'}
+                              </div>
                             )}
                           </div>
 
                           {/* Time Out Column */}
                           <div className="col-span-2 flex items-center">
-                            {!isWeekendDay ? (
+                            {entry.timeOut && !isHoliday ? (
                               <TimeInput
                                 value={entry.timeOut}
                                 onChange={(value) => updateDayEntry(index, 'timeOut', value)}
@@ -590,26 +897,27 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                               value={entry.comments}
                               onChange={(e) => updateDayEntry(index, 'comments', e.target.value)}
                               className={`w-full px-3 py-2 rounded-lg border-2 transition-all duration-200 text-sm ${
-                                isWeekendDay
+                                isWeekendDay || isHoliday
                                   ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
                                   : 'bg-white border-gray-200 hover:border-teal-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200'
                               }`}
-                              placeholder={isWeekendDay ? 'Weekend' : 'Add your notes...'}
-                              disabled={isWeekendDay}
+                              placeholder={isHoliday ? getHolidayName(entry.date) || 'Holiday' : isWeekendDay ? 'Weekend' : 'Add your notes...'}
+                              disabled={isWeekendDay || isHoliday}
                             />
                           </div>
 
                           {/* Total Hours Column */}
                           <div className="col-span-2 flex items-center justify-center">
                             <div className="text-center">
-                              <div className={`text-lg font-bold ${
+                              <div className={`font-bold ${
                                 entry.totalHours > 8 
                                   ? 'text-orange-600' 
                                   : entry.totalHours > 0 
                                   ? 'text-teal-600' 
                                   : 'text-gray-400'
                               }`}>
-                                {entry.totalHours.toFixed(1)}h
+                                <span className="text-xl">{Math.floor(entry.totalHours)}</span>
+                                <span className="text-sm">.{Math.round((entry.totalHours % 1) * 10)}h</span>
                               </div>
                               {entry.totalHours > 8 && (
                                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 mt-1">
@@ -649,16 +957,20 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                         <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
                         <span className="text-gray-600">Overtime</span>
                       </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <span className="text-gray-600">Public Holiday</span>
+                      </div>
                     </div>
                   </div>
-                  <Button
+                  <button
                     onClick={() => saveTimesheetMutation.mutate()}
                     disabled={saveTimesheetMutation.isPending}
-                    className="bg-gradient-to-r from-teal-600 to-blue-600 text-white hover:from-teal-700 hover:to-blue-700 px-8 py-3 shadow-lg hover:shadow-xl transition-all duration-200"
+                    className="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg text-sm"
                   >
-                    <Icon icon="solar:floppy-disk-bold-duotone" className="w-5 h-5 mr-2" />
-                    {saveTimesheetMutation.isPending ? 'Saving...' : 'Save Timesheet'}
-                  </Button>
+                    <Icon icon="solar:floppy-disk-bold-duotone" className="w-4 h-4" />
+                    <span>{saveTimesheetMutation.isPending ? 'Saving...' : 'Save Timesheet'}</span>
+                  </button>
                 </div>
               </div>
             </CardContent>
@@ -720,6 +1032,18 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                           >
                             <Icon icon="solar:download-bold-duotone" className="w-4 h-4 mr-2" />
                             PDF
+                          </Button>
+                          <Button
+                            onClick={() => handleDeleteTimesheet(
+                              ts.id,
+                              format(parseISO(ts.period_start), 'MMMM yyyy')
+                            )}
+                            size="sm"
+                            className="bg-red-600 text-white hover:bg-red-700"
+                            disabled={deleteTimesheetMutation.isPending}
+                          >
+                            <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4 mr-2" />
+                            {deleteTimesheetMutation.isPending ? 'Deleting...' : 'Delete'}
                           </Button>
                         </div>
                       </div>
@@ -803,9 +1127,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                         </div>
                         <Button
                           onClick={() => {
-                            downloadTimesheetPDF(currentTimesheet).then(pdf => {
-                              pdf.output('dataurlnewwindow');
-                            });
+                            downloadTimesheetPDF(currentTimesheet, true);
                           }}
                           variant="outline"
                           className="w-full border-green-300 text-green-600 hover:bg-green-50"

@@ -22,9 +22,10 @@ interface UserOverviewProps {
   user: UserData;
   canEdit: boolean;
   onEdit: (user: UserData) => void;
+  leaveDaysRemaining?: number;
 }
 
-export const UserOverview: React.FC<UserOverviewProps> = ({ user, canEdit, onEdit }) => {
+export const UserOverview: React.FC<UserOverviewProps> = ({ user, canEdit, onEdit, leaveDaysRemaining }) => {
   const roleColors = {
     admin: 'bg-purple-100 text-purple-700',
     doctor: 'bg-blue-100 text-blue-700',
@@ -136,7 +137,7 @@ export const UserOverview: React.FC<UserOverviewProps> = ({ user, canEdit, onEdi
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <Icon icon={SolarIcons.calendar} className="w-8 h-8 text-blue-600" />
-            <span className="text-2xl font-bold text-blue-900">21</span>
+            <span className="text-2xl font-bold text-blue-900">{leaveDaysRemaining ?? 0}</span>
           </div>
           <p className="text-sm text-blue-700">Leave Days Available</p>
         </div>

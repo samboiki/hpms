@@ -17,6 +17,14 @@ import TimePickerModal from '../components/ui/TimePickerModal';
 
 // Iconify is now handled by @iconify/react package
 
+interface BusinessHours {
+  day: string;
+  hours: string;
+  isOpen: boolean;
+  openTime?: string;
+  closeTime?: string;
+}
+
 const Settings: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { currentTheme, themes, setTheme } = useTheme();
@@ -39,7 +47,7 @@ const Settings: React.FC = () => {
       <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
 
         {/* Header Section */}
-        <div className="backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50 bg-white">
+        <div className="rounded-xl">
           <div className="p-4 md:p-5">
             <div className="flex items-center justify-between">
               {/* Page Title and Icon */}
@@ -497,11 +505,68 @@ const formatTime12Hour = (time24: string): string => {
   return `${hour12}:${minutes} ${ampm}`;
 };
 
+// Helper function to convert object format to array format for UI
+const convertBusinessHoursObjectToArray = (hoursObj: any): BusinessHours[] => {
+  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const dayKeyMap: Record<string, string> = {
+    'monday': 'Monday',
+    'tuesday': 'Tuesday',
+    'wednesday': 'Wednesday',
+    'thursday': 'Thursday',
+    'friday': 'Friday',
+    'saturday': 'Saturday',
+    'sunday': 'Sunday'
+  };
+  
+  if (!hoursObj || typeof hoursObj !== 'object') {
+    // Return default hours if no data
+    return daysOfWeek.map(day => ({
+      day,
+      hours: day === 'Saturday' || day === 'Sunday' ? 'Closed' : '8:00 AM - 5:00 PM',
+      isOpen: day !== 'Saturday' && day !== 'Sunday',
+      openTime: day !== 'Saturday' && day !== 'Sunday' ? '08:00' : '',
+      closeTime: day !== 'Saturday' && day !== 'Sunday' ? '17:00' : ''
+    }));
+  }
+  
+  // If it's already an array, return it
+  if (Array.isArray(hoursObj)) {
+    return hoursObj;
+  }
+  
+  // Convert object format to array format
+  return daysOfWeek.map(day => {
+    const dayKey = day.toLowerCase();
+    const dayData = hoursObj[dayKey];
+    
+    if (!dayData || dayData.closed) {
+      return {
+        day,
+        hours: 'Closed',
+        isOpen: false,
+        openTime: '',
+        closeTime: ''
+      };
+    }
+    
+    const openTime = dayData.open || '09:00';
+    const closeTime = dayData.close || '17:00';
+    
+    return {
+      day,
+      hours: `${formatTime12Hour(openTime)} - ${formatTime12Hour(closeTime)}`,
+      isOpen: true,
+      openTime,
+      closeTime
+    };
+  });
+};
+
 // Practice Profile Component
 const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> = () => {
   const { user } = useAuthStore();
   const { currentTheme } = useTheme();
-  const [practiceTab, setPracticeTab] = useState<'profile' | 'hours' | 'branches' | 'expenses' | 'departments' | 'themes'>('profile');
+  const [practiceTab, setPracticeTab] = useState<'profile' | 'hours' | 'branches' | 'expenses' | 'departments'>('profile');
   const [practiceData, setPracticeData] = useState({
     id: '',
     name: '',
@@ -594,7 +659,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
             contact_email: practice.contact_email || '',
             about_text: practice.about_text || '',
             website_url: practice.website_url || practice.domain || '',
-            business_hours: practice.business_hours || defaultMockData.hours,
+            business_hours: convertBusinessHoursObjectToArray(practice.business_hours),
             services: practice.services || defaultMockData.specialties,
             social_links: practice.social_links || {},
             primary_color: practice.primary_color || '#01b9d5',
@@ -621,6 +686,36 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
     loadPracticeData();
   }, [user?.practice_id]);
 
+  // Helper function to convert array format to object format for practices table
+  const convertBusinessHoursArrayToObject = (hoursArray: BusinessHours[]) => {
+    const hoursObject: Record<string, { open?: string; close?: string; closed?: boolean }> = {};
+    const dayMap: Record<string, string> = {
+      'Monday': 'monday',
+      'Tuesday': 'tuesday',
+      'Wednesday': 'wednesday',
+      'Thursday': 'thursday',
+      'Friday': 'friday',
+      'Saturday': 'saturday',
+      'Sunday': 'sunday'
+    };
+    
+    hoursArray.forEach((schedule) => {
+      const dayKey = dayMap[schedule.day];
+      if (dayKey) {
+        if (schedule.isOpen && schedule.openTime && schedule.closeTime) {
+          hoursObject[dayKey] = {
+            open: schedule.openTime,
+            close: schedule.closeTime
+          };
+        } else {
+          hoursObject[dayKey] = { closed: true };
+        }
+      }
+    });
+    
+    return hoursObject;
+  };
+
   // Save practice data to database
   const savePracticeData = async (updates: Partial<typeof practiceData>) => {
     if (!user?.practice_id || saving) return;
@@ -629,10 +724,16 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
       setSaving(true);
       console.log('💾 Saving practice data...', updates);
       
+      // Convert business_hours array format to object format if present
+      const processedUpdates = { ...updates };
+      if (updates.business_hours && Array.isArray(updates.business_hours)) {
+        processedUpdates.business_hours = convertBusinessHoursArrayToObject(updates.business_hours);
+      }
+      
       const { error } = await supabase
         .from('practices')
         .update({
-          ...updates,
+          ...processedUpdates,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.practice_id);
@@ -773,10 +874,9 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
   // Tab configuration
   const tabs = [
     { id: 'profile' as const, label: 'Practice Profile', icon: SolarIcons.building },
+    { id: 'expenses' as const, label: 'Practice Overhead', icon: SolarIcons.wallet },
     { id: 'branches' as const, label: 'Branches', icon: SolarIcons.buildings },
-    { id: 'expenses' as const, label: 'Expenses', icon: SolarIcons.wallet },
-    { id: 'departments' as const, label: 'Departments', icon: SolarIcons.folder },
-    { id: 'themes' as const, label: 'Themes', icon: SolarIcons.palette }
+    { id: 'departments' as const, label: 'Departments', icon: SolarIcons.folder }
   ];
 
   return (
@@ -1284,11 +1384,6 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
             {practiceTab === 'departments' && (
               <DepartmentManagement />
             )}
-            
-            {/* Themes Tab */}
-            {practiceTab === 'themes' && (
-              <PracticeThemesContent />
-            )}
           </motion.div>
         </div>
       </div>
@@ -1730,7 +1825,7 @@ const PracticeDocumentsContent: React.FC = () => {
         .select(`
           *,
           uploaded_by_user:users!practice_documents_uploaded_by_fkey(
-            name,
+            full_name,
             email
           )
         `)

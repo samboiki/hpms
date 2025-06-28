@@ -130,6 +130,8 @@ const PracticeExpenses: React.FC = () => {
     account_number: '',
     expense_date: new Date().toISOString().split('T')[0],
     due_date: '',
+    paid_date: '',
+    next_payment_date: '',
     status: 'pending',
     is_recurring: false
   });
@@ -192,7 +194,12 @@ const PracticeExpenses: React.FC = () => {
         practice_id: user?.practice_id,
         branch_id: activeView === 'branches' ? selectedBranchId : null,
         created_by: user?.id,
-        updated_by: user?.id
+        updated_by: user?.id,
+        // Convert empty date strings to null
+        expense_date: formData.expense_date || null,
+        due_date: formData.due_date || null,
+        paid_date: formData.paid_date || null,
+        next_payment_date: formData.next_payment_date || null
       };
 
       if (editingExpense) {
@@ -278,6 +285,8 @@ const PracticeExpenses: React.FC = () => {
       account_number: template.account_number || '',
       expense_date: new Date().toISOString().split('T')[0],
       due_date: '',
+      paid_date: '',
+      next_payment_date: '',
       status: 'pending',
       is_recurring: template.payment_frequency !== 'once_off'
     });
@@ -299,6 +308,8 @@ const PracticeExpenses: React.FC = () => {
       account_number: '',
       expense_date: new Date().toISOString().split('T')[0],
       due_date: '',
+      paid_date: '',
+      next_payment_date: '',
       status: 'pending',
       is_recurring: false
     });

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import Icon, { SolarIcons } from '../ui/Icon';
 import Button from '../ui/Button';
@@ -9,7 +9,7 @@ import { PayrollManagement } from './UserManagement/PayrollManagement';
 import { LeaveManagement } from './UserManagement/LeaveManagement';
 import { ExcelTimesheetManagement } from './UserManagement/ExcelTimesheetManagement';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format } from 'date-fns';
+import { format, endOfMonth, startOfMonth } from 'date-fns';
 import toast from 'react-hot-toast';
 import { AddUserModal } from './UserManagement/AddUserModal';
 import { EditUserModal } from './UserManagement/EditUserModal';
@@ -36,9 +36,14 @@ interface UserData {
   reporting_manager_id?: string;
 }
 
+interface UserStats {
+  leaveDaysRemaining: number;
+  nextPayslipDate: string;
+  timesheetStatus: 'draft' | 'submitted' | 'approved' | 'rejected';
+}
+
 export const EnhancedUserManagement: React.FC = () => {
   const { user } = useAuthStore();
-  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -91,6 +96,59 @@ export const EnhancedUserManagement: React.FC = () => {
     enabled: !!practiceId
   });
 
+  // Fetch user stats
+  const { data: userStats } = useQuery<UserStats>({
+    queryKey: ['user-stats', selectedUser?.id],
+    queryFn: async () => {
+      if (!selectedUser?.id) return null;
+      
+      const currentDate = new Date();
+      const monthEnd = endOfMonth(currentDate);
+      
+      // Fetch leave balance
+      // First get the Annual Leave type ID
+      const { data: leaveType } = await supabase
+        .from('leave_types')
+        .select('id')
+        .eq('practice_id', practiceId)
+        .eq('name', 'Annual Leave')
+        .single();
+      
+      let leaveDays = 0;
+      if (leaveType?.id) {
+        const { data: leaveBalance, error } = await supabase
+          .from('leave_balances')
+          .select('balance_days')
+          .eq('user_id', selectedUser.id)
+          .eq('year', currentDate.getFullYear())
+          .eq('leave_type_id', leaveType.id)
+          .single();
+        
+        if (!error && leaveBalance) {
+          leaveDays = leaveBalance.balance_days;
+        }
+      }
+      
+      // Calculate next payslip date (last day of current month)
+      const nextPayslipDate = format(monthEnd, 'dd MMM');
+      
+      // Fetch current month timesheet status
+      const { data: timesheet } = await supabase
+        .from('timesheets')
+        .select('status')
+        .eq('user_id', selectedUser.id)
+        .eq('period_start', startOfMonth(currentDate).toISOString().split('T')[0])
+        .single();
+      
+      return {
+        leaveDaysRemaining: leaveDays,
+        nextPayslipDate,
+        timesheetStatus: timesheet?.status || 'draft'
+      };
+    },
+    enabled: !!selectedUser?.id && !!practiceId
+  });
+
   // Update selectedUser when users data changes
   React.useEffect(() => {
     if (selectedUser && users.length > 0) {
@@ -99,7 +157,7 @@ export const EnhancedUserManagement: React.FC = () => {
         setSelectedUser(updatedUser);
       }
     }
-  }, [users]);
+  }, [users, selectedUser]);
 
   // Filter users based on search
   const filteredUsers = users.filter(u => 
@@ -109,13 +167,54 @@ export const EnhancedUserManagement: React.FC = () => {
     (u.department && u.department.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  // Fetch team stats
+  const { data: teamStats } = useQuery({
+    queryKey: ['team-stats', practiceId],
+    queryFn: async () => {
+      if (!practiceId) return null;
+      
+      const currentDate = new Date();
+      
+      // Count employees currently on leave
+      const { count: onLeaveCount } = await supabase
+        .from('leave_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('practice_id', practiceId)
+        .eq('status', 'approved')
+        .lte('start_date', currentDate.toISOString())
+        .gte('end_date', currentDate.toISOString());
+      
+      // Count pending leave requests
+      const { count: pendingLeaveCount } = await supabase
+        .from('leave_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('practice_id', practiceId)
+        .eq('status', 'pending');
+      
+      // Count pending (submitted) timesheets
+      const { count: pendingTimesheetCount } = await supabase
+        .from('timesheets')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'submitted')
+        .in('user_id', users.map(u => u.id));
+      
+      return {
+        onLeave: onLeaveCount || 0,
+        pendingLeaveRequests: pendingLeaveCount || 0,
+        pendingTimesheets: pendingTimesheetCount || 0,
+        totalPendingRequests: (pendingLeaveCount || 0) + (pendingTimesheetCount || 0)
+      };
+    },
+    enabled: !!practiceId && isViewingTeam && users.length > 0
+  });
+
   // Calculate stats
   const stats = {
     totalEmployees: users.length,
     activeEmployees: users.filter(u => u.is_active).length,
     departments: [...new Set(users.map(u => u.department).filter(Boolean))].length,
-    onLeave: 0, // Would come from leave requests
-    pendingRequests: 0, // Would come from leave/timesheet requests
+    onLeave: teamStats?.onLeave || 0,
+    pendingRequests: teamStats?.totalPendingRequests || 0,
   };
 
   const tabs = [
@@ -319,7 +418,12 @@ export const EnhancedUserManagement: React.FC = () => {
                 isViewingTeam ? (
                   <TeamOverview users={users} stats={stats} />
                 ) : (
-                  <UserOverview user={selectedUser!} canEdit={canManageUsers} onEdit={handleEditUser} />
+                  <UserOverview 
+                    user={selectedUser!} 
+                    canEdit={canManageUsers} 
+                    onEdit={handleEditUser}
+                    leaveDaysRemaining={userStats?.leaveDaysRemaining}
+                  />
                 )
               )}
 
@@ -381,11 +485,11 @@ export const EnhancedUserManagement: React.FC = () => {
                   <div className="grid grid-cols-2 gap-3 pt-3 border-t border-purple-400/30">
                     <div>
                       <p className="text-purple-100 text-xs">Leave Days</p>
-                      <p className="text-lg font-semibold">15</p>
+                      <p className="text-lg font-semibold">{userStats?.leaveDaysRemaining || 0}</p>
                     </div>
                     <div>
                       <p className="text-purple-100 text-xs">Next Payslip</p>
-                      <p className="text-lg font-semibold">28 Jun</p>
+                      <p className="text-lg font-semibold">{userStats?.nextPayslipDate || 'N/A'}</p>
                     </div>
                   </div>
                   <div className="pt-3 border-t border-purple-400/30">
@@ -398,8 +502,13 @@ export const EnhancedUserManagement: React.FC = () => {
                       </div>
                       <div className="text-right">
                         <p className="text-purple-100 text-xs">Timesheet</p>
-                        <span className="inline-flex px-2 py-0.5 bg-white/20 text-white rounded-full text-xs font-medium">
-                          Submitted
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                          userStats?.timesheetStatus === 'submitted' ? 'bg-green-500/20 text-green-100' :
+                          userStats?.timesheetStatus === 'approved' ? 'bg-blue-500/20 text-blue-100' :
+                          userStats?.timesheetStatus === 'rejected' ? 'bg-red-500/20 text-red-100' :
+                          'bg-white/20 text-white'
+                        }`}>
+                          {userStats?.timesheetStatus ? userStats.timesheetStatus.charAt(0).toUpperCase() + userStats.timesheetStatus.slice(1) : 'Draft'}
                         </span>
                       </div>
                     </div>
