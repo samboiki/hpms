@@ -106,4 +106,11 @@ export const SolarIcons = {
   trash: 'solar:trash-bin-trash-bold-duotone',
   refresh: 'solar:refresh-bold-duotone',
   logout: 'solar:logout-2-bold-duotone',
+  
+  // Branch management icons
+  buildings: 'solar:buildings-2-bold-duotone',
+  sunrise: 'solar:sunrise-bold-duotone',
+  sunset: 'solar:sunset-bold-duotone',
+  ambulatoryClinic: 'healthicons:ambulatory-clinic',
+  usersGroupRounded: 'solar:users-group-rounded-bold-duotone',
 };

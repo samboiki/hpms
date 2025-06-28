@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { toast } from 'react-hot-toast';
@@ -35,6 +35,36 @@ export default function LeaveTypeModal({ isOpen, onClose, onSuccess, existingLea
   const [description, setDescription] = useState(existingLeaveType?.description || '');
   const [color, setColor] = useState(existingLeaveType?.color || '#10B981');
   const [loading, setLoading] = useState(false);
+
+  // Update form state when existingLeaveType changes
+  useEffect(() => {
+    if (existingLeaveType) {
+      setName(existingLeaveType.name || '');
+      setCode(existingLeaveType.code || '');
+      setDaysPerYear(existingLeaveType.days_per_year?.toString() || '');
+      setIsPaid(existingLeaveType.is_paid ?? true);
+      setCarryoverAllowed(existingLeaveType.carryover_allowed || false);
+      setMaxCarryoverDays(existingLeaveType.max_carryover_days?.toString() || '0');
+      setRequiresApproval(existingLeaveType.requires_approval ?? true);
+      setMinNoticeDays(existingLeaveType.min_notice_days?.toString() || '1');
+      setDocumentsRequired(existingLeaveType.supporting_documents_required || false);
+      setDescription(existingLeaveType.description || '');
+      setColor(existingLeaveType.color || '#10B981');
+    } else {
+      // Reset form for new leave type
+      setName('');
+      setCode('');
+      setDaysPerYear('');
+      setIsPaid(true);
+      setCarryoverAllowed(false);
+      setMaxCarryoverDays('0');
+      setRequiresApproval(true);
+      setMinNoticeDays('1');
+      setDocumentsRequired(false);
+      setDescription('');
+      setColor('#10B981');
+    }
+  }, [existingLeaveType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,12 +105,23 @@ export default function LeaveTypeModal({ isOpen, onClose, onSuccess, existingLea
       };
 
       if (existingLeaveType) {
-        const { error } = await supabase
+        console.log('Updating leave type:', existingLeaveType.id);
+        console.log('Update data:', leaveTypeData);
+        
+        const { data: updateResult, error } = await supabase
           .from('leave_types')
-          .update(leaveTypeData)
-          .eq('id', existingLeaveType.id);
+          .update({
+            ...leaveTypeData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingLeaveType.id)
+          .select();
 
-        if (error) throw error;
+        console.log('Update result:', updateResult);
+        if (error) {
+          console.error('Update error:', error);
+          throw error;
+        }
         toast.success('Leave type updated successfully');
       } else {
         const { error } = await supabase
@@ -134,186 +175,310 @@ export default function LeaveTypeModal({ isOpen, onClose, onSuccess, existingLea
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-800">
-            {existingLeaveType ? 'Edit' : 'Add'} Leave Type
-          </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            <X className="w-6 h-6" />
-          </button>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] pointer-events-auto flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 p-6 text-white">
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-indigo-600 opacity-20 backdrop-blur-sm"></div>
+          <div className="relative flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                <Icon icon="solar:calendar-add-bold-duotone" className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold" style={{fontFamily: 'Poppins, sans-serif'}}>
+                  {existingLeaveType ? 'Edit' : 'Add'} Leave Type
+                </h2>
+                <p className="text-purple-100 text-sm">Configure leave type settings and policies</p>
+              </div>
+            </div>
+            <button 
+              onClick={onClose} 
+              className="p-2 bg-white/20 hover:bg-red-500/30 rounded-xl transition-colors"
+            >
+              <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-white" />
+            </button>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Leave Type Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                placeholder="e.g., Annual Leave"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Code <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                placeholder="e.g., ANNUAL"
-                required
-              />
-            </div>
-          </div>
+        {/* Content */}
+        <div className="flex-1 overflow-auto p-6 custom-scrollbar bg-white">
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Days per Year <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                value={daysPerYear}
-                onChange={(e) => setDaysPerYear(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                placeholder="e.g., 21"
-                required
-                min="0"
-                step="0.5"
-              />
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Basic Information Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-6 -ml-2">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Icon icon="solar:info-circle-bold-duotone" className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
+                  <p className="text-sm text-gray-500">Set the basic details for this leave type</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Leave Type Name <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Icon icon="solar:calendar-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                      placeholder="e.g., Annual Leave"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Code <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Icon icon="solar:code-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                    <input
+                      type="text"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.toUpperCase())}
+                      className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                      placeholder="e.g., ANNUAL"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Calendar Color
-              </label>
-              <select
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+
+            {/* Leave Allocation Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-6 -ml-2">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Icon icon="solar:calendar-mark-bold-duotone" className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Leave Allocation</h3>
+                  <p className="text-sm text-gray-500">Configure annual allocation and appearance</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Days per Year <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Icon icon="solar:calendar-days-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                    <input
+                      type="number"
+                      value={daysPerYear}
+                      onChange={(e) => setDaysPerYear(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                      placeholder="e.g., 21"
+                      required
+                      min="0"
+                      step="0.5"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Calendar Color
+                  </label>
+                  <div className="relative">
+                    <Icon icon="solar:palette-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                    <select
+                      value={color}
+                      onChange={(e) => setColor(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                    >
+                      {COLORS.map(c => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="mt-2 h-4 rounded-lg shadow-sm" style={{ backgroundColor: color }}></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Policy Settings Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-6 -ml-2">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Icon icon="solar:shield-check-bold-duotone" className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Policy Settings</h3>
+                  <p className="text-sm text-gray-500">Configure leave policies and requirements</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Icon icon="solar:dollar-bold-duotone" className="w-5 h-5 text-green-600" />
+                      <span className="text-sm font-medium text-gray-700">Paid Leave</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={isPaid}
+                      onChange={(e) => setIsPaid(e.target.checked)}
+                      className="w-5 h-5 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Icon icon="solar:user-check-bold-duotone" className="w-5 h-5 text-blue-600" />
+                      <span className="text-sm font-medium text-gray-700">Requires Approval</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={requiresApproval}
+                      onChange={(e) => setRequiresApproval(e.target.checked)}
+                      className="w-5 h-5 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                    />
+                  </label>
+                </div>
+                
+                <div className="space-y-4">
+                  <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Icon icon="solar:document-add-bold-duotone" className="w-5 h-5 text-orange-600" />
+                      <span className="text-sm font-medium text-gray-700">Supporting Documents Required</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={documentsRequired}
+                      onChange={(e) => setDocumentsRequired(e.target.checked)}
+                      className="w-5 h-5 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Icon icon="solar:calendar-search-bold-duotone" className="w-5 h-5 text-indigo-600" />
+                      <span className="text-sm font-medium text-gray-700">Allow Carryover to Next Year</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={carryoverAllowed}
+                      onChange={(e) => setCarryoverAllowed(e.target.checked)}
+                      className="w-5 h-5 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Configuration Details Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+              <div className="flex items-center gap-3 mb-6 -ml-2">
+                <div className="p-2 bg-amber-100 rounded-lg">
+                  <Icon icon="solar:settings-bold-duotone" className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Configuration Details</h3>
+                  <p className="text-sm text-gray-500">Set specific requirements and limits</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {carryoverAllowed && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Maximum Carryover Days
+                    </label>
+                    <div className="relative">
+                      <Icon icon="solar:calendar-add-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                      <input
+                        type="number"
+                        value={maxCarryoverDays}
+                        onChange={(e) => setMaxCarryoverDays(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                        min="0"
+                        step="0.5"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {requiresApproval && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Minimum Notice Days
+                    </label>
+                    <div className="relative">
+                      <Icon icon="solar:clock-circle-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                      <input
+                        type="number"
+                        value={minNoticeDays}
+                        onChange={(e) => setMinNoticeDays(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                        min="0"
+                        placeholder="1"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className={carryoverAllowed && requiresApproval ? "md:col-span-2" : carryoverAllowed || requiresApproval ? "md:col-span-1" : "md:col-span-2"}>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description
+                  </label>
+                  <div className="relative">
+                    <Icon icon="solar:text-field-bold-duotone" className="absolute left-3 top-3 w-5 h-5 text-gray-400 z-10" />
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200 resize-none"
+                      rows={3}
+                      placeholder="Additional details about this leave type..."
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium"
               >
-                {COLORS.map(c => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-              <div className="mt-1 h-4 rounded" style={{ backgroundColor: color }}></div>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium transition-all shadow-lg hover:shadow-xl"
+              >
+                {loading ? (
+                  <>
+                    <Icon icon="solar:refresh-bold-duotone" className="w-5 h-5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Icon icon="solar:calendar-add-bold-duotone" className="w-5 h-5" />
+                    {existingLeaveType ? 'Update' : 'Create'} Leave Type
+                  </>
+                )}
+              </button>
             </div>
-          </div>
-
-          <div className="space-y-3">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={isPaid}
-                onChange={(e) => setIsPaid(e.target.checked)}
-                className="rounded text-teal-600 focus:ring-teal-500"
-              />
-              <span className="text-sm text-gray-700">Paid Leave</span>
-            </label>
-
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={requiresApproval}
-                onChange={(e) => setRequiresApproval(e.target.checked)}
-                className="rounded text-teal-600 focus:ring-teal-500"
-              />
-              <span className="text-sm text-gray-700">Requires Approval</span>
-            </label>
-
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={documentsRequired}
-                onChange={(e) => setDocumentsRequired(e.target.checked)}
-                className="rounded text-teal-600 focus:ring-teal-500"
-              />
-              <span className="text-sm text-gray-700">Supporting Documents Required</span>
-            </label>
-
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={carryoverAllowed}
-                onChange={(e) => setCarryoverAllowed(e.target.checked)}
-                className="rounded text-teal-600 focus:ring-teal-500"
-              />
-              <span className="text-sm text-gray-700">Allow Carryover to Next Year</span>
-            </label>
-          </div>
-
-          {carryoverAllowed && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Maximum Carryover Days
-              </label>
-              <input
-                type="number"
-                value={maxCarryoverDays}
-                onChange={(e) => setMaxCarryoverDays(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                min="0"
-                step="0.5"
-              />
-            </div>
-          )}
-
-          {requiresApproval && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Minimum Notice Days
-              </label>
-              <input
-                type="number"
-                value={minNoticeDays}
-                onChange={(e) => setMinNoticeDays(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                min="0"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-              rows={3}
-              placeholder="Additional details about this leave type..."
-            />
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              <Icon icon="solar:calendar-add-bold-duotone" className="w-5 h-5" />
-              {loading ? 'Saving...' : existingLeaveType ? 'Update' : 'Create'} Leave Type
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );

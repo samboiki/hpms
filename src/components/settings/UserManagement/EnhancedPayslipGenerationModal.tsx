@@ -7,6 +7,7 @@ import { useAuthStore } from '../../../stores/authStore';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { PayrollService } from '../../../services/payrollService';
+import MonthInput from '../../ui/MonthInput';
 
 interface Props {
   isOpen: boolean;
@@ -145,14 +146,11 @@ export const EnhancedPayslipGenerationModal: React.FC<Props> = ({
 
           {/* Month selector */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Payroll Month
-            </label>
-            <input
-              type="month"
+            <MonthInput
+              label="Select Payroll Month"
               value={format(payPeriod, 'yyyy-MM')}
-              onChange={(e) => setPayPeriod(new Date(e.target.value))}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              onChange={(value) => setPayPeriod(new Date(value + '-01'))}
+              placeholder="Select payroll month"
             />
           </div>
 

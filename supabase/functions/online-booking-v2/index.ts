@@ -54,7 +54,7 @@ serve(async (req) => {
     
     // Check if patient exists by email
     console.log('Checking for existing patient with email:', formData.email);
-    let { data: existingPatients, error: patientCheckError } = await supabaseAdmin
+    const { data: existingPatients, error: patientCheckError } = await supabaseAdmin
       .from('patients')
       .select('*')
       .eq('email', formData.email.toLowerCase())

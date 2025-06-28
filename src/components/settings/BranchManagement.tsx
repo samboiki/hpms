@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import Icon, { SolarIcons } from '../ui/Icon';
+import TimePickerModal from '../ui/TimePickerModal';
+
+interface BusinessHours {
+  day: string;
+  hours: string;
+  isOpen: boolean;
+  openTime?: string;
+  closeTime?: string;
+}
 
 interface Branch {
   id: string;
@@ -18,7 +26,7 @@ interface Branch {
   postal_code?: string;
   phone?: string;
   email?: string;
-  business_hours?: any;
+  business_hours?: BusinessHours[];
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -44,6 +52,71 @@ interface BranchUser {
   avatar?: string;
 }
 
+// Helper function to convert 24hr time to 12hr format
+const formatTime12Hour = (time24: string): string => {
+  if (!time24) return '';
+  const [hours, minutes] = time24.split(':');
+  const hour = parseInt(hours);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minutes} ${ampm}`;
+};
+
+// Helper function to format business hours string
+const formatBusinessHours = (openTime: string, closeTime: string): string => {
+  if (!openTime || !closeTime) return 'Closed';
+  return `${formatTime12Hour(openTime)} - ${formatTime12Hour(closeTime)}`;
+};
+
+// Default business hours
+const defaultBusinessHours: BusinessHours[] = [
+  { day: 'Monday', hours: '9:00 AM - 5:00 PM', isOpen: true, openTime: '09:00', closeTime: '17:00' },
+  { day: 'Tuesday', hours: '9:00 AM - 5:00 PM', isOpen: true, openTime: '09:00', closeTime: '17:00' },
+  { day: 'Wednesday', hours: '9:00 AM - 5:00 PM', isOpen: true, openTime: '09:00', closeTime: '17:00' },
+  { day: 'Thursday', hours: '9:00 AM - 5:00 PM', isOpen: true, openTime: '09:00', closeTime: '17:00' },
+  { day: 'Friday', hours: '9:00 AM - 5:00 PM', isOpen: true, openTime: '09:00', closeTime: '17:00' },
+  { day: 'Saturday', hours: 'Closed', isOpen: false, openTime: '', closeTime: '' },
+  { day: 'Sunday', hours: 'Closed', isOpen: false, openTime: '', closeTime: '' }
+];
+
+// Helper function to parse business hours from database
+const parseBusinessHours = (hours: BusinessHours[] | undefined | null): BusinessHours[] => {
+  if (!hours || !Array.isArray(hours)) {
+    return defaultBusinessHours;
+  }
+  
+  return hours.map(h => {
+    // If it already has the new format, return as is
+    if (h.isOpen !== undefined) {
+      return h;
+    }
+    
+    // Parse old format "9:00 AM - 5:00 PM" or "Closed"
+    const isClosed = h.hours === 'Closed' || !h.hours;
+    let openTime = '09:00';
+    let closeTime = '17:00';
+    
+    if (!isClosed && h.hours && h.hours.includes('-')) {
+      // Try to parse existing hours format
+      const parts = h.hours.split('-').map((s: string) => s.trim());
+      if (parts.length === 2) {
+        // Convert back to 24hr if needed
+        // For now, just use defaults
+        openTime = '09:00';
+        closeTime = '17:00';
+      }
+    }
+    
+    return {
+      day: h.day,
+      hours: h.hours || 'Closed',
+      isOpen: !isClosed,
+      openTime: isClosed ? '' : openTime,
+      closeTime: isClosed ? '' : closeTime
+    };
+  });
+};
+
 const BranchManagement: React.FC = () => {
   const { user } = useAuthStore();
   const [practice, setPractice] = useState<Practice | null>(null);
@@ -55,7 +128,24 @@ const BranchManagement: React.FC = () => {
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
   const [branchUsers, setBranchUsers] = useState<BranchUser[]>([]);
   const [allStaff, setAllStaff] = useState<BranchUser[]>([]);
-  const [formData, setFormData] = useState({
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
+  const [timePickerConfig, setTimePickerConfig] = useState<{
+    dayIndex: number;
+    type: 'open' | 'close';
+  } | null>(null);
+  
+  const [formData, setFormData] = useState<{
+    name: string;
+    slug: string;
+    address: string;
+    city: string;
+    state_province: string;
+    postal_code: string;
+    phone: string;
+    email: string;
+    is_active: boolean;
+    business_hours: BusinessHours[];
+  }>({
     name: '',
     slug: '',
     address: '',
@@ -64,7 +154,8 @@ const BranchManagement: React.FC = () => {
     postal_code: '',
     phone: '',
     email: '',
-    is_active: true
+    is_active: true,
+    business_hours: defaultBusinessHours
   });
 
   useEffect(() => {
@@ -78,6 +169,14 @@ const BranchManagement: React.FC = () => {
       loadBranchUsers(selectedBranch);
     }
   }, [selectedBranch]);
+  
+  // Load all branch users on component mount
+  useEffect(() => {
+    if (branches.length > 0 && allStaff.length > 0) {
+      // Set branchUsers to allStaff to have all data available
+      setBranchUsers(allStaff);
+    }
+  }, [branches, allStaff]);
 
   useEffect(() => {
     if (user?.practice_id) {
@@ -176,7 +275,7 @@ const BranchManagement: React.FC = () => {
         if (error) throw error;
         toast.success('Branch updated successfully');
       } else {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('branches')
           .insert(branchData)
           .select();
@@ -189,7 +288,7 @@ const BranchManagement: React.FC = () => {
       setEditingBranch(null);
       resetForm();
       loadPracticeAndBranches();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving branch:', error);
       toast.error(error.message || 'Failed to save branch');
     }
@@ -206,9 +305,12 @@ const BranchManagement: React.FC = () => {
       postal_code: branch.postal_code || '',
       phone: branch.phone || '',
       email: branch.email || '',
-      is_active: branch.is_active
+      is_active: branch.is_active,
+      business_hours: parseBusinessHours(branch.business_hours)
     });
     setShowForm(true);
+    // Load branch users for staff management
+    loadBranchUsers(branch.id);
   };
 
   const handleDelete = async (id: string) => {
@@ -292,7 +394,8 @@ const BranchManagement: React.FC = () => {
       postal_code: '',
       phone: '',
       email: '',
-      is_active: true
+      is_active: true,
+      business_hours: defaultBusinessHours
     });
   };
 
@@ -363,7 +466,7 @@ const BranchManagement: React.FC = () => {
                   <p className="text-2xl font-bold text-blue-600">{allStaff.length}</p>
                 </div>
                 <div className="p-3 bg-blue-100 rounded-lg">
-                  <Icon icon={SolarIcons.users} className="w-6 h-6 text-blue-600" />
+                  <Icon icon={SolarIcons.usersGroupRounded} className="w-6 h-6 text-blue-600" />
                 </div>
               </div>
             </div>
@@ -474,7 +577,7 @@ const BranchManagement: React.FC = () => {
                   <p className="text-sm text-gray-500 mt-1">Add your first branch location to expand your practice</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                   {branches.map((branch) => (
                     <div
                       key={branch.id}
@@ -483,11 +586,17 @@ const BranchManagement: React.FC = () => {
                           ? 'border-purple-500 shadow-lg ring-2 ring-purple-100' 
                           : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
                       }`}
-                      onClick={() => setSelectedBranch(branch.id)}
+                      onClick={() => {
+                        setSelectedBranch(branch.id);
+                        handleEdit(branch);
+                      }}
                     >
                       <div className="flex items-start justify-between mb-4">
                         <div>
-                          <h5 className="font-semibold text-gray-900">{branch.name}</h5>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Icon icon={SolarIcons.ambulatoryClinic} className="w-5 h-5 text-purple-500" />
+                            <h5 className="font-semibold text-gray-900">{branch.name}</h5>
+                          </div>
                           {branch.is_active ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full mt-1">
                               <div className="w-1.5 h-1.5 bg-green-600 rounded-full" />
@@ -506,34 +615,34 @@ const BranchManagement: React.FC = () => {
                               e.stopPropagation();
                               handleToggleActive(branch);
                             }}
-                            className={`p-1.5 rounded-lg transition-all duration-200 ${
+                            className={`p-2 rounded-lg transition-all duration-200 ${
                               branch.is_active 
                                 ? 'text-green-600 hover:bg-green-50' 
                                 : 'text-gray-400 hover:bg-gray-50'
                             }`}
                             title={branch.is_active ? 'Deactivate branch' : 'Activate branch'}
                           >
-                            <Icon icon={branch.is_active ? SolarIcons.checkCircle : SolarIcons.dangerCircle} className="w-4 h-4" />
+                            <Icon icon={branch.is_active ? SolarIcons.checkCircle : SolarIcons.dangerCircle} className="w-5 h-5" />
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleEdit(branch);
                             }}
-                            className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-all duration-200"
+                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all duration-200"
                             title="Edit branch"
                           >
-                            <Icon icon={SolarIcons.edit} className="w-4 h-4" />
+                            <Icon icon={SolarIcons.edit} className="w-5 h-5" />
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleDelete(branch.id);
                             }}
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
                             title="Delete branch"
                           >
-                            <Icon icon={SolarIcons.close} className="w-4 h-4" />
+                            <Icon icon={SolarIcons.trash} className="w-5 h-5" />
                           </button>
                         </div>
                       </div>
@@ -567,25 +676,77 @@ const BranchManagement: React.FC = () => {
                         )}
                       </div>
                       
-                      {/* Staff count badge */}
-                      <div className="mt-4 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Icon icon={SolarIcons.users} className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">
-                            {branchUsers.filter(u => u.branch_id === branch.id).length} Staff
-                          </span>
+                      {/* Business Hours */}
+                      {branch.business_hours && Array.isArray(branch.business_hours) && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Icon icon={SolarIcons.clock} className="w-4 h-4 text-purple-500" />
+                            <span className="text-xs font-medium text-gray-700">Operating Hours</span>
+                          </div>
+                          <div className="space-y-1">
+                            {branch.business_hours.map((hour: any, idx: number) => (
+                              <div key={idx} className="flex items-center justify-between text-xs">
+                                <span className="font-medium text-gray-700">{hour.day}</span>
+                                <span className="text-gray-600">{hour.hours}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        {selectedBranch === branch.id && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowStaffModal(true);
-                            }}
-                            className="text-xs text-purple-600 hover:text-purple-700 font-medium"
-                          >
-                            Manage Staff
-                          </button>
-                        )}
+                      )}
+                      
+                      {/* Staff section */}
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Icon icon={SolarIcons.users} className="w-4 h-4 text-purple-500" />
+                            <span className="text-xs font-medium text-gray-700">
+                              Staff ({branchUsers.filter(u => u.branch_id === branch.id).length})
+                            </span>
+                          </div>
+                          {selectedBranch === branch.id && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowStaffModal(true);
+                              }}
+                              className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+                            >
+                              Manage
+                            </button>
+                          )}
+                        </div>
+                        {/* Staff list with names and roles */}
+                        <div className="space-y-2 max-h-32 overflow-y-auto">
+                          {allStaff
+                            .filter(u => u.branch_id === branch.id)
+                            .length === 0 ? (
+                              <p className="text-xs text-gray-500 italic">No staff assigned</p>
+                            ) : (
+                              allStaff
+                                .filter(u => u.branch_id === branch.id)
+                                .map((staff) => (
+                                  <div key={staff.id} className="flex items-center gap-2">
+                                    {staff.avatar ? (
+                                      <img
+                                        src={staff.avatar}
+                                        alt={staff.full_name}
+                                        className="w-6 h-6 rounded-full object-cover border border-gray-200"
+                                      />
+                                    ) : (
+                                      <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center border border-purple-200">
+                                        <span className="text-xs font-medium text-purple-600">
+                                          {staff.full_name.charAt(0).toUpperCase()}
+                                        </span>
+                                      </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-medium text-gray-900 truncate">{staff.full_name}</p>
+                                      <p className="text-xs text-gray-500 capitalize">{staff.role}</p>
+                                    </div>
+                                  </div>
+                                ))
+                            )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -609,7 +770,7 @@ const BranchManagement: React.FC = () => {
               initial={{ scale: 0.95 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.95 }}
-              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden m-4"
+              className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden m-4"
             >
               <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 p-6">
                 <div className="flex items-center justify-between">
@@ -635,7 +796,7 @@ const BranchManagement: React.FC = () => {
                 </div>
               </div>
               
-              <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <form onSubmit={handleSubmit} className="p-6 space-y-4 scroll-container scrollbar-thin scrollbar-thumb-purple-300 scrollbar-track-gray-100" style={{ overflowY: 'auto', maxHeight: 'calc(95vh - 100px)' }}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -734,7 +895,186 @@ const BranchManagement: React.FC = () => {
                       className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                     />
                   </div>
-                  
+                </div>
+
+                {/* Business Hours Section */}
+                <div className="mt-6">
+                  <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
+                    <Icon icon={SolarIcons.clock} className="w-4 h-4 text-purple-600" />
+                    Business Hours
+                  </h4>
+                  <div className="space-y-2">
+                    {formData.business_hours?.map((schedule, idx) => (
+                      <div key={idx} className="bg-gray-50 rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-medium text-gray-700">{schedule.day}</span>
+                          <label className="flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={schedule.isOpen}
+                              onChange={(e) => {
+                                const updatedHours = [...formData.business_hours];
+                                updatedHours[idx] = { 
+                                  ...updatedHours[idx], 
+                                  isOpen: e.target.checked,
+                                  hours: e.target.checked ? formatBusinessHours(schedule.openTime || '09:00', schedule.closeTime || '17:00') : 'Closed'
+                                };
+                                setFormData({ ...formData, business_hours: updatedHours });
+                              }}
+                              className="sr-only"
+                            />
+                            <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                              schedule.isOpen ? 'bg-purple-600' : 'bg-gray-300'
+                            }`}>
+                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                schedule.isOpen ? 'translate-x-6' : 'translate-x-1'
+                              }`} />
+                            </div>
+                            <span className="ml-2 text-sm text-gray-600">
+                              {schedule.isOpen ? 'Open' : 'Closed'}
+                            </span>
+                          </label>
+                        </div>
+                        {schedule.isOpen && (
+                          <div className="flex items-center gap-3 mt-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTimePickerConfig({ dayIndex: idx, type: 'open' });
+                                setTimePickerOpen(true);
+                              }}
+                              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:border-purple-300 hover:shadow-md transition-all group"
+                            >
+                              <Icon icon={SolarIcons.sunrise} className="w-5 h-5 text-purple-500 group-hover:text-purple-600" />
+                              <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
+                                {formatTime12Hour(schedule.openTime || '09:00')}
+                              </span>
+                            </button>
+                            
+                            <div className="flex items-center gap-2">
+                              <div className="h-px w-8 bg-gray-300"></div>
+                              <span className="text-sm text-gray-500 font-medium">to</span>
+                              <div className="h-px w-8 bg-gray-300"></div>
+                            </div>
+                            
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTimePickerConfig({ dayIndex: idx, type: 'close' });
+                                setTimePickerOpen(true);
+                              }}
+                              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl hover:border-purple-300 hover:shadow-md transition-all group"
+                            >
+                              <Icon icon={SolarIcons.sunset} className="w-5 h-5 text-indigo-500 group-hover:text-indigo-600" />
+                              <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
+                                {formatTime12Hour(schedule.closeTime || '17:00')}
+                              </span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const weekdayHours = formData.business_hours[0]; // Monday
+                        const updatedHours = formData.business_hours.map((schedule, idx) => {
+                          if (idx < 5) { // Monday to Friday
+                            return { ...schedule, ...weekdayHours, day: schedule.day };
+                          }
+                          return schedule;
+                        });
+                        setFormData({ ...formData, business_hours: updatedHours });
+                      }}
+                      className="text-xs text-purple-600 hover:text-purple-700 font-medium"
+                    >
+                      Apply weekday hours to all weekdays
+                    </button>
+                  </div>
+                </div>
+
+                {/* Staff Management Section */}
+                {editingBranch && (
+                  <div className="mt-6">
+                    <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
+                      <Icon icon={SolarIcons.users} className="w-4 h-4 text-purple-600" />
+                      Branch Staff ({branchUsers.filter(u => u.branch_id === editingBranch.id).length})
+                    </h4>
+                    <div className="bg-gray-50 rounded-lg p-4 max-h-60 overflow-y-auto">
+                      {allStaff.length === 0 ? (
+                        <p className="text-sm text-gray-500 text-center py-4">No staff members found</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {allStaff.map((staff) => {
+                            const isAssigned = staff.branch_id === editingBranch.id;
+                            return (
+                              <div key={staff.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+                                <div className="flex items-center gap-3">
+                                  {staff.avatar ? (
+                                    <img
+                                      src={staff.avatar}
+                                      alt={staff.full_name}
+                                      className="w-8 h-8 rounded-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                                      <Icon icon={SolarIcons.user} className="w-4 h-4 text-purple-600" />
+                                    </div>
+                                  )}
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900">{staff.full_name}</p>
+                                    <p className="text-xs text-gray-500">{staff.role}</p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      const updateData = isAssigned 
+                                        ? { branch_id: null } 
+                                        : { branch_id: editingBranch.id };
+                                      
+                                      const { error } = await supabase
+                                        .from('users')
+                                        .update(updateData)
+                                        .eq('id', staff.id);
+
+                                      if (error) throw error;
+
+                                      toast.success(isAssigned 
+                                        ? 'Staff member removed from branch' 
+                                        : 'Staff member assigned to branch');
+                                      
+                                      // Reload staff lists
+                                      await Promise.all([
+                                        loadAllStaff(),
+                                        loadBranchUsers(editingBranch.id)
+                                      ]);
+                                    } catch (error) {
+                                      console.error('Error updating staff assignment:', error);
+                                      toast.error('Failed to update staff assignment');
+                                    }
+                                  }}
+                                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                                    isAssigned
+                                      ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                  }`}
+                                >
+                                  {isAssigned ? 'Assigned' : 'Assign'}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-6">
                   <div className="flex items-center">
                     <input
                       type="checkbox"
@@ -886,6 +1226,49 @@ const BranchManagement: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Time Picker Modal */}
+      <TimePickerModal
+        isOpen={timePickerOpen}
+        onClose={() => {
+          setTimePickerOpen(false);
+          setTimePickerConfig(null);
+        }}
+        onConfirm={(time) => {
+          if (timePickerConfig) {
+            const updatedHours = [...formData.business_hours];
+            const { dayIndex, type } = timePickerConfig;
+            
+            if (type === 'open') {
+              updatedHours[dayIndex] = {
+                ...updatedHours[dayIndex],
+                openTime: time,
+                hours: formatBusinessHours(time, updatedHours[dayIndex].closeTime || '17:00')
+              };
+            } else {
+              updatedHours[dayIndex] = {
+                ...updatedHours[dayIndex],
+                closeTime: time,
+                hours: formatBusinessHours(updatedHours[dayIndex].openTime || '09:00', time)
+              };
+            }
+            
+            setFormData({ ...formData, business_hours: updatedHours });
+          }
+        }}
+        initialTime={
+          timePickerConfig
+            ? timePickerConfig.type === 'open'
+              ? formData.business_hours[timePickerConfig.dayIndex].openTime || '09:00'
+              : formData.business_hours[timePickerConfig.dayIndex].closeTime || '17:00'
+            : '09:00'
+        }
+        title={
+          timePickerConfig
+            ? `Select ${timePickerConfig.type === 'open' ? 'Opening' : 'Closing'} Time for ${formData.business_hours[timePickerConfig.dayIndex].day}`
+            : 'Select Time'
+        }
+      />
     </div>
   );
 };

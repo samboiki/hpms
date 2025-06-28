@@ -1029,7 +1029,7 @@ const EditVisitTabs: React.FC<Props> = ({
 
     const rules = getDentalServiceBusinessRules(tariff);
     const basePrice = parseFloat(tariff.price) || 0;
-    let totalPrice = rules.pricingRules.calculation(quantity, toothNumber ? [toothNumber] : undefined);
+    const totalPrice = rules.pricingRules.calculation(quantity, toothNumber ? [toothNumber] : undefined);
 
     const newService: ServiceSelection = {
       id: crypto.randomUUID(),
@@ -1051,7 +1051,7 @@ const EditVisitTabs: React.FC<Props> = ({
       teethNumbers: toothNumber ? [toothNumber] : undefined
     };
 
-    let updatedServices = [...selectedServices, newService];
+    const updatedServices = [...selectedServices, newService];
     
     // Auto-add 8109 Infection Control for EVERY service (if not already present)
     const hasInfectionControl = selectedServices.some(s => s.code === '8109');

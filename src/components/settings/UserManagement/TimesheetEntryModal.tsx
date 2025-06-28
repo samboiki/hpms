@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { Icon } from '@iconify/react';
+import TimeInput from '../../ui/TimeInput';
 
 interface TimesheetEntryModalProps {
   isOpen: boolean;
@@ -34,7 +35,25 @@ export default function TimesheetEntryModal({
     if (existingEntry) {
       setStartTime(existingEntry.start_time || '09:00');
       setEndTime(existingEntry.end_time || '17:00');
-      setBreakDuration(existingEntry.break_minutes?.toString() || '60');
+      
+      // Parse break_duration from interval format (e.g., "00:60:00" or "60 minutes")
+      let breakMinutes = '60';
+      if (existingEntry.break_duration) {
+        const breakStr = existingEntry.break_duration.toString();
+        if (breakStr.includes(':')) {
+          // Format: "00:60:00"
+          const parts = breakStr.split(':');
+          breakMinutes = parts[1] || '60';
+        } else if (breakStr.includes('minutes')) {
+          // Format: "60 minutes"
+          breakMinutes = breakStr.replace(/\D/g, '') || '60';
+        } else {
+          // Assume it's just a number
+          breakMinutes = breakStr || '60';
+        }
+      }
+      setBreakDuration(breakMinutes);
+      
       setProjectCode(existingEntry.project_code || '');
       setTaskDescription(existingEntry.task_description || '');
       setIsOvertime(existingEntry.is_overtime || false);
@@ -72,7 +91,7 @@ export default function TimesheetEntryModal({
         date: date,
         start_time: startTime,
         end_time: endTime,
-        break_duration: `${breakDuration} minutes`,
+        break_duration: `00:${String(breakDuration).padStart(2, '0')}:00`,
         total_hours: totalHours,
         project_code: projectCode || null,
         task_description: taskDescription || null,
@@ -159,30 +178,20 @@ export default function TimesheetEntryModal({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Start Time
-              </label>
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                End Time
-              </label>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                required
-              />
-            </div>
+            <TimeInput
+              label="Start Time"
+              value={startTime}
+              onChange={setStartTime}
+              placeholder="Select start time"
+              required
+            />
+            <TimeInput
+              label="End Time"
+              value={endTime}
+              onChange={setEndTime}
+              placeholder="Select end time"
+              required
+            />
           </div>
 
           <div>

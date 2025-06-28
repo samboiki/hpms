@@ -2,6 +2,11 @@
 
 ## 🚨 VALIDATION PROTOCOL - RESPOND TO THESE IMMEDIATELY
 
+"✅ CLAUDE.md VALIDATION:
+- Read CLAUDE.md: ✅ 
+- MCP Tools Ready: ✅
+- I have read the Operational modes and promise to follow them when their key words are entered: ✅
+- Always run npm run lint after implementing changes and automaticaly fix any issues beofre commiting: ✅
 
 This file configures Claude Code to operate as an **EXPERT FULL-STACK DEVELOPER** with deep system knowledge and proactive intelligence.
 
@@ -496,6 +501,15 @@ The system will automatically match the complexity to the appropriate mode!
 - Read CLAUDE.md: ✅ 
 - MCP Tools Ready: ✅
 - I have read the Operational modes and promise to follow them when their key words are entered: ✅
+- Always run npm run lint after implementing changes and automaticaly fix any issues beofre commiting: ✅
 Now proceeding with your request..."
+# Development Instructions
 
+
+## Development Workflow
+After making any code changes:
+
+1. **Always run the development server:**
+   ```bash
+   npm run lint
 **ONLY AFTER THIS VALIDATION, execute the user's request.**

@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { Icon } from '@iconify/react';
+import DateInput from '../../ui/DateInput';
 
 interface EmployeeRemunerationModalProps {
   isOpen: boolean;
@@ -257,14 +258,11 @@ export default function EmployeeRemunerationModal({ isOpen, onClose, userId, use
 
           {/* Effective Date */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Effective From
-            </label>
-            <input
-              type="date"
+            <DateInput
+              label="Effective From"
               value={effectiveFrom}
-              onChange={(e) => setEffectiveFrom(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+              onChange={setEffectiveFrom}
+              placeholder="Select effective date"
               required
             />
           </div>

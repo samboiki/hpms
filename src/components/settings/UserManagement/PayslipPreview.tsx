@@ -24,10 +24,19 @@ interface PayslipData {
   ytdTotalDeductions?: number;
   ytdNetPay?: number;
   leaveBalances?: {
-    annual?: { balance: number; entitlement: number; used: number };
-    sick?: { balance: number; entitlement: number; used: number };
-    compassionate?: { balance: number; entitlement: number; used: number };
+    annual?: { balance: number; entitlement: number; used: number; accrualRate?: number; carryoverAllowed?: boolean };
+    sick?: { balance: number; entitlement: number; used: number; accrualRate?: number; carryoverAllowed?: boolean };
+    compassionate?: { balance: number; entitlement: number; used: number; accrualRate?: number; carryoverAllowed?: boolean };
+    maternity?: { balance: number; entitlement: number; used: number; accrualRate?: number; carryoverAllowed?: boolean };
+    paternity?: { balance: number; entitlement: number; used: number; accrualRate?: number; carryoverAllowed?: boolean };
   };
+  leaveTypes?: Record<string, {
+    name: string;
+    code: string;
+    accrualRate: number;
+    carryoverAllowed: boolean;
+    daysPerYear: number;
+  }>;
 }
 
 interface PayslipPreviewProps {
@@ -36,7 +45,9 @@ interface PayslipPreviewProps {
 }
 
 export const PayslipPreview: React.FC<PayslipPreviewProps> = ({ payslipData, onDownload }) => {
-  const totalEarnings = payslipData.basicSalary + payslipData.earnings.reduce((sum, e) => sum + e.amount, 0);
+  // Calculate total earnings (basic salary + non-company contribution earnings)
+  const nonCompanyEarnings = payslipData.earnings.filter(e => !e.isCompanyContribution);
+  const totalEarnings = payslipData.basicSalary + nonCompanyEarnings.reduce((sum, e) => sum + e.amount, 0);
   const totalDeductions = payslipData.deductions.reduce((sum, d) => sum + d.amount, 0);
   const netPay = totalEarnings - totalDeductions;
   
@@ -49,6 +60,24 @@ export const PayslipPreview: React.FC<PayslipPreviewProps> = ({ payslipData, onD
       style: 'currency',
       currency: payslipData.currency,
     }).format(amount);
+  };
+
+  // Helper function to get leave type accrual rate
+  const getLeaveAccrualRate = (leaveCode: string) => {
+    const leaveType = payslipData.leaveTypes?.[leaveCode.toLowerCase()];
+    return leaveType?.accrualRate || 0;
+  };
+
+  // Helper function to calculate cycle end date for leave
+  const getLeaveDataCycleEnd = (leaveCode: string) => {
+    const currentYear = new Date().getFullYear();
+    const leaveType = payslipData.leaveTypes?.[leaveCode.toLowerCase()];
+    
+    // Sick leave has 3-year carry-over period, others annual
+    if (leaveCode.toLowerCase() === 'sick' && leaveType?.carryoverAllowed) {
+      return `31/12/${currentYear + 2}`;
+    }
+    return `31/12/${currentYear}`;
   };
 
   return (
@@ -115,12 +144,14 @@ export const PayslipPreview: React.FC<PayslipPreviewProps> = ({ payslipData, onD
                   <td className="py-1 text-sm">Salary</td>
                   <td className="py-1 text-sm text-right">{formatCurrency(payslipData.basicSalary)}</td>
                 </tr>
-                {payslipData.earnings.map((earning, index) => (
-                  <tr key={index}>
-                    <td className="py-1 text-sm">{earning.name}</td>
-                    <td className="py-1 text-sm text-right">{formatCurrency(earning.amount)}</td>
-                  </tr>
-                ))}
+                {payslipData.earnings
+                  .filter(e => !e.isCompanyContribution)
+                  .map((earning, index) => (
+                    <tr key={index}>
+                      <td className="py-1 text-sm">{earning.name}</td>
+                      <td className="py-1 text-sm text-right">{formatCurrency(earning.amount)}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -242,10 +273,10 @@ export const PayslipPreview: React.FC<PayslipPreviewProps> = ({ payslipData, onD
             {payslipData.leaveBalances?.annual && (
               <tr>
                 <td className="py-2">Annual Leave</td>
-                <td className="text-center">31/12/{new Date().getFullYear()}</td>
-                <td className="text-center">{(payslipData.leaveBalances.annual.balance + payslipData.leaveBalances.annual.used - 2.0833).toFixed(2)}</td>
+                <td className="text-center">{getLeaveDataCycleEnd('annual')}</td>
+                <td className="text-center">{(payslipData.leaveBalances.annual.balance + payslipData.leaveBalances.annual.used - getLeaveAccrualRate('annual')).toFixed(2)}</td>
                 <td className="text-center">{payslipData.leaveBalances.annual.used.toFixed(2)}</td>
-                <td className="text-center">2.08</td>
+                <td className="text-center">{getLeaveAccrualRate('annual').toFixed(2)}</td>
                 <td className="text-center">{payslipData.leaveBalances.annual.balance.toFixed(2)}</td>
                 <td className="text-center">{payslipData.leaveBalances.annual.entitlement.toFixed(2)}</td>
               </tr>
@@ -253,10 +284,10 @@ export const PayslipPreview: React.FC<PayslipPreviewProps> = ({ payslipData, onD
             {payslipData.leaveBalances?.sick && (
               <tr>
                 <td className="py-2">Sick Leave</td>
-                <td className="text-center">31/12/{new Date().getFullYear() + 2}</td>
-                <td className="text-center">{(payslipData.leaveBalances.sick.balance + payslipData.leaveBalances.sick.used - 1.25).toFixed(2)}</td>
+                <td className="text-center">{getLeaveDataCycleEnd('sick')}</td>
+                <td className="text-center">{(payslipData.leaveBalances.sick.balance + payslipData.leaveBalances.sick.used - getLeaveAccrualRate('sick')).toFixed(2)}</td>
                 <td className="text-center">{payslipData.leaveBalances.sick.used.toFixed(2)}</td>
-                <td className="text-center">1.25</td>
+                <td className="text-center">{getLeaveAccrualRate('sick').toFixed(2)}</td>
                 <td className="text-center">{payslipData.leaveBalances.sick.balance.toFixed(2)}</td>
                 <td className="text-center">{payslipData.leaveBalances.sick.entitlement.toFixed(2)}</td>
               </tr>
@@ -264,16 +295,43 @@ export const PayslipPreview: React.FC<PayslipPreviewProps> = ({ payslipData, onD
             {payslipData.leaveBalances?.compassionate && (
               <tr>
                 <td className="py-2">Compassionate</td>
-                <td className="text-center">31/12/{new Date().getFullYear()}</td>
+                <td className="text-center">{getLeaveDataCycleEnd('compassionate')}</td>
                 <td className="text-center">{payslipData.leaveBalances.compassionate.entitlement.toFixed(2)}</td>
                 <td className="text-center">{payslipData.leaveBalances.compassionate.used.toFixed(2)}</td>
-                <td className="text-center">0.00</td>
+                <td className="text-center">{getLeaveAccrualRate('compassionate').toFixed(2)}</td>
                 <td className="text-center">{payslipData.leaveBalances.compassionate.balance.toFixed(2)}</td>
                 <td className="text-center">{payslipData.leaveBalances.compassionate.entitlement.toFixed(2)}</td>
               </tr>
             )}
+            {payslipData.leaveBalances?.maternity && (
+              <tr>
+                <td className="py-2">Maternity Leave</td>
+                <td className="text-center">{getLeaveDataCycleEnd('maternity')}</td>
+                <td className="text-center">{payslipData.leaveBalances.maternity.entitlement.toFixed(2)}</td>
+                <td className="text-center">{payslipData.leaveBalances.maternity.used.toFixed(2)}</td>
+                <td className="text-center">{getLeaveAccrualRate('maternity').toFixed(2)}</td>
+                <td className="text-center">{payslipData.leaveBalances.maternity.balance.toFixed(2)}</td>
+                <td className="text-center">{payslipData.leaveBalances.maternity.entitlement.toFixed(2)}</td>
+              </tr>
+            )}
+            {payslipData.leaveBalances?.paternity && (
+              <tr>
+                <td className="py-2">Paternity Leave</td>
+                <td className="text-center">{getLeaveDataCycleEnd('paternity')}</td>
+                <td className="text-center">{payslipData.leaveBalances.paternity.entitlement.toFixed(2)}</td>
+                <td className="text-center">{payslipData.leaveBalances.paternity.used.toFixed(2)}</td>
+                <td className="text-center">{getLeaveAccrualRate('paternity').toFixed(2)}</td>
+                <td className="text-center">{payslipData.leaveBalances.paternity.balance.toFixed(2)}</td>
+                <td className="text-center">{payslipData.leaveBalances.paternity.entitlement.toFixed(2)}</td>
+              </tr>
+            )}
           </tbody>
         </table>
+        {(!payslipData.leaveBalances || Object.keys(payslipData.leaveBalances).length === 0) && (
+          <div className="text-center py-4 text-gray-500 text-sm">
+            No leave balances found. Please refresh to load leave data.
+          </div>
+        )}
       </div>
 
       {/* Action Button */}

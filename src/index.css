@@ -36,11 +36,47 @@
   html {
     font-family: 'Montserrat', sans-serif;
     color: theme('colors.gray.900');
+    scroll-behavior: smooth;
   }
   
   body {
     background-color: #f3f4f6 !important; /* gray-100 */
     background: #f3f4f6 !important;
+  }
+
+  /* Custom scrollbar styles for better performance */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded-lg;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-purple-300 rounded-lg;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-purple-400;
+  }
+
+  /* Optimize scrolling performance */
+  .scroll-container {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    will-change: scroll-position;
+  }
+  
+  /* Prevent scroll jank */
+  .scroll-container > * {
+    transform: translateZ(0);
+    backface-visibility: hidden;
   }
 
   /* Premium gradient animations */
@@ -284,6 +320,22 @@
     }
     75% {
       background-position: 0% 100%;
+    }
+  }
+
+  /* Fade in animation for date picker modal */
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
     }
   }
 }

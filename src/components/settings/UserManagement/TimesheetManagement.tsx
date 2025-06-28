@@ -8,6 +8,7 @@ import { useAuthStore } from '../../../stores/authStore';
 import toast from 'react-hot-toast';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, getDay } from 'date-fns';
 import TimesheetEntryModal from './TimesheetEntryModal';
+import MonthInput from '../../ui/MonthInput';
 
 interface TimesheetEntry {
   id: string;
@@ -58,22 +59,22 @@ export const TimesheetManagement: React.FC<TimesheetManagementProps> = ({ select
   const monthStart = startOfMonth(selectedMonth);
   const monthEnd = endOfMonth(selectedMonth);
 
-  // Fetch timesheets
-  const { data: timesheets = [], isLoading } = useQuery<Timesheet[]>({
-    queryKey: ['timesheets', user?.id, selectedMonth, activeView, isTeamView],
+  // Fetch timesheets with enhanced debugging
+  const { data: timesheets = [], isLoading, error: queryError } = useQuery<Timesheet[]>({
+    queryKey: ['timesheets', user?.id, selectedUserId, selectedMonth, activeView, isTeamView],
     queryFn: async () => {
       let query = supabase
         .from('timesheets')
         .select(`
           *,
-          user:users (
+          user:users!timesheets_user_id_fkey (
             full_name,
             email
           ),
           entries:timesheet_entries (*)
         `)
-        .gte('period_start', monthStart.toISOString())
-        .lte('period_end', monthEnd.toISOString());
+        .lte('period_start', monthEnd.toISOString().split('T')[0])
+        .gte('period_end', monthStart.toISOString().split('T')[0]);
 
       if (activeView === 'my' || !isTeamView) {
         query = query.eq('user_id', selectedUserId || user?.id);
@@ -90,10 +91,25 @@ export const TimesheetManagement: React.FC<TimesheetManagementProps> = ({ select
   // Create timesheet mutation
   const createTimesheetMutation = useMutation({
     mutationFn: async () => {
+      const targetUserId = selectedUserId || user?.id;
+      
+      // Check if timesheet already exists for this user and period
+      const { data: existingTimesheet } = await supabase
+        .from('timesheets')
+        .select('id')
+        .eq('user_id', targetUserId)
+        .eq('period_start', monthStart.toISOString().split('T')[0])
+        .eq('period_end', monthEnd.toISOString().split('T')[0])
+        .single();
+
+      if (existingTimesheet) {
+        throw new Error('Timesheet already exists for this period');
+      }
+
       const { data, error } = await supabase
         .from('timesheets')
         .insert({
-          user_id: selectedUserId || user?.id,
+          user_id: targetUserId,
           period_start: monthStart.toISOString().split('T')[0],
           period_end: monthEnd.toISOString().split('T')[0],
           total_hours: 0,
@@ -114,7 +130,12 @@ export const TimesheetManagement: React.FC<TimesheetManagementProps> = ({ select
     },
     onError: (error: any) => {
       console.error('Error creating timesheet:', error);
-      toast.error(error.message || 'Failed to create timesheet');
+      if (error.message.includes('duplicate key value violates unique constraint') || 
+          error.message.includes('already exists')) {
+        toast.error('A timesheet already exists for this period');
+      } else {
+        toast.error(error.message || 'Failed to create timesheet');
+      }
     }
   });
 
@@ -195,50 +216,178 @@ export const TimesheetManagement: React.FC<TimesheetManagementProps> = ({ select
 
   const stats = calculateMonthlyStats();
 
-  const renderCalendarView = (timesheet: Timesheet) => {
+  const renderModernTimesheetView = (timesheet: Timesheet) => {
     const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
     const entriesMap = new Map(timesheet.entries?.map(e => [e.date, e]) || []);
+    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const shortDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
     return (
-      <div className="grid grid-cols-7 gap-1 mt-4">
-        {/* Day headers */}
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-          <div key={day} className="text-center text-xs font-medium text-gray-500 py-2">
-            {day}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-teal-50 to-blue-50 px-6 py-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Daily Time Entries</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Click on any day to {timesheet.status === 'draft' ? 'add or edit' : 'view'} time entries
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Icon icon="solar:calendar-bold-duotone" className="w-6 h-6 text-teal-600" />
+              <span className="text-sm font-medium text-teal-700">
+                {format(monthStart, 'MMMM yyyy')}
+              </span>
+            </div>
           </div>
-        ))}
-        
-        {/* Calendar days */}
-        {days.map(day => {
-          const dateStr = format(day, 'yyyy-MM-dd');
-          const entry = entriesMap.get(dateStr);
-          const isWeekendDay = isWeekend(day);
-          
-          return (
-            <div
-              key={dateStr}
-              className={`min-h-[80px] border rounded-lg p-2 ${
-                isWeekendDay ? 'bg-gray-50' : 'bg-white'
-              } ${timesheet.status === 'draft' ? 'hover:bg-blue-50 cursor-pointer' : ''}`}
-              onClick={() => timesheet.status === 'draft' && handleEditEntry(timesheet, dateStr)}
-            >
-              <div className="text-xs text-gray-500">{format(day, 'd')}</div>
-              {entry && (
-                <div className="mt-1">
-                  <div className="text-sm font-medium text-gray-900">
-                    {entry.total_hours.toFixed(1)}h
+        </div>
+
+        {/* Calendar Grid */}
+        <div className="p-6">
+          {/* Day Headers */}
+          <div className="grid grid-cols-7 gap-3 mb-4">
+            {shortDays.map((day, index) => (
+              <div key={day} className="text-center">
+                <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  {day}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar Days */}
+          <div className="grid grid-cols-7 gap-3">
+            {days.map(day => {
+              const dateStr = format(day, 'yyyy-MM-dd');
+              const entry = entriesMap.get(dateStr);
+              const isWeekendDay = isWeekend(day);
+              const dayOfWeek = getDay(day);
+              const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+              
+              return (
+                <div
+                  key={dateStr}
+                  className={`
+                    relative min-h-[120px] border-2 rounded-xl p-3 transition-all duration-200
+                    ${
+                      isWeekendDay 
+                        ? 'bg-gray-50 border-gray-200' 
+                        : 'bg-white border-gray-200'
+                    }
+                    ${
+                      timesheet.status === 'draft' 
+                        ? 'hover:border-teal-300 hover:shadow-md cursor-pointer transform hover:scale-105' 
+                        : 'cursor-default'
+                    }
+                    ${
+                      isToday 
+                        ? 'ring-2 ring-teal-200 border-teal-300' 
+                        : ''
+                    }
+                    ${
+                      entry 
+                        ? 'bg-gradient-to-br from-teal-50 to-blue-50 border-teal-200' 
+                        : ''
+                    }
+                  `}
+                  onClick={() => timesheet.status === 'draft' && handleEditEntry(timesheet, dateStr)}
+                >
+                  {/* Date Badge */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className={`
+                      inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold
+                      ${
+                        isToday
+                          ? 'bg-teal-600 text-white'
+                          : entry
+                          ? 'bg-teal-100 text-teal-800'
+                          : isWeekendDay
+                          ? 'bg-gray-200 text-gray-600'
+                          : 'bg-gray-100 text-gray-700'
+                      }
+                    `}>
+                      {format(day, 'd')}
+                    </div>
+                    {isToday && (
+                      <span className="text-xs bg-teal-600 text-white px-2 py-1 rounded-full font-medium">
+                        Today
+                      </span>
+                    )}
                   </div>
-                  {entry.is_overtime && (
-                    <span className="text-xs bg-orange-100 text-orange-800 px-1 rounded">OT</span>
+
+                  {/* Time Entry Display */}
+                  {entry ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="text-lg font-bold text-teal-800">
+                          {entry.total_hours.toFixed(1)}h
+                        </div>
+                        <div className="flex gap-1">
+                          {entry.is_overtime && (
+                            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-medium">
+                              OT
+                            </span>
+                          )}
+                          {entry.is_holiday && (
+                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-medium">
+                              Holiday
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {entry.start_time && entry.end_time && (
+                        <div className="text-xs text-gray-600">
+                          <Icon icon="solar:clock-circle-bold-duotone" className="w-3 h-3 inline mr-1" />
+                          {entry.start_time} - {entry.end_time}
+                        </div>
+                      )}
+                      
+                      {entry.project_code && (
+                        <div className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-md font-medium">
+                          {entry.project_code}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    timesheet.status === 'draft' && !isWeekendDay && (
+                      <div className="flex flex-col items-center justify-center h-16 text-gray-400">
+                        <Icon icon="solar:add-circle-bold-duotone" className="w-8 h-8 mb-1" />
+                        <span className="text-xs font-medium">Add Time</span>
+                      </div>
+                    )
                   )}
-                  {entry.is_holiday && (
-                    <span className="text-xs bg-purple-100 text-purple-800 px-1 rounded ml-1">H</span>
+
+                  {/* Weekend Indicator */}
+                  {isWeekendDay && !entry && (
+                    <div className="flex flex-col items-center justify-center h-16 text-gray-400">
+                      <Icon icon="solar:calendar-minimalistic-bold-duotone" className="w-6 h-6 mb-1" />
+                      <span className="text-xs">Weekend</span>
+                    </div>
                   )}
                 </div>
-              )}
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Summary Footer */}
+        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-900">{timesheet.total_hours.toFixed(1)}</div>
+              <div className="text-sm text-gray-600">Total Hours</div>
             </div>
-          );
-        })}
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{timesheet.regular_hours.toFixed(1)}</div>
+              <div className="text-sm text-gray-600">Regular Hours</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">{timesheet.overtime_hours.toFixed(1)}</div>
+              <div className="text-sm text-gray-600">Overtime Hours</div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -251,20 +400,36 @@ export const TimesheetManagement: React.FC<TimesheetManagementProps> = ({ select
           {isTeamView ? 'Team Timesheets' : 'My Timesheets'}
         </h2>
         <div className="flex items-center gap-3">
-          <input
-            type="month"
+          <MonthInput
             value={format(selectedMonth, 'yyyy-MM')}
-            onChange={(e) => setSelectedMonth(new Date(e.target.value))}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+            onChange={(value) => setSelectedMonth(new Date(value + '-01'))}
+            placeholder="Select month"
           />
+          <Button
+            onClick={() => {
+              console.log('🔄 Manual refresh triggered');
+              queryClient.invalidateQueries({ queryKey: ['timesheets'] });
+            }}
+            className="bg-gray-600 text-white hover:bg-gray-700"
+          >
+            <Icon icon="solar:refresh-bold-duotone" className="w-5 h-5 mr-2" />
+            Refresh
+          </Button>
           {(!isTeamView || activeView === 'my') && (
             <Button
               onClick={() => createTimesheetMutation.mutate()}
               className="bg-teal-600 text-white hover:bg-teal-700"
-              disabled={timesheets.some(t => t.user_id === (selectedUserId || user?.id))}
+              disabled={
+                createTimesheetMutation.isPending ||
+                timesheets.some(t => 
+                  t.user_id === (selectedUserId || user?.id) && 
+                  t.period_start === monthStart.toISOString().split('T')[0] &&
+                  t.period_end === monthEnd.toISOString().split('T')[0]
+                )
+              }
             >
               <Icon icon="solar:calendar-add-bold-duotone" className="w-5 h-5 mr-2" />
-              Create Timesheet
+              {createTimesheetMutation.isPending ? 'Creating...' : 'Create Timesheet'}
             </Button>
           )}
         </div>
@@ -335,69 +500,95 @@ export const TimesheetManagement: React.FC<TimesheetManagementProps> = ({ select
         </div>
       )}
 
+
       {/* Timesheets List */}
       {isLoading ? (
         <div className="text-center py-8">Loading timesheets...</div>
       ) : timesheets.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-8">
-            <Icon icon="solar:calendar-minimalistic-bold-duotone" className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500">No timesheets found for {format(selectedMonth, 'MMMM yyyy')}</p>
-          </CardContent>
-        </Card>
+        <div className="text-center py-16 bg-gradient-to-br from-teal-50 to-blue-50 rounded-2xl border-2 border-dashed border-teal-200">
+          <Icon icon="solar:calendar-add-bold-duotone" className="w-20 h-20 text-teal-400 mx-auto mb-6" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No Timesheets Found</h3>
+          <p className="text-gray-600 mb-6">
+            Create your first timesheet for {format(selectedMonth, 'MMMM yyyy')} to start tracking your work hours.
+          </p>
+          {(!isTeamView || activeView === 'my') && (
+            <Button
+              onClick={() => createTimesheetMutation.mutate()}
+              className="bg-teal-600 text-white hover:bg-teal-700 px-6 py-3"
+              disabled={createTimesheetMutation.isPending}
+            >
+              <Icon icon="solar:calendar-add-bold-duotone" className="w-5 h-5 mr-2" />
+              {createTimesheetMutation.isPending ? 'Creating...' : 'Create Your First Timesheet'}
+            </Button>
+          )}
+        </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-6">
           {timesheets.map((timesheet) => (
-            <Card key={timesheet.id}>
-              <CardHeader>
+            <div key={timesheet.id} className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+              {/* Timesheet Header */}
+              <div className="bg-gradient-to-r from-teal-600 to-blue-600 px-6 py-4">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg">
-                      {timesheet.user?.full_name || 'My Timesheet'} - {format(selectedMonth, 'MMMM yyyy')}
-                    </CardTitle>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {timesheet.total_hours.toFixed(1)} total hours ({timesheet.regular_hours.toFixed(1)} regular, {timesheet.overtime_hours.toFixed(1)} overtime)
+                  <div className="text-white">
+                    <h3 className="text-xl font-bold">
+                      {timesheet.user?.full_name || 'My Timesheet'}
+                    </h3>
+                    <p className="text-teal-100 mt-1">
+                      {format(selectedMonth, 'MMMM yyyy')} • 
+                      {timesheet.total_hours.toFixed(1)} total hours
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(timesheet.status)}`}>
-                      {timesheet.status}
+                    <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
+                      timesheet.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
+                      timesheet.status === 'submitted' ? 'bg-blue-100 text-blue-800' :
+                      timesheet.status === 'approved' ? 'bg-green-100 text-green-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      <Icon icon={`solar:${
+                        timesheet.status === 'draft' ? 'document-add-bold-duotone' :
+                        timesheet.status === 'submitted' ? 'clock-circle-bold-duotone' :
+                        timesheet.status === 'approved' ? 'check-circle-bold-duotone' :
+                        'close-circle-bold-duotone'
+                      }`} className="w-4 h-4 inline mr-1" />
+                      {timesheet.status.charAt(0).toUpperCase() + timesheet.status.slice(1)}
                     </span>
+                    
                     {timesheet.status === 'draft' && timesheet.user_id === user?.id && (
                       <Button
                         onClick={() => submitTimesheetMutation.mutate(timesheet.id)}
-                        size="sm"
-                        className="bg-blue-600 text-white hover:bg-blue-700"
+                        className="bg-white text-teal-600 hover:bg-gray-50 font-semibold"
                       >
-                        Submit
+                        <Icon icon="solar:send-twice-bold-duotone" className="w-4 h-4 mr-2" />
+                        Submit for Approval
                       </Button>
                     )}
+                    
                     {timesheet.status === 'submitted' && isTeamView && activeView === 'team' && (
-                      <>
+                      <div className="flex gap-2">
                         <Button
                           onClick={() => updateTimesheetStatusMutation.mutate({ timesheetId: timesheet.id, status: 'approved' })}
-                          size="sm"
-                          className="bg-green-600 text-white hover:bg-green-700"
+                          className="bg-green-500 text-white hover:bg-green-600"
                         >
+                          <Icon icon="solar:check-circle-bold-duotone" className="w-4 h-4 mr-2" />
                           Approve
                         </Button>
                         <Button
                           onClick={() => updateTimesheetStatusMutation.mutate({ timesheetId: timesheet.id, status: 'rejected' })}
-                          size="sm"
-                          variant="outline"
-                          className="border-red-600 text-red-600 hover:bg-red-50"
+                          className="bg-red-500 text-white hover:bg-red-600"
                         >
+                          <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4 mr-2" />
                           Reject
                         </Button>
-                      </>
+                      </div>
                     )}
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {renderCalendarView(timesheet)}
-              </CardContent>
-            </Card>
+              </div>
+              
+              {/* Timesheet Content */}
+              {renderModernTimesheetView(timesheet)}
+            </div>
           ))}
         </div>
       )}

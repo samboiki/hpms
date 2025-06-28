@@ -10,6 +10,7 @@ import { motion } from 'framer-motion';
 import BranchManagement from '../components/settings/BranchManagement';
 import { EnhancedUserManagement } from '../components/settings/EnhancedUserManagement';
 import DepartmentManagement from '../components/settings/DepartmentManagement';
+import PracticeExpenses from '../components/settings/PracticeExpenses';
 import { usePractice } from '../contexts/PracticeContext';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
 import TimePickerModal from '../components/ui/TimePickerModal';
@@ -500,7 +501,7 @@ const formatTime12Hour = (time24: string): string => {
 const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> = () => {
   const { user } = useAuthStore();
   const { currentTheme } = useTheme();
-  const [practiceTab, setPracticeTab] = useState<'profile' | 'hours' | 'branches' | 'departments' | 'themes'>('profile');
+  const [practiceTab, setPracticeTab] = useState<'profile' | 'hours' | 'branches' | 'expenses' | 'departments' | 'themes'>('profile');
   const [practiceData, setPracticeData] = useState({
     id: '',
     name: '',
@@ -773,6 +774,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
   const tabs = [
     { id: 'profile' as const, label: 'Practice Profile', icon: SolarIcons.building },
     { id: 'branches' as const, label: 'Branches', icon: SolarIcons.buildings },
+    { id: 'expenses' as const, label: 'Expenses', icon: SolarIcons.wallet },
     { id: 'departments' as const, label: 'Departments', icon: SolarIcons.folder },
     { id: 'themes' as const, label: 'Themes', icon: SolarIcons.palette }
   ];
@@ -1271,6 +1273,11 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
             {/* Branches Tab */}
             {practiceTab === 'branches' && (
               <BranchManagement />
+            )}
+
+            {/* Expenses Tab */}
+            {practiceTab === 'expenses' && (
+              <PracticeExpenses />
             )}
 
             {/* Departments Tab */}

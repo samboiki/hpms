@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { useAuthStore } from '../../stores/authStore';
 import { PayrollManagement } from './UserManagement/PayrollManagement';
 import { LeaveManagement } from './UserManagement/LeaveManagement';
-import { TimesheetManagement } from './UserManagement/TimesheetManagement';
+import { ExcelTimesheetManagement } from './UserManagement/ExcelTimesheetManagement';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -332,7 +332,7 @@ export const EnhancedUserManagement: React.FC = () => {
               )}
 
               {activeTab === 'timesheets' && (
-                <TimesheetManagement selectedUserId={selectedUser?.id} isTeamView={isViewingTeam} />
+                <ExcelTimesheetManagement selectedUserId={selectedUser?.id} isTeamView={isViewingTeam} />
               )}
             </motion.div>
           </AnimatePresence>
@@ -378,11 +378,31 @@ export const EnhancedUserManagement: React.FC = () => {
                         : 'Not set'}
                     </p>
                   </div>
+                  <div className="grid grid-cols-2 gap-3 pt-3 border-t border-purple-400/30">
+                    <div>
+                      <p className="text-purple-100 text-xs">Leave Days</p>
+                      <p className="text-lg font-semibold">15</p>
+                    </div>
+                    <div>
+                      <p className="text-purple-100 text-xs">Next Payslip</p>
+                      <p className="text-lg font-semibold">28 Jun</p>
+                    </div>
+                  </div>
                   <div className="pt-3 border-t border-purple-400/30">
-                    <p className="text-purple-100 text-xs">Status</p>
-                    <p className="text-lg font-semibold">
-                      {selectedUser?.is_active ? 'Active' : 'Inactive'}
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-purple-100 text-xs">Status</p>
+                        <p className="text-base font-semibold">
+                          {selectedUser?.is_active ? 'Active' : 'Inactive'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-purple-100 text-xs">Timesheet</p>
+                        <span className="inline-flex px-2 py-0.5 bg-white/20 text-white rounded-full text-xs font-medium">
+                          Submitted
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </>
               )}
@@ -445,16 +465,16 @@ export const EnhancedUserManagement: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Notifications */}
-        <Card className="bg-white border border-gray-200 shadow-sm">
-          <CardHeader className="py-3 px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Icon icon={SolarIcons.notification} className="w-4 h-4 text-orange-500" />
-              Notifications
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 space-y-3">
-            {isViewingTeam ? (
+        {/* Team Notifications Only */}
+        {isViewingTeam && (
+          <Card className="bg-white border border-gray-200 shadow-sm">
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Icon icon={SolarIcons.notification} className="w-4 h-4 text-orange-500" />
+                Notifications
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Pending Leave Requests</span>
@@ -469,24 +489,9 @@ export const EnhancedUserManagement: React.FC = () => {
                   <span className="text-xs text-gray-500">in 3 days</span>
                 </div>
               </div>
-            ) : (
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Leave Days Left</span>
-                  <span className="font-medium">15 days</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Next Payslip</span>
-                  <span className="text-xs text-gray-500">28 Jun</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Timesheet Status</span>
-                  <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">Submitted</span>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Modals */}

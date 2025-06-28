@@ -1333,7 +1333,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       
       // ⚡ PERFORMANCE OPTIMIZATION: Batch fetch visit counts to eliminate N+1 queries
       const visitIds = visitsData?.map(v => v.id) || [];
-      let visitCountsMap: { [visitId: string]: { media: number; lab: number; imaging: number } } = {};
+      const visitCountsMap: { [visitId: string]: { media: number; lab: number; imaging: number } } = {};
       
       if (visitIds.length > 0) {
         try {
@@ -1343,7 +1343,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
           
           // ⚡ OPTIMIZED: Skip problematic RPC function, use fast parallel queries 
           console.log('⚡ Using ULTRA-FAST parallel count queries...');
-          let countsError = { message: 'Using optimized parallel method' }; // Force optimized path
+          const countsError = { message: 'Using optimized parallel method' }; // Force optimized path
             
           if (countsError) {
             console.log('⚡ OPTIMIZED METHOD: 3 parallel queries with minimal data transfer');

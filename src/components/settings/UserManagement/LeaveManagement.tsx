@@ -6,8 +6,11 @@ import Button from '../../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/Card';
 import { useAuthStore } from '../../../stores/authStore';
 import toast from 'react-hot-toast';
-import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from 'date-fns';
+import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, differenceInDays } from 'date-fns';
 import LeaveTypeModal from './LeaveTypeModal';
+import CarryoverProcessingModal from './CarryoverProcessingModal';
+import DateInput from '../../ui/DateInput';
+import MonthInput from '../../ui/MonthInput';
 
 interface LeaveType {
   id: string;
@@ -17,6 +20,9 @@ interface LeaveType {
   is_paid: boolean;
   color: string;
   requires_approval: boolean;
+  supporting_documents_required: boolean;
+  carryover_allowed: boolean;
+  max_carryover_days: number;
   min_notice_days: number;
   accrual_rate?: number;
   accrual_frequency?: string;
@@ -61,14 +67,18 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [showAddLeaveType, setShowAddLeaveType] = useState(false);
   const [editingLeaveType, setEditingLeaveType] = useState<LeaveType | null>(null);
+  const [showCarryoverModal, setShowCarryoverModal] = useState(false);
   const [leaveRequestForm, setLeaveRequestForm] = useState({
     leave_type_id: '',
     start_date: format(new Date(), 'yyyy-MM-dd'),
     end_date: format(new Date(), 'yyyy-MM-dd'),
     reason: '',
     is_half_day: false,
-    half_day_period: 'morning'
+    half_day_period: 'morning',
+    supporting_document_url: null as string | null
   });
+  const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const isManager = user?.role === 'admin' || user?.role === 'doctor';
   const currentYear = new Date().getFullYear();
@@ -77,6 +87,7 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
   const { data: leaveTypes = [] } = useQuery({
     queryKey: ['leave-types', user?.practice_id],
     queryFn: async () => {
+      console.log('Fetching leave types for practice:', user?.practice_id);
       const { data, error } = await supabase
         .from('leave_types')
         .select('*')
@@ -84,10 +95,18 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
         .eq('is_active', true)
         .order('name');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Leave types query error:', error);
+        throw error;
+      }
+      console.log('Leave types fetched:', data?.length || 0, 'records');
       return data as LeaveType[];
     },
     enabled: !!user?.practice_id,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Consider data immediately stale
+    cacheTime: 1000 * 60 * 5, // Cache for 5 minutes
     onError: (error) => {
       console.error('Error fetching leave types:', error);
       toast.error('Failed to load leave types');
@@ -198,12 +217,112 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
     return isHalfDay ? days - 0.5 : days;
   };
 
+  // Validate leave request form
+  const validateLeaveRequest = (data: typeof leaveRequestForm, selectedLeaveType: LeaveType | undefined) => {
+    const errors: Record<string, string> = {};
+
+    if (!data.leave_type_id) {
+      errors.leave_type_id = 'Please select a leave type';
+    }
+
+    if (!data.start_date) {
+      errors.start_date = 'Please select a start date';
+    }
+
+    if (!data.end_date) {
+      errors.end_date = 'Please select an end date';
+    }
+
+    if (!data.reason || data.reason.trim().length < 10) {
+      errors.reason = 'Please provide a detailed reason (minimum 10 characters)';
+    }
+
+    if (data.start_date && data.end_date && new Date(data.start_date) > new Date(data.end_date)) {
+      errors.end_date = 'End date must be after start date';
+    }
+
+    // Validate minimum notice days
+    if (selectedLeaveType && data.start_date) {
+      const startDate = new Date(data.start_date);
+      const today = new Date();
+      const daysDifference = differenceInDays(startDate, today);
+      
+      if (daysDifference < selectedLeaveType.min_notice_days) {
+        errors.start_date = `This leave type requires at least ${selectedLeaveType.min_notice_days} days notice`;
+      }
+    }
+
+    // Validate supporting documents
+    if (selectedLeaveType && selectedLeaveType.supporting_documents_required && !data.supporting_document_url) {
+      errors.supporting_document_url = 'Supporting document is required for this leave type';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle document upload
+  const handleDocumentUpload = async (file: File) => {
+    if (!file) return;
+
+    setUploadingDocument(true);
+    try {
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `leave-documents/${user?.id}/${Date.now()}.${fileExt}`;
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('documents')
+        .getPublicUrl(fileName);
+
+      if (urlData?.publicUrl) {
+        setLeaveRequestForm(prev => ({
+          ...prev,
+          supporting_document_url: urlData.publicUrl
+        }));
+        toast.success('Document uploaded successfully');
+      }
+    } catch (error: any) {
+      console.error('Error uploading document:', error);
+      toast.error('Failed to upload document');
+    } finally {
+      setUploadingDocument(false);
+    }
+  };
+
   // Submit leave request mutation
   const submitLeaveRequest = useMutation({
     mutationFn: async (data: typeof leaveRequestForm) => {
+      // Get selected leave type for validation and auto-approval logic
+      const selectedLeaveType = leaveTypes.find(lt => lt.id === data.leave_type_id);
+      
+      // Validate the form
+      if (!validateLeaveRequest(data, selectedLeaveType)) {
+        throw new Error('Please fix the validation errors');
+      }
+
       const days = calculateLeaveDays(data.start_date, data.end_date, data.is_half_day);
       
-      const { error } = await supabase
+      // Determine initial status based on leave type requirements
+      const initialStatus = selectedLeaveType?.requires_approval ? 'pending' : 'approved';
+      const approvalData = selectedLeaveType?.requires_approval ? {} : {
+        approver_id: user?.id,
+        approved_at: new Date().toISOString(),
+        approver_comments: 'Auto-approved (no approval required)'
+      };
+
+      const { data: insertedRequest, error } = await supabase
         .from('leave_requests')
         .insert({
           user_id: selectedUserId || user?.id,
@@ -214,14 +333,41 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
           reason: data.reason,
           is_half_day: data.is_half_day,
           half_day_period: data.is_half_day ? data.half_day_period : null,
-          status: 'pending'
-        });
+          supporting_document_url: data.supporting_document_url,
+          status: initialStatus,
+          ...approvalData
+        })
+        .select()
+        .single();
       
       if (error) throw error;
+
+      // If auto-approved, trigger leave balance update
+      if (initialStatus === 'approved') {
+        const { error: balanceError } = await supabase.rpc('update_leave_balance', {
+          p_user_id: selectedUserId || user?.id,
+          p_leave_type_id: data.leave_type_id,
+          p_days_used: days,
+          p_operation: 'approve'
+        });
+
+        if (balanceError) {
+          console.error('Error updating leave balance:', balanceError);
+          // Don't throw error as the request was still created successfully
+        }
+      }
+
+      return { ...insertedRequest, initialStatus };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['leave-requests'] });
-      toast.success('Leave request submitted successfully');
+      queryClient.invalidateQueries({ queryKey: ['my-leave-balances'] });
+      
+      const message = result?.initialStatus === 'approved' 
+        ? 'Leave request auto-approved successfully!' 
+        : 'Leave request submitted successfully!';
+      
+      toast.success(message);
       setShowRequestForm(false);
       setLeaveRequestForm({
         leave_type_id: '',
@@ -229,8 +375,10 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
         end_date: format(new Date(), 'yyyy-MM-dd'),
         reason: '',
         is_half_day: false,
-        half_day_period: 'morning'
+        half_day_period: 'morning',
+        supporting_document_url: null
       });
+      setValidationErrors({});
     },
     onError: (error: any) => {
       console.error('Error submitting leave request:', error);
@@ -676,11 +824,10 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Leave Calendar - {format(selectedMonth, 'MMMM yyyy')}</CardTitle>
-              <input
-                type="month"
+              <MonthInput
                 value={format(selectedMonth, 'yyyy-MM')}
-                onChange={(e) => setSelectedMonth(new Date(e.target.value))}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                onChange={(value) => setSelectedMonth(new Date(value + '-01'))}
+                placeholder="Select month"
               />
             </div>
           </CardHeader>
@@ -748,13 +895,23 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Leave Type Configuration</CardTitle>
-              <Button 
-                onClick={() => setShowAddLeaveType(true)}
-                className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
-              >
-                <Icon icon={SolarIcons.plus} className="w-4 h-4 mr-2" />
-                Add Leave Type
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => setShowCarryoverModal(true)}
+                  variant="outline"
+                  className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                >
+                  <Icon icon={SolarIcons.refresh} className="w-4 h-4 mr-2" />
+                  Process Year-End Carryover
+                </Button>
+                <Button 
+                  onClick={() => setShowAddLeaveType(true)}
+                  className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
+                >
+                  <Icon icon={SolarIcons.plus} className="w-4 h-4 mr-2" />
+                  Add Leave Type
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -762,7 +919,8 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
               {leaveTypes.map((type) => (
                 <div
                   key={type.id}
-                  className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                  className="bg-gray-50 rounded-lg p-4 border border-gray-200 cursor-pointer hover:bg-gray-100 hover:border-gray-300 transition-all duration-200 hover:shadow-md"
+                  onClick={() => setEditingLeaveType(type)}
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
@@ -775,24 +933,30 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
                         {type.code}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5">
                       <Button 
                         variant="ghost" 
-                        size="sm"
-                        onClick={() => setEditingLeaveType(type)}
+                        size="md"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingLeaveType(type);
+                        }}
+                        className="hover:bg-blue-100 hover:text-blue-600 transition-colors"
                       >
-                        <Icon icon={SolarIcons.edit} className="w-4 h-4" />
+                        <Icon icon={SolarIcons.edit} className="w-5 h-5" />
                       </Button>
                       <Button 
                         variant="ghost" 
-                        size="sm"
-                        onClick={() => {
+                        size="md"
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (confirm(`Are you sure you want to deactivate the "${type.name}" leave type?`)) {
                             deleteLeaveType.mutate(type.id);
                           }
                         }}
+                        className="hover:bg-red-100 hover:text-red-600 transition-colors"
                       >
-                        <Icon icon={SolarIcons.trash} className="w-4 h-4 text-red-500" />
+                        <Icon icon={SolarIcons.trash} className="w-5 h-5" />
                       </Button>
                     </div>
                   </div>
@@ -838,46 +1002,100 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Leave Type
+                    Leave Type *
                   </label>
                   <select
                     value={leaveRequestForm.leave_type_id}
-                    onChange={(e) => setLeaveRequestForm({ ...leaveRequestForm, leave_type_id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    onChange={(e) => {
+                      setLeaveRequestForm({ ...leaveRequestForm, leave_type_id: e.target.value });
+                      // Clear validation errors when selection changes
+                      if (validationErrors.leave_type_id) {
+                        setValidationErrors(prev => ({ ...prev, leave_type_id: '' }));
+                      }
+                    }}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 ${
+                      validationErrors.leave_type_id ? 'border-red-500' : 'border-gray-300'
+                    }`}
                   >
                     <option value="">Select leave type</option>
                     {leaveTypes.map((type) => (
                       <option key={type.id} value={type.id}>
                         {type.name} ({type.days_per_year} days/year)
+                        {!type.is_paid && ' - Unpaid'}
+                        {type.requires_approval ? ' - Requires Approval' : ' - Auto-Approved'}
                       </option>
                     ))}
                   </select>
+                  {validationErrors.leave_type_id && (
+                    <p className="text-red-500 text-sm mt-1">{validationErrors.leave_type_id}</p>
+                  )}
+                  
+                  {/* Display leave type requirements */}
+                  {leaveRequestForm.leave_type_id && (() => {
+                    const selectedType = leaveTypes.find(lt => lt.id === leaveRequestForm.leave_type_id);
+                    return selectedType && (
+                      <div className="mt-2 p-3 bg-blue-50 rounded-lg">
+                        <div className="text-sm text-blue-800">
+                          <div className="font-medium mb-1">Leave Type Requirements:</div>
+                          <ul className="space-y-1 text-xs">
+                            <li className="flex items-center gap-1">
+                              <Icon icon={SolarIcons.clock} className="w-3 h-3" />
+                              Minimum notice: {selectedType.min_notice_days} days
+                            </li>
+                            {selectedType.supporting_documents_required && (
+                              <li className="flex items-center gap-1">
+                                <Icon icon={SolarIcons.documentText} className="w-3 h-3" />
+                                Supporting document required
+                              </li>
+                            )}
+                            {!selectedType.requires_approval && (
+                              <li className="flex items-center gap-1">
+                                <Icon icon={SolarIcons.checkCircle} className="w-3 h-3" />
+                                Auto-approved (no manager approval needed)
+                              </li>
+                            )}
+                            {!selectedType.is_paid && (
+                              <li className="flex items-center gap-1">
+                                <Icon icon={SolarIcons.warning} className="w-3 h-3" />
+                                Unpaid leave (will not receive salary)
+                              </li>
+                            )}
+                          </ul>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Start Date
-                    </label>
-                    <input
-                      type="date"
+                    <DateInput
+                      label="Start Date"
                       value={leaveRequestForm.start_date}
-                      onChange={(e) => setLeaveRequestForm({ ...leaveRequestForm, start_date: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      onChange={(value) => setLeaveRequestForm({ ...leaveRequestForm, start_date: value })}
+                      minDate={format(new Date(), 'yyyy-MM-dd')}
+                      required
+                      placeholder="Select start date"
+                      className={validationErrors.start_date ? 'error' : ''}
                     />
+                    {validationErrors.start_date && (
+                      <p className="text-red-500 text-sm mt-1">{validationErrors.start_date}</p>
+                    )}
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      End Date
-                    </label>
-                    <input
-                      type="date"
+                    <DateInput
+                      label="End Date"
                       value={leaveRequestForm.end_date}
-                      onChange={(e) => setLeaveRequestForm({ ...leaveRequestForm, end_date: e.target.value })}
-                      min={leaveRequestForm.start_date}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      onChange={(value) => setLeaveRequestForm({ ...leaveRequestForm, end_date: value })}
+                      minDate={leaveRequestForm.start_date}
+                      required
+                      placeholder="Select end date"
+                      className={validationErrors.end_date ? 'error' : ''}
                     />
+                    {validationErrors.end_date && (
+                      <p className="text-red-500 text-sm mt-1">{validationErrors.end_date}</p>
+                    )}
                   </div>
                 </div>
 
@@ -908,16 +1126,79 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Reason for Leave
+                    Reason for Leave *
                   </label>
                   <textarea
                     value={leaveRequestForm.reason}
                     onChange={(e) => setLeaveRequestForm({ ...leaveRequestForm, reason: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 ${
+                      validationErrors.reason ? 'border-red-500' : 'border-gray-300'
+                    }`}
                     rows={3}
-                    placeholder="Please provide a reason for your leave request"
+                    placeholder="Please provide a detailed reason for your leave request (minimum 10 characters)"
                   />
+                  {validationErrors.reason && (
+                    <p className="text-red-500 text-sm mt-1">{validationErrors.reason}</p>
+                  )}
                 </div>
+
+                {/* Supporting Document Upload */}
+                {leaveRequestForm.leave_type_id && leaveTypes.find(lt => lt.id === leaveRequestForm.leave_type_id)?.supporting_documents_required && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Supporting Document *
+                      <span className="text-xs text-gray-500 ml-2">
+                        (Medical certificate, proof, etc.)
+                      </span>
+                    </label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-purple-400 transition-colors">
+                      {!leaveRequestForm.supporting_document_url ? (
+                        <label className="cursor-pointer block">
+                          <input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                handleDocumentUpload(file);
+                              }
+                            }}
+                            className="hidden"
+                          />
+                          <div className="text-center">
+                            <Icon 
+                              icon={uploadingDocument ? SolarIcons.loading : SolarIcons.upload} 
+                              className={`w-8 h-8 mx-auto text-gray-400 mb-2 ${uploadingDocument ? 'animate-spin' : ''}`} 
+                            />
+                            <p className="text-sm text-gray-600">
+                              {uploadingDocument ? 'Uploading...' : 'Click to upload supporting document'}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              PDF, JPG, PNG, Word documents (max 10MB)
+                            </p>
+                          </div>
+                        </label>
+                      ) : (
+                        <div className="flex items-center justify-between bg-green-50 p-3 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Icon icon={SolarIcons.documentText} className="w-5 h-5 text-green-600" />
+                            <span className="text-sm text-green-800">Document uploaded successfully</span>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setLeaveRequestForm(prev => ({ ...prev, supporting_document_url: null }))}
+                          >
+                            <Icon icon={SolarIcons.trash} className="w-4 h-4 text-red-500" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    {validationErrors.supporting_document_url && (
+                      <p className="text-red-500 text-sm mt-1">{validationErrors.supporting_document_url}</p>
+                    )}
+                  </div>
+                )}
 
                 {/* Display calculated days */}
                 {leaveRequestForm.start_date && leaveRequestForm.end_date && (
@@ -950,8 +1231,10 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
                       end_date: format(new Date(), 'yyyy-MM-dd'),
                       reason: '',
                       is_half_day: false,
-                      half_day_period: 'morning'
+                      half_day_period: 'morning',
+                      supporting_document_url: null
                     });
+                    setValidationErrors({});
                   }}
                 >
                   Cancel
@@ -970,15 +1253,34 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
             setShowAddLeaveType(false);
             setEditingLeaveType(null);
           }}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['leave-types'] });
-            queryClient.invalidateQueries({ queryKey: ['leave-balances'] });
-            setShowAddLeaveType(false);
-            setEditingLeaveType(null);
+          onSuccess={async () => {
+            console.log('Leave type modal onSuccess called, invalidating queries...');
+            
+            // Invalidate and refetch queries
+            await queryClient.invalidateQueries({ queryKey: ['leave-types', user?.practice_id] });
+            await queryClient.invalidateQueries({ queryKey: ['leave-balances'] });
+            await queryClient.invalidateQueries({ queryKey: ['my-leave-balances'] });
+            
+            // Force a refetch of the leave types
+            await queryClient.refetchQueries({ queryKey: ['leave-types', user?.practice_id] });
+            
+            console.log('Queries refreshed, closing modal...');
+            
+            // Small delay to ensure the UI has updated before closing
+            setTimeout(() => {
+              setShowAddLeaveType(false);
+              setEditingLeaveType(null);
+            }, 100);
           }}
           existingLeaveType={editingLeaveType}
         />
       )}
+
+      {/* Year-End Carryover Processing Modal */}
+      <CarryoverProcessingModal
+        isOpen={showCarryoverModal}
+        onClose={() => setShowCarryoverModal(false)}
+      />
     </div>
   );
 };

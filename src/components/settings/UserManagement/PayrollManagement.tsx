@@ -11,7 +11,10 @@ import { EnhancedEmployeeRemunerationModal } from './EnhancedEmployeeRemuneratio
 import { EnhancedPayslipGenerationModal } from './EnhancedPayslipGenerationModal';
 import { PayslipPreview } from './PayslipPreview';
 import { PayrollService } from '../../../services/payrollService';
-import { BenefitsDeductionsManager } from './BenefitsDeductionsManager';
+import { EnhancedBenefitsDeductionsManager } from './EnhancedBenefitsDeductionsManager';
+import { PayslipAdjustments } from './PayslipAdjustments';
+import { InfoTooltip, PayrollTooltips } from '../../ui/InfoTooltip';
+import MonthInput from '../../ui/MonthInput';
 
 interface EmployeeSalary {
   id: string;
@@ -66,10 +69,11 @@ const SamplePayslipSection: React.FC<{
 }> = ({ userId, userData, practiceName }) => {
   const [payslipData, setPayslipData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    const calculatePayslip = async () => {
-      try {
+  const calculatePayslip = async () => {
+    setLoading(true);
+    try {
         const calculation = await PayrollService.calculatePayroll(userId, new Date());
         
         setPayslipData({
@@ -81,7 +85,7 @@ const SamplePayslipSection: React.FC<{
           payPeriod: format(new Date(), 'MMMM yyyy'),
           payDate: format(new Date(), 'dd MMM yyyy'),
           basicSalary: calculation.basicSalary,
-          earnings: calculation.earnings.filter((e: any) => !e.isCompanyContribution),
+          earnings: calculation.earnings, // Include all earnings for display
           deductions: calculation.deductions,
           currency: userData.currency,
           companyName: practiceName || 'Company Name',
@@ -91,7 +95,8 @@ const SamplePayslipSection: React.FC<{
           ytdGrossEarnings: calculation.ytdGrossEarnings,
           ytdTotalDeductions: calculation.ytdTotalDeductions,
           ytdNetPay: calculation.ytdNetPay,
-          leaveBalances: calculation.leaveBalances
+          leaveBalances: calculation.leaveBalances,
+          leaveTypes: calculation.leaveTypes
         });
       } catch (error) {
         console.error('Error calculating payslip:', error);
@@ -118,8 +123,9 @@ const SamplePayslipSection: React.FC<{
       }
     };
 
+  useEffect(() => {
     calculatePayslip();
-  }, [userId, userData, practiceName]);
+  }, [userId, userData, practiceName, refreshKey]);
 
   if (loading) {
     return (
@@ -140,7 +146,17 @@ const SamplePayslipSection: React.FC<{
   return (
     <Card className="bg-white rounded-lg border border-gray-200 shadow-sm mt-6">
       <CardHeader>
-        <CardTitle>Sample Payslip Preview</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Sample Payslip Preview</CardTitle>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setRefreshKey(prev => prev + 1)}
+          >
+            <Icon icon={SolarIcons.refresh} className="w-4 h-4 mr-1" />
+            Refresh
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <PayslipPreview
@@ -155,7 +171,7 @@ const SamplePayslipSection: React.FC<{
 export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUserId, isTeamView }) => {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const [activeView, setActiveView] = useState<'overview' | 'salaries' | 'components' | 'payslips'>('overview');
+  const [activeView, setActiveView] = useState<'overview' | 'salaries' | 'components' | 'payslips' | 'adjustments'>('overview');
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [showGeneratePayslips, setShowGeneratePayslips] = useState(false);
   const [showRemunerationModal, setShowRemunerationModal] = useState(false);
@@ -363,7 +379,10 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-purple-600">Total Net Pay</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-purple-600">Total Net Pay</p>
+                  {PayrollTooltips.netPay}
+                </div>
                 <p className="text-2xl font-bold text-purple-900 mt-1">
                   {formatCurrency(payrollSummary.totalNetPay)}
                 </p>
@@ -407,6 +426,7 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
               { id: 'salaries', label: isTeamView ? 'Employee Salaries' : 'Salary Details', icon: SolarIcons.users },
               ...(isTeamView ? [{ id: 'components', label: 'Global Settings', icon: SolarIcons.settings }] : []),
               { id: 'payslips', label: 'Payslips', icon: SolarIcons.documentText },
+              { id: 'adjustments', label: 'Adjustments', icon: SolarIcons.documentAdd },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -523,14 +543,39 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
               <div className="flex items-center justify-between">
                 <CardTitle>{isTeamView ? 'Employee Salaries' : 'Salary Details'}</CardTitle>
                 {isTeamView && (
-                  <div className="text-sm text-gray-600">
-                    Click on edit icon to configure employee salaries
+                  <div className="flex items-center gap-4">
+                    <div className="text-sm text-gray-600">
+                      Configure employee salaries by clicking on the row or edit icon
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        // Get all users without salaries
+                        const usersWithoutSalary = allUsers.filter(
+                          u => !salaryData.some(s => s.user_id === u.id)
+                        );
+                        if (usersWithoutSalary.length > 0) {
+                          setSelectedEmployeeForRemuneration({
+                            id: usersWithoutSalary[0].id,
+                            name: usersWithoutSalary[0].full_name
+                          });
+                          setShowRemunerationModal(true);
+                        } else {
+                          toast.info('All employees have salaries configured');
+                        }
+                      }}
+                      className="bg-gradient-to-r from-green-500 to-emerald-600 text-white"
+                    >
+                      <Icon icon={SolarIcons.addCircle} className="w-4 h-4 mr-1" />
+                      Add Employee Salary
+                    </Button>
                   </div>
                 )}
               </div>
             </CardHeader>
             <CardContent>
               {isTeamView ? (
+                <>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -560,8 +605,18 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
                     </thead>
                     <tbody>
                       {salaryData.map((salary) => (
-                        <tr key={salary.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-3 px-4">
+                        <tr 
+                          key={salary.id} 
+                          className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors"
+                          onClick={() => {
+                            setSelectedEmployeeForRemuneration({
+                              id: salary.user_id,
+                              name: salary.user.full_name
+                            });
+                            setShowRemunerationModal(true);
+                          }}
+                        >
+                          <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
                             <input
                               type="checkbox"
                               checked={selectedUsersForPayslips.includes(salary.user_id)}
@@ -628,9 +683,56 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
                     </tbody>
                   </table>
                 </div>
-              ) : (
-                // Individual salary details
-                salaryData.length > 0 ? (
+                
+                {/* Show employees without salaries */}
+                {(() => {
+                  const usersWithoutSalary = allUsers.filter(
+                    u => !salaryData.some(s => s.user_id === u.id)
+                  );
+                  
+                  if (usersWithoutSalary.length > 0) {
+                    return (
+                      <div className="mt-6">
+                        <h4 className="text-sm font-medium text-gray-700 mb-3">Employees Without Configured Salaries</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {usersWithoutSalary.map((user) => (
+                            <div
+                              key={user.id}
+                              className="p-4 bg-orange-50 border border-orange-200 rounded-lg cursor-pointer hover:bg-orange-100 transition-colors"
+                              onClick={() => {
+                                setSelectedEmployeeForRemuneration({
+                                  id: user.id,
+                                  name: user.full_name
+                                });
+                                setShowRemunerationModal(true);
+                              }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium text-gray-900">{user.full_name}</p>
+                                  <p className="text-sm text-gray-600">{user.email}</p>
+                                  <p className="text-xs text-gray-500 mt-1">{user.job_title || 'No job title'}</p>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-orange-600"
+                                >
+                                  <Icon icon={SolarIcons.addCircle} className="w-5 h-5" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </>
+            ) : (
+              // Individual salary details
+              salaryData.length > 0 ? (
                   <div className="space-y-4">
                     <div className="bg-gray-50 rounded-lg p-4">
                       <div className="grid grid-cols-2 gap-4">
@@ -672,9 +774,9 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
           </Card>
           
           {/* Payslip Preview for Individual View */}
-          {!isTeamView && salaryData.length > 0 && (
+          {!isTeamView && salaryData.length > 0 && selectedUserId && (
             <SamplePayslipSection 
-              userId={salaryData[0].user_id}
+              userId={selectedUserId}
               userData={salaryData[0]}
               practiceName={user?.practices?.name}
             />
@@ -683,7 +785,7 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
       )}
 
       {activeView === 'components' && (
-        <BenefitsDeductionsManager />
+        <EnhancedBenefitsDeductionsManager />
       )}
 
       {activeView === 'payslips' && (
@@ -692,11 +794,10 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
             <div className="flex items-center justify-between">
               <CardTitle>Payslips - {format(selectedMonth, 'MMMM yyyy')}</CardTitle>
               <div className="flex items-center gap-3">
-                <input
-                  type="month"
+                <MonthInput
                   value={format(selectedMonth, 'yyyy-MM')}
-                  onChange={(e) => setSelectedMonth(new Date(e.target.value))}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  onChange={(value) => setSelectedMonth(new Date(value + '-01'))}
+                  placeholder="Select month"
                 />
                 <Button 
                   onClick={() => {
@@ -780,6 +881,36 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
                 </tbody>
               </table>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {activeView === 'adjustments' && (
+        <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <CardTitle>Payslip Adjustments</CardTitle>
+                  {PayrollTooltips.approvalWorkflow}
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  Manage one-time adjustments for {format(selectedMonth, 'MMMM yyyy')}
+                </p>
+              </div>
+              <MonthInput
+                value={format(selectedMonth, 'yyyy-MM')}
+                onChange={(value) => setSelectedMonth(new Date(value + '-01'))}
+                placeholder="Select month"
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <PayslipAdjustments
+              month={selectedMonth.getMonth() + 1}
+              year={selectedMonth.getFullYear()}
+              userId={!isTeamView ? selectedUserId : undefined}
+            />
           </CardContent>
         </Card>
       )}

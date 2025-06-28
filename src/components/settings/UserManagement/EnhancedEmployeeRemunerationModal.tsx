@@ -5,6 +5,7 @@ import Icon, { SolarIcons } from '../../ui/Icon';
 import Button from '../../ui/Button';
 import { useAuthStore } from '../../../stores/authStore';
 import toast from 'react-hot-toast';
+import DateInput from '../../ui/DateInput';
 
 interface Benefit {
   id: string;
@@ -213,7 +214,7 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
   const calculateTotalEarnings = () => {
     const basic = parseFloat(basicSalary) || 0;
     const benefitsTotal = benefits.reduce((sum, benefit) => {
-      if (selectedBenefits[benefit.id]?.enabled && !benefit.is_company_contribution) {
+      if (selectedBenefits[benefit.id]?.enabled) {
         const customValue = selectedBenefits[benefit.id]?.value;
         const value = customValue || calculateValue(benefit.type, benefit.value, benefit.base_calculation);
         return sum + value;
@@ -377,14 +378,11 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Effective From
-                  </label>
-                  <input
-                    type="date"
+                  <DateInput
+                    label="Effective From"
                     value={effectiveFrom}
-                    onChange={(e) => setEffectiveFrom(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                    onChange={setEffectiveFrom}
+                    placeholder="Select effective date"
                     required
                   />
                 </div>
@@ -670,7 +668,14 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total Benefits:</span>
                   <span className="font-medium text-green-600">
-                    + NAD {(calculateTotalEarnings() - parseFloat(basicSalary || '0')).toFixed(2)}
+                    + NAD {benefits.reduce((sum, benefit) => {
+                      if (selectedBenefits[benefit.id]?.enabled) {
+                        const customValue = selectedBenefits[benefit.id]?.value;
+                        const value = customValue || calculateValue(benefit.type, benefit.value, benefit.base_calculation);
+                        return sum + value;
+                      }
+                      return sum;
+                    }, 0).toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between">
