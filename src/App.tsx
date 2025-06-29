@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
 import Settings from './pages/Settings';
+import Communications from './pages/Communications';
 import Layout from './components/layout/Layout';
 import Login from './pages/auth/Login';
 import { useAuthStore } from './stores/authStore';
@@ -80,6 +81,7 @@ function App() {
             <Route path="/" element={<Layout />}>
               <Route index element={<Dashboard />} />
               <Route path="patients" element={<Patients />} />
+              <Route path="communications" element={<Communications />} />
               <Route path="billing/workflow" element={<BillingWorkflow />} />
               <Route path="practice-profile" element={<EnhancedPracticeProfile />} />
               <Route path="admin/practices" element={<PracticesManagement />} />

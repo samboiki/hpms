@@ -33,7 +33,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { icon: 'solar:widget-bold-duotone', label: 'Dashboard', path: '/', isRoute: true },
     { icon: 'solar:users-group-rounded-bold-duotone', label: 'Patients', path: '/patients', isRoute: false, onClick: onOpenPatients },
-    { icon: 'solar:bell-bold-duotone', label: 'Messages', path: '/messages', isRoute: false, onClick: onOpenCommunications },
+    { icon: 'solar:bell-bold-duotone', label: 'Messages', path: '/communications', isRoute: true },
   ];
 
   const adminItems = [

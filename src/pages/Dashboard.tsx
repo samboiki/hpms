@@ -18,7 +18,6 @@ import PracticeOverviewTile from '../components/dashboard/PracticeOverviewTile';
 import { dashboardStatsService, DashboardStats } from '../services/dashboardStatsService';
 import { useAuthStore } from '../stores/authStore';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
-import CommunicationsModal from '../components/modals/CommunicationsModal';
 import ComprehensivePatientModal from '../components/patients/ComprehensivePatientModal';
 import { useOptimizedDashboardStats, useCommunicationStats } from '../hooks/useOptimizedDashboardStats';
 import { useTodayAppointments, useRealtimeAppointments } from '../hooks/useAppointments';
@@ -92,7 +91,6 @@ function Dashboard() {
   }>({ isOpen: false, type: null });
   
   const [isEnhancedFinancialModalOpen, setIsEnhancedFinancialModalOpen] = useState(false);
-  const [isCommunicationsModalOpen, setIsCommunicationsModalOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
   const [showYearDropdown, setShowYearDropdown] = useState(false);
@@ -775,7 +773,7 @@ function Dashboard() {
                     color2: '#F97316'
                   }}
                   onClick={() => {
-                    setIsCommunicationsModalOpen(true);
+                    navigate('/communications');
                   }}
                   dashboardStats={dashboardStats}
                   communicationStats={realCommunicationStats}
@@ -1508,11 +1506,6 @@ function Dashboard() {
         />
       )}
 
-      {/* Communications Modal */}
-      <CommunicationsModal
-        isOpen={isCommunicationsModalOpen}
-        onClose={() => setIsCommunicationsModalOpen(false)}
-      />
 
       {/* Calendar Picker Modal - Rendered as Portal */}
       {showCalendarPicker && createPortal(
