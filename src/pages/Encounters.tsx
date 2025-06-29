@@ -765,8 +765,6 @@ const Encounters: React.FC = () => {
     dashboard: "solar:chart-square-bold-duotone",
     labs: "solar:test-tube-bold-duotone",
     imaging: "solar:scan-bold-duotone",
-    diagnostics: "solar:document-medicine-bold-duotone",
-    prescriptions: "solar:pills-3-bold-duotone",
     followup: "solar:calendar-add-bold-duotone",
   };
 
@@ -798,8 +796,8 @@ const Encounters: React.FC = () => {
 
         {/* Tab Navigation - Following Settings Page Style */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-6 gap-0 w-full">
-            {(['dashboard', 'labs', 'imaging', 'diagnostics', 'prescriptions', 'followup'] as const).map((tab) => {
+          <div className="grid grid-cols-4 gap-0 w-full">
+            {(['dashboard', 'labs', 'imaging', 'followup'] as const).map((tab) => {
               const iconName = tabIcons[tab];
               const isActive = activeTab === tab;
               return (

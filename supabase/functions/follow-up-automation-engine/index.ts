@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+// SECURITY: This function processes EACH practice separately
+// It ensures complete data isolation between practices
+// Uses service role for automation but maintains practice boundaries
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -13,6 +17,24 @@ interface TemplateStep {
   visit_type: string;
   notes_template: string;
   services_to_schedule: string[];
+}
+
+interface Visit {
+  id: string;
+  patient_id: string;
+  practice_id: string;
+  branch_id: string;
+  doctor_id: string;
+  diagnosis?: string;
+  preceding_visit_id?: string;
+  applied_template_id?: string;
+  care_plan_step?: number;
+  follow_up_loop_count?: number;
+  invoices?: Array<{
+    invoice_services?: Array<{
+      tariff_code: string;
+    }>;
+  }>;
 }
 
 serve(async (req) => {
@@ -48,13 +70,16 @@ serve(async (req) => {
 
     let totalProcessed = 0
     let totalCreated = 0
+    let loopsPrevented = 0
 
-    // Process each enabled practice
+    // SECURITY: Process each practice in isolation
+    // Each iteration only accesses data from ONE practice at a time
     for (const practice of enabledPractices) {
       // Find recently completed visits (within last 24 hours)
       const twentyFourHoursAgo = new Date()
       twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24)
 
+      // SECURITY: Filter by practice_id to ensure data isolation
       const { data: completedVisits, error: visitsError } = await supabase
         .from('visits')
         .select(`
@@ -65,7 +90,7 @@ serve(async (req) => {
             )
           )
         `)
-        .eq('practice_id', practice.id)
+        .eq('practice_id', practice.id) // CRITICAL: Only this practice's visits
         .eq('status', 'completed')
         .gte('updated_at', twentyFourHoursAgo.toISOString())
 
@@ -76,11 +101,11 @@ serve(async (req) => {
 
       if (!completedVisits) continue
 
-      // Get active templates for this practice
+      // SECURITY: Get templates ONLY for this specific practice
       const { data: templates, error: templatesError } = await supabase
         .from('follow_up_templates')
         .select('*')
-        .eq('practice_id', practice.id)
+        .eq('practice_id', practice.id) // CRITICAL: Only this practice's templates
         .eq('is_active', true)
 
       if (templatesError || !templates) {
@@ -89,7 +114,7 @@ serve(async (req) => {
       }
 
       // Process each completed visit
-      for (const visit of completedVisits) {
+      for (const visit of completedVisits as Visit[]) {
         totalProcessed++
 
         // Check if visit already has an applied template (continuing a plan)
@@ -110,22 +135,38 @@ serve(async (req) => {
               nextStep.interval_unit
             )
 
-            // Create next visit in the care plan
+            // Find available slot for the doctor
+            const { data: availableSlot } = await supabase
+              .rpc('find_next_available_slot', {
+                p_doctor_id: visit.doctor_id,
+                p_start_date: scheduledDate.toISOString().split('T')[0],
+                p_duration: 30, // Default 30 minutes
+                p_preferred_time: '09:00:00'
+              })
+              .single()
+
+            const appointmentDate = availableSlot?.available_date || scheduledDate.toISOString().split('T')[0]
+            const appointmentTime = availableSlot?.available_time || '09:00:00'
+
+            // SECURITY: New visit inherits practice_id from original visit
             const { error: insertError } = await supabase
               .from('visits')
               .insert({
                 patient_id: visit.patient_id,
-                practice_id: visit.practice_id,
+                practice_id: visit.practice_id, // CRITICAL: Maintains practice isolation
                 branch_id: visit.branch_id,
                 doctor_id: visit.doctor_id,
-                visit_type: nextStep.visit_type || 'Follow-up',
-                scheduled_date: scheduledDate.toISOString().split('T')[0],
-                scheduled_time: '09:00:00',
+                visit_type: getGeneralVisitType(nextStep.visit_type),
+                visit_sub_type: nextStep.visit_type, // Store specific type
+                scheduled_date: appointmentDate,
+                scheduled_time: appointmentTime,
+                scheduled_duration: 30, // Default duration
                 status: 'scheduled',
                 notes: nextStep.notes_template?.replace('{trigger_value}', template.trigger_value) || '',
                 preceding_visit_id: visit.id,
                 applied_template_id: template.id,
                 care_plan_step: nextStepNumber,
+                follow_up_loop_count: (visit.follow_up_loop_count || 0),
                 is_scheduled: true,
               })
 
@@ -137,16 +178,31 @@ serve(async (req) => {
             }
           }
         } else {
+          // Check for loop prevention
+          const loopCount = await checkFollowUpLoopCount(supabase, visit.id, visit.preceding_visit_id)
+          
+          if (loopCount >= 3) {
+            console.log(`Loop prevention: Visit ${visit.id} has reached max follow-up count`)
+            loopsPrevented++
+            continue
+          }
+
           // Check if this visit should initiate a new plan
           // First check diagnosis triggers
           if (visit.diagnosis) {
             const matchingTemplate = templates.find(t => 
               t.trigger_type === 'DIAGNOSIS' && 
-              t.trigger_value.toLowerCase() === visit.diagnosis.toLowerCase()
+              t.trigger_value.toLowerCase() === visit.diagnosis!.toLowerCase()
             )
 
             if (matchingTemplate) {
-              totalCreated = await createFirstFollowUp(supabase, visit, matchingTemplate, totalCreated)
+              const created = await createFirstFollowUp(
+                supabase, 
+                visit, 
+                matchingTemplate, 
+                loopCount + 1
+              )
+              if (created) totalCreated++
               continue
             }
           }
@@ -157,13 +213,28 @@ serve(async (req) => {
               inv.invoice_services?.map(s => s.tariff_code) || []
             )
 
-            const matchingTemplate = templates.find(t => 
-              t.trigger_type === 'TARIFF_CODE' && 
-              tariffCodes.includes(t.trigger_value)
+            // IMPORTANT: Check if we've already created a follow-up for these codes
+            const hasExistingFollowUp = await checkExistingFollowUp(
+              supabase, 
+              visit.id, 
+              tariffCodes
             )
 
-            if (matchingTemplate) {
-              totalCreated = await createFirstFollowUp(supabase, visit, matchingTemplate, totalCreated)
+            if (!hasExistingFollowUp) {
+              const matchingTemplate = templates.find(t => 
+                t.trigger_type === 'TARIFF_CODE' && 
+                tariffCodes.includes(t.trigger_value)
+              )
+
+              if (matchingTemplate) {
+                const created = await createFirstFollowUp(
+                  supabase, 
+                  visit, 
+                  matchingTemplate, 
+                  loopCount + 1
+                )
+                if (created) totalCreated++
+              }
             }
           }
         }
@@ -175,7 +246,8 @@ serve(async (req) => {
         success: true, 
         message: 'Automation engine completed',
         processed: totalProcessed,
-        created: totalCreated
+        created: totalCreated,
+        loopsPrevented
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
@@ -216,25 +288,97 @@ function calculateFollowUpDate(baseDate: Date, intervalValue: number, intervalUn
   return result
 }
 
+// Map specific visit types to general categories
+function getGeneralVisitType(specificType: string): string {
+  const typeMap: Record<string, string> = {
+    'Periodontal Maintenance': 'follow-up',
+    'Root Canal Follow-up': 'follow-up',
+    'Post-Extraction Check': 'follow-up',
+    'Healing Assessment': 'follow-up',
+    'Routine Cleaning': 'routine-checkup',
+    'Initial Consultation': 'consultation',
+    'Emergency Visit': 'emergency',
+    'Surgical Procedure': 'procedure',
+  }
+  
+  return typeMap[specificType] || 'follow-up'
+}
+
+// Check how many times this follow-up chain has been triggered
+async function checkFollowUpLoopCount(
+  supabase: ReturnType<typeof createClient>,
+  currentVisitId: string,
+  precedingVisitId?: string
+): Promise<number> {
+  if (!precedingVisitId) return 0
+  
+  // Trace back through the chain to count loops
+  const { data: chainData } = await supabase
+    .from('visits')
+    .select('id, preceding_visit_id, follow_up_loop_count, applied_template_id')
+    .or(`id.eq.${currentVisitId},id.eq.${precedingVisitId}`)
+  
+  if (!chainData || chainData.length === 0) return 0
+  
+  // Find the highest loop count in the chain
+  const maxLoopCount = Math.max(...chainData.map(v => v.follow_up_loop_count || 0))
+  return maxLoopCount
+}
+
+// Check if a follow-up already exists for this visit
+async function checkExistingFollowUp(
+  supabase: ReturnType<typeof createClient>,
+  visitId: string,
+  _tariffCodes: string[] // Currently unused but may be needed for future filtering
+): Promise<boolean> {
+  const { data: existingFollowUps } = await supabase
+    .from('visits')
+    .select('id')
+    .eq('preceding_visit_id', visitId)
+    .eq('status', 'scheduled')
+    .limit(1)
+  
+  return !!(existingFollowUps && existingFollowUps.length > 0)
+}
+
+interface Template {
+  id: string;
+  trigger_value: string;
+  steps: TemplateStep[];
+}
+
 async function createFirstFollowUp(
   supabase: ReturnType<typeof createClient>, 
-  visit: Record<string, unknown>, 
-  template: Record<string, unknown>, 
-  totalCreated: number
-): Promise<number> {
+  visit: Visit, 
+  template: Template, 
+  loopCount: number
+): Promise<boolean> {
   const steps = template.steps as TemplateStep[]
-  if (!steps || steps.length === 0) return totalCreated
+  if (!steps || steps.length === 0) return false
 
   const firstStep = steps[0]
   
   // Skip gestation-based templates in automation
-  if (firstStep.interval_unit === 'weeks_gestation') return totalCreated
+  if (firstStep.interval_unit === 'weeks_gestation') return false
 
   const scheduledDate = calculateFollowUpDate(
     new Date(),
     firstStep.interval_value,
     firstStep.interval_unit
   )
+
+  // Find available slot for the doctor
+  const { data: availableSlot } = await supabase
+    .rpc('find_next_available_slot', {
+      p_doctor_id: visit.doctor_id,
+      p_start_date: scheduledDate.toISOString().split('T')[0],
+      p_duration: 30,
+      p_preferred_time: '09:00:00'
+    })
+    .single()
+
+  const appointmentDate = availableSlot?.available_date || scheduledDate.toISOString().split('T')[0]
+  const appointmentTime = availableSlot?.available_time || '09:00:00'
 
   const { error: insertError } = await supabase
     .from('visits')
@@ -243,22 +387,25 @@ async function createFirstFollowUp(
       practice_id: visit.practice_id,
       branch_id: visit.branch_id,
       doctor_id: visit.doctor_id,
-      visit_type: firstStep.visit_type || 'Follow-up',
-      scheduled_date: scheduledDate.toISOString().split('T')[0],
-      scheduled_time: '09:00:00',
+      visit_type: getGeneralVisitType(firstStep.visit_type),
+      visit_sub_type: firstStep.visit_type,
+      scheduled_date: appointmentDate,
+      scheduled_time: appointmentTime,
+      scheduled_duration: 30,
       status: 'scheduled',
       notes: firstStep.notes_template?.replace('{trigger_value}', template.trigger_value) || '',
       preceding_visit_id: visit.id,
       applied_template_id: template.id,
       care_plan_step: 1,
+      follow_up_loop_count: loopCount,
       is_scheduled: true,
     })
 
   if (!insertError) {
     console.log(`Created initial follow-up for visit ${visit.id} using template ${template.id}`)
-    return totalCreated + 1
+    return true
   } else {
     console.error(`Error creating initial follow-up for visit ${visit.id}:`, insertError)
-    return totalCreated
+    return false
   }
 }

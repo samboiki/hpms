@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Icon } from '@iconify/react';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../types/database.types';
@@ -27,47 +27,37 @@ export default function FollowUpAutomation() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Initial load only
   useEffect(() => {
-    if (user?.id) {
-      fetchPracticeSettings();
-      fetchTemplates();
-    }
-  }, [user]);
+    let isMounted = true;
+    
+    const loadData = async () => {
+      if (user?.id && !practiceId && isMounted) {
+        await fetchPracticeSettings();
+        await fetchTemplates();
+      }
+    };
+    
+    loadData();
+    
+    return () => {
+      isMounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - only run once on mount
 
-  const fetchPracticeSettings = async () => {
+  const fetchPracticeSettings = useCallback(async () => {
     try {
       if (!user?.id) {
         throw new Error('User not authenticated');
       }
 
-      let practiceIdToUse = null;
-
-      // First try to get practice_id from user object
-      if (user.practice_id) {
-        practiceIdToUse = user.practice_id;
-      } else {
-        // Try to get from user_practice_assignments table
-        const { data: assignmentData, error: assignmentError } = await supabase
-          .from('user_practice_assignments')
-          .select('practice_id')
-          .eq('user_id', user.id)
-          .eq('is_active', true)
-          .maybeSingle();
-
-        if (assignmentError && assignmentError.code !== 'PGRST116') {
-          console.error('Assignment error:', assignmentError);
-          throw assignmentError;
-        }
-        
-        if (assignmentData?.practice_id) {
-          practiceIdToUse = assignmentData.practice_id;
-        }
+      // SECURITY: Users can ONLY access their assigned practice from users table
+      if (!user.practice_id) {
+        throw new Error('No practice assigned to this user. Please contact your administrator.');
       }
 
-      if (!practiceIdToUse) {
-        throw new Error('No practice associated with this user. Please contact your administrator.');
-      }
-
+      const practiceIdToUse = user.practice_id;
       setPracticeId(practiceIdToUse);
 
       const { data: practiceData, error: practiceError } = await supabase
@@ -88,9 +78,9 @@ export default function FollowUpAutomation() {
       setError(errorMessage);
       toast.error(errorMessage);
     }
-  };
+  }, [user]);
 
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -98,33 +88,11 @@ export default function FollowUpAutomation() {
         throw new Error('User not authenticated');
       }
 
-      let practiceIdToUse = practiceId; // Use the practiceId from state if already set
+      // SECURITY: Only use practice_id from authenticated user record
+      const practiceIdToUse = practiceId || user.practice_id;
 
       if (!practiceIdToUse) {
-        // Try to get practice_id
-        if (user.practice_id) {
-          practiceIdToUse = user.practice_id;
-        } else {
-          const { data: assignmentData, error: assignmentError } = await supabase
-            .from('user_practice_assignments')
-            .select('practice_id')
-            .eq('user_id', user.id)
-            .eq('is_active', true)
-            .maybeSingle();
-
-          if (assignmentError && assignmentError.code !== 'PGRST116') {
-            console.error('Assignment error:', assignmentError);
-            throw assignmentError;
-          }
-
-          if (assignmentData?.practice_id) {
-            practiceIdToUse = assignmentData.practice_id;
-          }
-        }
-      }
-
-      if (!practiceIdToUse) {
-        throw new Error('No practice associated with this user');
+        throw new Error('No practice assigned to this user');
       }
 
       const { data: templatesData, error: templatesError } = await supabase
@@ -148,9 +116,9 @@ export default function FollowUpAutomation() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [practiceId, user]);
 
-  const toggleAutomation = async () => {
+  const toggleAutomation = useCallback(async () => {
     try {
       if (!practiceId) return;
 
@@ -169,9 +137,9 @@ export default function FollowUpAutomation() {
       console.error('Error toggling automation:', error);
       toast.error('Failed to update automation setting');
     }
-  };
+  }, [isAutomationEnabled, practiceId]);
 
-  const deleteTemplate = async (templateId: string) => {
+  const deleteTemplate = useCallback(async (templateId: string) => {
     if (!confirm('Are you sure you want to delete this template?')) return;
 
     try {
@@ -188,9 +156,9 @@ export default function FollowUpAutomation() {
       console.error('Error deleting template:', error);
       toast.error('Failed to delete template');
     }
-  };
+  }, [fetchTemplates]);
 
-  const toggleTemplateActive = async (templateId: string, currentStatus: boolean) => {
+  const toggleTemplateActive = useCallback(async (templateId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
         .from('follow_up_templates')
@@ -205,9 +173,9 @@ export default function FollowUpAutomation() {
       console.error('Error toggling template status:', error);
       toast.error('Failed to update template status');
     }
-  };
+  }, [fetchTemplates]);
 
-  const generateAITemplates = async () => {
+  const generateAITemplates = useCallback(async () => {
     if (!practiceId) return;
     
     setAiGenerating(true);
@@ -215,16 +183,19 @@ export default function FollowUpAutomation() {
       // Fetch practice type and tariffs
       const { data: practiceData, error: practiceError } = await supabase
         .from('practices')
-        .select('practice_type, practice_types!inner(name)')
+        .select('practice_type, practice_type_id, practice_types!inner(name)')
         .eq('id', practiceId)
         .single();
 
       if (practiceError) throw practiceError;
 
+      // Fetch tariffs for this practice type
       const { data: tariffsData, error: tariffsError } = await supabase
         .from('practice_tariffs')
         .select('code, description')
-        .eq('practice_id', practiceId);
+        .eq('practice_type_id', practiceData.practice_type_id)
+        .eq('is_active', true)
+        .order('code');
 
       if (tariffsError) throw tariffsError;
 
@@ -272,8 +243,16 @@ export default function FollowUpAutomation() {
     } finally {
       setAiGenerating(false);
     }
-  };
+  }, [practiceId, fetchTemplates]);
 
+  // Memoize template rows to prevent re-renders
+  const templateRows = useMemo(() => {
+    return templates.map((template) => {
+      const steps = template.steps as TemplateStep[];
+      const stepCount = Array.isArray(steps) ? steps.length : 0;
+      return { template, steps, stepCount };
+    });
+  }, [templates]);
 
   // Show loading state
   if (loading) {
@@ -411,11 +390,7 @@ export default function FollowUpAutomation() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {templates.map((template) => {
-                  const steps = template.steps as TemplateStep[];
-                  const stepCount = Array.isArray(steps) ? steps.length : 0;
-                  
-                  return (
+                {templateRows.map(({ template, stepCount }) => (
                     <tr key={template.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{template.template_name}</div>
@@ -472,8 +447,7 @@ export default function FollowUpAutomation() {
                         </button>
                       </td>
                     </tr>
-                  );
-                })}
+                ))}
               </tbody>
             </table>
           </div>
@@ -751,6 +725,7 @@ function TemplateModal({ template, practiceId, onClose, onSave }: TemplateModalP
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
                           Notes Template
+                          <Icon icon="solar:info-circle-bold-duotone" className="inline-block w-3 h-3 ml-1 text-gray-400" />
                         </label>
                         <textarea
                           value={step.notes_template}
@@ -759,11 +734,17 @@ function TemplateModal({ template, practiceId, onClose, onSave }: TemplateModalP
                           rows={2}
                           placeholder="Pre-filled notes for this visit. Use {trigger_value} to insert the trigger value."
                         />
+                        <p className="text-xs text-gray-500 mt-1">
+                          This text will be pre-filled in the visit notes. Use {'{trigger_value}'} to insert the diagnosis or tariff code that triggered this follow-up.
+                          <br />
+                          Example: "Follow-up for {'{trigger_value}'}. Check healing progress."
+                        </p>
                       </div>
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
                           Services to Schedule (comma-separated tariff codes)
+                          <Icon icon="solar:info-circle-bold-duotone" className="inline-block w-3 h-3 ml-1 text-gray-400" />
                         </label>
                         <input
                           type="text"
@@ -772,6 +753,11 @@ function TemplateModal({ template, practiceId, onClose, onSave }: TemplateModalP
                           className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500"
                           placeholder="e.g., 8104, 8105"
                         />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Tariff codes for services that should be automatically scheduled during this follow-up visit.
+                          <br />
+                          These will appear as line items in the invoice. Leave empty if no specific services needed.
+                        </p>
                       </div>
                     </div>
                   </div>
