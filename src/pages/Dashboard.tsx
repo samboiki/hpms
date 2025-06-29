@@ -806,7 +806,7 @@ function Dashboard() {
                     isPositive: encounterStats.newThisMonth > 0
                   }}
                   onClick={() => {
-                    setSelectedReportModal({ isOpen: true, type: 'encounters' });
+                    navigate('/encounters');
                   }}
                   encounterStats={encounterStats}
                 />,
@@ -838,7 +838,7 @@ function Dashboard() {
                     isPositive: invoiceStats.quarterlyInvoices > 0
                   }}
                   onClick={() => {
-                    setIsEnhancedFinancialModalOpen(true);
+                    navigate('/finance');
                   }}
                   invoiceStats={invoiceStats}
                 />

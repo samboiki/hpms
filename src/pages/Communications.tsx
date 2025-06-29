@@ -1,46 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Send, 
-  Settings, 
-  Zap, 
-  BarChart3,
-  Inbox,
-  Sparkles,
-  MessageSquare,
-  Mail,
-  CheckCircle,
-  TrendingUp,
-  Users,
-  DollarSign,
-  Clock,
-  Target,
-  Bell,
-  FileText,
-  ChevronRight,
-  Eye,
-  Filter,
-  Download,
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  Heart,
-  UserPlus,
-  Activity
-} from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import Icon from '../components/ui/Icon';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { usePracticeSettings } from '../hooks/usePracticeSettings';
 import { format, startOfDay, endOfDay } from 'date-fns';
+import { useTheme } from '../stores/themeStore';
+import { 
+  ChevronRight,
+  Eye,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Search,
+  Send,
+  Paperclip,
+  MoreVertical
+} from 'lucide-react';
 
 // Import existing components
-import Compose from '../components/messages/Compose';
 import SmartAutomations from '../components/messages/SmartAutomations';
-import CommunicationHistory from '../components/messages/CommunicationHistory';
 import EmailTemplatePreview from '../components/messages/EmailTemplatePreview';
 import EmailTemplatePreviews from '../components/messages/EmailTemplatePreviews';
 
-type TabType = 'dashboard' | 'compose' | 'automations' | 'inbox' | 'settings' | 'analytics';
+type TabType = 'dashboard' | 'messaging' | 'automations' | 'analytics' | 'settings';
 
 interface SMSStats {
   available: number;
@@ -65,10 +49,42 @@ interface CommunicationStats {
   activeAutomations: number;
 }
 
+interface Message {
+  id: string;
+  type: 'SMS' | 'EMAIL';
+  direction: 'inbound' | 'outbound';
+  recipient_address: string;
+  sender_address?: string;
+  subject?: string;
+  body_preview: string;
+  body?: string;
+  status: 'sent' | 'delivered' | 'failed' | 'received';
+  created_at: string;
+  opened_at?: string;
+  patients?: {
+    first_name: string;
+    last_name: string;
+    avatar?: string;
+  };
+}
+
 const Communications: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, logout } = useAuthStore();
+  const { currentTheme } = useTheme();
   const { settings: practiceSettings, loading: settingsLoading } = usePracticeSettings();
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [messagingView, setMessagingView] = useState<'all' | 'sms' | 'email'>('all');
+  const [messageFilter, setMessageFilter] = useState<'all' | 'inbox' | 'sent'>('all');
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [composeMode, setComposeMode] = useState(false);
+  const [messageSearch, setMessageSearch] = useState('');
+  const [newMessage, setNewMessage] = useState({
+    type: 'email' as 'email' | 'sms',
+    recipient: '',
+    subject: '',
+    body: ''
+  });
+  
   const [currentPracticeData, setCurrentPracticeData] = useState<{
     id: string;
     name: string;
@@ -85,24 +101,15 @@ const Communications: React.FC = () => {
     activeAutomations: 0
   });
   const [, setIsLoading] = useState(true);
-  const [recentMessages, setRecentMessages] = useState<{
-    id: string;
-    type: 'SMS' | 'EMAIL';
-    recipient_address: string;
-    body_preview: string;
-    created_at: string;
-    patients?: {
-      first_name: string;
-      last_name: string;
-    };
-  }[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [expandedService, setExpandedService] = useState<string | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<{
     title: string;
-    content: string;
+    template: string;
   } | null>(null);
   const [showEmailPreview, setShowEmailPreview] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState<'30d' | '3m' | '6m' | '12m'>('30d');
+  const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
+  const avatarButtonRef = useRef<HTMLButtonElement>(null);
   
   const [automationSettings, setAutomationSettings] = useState({
     appointmentReminders: { 
@@ -245,17 +252,19 @@ Best regards,
 
   useEffect(() => {
     if (practiceId) {
-      loadRecentMessages();
+      loadMessages();
       loadAutomationSettings();
     }
-  }, [practiceId]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [practiceId]);
 
   // Load communication stats only after practice settings are available
   useEffect(() => {
     if (practiceId && practiceSettings && !settingsLoading) {
       loadCommunicationStats();
     }
-  }, [practiceId, practiceSettings, settingsLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [practiceId, practiceSettings, settingsLoading]);
 
   // Update available services count when automation settings change
   useEffect(() => {
@@ -284,7 +293,7 @@ Best regards,
         .select('*')
         .eq('practice_id', practiceId)
         .gte('sent_at', startOfToday)
-        .lte('sent_at', endOfToday) as { data: { cost?: number }[] | null; error: Error | null };
+        .lte('sent_at', endOfToday);
 
       if (smsError) {
         console.error('SMS usage error:', smsError);
@@ -297,7 +306,7 @@ Best regards,
         .eq('practice_id', practiceId)
         .eq('type', 'EMAIL')
         .gte('created_at', startOfToday)
-        .lte('created_at', endOfToday) as { data: { status: string; opened_at?: string }[] | null; error: Error | null };
+        .lte('created_at', endOfToday);
 
       if (emailError) {
         console.error('Email stats error:', emailError);
@@ -309,7 +318,7 @@ Best regards,
         .select('*')
         .eq('practice_id', practiceId)
         .gte('created_at', startOfToday)
-        .lte('created_at', endOfToday) as { data: { status: string }[] | null; error: Error | null };
+        .lte('created_at', endOfToday);
 
       if (allCommsError) {
         console.error('All communications error:', allCommsError);
@@ -320,16 +329,16 @@ Best regards,
         available: Math.max(0, practiceSettings?.smsRemaining || 0),
         assigned: Math.max(0, practiceSettings?.smsLimit || 0),
         used: Math.max(0, practiceSettings?.smsUsed || 0),
-        cost: smsUsage?.reduce((sum, msg) => sum + (msg.cost || 0), 0) || 0
+        cost: smsUsage?.reduce((sum: number, msg: { cost?: number }) => sum + (msg.cost || 0), 0) || 0
       };
 
       const emailStatsCalculated = {
         available: Math.max(0, practiceSettings?.emailRemaining || 0),
         assigned: Math.max(0, practiceSettings?.emailLimit || 0),
         used: Math.max(0, practiceSettings?.emailUsed || 0),
-        delivered: emailStats?.filter((e) => e.status === 'SENT' || e.status === 'DELIVERED').length || 0,
-        opened: emailStats?.filter((e) => e.opened_at).length || 0,
-        failed: emailStats?.filter((e) => e.status === 'FAILED').length || 0
+        delivered: emailStats?.filter((e: { status: string }) => e.status === 'SENT' || e.status === 'DELIVERED').length || 0,
+        opened: emailStats?.filter((e: { opened_at: string | null }) => e.opened_at).length || 0,
+        failed: emailStats?.filter((e: { status: string }) => e.status === 'FAILED').length || 0
       };
 
       // Calculate available communication services (total number of services)
@@ -346,7 +355,7 @@ Best regards,
         email: emailStatsCalculated,
         messagesOut: allComms?.length || 0,
         deliveryRate: allComms?.length > 0 ? 
-          (allComms.filter((c) => c.status === 'SENT' || c.status === 'DELIVERED').length / allComms.length) * 100 : 0,
+          (allComms.filter((c: { status: string }) => c.status === 'SENT' || c.status === 'DELIVERED').length / allComms.length) * 100 : 0,
         engagementRate: 75, // Mock for now
         activeAutomations: totalAvailableServices
       });
@@ -357,21 +366,31 @@ Best regards,
     }
   };
 
-  const loadRecentMessages = async () => {
+  const loadMessages = async () => {
     try {
       const { data } = await supabase
         .from('communications_log')
         .select(`
           *,
-          patients (first_name, last_name)
+          patients (first_name, last_name, avatar)
         `)
         .eq('practice_id', practiceId)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(50);
 
-      setRecentMessages(data || []);
+      // Mock some additional fields for demo
+      const enrichedMessages = (data || []).map((msg: Message) => ({
+        ...msg,
+        direction: msg.direction || 'outbound',
+        subject: msg.subject || (msg.type === 'EMAIL' ? 'Appointment Reminder' : undefined),
+        body: msg.body || msg.body_preview,
+        sender_address: msg.sender_address || 'noreply@practice.com',
+        status: msg.status || 'delivered'
+      }));
+
+      setMessages(enrichedMessages);
     } catch (error) {
-      console.error('Error loading recent messages:', error);
+      console.error('Error loading messages:', error);
     }
   };
 
@@ -391,7 +410,14 @@ Best regards,
     }
   };
 
-  const updateAutomationSetting = async (key: string, value: typeof automationSettings[keyof typeof automationSettings]) => {
+  const updateAutomationSetting = async (key: string, value: {
+    enabled: boolean;
+    timing?: string[];
+    sequence?: string[];
+    method?: string | string[];
+    template?: string;
+    includeOffer?: boolean;
+  }) => {
     try {
       const newSettings = { ...automationSettings, [key]: value };
       setAutomationSettings(newSettings);
@@ -410,6 +436,36 @@ Best regards,
     }
   };
 
+  const sendMessage = async () => {
+    // Implementation for sending message
+    console.log('Sending message:', newMessage);
+    setComposeMode(false);
+    setNewMessage({ type: 'email', recipient: '', subject: '', body: '' });
+    // Reload messages after sending
+    loadMessages();
+  };
+
+  const filteredMessages = messages.filter(msg => {
+    // Filter by type
+    if (messagingView !== 'all' && msg.type !== messagingView.toUpperCase()) return false;
+    
+    // Filter by direction
+    if (messageFilter === 'inbox' && msg.direction !== 'inbound') return false;
+    if (messageFilter === 'sent' && msg.direction !== 'outbound') return false;
+    
+    // Filter by search
+    if (messageSearch) {
+      const searchLower = messageSearch.toLowerCase();
+      const patientName = msg.patients ? `${msg.patients.first_name} ${msg.patients.last_name}`.toLowerCase() : '';
+      return patientName.includes(searchLower) || 
+             msg.recipient_address.toLowerCase().includes(searchLower) ||
+             msg.body_preview.toLowerCase().includes(searchLower) ||
+             (msg.subject && msg.subject.toLowerCase().includes(searchLower));
+    }
+    
+    return true;
+  });
+
   const renderServiceCard = (serviceKey: string, config: {
     title: string;
     description: string;
@@ -420,7 +476,7 @@ Best regards,
   }) => {
     const service = automationSettings[serviceKey as keyof typeof automationSettings];
     const isExpanded = expandedService === serviceKey;
-    const Icon = config.icon;
+    const IconComponent = config.icon;
     
     const colorClasses = {
       blue: 'from-blue-500 to-blue-600 border-blue-200 bg-blue-50',
@@ -445,7 +501,7 @@ Best regards,
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className={`p-3 rounded-xl bg-gradient-to-r ${colorClasses[config.color as keyof typeof colorClasses].split(' ')[0]} ${colorClasses[config.color as keyof typeof colorClasses].split(' ')[1]} shadow-lg`}>
-                <Icon className="w-6 h-6 text-white" />
+                <IconComponent className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h3 className="text-xl font-bold text-gray-900">{config.title}</h3>
@@ -517,13 +573,13 @@ Best regards,
                           type="checkbox"
                           checked={Array.isArray(service.method) ? service.method.includes(method) : service.method === method}
                           onChange={(e) => {
-                            let newMethods;
+                            let newMethods: string | string[];
                             const currentMethods = Array.isArray(service.method) ? service.method : [service.method];
                             
                             if (e.target.checked) {
                               newMethods = [...currentMethods, method];
                             } else {
-                              newMethods = currentMethods.filter(m => m !== method);
+                              newMethods = currentMethods.filter((m: string) => m !== method);
                             }
                             
                             // Ensure at least one method is selected
@@ -539,7 +595,7 @@ Best regards,
                           className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                         />
                         <span className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-200 text-sm font-medium">
-                          {method === 'sms' ? <MessageSquare className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
+                          <Icon icon={method === 'sms' ? 'solar:chat-square-bold-duotone' : 'solar:letter-bold-duotone'} className="w-4 h-4" />
                           {method.toUpperCase()}
                         </span>
                       </label>
@@ -556,19 +612,20 @@ Best regards,
                     Send Timing
                   </label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {config.timingOptions.map((option) => (
+                    {config.timingOptions.map((option: { value: string; label: string }) => (
                       <label key={option.value} className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
-                          checked={service.timing?.includes(option.value)}
+                          checked={service.timing?.includes(option.value) || service.sequence?.includes(option.value)}
                           onChange={(e) => {
-                            const currentTiming = service.timing || [];
+                            const timingKey = 'sequence' in service ? 'sequence' : 'timing';
+                            const currentTiming = service[timingKey] || [];
                             const newTiming = e.target.checked
                               ? [...currentTiming, option.value]
                               : currentTiming.filter((t: string) => t !== option.value);
                             updateAutomationSetting(serviceKey, {
                               ...service,
-                              timing: newTiming
+                              [timingKey]: newTiming
                             });
                           }}
                           className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
@@ -583,7 +640,7 @@ Best regards,
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <label className="block text-sm font-bold text-gray-900">
-                      Message Template ({Array.isArray(service.method) ? service.method.map(m => m.toUpperCase()).join(' & ') : service.method?.toUpperCase()})
+                      Message Template ({Array.isArray(service.method) ? service.method.map((m: string) => m.toUpperCase()).join(' & ') : service.method?.toUpperCase()})
                     </label>
                     <div className="flex gap-2">
                       <button
@@ -595,7 +652,7 @@ Best regards,
                       </button>
                       <button
                         onClick={() => {
-                          navigator.clipboard.writeText(service.template);
+                          navigator.clipboard.writeText(service.template || '');
                         }}
                         className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                       >
@@ -653,7 +710,7 @@ Best regards,
                             if (textarea) {
                               const start = textarea.selectionStart;
                               const end = textarea.selectionEnd;
-                              const newText = service.template.substring(0, start) + variable + service.template.substring(end);
+                              const newText = (service.template || '').substring(0, start) + variable + (service.template || '').substring(end);
                               updateAutomationSetting(serviceKey, {
                                 ...service,
                                 template: newText
@@ -721,582 +778,348 @@ Best regards,
   };
 
   const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: Sparkles, description: 'Overview & Stats' },
-    { id: 'compose', label: 'Compose', icon: Send, description: 'Send Messages' },
-    { id: 'automations', label: 'Automations', icon: Zap, description: 'Smart Workflows' },
-    { id: 'inbox', label: 'Inbox', icon: Inbox, description: 'Replies & History' },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3, description: 'Performance' },
-    { id: 'settings', label: 'Settings', icon: Settings, description: 'Configuration' }
+    { id: 'dashboard', label: 'Dashboard', icon: 'solar:chart-bold-duotone', description: 'Overview & Stats' },
+    { id: 'messaging', label: 'Messaging', icon: 'solar:chat-round-dots-bold-duotone', description: 'All Messages' },
+    { id: 'automations', label: 'Automations', icon: 'solar:widget-add-bold-duotone', description: 'Smart Workflows' },
+    { id: 'analytics', label: 'Analytics', icon: 'solar:graph-bold-duotone', description: 'Performance' },
+    { id: 'settings', label: 'Settings', icon: 'solar:settings-bold-duotone', description: 'Configuration' }
   ];
 
+  const tabIcons: { [key in TabType]: string } = {
+    dashboard: 'solar:chart-bold-duotone',
+    messaging: 'solar:chat-round-dots-bold-duotone',
+    automations: 'solar:widget-add-bold-duotone',
+    analytics: 'solar:graph-bold-duotone',
+    settings: 'solar:settings-bold-duotone'
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-amber-500 to-orange-600 p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-              <MessageSquare className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">Communications Center</h2>
-              <p className="text-white/90">Messages sent out by this practice</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-white/20 rounded-lg px-3 py-2">
-              <Filter className="w-4 h-4" />
-              <select 
-                value={dateRange} 
-                onChange={(e) => setDateRange(e.target.value as typeof dateRange)}
-                className="bg-transparent border-none text-white text-sm focus:outline-none"
-              >
-                <option value="30d" className="text-gray-900">30 Days</option>
-                <option value="3m" className="text-gray-900">3 Months</option>
-                <option value="6m" className="text-gray-900">6 Months</option>
-                <option value="12m" className="text-gray-900">12 Months</option>
-              </select>
-            </div>
-            <button className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
-              <Download className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Premium Overview stats with icons and animations */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-          {/* SMS Available Card */}
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.05, duration: 0.3 }}
-            className="bg-gradient-to-br from-white/15 to-white/5 rounded-xl p-4 backdrop-blur-sm border border-white/20 hover:border-white/40 transition-all duration-200 group relative overflow-hidden"
-          >
-            {/* Premium Background Icon */}
-            <div className="absolute -right-2 -top-2 opacity-10 group-hover:opacity-20 transition-opacity duration-300">
-              <MessageSquare className="w-20 h-20 text-white transform rotate-12" />
-            </div>
-            <div className="relative z-10">
-              <p className="text-white/80 text-sm font-medium mb-1">SMS Available</p>
-              <p className="text-2xl font-bold text-white group-hover:scale-105 transition-transform duration-300">
-                {settingsLoading ? '...' : stats.sms.available}
-              </p>
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-white/60">of {settingsLoading ? '...' : stats.sms.assigned} assigned</p>
-                <div className="text-xs text-white/60 bg-white/10 px-2 py-1 rounded-full">SMS</div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Email Sent Card */}
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1, duration: 0.3 }}
-            className="bg-gradient-to-br from-white/15 to-white/5 rounded-xl p-4 backdrop-blur-sm border border-white/20 hover:border-white/40 transition-all duration-200 group relative overflow-hidden"
-          >
-            {/* Premium Background Icon */}
-            <div className="absolute -right-2 -top-2 opacity-10 group-hover:opacity-20 transition-opacity duration-300">
-              <Mail className="w-20 h-20 text-white transform rotate-12" />
-            </div>
-            <div className="relative z-10">
-              <p className="text-white/80 text-sm font-medium mb-1">Available Emails</p>
-              <p className="text-2xl font-bold text-white group-hover:scale-105 transition-transform duration-300">
-                {settingsLoading ? '...' : stats.email.available}
-              </p>
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-white/60">{settingsLoading ? '...' : stats.email.assigned} assigned</p>
-                <div className="text-xs text-white/60 bg-white/10 px-2 py-1 rounded-full">EMAIL</div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Delivery Rate Card */}
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.3 }}
-            className="bg-gradient-to-br from-white/15 to-white/5 rounded-xl p-4 backdrop-blur-sm border border-white/20 hover:border-white/40 transition-all duration-200 group relative overflow-hidden"
-          >
-            {/* Premium Background Icon */}
-            <div className="absolute -right-2 -top-2 opacity-10 group-hover:opacity-20 transition-opacity duration-300">
-              <TrendingUp className="w-20 h-20 text-white transform rotate-12" />
-            </div>
-            <div className="relative z-10">
-              <p className="text-white/80 text-sm font-medium mb-1">Delivery Rate</p>
-              <p className="text-2xl font-bold text-white group-hover:scale-105 transition-transform duration-300">{stats.deliveryRate.toFixed(1)}%</p>
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-white/60">last 30 days</p>
-                <div className="text-xs text-white/60 bg-white/10 px-2 py-1 rounded-full">RATE</div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Active Automations Card */}
-          <motion.div 
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.3 }}
-            className="bg-gradient-to-br from-white/15 to-white/5 rounded-xl p-4 backdrop-blur-sm border border-white/20 hover:border-white/40 transition-all duration-200 group relative overflow-hidden"
-          >
-            {/* Premium Background Icon */}
-            <div className="absolute -right-2 -top-2 opacity-10 group-hover:opacity-20 transition-opacity duration-300">
-              <Zap className="w-20 h-20 text-white transform rotate-12" />
-            </div>
-            <div className="relative z-10">
-              <p className="text-white/80 text-sm font-medium mb-1">Communication Services</p>
-              <p className="text-2xl font-bold text-white group-hover:scale-105 transition-transform duration-300">{stats.activeAutomations}</p>
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-white/60">services available</p>
-                <div className="text-xs text-white/60 bg-white/10 px-2 py-1 rounded-full">AUTO</div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-
-      {/* Navigation Tabs */}
-      <div className="bg-white border-b border-gray-200 px-6 sticky top-0 z-10">
-        <div className="flex w-full">
-          {tabs.map((tab, index) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <motion.button
-                key={tab.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ 
-                  opacity: 1, 
-                  y: 0,
-                  x: isActive ? [0, -2, 2, -1, 1, 0] : 0
-                }}
-                transition={{ 
-                  opacity: { delay: index * 0.05, duration: 0.3 },
-                  y: { delay: index * 0.05, duration: 0.3 },
-                  x: isActive ? { 
-                    duration: 0.5, 
-                    repeat: Infinity, 
-                    repeatDelay: 3,
-                    ease: "easeInOut"
-                  } : { duration: 0.3 }
-                }}
-                whileHover={{ 
-                  scale: 1.02,
-                  y: -2,
-                  transition: { duration: 0.2 }
-                }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setActiveTab(tab.id as TabType)}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-300 relative ${
-                  isActive
-                    ? 'text-amber-600 border-amber-500 bg-gradient-to-t from-amber-50 to-transparent'
-                    : 'text-gray-500 border-transparent hover:text-amber-600 hover:bg-amber-50/50'
-                }`}
-              >
-                <motion.div
-                  animate={isActive ? { 
-                    scale: [1, 1.2, 1, 1.2, 1],
-                  } : { scale: 1 }}
-                  transition={{ 
-                    duration: isActive ? 1.2 : 0.3, 
-                    ease: "easeInOut",
-                    repeat: isActive ? Infinity : 0,
-                    repeatDelay: 2
-                  }}
-                >
-                  <Icon className={`w-4 h-4 transition-all duration-300 ${
-                    isActive ? 'text-amber-600 drop-shadow-sm' : ''
-                  }`} />
-                </motion.div>
-                <span className="hidden sm:inline font-medium">{tab.label}</span>
-                
-              </motion.button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Content Area */}
-      <div className="flex-1">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.15 }}
-            className="p-6"
-          >
-            {/* Dashboard Tab */}
-            {activeTab === 'dashboard' && (
-              <div className="space-y-6">
-                {/* Charts Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Premium Message Volume Chart */}
-                  <motion.div 
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1, duration: 0.3 }}
-                    className="bg-gradient-to-br from-white via-orange-50/30 to-amber-50/50 rounded-2xl shadow-xl border border-orange-100/50 p-6 backdrop-blur-sm hover:shadow-2xl transition-all duration-300"
-                  >
-                    <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-lg font-bold text-gray-900 flex items-center gap-3">
-                        <div className="p-2 bg-gradient-to-r from-amber-500 to-orange-600 rounded-lg shadow-lg">
-                          <BarChart3 className="w-5 h-5 text-white" />
-                        </div>
-                        Message Volume
-                      </h3>
-                      <div className="text-xs bg-gradient-to-r from-amber-500 to-orange-600 text-white px-3 py-1 rounded-full font-medium">
-                        Last 7 Days
-                      </div>
-                    </div>
-                    <div className="h-64 flex items-end justify-between bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-4 border border-orange-100/50">
-                      {[12, 8, 15, 22, 18, 25, 30].map((value, index) => {
-                        const height = (value / 30) * 100;
-                        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                        return (
-                          <div key={index} className="flex flex-col items-center gap-2 group">
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: `${height}%`, opacity: 1 }}
-                              transition={{ duration: 0.6, delay: index * 0.05, ease: "easeOut" }}
-                              whileHover={{ scale: 1.05 }}
-                              className="bg-gradient-to-t from-amber-500 via-orange-500 to-orange-600 rounded-t-lg w-8 min-h-[6px] shadow-lg group-hover:shadow-xl transition-all duration-300 cursor-pointer relative overflow-hidden"
-                              title={`${value} messages`}
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                            </motion.div>
-                            <span className="text-xs font-medium text-gray-600 group-hover:text-orange-600 transition-colors duration-300">{days[index]}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-
-                  {/* Premium Message Types Distribution */}
-                  <motion.div 
-                    initial={{ opacity: 0, x: 10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.15, duration: 0.3 }}
-                    className="bg-gradient-to-br from-white via-orange-50/30 to-amber-50/50 rounded-2xl shadow-xl border border-orange-100/50 p-6 backdrop-blur-sm hover:shadow-2xl transition-all duration-300"
-                  >
-                    <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-lg font-bold text-gray-900 flex items-center gap-3">
-                        <div className="p-2 bg-gradient-to-r from-amber-500 to-orange-600 rounded-lg shadow-lg">
-                          <Target className="w-5 h-5 text-white" />
-                        </div>
-                        Message Types
-                      </h3>
-                      <div className="text-xs bg-gradient-to-r from-amber-500 to-orange-600 text-white px-3 py-1 rounded-full font-medium">
-                        Distribution
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-center h-64">
-                      <div className="relative w-48 h-48 group">
-                        {/* Premium Animated Pie Chart */}
-                        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                          <circle
-                            cx="50"
-                            cy="50"
-                            r="40"
-                            stroke="#f3f4f6"
-                            strokeWidth="8"
-                            fill="transparent"
-                            className="opacity-30"
-                          />
-                          {/* SMS segment (65%) with animation */}
-                          <motion.circle
-                            cx="50"
-                            cy="50"
-                            r="40"
-                            stroke="url(#orangeGradient)"
-                            strokeWidth="8"
-                            fill="transparent"
-                            strokeDasharray="163 88"
-                            initial={{ strokeDashoffset: 251 }}
-                            animate={{ strokeDashoffset: 0 }}
-                            transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
-                            className="opacity-90 drop-shadow-lg"
-                          />
-                          {/* Email segment (35%) with animation */}
-                          <motion.circle
-                            cx="50"
-                            cy="50"
-                            r="40"
-                            stroke="url(#amberGradient)"
-                            strokeWidth="8"
-                            fill="transparent"
-                            strokeDasharray="88 163"
-                            initial={{ strokeDashoffset: -75 }}
-                            animate={{ strokeDashoffset: -163 }}
-                            transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
-                            className="opacity-90 drop-shadow-lg"
-                          />
-                          <defs>
-                            <linearGradient id="orangeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                              <stop offset="0%" stopColor="#f97316" />
-                              <stop offset="100%" stopColor="#ea580c" />
-                            </linearGradient>
-                            <linearGradient id="amberGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                              <stop offset="0%" stopColor="#f59e0b" />
-                              <stop offset="100%" stopColor="#d97706" />
-                            </linearGradient>
-                          </defs>
-                        </svg>
-                        <motion.div 
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: 0.6, duration: 0.3 }}
-                          className="absolute inset-0 flex items-center justify-center"
-                        >
-                          <div className="text-center bg-white/80 backdrop-blur-sm rounded-full p-4 shadow-lg">
-                            <div className="text-2xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">{stats.messagesOut}</div>
-                            <div className="text-sm text-gray-600 font-medium">Total</div>
-                          </div>
-                        </motion.div>
-                      </div>
-                    </div>
-                    <div className="flex justify-center gap-6 mt-6">
-                      <motion.div 
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.8, duration: 0.2 }}
-                        className="flex items-center gap-3 bg-white/60 backdrop-blur-sm px-4 py-2 rounded-full shadow-md"
-                      >
-                        <div className="w-3 h-3 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full shadow-sm"></div>
-                        <span className="text-sm font-medium text-gray-700">SMS (65%)</span>
-                      </motion.div>
-                      <motion.div 
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.9, duration: 0.2 }}
-                        className="flex items-center gap-3 bg-white/60 backdrop-blur-sm px-4 py-2 rounded-full shadow-md"
-                      >
-                        <div className="w-3 h-3 bg-gradient-to-r from-amber-500 to-amber-600 rounded-full shadow-sm"></div>
-                        <span className="text-sm font-medium text-gray-700">Email (35%)</span>
-                      </motion.div>
-                    </div>
-                  </motion.div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+        
+        {/* Header Section */}
+        <div className="rounded-xl">
+          <div className="p-4 md:p-5">
+            <div className="flex items-center justify-between">
+              {/* Page Title and Icon */}
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg">
+                  <Icon icon="solar:chat-round-bold-duotone" className="w-8 h-8 text-white" />
                 </div>
-
-                {/* Additional Premium Charts Row */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Engagement Rate Chart */}
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2, duration: 0.3 }}
-                    className="bg-gradient-to-br from-white via-orange-50/30 to-amber-50/50 rounded-2xl shadow-xl border border-orange-100/50 p-6 backdrop-blur-sm hover:shadow-2xl transition-all duration-300"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                        <div className="p-1.5 bg-gradient-to-r from-amber-500 to-orange-600 rounded-lg">
-                          <TrendingUp className="w-4 h-4 text-white" />
-                        </div>
-                        Engagement
-                      </h4>
-                    </div>
-                    <div className="relative">
-                      <div className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">78.5%</div>
-                      <div className="text-sm text-gray-600 mb-4">Click-through rate</div>
-                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: "78.5%" }}
-                          transition={{ delay: 0.4, duration: 0.8, ease: "easeOut" }}
-                          className="h-full bg-gradient-to-r from-amber-500 to-orange-600 rounded-full shadow-sm"
-                        />
-                      </div>
-                    </div>
-                  </motion.div>
-
-                  {/* Response Time Chart */}
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.25, duration: 0.3 }}
-                    className="bg-gradient-to-br from-white via-orange-50/30 to-amber-50/50 rounded-2xl shadow-xl border border-orange-100/50 p-6 backdrop-blur-sm hover:shadow-2xl transition-all duration-300"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                        <div className="p-1.5 bg-gradient-to-r from-amber-500 to-orange-600 rounded-lg">
-                          <Clock className="w-4 h-4 text-white" />
-                        </div>
-                        Response Time
-                      </h4>
-                    </div>
-                    <div className="relative">
-                      <div className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">2.3s</div>
-                      <div className="text-sm text-gray-600 mb-4">Average delivery</div>
-                      <div className="flex items-end gap-1 h-12">
-                        {[85, 92, 78, 95, 88, 90].map((height, index) => (
-                          <motion.div
-                            key={index}
-                            initial={{ height: 0 }}
-                            animate={{ height: `${height}%` }}
-                            transition={{ delay: 0.5 + index * 0.05, duration: 0.4, ease: "easeOut" }}
-                            className="flex-1 bg-gradient-to-t from-amber-500 to-orange-600 rounded-t min-h-[2px] shadow-sm"
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </motion.div>
-
-                  {/* Success Rate Chart */}
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.3, duration: 0.3 }}
-                    className="bg-gradient-to-br from-white via-orange-50/30 to-amber-50/50 rounded-2xl shadow-xl border border-orange-100/50 p-6 backdrop-blur-sm hover:shadow-2xl transition-all duration-300"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                        <div className="p-1.5 bg-gradient-to-r from-amber-500 to-orange-600 rounded-lg">
-                          <CheckCircle className="w-4 h-4 text-white" />
-                        </div>
-                        Success Rate
-                      </h4>
-                    </div>
-                    <div className="relative">
-                      <div className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">94.2%</div>
-                      <div className="text-sm text-gray-600 mb-4">Delivery success</div>
-                      <div className="relative w-16 h-16 mx-auto">
-                        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                          <circle
-                            cx="50"
-                            cy="50"
-                            r="40"
-                            stroke="#f3f4f6"
-                            strokeWidth="8"
-                            fill="transparent"
-                          />
-                          <motion.circle
-                            cx="50"
-                            cy="50"
-                            r="40"
-                            stroke="url(#successGradient)"
-                            strokeWidth="8"
-                            fill="transparent"
-                            strokeDasharray="251.2 251.2"
-                            initial={{ strokeDashoffset: 251.2 }}
-                            animate={{ strokeDashoffset: 14.57 }}
-                            transition={{ delay: 0.6, duration: 1, ease: "easeOut" }}
-                            className="drop-shadow-sm"
-                          />
-                          <defs>
-                            <linearGradient id="successGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                              <stop offset="0%" stopColor="#f59e0b" />
-                              <stop offset="100%" stopColor="#ea580c" />
-                            </linearGradient>
-                          </defs>
-                        </svg>
-                      </div>
-                    </div>
-                  </motion.div>
+                <div>
+                  <h1 className="text-2xl font-semibold text-gray-800">Communications Center</h1>
+                  <p className="text-sm text-gray-500 mt-0.5">Manage all your practice communications</p>
                 </div>
+              </div>
 
-                {/* Performance Metrics */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-emerald-600" />
-                    Performance Trends (Last 30 Days)
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Delivery Rate Trend */}
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-emerald-600 mb-2">{stats.deliveryRate.toFixed(1)}%</div>
-                      <div className="text-sm text-gray-600 mb-3">Average Delivery Rate</div>
-                      <div className="h-16 flex items-end justify-between bg-gray-50 rounded p-2">
-                        {[95, 97, 94, 98, 96, 99, 97].map((rate, index) => (
-                          <div
-                            key={index}
-                            className="bg-emerald-500 w-2 rounded-t"
-                            style={{ height: `${rate}%` }}
-                          />
-                        ))}
-                      </div>
+              {/* User Avatar with Dropdown */}
+              {user && (
+                <div className="relative">
+                  <button
+                    ref={avatarButtonRef}
+                    onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
+                    className="relative group focus:outline-none"
+                  >
+                    {/* Pulsating outer ring */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
+                    <div className={`absolute -inset-1 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full opacity-50`}></div>
+                    
+                    {/* Avatar circle */}
+                    <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                      <img 
+                        src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
+                        alt={user.name}
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
+                        }}
+                      />
                     </div>
+                  </button>
 
-                    {/* Response Rate */}
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-blue-600 mb-2">{stats.engagementRate}%</div>
-                      <div className="text-sm text-gray-600 mb-3">Engagement Rate</div>
-                      <div className="h-16 flex items-end justify-between bg-gray-50 rounded p-2">
-                        {[70, 72, 75, 78, 74, 76, 80].map((rate, index) => (
-                          <div
-                            key={index}
-                            className="bg-blue-500 w-2 rounded-t"
-                            style={{ height: `${rate}%` }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Cost Efficiency */}
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-purple-600 mb-2">N${stats.sms.cost.toFixed(2)}</div>
-                      <div className="text-sm text-gray-600 mb-3">SMS Costs Today</div>
-                      <div className="h-16 flex items-end justify-between bg-gray-50 rounded p-2">
-                        {[45, 52, 38, 41, 47, 39, 43].map((cost, index) => (
-                          <div
-                            key={index}
-                            className="bg-purple-500 w-2 rounded-t"
-                            style={{ height: `${(cost / 60) * 100}%` }}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quick Actions & Recent Messages */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Quick Actions */}
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-                    <div className="space-y-3">
-                      <button
-                        onClick={() => setActiveTab('compose')}
-                        className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg hover:shadow-lg transition-all"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Send className="w-5 h-5" />
-                          <span className="font-medium">Compose Message</span>
-                        </div>
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
+                  {/* Premium Dropdown Modal - Using Portal for maximum z-index control */}
+                  {isAvatarDropdownOpen && createPortal(
+                    <>
+                      {/* Backdrop */}
+                      <div 
+                        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[99998] animate-in fade-in duration-200" 
+                        onClick={() => setIsAvatarDropdownOpen(false)}
+                      />
                       
-                      <button
-                        onClick={() => setActiveTab('automations')}
-                        className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                      {/* Premium Modal Dropdown */}
+                      <div 
+                        style={{
+                          position: 'fixed',
+                          top: avatarButtonRef.current ? avatarButtonRef.current.getBoundingClientRect().bottom + 16 : 0,
+                          right: avatarButtonRef.current ? window.innerWidth - avatarButtonRef.current.getBoundingClientRect().right : 0,
+                          zIndex: 99999
+                        }}
+                        className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 w-[320px] animate-in fade-in slide-in-from-top-3 duration-300"
                       >
-                        <div className="flex items-center gap-3">
-                          <Zap className="w-5 h-5 text-purple-600" />
-                          <span className="font-medium text-gray-900">Setup Automations</span>
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-6">
+                          <h3 className="text-xl font-bold text-gray-900">User Profile</h3>
+                          <button 
+                            onClick={() => setIsAvatarDropdownOpen(false)}
+                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                          >
+                            <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
+                          </button>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-gray-400" />
-                      </button>
+                        
+                        {/* User Info Card */}
+                        <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl p-4 mb-6">
+                          <div className="flex items-center gap-4">
+                            <div className="relative">
+                              <div className="h-14 w-14 rounded-full overflow-hidden border-3 border-white shadow-lg">
+                                <img 
+                                  src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
+                                  alt={user.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              </div>
+                              <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-base font-semibold text-gray-900">{user.name}</p>
+                              <p className="text-sm text-gray-500">{user.email}</p>
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-500 to-indigo-600 text-white mt-1">
+                                {user.role}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Logout Button */}
+                        <button
+                          onClick={() => {
+                            setIsAvatarDropdownOpen(false);
+                            logout();
+                          }}
+                          className="w-full py-3 px-4 bg-gradient-to-r from-red-500 to-red-600 text-white font-medium rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                        >
+                          <Icon icon="solar:logout-3-bold-duotone" className="w-5 h-5" />
+                          <span>Sign Out</span>
+                        </button>
+                      </div>
+                    </>,
+                    document.body
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
-                      <button
-                        onClick={() => setActiveTab('settings')}
-                        className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Settings className="w-5 h-5 text-gray-600" />
-                          <span className="font-medium text-gray-900">Communication Settings</span>
+        {/* Premium Navigation Tabs */}
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="grid grid-cols-5 gap-0 w-full">
+            {(tabs).map((tab) => {
+              const iconName = tabIcons[tab.id as TabType];
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as TabType)}
+                  className={`relative flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-all duration-200 capitalize min-h-[60px] ${
+                    isActive
+                      ? `bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg`
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <Icon icon={iconName} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
+                  <span className="truncate text-center sm:text-left">{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.15 }}
+              className="min-h-[600px]"
+            >
+              {/* Dashboard Tab */}
+              {activeTab === 'dashboard' && (
+                <div className="p-6 space-y-6">
+                  {/* Premium Overview stats - Only in Dashboard */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {/* SMS Available Card */}
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.05, duration: 0.3 }}
+                      className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-300"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
+                          <Icon icon="solar:chat-round-bold-duotone" className="w-6 h-6 text-white" />
                         </div>
-                        <ChevronRight className="w-4 h-4 text-gray-400" />
-                      </button>
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">SMS</span>
+                      </div>
+                      <p className="text-gray-600 text-sm font-medium mb-1">SMS Available</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {settingsLoading ? '...' : stats.sms.available}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">of {settingsLoading ? '...' : stats.sms.assigned} assigned</p>
+                    </motion.div>
+
+                    {/* Email Available Card */}
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1, duration: 0.3 }}
+                      className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-300"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg">
+                          <Icon icon="solar:letter-bold-duotone" className="w-6 h-6 text-white" />
+                        </div>
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">EMAIL</span>
+                      </div>
+                      <p className="text-gray-600 text-sm font-medium mb-1">Available Emails</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {settingsLoading ? '...' : stats.email.available}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">{settingsLoading ? '...' : stats.email.assigned} assigned</p>
+                    </motion.div>
+
+                    {/* Delivery Rate Card */}
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.15, duration: 0.3 }}
+                      className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-300"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg">
+                          <Icon icon="solar:graph-up-bold-duotone" className="w-6 h-6 text-white" />
+                        </div>
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">RATE</span>
+                      </div>
+                      <p className="text-gray-600 text-sm font-medium mb-1">Delivery Rate</p>
+                      <p className="text-2xl font-bold text-gray-900">{stats.deliveryRate.toFixed(1)}%</p>
+                      <p className="text-xs text-gray-500 mt-2">last 30 days</p>
+                    </motion.div>
+
+                    {/* Active Services Card */}
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2, duration: 0.3 }}
+                      className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-300"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg">
+                          <Icon icon="solar:widget-add-bold-duotone" className="w-6 h-6 text-white" />
+                        </div>
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">AUTO</span>
+                      </div>
+                      <p className="text-gray-600 text-sm font-medium mb-1">Communication Services</p>
+                      <p className="text-2xl font-bold text-gray-900">{stats.activeAutomations}</p>
+                      <p className="text-xs text-gray-500 mt-2">services available</p>
+                    </motion.div>
+                  </div>
+
+                  {/* Charts Section */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Premium Message Volume Chart */}
+                    <motion.div 
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1, duration: 0.3 }}
+                      className="bg-gradient-to-br from-white via-orange-50/30 to-amber-50/50 rounded-2xl shadow-xl border border-orange-100/50 p-6 backdrop-blur-sm hover:shadow-2xl transition-all duration-300"
+                    >
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-3">
+                          <div className="p-2 bg-gradient-to-r from-amber-500 to-orange-600 rounded-lg shadow-lg">
+                            <Icon icon="solar:graph-bold-duotone" className="w-5 h-5 text-white" />
+                          </div>
+                          Message Volume
+                        </h3>
+                        <div className="text-xs bg-gradient-to-r from-amber-500 to-orange-600 text-white px-3 py-1 rounded-full font-medium">
+                          Last 7 Days
+                        </div>
+                      </div>
+                      <div className="h-64 flex items-end justify-between bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-4 border border-orange-100/50">
+                        {[12, 8, 15, 22, 18, 25, 30].map((value, index) => {
+                          const height = (value / 30) * 100;
+                          const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                          return (
+                            <div key={index} className="flex flex-col items-center gap-2 group">
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: `${height}%`, opacity: 1 }}
+                                transition={{ duration: 0.6, delay: index * 0.05, ease: "easeOut" }}
+                                whileHover={{ scale: 1.05 }}
+                                className="bg-gradient-to-t from-amber-500 via-orange-500 to-orange-600 rounded-t-lg w-8 min-h-[6px] shadow-lg group-hover:shadow-xl transition-all duration-300 cursor-pointer relative overflow-hidden"
+                                title={`${value} messages`}
+                              >
+                                <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                              </motion.div>
+                              <span className="text-xs font-medium text-gray-600 group-hover:text-orange-600 transition-colors duration-300">{days[index]}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+
+                    {/* Quick Actions */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+                      <div className="space-y-3">
+                        <button
+                          onClick={() => {
+                            setActiveTab('messaging');
+                            setComposeMode(true);
+                          }}
+                          className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg hover:shadow-lg transition-all"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Icon icon="solar:pen-new-square-bold-duotone" className="w-5 h-5" />
+                            <span className="font-medium">Compose Message</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                        
+                        <button
+                          onClick={() => setActiveTab('automations')}
+                          className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Icon icon="solar:widget-add-bold-duotone" className="w-5 h-5 text-purple-600" />
+                            <span className="font-medium text-gray-900">Setup Automations</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-gray-400" />
+                        </button>
+
+                        <button
+                          onClick={() => setActiveTab('settings')}
+                          className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Icon icon="solar:settings-bold-duotone" className="w-5 h-5 text-gray-600" />
+                            <span className="font-medium text-gray-900">Communication Settings</span>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-gray-400" />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Recent Messages */}
+                  {/* Recent Activity */}
                   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Recent Messages</h3>
+                      <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
                       <button
-                        onClick={() => setActiveTab('inbox')}
+                        onClick={() => setActiveTab('messaging')}
                         className="text-[#01b9d5] hover:text-[#01a3c7] text-sm font-medium"
                       >
                         View All
@@ -1304,212 +1127,538 @@ Best regards,
                     </div>
                     
                     <div className="space-y-3 max-h-80 overflow-y-auto">
-                      {recentMessages.length > 0 ? (
-                        recentMessages.map((message) => (
-                          <div key={message.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                            <div className="p-2 bg-white rounded-lg">
-                              {message.type === 'SMS' ? (
-                                <MessageSquare className="w-4 h-4 text-purple-600" />
-                              ) : (
-                                <Mail className="w-4 h-4 text-blue-600" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-900 truncate">
-                                {message.patients ? 
-                                  `${message.patients.first_name} ${message.patients.last_name}` : 
-                                  message.recipient_address
-                                }
-                              </p>
-                              <p className="text-sm text-gray-600 truncate">{message.body_preview}</p>
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {format(new Date(message.created_at), 'HH:mm')}
-                            </div>
+                      {messages.slice(0, 5).map((message) => (
+                        <div key={message.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                          <div className="p-2 bg-white rounded-lg">
+                            <Icon icon={message.type === 'SMS' ? 'solar:chat-square-bold-duotone' : 'solar:letter-bold-duotone'} 
+                              className={`w-4 h-4 ${message.type === 'SMS' ? 'text-purple-600' : 'text-blue-600'}`} />
                           </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-8">
-                          <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-500">No messages sent today</p>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 truncate">
+                              {message.patients ? 
+                                `${message.patients.first_name} ${message.patients.last_name}` : 
+                                message.recipient_address
+                              }
+                            </p>
+                            <p className="text-sm text-gray-600 truncate">{message.body_preview}</p>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {format(new Date(message.created_at), 'HH:mm')}
+                          </div>
                         </div>
-                      )}
+                      ))}
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Compose Tab */}
-            {activeTab === 'compose' && (
-              <div className="h-full">
-                <Compose />
-              </div>
-            )}
-
-            {/* Automations Tab */}
-            {activeTab === 'automations' && (
-              <div className="h-full">
-                <SmartAutomations />
-              </div>
-            )}
-
-            {/* Inbox/History Tab */}
-            {activeTab === 'inbox' && (
-              <div className="h-full">
-                <CommunicationHistory />
-              </div>
-            )}
-
-            {/* Analytics Tab */}
-            {activeTab === 'analytics' && (
-              <div className="text-center py-12">
-                <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Analytics Dashboard</h3>
-                <p className="text-gray-600">Detailed communication analytics coming soon.</p>
-              </div>
-            )}
-
-            {/* Settings Tab */}
-            {activeTab === 'settings' && (
-              <div>
-                <div className="mb-8">
-                  <h2 className="text-3xl font-bold text-gray-900 mb-2">Communication Services</h2>
-                  <p className="text-gray-600">Configure automated messaging services with custom templates and timing</p>
+              {/* Messaging Tab - Combined Compose and Inbox */}
+              {activeTab === 'messaging' && (
+                <div className="flex h-[calc(100vh-300px)]">
+                  {/* Message List Sidebar */}
+                  <div className="w-96 border-r border-gray-200 flex flex-col">
+                    {/* Messaging Header */}
+                    <div className="p-4 border-b border-gray-200">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
+                        <button
+                          onClick={() => setComposeMode(!composeMode)}
+                          className="p-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:shadow-lg transition-all"
+                        >
+                          <Icon icon="solar:pen-new-square-bold-duotone" className="w-5 h-5" />
+                        </button>
+                      </div>
+                      
+                      {/* Search Bar */}
+                      <div className="relative mb-4">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search messages..."
+                          value={messageSearch}
+                          onChange={(e) => setMessageSearch(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      {/* Filter Tabs */}
+                      <div className="flex gap-2 mb-4">
+                        {['all', 'sms', 'email'].map((view) => (
+                          <button
+                            key={view}
+                            onClick={() => setMessagingView(view as typeof messagingView)}
+                            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                              messagingView === view
+                                ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                            {view === 'all' && <Icon icon="solar:list-bold-duotone" className="w-4 h-4 inline mr-1" />}
+                            {view === 'sms' && <Icon icon="solar:chat-square-bold-duotone" className="w-4 h-4 inline mr-1" />}
+                            {view === 'email' && <Icon icon="solar:letter-bold-duotone" className="w-4 h-4 inline mr-1" />}
+                            {view.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      {/* Inbox/Sent Filters */}
+                      <div className="flex gap-2">
+                        {['all', 'inbox', 'sent'].map((filter) => (
+                          <button
+                            key={filter}
+                            onClick={() => setMessageFilter(filter as typeof messageFilter)}
+                            className={`flex-1 py-1.5 px-3 rounded text-xs font-medium transition-all ${
+                              messageFilter === filter
+                                ? 'bg-gray-900 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                          >
+                            {filter === 'all' && 'All Messages'}
+                            {filter === 'inbox' && 'Inbox'}
+                            {filter === 'sent' && 'Sent'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Message List */}
+                    <div className="flex-1 overflow-y-auto">
+                      {filteredMessages.length === 0 ? (
+                        <div className="text-center py-12">
+                          <Icon icon="solar:inbox-bold-duotone" className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                          <p className="text-gray-500">No messages found</p>
+                        </div>
+                      ) : (
+                        filteredMessages.map((message) => (
+                          <div
+                            key={message.id}
+                            onClick={() => setSelectedMessage(message)}
+                            className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-all ${
+                              selectedMessage?.id === message.id ? 'bg-amber-50 border-l-4 border-amber-500' : ''
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="flex-shrink-0">
+                                {message.patients?.avatar ? (
+                                  <img 
+                                    src={message.patients.avatar} 
+                                    alt="" 
+                                    className="w-10 h-10 rounded-full"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center">
+                                    <span className="text-white font-semibold">
+                                      {message.patients?.first_name?.[0] || message.recipient_address[0].toUpperCase()}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-1">
+                                  <p className="font-medium text-gray-900 truncate">
+                                    {message.patients ? 
+                                      `${message.patients.first_name} ${message.patients.last_name}` : 
+                                      message.recipient_address
+                                    }
+                                  </p>
+                                  <span className="text-xs text-gray-500">
+                                    {format(new Date(message.created_at), 'MMM d')}
+                                  </span>
+                                </div>
+                                {message.subject && (
+                                  <p className="text-sm font-medium text-gray-800 truncate mb-1">{message.subject}</p>
+                                )}
+                                <p className="text-sm text-gray-600 truncate">{message.body_preview}</p>
+                                <div className="flex items-center gap-2 mt-2">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                    message.type === 'SMS' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                                  }`}>
+                                    <Icon icon={message.type === 'SMS' ? 'solar:chat-square-bold' : 'solar:letter-bold'} className="w-3 h-3 mr-1" />
+                                    {message.type}
+                                  </span>
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                    message.direction === 'inbound' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    <Icon icon={message.direction === 'inbound' ? 'solar:inbox-in-bold' : 'solar:inbox-out-bold'} className="w-3 h-3 mr-1" />
+                                    {message.direction === 'inbound' ? 'Received' : 'Sent'}
+                                  </span>
+                                  {message.status === 'delivered' && (
+                                    <Icon icon="solar:check-read-bold" className="w-4 h-4 text-green-600" />
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Message Detail / Compose Area */}
+                  <div className="flex-1 flex flex-col">
+                    {composeMode ? (
+                      /* Compose Mode */
+                      <div className="flex-1 p-6">
+                        <div className="max-w-4xl mx-auto">
+                          <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-semibold text-gray-900">New Message</h2>
+                            <button
+                              onClick={() => setComposeMode(false)}
+                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                              <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
+                            </button>
+                          </div>
+                          
+                          {/* Message Type Selector */}
+                          <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Message Type</label>
+                            <div className="flex gap-3">
+                              <button
+                                onClick={() => setNewMessage({ ...newMessage, type: 'email' })}
+                                className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+                                  newMessage.type === 'email'
+                                    ? 'border-amber-500 bg-amber-50 text-amber-700'
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                              >
+                                <Icon icon="solar:letter-bold-duotone" className="w-5 h-5 inline mr-2" />
+                                Email
+                              </button>
+                              <button
+                                onClick={() => setNewMessage({ ...newMessage, type: 'sms' })}
+                                className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+                                  newMessage.type === 'sms'
+                                    ? 'border-amber-500 bg-amber-50 text-amber-700'
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                              >
+                                <Icon icon="solar:chat-square-bold-duotone" className="w-5 h-5 inline mr-2" />
+                                SMS
+                              </button>
+                            </div>
+                          </div>
+                          
+                          {/* Recipient */}
+                          <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              {newMessage.type === 'email' ? 'Email Address' : 'Phone Number'}
+                            </label>
+                            <input
+                              type={newMessage.type === 'email' ? 'email' : 'tel'}
+                              value={newMessage.recipient}
+                              onChange={(e) => setNewMessage({ ...newMessage, recipient: e.target.value })}
+                              placeholder={newMessage.type === 'email' ? 'patient@example.com' : '+264 81 234 5678'}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                            />
+                          </div>
+                          
+                          {/* Subject (Email only) */}
+                          {newMessage.type === 'email' && (
+                            <div className="mb-6">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                              <input
+                                type="text"
+                                value={newMessage.subject}
+                                onChange={(e) => setNewMessage({ ...newMessage, subject: e.target.value })}
+                                placeholder="Enter email subject"
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                              />
+                            </div>
+                          )}
+                          
+                          {/* Message Body */}
+                          <div className="mb-6">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                            <textarea
+                              value={newMessage.body}
+                              onChange={(e) => setNewMessage({ ...newMessage, body: e.target.value })}
+                              placeholder={newMessage.type === 'email' ? 'Type your email message...' : 'Type your SMS message (160 characters)'}
+                              rows={newMessage.type === 'email' ? 12 : 4}
+                              maxLength={newMessage.type === 'sms' ? 160 : undefined}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
+                            />
+                            {newMessage.type === 'sms' && (
+                              <p className="text-xs text-gray-500 mt-1 text-right">
+                                {newMessage.body.length}/160 characters
+                              </p>
+                            )}
+                          </div>
+                          
+                          {/* Actions */}
+                          <div className="flex items-center justify-between">
+                            <button
+                              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                              <Paperclip className="w-4 h-4" />
+                              Attach File
+                            </button>
+                            
+                            <div className="flex gap-3">
+                              <button
+                                onClick={() => {
+                                  setComposeMode(false);
+                                  setNewMessage({ type: 'email', recipient: '', subject: '', body: '' });
+                                }}
+                                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={sendMessage}
+                                className="px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
+                              >
+                                <Send className="w-4 h-4" />
+                                Send {newMessage.type === 'email' ? 'Email' : 'SMS'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : selectedMessage ? (
+                      /* Message Detail View */
+                      <div className="flex-1 flex flex-col">
+                        {/* Message Header */}
+                        <div className="p-4 border-b border-gray-200 bg-gray-50">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              {selectedMessage.patients?.avatar ? (
+                                <img 
+                                  src={selectedMessage.patients.avatar} 
+                                  alt="" 
+                                  className="w-12 h-12 rounded-full"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center">
+                                  <span className="text-white font-semibold text-lg">
+                                    {selectedMessage.patients?.first_name?.[0] || selectedMessage.recipient_address[0].toUpperCase()}
+                                  </span>
+                                </div>
+                              )}
+                              <div>
+                                <h3 className="font-semibold text-gray-900">
+                                  {selectedMessage.patients ? 
+                                    `${selectedMessage.patients.first_name} ${selectedMessage.patients.last_name}` : 
+                                    selectedMessage.recipient_address
+                                  }
+                                </h3>
+                                <p className="text-sm text-gray-500">
+                                  {selectedMessage.type} • {format(new Date(selectedMessage.created_at), 'MMM d, yyyy h:mm a')}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+                                <Icon icon="solar:reply-bold-duotone" className="w-5 h-5 text-gray-600" />
+                              </button>
+                              <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+                                <Icon icon="solar:forward-bold-duotone" className="w-5 h-5 text-gray-600" />
+                              </button>
+                              <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
+                                <MoreVertical className="w-5 h-5 text-gray-600" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Message Content */}
+                        <div className="flex-1 p-6 overflow-y-auto">
+                          {selectedMessage.subject && (
+                            <h2 className="text-xl font-semibold text-gray-900 mb-4">{selectedMessage.subject}</h2>
+                          )}
+                          <div className="prose prose-gray max-w-none">
+                            <p className="whitespace-pre-wrap">{selectedMessage.body || selectedMessage.body_preview}</p>
+                          </div>
+                        </div>
+                        
+                        {/* Reply Section */}
+                        <div className="p-4 border-t border-gray-200 bg-gray-50">
+                          <div className="flex gap-3">
+                            <input
+                              type="text"
+                              placeholder="Type a reply..."
+                              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                            />
+                            <button className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:shadow-lg transition-all">
+                              <Send className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* No Message Selected */
+                      <div className="flex-1 flex items-center justify-center">
+                        <div className="text-center">
+                          <Icon icon="solar:chat-round-dots-bold-duotone" className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500 text-lg">Select a message to view details</p>
+                          <p className="text-gray-400 text-sm mt-2">Or compose a new message</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
+              )}
 
-                <div className="space-y-4">
-                  {/* Service Configuration Cards */}
-                  {renderServiceCard('appointmentReminders', {
-                    title: 'Appointment Reminders',
-                    description: 'Send automated reminders before scheduled appointments',
-                    icon: Bell,
-                    color: 'blue',
-                    timingOptions: [
-                      { value: '24h', label: '24 hours before' },
-                      { value: '2h', label: '2 hours before' },
-                      { value: '30m', label: '30 minutes before' }
-                    ],
-                    variables: [
-                      '{{patientName}}', '{{appointmentDate}}', '{{appointmentTime}}', 
-                      '{{doctorName}}', '{{practicePhone}}', '{{practiceName}}', '{{practiceWebsite}}'
-                    ]
-                  })}
-
-                  {renderServiceCard('birthdayMessages', {
-                    title: 'Birthday Messages',
-                    description: 'Send personalized birthday greetings with special offers',
-                    icon: Heart,
-                    color: 'pink',
-                    timingOptions: [
-                      { value: 'morning', label: 'Morning of birthday' },
-                      { value: 'afternoon', label: 'Afternoon of birthday' }
-                    ],
-                    variables: [
-                      '{{patientName}}', '{{practicePhone}}', '{{practiceName}}', '{{practiceWebsite}}', '{{specialOffer}}'
-                    ]
-                  })}
-
-                  {renderServiceCard('paymentReminders', {
-                    title: 'Payment Reminders',
-                    description: 'Automated reminders for overdue payments and invoices',
-                    icon: DollarSign,
-                    color: 'green',
-                    timingOptions: [
-                      { value: '7d', label: '7 days after due date' },
-                      { value: '14d', label: '14 days after due date' },
-                      { value: '30d', label: '30 days after due date' }
-                    ],
-                    variables: [
-                      '{{patientName}}', '{{invoiceNumber}}', '{{amount}}', 
-                      '{{dueDate}}', '{{paymentLink}}', '{{practicePhone}}'
-                    ]
-                  })}
-
-                  {renderServiceCard('invoiceDelivery', {
-                    title: 'Invoice Delivery',
-                    description: 'Automatically send invoices after completed visits',
-                    icon: FileText,
-                    color: 'indigo',
-                    timingOptions: [
-                      { value: 'immediately', label: 'Immediately after visit' },
-                      { value: '1h', label: '1 hour after visit' },
-                      { value: '24h', label: '24 hours after visit' }
-                    ],
-                    variables: [
-                      '{{patientName}}', '{{visitDate}}', '{{invoiceNumber}}', 
-                      '{{amount}}', '{{dueDate}}', '{{paymentLink}}'
-                    ]
-                  })}
-
-                  {renderServiceCard('thankYouMessages', {
-                    title: 'Thank You Messages',
-                    description: 'Post-visit thank you with care instructions',
-                    icon: CheckCircle,
-                    color: 'emerald',
-                    timingOptions: [
-                      { value: '2h', label: '2 hours after visit' },
-                      { value: '4h', label: '4 hours after visit' },
-                      { value: '24h', label: '24 hours after visit' }
-                    ],
-                    variables: [
-                      '{{patientName}}', '{{careInstructions}}', '{{practicePhone}}', 
-                      '{{doctorName}}', '{{visitDate}}'
-                    ]
-                  })}
-
-                  {renderServiceCard('followUpCare', {
-                    title: 'Follow-up Care',
-                    description: 'Check-in messages with medication and care reminders',
-                    icon: Users,
-                    color: 'purple',
-                    timingOptions: [
-                      { value: '3d', label: '3 days after visit' },
-                      { value: '7d', label: '1 week after visit' },
-                      { value: '14d', label: '2 weeks after visit' }
-                    ],
-                    variables: [
-                      '{{patientName}}', '{{followUpInstructions}}', '{{practicePhone}}', 
-                      '{{medicationReminders}}', '{{nextAppointment}}'
-                    ]
-                  })}
-
-                  {renderServiceCard('healthScreenings', {
-                    title: 'Health Screenings',
-                    description: 'Remind patients about due health screenings based on age and history',
-                    icon: Activity,
-                    color: 'orange',
-                    timingOptions: [
-                      { value: 'annually', label: 'Annually' },
-                      { value: '6months', label: 'Every 6 months' },
-                      { value: '2years', label: 'Every 2 years' }
-                    ],
-                    variables: [
-                      '{{patientName}}', '{{patientAge}}', '{{recommendedScreenings}}', 
-                      '{{practicePhone}}', '{{lastScreeningDate}}'
-                    ]
-                  })}
-
-                  {renderServiceCard('welcomeNewPatients', {
-                    title: 'Welcome New Patients',
-                    description: 'Welcome message with portal access and practice information',
-                    icon: UserPlus,
-                    color: 'cyan',
-                    timingOptions: [
-                      { value: 'immediately', label: 'Immediately after registration' },
-                      { value: '1h', label: '1 hour after registration' },
-                      { value: '24h', label: '24 hours after registration' }
-                    ],
-                    variables: [
-                      '{{patientName}}', '{{practiceName}}', '{{portalLink}}', 
-                      '{{practicePhone}}', '{{practiceWebsite}}', '{{welcomeBonus}}'
-                    ]
-                  })}
+              {/* Automations Tab */}
+              {activeTab === 'automations' && (
+                <div className="h-full">
+                  <SmartAutomations />
                 </div>
-              </div>
-            )}
-          </motion.div>
-        </AnimatePresence>
+              )}
+
+              {/* Analytics Tab */}
+              {activeTab === 'analytics' && (
+                <div className="p-6">
+                  <div className="text-center py-12">
+                    <Icon icon="solar:graph-bold-duotone" className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Analytics Dashboard</h3>
+                    <p className="text-gray-600">Detailed communication analytics coming soon.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Settings Tab */}
+              {activeTab === 'settings' && (
+                <div className="p-6">
+                  <div className="mb-8">
+                    <h2 className="text-3xl font-bold text-gray-900 mb-2">Communication Services</h2>
+                    <p className="text-gray-600">Configure automated messaging services with custom templates and timing</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* Service Configuration Cards */}
+                    {renderServiceCard('appointmentReminders', {
+                      title: 'Appointment Reminders',
+                      description: 'Send automated reminders before scheduled appointments',
+                      icon: (props: { className?: string }) => <Icon icon="solar:bell-bold-duotone" className={props.className} />,
+                      color: 'blue',
+                      timingOptions: [
+                        { value: '24h', label: '24 hours before' },
+                        { value: '2h', label: '2 hours before' },
+                        { value: '30m', label: '30 minutes before' }
+                      ],
+                      variables: [
+                        '{{patientName}}', '{{appointmentDate}}', '{{appointmentTime}}', 
+                        '{{doctorName}}', '{{practicePhone}}', '{{practiceName}}', '{{practiceWebsite}}'
+                      ]
+                    })}
+
+                    {renderServiceCard('birthdayMessages', {
+                      title: 'Birthday Messages',
+                      description: 'Send personalized birthday greetings with special offers',
+                      icon: (props: { className?: string }) => <Icon icon="solar:heart-bold-duotone" className={props.className} />,
+                      color: 'pink',
+                      timingOptions: [
+                        { value: 'morning', label: 'Morning of birthday' },
+                        { value: 'afternoon', label: 'Afternoon of birthday' }
+                      ],
+                      variables: [
+                        '{{patientName}}', '{{practicePhone}}', '{{practiceName}}', '{{practiceWebsite}}', '{{specialOffer}}'
+                      ]
+                    })}
+
+                    {renderServiceCard('paymentReminders', {
+                      title: 'Payment Reminders',
+                      description: 'Automated reminders for overdue payments and invoices',
+                      icon: (props: { className?: string }) => <Icon icon="solar:dollar-minimalistic-bold-duotone" className={props.className} />,
+                      color: 'green',
+                      timingOptions: [
+                        { value: '7d', label: '7 days after due date' },
+                        { value: '14d', label: '14 days after due date' },
+                        { value: '30d', label: '30 days after due date' }
+                      ],
+                      variables: [
+                        '{{patientName}}', '{{invoiceNumber}}', '{{amount}}', 
+                        '{{dueDate}}', '{{paymentLink}}', '{{practicePhone}}'
+                      ]
+                    })}
+
+                    {renderServiceCard('invoiceDelivery', {
+                      title: 'Invoice Delivery',
+                      description: 'Automatically send invoices after completed visits',
+                      icon: (props: { className?: string }) => <Icon icon="solar:document-text-bold-duotone" className={props.className} />,
+                      color: 'indigo',
+                      timingOptions: [
+                        { value: 'immediately', label: 'Immediately after visit' },
+                        { value: '1h', label: '1 hour after visit' },
+                        { value: '24h', label: '24 hours after visit' }
+                      ],
+                      variables: [
+                        '{{patientName}}', '{{visitDate}}', '{{invoiceNumber}}', 
+                        '{{amount}}', '{{dueDate}}', '{{paymentLink}}'
+                      ]
+                    })}
+
+                    {renderServiceCard('thankYouMessages', {
+                      title: 'Thank You Messages',
+                      description: 'Post-visit thank you with care instructions',
+                      icon: (props: { className?: string }) => <Icon icon="solar:check-circle-bold-duotone" className={props.className} />,
+                      color: 'emerald',
+                      timingOptions: [
+                        { value: '2h', label: '2 hours after visit' },
+                        { value: '4h', label: '4 hours after visit' },
+                        { value: '24h', label: '24 hours after visit' }
+                      ],
+                      variables: [
+                        '{{patientName}}', '{{careInstructions}}', '{{practicePhone}}', 
+                        '{{doctorName}}', '{{visitDate}}'
+                      ]
+                    })}
+
+                    {renderServiceCard('followUpCare', {
+                      title: 'Follow-up Care',
+                      description: 'Check-in messages with medication and care reminders',
+                      icon: (props: { className?: string }) => <Icon icon="solar:users-group-rounded-bold-duotone" className={props.className} />,
+                      color: 'purple',
+                      timingOptions: [
+                        { value: '3d', label: '3 days after visit' },
+                        { value: '7d', label: '1 week after visit' },
+                        { value: '14d', label: '2 weeks after visit' }
+                      ],
+                      variables: [
+                        '{{patientName}}', '{{followUpInstructions}}', '{{practicePhone}}', 
+                        '{{medicationReminders}}', '{{nextAppointment}}'
+                      ]
+                    })}
+
+                    {renderServiceCard('healthScreenings', {
+                      title: 'Health Screenings',
+                      description: 'Remind patients about due health screenings based on age and history',
+                      icon: (props: { className?: string }) => <Icon icon="solar:health-bold-duotone" className={props.className} />,
+                      color: 'orange',
+                      timingOptions: [
+                        { value: 'annually', label: 'Annually' },
+                        { value: '6months', label: 'Every 6 months' },
+                        { value: '2years', label: 'Every 2 years' }
+                      ],
+                      variables: [
+                        '{{patientName}}', '{{patientAge}}', '{{recommendedScreenings}}', 
+                        '{{practicePhone}}', '{{lastScreeningDate}}'
+                      ]
+                    })}
+
+                    {renderServiceCard('welcomeNewPatients', {
+                      title: 'Welcome New Patients',
+                      description: 'Welcome message with portal access and practice information',
+                      icon: (props: { className?: string }) => <Icon icon="solar:user-plus-rounded-bold-duotone" className={props.className} />,
+                      color: 'cyan',
+                      timingOptions: [
+                        { value: 'immediately', label: 'Immediately after registration' },
+                        { value: '1h', label: '1 hour after registration' },
+                        { value: '24h', label: '24 hours after registration' }
+                      ],
+                      variables: [
+                        '{{patientName}}', '{{practiceName}}', '{{portalLink}}', 
+                        '{{practicePhone}}', '{{practiceWebsite}}', '{{welcomeBonus}}'
+                      ]
+                    })}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Email Template Preview Modal */}

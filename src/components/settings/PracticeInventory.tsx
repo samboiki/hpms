@@ -151,29 +151,41 @@ const PracticeInventory: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      // First get all user IDs associated with this practice
-      const { data: staffData, error: staffError } = await supabase
-        .from('practice_staff')
-        .select('user_id')
-        .eq('practice_id', practiceId);
+      // Fetch users directly by practice_id or through user_practice_assignments
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, full_name, email')
+        .eq('practice_id', practiceId)
+        .order('full_name');
 
-      if (staffError) throw staffError;
+      if (userError) throw userError;
 
-      const userIds = staffData?.map(staff => staff.user_id) || [];
+      // Also fetch users assigned through user_practice_assignments
+      const { data: assignmentData, error: assignmentError } = await supabase
+        .from('user_practice_assignments')
+        .select(`
+          user_id,
+          users!user_practice_assignments_user_id_fkey (
+            id,
+            full_name,
+            email
+          )
+        `)
+        .eq('practice_id', practiceId)
+        .eq('is_active', true);
+
+      if (assignmentError) throw assignmentError;
+
+      // Combine and deduplicate users
+      const directUsers = userData || [];
+      const assignedUsers = assignmentData?.map(a => a.users).filter(Boolean) || [];
       
-      if (userIds.length > 0) {
-        // Then fetch the user details
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('id, full_name, email')
-          .in('id', userIds)
-          .order('name');
+      const allUsers = [...directUsers, ...assignedUsers];
+      const uniqueUsers = Array.from(
+        new Map(allUsers.map(user => [user.id, user])).values()
+      );
 
-        if (userError) throw userError;
-        setUsers(userData || []);
-      } else {
-        setUsers([]);
-      }
+      setUsers(uniqueUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
     }

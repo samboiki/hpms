@@ -1861,6 +1861,85 @@ export type Database = {
           },
         ]
       }
+      follow_up_templates: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean
+          practice_id: string
+          steps: Json
+          template_name: string
+          trigger_type: string
+          trigger_value: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          practice_id: string
+          steps: Json
+          template_name: string
+          trigger_type: string
+          trigger_value: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          practice_id?: string
+          steps?: Json
+          template_name?: string
+          trigger_type?: string
+          trigger_value?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follow_up_templates_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "admin_practice_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_up_templates_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "appointment_analytics"
+            referencedColumns: ["practice_id"]
+          },
+          {
+            foreignKeyName: "follow_up_templates_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "dashboard_stats_mv"
+            referencedColumns: ["practice_id"]
+          },
+          {
+            foreignKeyName: "follow_up_templates_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practice_performance_dashboard"
+            referencedColumns: ["practice_id"]
+          },
+          {
+            foreignKeyName: "follow_up_templates_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follow_up_templates_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "sms_analytics"
+            referencedColumns: ["practice_id"]
+          },
+        ]
+      }
       hr_audit_logs: {
         Row: {
           action: string
@@ -4669,6 +4748,122 @@ export type Database = {
           },
         ]
       }
+      practice_inventory: {
+        Row: {
+          assignee_id: string | null
+          category: string
+          created_at: string | null
+          description: string | null
+          expiry_date: string | null
+          id: string
+          last_updated: string | null
+          location: string | null
+          name: string
+          notes: string | null
+          practice_id: string
+          quantity: number
+          reorder_level: number | null
+          sku: string | null
+          supplier: string | null
+          total_value: number
+          unit: string
+          unit_cost: number
+          updated_at: string | null
+        }
+        Insert: {
+          assignee_id?: string | null
+          category: string
+          created_at?: string | null
+          description?: string | null
+          expiry_date?: string | null
+          id?: string
+          last_updated?: string | null
+          location?: string | null
+          name: string
+          notes?: string | null
+          practice_id: string
+          quantity?: number
+          reorder_level?: number | null
+          sku?: string | null
+          supplier?: string | null
+          total_value?: number
+          unit: string
+          unit_cost?: number
+          updated_at?: string | null
+        }
+        Update: {
+          assignee_id?: string | null
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          expiry_date?: string | null
+          id?: string
+          last_updated?: string | null
+          location?: string | null
+          name?: string
+          notes?: string | null
+          practice_id?: string
+          quantity?: number
+          reorder_level?: number | null
+          sku?: string | null
+          supplier?: string | null
+          total_value?: number
+          unit?: string
+          unit_cost?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_inventory_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_inventory_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "admin_practice_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_inventory_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "appointment_analytics"
+            referencedColumns: ["practice_id"]
+          },
+          {
+            foreignKeyName: "practice_inventory_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "dashboard_stats_mv"
+            referencedColumns: ["practice_id"]
+          },
+          {
+            foreignKeyName: "practice_inventory_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practice_performance_dashboard"
+            referencedColumns: ["practice_id"]
+          },
+          {
+            foreignKeyName: "practice_inventory_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "practices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "practice_inventory_practice_id_fkey"
+            columns: ["practice_id"]
+            isOneToOne: false
+            referencedRelation: "sms_analytics"
+            referencedColumns: ["practice_id"]
+          },
+        ]
+      }
       practice_invitations: {
         Row: {
           accepted_at: string | null
@@ -5437,83 +5632,6 @@ export type Database = {
           },
         ]
       }
-      practice_staff: {
-        Row: {
-          created_at: string | null
-          id: string
-          is_active: boolean | null
-          practice_id: string | null
-          role: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          practice_id?: string | null
-          role?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          practice_id?: string | null
-          role?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "practice_staff_practice_id_fkey"
-            columns: ["practice_id"]
-            isOneToOne: false
-            referencedRelation: "admin_practice_overview"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "practice_staff_practice_id_fkey"
-            columns: ["practice_id"]
-            isOneToOne: false
-            referencedRelation: "appointment_analytics"
-            referencedColumns: ["practice_id"]
-          },
-          {
-            foreignKeyName: "practice_staff_practice_id_fkey"
-            columns: ["practice_id"]
-            isOneToOne: false
-            referencedRelation: "dashboard_stats_mv"
-            referencedColumns: ["practice_id"]
-          },
-          {
-            foreignKeyName: "practice_staff_practice_id_fkey"
-            columns: ["practice_id"]
-            isOneToOne: false
-            referencedRelation: "practice_performance_dashboard"
-            referencedColumns: ["practice_id"]
-          },
-          {
-            foreignKeyName: "practice_staff_practice_id_fkey"
-            columns: ["practice_id"]
-            isOneToOne: false
-            referencedRelation: "practices"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "practice_staff_practice_id_fkey"
-            columns: ["practice_id"]
-            isOneToOne: false
-            referencedRelation: "sms_analytics"
-            referencedColumns: ["practice_id"]
-          },
-          {
-            foreignKeyName: "practice_staff_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       practice_tariffs: {
         Row: {
           business_rule_formula: string | null
@@ -5638,6 +5756,7 @@ export type Database = {
           hero_subtitle: string | null
           hero_title: string | null
           id: string
+          is_follow_up_automation_enabled: boolean | null
           license_number: string | null
           logo_url: string | null
           max_patients: number | null
@@ -5688,6 +5807,7 @@ export type Database = {
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
+          is_follow_up_automation_enabled?: boolean | null
           license_number?: string | null
           logo_url?: string | null
           max_patients?: number | null
@@ -5738,6 +5858,7 @@ export type Database = {
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
+          is_follow_up_automation_enabled?: boolean | null
           license_number?: string | null
           logo_url?: string | null
           max_patients?: number | null
@@ -6585,6 +6706,7 @@ export type Database = {
           id: string
           notes: string | null
           overtime_hours: number | null
+          pdf_url: string | null
           period_end: string
           period_start: string
           regular_hours: number | null
@@ -6602,6 +6724,7 @@ export type Database = {
           id?: string
           notes?: string | null
           overtime_hours?: number | null
+          pdf_url?: string | null
           period_end: string
           period_start: string
           regular_hours?: number | null
@@ -6619,6 +6742,7 @@ export type Database = {
           id?: string
           notes?: string | null
           overtime_hours?: number | null
+          pdf_url?: string | null
           period_end?: string
           period_start?: string
           regular_hours?: number | null
@@ -6912,7 +7036,9 @@ export type Database = {
       }
       visits: {
         Row: {
+          applied_template_id: string | null
           branch_id: string | null
+          care_plan_step: number | null
           chief_complaint: string | null
           created_at: string | null
           diagnosis: string | null
@@ -6931,6 +7057,7 @@ export type Database = {
           notes: string | null
           patient_id: string | null
           practice_id: string | null
+          preceding_visit_id: string | null
           prescription: string | null
           scheduled_date: string | null
           scheduled_time: string | null
@@ -6943,7 +7070,9 @@ export type Database = {
           visit_type: string
         }
         Insert: {
+          applied_template_id?: string | null
           branch_id?: string | null
+          care_plan_step?: number | null
           chief_complaint?: string | null
           created_at?: string | null
           diagnosis?: string | null
@@ -6962,6 +7091,7 @@ export type Database = {
           notes?: string | null
           patient_id?: string | null
           practice_id?: string | null
+          preceding_visit_id?: string | null
           prescription?: string | null
           scheduled_date?: string | null
           scheduled_time?: string | null
@@ -6974,7 +7104,9 @@ export type Database = {
           visit_type: string
         }
         Update: {
+          applied_template_id?: string | null
           branch_id?: string | null
+          care_plan_step?: number | null
           chief_complaint?: string | null
           created_at?: string | null
           diagnosis?: string | null
@@ -6993,6 +7125,7 @@ export type Database = {
           notes?: string | null
           patient_id?: string | null
           practice_id?: string | null
+          preceding_visit_id?: string | null
           prescription?: string | null
           scheduled_date?: string | null
           scheduled_time?: string | null
@@ -7060,6 +7193,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sms_analytics"
             referencedColumns: ["practice_id"]
+          },
+          {
+            foreignKeyName: "visits_applied_template_id_fkey"
+            columns: ["applied_template_id"]
+            isOneToOne: false
+            referencedRelation: "follow_up_templates"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "visits_branch_id_fkey"
@@ -7130,6 +7270,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sms_analytics"
             referencedColumns: ["practice_id"]
+          },
+          {
+            foreignKeyName: "visits_preceding_visit_id_fkey"
+            columns: ["preceding_visit_id"]
+            isOneToOne: false
+            referencedRelation: "today_visits_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visits_preceding_visit_id_fkey"
+            columns: ["preceding_visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
           },
         ]
       }

@@ -236,25 +236,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
     queryFn: async () => {
       const targetUserId = selectedUserId || user?.id;
       
-      // First try to get user's practice through practice_staff
-      const { data: staffData, error: staffError } = await supabase
-        .from('practice_staff')
-        .select(`
-          practice_id,
-          practices!inner (
-            name,
-            business_hours
-          )
-        `)
-        .eq('user_id', targetUserId)
-        .eq('is_active', true)
-        .single();
-
-      if (!staffError && staffData) {
-        return staffData;
-      }
-      
-      // If no practice_staff record, try to get user's practice_id directly
+      // First try to get user's practice directly from users table
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('practice_id')

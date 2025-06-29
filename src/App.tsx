@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
 import Settings from './pages/Settings';
 import Communications from './pages/Communications';
+import Encounters from './pages/Encounters';
 import Layout from './components/layout/Layout';
 import Login from './pages/auth/Login';
 import { useAuthStore } from './stores/authStore';
@@ -15,6 +16,7 @@ import Inventory from './pages/Inventory';
 import PracticesManagement from './pages/admin/PracticesManagement';
 import TariffManagement from './pages/admin/TariffManagement';
 import BillingWorkflow from './pages/BillingWorkflow';
+import Finance from './pages/Finance';
 import { Toaster } from 'react-hot-toast';
 import { PracticeTariffsProvider } from './contexts/PracticeTariffsContext';
 import { PracticeProvider } from './contexts/PracticeContext';
@@ -81,7 +83,9 @@ function App() {
             <Route path="/" element={<Layout />}>
               <Route index element={<Dashboard />} />
               <Route path="patients" element={<Patients />} />
+              <Route path="encounters" element={<Encounters />} />
               <Route path="communications" element={<Communications />} />
+              <Route path="finance" element={<Finance />} />
               <Route path="billing/workflow" element={<BillingWorkflow />} />
               <Route path="practice-profile" element={<EnhancedPracticeProfile />} />
               <Route path="admin/practices" element={<PracticesManagement />} />

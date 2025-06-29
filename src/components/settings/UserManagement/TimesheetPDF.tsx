@@ -42,11 +42,12 @@ interface PracticeInfo {
 
 export const downloadTimesheetPDF = async (timesheet: Timesheet, preview: boolean = false) => {
   try {
-    // Fetch practice information through the user's practice_staff record
-    const { data: staffData } = await supabase
-      .from('practice_staff')
+    // Fetch practice information through the user's practice_id or user_practice_assignments
+    const { data: userData } = await supabase
+      .from('users')
       .select(`
-        practices (
+        practice_id,
+        practices!users_practice_id_fkey (
           name,
           contact_email,
           contact_phone,
@@ -56,15 +57,35 @@ export const downloadTimesheetPDF = async (timesheet: Timesheet, preview: boolea
           logo_url
         )
       `)
-      .eq('user_id', timesheet.user_id)
-      .eq('is_active', true)
+      .eq('id', timesheet.user_id)
       .single();
 
     let practice: PracticeInfo | null = null;
-    if (staffData?.practices && Array.isArray(staffData.practices) && staffData.practices.length > 0) {
-      practice = staffData.practices[0] as PracticeInfo;
-    } else if (staffData?.practices && typeof staffData.practices === 'object') {
-      practice = staffData.practices as PracticeInfo;
+    
+    if (userData?.practices) {
+      practice = userData.practices as PracticeInfo;
+    } else {
+      // Try user_practice_assignments if no direct practice_id
+      const { data: assignmentData } = await supabase
+        .from('user_practice_assignments')
+        .select(`
+          practices!user_practice_assignments_practice_id_fkey (
+            name,
+            contact_email,
+            contact_phone,
+            address,
+            city,
+            country,
+            logo_url
+          )
+        `)
+        .eq('user_id', timesheet.user_id)
+        .eq('is_active', true)
+        .single();
+        
+      if (assignmentData?.practices) {
+        practice = assignmentData.practices as PracticeInfo;
+      }
     }
 
     // Create PDF document

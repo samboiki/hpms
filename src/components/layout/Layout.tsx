@@ -3,7 +3,6 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { Menu } from 'lucide-react';
 import { cn } from '../../utils/cn';
-import CommunicationsModal from '../modals/CommunicationsModal';
 import ComprehensivePatientModal from '../patients/ComprehensivePatientModal';
 
 const Layout: React.FC = () => {
@@ -11,7 +10,6 @@ const Layout: React.FC = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isCommunicationsModalOpen, setIsCommunicationsModalOpen] = useState(false);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
 
   useEffect(() => {
@@ -65,7 +63,6 @@ const Layout: React.FC = () => {
           isMobile={false}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
-          onOpenCommunications={() => setIsCommunicationsModalOpen(true)}
           onOpenPatients={() => setIsPatientModalOpen(true)}
         />
       </div>
@@ -85,8 +82,7 @@ const Layout: React.FC = () => {
               onMobileClose={() => setMobileMenuOpen(false)}
               isFullscreen={isFullscreen}
               onToggleFullscreen={toggleFullscreen}
-              onOpenCommunications={() => setIsCommunicationsModalOpen(true)}
-          onOpenPatients={() => setIsPatientModalOpen(true)}
+              onOpenPatients={() => setIsPatientModalOpen(true)}
             />
           </div>
         </>
@@ -102,12 +98,6 @@ const Layout: React.FC = () => {
       >
         <Outlet />
       </main>
-
-      {/* Communications Modal */}
-      <CommunicationsModal
-        isOpen={isCommunicationsModalOpen}
-        onClose={() => setIsCommunicationsModalOpen(false)}
-      />
 
       {/* Comprehensive Patient Modal */}
       <ComprehensivePatientModal
