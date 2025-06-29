@@ -34,9 +34,9 @@ const Header: React.FC = () => {
         {/* Practice Switcher - only show for super admins or multi-practice users */}
         <PracticeSwitcher />
         
-        <button className="relative p-2 text-gray-600 hover:bg-gray-50 rounded-lg">
-          <Icon icon="solar:bell-bold-duotone" width={20} height={20} />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-brand-red rounded-full" />
+        <button className="relative p-2 text-transparent bg-gradient-to-r from-purple-500 to-indigo-600 bg-clip-text hover:bg-gray-50 rounded-lg group">
+          <Icon icon="solar:bell-bold-duotone" width={20} height={20} className="text-transparent bg-gradient-to-r from-purple-500 to-indigo-600 bg-clip-text" />
+          <span className="absolute top-2 right-2 w-2 h-2 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full" />
         </button>
 
         <div className="relative" ref={dropdownRef}>
@@ -46,17 +46,25 @@ const Header: React.FC = () => {
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           >
             <div className="flex items-center">
-              {user?.avatar ? (
-                <img 
-                  src={user.avatar} 
-                  alt={user.name} 
-                  className="w-9 h-9 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-9 h-9 rounded-full bg-brand-blue/10 text-brand-blue flex items-center justify-center font-medium">
-                  {user?.name.charAt(0)}
-                </div>
-              )}
+              <div className="relative">
+                {user?.avatar ? (
+                  <>
+                    <div className="absolute inset-0 w-9 h-9 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 -m-0.5"></div>
+                    <img 
+                      src={user.avatar} 
+                      alt={user.name} 
+                      className="relative w-8 h-8 rounded-full object-cover ring-2 ring-white"
+                    />
+                  </>
+                ) : (
+                  <div className="relative">
+                    <div className="absolute inset-0 w-9 h-9 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600"></div>
+                    <div className="relative w-8 h-8 rounded-full bg-white flex items-center justify-center font-medium text-transparent bg-gradient-to-r from-purple-500 to-indigo-600 bg-clip-text m-0.5">
+                      {user?.name.charAt(0)}
+                    </div>
+                  </div>
+                )}
+              </div>
               <div className="ml-3 text-right">
                 <div className="text-sm font-medium text-gray-900">
                   {user?.name}
@@ -65,7 +73,7 @@ const Header: React.FC = () => {
                   {user?.role}
                 </div>
               </div>
-              <Icon icon="solar:alt-arrow-down-bold-duotone" width={16} height={16} className="ml-2 text-gray-500" />
+              <Icon icon="solar:alt-arrow-down-bold-duotone" width={16} height={16} className="ml-2 text-transparent bg-gradient-to-r from-purple-500 to-indigo-600 bg-clip-text" />
             </div>
           </Button>
 

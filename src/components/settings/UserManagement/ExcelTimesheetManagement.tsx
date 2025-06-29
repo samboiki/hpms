@@ -7,9 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../ui/Card';
 import { useAuthStore } from '../../../stores/authStore';
 import toast from 'react-hot-toast';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, parseISO, getYear } from 'date-fns';
-import { downloadTimesheetPDF } from './TimesheetPDF';
-import { downloadTimesheetHtml2CanvasPDF } from './TimesheetHtml2CanvasPDF';
-import TimesheetCalendarPDFGenerator from './TimesheetCalendarPDFGenerator';
+import TimesheetPDFGeneratorFixed from './TimesheetPDFGeneratorFixed';
 import MonthInput from '../../ui/MonthInput';
 import TimeInput from '../../ui/TimeInput';
 
@@ -177,24 +175,22 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [activeTab, setActiveTab] = useState<'timesheet' | 'list' | 'pdf'>('timesheet');
+  const [activeTab, setActiveTab] = useState<'timesheet' | 'list'>('list');
   const [dayEntries, setDayEntries] = useState<DayEntry[]>([]);
   const [standardHours, setStandardHours] = useState({ start: '08:00', end: '17:00' });
   const [currentTimesheet, setCurrentTimesheet] = useState<Timesheet | null>(null);
   const [practiceHours, setPracticeHours] = useState<{ start: string; end: string } | null>(null);
   const [practiceBusinessHours, setPracticeBusinessHours] = useState<Record<string, { open?: string; close?: string; closed?: boolean }> | null>(null);
-  const [generatingPremiumPDF, setGeneratingPremiumPDF] = useState(false);
   const [showPDFGenerator, setShowPDFGenerator] = useState(false);
   const [selectedTimesheet, setSelectedTimesheet] = useState<Timesheet | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   
-  // Only log mount in development
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🚀 DEBUG: ExcelTimesheetManagement mounted', {
-      user: user?.email,
-      selectedUserId,
-      currentMonth: format(selectedMonth, 'yyyy-MM')
-    });
-  }
+  // Enhanced logging for debugging
+  console.log('🚀 ExcelTimesheetManagement mounted', {
+    user: user?.email,
+    selectedUserId,
+    currentMonth: format(selectedMonth, 'yyyy-MM')
+  });
 
   // Set up real-time subscription for timesheets
   useEffect(() => {
@@ -377,11 +373,21 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
     setDayEntries(entries);
   }, [selectedMonth, practiceBusinessHours]);
 
-  // Fetch current timesheet
+  // Fetch current timesheet with enhanced logging
   const { data: timesheet } = useQuery<Timesheet>({
-    queryKey: ['current-timesheet', user?.id, selectedUserId, selectedMonth],
+    queryKey: ['current-timesheet', user?.id, selectedUserId, format(selectedMonth, 'yyyy-MM')],
     queryFn: async () => {
       const targetUserId = selectedUserId || user?.id;
+      const periodStart = monthStart.toISOString().split('T')[0];
+      const periodEnd = monthEnd.toISOString().split('T')[0];
+      
+      console.log('📊 Fetching timesheet for:', {
+        userId: targetUserId,
+        periodStart,
+        periodEnd,
+        month: format(selectedMonth, 'MMMM yyyy')
+      });
+      
       const { data, error } = await supabase
         .from('timesheets')
         .select(`
@@ -393,11 +399,25 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
           entries:timesheet_entries (*)
         `)
         .eq('user_id', targetUserId)
-        .eq('period_start', monthStart.toISOString().split('T')[0])
-        .eq('period_end', monthEnd.toISOString().split('T')[0])
+        .eq('period_start', periodStart)
+        .eq('period_end', periodEnd)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error && error.code !== 'PGRST116') {
+        console.error('❌ Timesheet fetch error:', error);
+        throw error;
+      }
+      
+      if (data) {
+        console.log('✅ Timesheet found:', {
+          id: data.id,
+          entries: data.entries?.length || 0,
+          period: `${data.period_start} to ${data.period_end}`
+        });
+      } else {
+        console.log('⚠️ No timesheet found for this period');
+      }
+      
       return data as Timesheet;
     },
     enabled: !!user?.id
@@ -456,6 +476,11 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
   // Create/Update timesheet mutation
   const saveTimesheetMutation = useMutation({
     mutationFn: async () => {
+      // Prevent double-clicks
+      if (isSaving) return;
+      setIsSaving(true);
+      
+      try {
       const targetUserId = selectedUserId || user?.id;
       
       // Check for existing timesheet for this month
@@ -463,7 +488,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       
       if (!timesheetId) {
         // Check if there's already a timesheet for this month
-        const { data: existingTimesheet, error: checkError } = await supabase
+        const { data: existingTimesheet } = await supabase
           .from('timesheets')
           .select('id')
           .eq('user_id', targetUserId)
@@ -508,34 +533,43 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
           is_holiday: false
         }));
 
-      // First, delete all existing entries for this timesheet in one batch
-      if (timesheetId) {
-        const { error: deleteError } = await supabase
-          .from('timesheet_entries')
-          .delete()
-          .eq('timesheet_id', timesheetId);
-          
-        if (deleteError && deleteError.code !== 'PGRST116') {
-          throw deleteError;
+      // For team view, check if current user is admin/doctor to handle RLS properly
+      const isAdminOrDoctor = user?.role === 'admin' || user?.role === 'doctor';
+      const isEditingOtherUser = selectedUserId && selectedUserId !== user?.id;
+      
+      if (isEditingOtherUser && !isAdminOrDoctor) {
+        throw new Error('You do not have permission to edit timesheets for other users');
+      }
+
+      // Get all dates that should have entries
+      const entryDates = entries.map(e => e.date);
+      
+      // First, delete entries that are no longer needed (dates not in current entries)
+      if (currentTimesheet?.entries && currentTimesheet.entries.length > 0) {
+        const existingDates = currentTimesheet.entries.map(e => e.date);
+        const datesToDelete = existingDates.filter(date => !entryDates.includes(date));
+        
+        if (datesToDelete.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('timesheet_entries')
+            .delete()
+            .eq('timesheet_id', timesheetId)
+            .in('date', datesToDelete);
+            
+          if (deleteError) throw deleteError;
         }
       }
 
-      // Then insert all new entries in a single batch
+      // Then upsert all entries in a single batch using the correct syntax
       if (entries.length > 0) {
-        // For team view, check if current user is admin/doctor to handle RLS properly
-        const isAdminOrDoctor = user?.role === 'admin' || user?.role === 'doctor';
-        const isEditingOtherUser = selectedUserId && selectedUserId !== user?.id;
-        
-        if (isEditingOtherUser && !isAdminOrDoctor) {
-          throw new Error('You do not have permission to edit timesheets for other users');
-        }
-        
-        // Insert all entries in one batch operation
-        const { error: insertError } = await supabase
+        const { error: upsertError } = await supabase
           .from('timesheet_entries')
-          .insert(entries);
+          .upsert(entries, { 
+            onConflict: 'timesheet_id,date',
+            ignoreDuplicates: false 
+          });
           
-        if (insertError) throw insertError;
+        if (upsertError) throw upsertError;
       }
 
       // Update timesheet totals
@@ -544,7 +578,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       let regularHours = 0;
       let overtimeHours = 0;
       
-      dayEntries.forEach((dayEntry, index) => {
+      dayEntries.forEach((dayEntry) => {
         const entry = entries.find(e => e.date === dayEntry.date);
         if (entry) {
           const scheduled = dayEntry.scheduledHours || 0;
@@ -563,6 +597,9 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
         .eq('id', timesheetId);
 
       return timesheetId;
+      } finally {
+        setIsSaving(false);
+      }
     },
     onSuccess: () => {
       // Invalidate both current timesheet and list to ensure immediate updates
@@ -571,7 +608,18 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       toast.success('Timesheet saved successfully');
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to save timesheet');
+      console.error('Timesheet save error:', error);
+      
+      // Provide more specific error messages
+      if (error.message.includes('duplicate key')) {
+        toast.error('There was a conflict saving the timesheet. Please refresh and try again.');
+      } else if (error.message.includes('permission')) {
+        toast.error('You do not have permission to save this timesheet.');
+      } else if (error.message.includes('row-level security')) {
+        toast.error('Access denied. Please check your permissions.');
+      } else {
+        toast.error(error.message || 'Failed to save timesheet');
+      }
     }
   });
 
@@ -656,6 +704,8 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
     queryKey: ['all-timesheets', user?.id, selectedUserId],
     queryFn: async () => {
       const targetUserId = selectedUserId || user?.id;
+      console.log('📋 Fetching all timesheets for user:', targetUserId);
+      
       const { data, error } = await supabase
         .from('timesheets')
         .select(`
@@ -663,16 +713,31 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
           user:users!timesheets_user_id_fkey (
             full_name,
             email
+          ),
+          entries:timesheet_entries (
+            id,
+            date,
+            start_time,
+            end_time,
+            total_hours,
+            task_description,
+            is_overtime,
+            is_holiday
           )
         `)
         .eq('user_id', targetUserId)
         .order('period_start', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching timesheets:', error);
+        throw error;
+      }
+      
+      console.log(`✅ Found ${data?.length || 0} timesheets`);
       return data as Timesheet[];
     },
     enabled: !!user?.id, // Always enabled for real-time updates
-    refetchInterval: activeTab === 'list' ? 5000 : false // Auto-refresh every 5 seconds when on list tab
+    refetchInterval: false // Temporarily disabled for debugging
   });
 
   // Submit timesheet mutation
@@ -788,13 +853,12 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           {[
-            { id: 'timesheet', name: 'Timesheet Entry', icon: 'solar:calendar-add-bold-duotone' },
             { id: 'list', name: 'Timesheet List', icon: 'solar:list-bold-duotone' },
-            { id: 'pdf', name: 'Export PDF', icon: 'solar:download-bold-duotone' }
+            { id: 'timesheet', name: 'Timesheet Entry', icon: 'solar:calendar-add-bold-duotone' },
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as 'timesheet' | 'list' | 'pdf')}
+              onClick={() => setActiveTab(tab.id as 'timesheet' | 'list')}
               className={`group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === tab.id
                   ? 'border-teal-500 text-teal-600'
@@ -1085,15 +1149,15 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                     </div>
                   </div>
                   <button
-                    onClick={() => saveTimesheetMutation.mutate()}
-                    disabled={saveTimesheetMutation.isPending}
+                    onClick={() => !isSaving && saveTimesheetMutation.mutate()}
+                    disabled={saveTimesheetMutation.isPending || isSaving}
                     className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg text-sm transition-all duration-200 hover:shadow-xl"
                   >
                     <Icon 
-                      icon={saveTimesheetMutation.isPending ? "solar:refresh-bold-duotone" : "solar:floppy-disk-bold-duotone"} 
-                      className={`w-4 h-4 ${saveTimesheetMutation.isPending ? 'animate-spin' : ''}`} 
+                      icon={saveTimesheetMutation.isPending || isSaving ? "solar:refresh-bold-duotone" : "solar:floppy-disk-bold-duotone"} 
+                      className={`w-4 h-4 ${(saveTimesheetMutation.isPending || isSaving) ? 'animate-spin' : ''}`} 
                     />
-                    <span>{saveTimesheetMutation.isPending ? 'Saving...' : 'Save Timesheet'}</span>
+                    <span>{(saveTimesheetMutation.isPending || isSaving) ? 'Saving...' : 'Save Timesheet'}</span>
                   </button>
                 </div>
               </div>
@@ -1145,10 +1209,13 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <h3 className="font-medium text-gray-900 text-lg">
-                            {format(parseISO(ts.period_start), 'MMMM yyyy')}
+                            {/* Show month based on majority of entries or period end */}
+                            {format(parseISO(ts.period_end), 'MMMM yyyy')}
+                            {ts.entries?.length === 0 && ' (Empty)'}
                           </h3>
                           <p className="text-sm text-gray-600 mt-1">
                             {format(parseISO(ts.period_start), 'MMM dd')} - {format(parseISO(ts.period_end), 'MMM dd, yyyy')}
+                            {ts.entries?.length > 0 && ` • ${ts.entries.length} entries`}
                           </p>
                           <div className="flex items-center gap-4 mt-3 text-sm">
                             <span className="flex items-center gap-1">
@@ -1189,38 +1256,33 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                               Submit
                             </Button>
                           )}
-                          <Button
-                            onClick={() => downloadTimesheetPDF(ts)}
-                            size="sm"
-                            variant="outline"
-                            className="border-gray-300"
-                          >
-                            <Icon icon="solar:download-bold-duotone" className="w-4 h-4 mr-2" />
-                            PDF
-                          </Button>
-                          <Button
+                          <button
                             onClick={() => {
+                              console.log('🎯 Premium PDF clicked for timesheet:', {
+                                id: ts.id,
+                                period: `${ts.period_start} to ${ts.period_end}`,
+                                entries: ts.entries?.length || 0,
+                                entriesData: ts.entries
+                              });
                               setSelectedTimesheet(ts);
                               setShowPDFGenerator(true);
                             }}
-                            size="sm"
-                            className="bg-purple-600 text-white hover:bg-purple-700"
+                            className="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 transition-all duration-200 font-medium text-sm flex items-center gap-2"
                           >
-                            <Icon icon="solar:document-medicine-bold-duotone" className="w-4 h-4 mr-2" />
+                            <Icon icon="solar:document-medicine-bold-duotone" className="w-4 h-4" />
                             Premium PDF
-                          </Button>
-                          <Button
+                          </button>
+                          <button
                             onClick={() => handleDeleteTimesheet(
                               ts.id,
                               format(parseISO(ts.period_start), 'MMMM yyyy')
                             )}
-                            size="sm"
-                            className="bg-red-600 text-white hover:bg-red-700"
+                            className="inline-flex items-center justify-center rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 border bg-white px-3 py-1.5 text-sm animate-scale-in text-red-600 border-red-600 hover:bg-red-50"
                             disabled={deleteTimesheetMutation.isPending}
                           >
-                            <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4 mr-2" />
+                            <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4 mr-1" />
                             {deleteTimesheetMutation.isPending ? 'Deleting...' : 'Delete'}
-                          </Button>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1232,142 +1294,6 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
         </div>
       )}
 
-      {activeTab === 'pdf' && (
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Icon icon="solar:download-bold-duotone" className="w-5 h-5" />
-                Export Timesheet
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {currentTimesheet ? (
-                <div className="space-y-6">
-                  {/* Preview Card */}
-                  <div className="border border-gray-200 rounded-lg p-6 bg-gray-50">
-                    <h3 className="font-medium text-gray-900 mb-4">Current Timesheet Preview</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-600">Period:</span>
-                        <div className="font-medium">{format(parseISO(currentTimesheet.period_start), 'MMM yyyy')}</div>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Total Hours:</span>
-                        <div className="font-medium">{currentTimesheet.total_hours.toFixed(1)}h</div>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Regular Hours:</span>
-                        <div className="font-medium">{currentTimesheet.regular_hours.toFixed(1)}h</div>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">Overtime Hours:</span>
-                        <div className="font-medium">{currentTimesheet.overtime_hours.toFixed(1)}h</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Export Options */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="p-2 bg-red-100 rounded-lg">
-                            <Icon icon="solar:document-bold-duotone" className="w-6 h-6 text-red-600" />
-                          </div>
-                          <div>
-                            <h4 className="font-medium">Standard PDF</h4>
-                            <p className="text-sm text-gray-600">Basic timesheet document</p>
-                          </div>
-                        </div>
-                        <Button
-                          onClick={() => downloadTimesheetPDF(currentTimesheet)}
-                          className="w-full bg-red-600 text-white hover:bg-red-700"
-                        >
-                          <Icon icon="solar:download-bold-duotone" className="w-4 h-4 mr-2" />
-                          Download PDF
-                        </Button>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="p-2 bg-purple-100 rounded-lg">
-                            <Icon icon="solar:document-medicine-bold-duotone" className="w-6 h-6 text-purple-600" />
-                          </div>
-                          <div>
-                            <h4 className="font-medium">Premium PDF</h4>
-                            <p className="text-sm text-gray-600">Enhanced with branding</p>
-                          </div>
-                        </div>
-                        <Button
-                          onClick={() => {
-                            setSelectedTimesheet(currentTimesheet);
-                            setShowPDFGenerator(true);
-                          }}
-                          className="w-full bg-purple-600 text-white hover:bg-purple-700"
-                        >
-                          <Icon icon="solar:download-minimalistic-bold-duotone" className="w-4 h-4 mr-2" />
-                          Generate Premium PDF
-                        </Button>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardContent className="p-6">
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="p-2 bg-green-100 rounded-lg">
-                            <Icon icon="solar:printer-bold-duotone" className="w-6 h-6 text-green-600" />
-                          </div>
-                          <div>
-                            <h4 className="font-medium">Print Timesheet</h4>
-                            <p className="text-sm text-gray-600">Print-friendly format</p>
-                          </div>
-                        </div>
-                        <Button
-                          onClick={() => {
-                            downloadTimesheetPDF(currentTimesheet, true);
-                          }}
-                          variant="outline"
-                          className="w-full border-green-300 text-green-600 hover:bg-green-50"
-                        >
-                          <Icon icon="solar:printer-bold-duotone" className="w-4 h-4 mr-2" />
-                          Print Preview
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* PDF Features */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-medium text-blue-900 mb-2">PDF Features</h4>
-                    <ul className="text-sm text-blue-800 space-y-1">
-                      <li>• Professional timesheet layout with practice branding</li>
-                      <li>• Detailed daily time entries with totals</li>
-                      <li>• Summary of regular and overtime hours</li>
-                      <li>• Signature sections for employee and supervisor</li>
-                      <li>• Print-optimized formatting</li>
-                      <li>• Premium PDF with custom fonts and enhanced styling</li>
-                    </ul>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Icon icon="solar:document-add-bold-duotone" className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500 mb-4">No timesheet data available for the selected month</p>
-                  <Button
-                    onClick={() => setActiveTab('timesheet')}
-                    className="bg-teal-600 text-white hover:bg-teal-700"
-                  >
-                    Create Timesheet
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       {/* PDF Generator Modal */}
       {showPDFGenerator && selectedTimesheet && (
@@ -1389,7 +1315,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
               </button>
             </div>
             <div className="p-6">
-              <TimesheetCalendarPDFGenerator
+              <TimesheetPDFGeneratorFixed
                 timesheet={selectedTimesheet}
                 onGenerating={(generating) => {
                   if (!generating) {
@@ -1398,7 +1324,6 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                   }
                 }}
                 onGenerated={() => {
-                  toast.success('Premium PDF generated successfully!');
                   setShowPDFGenerator(false);
                   setSelectedTimesheet(null);
                 }}

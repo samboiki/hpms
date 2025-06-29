@@ -11,6 +11,7 @@ import BranchManagement from '../components/settings/BranchManagement';
 import { EnhancedUserManagement } from '../components/settings/EnhancedUserManagement';
 import DepartmentManagement from '../components/settings/DepartmentManagement';
 import PracticeExpenses from '../components/settings/PracticeExpenses';
+import PracticeInventory from '../components/settings/PracticeInventory';
 import { usePractice } from '../contexts/PracticeContext';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
 import TimePickerModal from '../components/ui/TimePickerModal';
@@ -27,7 +28,7 @@ interface BusinessHours {
 
 const Settings: React.FC = () => {
   const { user, logout } = useAuthStore();
-  const { currentTheme, themes, setTheme } = useTheme();
+  const { currentTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'account' | 'users' | 'practice' | 'documents' | 'social' | 'system'>('account');
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
@@ -506,17 +507,17 @@ const formatTime12Hour = (time24: string): string => {
 };
 
 // Helper function to convert object format to array format for UI
-const convertBusinessHoursObjectToArray = (hoursObj: any): BusinessHours[] => {
-  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-  const dayKeyMap: Record<string, string> = {
-    'monday': 'Monday',
-    'tuesday': 'Tuesday',
-    'wednesday': 'Wednesday',
-    'thursday': 'Thursday',
-    'friday': 'Friday',
-    'saturday': 'Saturday',
-    'sunday': 'Sunday'
+interface BusinessHoursData {
+  [key: string]: {
+    open?: string;
+    close?: string;
+    closed?: boolean;
   };
+}
+
+const convertBusinessHoursObjectToArray = (hoursObj: BusinessHoursData | BusinessHours[]): BusinessHours[] => {
+  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  // Day key mapping removed - not used
   
   if (!hoursObj || typeof hoursObj !== 'object') {
     // Return default hours if no data
@@ -566,7 +567,7 @@ const convertBusinessHoursObjectToArray = (hoursObj: any): BusinessHours[] => {
 const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> = () => {
   const { user } = useAuthStore();
   const { currentTheme } = useTheme();
-  const [practiceTab, setPracticeTab] = useState<'profile' | 'hours' | 'branches' | 'expenses' | 'departments'>('profile');
+  const [practiceTab, setPracticeTab] = useState<'profile' | 'hours' | 'branches' | 'expenses' | 'departments' | 'inventory'>('profile');
   const [practiceData, setPracticeData] = useState({
     id: '',
     name: '',
@@ -876,7 +877,8 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
     { id: 'profile' as const, label: 'Practice Profile', icon: SolarIcons.building },
     { id: 'expenses' as const, label: 'Practice Overhead', icon: SolarIcons.wallet },
     { id: 'branches' as const, label: 'Branches', icon: SolarIcons.buildings },
-    { id: 'departments' as const, label: 'Departments', icon: SolarIcons.folder }
+    { id: 'departments' as const, label: 'Departments', icon: SolarIcons.folder },
+    { id: 'inventory' as const, label: 'Inventory', icon: 'solar:box-bold-duotone' }
   ];
 
   return (
@@ -1383,6 +1385,10 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
             {/* Departments Tab */}
             {practiceTab === 'departments' && (
               <DepartmentManagement />
+            )}
+
+            {practiceTab === 'inventory' && (
+              <PracticeInventory />
             )}
           </motion.div>
         </div>
@@ -3316,7 +3322,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
 
 // Practice Themes Content Component (moved from main tabs)
 const PracticeThemesContent: React.FC = () => {
-  const { currentTheme, themes, setTheme } = useTheme();
+  const { currentTheme } = useTheme();
 
   return (
     <div className="space-y-6">

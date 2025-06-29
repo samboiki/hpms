@@ -692,7 +692,7 @@ The AI uses GPT-4 to understand natural language queries like:
           <div className="p-4 md:p-5">
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
               <div>
-                <h1 className="text-2xl font-semibold text-gray-800">Patient Directory</h1>
+                <h1 className="text-2xl font-semibold text-transparent bg-gradient-to-r from-purple-500 to-indigo-600 bg-clip-text">Patient Directory</h1>
                 <p className="text-sm text-gray-500 mt-0.5">Manage and track patient information</p>
               </div>
               <motion.button

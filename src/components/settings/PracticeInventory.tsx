@@ -24,7 +24,7 @@ interface InventoryItem {
   assignee_id?: string;
   assignee?: {
     id: string;
-    name: string;
+    full_name: string;
     email: string;
   };
   expiry_date?: string;
@@ -82,7 +82,7 @@ const categories: InventoryCategory[] = [
 
 const PracticeInventory: React.FC = () => {
   const { practiceId } = usePractice();
-  const { } = useAuthStore();
+  const { user } = useAuthStore();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -91,7 +91,7 @@ const PracticeInventory: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   interface User {
     id: string;
-    name: string;
+    full_name: string;
     email: string;
   }
   const [users, setUsers] = useState<User[]>([]);
@@ -115,13 +115,13 @@ const PracticeInventory: React.FC = () => {
 
   useEffect(() => {
     const loadData = async () => {
-      if (practiceId) {
+      if (practiceId && user) {
         await fetchInventory();
         await fetchUsers();
       }
     };
     loadData();
-  }, [practiceId]);
+  }, [practiceId, user]);
 
   const fetchInventory = async () => {
     try {
@@ -130,9 +130,9 @@ const PracticeInventory: React.FC = () => {
         .from('practice_inventory')
         .select(`
           *,
-          assignee:users (
+          assignee:users!practice_inventory_assignee_id_fkey (
             id,
-            name,
+            full_name,
             email
           )
         `)
@@ -151,20 +151,29 @@ const PracticeInventory: React.FC = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // First get all user IDs associated with this practice
+      const { data: staffData, error: staffError } = await supabase
         .from('practice_staff')
-        .select(`
-          user_id,
-          users:user_id (
-            id,
-            name,
-            email
-          )
-        `)
+        .select('user_id')
         .eq('practice_id', practiceId);
 
-      if (error) throw error;
-      setUsers(data?.map(staff => staff.users).filter(Boolean) || []);
+      if (staffError) throw staffError;
+
+      const userIds = staffData?.map(staff => staff.user_id) || [];
+      
+      if (userIds.length > 0) {
+        // Then fetch the user details
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('id, full_name, email')
+          .in('id', userIds)
+          .order('name');
+
+        if (userError) throw userError;
+        setUsers(userData || []);
+      } else {
+        setUsers([]);
+      }
     } catch (error) {
       console.error('Error fetching users:', error);
     }
@@ -176,7 +185,20 @@ const PracticeInventory: React.FC = () => {
     try {
       const itemData = {
         practice_id: practiceId,
-        ...formData,
+        name: formData.name,
+        category: formData.category,
+        quantity: formData.quantity,
+        unit: formData.unit,
+        unit_cost: formData.unit_cost,
+        // Convert empty strings to null for nullable fields
+        description: formData.description || null,
+        sku: formData.sku || null,
+        reorder_level: formData.reorder_level || null,
+        supplier: formData.supplier || null,
+        location: formData.location || null,
+        assignee_id: formData.assignee_id || null,
+        expiry_date: formData.expiry_date || null,
+        notes: formData.notes || null,
         total_value: formData.quantity * formData.unit_cost,
         last_updated: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -204,9 +226,15 @@ const PracticeInventory: React.FC = () => {
 
       fetchInventory();
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving inventory item:', error);
-      toast.error('Failed to save inventory item');
+      if (error.code === '42501') {
+        toast.error('You do not have permission to manage inventory for this practice. Please contact your administrator.');
+      } else if (error.code === '22P02') {
+        toast.error('Invalid data format. Please check your inputs.');
+      } else {
+        toast.error('Failed to save inventory item');
+      }
     }
   };
 
@@ -448,7 +476,7 @@ const PracticeInventory: React.FC = () => {
                         <td className="px-6 py-4">
                           {item.assignee ? (
                             <div>
-                              <p className="text-sm text-gray-900">{item.assignee.name}</p>
+                              <p className="text-sm text-gray-900">{item.assignee.full_name}</p>
                               <p className="text-xs text-gray-500">{item.location}</p>
                             </div>
                           ) : (
@@ -643,7 +671,7 @@ const PracticeInventory: React.FC = () => {
                     >
                       <option value="">Unassigned</option>
                       {users.map(user => (
-                        <option key={user.id} value={user.id}>{user.name}</option>
+                        <option key={user.id} value={user.id}>{user.full_name}</option>
                       ))}
                     </select>
                   </div>
