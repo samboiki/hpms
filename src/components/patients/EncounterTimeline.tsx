@@ -232,11 +232,24 @@ const CompletionDonutChart: React.FC<{ visits: Visit[] }> = ({ visits }) => {
 
 // Format date like "13th June '25"
 const formatVisitDate = (dateString: string) => {
-  const date = parseISO(dateString);
-  const day = format(date, 'do');
-  const month = format(date, 'MMMM');
-  const year = format(date, "''yy");
-  return `${day} ${month} ${year}`;
+  try {
+    if (!dateString) return 'No date';
+    
+    const date = parseISO(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
+    }
+    
+    const day = format(date, 'do');
+    const month = format(date, 'MMMM');
+    const year = format(date, "''yy");
+    return `${day} ${month} ${year}`;
+  } catch (error) {
+    console.error('Error formatting date:', dateString, error);
+    return 'Invalid date';
+  }
 };
 
 const TimelineNode: React.FC<{
@@ -920,23 +933,38 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
   
   // Sort visits by date and time (includes scheduled visits/appointments)
   const sortedVisits = [...visits].sort((a, b) => {
-    const dateCompare = new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime();
+    // Handle visits that might use scheduled_date instead of visit_date
+    const dateA = a.visit_date || a.scheduled_date || '';
+    const dateB = b.visit_date || b.scheduled_date || '';
+    
+    // Skip invalid dates
+    if (!dateA && !dateB) return 0;
+    if (!dateA) return 1;
+    if (!dateB) return -1;
+    
+    const dateCompare = new Date(dateB).getTime() - new Date(dateA).getTime();
     if (dateCompare !== 0) return dateCompare;
     
     // If same date, sort by time
-    const timeA = a.visit_time || '00:00';
-    const timeB = b.visit_time || '00:00';
+    const timeA = a.visit_time || a.scheduled_time || '00:00';
+    const timeB = b.visit_time || b.scheduled_time || '00:00';
     return timeB.localeCompare(timeA);
   });
 
   // All items are now visits (appointments are scheduled visits)
-  const timelineItems = sortedVisits.map(visit => ({
-    ...visit,
-    type: 'visit' as const,
-    dateTime: new Date(`${visit.visit_date} ${visit.visit_time || '00:00'}`),
-    displayDate: visit.visit_date,
-    displayTime: visit.visit_time
-  }));
+  const timelineItems = sortedVisits.map(visit => {
+    // Handle scheduled visits that might use scheduled_date instead of visit_date
+    const effectiveDate = visit.visit_date || visit.scheduled_date || '';
+    const effectiveTime = visit.visit_time || visit.scheduled_time || '00:00';
+    
+    return {
+      ...visit,
+      type: 'visit' as const,
+      dateTime: effectiveDate ? new Date(`${effectiveDate} ${effectiveTime}`) : new Date(),
+      displayDate: effectiveDate,
+      displayTime: effectiveTime !== '00:00' ? effectiveTime : undefined
+    };
+  });
 
   console.log('📊 UNIFIED TIMELINE:', {
     totalItems: timelineItems.length,

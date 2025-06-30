@@ -179,6 +179,8 @@ export default function FollowUpAutomation() {
     if (!practiceId) return;
     
     setAiGenerating(true);
+    const progressToast = toast.loading('Fetching practice information...');
+    
     try {
       // Fetch practice type and tariffs
       const { data: practiceData, error: practiceError } = await supabase
@@ -189,7 +191,9 @@ export default function FollowUpAutomation() {
 
       if (practiceError) throw practiceError;
 
-      // Fetch tariffs for this practice type
+      toast.loading('Fetching all tariff codes...', { id: progressToast });
+
+      // Fetch ALL tariffs for this practice type (no limit)
       const { data: tariffsData, error: tariffsError } = await supabase
         .from('practice_tariffs')
         .select('code, description')
@@ -199,47 +203,145 @@ export default function FollowUpAutomation() {
 
       if (tariffsError) throw tariffsError;
 
-      // Call Edge Function to generate templates
-      const { data, error } = await supabase.functions.invoke('generate-follow-up-templates', {
-        body: {
+      toast.loading(`Analyzing ${tariffsData?.length || 0} tariff codes...`, { id: progressToast });
+
+      // Get existing templates to avoid duplicates
+      const { data: existingTemplates } = await supabase
+        .from('follow_up_templates')
+        .select('trigger_type, trigger_value')
+        .eq('practice_id', practiceId);
+
+      const existingTriggers = new Set(
+        existingTemplates?.map(t => `${t.trigger_type}:${t.trigger_value}`) || []
+      );
+
+      // Call Edge Function with streaming response
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      
+      const response = await fetch(`${supabaseUrl}/functions/v1/generate-follow-up-templates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({
           practiceId,
           practiceType: practiceData.practice_type,
           practiceTypeName: practiceData.practice_types?.name,
-          tariffs: tariffsData || []
-        }
+          tariffs: tariffsData || [],
+          existingTriggers: Array.from(existingTriggers)
+        })
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      // Insert generated templates
-      if (data?.templates && Array.isArray(data.templates)) {
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let finalTemplates: any[] = [];
+
+      if (reader) {
+        let buffer = '';
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+          
+          for (const line of lines) {
+            if (line.trim()) {
+              try {
+                const data = JSON.parse(line);
+                
+                if (data.type === 'progress') {
+                  let icon = '🔍';
+                  if (data.stage === 'prioritization') icon = '📊';
+                  else if (data.stage === 'ai_generation') icon = '🤖';
+                  else if (data.stage === 'completion') icon = '✨';
+                  
+                  toast.loading(
+                    `${icon} ${data.message}${data.templatesGenerated ? ` (${data.templatesGenerated} templates so far)` : ''}`, 
+                    { id: progressToast }
+                  );
+                } else if (data.type === 'result') {
+                  finalTemplates = data.templates;
+                } else if (data.type === 'error') {
+                  throw new Error(data.error);
+                }
+              } catch (e) {
+                console.error('Error parsing stream data:', e);
+              }
+            }
+          }
+        }
+      }
+
+      // Process templates one by one with progress updates
+      if (finalTemplates && Array.isArray(finalTemplates)) {
         interface AIGeneratedTemplate {
           template_name: string;
           trigger_type: 'DIAGNOSIS' | 'TARIFF_CODE';
           trigger_value: string;
           steps: TemplateStep[];
         }
-        const templatesToInsert = data.templates.map((template: AIGeneratedTemplate) => ({
-          practice_id: practiceId,
-          template_name: template.template_name,
-          trigger_type: template.trigger_type,
-          trigger_value: template.trigger_value,
-          steps: template.steps,
-          is_active: false // Start as inactive
-        }));
 
-        const { error: insertError } = await supabase
-          .from('follow_up_templates')
-          .insert(templatesToInsert);
+        let successCount = 0;
+        let skipCount = 0;
 
-        if (insertError) throw insertError;
+        toast.loading(`💾 Saving ${finalTemplates.length} templates to database...`, { id: progressToast });
 
-        toast.success(`Generated ${data.templates.length} AI templates. Review and activate as needed.`);
+        for (let i = 0; i < finalTemplates.length; i++) {
+          const template = finalTemplates[i] as AIGeneratedTemplate;
+          const progress = Math.round(((i + 1) / finalTemplates.length) * 100);
+          
+          toast.loading(
+            `💾 Saving templates... ${progress}% (${i + 1}/${finalTemplates.length})`, 
+            { id: progressToast }
+          );
+
+          // Check for duplicates
+          const triggerKey = `${template.trigger_type}:${template.trigger_value}`;
+          if (existingTriggers.has(triggerKey)) {
+            skipCount++;
+            continue;
+          }
+
+          // Insert template
+          const { error: insertError } = await supabase
+            .from('follow_up_templates')
+            .insert({
+              practice_id: practiceId,
+              template_name: template.template_name,
+              trigger_type: template.trigger_type,
+              trigger_value: template.trigger_value,
+              steps: template.steps,
+              is_active: false // Start as inactive
+            });
+
+          if (!insertError) {
+            successCount++;
+            existingTriggers.add(triggerKey); // Prevent duplicates within this batch
+          }
+        }
+
+        const message = skipCount > 0 
+          ? `✨ AI Generation Complete! ${successCount} templates created, ${skipCount} duplicates skipped`
+          : `✨ AI Generation Complete! ${successCount} templates created`;
+        
+        toast.success(message, { id: progressToast, duration: 5000 });
+        
         fetchTemplates();
+      } else {
+        toast.error('No templates generated', { id: progressToast });
       }
     } catch (error) {
       console.error('Error generating AI templates:', error);
-      toast.error('Failed to generate AI templates');
+      toast.error('Failed to generate AI templates', { id: progressToast });
     } finally {
       setAiGenerating(false);
     }
