@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -636,6 +636,17 @@ const Encounters: React.FC = () => {
     setDateRange({ start, end });
   };
 
+  // Handle date range changes from the dashboard
+  const handleDashboardDateRangeChange = useCallback((newRange: { start: Date; end: Date }) => {
+    setDateRange(newRange);
+    // Update the date filter button to reflect custom range
+    const daysDiff = Math.ceil((newRange.end.getTime() - newRange.start.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysDiff <= 30) setDateFilter('30d');
+    else if (daysDiff <= 90) setDateFilter('3m');
+    else if (daysDiff <= 180) setDateFilter('6m');
+    else setDateFilter('12m');
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -766,7 +777,7 @@ const Encounters: React.FC = () => {
                 <AdvancedEncountersDashboard 
                   stats={stats} 
                   dateRange={dateRange} 
-                  onDateRangeChange={setDateRange}
+                  onDateRangeChange={handleDashboardDateRangeChange}
                   activeSubTab={activeSubTab}
                 />
               </motion.div>
