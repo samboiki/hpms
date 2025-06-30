@@ -10,10 +10,11 @@ export default defineConfig({
   },
   server: {
     host: true,
-    port: 5000, // Set correct port
+    port: 5000,
     cors: true,
     hmr: {
-      port: 5001, // Use different port for HMR
+      port: 5000, // Use same port to avoid polling errors
+      host: 'localhost',
     },
     watch: {
       usePolling: true,

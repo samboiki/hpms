@@ -115,6 +115,7 @@ interface ComprehensivePatientModalProps {
   patientId?: string | null;
   onAppointmentCreated?: (appointment: any) => void;
   defaultDetailTab?: 'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'audit';
+  visitIdToEdit?: string | null;
 }
 
 interface PatientDetails {
@@ -193,7 +194,7 @@ const MaleIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ isOpen, onClose, patientId, onAppointmentCreated, defaultDetailTab }) => {
+const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ isOpen, onClose, patientId, onAppointmentCreated, defaultDetailTab, visitIdToEdit }) => {
   const { currentTheme } = useTheme();
   const { patients, isLoading, error, fetchPatients: fetchPatientsFromStore, searchPatients } = usePatientsStoreNew();
   
@@ -1707,6 +1708,19 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       return () => clearTimeout(timeoutId);
     }
   }, [searchTerm]);
+
+  // Handle opening edit visit modal when visitIdToEdit is provided
+  useEffect(() => {
+    if (visitIdToEdit && visits.length > 0) {
+      const visitToEdit = visits.find(v => v.id === visitIdToEdit);
+      if (visitToEdit) {
+        setSelectedVisit(visitToEdit);
+        modalState.openEditVisitModal();
+        // Switch to encounters tab to show context
+        setActiveDetailTab('encounters');
+      }
+    }
+  }, [visitIdToEdit, visits, modalState.openEditVisitModal]);
 
   // Filter options
   const filterOptions = [

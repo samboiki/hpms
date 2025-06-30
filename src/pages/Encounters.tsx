@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { supabase } from '../lib/supabase';
 import { usePractice } from '../contexts/PracticeContext';
 import { useAuthStore } from '../stores/authStore';
-import { startOfMonth, endOfMonth, subMonths, parseISO, isToday, format } from 'date-fns';
+import { startOfMonth, endOfMonth, subMonths, parseISO, format } from 'date-fns';
 
 // Import existing components
 import LaboratoryTabContent from '../components/requests/LaboratoryTabContent';
 import ImagingTabContent from '../components/requests/ImagingTabContent';
 import FollowUpAutomationTab from '../components/encounters/FollowUpAutomationTab';
 import { AdvancedEncountersDashboard } from '../components/encounters/AdvancedEncountersDashboard';
+import { EncountersView } from '../components/encounters/EncountersView';
 
 interface DashboardStats {
   totalVisits: number;
@@ -62,7 +63,7 @@ const Encounters: React.FC = () => {
   const { practiceId } = usePractice();
   const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<string>('overview');
-  const [activeSubTab, setActiveSubTab] = useState<string>('analytics');
+  const [activeSubTab] = useState<string>('analytics');
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
     start: startOfMonth(new Date()),
@@ -126,16 +127,24 @@ const Encounters: React.FC = () => {
     try {
       setLoading(true);
       
-      // Log the practice ID being used
-      console.log('Fetching data for practice ID:', practiceId);
-      
-      // Use fallback practice ID if none provided (New Charm Dental Practice)
-      const effectivePracticeId = practiceId || 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3';
-      console.log('Using effective practice ID:', effectivePracticeId);
+      // Check authentication first
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      console.log('Auth status:', authData.user?.id ? 'Authenticated' : 'Not authenticated');
+      if (authError) {
+        console.warn('Auth check error:', authError);
+      }
       
       // Get current month date range from state
       const monthStart = dateRange.start;
       const monthEnd = dateRange.end;
+      
+      // Log the practice ID being used
+      console.log('Fetching data for practice ID:', practiceId, typeof practiceId);
+      
+      // Use fallback practice ID if none provided (New Charm Dental Practice)
+      const effectivePracticeId = practiceId || 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3';
+      console.log('Using effective practice ID:', effectivePracticeId);
+      console.log('Date range being used:', monthStart.toISOString().split('T')[0], 'to', monthEnd.toISOString().split('T')[0]);
       const lastMonthStart = startOfMonth(subMonths(monthStart, 1));
       const lastMonthEnd = endOfMonth(subMonths(monthStart, 1));
 
@@ -155,25 +164,37 @@ const Encounters: React.FC = () => {
         followUpComplianceData
       ] = await Promise.all([
         // Visits data with patient and branch info
-        supabase
-          .from('visits')
-          .select(`
-            *,
-            doctor:doctor_id(full_name),
-            patient:patient_id(
-              id,
-              full_name,
-              date_of_birth,
-              gender
-            ),
-            branch:branch_id(
-              name,
-              is_active
-            )
-          `)
-          .eq('practice_id', effectivePracticeId)
-          .gte('visit_date', monthStart.toISOString().split('T')[0])
-          .lte('visit_date', monthEnd.toISOString().split('T')[0]),
+        (() => {
+          let query = supabase
+            .from('visits')
+            .select(`
+              *,
+              doctor:doctor_id(full_name),
+              patient:patients!visits_patient_id_fkey(
+                id,
+                first_name,
+                last_name,
+                date_of_birth,
+                gender
+              ),
+              branch:branch_id(
+                name,
+                is_active
+              )
+            `);
+          
+          // Handle practice_id filtering - include null if no practice context
+          if (practiceId) {
+            query = query.eq('practice_id', effectivePracticeId);
+          } else {
+            // If no practice ID from context, get all visits for development
+            query = query.or(`practice_id.eq.${effectivePracticeId},practice_id.is.null`);
+          }
+          
+          return query
+            .gte('visit_date', monthStart.toISOString().split('T')[0])
+            .lte('visit_date', monthEnd.toISOString().split('T')[0]);
+        })(),
         
         // Lab requests
         supabase
@@ -183,39 +204,63 @@ const Encounters: React.FC = () => {
           .gte('created_at', monthStart.toISOString())
           .lte('created_at', monthEnd.toISOString()),
         
-        // Imaging requests
+        // Imaging requests (filter through visit relationship)
         supabase
           .from('imaging_requests')
-          .select('*')
-          .eq('practice_id', effectivePracticeId)
+          .select(`
+            *,
+            visit:visit_id!inner(practice_id)
+          `)
+          .eq('visit.practice_id', effectivePracticeId)
           .gte('created_at', monthStart.toISOString())
           .lte('created_at', monthEnd.toISOString()),
         
-        // Medications
+        // Medications (filter through visit relationship)
         supabase
           .from('medications')
-          .select('*')
-          .eq('practice_id', effectivePracticeId)
+          .select(`
+            *,
+            visit:visit_id!inner(practice_id)
+          `)
+          .eq('visit.practice_id', effectivePracticeId)
           .gte('created_at', monthStart.toISOString())
           .lte('created_at', monthEnd.toISOString()),
         
         // Monthly trends - get last 12 months
-        supabase
-          .from('visits')
-          .select('visit_date, status, is_cancelled')
-          .eq('practice_id', effectivePracticeId)
-          .gte('visit_date', format(subMonths(monthEnd, 11), 'yyyy-MM-dd'))
-          .lte('visit_date', format(monthEnd, 'yyyy-MM-dd')),
+        (() => {
+          let query = supabase
+            .from('visits')
+            .select('visit_date, status, is_cancelled');
+          
+          if (practiceId) {
+            query = query.eq('practice_id', effectivePracticeId);
+          } else {
+            query = query.or(`practice_id.eq.${effectivePracticeId},practice_id.is.null`);
+          }
+          
+          return query
+            .gte('visit_date', format(subMonths(monthEnd, 11), 'yyyy-MM-dd'))
+            .lte('visit_date', format(monthEnd, 'yyyy-MM-dd'));
+        })(),
         
         // Diagnosis distribution
-        supabase
-          .from('visits')
-          .select('diagnosis')
-          .eq('practice_id', effectivePracticeId)
-          .gte('visit_date', monthStart.toISOString().split('T')[0])
-          .lte('visit_date', monthEnd.toISOString().split('T')[0])
-          .not('diagnosis', 'is', null)
-          .not('diagnosis', 'eq', ''),
+        (() => {
+          let query = supabase
+            .from('visits')
+            .select('diagnosis');
+          
+          if (practiceId) {
+            query = query.eq('practice_id', effectivePracticeId);
+          } else {
+            query = query.or(`practice_id.eq.${effectivePracticeId},practice_id.is.null`);
+          }
+          
+          return query
+            .gte('visit_date', monthStart.toISOString().split('T')[0])
+            .lte('visit_date', monthEnd.toISOString().split('T')[0])
+            .not('diagnosis', 'is', null)
+            .not('diagnosis', 'eq', '');
+        })(),
         
         // Revenue data with service details
         supabase
@@ -238,11 +283,14 @@ const Encounters: React.FC = () => {
           .gte('created_at', monthStart.toISOString())
           .lte('created_at', monthEnd.toISOString()),
         
-        // Medication usage
+        // Medication usage (filter through visit relationship)
         supabase
           .from('medications')
-          .select('medication_name')
-          .eq('practice_id', effectivePracticeId)
+          .select(`
+            medication_name,
+            visit:visit_id!inner(practice_id)
+          `)
+          .eq('visit.practice_id', effectivePracticeId)
           .not('medication_name', 'is', null),
           
         // Patient demographics analysis
@@ -282,30 +330,47 @@ const Encounters: React.FC = () => {
           .lte('visits.visit_date', monthEnd.toISOString().split('T')[0]),
           
         // Unbilled visits (completed without invoices)
-        supabase
-          .from('visits')
-          .select(`
-            id,
-            visit_date,
-            patient_id,
-            doctor_id
-          `)
-          .eq('practice_id', effectivePracticeId)
-          .eq('status', 'completed')
-          .gte('visit_date', monthStart.toISOString().split('T')[0])
-          .lte('visit_date', monthEnd.toISOString().split('T')[0]),
+        (() => {
+          let query = supabase
+            .from('visits')
+            .select(`
+              id,
+              visit_date,
+              patient_id,
+              doctor_id
+            `);
+          
+          if (practiceId) {
+            query = query.eq('practice_id', effectivePracticeId);
+          } else {
+            query = query.or(`practice_id.eq.${effectivePracticeId},practice_id.is.null`);
+          }
+          
+          return query
+            .eq('status', 'completed')
+            .gte('visit_date', monthStart.toISOString().split('T')[0])
+            .lte('visit_date', monthEnd.toISOString().split('T')[0]);
+        })(),
           
         // Follow-up compliance
-        supabase
-          .from('visits')
-          .select(`
-            id,
-            follow_up_required,
-            follow_up_date,
-            preceding_visit_id
-          `)
-          .eq('practice_id', effectivePracticeId)
-          .not('follow_up_required', 'is', null)
+        (() => {
+          let query = supabase
+            .from('visits')
+            .select(`
+              id,
+              follow_up_required,
+              follow_up_date,
+              preceding_visit_id
+            `);
+          
+          if (practiceId) {
+            query = query.eq('practice_id', effectivePracticeId);
+          } else {
+            query = query.or(`practice_id.eq.${effectivePracticeId},practice_id.is.null`);
+          }
+          
+          return query.not('follow_up_required', 'is', null);
+        })()
       ]);
 
       const visits = visitsData.data || [];
@@ -319,10 +384,21 @@ const Encounters: React.FC = () => {
       const followUps = followUpComplianceData.data || [];
 
       // Debug logging
+      console.log('=== QUERY RESULTS DEBUG ===');
       console.log('Visits data:', visits.length, 'visits found');
+      console.log('Visits query error:', visitsData.error);
+      console.log('Labs data:', labs.length, 'labs found');
+      console.log('Labs query error:', labsData.error);
+      console.log('Imaging data:', imaging.length, 'imaging found');  
+      console.log('Imaging query error:', imagingData.error);
+      console.log('Medications data:', medications.length, 'medications found');
+      console.log('Medications query error:', medicationsData.error);
+      console.log('Invoices data:', invoices.length, 'invoices found');
+      console.log('Invoices query error:', revenueData.error);
+      console.log('');
       console.log('Date range:', monthStart, 'to', monthEnd);
+      console.log('Effective practice ID:', effectivePracticeId);
       console.log('Sample visit:', visits[0]);
-      console.log('Invoices:', invoices.length, 'invoices found');
 
       // Calculate basic statistics
       const totalVisits = visits.length;
@@ -645,7 +721,17 @@ const Encounters: React.FC = () => {
         peakHours,
         visitCompletionRate,
         averageTimeToInvoice,
-        dailyVisits: dailyVisitsData
+        dailyVisits: dailyVisitsData,
+        rawVisitData: visits.map(visit => ({
+          id: visit.id,
+          visit_date: visit.visit_date,
+          status: visit.status,
+          scheduled_time: visit.scheduled_time,
+          patient: visit.patient ? {
+            gender: visit.patient.gender,
+            date_of_birth: visit.patient.date_of_birth
+          } : undefined
+        }))
       });
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
@@ -656,6 +742,7 @@ const Encounters: React.FC = () => {
 
   const tabIcons = {
     overview: "solar:chart-square-bold-duotone",
+    encounters: "solar:document-text-bold-duotone",
     visits: "solar:clipboard-list-bold-duotone",
     clinical: "solar:health-bold-duotone",
     operations: "solar:settings-minimalistic-bold-duotone",
@@ -756,8 +843,8 @@ const Encounters: React.FC = () => {
 
         {/* Main Tab Navigation - Professional Style */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-4 gap-0 w-full">
-            {(['overview', 'visits', 'clinical', 'operations'] as const).map((tab) => {
+          <div className="grid grid-cols-5 gap-0 w-full">
+            {(['overview', 'encounters', 'visits', 'clinical', 'operations'] as const).map((tab) => {
               const iconName = tabIcons[tab];
               const isActive = activeTab === tab;
               return (
@@ -789,38 +876,7 @@ const Encounters: React.FC = () => {
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3 }}
               >
-                {/* Sub-tabs for Overview */}
-                <Card className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-                  <CardContent className="p-4">
-                    <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-                      {(['analytics', 'performance', 'insights', 'trends'] as const).map((subTab) => {
-                        const isActiveSubTab = activeSubTab === subTab;
-                        return (
-                          <button
-                            key={subTab}
-                            onClick={() => setActiveSubTab(subTab)}
-                            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                              isActiveSubTab
-                                ? 'bg-white text-cyan-600 shadow-sm'
-                                : 'text-gray-600 hover:text-gray-900'
-                            }`}
-                          >
-                            <Icon 
-                              icon={
-                                subTab === 'analytics' ? 'solar:chart-square-bold-duotone' :
-                                subTab === 'performance' ? 'solar:speedometer-bold-duotone' :
-                                subTab === 'insights' ? 'solar:lightbulb-bolt-bold-duotone' :
-                                'solar:graph-up-bold-duotone'
-                              } 
-                              className="w-4 h-4" 
-                            />
-                            <span className="capitalize">{subTab}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
+ 
                 
                 <AdvancedEncountersDashboard 
                   stats={stats} 
@@ -828,6 +884,18 @@ const Encounters: React.FC = () => {
                   onDateRangeChange={handleDashboardDateRangeChange}
                   activeSubTab={activeSubTab}
                 />
+              </motion.div>
+            )}
+            
+            {activeTab === 'encounters' && (
+              <motion.div
+                key="encounters"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <EncountersView />
               </motion.div>
             )}
             

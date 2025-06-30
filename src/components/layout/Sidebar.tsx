@@ -31,8 +31,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navItems = [
     { icon: 'solar:widget-bold-duotone', label: 'Dashboard', path: '/', isRoute: true },
     { icon: 'solar:users-group-rounded-bold-duotone', label: 'Patients', path: '/patients', isRoute: false, onClick: onOpenPatients },
-    { icon: 'solar:health-bold-duotone', label: 'Encounters', path: '/encounters', isRoute: true },
-    { icon: 'solar:bell-bold-duotone', label: 'Messages', path: '/communications', isRoute: true },
+    { icon: 'solar:clipboard-list-bold-duotone', label: 'Encounters', path: '/encounters', isRoute: true },
+    { icon: 'solar:letter-bold-duotone', label: 'Messages', path: '/communications', isRoute: true },
     { icon: 'solar:wallet-money-bold-duotone', label: 'Finance', path: '/finance', isRoute: true },
   ];
 

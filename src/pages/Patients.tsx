@@ -34,7 +34,7 @@ import {
   Loader2,
   Send
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import FormModal from '../components/modals/FormModal';
 import AddPatientForm from '../components/forms/AddPatientForm';
 import EditPatientForm from '../components/forms/EditPatientForm';
@@ -102,6 +102,7 @@ const MaleIcon = ({ className }: { className?: string }) => (
 const Patients: React.FC = () => {
   const { currentTheme } = useTheme();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { patients, isLoading, error, fetchPatients: fetchPatientsFromStore, searchPatients } = usePatientsStoreNew();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddPatientModalOpen, setIsAddPatientModalOpen] = useState(false);
@@ -128,6 +129,7 @@ const Patients: React.FC = () => {
   const [smsContent, setSmsContent] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isSendingSms, setIsSendingSms] = useState(false);
+  const [visitIdToEdit, setVisitIdToEdit] = useState<string | null>(null);
   
   // Define calculateAge before using it
   const calculateAge = (dateOfBirth: string) => {
@@ -145,6 +147,24 @@ const Patients: React.FC = () => {
     console.log('🏥 Patients page loaded');
     fetchPatientsFromStore();
   }, []);
+  
+  // Handle URL parameters for opening patient modal
+  useEffect(() => {
+    const patientId = searchParams.get('patientId');
+    const visitId = searchParams.get('visitId');
+    const action = searchParams.get('action');
+    
+    if (patientId) {
+      setSelectedPatientId(patientId);
+      if (visitId && action === 'edit-visit') {
+        setVisitIdToEdit(visitId);
+      }
+      setIsPatientModalOpen(true);
+      
+      // Clear the URL parameters after handling them
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
   
   // Debug effect to log state changes
   useEffect(() => {
@@ -1534,8 +1554,10 @@ The AI uses GPT-4 to understand natural language queries like:
         onClose={() => {
           setIsPatientModalOpen(false);
           setSelectedPatientId(null);
+          setVisitIdToEdit(null);
         }}
         patientId={selectedPatientId}
+        visitIdToEdit={visitIdToEdit}
       />
 
       {/* SMS Modal */}

@@ -163,8 +163,8 @@ const Settings: React.FC = () => {
 
         {/* Premium Navigation Tabs */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-5 gap-0 w-full">
-            {(['account', 'users', 'practice', 'documents', 'social'] as const).map((tab, index) => {
+          <div className="grid grid-cols-6 gap-0 w-full">
+            {(['account', 'users', 'practice', 'documents', 'social', 'system'] as const).map((tab, index) => {
               const iconName = tabIcons[tab];
               const isActive = activeTab === tab;
               const tabLabel = tab;
@@ -361,94 +361,229 @@ const Settings: React.FC = () => {
           
           
           {activeTab === 'system' && (
-            <div className="space-y-6">
-              <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                <CardHeader>
-                  <div className="flex items-center gap-3 -ml-2">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Icon icon={SolarIcons.globe} className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg font-semibold text-gray-900">System Information</CardTitle>
-                      <p className="text-sm text-gray-500">View system details and status</p>
-                    </div>
+            <div className="space-y-4">
+              {/* System Information Section */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Icon icon={SolarIcons.server} className="w-5 h-5 text-purple-600" />
+                    System Information
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full flex items-center gap-1">
+                      <Icon icon={SolarIcons.checkCircle} className="w-3 h-3" />
+                      All Systems Operational
+                    </span>
                   </div>
-                </CardHeader>
-                <CardContent>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <div className="flex justify-between py-2 border-b border-gray-100">
-                      <span className="text-sm font-medium text-gray-500">System Version</span>
-                      <span className="text-sm text-gray-900">HealthCare 2.5.0</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-gray-100">
-                      <span className="text-sm font-medium text-gray-500">Last Updated</span>
-                      <span className="text-sm text-gray-900">October 15, 2023</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-gray-100">
-                      <span className="text-sm font-medium text-gray-500">Database Status</span>
-                      <span className="text-sm text-green-600 flex items-center">
-                        <Icon icon={SolarIcons.checkCircle} className="w-4 h-4 mr-1" />
-                        Connected
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-gray-100">
-                      <span className="text-sm font-medium text-gray-500">Storage Usage</span>
-                      <span className="text-sm text-gray-900">1.2 GB / 10 GB</span>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6 flex space-x-3">
-                    <Button variant="outline">
-                      Check for Updates
-                    </Button>
-                    <Button variant="outline">
-                      System Diagnostics
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              
-              <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                <CardHeader>
-                  <div className="flex items-center gap-3 -ml-2">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <Icon icon={SolarIcons.shield} className="w-5 h-5 text-green-600" />
-                    </div>
                     <div>
-                      <CardTitle className="text-lg font-semibold text-gray-900">Compliance Settings</CardTitle>
-                      <p className="text-sm text-gray-500">Manage security and compliance</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">System Version</label>
+                      <div className="flex items-center gap-2">
+                        <p className="text-gray-900 font-medium">HealthCare 2.5.0</p>
+                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded">Latest</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Last Updated</label>
+                      <p className="text-gray-900">{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Environment</label>
+                      <p className="text-gray-900">Production</p>
                     </div>
                   </div>
-                </CardHeader>
-                <CardContent>
+
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Database Status</label>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <p className="text-gray-900">Connected - PostgreSQL 15.3</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Storage Usage</label>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Used: 1.2 GB</span>
+                          <span className="text-gray-600">Total: 10 GB</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="bg-gradient-to-r from-purple-500 to-indigo-600 h-2 rounded-full" style={{ width: '12%' }}></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">API Status</label>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <p className="text-gray-900">Active - 99.9% Uptime</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4" />
+                    Check for Updates
+                  </Button>
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <Icon icon="solar:chart-bold-duotone" className="w-4 h-4" />
+                    System Diagnostics
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Company Information Section */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Icon icon={SolarIcons.building} className="w-5 h-5 text-purple-600" />
+                    Company Information
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <Icon icon="solar:verified-check-bold-duotone" className="w-5 h-5 text-blue-600" />
+                    <span className="text-sm font-medium text-gray-700">Verified Provider</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                      <p className="text-gray-900 font-medium">OneHealth Systems</p>
+                      <p className="text-sm text-gray-500">Healthcare Practice Management Solutions</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
+                      <a href="tel:081222331" className="text-gray-900 hover:text-purple-600 transition-colors">
+                        081 222 331
+                      </a>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Support Email</label>
+                      <a href="mailto:support@onehealthsystems.com" className="text-gray-900 hover:text-purple-600 transition-colors">
+                        support@onehealthsystems.com
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
+                      <a href="https://onehealthsystems.com" target="_blank" rel="noopener noreferrer" 
+                         className="text-gray-900 hover:text-purple-600 transition-colors flex items-center gap-1">
+                        onehealthsystems.com
+                        <Icon icon="solar:square-arrow-right-up-line-duotone" className="w-4 h-4" />
+                      </a>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Headquarters</label>
+                      <p className="text-gray-900">South Africa</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">License</label>
+                      <div className="flex items-center gap-2">
+                        <p className="text-gray-900">Enterprise License</p>
+                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">Active</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Support Resources</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <Button variant="outline" size="sm" className="flex items-center gap-2">
+                      <Icon icon="solar:chat-line-bold-duotone" className="w-4 h-4" />
+                      Live Chat
+                    </Button>
+                    <Button variant="outline" size="sm" className="flex items-center gap-2">
+                      <Icon icon="solar:book-bold-duotone" className="w-4 h-4" />
+                      Documentation
+                    </Button>
+                    <Button variant="outline" size="sm" className="flex items-center gap-2">
+                      <Icon icon="solar:ticket-bold-duotone" className="w-4 h-4" />
+                      Support Ticket
+                    </Button>
+                    <Button variant="outline" size="sm" className="flex items-center gap-2">
+                      <Icon icon="solar:phone-calling-bold-duotone" className="w-4 h-4" />
+                      Call Support
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Security & Compliance Section */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <Icon icon={SolarIcons.shield} className="w-5 h-5 text-purple-600" />
+                    Security & Compliance
+                  </h3>
+                  <Button size="sm" className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
+                    <Icon icon={SolarIcons.save} className="w-4 h-4 mr-1" />
+                    Save Settings
+                  </Button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
                         <h4 className="text-sm font-medium text-gray-900">HIPAA Audit Logging</h4>
-                        <p className="text-xs text-gray-500">Log all data access for compliance</p>
+                        <p className="text-sm text-gray-500 mt-0.5">Log all data access and modifications for compliance</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" defaultChecked />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
                       </label>
                     </div>
-                    
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
                         <h4 className="text-sm font-medium text-gray-900">Data Encryption</h4>
-                        <p className="text-xs text-gray-500">End-to-end encryption for all data</p>
+                        <p className="text-sm text-gray-500 mt-0.5">End-to-end encryption for all patient data</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" defaultChecked />
                         <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
                       </label>
                     </div>
-                    
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="text-sm font-medium text-gray-900">Two-Factor Authentication</h4>
+                        <p className="text-sm text-gray-500 mt-0.5">Require 2FA for all user accounts</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" className="sr-only peer" />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
                         <h4 className="text-sm font-medium text-gray-900">Session Timeout</h4>
-                        <p className="text-xs text-gray-500">Auto-logout after inactivity</p>
+                        <p className="text-sm text-gray-500 mt-0.5">Auto-logout after inactivity period</p>
                       </div>
                       <select className="px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm">
                         <option value="5">5 minutes</option>
@@ -458,15 +593,28 @@ const Settings: React.FC = () => {
                       </select>
                     </div>
                   </div>
-                  
-                  <div className="mt-6">
-                    <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
-                      <Icon icon={SolarIcons.save} className="w-5 h-5 mr-2" />
-                      Save Compliance Settings
-                    </Button>
+
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="text-sm font-medium text-gray-900">Password Policy</h4>
+                        <p className="text-sm text-gray-500 mt-0.5">Enforce strong password requirements</p>
+                      </div>
+                      <span className="text-sm text-gray-700">Min. 12 characters</span>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-start gap-3">
+                    <Icon icon="solar:info-circle-bold-duotone" className="w-5 h-5 text-blue-600 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-blue-900">Compliance Status</p>
+                      <p className="text-sm text-blue-700 mt-1">Your practice meets all HIPAA compliance requirements. Last audit: October 2023</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
           

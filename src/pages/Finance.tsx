@@ -143,7 +143,7 @@ const Finance: React.FC = () => {
     };
   }, []);
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'income' | 'expenses' | 'invoicing' | 'payments' | 'reports' | 'accounting' | 'batch-management'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'invoicing' | 'payments' | 'income' | 'expenses' | 'reports' | 'accounting' | 'batch-management'>('overview');
   const [dateRange, setDateRange] = useState<'30d' | '3m' | '6m' | '12m'>('30d');
   const [kpis, setKpis] = useState<FinancialKPIs | null>(null);
   const [batches, setBatches] = useState<BatchData[]>([]);
@@ -1353,37 +1353,35 @@ const Finance: React.FC = () => {
           </div>
         </div>
 
-        {/* Tabs Navigation - Outside of content area */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200">
-          <div className="border-b border-gray-200 p-2">
-            <div className="grid grid-cols-4 md:grid-cols-8 gap-0">
-              {[
-                { key: 'overview', label: 'Overview', icon: 'solar:chart-square-bold-duotone' },
-                { key: 'invoicing', label: 'Invoicing', icon: 'solar:document-text-bold-duotone' },
-                { key: 'payments', label: 'Payments', icon: 'solar:wallet-bold-duotone' },
-                { key: 'income', label: 'Income', icon: 'solar:money-bag-bold-duotone' },
-                { key: 'expenses', label: 'Expenses', icon: 'solar:card-transfer-bold-duotone' },
-                { key: 'reports', label: 'Reports', icon: 'solar:graph-new-up-bold-duotone' },
-                { key: 'accounting', label: 'Accounting', icon: 'solar:calculator-bold-duotone' },
-                { key: 'batch-management', label: 'Batches', icon: 'solar:box-bold-duotone' }
-              ].map(({ key, label, icon }) => {
-                const isActive = activeTab === key;
-                return (
-                  <button
-                    key={key}
-                    onClick={() => setActiveTab(key as typeof activeTab)}
-                    className={`relative flex flex-col items-center justify-center gap-1 px-2 py-3 text-xs font-medium transition-all duration-200 capitalize min-h-[60px] ${
-                      isActive
-                        ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Icon icon={icon} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
-                    <span className="truncate text-center">{label}</span>
-                  </button>
-                );
-              })}
-            </div>
+        {/* Tabs Navigation - Matching provided style */}
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-0 w-full">
+            {[
+              { key: 'overview', label: 'Overview', icon: 'solar:chart-square-bold-duotone' },
+              { key: 'invoicing', label: 'Invoicing', icon: 'solar:document-text-bold-duotone' },
+              { key: 'payments', label: 'Payments', icon: 'solar:wallet-bold-duotone' },
+              { key: 'income', label: 'Income', icon: 'solar:money-bag-bold-duotone' },
+              { key: 'expenses', label: 'Expenses', icon: 'solar:card-transfer-bold-duotone' },
+              { key: 'reports', label: 'Reports', icon: 'solar:graph-new-up-bold-duotone' },
+              { key: 'accounting', label: 'Accounting', icon: 'solar:calculator-bold-duotone' },
+              { key: 'batch-management', label: 'Batches', icon: 'solar:box-bold-duotone' }
+            ].map(({ key, label, icon }) => {
+              const isActive = activeTab === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key as typeof activeTab)}
+                  className={`relative flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-all duration-200 capitalize min-h-[60px] ${
+                    isActive
+                      ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-white shadow-lg'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <Icon icon={icon} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
+                  <span className="truncate text-center sm:text-left">{label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -1524,140 +1522,6 @@ const Finance: React.FC = () => {
                     </motion.div>
                   )}
 
-                  {activeTab === 'income' && (
-                    <motion.div
-                      key="income"
-                      variants={tabVariants}
-                      initial="hidden"
-                      animate="visible"
-                      exit="exit"
-                      className="space-y-6"
-                    >
-                      {/* Income Overview */}
-                      <Card className="border-gray-200 shadow-sm">
-                        <CardContent className="p-6">
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-cyan-100 rounded-lg">
-                              <Icon icon="solar:money-bag-bold-duotone" className="w-5 h-5 text-cyan-600" />
-                            </div>
-                            <h4 className="text-lg font-semibold text-gray-800">Income Sources</h4>
-                          </div>
-                          <div className="space-y-4">
-                            <div className="bg-gradient-to-r from-cyan-50 to-blue-50 p-4 rounded-lg">
-                              <p className="text-sm text-gray-600 mb-2">Total Income (Current Month)</p>
-                              <p className="text-3xl font-bold text-gray-800">N${kpis.totalBilledMTD.toLocaleString()}</p>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="p-4 bg-gray-50 rounded-lg">
-                                <p className="text-sm text-gray-600 mb-1">Medical Aid Income</p>
-                                <p className="text-xl font-semibold text-gray-800">
-                                  N${kpis.monthlyRevenueTrend[kpis.monthlyRevenueTrend.length - 1]?.medical_aid.toLocaleString() || 0}
-                                </p>
-                              </div>
-                              <div className="p-4 bg-gray-50 rounded-lg">
-                                <p className="text-sm text-gray-600 mb-1">Patient Income</p>
-                                <p className="text-xl font-semibold text-gray-800">
-                                  N${kpis.monthlyRevenueTrend[kpis.monthlyRevenueTrend.length - 1]?.patient.toLocaleString() || 0}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Top Revenue Services */}
-                      <Card className="border-gray-200 shadow-sm">
-                        <CardContent className="p-6">
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-cyan-100 rounded-lg">
-                              <Icon icon="solar:chart-bold-duotone" className="w-5 h-5 text-cyan-600" />
-                            </div>
-                            <h4 className="text-lg font-semibold text-gray-800">Top Revenue Services</h4>
-                          </div>
-                          <div className="space-y-3">
-                            {kpis.topServices.map((service, index) => (
-                              <div key={service.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                <div>
-                                  <p className="font-medium text-gray-800">{service.name}</p>
-                                  <p className="text-sm text-gray-600">{service.count} visits</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="font-semibold text-gray-900">N${service.revenue.toLocaleString()}</p>
-                                  <p className="text-xs text-gray-600">Avg: N${service.avg.toFixed(2)}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  )}
-
-                  {activeTab === 'expenses' && (
-                    <motion.div
-                      key="expenses"
-                      variants={tabVariants}
-                      initial="hidden"
-                      animate="visible"
-                      exit="exit"
-                      className="space-y-6"
-                    >
-                      {/* Expenses Overview */}
-                      <Card className="border-gray-200 shadow-sm">
-                        <CardContent className="p-6">
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-red-100 rounded-lg">
-                              <Icon icon="solar:card-transfer-bold-duotone" className="w-5 h-5 text-red-600" />
-                            </div>
-                            <h4 className="text-lg font-semibold text-gray-800">Expense Overview</h4>
-                          </div>
-                          <div className="space-y-4">
-                            <div className="bg-gradient-to-r from-red-50 to-orange-50 p-4 rounded-lg">
-                              <p className="text-sm text-gray-600 mb-2">Outstanding Payments</p>
-                              <p className="text-3xl font-bold text-gray-800">N${kpis.totalOutstanding.toLocaleString()}</p>
-                            </div>
-                            <div className="p-4 bg-gray-50 rounded-lg">
-                              <p className="text-sm text-gray-600 mb-1">Claims in Progress</p>
-                              <p className="text-xl font-semibold text-gray-800">N${kpis.claimsInProgress.toLocaleString()}</p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-
-                      {/* Payment Status Distribution */}
-                      <Card className="border-gray-200 shadow-sm">
-                        <CardContent className="p-6">
-                          <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-amber-100 rounded-lg">
-                              <Icon icon="solar:wallet-bold-duotone" className="w-5 h-5 text-amber-600" />
-                            </div>
-                            <h4 className="text-lg font-semibold text-gray-800">Payment Status</h4>
-                          </div>
-                          <div className="h-64">
-                            <ResponsiveContainer width="100%" height="100%">
-                              <RechartsPieChart>
-                                <Pie
-                                  data={kpis.revenueByStatus}
-                                  cx="50%"
-                                  cy="50%"
-                                  labelLine={false}
-                                  label={({ name, value, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                  outerRadius={80}
-                                  fill="#8884d8"
-                                  dataKey="value"
-                                >
-                                  {kpis.revenueByStatus.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color || PIE_COLORS[index % PIE_COLORS.length]} />
-                                  ))}
-                                </Pie>
-                                <Tooltip formatter={(value: number) => `N$${value.toLocaleString()}`} />
-                              </RechartsPieChart>
-                            </ResponsiveContainer>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  )}
 
                   {activeTab === 'invoicing' && (
                     <motion.div
@@ -1690,7 +1554,6 @@ const Finance: React.FC = () => {
                             <h4 className="text-lg font-semibold text-gray-800">Recent Invoices</h4>
                           </div>
                           <div className="space-y-3">
-                            {/* Sample invoice items */}
                             {[
                               { id: 'INV-2024-001', patient: 'John Doe', amount: 2500, status: 'paid', date: '2024-01-15' },
                               { id: 'INV-2024-002', patient: 'Jane Smith', amount: 1800, status: 'pending', date: '2024-01-16' },
@@ -1732,6 +1595,206 @@ const Finance: React.FC = () => {
                       className="space-y-6"
                     >
                       {/* Payments Overview */}
+                      <Card className="border-gray-200 shadow-sm">
+                        <CardContent className="p-6">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-cyan-100 rounded-lg">
+                              <Icon icon="solar:wallet-bold-duotone" className="w-5 h-5 text-cyan-600" />
+                            </div>
+                            <h4 className="text-lg font-semibold text-gray-800">Payment Processing</h4>
+                          </div>
+                          
+                          {/* Payment Stats */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-lg">
+                              <p className="text-sm text-gray-600">Today's Collections</p>
+                              <p className="text-2xl font-bold text-gray-800">N$12,450</p>
+                            </div>
+                            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 rounded-lg">
+                              <p className="text-sm text-gray-600">Pending Payments</p>
+                              <p className="text-2xl font-bold text-gray-800">N$34,200</p>
+                            </div>
+                            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 p-4 rounded-lg">
+                              <p className="text-sm text-gray-600">Overdue Amount</p>
+                              <p className="text-2xl font-bold text-gray-800">N$8,900</p>
+                            </div>
+                          </div>
+
+                          {/* Recent Payments */}
+                          <h5 className="font-medium text-gray-700 mb-3">Recent Payments</h5>
+                          <div className="space-y-2">
+                            {[
+                              { patient: 'Sarah Williams', amount: 1500, method: 'Card', time: '10:30 AM' },
+                              { patient: 'Mike Davis', amount: 2200, method: 'EFT', time: '09:15 AM' },
+                              { patient: 'Lisa Brown', amount: 800, method: 'Cash', time: '08:45 AM' }
+                            ].map((payment, index) => (
+                              <div key={index} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                  <Icon icon={payment.method === 'Card' ? 'solar:card-bold-duotone' : payment.method === 'EFT' ? 'solar:transfer-horizontal-bold-duotone' : 'solar:cash-out-bold-duotone'} 
+                                    className="w-5 h-5 text-gray-600" />
+                                  <div>
+                                    <p className="font-medium text-gray-800">{payment.patient}</p>
+                                    <p className="text-xs text-gray-500">{payment.time} • {payment.method}</p>
+                                  </div>
+                                </div>
+                                <p className="font-semibold text-gray-900">N${payment.amount.toLocaleString()}</p>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          <button className="w-full mt-4 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:from-cyan-600 hover:to-blue-600 transition-all duration-200 shadow-md hover:shadow-lg font-medium">
+                            Record New Payment
+                          </button>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+
+                  {activeTab === 'income' && (
+                    <motion.div
+                      key="income"
+                      variants={tabVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      className="space-y-6"
+                    >
+                      {/* Income Overview */}
+                      <Card className="border-gray-200 shadow-sm">
+                        <CardContent className="p-6">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-cyan-100 rounded-lg">
+                              <Icon icon="solar:money-bag-bold-duotone" className="w-5 h-5 text-cyan-600" />
+                            </div>
+                            <h4 className="text-lg font-semibold text-gray-800">Income Sources</h4>
+                          </div>
+                          <div className="space-y-4">
+                            <div className="bg-gradient-to-r from-cyan-50 to-blue-50 p-4 rounded-lg">
+                              <p className="text-sm text-gray-600 mb-2">Total Income (Current Month)</p>
+                              <p className="text-3xl font-bold text-gray-800">N${kpis?.totalBilledMTD.toLocaleString() || 0}</p>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="p-4 bg-gray-50 rounded-lg">
+                                <p className="text-sm text-gray-600 mb-1">Medical Aid Income</p>
+                                <p className="text-xl font-semibold text-gray-800">
+                                  N${kpis?.monthlyRevenueTrend[kpis.monthlyRevenueTrend.length - 1]?.medical_aid.toLocaleString() || 0}
+                                </p>
+                              </div>
+                              <div className="p-4 bg-gray-50 rounded-lg">
+                                <p className="text-sm text-gray-600 mb-1">Patient Income</p>
+                                <p className="text-xl font-semibold text-gray-800">
+                                  N${kpis?.monthlyRevenueTrend[kpis.monthlyRevenueTrend.length - 1]?.patient.toLocaleString() || 0}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Top Revenue Services */}
+                      <Card className="border-gray-200 shadow-sm">
+                        <CardContent className="p-6">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-cyan-100 rounded-lg">
+                              <Icon icon="solar:chart-bold-duotone" className="w-5 h-5 text-cyan-600" />
+                            </div>
+                            <h4 className="text-lg font-semibold text-gray-800">Top Revenue Services</h4>
+                          </div>
+                          <div className="space-y-3">
+                            {kpis?.topServices.map((service, index) => (
+                              <div key={service.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div>
+                                  <p className="font-medium text-gray-800">{service.name}</p>
+                                  <p className="text-sm text-gray-600">{service.count} visits</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-semibold text-gray-900">N${service.revenue.toLocaleString()}</p>
+                                  <p className="text-xs text-gray-600">Avg: N${service.avg.toFixed(2)}</p>
+                                </div>
+                              </div>
+                            )) || []}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+
+                  {activeTab === 'expenses' && (
+                    <motion.div
+                      key="expenses"
+                      variants={tabVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      className="space-y-6"
+                    >
+                      {/* Expenses Overview */}
+                      <Card className="border-gray-200 shadow-sm">
+                        <CardContent className="p-6">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-red-100 rounded-lg">
+                              <Icon icon="solar:card-transfer-bold-duotone" className="w-5 h-5 text-red-600" />
+                            </div>
+                            <h4 className="text-lg font-semibold text-gray-800">Expense Overview</h4>
+                          </div>
+                          <div className="space-y-4">
+                            <div className="bg-gradient-to-r from-red-50 to-orange-50 p-4 rounded-lg">
+                              <p className="text-sm text-gray-600 mb-2">Outstanding Payments</p>
+                              <p className="text-3xl font-bold text-gray-800">N${kpis?.totalOutstanding.toLocaleString() || 0}</p>
+                            </div>
+                            <div className="p-4 bg-gray-50 rounded-lg">
+                              <p className="text-sm text-gray-600 mb-1">Claims in Progress</p>
+                              <p className="text-xl font-semibold text-gray-800">N${kpis?.claimsInProgress.toLocaleString() || 0}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      {/* Payment Status Distribution */}
+                      <Card className="border-gray-200 shadow-sm">
+                        <CardContent className="p-6">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-amber-100 rounded-lg">
+                              <Icon icon="solar:wallet-bold-duotone" className="w-5 h-5 text-amber-600" />
+                            </div>
+                            <h4 className="text-lg font-semibold text-gray-800">Payment Status</h4>
+                          </div>
+                          <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <RechartsPieChart>
+                                <Pie
+                                  data={kpis?.revenueByStatus || []}
+                                  cx="50%"
+                                  cy="50%"
+                                  labelLine={false}
+                                  label={({ name, value, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                  outerRadius={80}
+                                  fill="#8884d8"
+                                  dataKey="value"
+                                >
+                                  {kpis?.revenueByStatus.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color || PIE_COLORS[index % PIE_COLORS.length]} />
+                                  )) || []}
+                                </Pie>
+                                <Tooltip formatter={(value: number) => `N$${value.toLocaleString()}`} />
+                              </RechartsPieChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+
+                  {activeTab === 'reports' && (
+                    <motion.div
+                      key="reports"
+                      variants={tabVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      className="space-y-6"
+                    >
+                      {/* Financial Reports */}
                       <Card className="border-gray-200 shadow-sm">
                         <CardContent className="p-6">
                           <div className="flex items-center gap-3 mb-4">
