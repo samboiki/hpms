@@ -485,76 +485,7 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
           </div>
         </div>
       </DashboardSection>
-      
-      {/* Main Analytics Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue & Visit Analysis */}
-        <DashboardSection
-          title="Revenue & Visit Analysis"
-          icon="solar:graph-up-bold-duotone"
-          iconColor="from-cyan-500 to-blue-500"
-          actions={
-            <div className="flex items-center gap-4">
-              <ToggleSwitch
-                label="Show Trends"
-                checked={showTrends}
-                onChange={setShowTrends}
-              />
-              <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                <Icon icon="solar:export-bold" className="w-4 h-4" />
-                Export
-              </button>
-            </div>
-          }
-        >
-          <ResponsiveContainer width="100%" height={300}>
-            <ComposedChart data={visitTrendData}>
-              <defs>
-                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={COLORS.primary} stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor={COLORS.primary} stopOpacity={0.1}/>
-                </linearGradient>
-                <linearGradient id="utilizationGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={COLORS.success} stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor={COLORS.success} stopOpacity={0.1}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gray[200]} />
-              <XAxis dataKey="month" tick={{ fontSize: 12, fill: COLORS.gray[600] }} />
-              <YAxis yAxisId="visits" tick={{ fontSize: 12, fill: COLORS.gray[600] }} />
-              <YAxis yAxisId="revenue" orientation="right" tick={{ fontSize: 12, fill: COLORS.gray[600] }} />
-              <Tooltip content={<RichTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              
-              <Bar yAxisId="visits" dataKey="totalVisits" fill={COLORS.secondary} opacity={0.8} name="Total Visits" />
-              <Bar yAxisId="visits" dataKey="completedVisits" fill={COLORS.success} opacity={0.8} name="Completed" />
-              
-              {showTrends && (
-                <>
-                  <Area
-                    yAxisId="revenue"
-                    type="monotone"
-                    dataKey="revenue"
-                    fill="url(#revenueGradient)"
-                    stroke={COLORS.primary}
-                    strokeWidth={2}
-                    name="Revenue Trend"
-                  />
-                  <Line
-                    yAxisId="visits"
-                    type="monotone"
-                    dataKey="utilizationScore"
-                    stroke={COLORS.purple}
-                    strokeWidth={2}
-                    dot={{ fill: COLORS.purple, r: 4 }}
-                    name="Utilization %"
-                  />
-                </>
-              )}
-            </ComposedChart>
-          </ResponsiveContainer>
-        </DashboardSection>
-
+        
         {/* Weekly Activity Heatmap */}
         <DashboardSection
           title="Weekly Activity Heatmap"
@@ -995,9 +926,10 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
                 }))} 
                 fill="url(#colorGradient)"
               >
-                {visitTrendData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS.solid?.[index % COLORS.solid.length] || COLORS.primary} />
-                ))}
+                {visitTrendData.map((entry, index) => {
+                  const colors = [COLORS.primary, COLORS.secondary, COLORS.tertiary, COLORS.success, COLORS.purple, COLORS.indigo];
+                  return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                })}
               </Scatter>
             </ScatterChart>
           </ResponsiveContainer>
