@@ -505,86 +505,73 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
             </div>
           }
         >
-          <ResponsiveContainer width="100%" height={350}>
-            <ScatterChart 
-              margin={{ top: 20, right: 20, bottom: 40, left: 80 }}
-              data={weeklyHeatmapData}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gray[200]} />
-              <XAxis 
-                type="category"
-                dataKey="hour"
-                domain={['7:00', '8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00']}
-                tick={{ fontSize: 11, fill: COLORS.gray[600] }}
-                label={{ value: 'Time of Day', position: 'insideBottom', offset: -5, style: { fontSize: 12, fill: COLORS.gray[700] } }}
-              />
-              <YAxis 
-                type="category"
-                dataKey="day"
-                domain={['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']}
-                tick={{ fontSize: 11, fill: COLORS.gray[600] }}
-                width={70}
-              />
-              <Tooltip 
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const data = payload[0].payload;
-                    return (
-                      <div className="bg-white/95 backdrop-blur-sm p-3 rounded-lg shadow-xl border border-gray-200">
-                        <p className="font-semibold text-gray-800">{data.day} at {data.hour}</p>
-                        <p className="text-sm text-gray-600">{data.visits} visits</p>
-                        <p className="text-xs text-gray-500 mt-1">Click to view details</p>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Scatter
-                data={weeklyHeatmapData}
-                fill="#06B6D4"
-                // @ts-expect-error Recharts type definition incomplete
-                shape={(props) => {
-                  const { cx, cy, payload } = props;
-                  const maxVisits = 50; // Adjust based on your data
-                  const intensity = payload.visits / maxVisits;
-                  const size = 35; // Fixed size for grid cells
-                  
-                  return (
-                    <g>
-                      <rect
-                        x={cx - size/2}
-                        y={cy - size/2}
-                        width={size}
-                        height={size}
-                        fill={COLORS.primary}
-                        fillOpacity={Math.min(intensity, 1)}
-                        stroke={COLORS.primary}
-                        strokeWidth={0.5}
-                        strokeOpacity={0.3}
-                        rx={4}
-                        className="cursor-pointer hover:stroke-2"
-                        onClick={() => console.log(`Clicked: ${payload.day} at ${payload.hour}`)}
-                      />
-                      {payload.visits > 0 && (
-                        <text
-                          x={cx}
-                          y={cy}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          fill={intensity > 0.5 ? 'white' : COLORS.gray[700]}
-                          fontSize={10}
-                          fontWeight="500"
-                        >
-                          {payload.visits}
-                        </text>
-                      )}
-                    </g>
-                  );
-                }}
-              />
-            </ScatterChart>
-          </ResponsiveContainer>
+          <div className="relative">
+            {/* Custom Heatmap Grid */}
+            <div className="flex">
+              {/* Y-axis labels */}
+              <div className="flex flex-col justify-between py-4 pr-3 text-right">
+                {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
+                  <div key={day} className="text-xs text-gray-600 h-9 flex items-center justify-end">{day}</div>
+                ))}
+              </div>
+              
+              {/* Heatmap Grid */}
+              <div className="flex-1">
+                {/* X-axis labels */}
+                <div className="flex justify-between px-1 mb-2">
+                  {['7:00', '8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'].map((hour) => (
+                    <div key={hour} className="text-xs text-gray-600 flex-1 text-center">{hour.split(':')[0]}</div>
+                  ))}
+                </div>
+                
+                {/* Heatmap cells */}
+                <div className="space-y-1">
+                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day, dayIndex) => (
+                    <div key={day} className="flex gap-1">
+                      {['7:00', '8:00', '9:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'].map((hour, hourIndex) => {
+                        const dataPoint = weeklyHeatmapData.find(d => d.day === day && d.hour === hour);
+                        const visits = dataPoint?.visits || 0;
+                        const maxVisits = 50;
+                        const intensity = visits / maxVisits;
+                        
+                        return (
+                          <motion.div
+                            key={`${day}-${hour}`}
+                            whileHover={{ scale: 1.05 }}
+                            className="relative group flex-1"
+                          >
+                            <div
+                              className="h-9 rounded cursor-pointer transition-all duration-200 flex items-center justify-center text-xs font-medium border border-gray-100"
+                              style={{
+                                backgroundColor: visits > 0 ? `rgba(6, 182, 212, ${Math.min(intensity + 0.1, 1)})` : '#F9FAFB',
+                                color: intensity > 0.5 ? 'white' : '#374151'
+                              }}
+                            >
+                              {visits > 0 ? visits : ''}
+                            </div>
+                            
+                            {/* Tooltip */}
+                            {visits > 0 && (
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10 transition-opacity">
+                                <div className="font-semibold">{day} at {hour}</div>
+                                <div>{visits} visits</div>
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                                  <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                </div>
+                              </div>
+                            )}
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* X-axis label */}
+                <div className="text-center mt-3 text-xs text-gray-700 font-medium">Time of Day</div>
+              </div>
+            </div>
+          </div>
           
           {/* Heatmap Insights */}
           <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
