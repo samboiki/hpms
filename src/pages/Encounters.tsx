@@ -126,6 +126,13 @@ const Encounters: React.FC = () => {
     try {
       setLoading(true);
       
+      // Log the practice ID being used
+      console.log('Fetching data for practice ID:', practiceId);
+      
+      // Use fallback practice ID if none provided (New Charm Dental Practice)
+      const effectivePracticeId = practiceId || 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3';
+      console.log('Using effective practice ID:', effectivePracticeId);
+      
       // Get current month date range from state
       const monthStart = dateRange.start;
       const monthEnd = dateRange.end;
@@ -164,7 +171,7 @@ const Encounters: React.FC = () => {
               is_active
             )
           `)
-          .eq('practice_id', practiceId)
+          .eq('practice_id', effectivePracticeId)
           .gte('visit_date', monthStart.toISOString().split('T')[0])
           .lte('visit_date', monthEnd.toISOString().split('T')[0]),
         
@@ -172,7 +179,7 @@ const Encounters: React.FC = () => {
         supabase
           .from('lab_requests')
           .select('*')
-          .eq('practice_id', practiceId)
+          .eq('practice_id', effectivePracticeId)
           .gte('created_at', monthStart.toISOString())
           .lte('created_at', monthEnd.toISOString()),
         
@@ -180,7 +187,7 @@ const Encounters: React.FC = () => {
         supabase
           .from('imaging_requests')
           .select('*')
-          .eq('practice_id', practiceId)
+          .eq('practice_id', effectivePracticeId)
           .gte('created_at', monthStart.toISOString())
           .lte('created_at', monthEnd.toISOString()),
         
@@ -188,7 +195,7 @@ const Encounters: React.FC = () => {
         supabase
           .from('medications')
           .select('*')
-          .eq('practice_id', practiceId)
+          .eq('practice_id', effectivePracticeId)
           .gte('created_at', monthStart.toISOString())
           .lte('created_at', monthEnd.toISOString()),
         
@@ -196,7 +203,7 @@ const Encounters: React.FC = () => {
         supabase
           .from('visits')
           .select('visit_date, status, is_cancelled')
-          .eq('practice_id', practiceId)
+          .eq('practice_id', effectivePracticeId)
           .gte('visit_date', format(subMonths(monthEnd, 11), 'yyyy-MM-dd'))
           .lte('visit_date', format(monthEnd, 'yyyy-MM-dd')),
         
@@ -204,7 +211,7 @@ const Encounters: React.FC = () => {
         supabase
           .from('visits')
           .select('diagnosis')
-          .eq('practice_id', practiceId)
+          .eq('practice_id', effectivePracticeId)
           .gte('visit_date', monthStart.toISOString().split('T')[0])
           .lte('visit_date', monthEnd.toISOString().split('T')[0])
           .not('diagnosis', 'is', null)
@@ -227,7 +234,7 @@ const Encounters: React.FC = () => {
               )
             )
           `)
-          .eq('practice_id', practiceId)
+          .eq('practice_id', effectivePracticeId)
           .gte('created_at', monthStart.toISOString())
           .lte('created_at', monthEnd.toISOString()),
         
@@ -235,7 +242,7 @@ const Encounters: React.FC = () => {
         supabase
           .from('medications')
           .select('medication_name')
-          .eq('practice_id', practiceId)
+          .eq('practice_id', effectivePracticeId)
           .not('medication_name', 'is', null),
           
         // Patient demographics analysis
@@ -251,7 +258,7 @@ const Encounters: React.FC = () => {
               status
             )
           `)
-          .eq('practice_id', practiceId)
+          .eq('practice_id', effectivePracticeId)
           .gte('visits.visit_date', monthStart.toISOString().split('T')[0])
           .lte('visits.visit_date', monthEnd.toISOString().split('T')[0]),
           
@@ -269,7 +276,7 @@ const Encounters: React.FC = () => {
               doctor_id
             )
           `)
-          .eq('practice_id', practiceId)
+          .eq('practice_id', effectivePracticeId)
           .eq('is_active', true)
           .gte('visits.visit_date', monthStart.toISOString().split('T')[0])
           .lte('visits.visit_date', monthEnd.toISOString().split('T')[0]),
@@ -283,7 +290,7 @@ const Encounters: React.FC = () => {
             patient_id,
             doctor_id
           `)
-          .eq('practice_id', practiceId)
+          .eq('practice_id', effectivePracticeId)
           .eq('status', 'completed')
           .gte('visit_date', monthStart.toISOString().split('T')[0])
           .lte('visit_date', monthEnd.toISOString().split('T')[0]),
@@ -297,7 +304,7 @@ const Encounters: React.FC = () => {
             follow_up_date,
             preceding_visit_id
           `)
-          .eq('practice_id', practiceId)
+          .eq('practice_id', effectivePracticeId)
           .not('follow_up_required', 'is', null)
       ]);
 
@@ -311,11 +318,20 @@ const Encounters: React.FC = () => {
       const unbilledVisits = unbilledVisitsData.data || [];
       const followUps = followUpComplianceData.data || [];
 
+      // Debug logging
+      console.log('Visits data:', visits.length, 'visits found');
+      console.log('Date range:', monthStart, 'to', monthEnd);
+      console.log('Sample visit:', visits[0]);
+      console.log('Invoices:', invoices.length, 'invoices found');
+
       // Calculate basic statistics
       const totalVisits = visits.length;
       const completedVisits = visits.filter(v => v.status === 'completed').length;
       const pendingVisits = visits.filter(v => v.status === 'in-progress' || v.status === 'scheduled').length;
-      const todayVisits = visits.filter(v => v.visit_date && isToday(parseISO(v.visit_date))).length;
+      
+      // Fix today's visits calculation
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const todayVisits = visits.filter(v => v.visit_date === today).length;
       
       const monthlyVisits = visits.length; // Already filtered by date range
 
@@ -400,7 +416,8 @@ const Encounters: React.FC = () => {
         }
       });
       
-      for (let hour = 8; hour <= 17; hour++) {
+      // Include hours from 7:00 to 18:00 to match the heatmap
+      for (let hour = 7; hour <= 18; hour++) {
         hourlyDistribution.push({
           hour: `${hour}:00`,
           count: hourCounts[hour] || 0
@@ -556,6 +573,36 @@ const Encounters: React.FC = () => {
         .sort((a, b) => b.count - a.count)
         .slice(0, 3);
 
+      // Generate daily visits data for the chart
+      const dailyVisitsData: Array<{ date: string; fullDate: string; visits: number; completed: number; cancelled: number }> = [];
+      const visitsByDate: { [key: string]: { total: number; completed: number; cancelled: number } } = {};
+      
+      visits.forEach(visit => {
+        if (visit.visit_date) {
+          const dateKey = visit.visit_date;
+          if (!visitsByDate[dateKey]) {
+            visitsByDate[dateKey] = { total: 0, completed: 0, cancelled: 0 };
+          }
+          visitsByDate[dateKey].total++;
+          if (visit.status === 'completed') visitsByDate[dateKey].completed++;
+          if (visit.is_cancelled) visitsByDate[dateKey].cancelled++;
+        }
+      });
+      
+      // Convert to array format for the chart
+      Object.entries(visitsByDate).forEach(([date, counts]) => {
+        dailyVisitsData.push({
+          date: format(parseISO(date), 'MMM dd'),
+          fullDate: date,
+          visits: counts.total,
+          completed: counts.completed,
+          cancelled: counts.cancelled
+        });
+      });
+      
+      // Sort by date
+      dailyVisitsData.sort((a, b) => a.fullDate.localeCompare(b.fullDate));
+
       setStats({
         totalVisits,
         completedVisits,
@@ -597,7 +644,8 @@ const Encounters: React.FC = () => {
         averageRevenuePerVisit,
         peakHours,
         visitCompletionRate,
-        averageTimeToInvoice
+        averageTimeToInvoice,
+        dailyVisits: dailyVisitsData
       });
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
