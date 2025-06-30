@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { startOfMonth, endOfMonth, getMonth } from 'date-fns';
+import { startOfMonth, endOfMonth, getMonth, format } from 'date-fns';
 
 interface PayrollCalculation {
   userId: string;
@@ -40,11 +40,16 @@ export class PayrollService {
     const results = [];
     const errors = [];
 
+    // Process each user individually to use calculatePayroll
     for (const userId of userIds) {
       try {
+        // Use the calculatePayroll method to get full payroll data including leave balances
         const calculation = await this.calculatePayroll(userId, payPeriod);
+        
+        // Create the payslip using the private method that includes all data
         const payslipId = await this.createPayslip(calculation);
-        results.push({ userId, payslipId, success: true });
+        
+        results.push({ userId, success: true, payslipId });
       } catch (error: any) {
         errors.push({ userId, error: error.message });
       }
@@ -310,7 +315,7 @@ export class PayrollService {
       .select('gross_earnings, total_deductions, net_pay')
       .eq('user_id', userId)
       .gte('payment_date', `${year}-01-01`)
-      .lt('payment_date', upToDate.toISOString())
+      .lt('payment_date', format(upToDate, 'yyyy-MM-dd'))
       .eq('status', 'paid');
 
     if (!payslips || payslips.length === 0) {
@@ -403,13 +408,14 @@ export class PayrollService {
     if (!user) throw new Error('User not found');
 
     // Create the payslip
+    // Use local date formatting to avoid timezone issues
     const { data: payslip, error: payslipError } = await supabase
       .from('payslips')
       .insert({
         user_id: calculation.userId,
-        pay_period_start: calculation.payPeriodStart.toISOString(),
-        pay_period_end: calculation.payPeriodEnd.toISOString(),
-        payment_date: calculation.payPeriodEnd.toISOString(),
+        pay_period_start: format(calculation.payPeriodStart, 'yyyy-MM-dd'),
+        pay_period_end: format(calculation.payPeriodEnd, 'yyyy-MM-dd'),
+        payment_date: format(calculation.payPeriodEnd, 'yyyy-MM-dd'),
         basic_salary: calculation.basicSalary,
         gross_earnings: calculation.grossEarnings,
         total_deductions: calculation.totalDeductions,
@@ -418,7 +424,7 @@ export class PayrollService {
         ytd_total_deductions: calculation.ytdTotalDeductions,
         ytd_net_pay: calculation.ytdNetPay,
         leave_balances: calculation.leaveBalances,
-        status: 'draft',
+        status: 'unpaid',
         payment_method: 'bank_transfer',
         practice_name: calculation.practiceName || 'Company',
         employee_code: user.employee_number
@@ -559,12 +565,39 @@ export class PayrollService {
     // Remove basic salary from earnings array to avoid duplication
     const otherEarnings = earnings.filter(e => e.name !== 'Basic Salary');
 
+    // Fetch leave types for the practice
+    const { data: user } = await supabase
+      .from('users')
+      .select('practice_id')
+      .eq('id', payslip.user_id)
+      .single();
+
+    const leaveTypes: any = {};
+    if (user) {
+      const { data: allLeaveTypes } = await supabase
+        .from('leave_types')
+        .select('*')
+        .eq('practice_id', user.practice_id)
+        .eq('is_active', true);
+
+      allLeaveTypes?.forEach(lt => {
+        leaveTypes[lt.code.toLowerCase()] = {
+          name: lt.name,
+          code: lt.code,
+          accrualRate: parseFloat(lt.accrual_rate),
+          carryoverAllowed: lt.carryover_allowed,
+          daysPerYear: parseFloat(lt.days_per_year)
+        };
+      });
+    }
+
     return {
       ...payslip,
       basicSalary,
       earnings: otherEarnings,
       deductions,
-      items
+      items,
+      leaveTypes
     };
   }
 

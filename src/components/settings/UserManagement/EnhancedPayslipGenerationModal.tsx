@@ -5,7 +5,7 @@ import Icon, { SolarIcons } from '../../ui/Icon';
 import Button from '../../ui/Button';
 import { useAuthStore } from '../../../stores/authStore';
 import toast from 'react-hot-toast';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { PayrollService } from '../../../services/payrollService';
 import MonthInput from '../../ui/MonthInput';
 
@@ -44,32 +44,48 @@ export const EnhancedPayslipGenerationModal: React.FC<Props> = ({
   const { data: users = [], isLoading } = useQuery<UserInfo[]>({
     queryKey: ['payslip-generation-users', selectedUsers, format(payPeriod, 'yyyy-MM')],
     queryFn: async () => {
-      const monthStart = new Date(payPeriod.getFullYear(), payPeriod.getMonth(), 1);
-      const monthEnd = new Date(payPeriod.getFullYear(), payPeriod.getMonth() + 1, 0);
+      const monthStart = startOfMonth(payPeriod);
+      const monthEnd = endOfMonth(payPeriod);
 
-      // Fetch user details
-      const { data: usersData } = await supabase
+      // Fetch user details with their active salaries
+      const { data: usersData, error: usersError } = await supabase
         .from('users')
         .select(`
           id,
           full_name,
           email,
           employee_number,
-          department,
-          employee_salaries!inner(basic_salary)
+          department
         `)
-        .in('id', selectedUsers)
-        .eq('employee_salaries.is_active', true);
+        .in('id', selectedUsers);
 
-      if (!usersData) return [];
+      if (usersError) {
+        console.error('Error fetching users:', usersError);
+        return [];
+      }
+
+      if (!usersData || usersData.length === 0) return [];
+
+      // Fetch active salaries for these users
+      const { data: salariesData } = await supabase
+        .from('employee_salaries')
+        .select('user_id, basic_salary')
+        .in('user_id', selectedUsers)
+        .eq('is_active', true);
+
+      const salaryMap = new Map(salariesData?.map(s => [s.user_id, s.basic_salary]) || []);
 
       // Check existing payslips
+      // Use local date strings to avoid timezone issues
+      const monthStartStr = format(monthStart, 'yyyy-MM-dd');
+      const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
+      
       const { data: existingPayslips } = await supabase
         .from('payslips')
         .select('user_id')
         .in('user_id', selectedUsers)
-        .gte('pay_period_start', monthStart.toISOString())
-        .lte('pay_period_end', monthEnd.toISOString());
+        .gte('pay_period_start', monthStartStr)
+        .lte('pay_period_end', monthEndStr);
 
       const existingUserIds = new Set(existingPayslips?.map(p => p.user_id) || []);
 
@@ -79,10 +95,10 @@ export const EnhancedPayslipGenerationModal: React.FC<Props> = ({
         email: user.email,
         employee_number: user.employee_number,
         department: user.department,
-        has_salary: user.employee_salaries && user.employee_salaries.length > 0,
-        basic_salary: user.employee_salaries?.[0]?.basic_salary,
+        has_salary: salaryMap.has(user.id),
+        basic_salary: salaryMap.get(user.id),
         status: existingUserIds.has(user.id) ? 'already_generated' :
-                !user.employee_salaries || user.employee_salaries.length === 0 ? 'missing_salary' :
+                !salaryMap.has(user.id) ? 'missing_salary' :
                 'ready'
       }));
     },
@@ -149,7 +165,10 @@ export const EnhancedPayslipGenerationModal: React.FC<Props> = ({
             <MonthInput
               label="Select Payroll Month"
               value={format(payPeriod, 'yyyy-MM')}
-              onChange={(value) => setPayPeriod(new Date(value + '-01'))}
+              onChange={(value) => {
+                const [year, month] = value.split('-').map(Number);
+                setPayPeriod(new Date(year, month - 1, 1));
+              }}
               placeholder="Select payroll month"
             />
           </div>
