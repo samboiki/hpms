@@ -221,6 +221,7 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
   const [selectedDateRange, setSelectedDateRange] = useState<'7d' | '30d' | '3m' | '6m'>('30d');
   const [selectedGender, setSelectedGender] = useState<string>('All');
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<string>('All Ages');
+  const [activeModal, setActiveModal] = useState<'date' | 'gender' | 'age' | null>(null);
   
   // Process data for visualizations
   const visitTrendData = useMemo(() => {
@@ -336,55 +337,56 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
   }, [stats.dailyVisits]);
 
   const renderAnalyticsContent = () => (
-    <div className="grid grid-cols-12 gap-6">
-      {/* Left Column - Count Tiles */}
-      <div className="col-span-3 space-y-4">
-        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-2">Quick Stats</h3>
-        
-        {/* Total Visits Tile */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-2">
-            <Icon icon="solar:calendar-check-bold-duotone" className="w-8 h-8 text-cyan-500" />
-            <span className="text-xs text-gray-500">Today</span>
+    <>
+      <div className="grid grid-cols-12 gap-6">
+        {/* Left Column - Count Tiles */}
+        <div className="col-span-2 space-y-4">
+          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-2">Quick Stats</h3>
+          
+          {/* Total Visits Tile */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Icon icon="solar:calendar-check-bold-duotone" className="w-6 h-6 text-cyan-500" />
+              <span className="text-xs text-gray-500">Today</span>
+            </div>
+            <p className="text-xl font-bold text-gray-900">{stats.todayVisits || 0}</p>
+            <p className="text-xs text-gray-600 mt-1">Today's Visits</p>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{stats.totalVisits}</p>
-          <p className="text-xs text-gray-600 mt-1">Total Visits</p>
+          
+          {/* Completed Visits Tile */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Icon icon="solar:check-circle-bold-duotone" className="w-6 h-6 text-green-500" />
+              <span className="text-xs text-green-600">+{stats.visitCompletionRate || 0}%</span>
+            </div>
+            <p className="text-xl font-bold text-gray-900">{stats.completedVisits || 0}</p>
+            <p className="text-xs text-gray-600 mt-1">Completed</p>
+          </div>
+          
+          {/* New Patients Tile */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Icon icon="solar:user-plus-bold-duotone" className="w-6 h-6 text-purple-500" />
+              <span className="text-xs text-purple-600">New</span>
+            </div>
+            <p className="text-xl font-bold text-gray-900">{stats.newPatients || 0}</p>
+            <p className="text-xs text-gray-600 mt-1">New Patients</p>
+          </div>
+          
+          {/* Revenue Tile */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <Icon icon="solar:dollar-bold-duotone" className="w-6 h-6 text-amber-500" />
+              <span className="text-xs text-amber-600">MTD</span>
+            </div>
+            <p className="text-xl font-bold text-gray-900">N${((stats.totalRevenue || 0) / 1000).toFixed(1)}k</p>
+            <p className="text-xs text-gray-600 mt-1">Revenue</p>
+          </div>
         </div>
         
-        {/* Completed Visits Tile */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-2">
-            <Icon icon="solar:check-circle-bold-duotone" className="w-8 h-8 text-green-500" />
-            <span className="text-xs text-green-600">+{stats.visitCompletionRate}%</span>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{stats.completedVisits}</p>
-          <p className="text-xs text-gray-600 mt-1">Completed</p>
-        </div>
-        
-        {/* New Patients Tile */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-2">
-            <Icon icon="solar:user-plus-bold-duotone" className="w-8 h-8 text-purple-500" />
-            <span className="text-xs text-purple-600">New</span>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{stats.newPatients}</p>
-          <p className="text-xs text-gray-600 mt-1">New Patients</p>
-        </div>
-        
-        {/* Revenue Tile */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-2">
-            <Icon icon="solar:dollar-bold-duotone" className="w-8 h-8 text-amber-500" />
-            <span className="text-xs text-amber-600">MTD</span>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">N${(stats.totalRevenue / 1000).toFixed(1)}k</p>
-          <p className="text-xs text-gray-600 mt-1">Revenue</p>
-        </div>
-      </div>
-      
-      {/* Middle Column - Charts */}
-      <div className="col-span-6 space-y-6">
-        {/* Daily Visits Line Chart */}
+        {/* Middle Column - Charts */}
+        <div className="col-span-8 space-y-6">
+          {/* Daily Visits Line Chart */}
         <DashboardSection
           title="Daily Visit Trends"
           icon="solar:calendar-line-duotone"
@@ -605,99 +607,190 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
         </DashboardSection>
       </div>
       
-      {/* Right Column - Filters */}
-      <div className="col-span-3 space-y-4">
-        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-2">Filters</h3>
-        
-        {/* Date Range Filter */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5 text-cyan-500" />
-            <span className="text-xs text-gray-500">Range</span>
-          </div>
-          <h4 className="text-sm font-medium text-gray-900 mb-3">Date Range</h4>
-          <div className="space-y-2">
-            {(['7d', '30d', '3m', '6m'] as const).map((range) => (
-              <button
-                key={range}
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                  selectedDateRange === range
-                    ? 'bg-cyan-50 text-cyan-700 border border-cyan-200'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-                onClick={() => setSelectedDateRange(range)}
-              >
-                {range === '7d' ? 'Last 7 Days' : 
-                 range === '30d' ? 'Last 30 Days' : 
-                 range === '3m' ? 'Last 3 Months' : 'Last 6 Months'}
-              </button>
-            ))}
-          </div>
-        </div>
-        
-        {/* Gender Filter */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <Icon icon="solar:users-group-two-rounded-bold-duotone" className="w-5 h-5 text-purple-500" />
-            <span className="text-xs text-gray-500">Gender</span>
-          </div>
-          <h4 className="text-sm font-medium text-gray-900 mb-3">Gender</h4>
-          <div className="space-y-2">
-            {['All', 'Male', 'Female'].map((gender) => (
-              <button
-                key={gender}
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                  selectedGender === gender
-                    ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-                onClick={() => setSelectedGender(gender)}
-              >
-                <div className="flex items-center justify-between">
-                  <span>{gender}</span>
-                  <span className="text-xs text-gray-500">
-                    {gender === 'All' ? '100%' : gender === 'Male' ? '48%' : '52%'}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-        
-        {/* Age Group Filter */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <Icon icon="solar:user-id-bold-duotone" className="w-5 h-5 text-green-500" />
-            <span className="text-xs text-gray-500">Age</span>
-          </div>
-          <h4 className="text-sm font-medium text-gray-900 mb-3">Age Groups</h4>
-          <div className="space-y-2">
-            {['All Ages', '0-17', '18-30', '31-50', '51-70', '70+'].map((ageGroup) => (
-              <button
-                key={ageGroup}
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                  selectedAgeGroup === ageGroup
-                    ? 'bg-green-50 text-green-700 border border-green-200'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-                onClick={() => setSelectedAgeGroup(ageGroup)}
-              >
-                <div className="flex items-center justify-between">
-                  <span>{ageGroup === 'All Ages' ? 'All Ages' : `${ageGroup} years`}</span>
-                  <span className="text-xs text-gray-500">
-                    {ageGroup === 'All Ages' ? '100%' : 
-                     ageGroup === '0-17' ? '15%' :
-                     ageGroup === '18-30' ? '25%' :
-                     ageGroup === '31-50' ? '35%' :
-                     ageGroup === '51-70' ? '20%' : '5%'}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
+        {/* Right Column - Filters */}
+        <div className="col-span-2 space-y-4">
+          <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-2">Filters</h3>
+          
+          {/* Date Range Filter */}
+          <button
+            onClick={() => setActiveModal('date')}
+            className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5 text-cyan-500" />
+              <Icon icon="solar:alt-arrow-right-linear" className="w-4 h-4 text-gray-400" />
+            </div>
+            <h4 className="text-sm font-medium text-gray-900 text-left">Date Range</h4>
+            <p className="text-xs text-cyan-600 text-left mt-1">
+              {selectedDateRange === '7d' ? 'Last 7 Days' : 
+               selectedDateRange === '30d' ? 'Last 30 Days' : 
+               selectedDateRange === '3m' ? 'Last 3 Months' : 'Last 6 Months'}
+            </p>
+          </button>
+          
+          {/* Gender Filter */}
+          <button
+            onClick={() => setActiveModal('gender')}
+            className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <Icon icon="solar:users-group-two-rounded-bold-duotone" className="w-5 h-5 text-purple-500" />
+              <Icon icon="solar:alt-arrow-right-linear" className="w-4 h-4 text-gray-400" />
+            </div>
+            <h4 className="text-sm font-medium text-gray-900 text-left">Gender</h4>
+            <p className="text-xs text-purple-600 text-left mt-1">{selectedGender}</p>
+          </button>
+          
+          {/* Age Group Filter */}
+          <button
+            onClick={() => setActiveModal('age')}
+            className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <Icon icon="solar:user-id-bold-duotone" className="w-5 h-5 text-green-500" />
+              <Icon icon="solar:alt-arrow-right-linear" className="w-4 h-4 text-gray-400" />
+            </div>
+            <h4 className="text-sm font-medium text-gray-900 text-left">Age Groups</h4>
+            <p className="text-xs text-green-600 text-left mt-1">
+              {selectedAgeGroup === 'All Ages' ? 'All Ages' : `${selectedAgeGroup} years`}
+            </p>
+          </button>
         </div>
       </div>
-    </div>
+
+      {/* Filter Modals */}
+      <AnimatePresence>
+        {activeModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setActiveModal(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", damping: 20 }}
+              className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {activeModal === 'date' && (
+                <>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-2xl font-bold text-gray-900">Select Date Range</h3>
+                    <button 
+                      onClick={() => setActiveModal(null)}
+                      className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                    >
+                      <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-500" />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-3 mb-6">
+                    {(['7d', '30d', '3m', '6m'] as const).map((range) => (
+                      <button
+                        key={range}
+                        className={`w-full px-4 py-3 rounded-xl font-medium transition-all ${
+                          selectedDateRange === range
+                            ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                        onClick={() => {
+                          setSelectedDateRange(range);
+                          setActiveModal(null);
+                        }}
+                      >
+                        {range === '7d' ? 'Last 7 Days' : 
+                         range === '30d' ? 'Last 30 Days' : 
+                         range === '3m' ? 'Last 3 Months' : 'Last 6 Months'}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {activeModal === 'gender' && (
+                <>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-2xl font-bold text-gray-900">Select Gender</h3>
+                    <button 
+                      onClick={() => setActiveModal(null)}
+                      className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                    >
+                      <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-500" />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-3 mb-6">
+                    {['All', 'Male', 'Female'].map((gender) => (
+                      <button
+                        key={gender}
+                        className={`w-full px-4 py-3 rounded-xl font-medium transition-all flex items-center justify-between ${
+                          selectedGender === gender
+                            ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-lg'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                        onClick={() => {
+                          setSelectedGender(gender);
+                          setActiveModal(null);
+                        }}
+                      >
+                        <span>{gender}</span>
+                        <span className={`text-sm ${selectedGender === gender ? 'text-white/80' : 'text-gray-500'}`}>
+                          {gender === 'All' ? '100%' : gender === 'Male' ? '48%' : '52%'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {activeModal === 'age' && (
+                <>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-2xl font-bold text-gray-900">Select Age Group</h3>
+                    <button 
+                      onClick={() => setActiveModal(null)}
+                      className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                    >
+                      <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-500" />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-3 mb-6">
+                    {['All Ages', '0-17', '18-30', '31-50', '51-70', '70+'].map((ageGroup) => (
+                      <button
+                        key={ageGroup}
+                        className={`w-full px-4 py-3 rounded-xl font-medium transition-all flex items-center justify-between ${
+                          selectedAgeGroup === ageGroup
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                        onClick={() => {
+                          setSelectedAgeGroup(ageGroup);
+                          setActiveModal(null);
+                        }}
+                      >
+                        <span>{ageGroup === 'All Ages' ? 'All Ages' : `${ageGroup} years`}</span>
+                        <span className={`text-sm ${selectedAgeGroup === ageGroup ? 'text-white/80' : 'text-gray-500'}`}>
+                          {ageGroup === 'All Ages' ? '100%' : 
+                           ageGroup === '0-17' ? '15%' :
+                           ageGroup === '18-30' ? '25%' :
+                           ageGroup === '31-50' ? '35%' :
+                           ageGroup === '51-70' ? '20%' : '5%'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 
   const renderPerformanceContent = () => (
