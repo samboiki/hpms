@@ -59,7 +59,16 @@ export class PayrollService {
   }
 
   static async calculatePayroll(userId: string, payPeriod: Date): Promise<PayrollCalculation> {
-    // console.log('Calculating payroll for userId:', userId);
+    console.log('🚀 === PAYROLL CALCULATION START ===');
+    console.log('📌 User ID:', userId);
+    console.log('📌 Pay Period:', payPeriod);
+    
+    // Check current authenticated user
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    console.log('🔑 Authenticated User ID:', authUser?.id);
+    console.log('🔑 Authenticated User Email:', authUser?.email);
+    console.log('⚠️ Fetching data for different user?', authUser?.id !== userId);
+    
     const payPeriodStart = startOfMonth(payPeriod);
     const payPeriodEnd = endOfMonth(payPeriod);
     const currentMonth = getMonth(payPeriod) + 1; // JavaScript months are 0-indexed
@@ -72,10 +81,22 @@ export class PayrollService {
       .single();
 
     if (userError) {
-      console.error('Error fetching user:', userError);
+      console.error('❌ Error fetching user:', userError);
       throw new Error(`User not found: ${userError.message}`);
     }
     if (!user) throw new Error('User not found');
+    console.log('✅ User found:', user.full_name);
+    
+    // Check authenticated user's role
+    if (authUser) {
+      const { data: authUserData } = await supabase
+        .from('users')
+        .select('role, is_super_admin')
+        .eq('id', authUser.id)
+        .single();
+      console.log('🔑 Authenticated User Role:', authUserData?.role);
+      console.log('🔑 Is Super Admin:', authUserData?.is_super_admin);
+    }
 
     // Fetch current salary
     const { data: salary, error: salaryError } = await supabase
@@ -85,9 +106,13 @@ export class PayrollService {
       .eq('is_active', true)
       .single();
 
-    if (salaryError || !salary) throw new Error('No active salary configuration found');
+    if (salaryError || !salary) {
+      console.error('❌ No active salary found');
+      throw new Error('No active salary configuration found');
+    }
 
     const basicSalary = parseFloat(salary.basic_salary);
+    console.log('💰 Basic Salary:', basicSalary);
 
     // Calculate unpaid leave deductions for this period
     const unpaidLeaveDeduction = await this.calculateUnpaidLeaveDeduction(
@@ -97,22 +122,95 @@ export class PayrollService {
       basicSalary
     );
 
-    // Fetch salary configurations
+    // Fetch salary configurations from employee_salary_configurations table
+    console.log('🔐 Fetching configurations for user:', userId);
     const { data: configs, error: configError } = await supabase
       .from('employee_salary_configurations')
       .select(`
         *,
-        benefit:benefit_id(*),
-        deduction:deduction_id(*),
-        bonus_configuration:bonus_configuration_id(*)
+        benefit:benefits!benefit_id(*),
+        deduction:deductions!deduction_id(*),
+        bonus_configuration:bonus_configurations!bonus_configuration_id(*)
       `)
       .eq('user_id', userId)
       .eq('is_active', true);
+    
+    // If no configs found, try without is_active filter (for debugging)
+    if (!configs || configs.length === 0) {
+      console.log('⚠️ No active configs found, checking all configs...');
+      const { data: allConfigs } = await supabase
+        .from('employee_salary_configurations')
+        .select('id, user_id, is_active, benefit_id, deduction_id')
+        .eq('user_id', userId)
+        .limit(5);
+      console.log('📊 All configs sample:', allConfigs);
+    }
 
     if (configError) {
-      console.error('Error fetching salary configurations:', configError);
+      console.error('❌ Error fetching salary configurations:', configError);
       throw new Error('Failed to fetch salary configurations');
     }
+    console.log('📊 Configurations found:', configs?.length || 0);
+    if (configs && configs.length > 0) {
+      console.log('📋 Sample config:', JSON.stringify(configs[0], null, 2));
+    }
+
+    // Also fetch from employee_salary_components table (new structure)
+    // First get the component IDs
+    console.log('🔐 Fetching employee components for user:', userId);
+    const { data: empComponents, error: empCompError } = await supabase
+      .from('employee_salary_components')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_active', true);
+    
+    // If no components found, check without is_active filter
+    if (!empComponents || empComponents.length === 0) {
+      console.log('⚠️ No active employee components found, checking all...');
+      const { data: allComponents } = await supabase
+        .from('employee_salary_components')
+        .select('id, user_id, is_active, component_id')
+        .eq('user_id', userId)
+        .limit(5);
+      console.log('📊 All components sample:', allComponents);
+    }
+
+    let salaryComponents: any[] = [];
+    
+    if (empComponents && empComponents.length > 0) {
+      console.log('🔄 Processing employee components...');
+      // Get the component details
+      const componentIds = empComponents.map(ec => ec.component_id);
+      const { data: componentDetails, error: detailsError } = await supabase
+        .from('salary_components')
+        .select('*')
+        .in('id', componentIds);
+      
+      if (componentDetails) {
+        console.log('📦 Component details found:', componentDetails.length);
+        // Merge the data
+        salaryComponents = empComponents.map(ec => {
+          const component = componentDetails.find(cd => cd.id === ec.component_id);
+          return {
+            ...ec,
+            salary_components: component
+          };
+        });
+        console.log('🔗 Merged components:', salaryComponents.length);
+        if (salaryComponents.length > 0) {
+          console.log('📋 Sample merged component:', JSON.stringify(salaryComponents[0], null, 2));
+        }
+      }
+      
+      if (detailsError) {
+        console.error('Error fetching component details:', detailsError);
+      }
+    }
+
+    if (empCompError) {
+      console.error('❌ Error fetching employee salary components:', empCompError);
+    }
+    console.log('🔧 Employee components found:', empComponents?.length || 0);
 
     // Fetch payslip adjustments for this month
     const { data: adjustments, error: adjustmentError } = await supabase
@@ -139,13 +237,14 @@ export class PayrollService {
       });
     }
 
-    // console.log('Salary configurations found:', configs?.length || 0);
-
-    // Process benefits
-    if (configs) {
+    // Process benefits from employee_salary_configurations
+    if (configs && configs.length > 0) {
+      console.log('
+🎯 === PROCESSING CONFIGURATIONS ===');
       for (const config of configs) {
         if (config.benefit) {
           const benefit = config.benefit;
+          console.log('🎁 Processing benefit:', benefit.name);
           const amount = config.custom_value || this.calculateValue(
             benefit.type,
             benefit.value,
@@ -154,7 +253,7 @@ export class PayrollService {
             0 // Will be calculated after all earnings are added
           );
 
-          // console.log(`Adding benefit: ${benefit.name} - Amount: ${amount}`);
+          console.log(`  → Amount: ${amount}`);
           earnings.push({
             name: benefit.name,
             code: benefit.code,
@@ -163,6 +262,7 @@ export class PayrollService {
           });
         } else if (config.deduction) {
           const deduction = config.deduction;
+          console.log('💸 Processing deduction:', deduction.name);
           const amount = config.custom_value || this.calculateValue(
             deduction.type,
             deduction.value,
@@ -171,6 +271,7 @@ export class PayrollService {
             0 // Will be calculated after all earnings are added
           );
 
+          console.log(`  → Amount: ${amount}`);
           deductions.push({
             name: deduction.name,
             code: deduction.code,
@@ -213,6 +314,54 @@ export class PayrollService {
       }
     }
 
+    // Process employee salary components (new structure)
+    if (salaryComponents && salaryComponents.length > 0) {
+      console.log('
+🎯 === PROCESSING SALARY COMPONENTS ===');
+      for (const empComponent of salaryComponents) {
+        if (empComponent.salary_components) {
+          const component = empComponent.salary_components;
+          console.log('🔨 Processing:', component.name, '| Type:', component.type);
+          
+          // Calculate the amount
+          let amount = 0;
+          if (empComponent.amount && parseFloat(empComponent.amount) > 0) {
+            // Fixed amount
+            amount = parseFloat(empComponent.amount);
+          } else if (empComponent.percentage && parseFloat(empComponent.percentage) > 0) {
+            // Percentage-based
+            amount = (basicSalary * parseFloat(empComponent.percentage)) / 100;
+          }
+
+          console.log(`  → Amount calculated: ${amount}`);
+          
+          if (amount > 0) {
+            if (component.type === 'earnings') {
+              // Check if it's a company contribution (benefit)
+              const isCompanyContribution = component.category === 'benefit' || 
+                                           component.name.toLowerCase().includes('company') ||
+                                           component.name.toLowerCase().includes('employer');
+              
+              earnings.push({
+                name: component.name,
+                code: component.id,
+                amount,
+                isCompanyContribution
+              });
+              console.log('  ✅ Added to earnings');
+            } else if (component.type === 'deductions') {
+              deductions.push({
+                name: component.name,
+                code: component.id,
+                amount
+              });
+              console.log('  ✅ Added to deductions');
+            }
+          }
+        }
+      }
+    }
+
     // Process payslip adjustments
     if (adjustments) {
       for (const adjustment of adjustments) {
@@ -239,14 +388,19 @@ export class PayrollService {
       .reduce((sum, e) => sum + e.amount, 0);
     const totalDeductions = deductions.reduce((sum, d) => sum + d.amount, 0);
     const netPay = grossEarnings - totalDeductions;
-
-    // console.log('Payroll Calculation Summary:');
-    // console.log('- Basic Salary:', basicSalary);
-    // console.log('- Total Earnings:', earnings.length);
-    // console.log('- Total Deductions:', deductions.length);
-    // console.log('- Gross Earnings:', grossEarnings);
-    // console.log('- Total Deductions:', totalDeductions);
-    // console.log('- Net Pay:', netPay);
+    
+    console.log('
+📦 === FINAL CALCULATION RESULTS ===');
+    console.log('💵 Basic Salary:', basicSalary);
+    console.log('🌟 Total Earnings:', earnings.length);
+    console.log('💳 Total Deductions:', deductions.length);
+    console.log('📈 Gross Earnings:', grossEarnings);
+    console.log('📉 Total Deductions Amount:', totalDeductions);
+    console.log('💰 Net Pay:', netPay);
+    console.log('
+📦 Earnings Details:', JSON.stringify(earnings, null, 2));
+    console.log('
+📦 Deductions Details:', JSON.stringify(deductions, null, 2));
 
     // Calculate YTD values
     const ytdData = await this.calculateYTD(userId, payPeriod);

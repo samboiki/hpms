@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import Icon, { SolarIcons } from '../../ui/Icon';
 import Button from '../../ui/Button';
@@ -13,7 +13,7 @@ import { PayslipPreview } from './PayslipPreview';
 import { PayrollService } from '../../../services/payrollService';
 import { EnhancedBenefitsDeductionsManager } from './EnhancedBenefitsDeductionsManager';
 import { PayslipAdjustments } from './PayslipAdjustments';
-import { InfoTooltip, PayrollTooltips } from '../../ui/InfoTooltip';
+import { PayrollTooltips } from '../../ui/InfoTooltip';
 import MonthInput from '../../ui/MonthInput';
 
 interface EmployeeSalary {
@@ -53,7 +53,7 @@ interface Payslip {
   gross_earnings: number;
   total_deductions: number;
   net_pay: number;
-  status: 'draft' | 'approved' | 'paid' | 'cancelled';
+  status: 'paid' | 'unpaid';
 }
 
 interface PayrollManagementProps {
@@ -72,9 +72,13 @@ const SamplePayslipSection: React.FC<{
   const [refreshKey, setRefreshKey] = useState(0);
 
   const calculatePayslip = async () => {
+    console.log('🎯 === SAMPLE PAYSLIP CALCULATION ===');
+    console.log('👤 User ID:', userId);
+    console.log('📊 User Data:', userData);
     setLoading(true);
     try {
         const calculation = await PayrollService.calculatePayroll(userId, new Date());
+        console.log('✅ Calculation Result:', calculation);
         
         setPayslipData({
           employeeName: userData.user.full_name,
@@ -98,8 +102,11 @@ const SamplePayslipSection: React.FC<{
           leaveBalances: calculation.leaveBalances,
           leaveTypes: calculation.leaveTypes
         });
-      } catch (error) {
-        console.error('Error calculating payslip:', error);
+      } catch (error: any) {
+        console.error('❌ === PAYSLIP CALCULATION ERROR ===');
+        console.error('Error:', error);
+        console.error('Message:', error?.message);
+        console.error('Stack:', error?.stack);
         // Use basic data as fallback
         setPayslipData({
           employeeName: userData.user.full_name,
@@ -177,7 +184,9 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
   const [showRemunerationModal, setShowRemunerationModal] = useState(false);
   const [selectedEmployeeForRemuneration, setSelectedEmployeeForRemuneration] = useState<any>(null);
   const [selectedUsersForPayslips, setSelectedUsersForPayslips] = useState<string[]>([]);
-  const [showBenefitsManager, setShowBenefitsManager] = useState(false);
+  const [selectedPayslipForPreview, setSelectedPayslipForPreview] = useState<any>(null);
+  const [showPayslipPreview, setShowPayslipPreview] = useState(false);
+  const [previewPayslipData, setPreviewPayslipData] = useState<any>(null);
   const currentMonth = new Date().getMonth() + 1;
 
   // Fetch salary data with employee numbers and bonus eligibility
@@ -188,7 +197,7 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
         .from('employee_salaries')
         .select(`
           *,
-          user:user_id (
+          user:user_id!inner (
             full_name,
             email,
             job_title,
@@ -196,10 +205,12 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
             employee_number,
             bank_name,
             account_number,
-            branch_code
+            branch_code,
+            practice_id
           )
         `)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('user.practice_id', user?.practice_id);
 
       // Filter by user if not team view
       if (!isTeamView && selectedUserId) {
@@ -224,8 +235,8 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
     enabled: !!user?.practice_id && isTeamView
   });
 
-  // Fetch salary components
-  const { data: components = [] } = useQuery<SalaryComponent[]>({
+  // Fetch salary components (currently unused but may be needed for future features)
+  const { data: _components = [] } = useQuery<SalaryComponent[]>({
     queryKey: ['salary-components', user?.practice_id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -244,39 +255,40 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
     }
   });
 
-  // Fetch payslips for selected month
+  // Fetch all payslips (not filtered by month)
   const { data: payslips = [] } = useQuery<Payslip[]>({
-    queryKey: ['payslips', user?.practice_id, format(selectedMonth, 'yyyy-MM'), selectedUserId, isTeamView],
+    queryKey: ['payslips', user?.practice_id, selectedUserId, isTeamView],
     queryFn: async () => {
-      const monthStart = startOfMonth(selectedMonth);
-      const monthEnd = endOfMonth(selectedMonth);
-
       let query = supabase
         .from('payslips')
         .select(`
           *,
-          user:user_id (
+          user:user_id!inner (
             full_name,
-            email
+            email,
+            practice_id
           )
-        `)
-        .gte('pay_period_start', monthStart.toISOString())
-        .lte('pay_period_end', monthEnd.toISOString());
+        `);
 
       // Filter by user if not team view
       if (!isTeamView && selectedUserId) {
         query = query.eq('user_id', selectedUserId);
+      } else if (isTeamView && user?.practice_id) {
+        // Filter by practice for team view
+        query = query.eq('user.practice_id', user.practice_id);
       }
 
-      const { data, error } = await query.order('payment_date', { ascending: false });
+      const { data, error } = await query
+        .order('payment_date', { ascending: false })
+        .limit(100); // Limit to prevent loading too many records
 
       if (error) throw error;
       return data as Payslip[];
     },
     enabled: !!user?.practice_id,
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Error fetching payslips:', error);
-      toast.error('Failed to load payslips');
+      toast.error(`Failed to load payslips: ${error.message || 'Unknown error'}`);
     }
   });
 
@@ -286,7 +298,7 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
     totalMonthlySalary: salaryData.reduce((sum, emp) => sum + Number(emp.basic_salary), 0),
     totalPayslips: payslips.length,
     paidPayslips: payslips.filter(p => p.status === 'paid').length,
-    pendingPayslips: payslips.filter(p => p.status === 'draft' || p.status === 'approved').length,
+    pendingPayslips: payslips.filter(p => p.status === 'unpaid').length,
     totalNetPay: payslips.reduce((sum, p) => sum + Number(p.net_pay), 0),
   };
 
@@ -295,6 +307,57 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
       style: 'currency',
       currency: currency,
     }).format(amount);
+  };
+
+  // Handler functions for payslip actions
+  const handleMarkAsPaid = async (payslipId: string) => {
+    try {
+      const { error } = await supabase
+        .from('payslips')
+        .update({ 
+          status: 'paid',
+          approved_by: user?.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', payslipId);
+
+      if (error) throw error;
+      
+      toast.success('Payslip marked as paid');
+      queryClient.invalidateQueries(['payslips']);
+    } catch (error: any) {
+      toast.error('Failed to mark payslip as paid');
+      console.error('Error marking payslip as paid:', error);
+    }
+  };
+
+  const handleDeletePayslip = async (payslipId: string) => {
+    if (!confirm('Are you sure you want to delete this payslip?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('payslips')
+        .delete()
+        .eq('id', payslipId);
+
+      if (error) throw error;
+      
+      toast.success('Payslip deleted successfully');
+      queryClient.invalidateQueries(['payslips']);
+    } catch (error: any) {
+      toast.error('Failed to delete payslip');
+      console.error('Error deleting payslip:', error);
+    }
+  };
+
+  const handleDownloadPayslip = async (payslipId: string) => {
+    try {
+      // TODO: Implement PDF generation
+      toast.info('PDF download feature coming soon!');
+    } catch (error: any) {
+      toast.error('Failed to download payslip');
+      console.error('Error downloading payslip:', error);
+    }
   };
 
 
@@ -448,8 +511,8 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
       {/* Content Area */}
       {activeView === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Quick Actions - Only show in team view */}
-          {isTeamView && (
+          {/* Quick Actions - Only show in team view and for admins/doctors */}
+          {isTeamView && (user?.role === 'admin' || user?.role === 'doctor') && (
             <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
               <CardHeader>
                 <CardTitle>Quick Actions</CardTitle>
@@ -459,7 +522,7 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
                   <Button
                     onClick={() => {
                       if (salaryData.length === 0) {
-                        toast.error('No employees with configured salaries');
+                        toast.error('No employees with configured salaries in your practice');
                         return;
                       }
                       setSelectedUsersForPayslips(salaryData.map(s => s.user_id));
@@ -481,7 +544,6 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
                     variant="outline"
                     onClick={() => {
                       setActiveView('components');
-                      setShowBenefitsManager(true);
                     }}
                   >
                     <Icon icon={SolarIcons.settings} className="w-4 h-4 mr-2" />
@@ -492,6 +554,136 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
                     Export Report
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Payslips for Individual View */}
+          {!isTeamView && selectedUserId && (
+            <Card className="bg-white rounded-lg border border-gray-200 shadow-sm lg:col-span-2">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Your Payslips</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {payslips.length > 0 ? (
+                  <div className="space-y-3">
+                    {payslips.map((payslip) => (
+                      <div 
+                        key={payslip.id} 
+                        className="border rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                        onClick={() => {
+                          (async () => {
+                            try {
+                              const payslipDetails = await PayrollService.getPayslipWithItems(payslip.id);
+                            setPreviewPayslipData({
+                              employeeName: payslip.user.full_name,
+                              employeeId: payslip.id.substring(0, 8).toUpperCase(),
+                              employeeCode: payslipDetails.user?.employee_number,
+                              department: payslipDetails.user?.department,
+                              designation: payslipDetails.user?.job_title,
+                              payPeriod: format(new Date(payslip.pay_period_start), 'MMMM yyyy'),
+                              payDate: format(new Date(payslip.payment_date), 'dd MMM yyyy'),
+                              basicSalary: payslipDetails.basicSalary,
+                              earnings: payslipDetails.earnings,
+                              deductions: payslipDetails.deductions,
+                              currency: payslipDetails.currency || 'NAD',
+                              companyName: payslipDetails.practice_name || user?.practices?.name || 'Company',
+                              bankName: payslipDetails.user?.bank_name,
+                              accountNumber: payslipDetails.user?.account_number,
+                              branchCode: payslipDetails.user?.branch_code,
+                              ytdGrossEarnings: payslipDetails.ytd_gross_earnings,
+                              ytdTotalDeductions: payslipDetails.ytd_total_deductions,
+                              ytdNetPay: payslipDetails.ytd_net_pay,
+                              leaveBalances: payslipDetails.leave_balances,
+                              leaveTypes: payslipDetails.leaveTypes
+                            });
+                            setSelectedPayslipForPreview(payslip);
+                            setShowPayslipPreview(true);
+                            } catch (error) {
+                              toast.error('Failed to load payslip details');
+                            }
+                          })();
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {format(new Date(payslip.pay_period_start), "do 'of' MMMM")} to {format(new Date(payslip.pay_period_end), "do 'of' MMMM yyyy")}
+                            </p>
+                            <div className="flex items-center gap-4 mt-1">
+                              <span className="text-sm text-gray-600">Net Pay: <strong>{formatCurrency(payslip.net_pay)}</strong></span>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                payslip.status === 'paid' 
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {payslip.status}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              title="View Payslip"
+                              onClick={() => {
+                                // Start loading
+                                (async () => {
+                                  try {
+                                  const payslipDetails = await PayrollService.getPayslipWithItems(payslip.id);
+                                  setPreviewPayslipData({
+                                    employeeName: payslip.user.full_name,
+                                    employeeId: payslip.id.substring(0, 8).toUpperCase(),
+                                    employeeCode: payslipDetails.user?.employee_number,
+                                    department: payslipDetails.user?.department,
+                                    designation: payslipDetails.user?.job_title,
+                                    payPeriod: format(new Date(payslip.pay_period_start), 'MMMM yyyy'),
+                                    payDate: format(new Date(payslip.payment_date), 'dd MMM yyyy'),
+                                    basicSalary: payslipDetails.basicSalary,
+                                    earnings: payslipDetails.earnings,
+                                    deductions: payslipDetails.deductions,
+                                    currency: payslipDetails.currency || 'NAD',
+                                    companyName: payslipDetails.practice_name || user?.practices?.name || 'Company',
+                                    bankName: payslipDetails.user?.bank_name,
+                                    accountNumber: payslipDetails.user?.account_number,
+                                    branchCode: payslipDetails.user?.branch_code,
+                                    ytdGrossEarnings: payslipDetails.ytd_gross_earnings,
+                                    ytdTotalDeductions: payslipDetails.ytd_total_deductions,
+                                    ytdNetPay: payslipDetails.ytd_net_pay,
+                                    leaveBalances: payslipDetails.leave_balances,
+                                    leaveTypes: payslipDetails.leaveTypes
+                                  });
+                                  setSelectedPayslipForPreview(payslip);
+                                  setShowPayslipPreview(true);
+                                  } catch (error) {
+                                    toast.error('Failed to load payslip details');
+                                  }
+                                })();
+                              }}
+                            >
+                              <Icon icon={SolarIcons.eye} className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              title="Download PDF"
+                              onClick={() => handleDownloadPayslip(payslip.id)}
+                            >
+                              <Icon icon={SolarIcons.download} className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Icon icon={SolarIcons.document} className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No payslips for {format(selectedMonth, 'MMMM yyyy')}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -828,7 +1020,43 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
                 </thead>
                 <tbody>
                   {payslips.map((payslip) => (
-                    <tr key={payslip.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr 
+                      key={payslip.id} 
+                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => {
+                        (async () => {
+                          try {
+                            const payslipDetails = await PayrollService.getPayslipWithItems(payslip.id);
+                          setPreviewPayslipData({
+                            employeeName: payslip.user.full_name,
+                            employeeId: payslip.id.substring(0, 8).toUpperCase(),
+                            employeeCode: payslipDetails.user?.employee_number,
+                            department: payslipDetails.user?.department,
+                            designation: payslipDetails.user?.job_title,
+                            payPeriod: format(new Date(payslip.pay_period_start), 'MMMM yyyy'),
+                            payDate: format(new Date(payslip.payment_date), 'dd MMM yyyy'),
+                            basicSalary: payslipDetails.basicSalary,
+                            earnings: payslipDetails.earnings,
+                            deductions: payslipDetails.deductions,
+                            currency: payslipDetails.currency || 'NAD',
+                            companyName: payslipDetails.practice_name || user?.practices?.name || 'Company',
+                            bankName: payslipDetails.user?.bank_name,
+                            accountNumber: payslipDetails.user?.account_number,
+                            branchCode: payslipDetails.user?.branch_code,
+                            ytdGrossEarnings: payslipDetails.ytd_gross_earnings,
+                            ytdTotalDeductions: payslipDetails.ytd_total_deductions,
+                            ytdNetPay: payslipDetails.ytd_net_pay,
+                            leaveBalances: payslipDetails.leave_balances,
+                            leaveTypes: payslipDetails.leaveTypes
+                          });
+                          setSelectedPayslipForPreview(payslip);
+                          setShowPayslipPreview(true);
+                          } catch (error) {
+                            toast.error('Failed to load payslip details');
+                          }
+                        })();
+                      }}
+                    >
                       <td className="py-3 px-4">
                         <div>
                           <p className="font-medium text-gray-900">{payslip.user.full_name}</p>
@@ -836,8 +1064,8 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
                         </div>
                       </td>
                       <td className="py-3 px-4 text-gray-700">
-                        {format(new Date(payslip.pay_period_start), 'dd MMM')} - 
-                        {format(new Date(payslip.pay_period_end), 'dd MMM yyyy')}
+                        {format(new Date(payslip.pay_period_start), "do 'of' MMMM")} to 
+                        {format(new Date(payslip.pay_period_end), "do 'of' MMMM yyyy")}
                       </td>
                       <td className="py-3 px-4 text-right font-medium text-gray-900">
                         {formatCurrency(payslip.gross_earnings)}
@@ -852,26 +1080,93 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           payslip.status === 'paid' 
                             ? 'bg-green-100 text-green-800'
-                            : payslip.status === 'approved'
-                            ? 'bg-blue-100 text-blue-800'
-                            : payslip.status === 'draft'
-                            ? 'bg-gray-100 text-gray-800'
-                            : 'bg-red-100 text-red-800'
+                            : 'bg-yellow-100 text-yellow-800'
                         }`}>
                           {payslip.status}
                         </span>
                       </td>
                       <td className="py-3 px-4">
-                        <div className="flex items-center justify-center gap-2">
-                          <Button variant="ghost" size="sm">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            title="View Payslip"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              (async () => {
+                              // Start loading
+                              try {
+                                const payslipDetails = await PayrollService.getPayslipWithItems(payslip.id);
+                                setPreviewPayslipData({
+                                  employeeName: payslip.user.full_name,
+                                  employeeId: payslip.id.substring(0, 8).toUpperCase(),
+                                  employeeCode: payslipDetails.user?.employee_number,
+                                  department: payslipDetails.user?.department,
+                                  designation: payslipDetails.user?.job_title,
+                                  payPeriod: format(new Date(payslip.pay_period_start), 'MMMM yyyy'),
+                                  payDate: format(new Date(payslip.payment_date), 'dd MMM yyyy'),
+                                  basicSalary: payslipDetails.basicSalary,
+                                  earnings: payslipDetails.earnings,
+                                  deductions: payslipDetails.deductions,
+                                  currency: payslipDetails.currency || 'NAD',
+                                  companyName: payslipDetails.practice_name || user?.practices?.name || 'Company',
+                                  bankName: payslipDetails.user?.bank_name,
+                                  accountNumber: payslipDetails.user?.account_number,
+                                  branchCode: payslipDetails.user?.branch_code,
+                                  ytdGrossEarnings: payslipDetails.ytd_gross_earnings,
+                                  ytdTotalDeductions: payslipDetails.ytd_total_deductions,
+                                  ytdNetPay: payslipDetails.ytd_net_pay,
+                                  leaveBalances: payslipDetails.leave_balances,
+                                  leaveTypes: payslipDetails.leaveTypes
+                                });
+                                setSelectedPayslipForPreview(payslip);
+                                setShowPayslipPreview(true);
+                                } catch (error) {
+                                  toast.error('Failed to load payslip details');
+                                } finally {
+                                  // Loading state cleared
+                                }
+                              })();
+                            }}
+                          >
                             <Icon icon={SolarIcons.eye} className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            title="Download PDF"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownloadPayslip(payslip.id);
+                            }}
+                          >
                             <Icon icon={SolarIcons.download} className="w-4 h-4" />
                           </Button>
-                          {payslip.status === 'draft' && (
-                            <Button variant="ghost" size="sm">
-                              <Icon icon={SolarIcons.checkCircle} className="w-4 h-4 text-green-600" />
+                          {payslip.status === 'unpaid' && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              title="Mark as Paid"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkAsPaid(payslip.id);
+                              }}
+                            >
+                              <Icon icon={SolarIcons.moneyBag} className="w-4 h-4 text-green-600" />
+                            </Button>
+                          )}
+                          {(user?.role === 'admin' || user?.role === 'doctor') && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              title="Delete Payslip"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePayslip(payslip.id);
+                              }}
+                              className="hover:bg-red-50"
+                            >
+                              <Icon icon={SolarIcons.trash} className="w-4 h-4 text-red-600" />
                             </Button>
                           )}
                         </div>
@@ -945,6 +1240,33 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
             setSelectedUsersForPayslips([]);
           }}
         />
+      )}
+
+      {/* Payslip Preview Modal */}
+      {showPayslipPreview && previewPayslipData && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Payslip Preview</h2>
+                <button 
+                  onClick={() => {
+                    setShowPayslipPreview(false);
+                    setSelectedPayslipForPreview(null);
+                    setPreviewPayslipData(null);
+                  }} 
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <Icon icon={SolarIcons.closeCircle} className="w-6 h-6" />
+                </button>
+              </div>
+              <PayslipPreview
+                payslipData={previewPayslipData}
+                onDownload={() => handleDownloadPayslip(selectedPayslipForPreview.id)}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
