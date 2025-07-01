@@ -239,8 +239,7 @@ export class PayrollService {
 
     // Process benefits from employee_salary_configurations
     if (configs && configs.length > 0) {
-      console.log('
-🎯 === PROCESSING CONFIGURATIONS ===');
+      console.log('\n🎯 === PROCESSING CONFIGURATIONS ===');
       for (const config of configs) {
         if (config.benefit) {
           const benefit = config.benefit;
@@ -316,8 +315,7 @@ export class PayrollService {
 
     // Process employee salary components (new structure)
     if (salaryComponents && salaryComponents.length > 0) {
-      console.log('
-🎯 === PROCESSING SALARY COMPONENTS ===');
+      console.log('\n🎯 === PROCESSING SALARY COMPONENTS ===');
       for (const empComponent of salaryComponents) {
         if (empComponent.salary_components) {
           const component = empComponent.salary_components;
@@ -389,18 +387,15 @@ export class PayrollService {
     const totalDeductions = deductions.reduce((sum, d) => sum + d.amount, 0);
     const netPay = grossEarnings - totalDeductions;
     
-    console.log('
-📦 === FINAL CALCULATION RESULTS ===');
+    console.log('\n📦 === FINAL CALCULATION RESULTS ===');
     console.log('💵 Basic Salary:', basicSalary);
     console.log('🌟 Total Earnings:', earnings.length);
     console.log('💳 Total Deductions:', deductions.length);
     console.log('📈 Gross Earnings:', grossEarnings);
     console.log('📉 Total Deductions Amount:', totalDeductions);
     console.log('💰 Net Pay:', netPay);
-    console.log('
-📦 Earnings Details:', JSON.stringify(earnings, null, 2));
-    console.log('
-📦 Deductions Details:', JSON.stringify(deductions, null, 2));
+    console.log('\n📦 Earnings Details:', JSON.stringify(earnings, null, 2));
+    console.log('\n📦 Deductions Details:', JSON.stringify(deductions, null, 2));
 
     // Calculate YTD values
     const ytdData = await this.calculateYTD(userId, payPeriod);
