@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test SMS Limit Handling</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .section { border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        pre { background: #f0f0f0; padding: 10px; overflow-x: auto; font-size: 12px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 10px 0; }
+        .success { color: green; background: #e6ffe6; padding: 10px; border-radius: 4px; }
+        .error { color: red; background: #ffe6e6; padding: 10px; border-radius: 4px; }
+        .warning { color: orange; background: #fff4e6; padding: 10px; border-radius: 4px; }
+        .info { color: blue; background: #e6f0ff; padding: 10px; border-radius: 4px; }
+        .progress { background: #e0e0e0; height: 20px; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        .progress-bar { background: #4caf50; height: 100%; transition: width 0.3s; text-align: center; color: white; }
+        .progress-bar.warning { background: #ff9800; }
+        .progress-bar.danger { background: #f44336; }
+    </style>
+</head>
+<body>
+    <h1>SMS Limit Handling Test</h1>
+    
+    <div class="section">
+        <h2>📊 Current Subscription Status</h2>
+        <button onclick="checkSubscription()">Check Subscription</button>
+        <div id="subscriptionStatus"></div>
+    </div>
+
+    <div class="section">
+        <h2>📱 Send Test SMS</h2>
+        <p>This will attempt to send an SMS and show what happens when limits are reached.</p>
+        <button onclick="sendTestSMS()">Send SMS</button>
+        <div id="smsResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>🔧 Simulate Limit Scenarios</h2>
+        <button onclick="simulateNearLimit()">Simulate Near Limit (80%)</button>
+        <button onclick="simulateLimitReached()">Simulate Limit Reached (100%)</button>
+        <button onclick="resetUsage()">Reset Usage (Admin Only)</button>
+        <div id="simulationResult"></div>
+    </div>
+
+    <script>
+        const practiceId = '5da3896d-b9f3-4b0a-996a-3adca867cb30';
+        const supabaseUrl = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjY4NTcxNDgsImV4cCI6MjA0MjQzMzE0OH0.PQRj-J7iMrF_vPmY7eZBvlwfHt9_fVb_yyV5AjlCZRQ';
+
+        async function checkSubscription() {
+            const resultDiv = document.getElementById('subscriptionStatus');
+            resultDiv.innerHTML = '<p class="info">⏳ Checking subscription...</p>';
+            
+            try {
+                // Use the communication service to check subscription
+                const response = await fetch(`${supabaseUrl}/rest/v1/practice_sms_subscriptions?practice_id=eq.${practiceId}&is_active=eq.true&billing_cycle_end=gte.${new Date().toISOString().split('T')[0]}&order=created_at.desc&limit=1`, {
+                    headers: {
+                        'apikey': supabaseAnonKey,
+                        'Authorization': `Bearer ${supabaseAnonKey}`
+                    }
+                });
+                
+                const data = await response.json();
+                const subscription = data[0];
+                
+                if (!subscription) {
+                    resultDiv.innerHTML = '<div class="error">❌ No active SMS subscription found</div>';
+                    return;
+                }
+                
+                const remaining = subscription.monthly_limit - subscription.current_usage;
+                const usagePercentage = (subscription.current_usage / subscription.monthly_limit) * 100;
+                const progressClass = usagePercentage >= 100 ? 'danger' : usagePercentage >= 80 ? 'warning' : '';
+                
+                resultDiv.innerHTML = `
+                    <div class="${remaining <= 0 ? 'error' : usagePercentage >= 80 ? 'warning' : 'success'}">
+                        <h3>Subscription Details:</h3>
+                        <p><strong>Type:</strong> ${subscription.subscription_type}</p>
+                        <p><strong>Usage:</strong> ${subscription.current_usage} / ${subscription.monthly_limit} SMS (${Math.round(usagePercentage)}%)</p>
+                        <p><strong>Remaining:</strong> ${remaining} SMS</p>
+                        <p><strong>Billing Cycle End:</strong> ${new Date(subscription.billing_cycle_end).toLocaleDateString()}</p>
+                        
+                        <div class="progress">
+                            <div class="progress-bar ${progressClass}" style="width: ${Math.min(usagePercentage, 100)}%">
+                                ${Math.round(usagePercentage)}%
+                            </div>
+                        </div>
+                        
+                        ${remaining <= 0 ? '<p><strong>⚠️ LIMIT REACHED - No SMS can be sent until renewal</strong></p>' : ''}
+                        ${usagePercentage >= 80 && remaining > 0 ? '<p><strong>⚠️ WARNING - Approaching SMS limit</strong></p>' : ''}
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function sendTestSMS() {
+            const resultDiv = document.getElementById('smsResult');
+            resultDiv.innerHTML = '<p class="info">⏳ Sending SMS...</p>';
+            
+            try {
+                const response = await fetch(`${supabaseUrl}/functions/v1/centralized-sms-gateway`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-application-name': 'hpms-test'
+                    },
+                    body: JSON.stringify({
+                        practiceId: practiceId,
+                        recipientPhone: '+264812222331',
+                        messageContent: 'SMS Limit Test - ' + new Date().toLocaleString(),
+                        messageType: 'test',
+                        metadata: {
+                            test: true,
+                            purpose: 'limit_testing'
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>✅ SMS Sent Successfully!</h3>
+                            <p><strong>Log ID:</strong> ${result.logId}</p>
+                            <p><strong>Message ID:</strong> ${result.messageId}</p>
+                            <p><strong>Remaining Credits:</strong> ${result.remainingCredits}</p>
+                        </div>
+                    `;
+                    // Refresh subscription status
+                    checkSubscription();
+                } else if (result.error?.includes('subscription limit reached')) {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h3>❌ SMS Limit Reached!</h3>
+                            <p><strong>Error:</strong> ${result.error}</p>
+                            <p>Your monthly SMS limit has been exhausted. The SMS was not sent.</p>
+                            <p>Options:</p>
+                            <ul>
+                                <li>Upgrade your subscription plan</li>
+                                <li>Wait for the billing cycle to reset</li>
+                                <li>Contact support for assistance</li>
+                            </ul>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h3>❌ SMS Send Failed</h3>
+                            <p><strong>Error:</strong> ${result.error}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Network Error: ${error.message}</div>`;
+            }
+        }
+
+        async function simulateNearLimit() {
+            const resultDiv = document.getElementById('simulationResult');
+            resultDiv.innerHTML = '<p class="info">⏳ Simulating near limit scenario...</p>';
+            
+            // This would normally be done via admin interface
+            resultDiv.innerHTML = `
+                <div class="warning">
+                    <h3>⚠️ Near Limit Simulation</h3>
+                    <p>In a real scenario at 80% usage:</p>
+                    <ul>
+                        <li>Warning messages appear in the UI</li>
+                        <li>Email notifications sent to practice admin</li>
+                        <li>Upgrade prompts become more prominent</li>
+                        <li>SMS sending is still allowed</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        async function simulateLimitReached() {
+            const resultDiv = document.getElementById('simulationResult');
+            resultDiv.innerHTML = '<p class="info">⏳ Simulating limit reached scenario...</p>';
+            
+            resultDiv.innerHTML = `
+                <div class="error">
+                    <h3>🚫 Limit Reached Simulation</h3>
+                    <p>When the limit is reached:</p>
+                    <ul>
+                        <li>All SMS sending attempts are blocked</li>
+                        <li>Error modal appears explaining the situation</li>
+                        <li>Users are prompted to upgrade immediately</li>
+                        <li>Alternative communication methods suggested</li>
+                        <li>Support contact information provided</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        async function resetUsage() {
+            const resultDiv = document.getElementById('simulationResult');
+            resultDiv.innerHTML = `
+                <div class="info">
+                    <h3>ℹ️ Reset Usage (Admin Only)</h3>
+                    <p>In production, usage resets automatically at billing cycle end.</p>
+                    <p>Admin can manually reset for testing purposes.</p>
+                </div>
+            `;
+        }
+
+        // Check subscription on load
+        window.onload = checkSubscription;
+    </script>
+</body>
+</html>

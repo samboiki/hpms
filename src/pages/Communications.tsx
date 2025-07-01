@@ -23,8 +23,16 @@ import {
 import SmartAutomations from '../components/messages/SmartAutomations';
 import EmailTemplatePreview from '../components/messages/EmailTemplatePreview';
 import EmailTemplatePreviews from '../components/messages/EmailTemplatePreviews';
+import { CommunicationsDashboard } from '../components/communications/CommunicationsDashboard';
+import { InternalMessagingView } from '../components/messages/InternalMessaging';
+import { SimpleMessagingView } from '../components/messages/InternalMessaging/SimpleMessagingView';
+import { BasicMessaging } from '../components/messages/InternalMessaging/BasicMessaging';
+import { EnhancedMessaging } from '../components/messages/InternalMessaging/EnhancedMessaging';
+import { EnhancedMessagingV2 } from '../components/messages/InternalMessaging/EnhancedMessagingV2';
+import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
+import { unreadMessagesService } from '../services/unreadMessagesService';
 
-type TabType = 'dashboard' | 'messaging' | 'automations' | 'analytics' | 'settings';
+type TabType = 'dashboard' | 'messaging' | 'automations' | 'settings';
 
 interface SMSStats {
   available: number;
@@ -73,6 +81,7 @@ const Communications: React.FC = () => {
   const { currentTheme } = useTheme();
   const { settings: practiceSettings, loading: settingsLoading } = usePracticeSettings();
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [unreadCount, setUnreadCount] = useState(0);
   const [messagingView, setMessagingView] = useState<'all' | 'sms' | 'email'>('all');
   const [messageFilter, setMessageFilter] = useState<'all' | 'inbox' | 'sent'>('all');
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
@@ -226,6 +235,14 @@ Best regards,
   // Get practice ID from logged-in user
   const practiceId = user?.practice_id;
 
+  // Subscribe to unread messages
+  useEffect(() => {
+    if (user?.id && practiceId) {
+      const unsubscribe = unreadMessagesService.subscribe(setUnreadCount);
+      return () => unsubscribe();
+    }
+  }, [user?.id, practiceId]);
+
   // Load current practice data
   useEffect(() => {
     const loadPracticeData = async () => {
@@ -301,10 +318,10 @@ Best regards,
 
       // Load email stats
       const { data: emailStats, error: emailError } = await supabase
-        .from('communications_log')
+        .from('communications_log_view')
         .select('*')
         .eq('practice_id', practiceId)
-        .eq('type', 'EMAIL')
+        .eq('communication_type', 'email')
         .gte('created_at', startOfToday)
         .lte('created_at', endOfToday);
 
@@ -314,7 +331,7 @@ Best regards,
 
       // Load overall communications
       const { data: allComms, error: allCommsError } = await supabase
-        .from('communications_log')
+        .from('communications_log_view')
         .select('*')
         .eq('practice_id', practiceId)
         .gte('created_at', startOfToday)
@@ -336,9 +353,9 @@ Best regards,
         available: Math.max(0, practiceSettings?.emailRemaining || 0),
         assigned: Math.max(0, practiceSettings?.emailLimit || 0),
         used: Math.max(0, practiceSettings?.emailUsed || 0),
-        delivered: emailStats?.filter((e: { status: string }) => e.status === 'SENT' || e.status === 'DELIVERED').length || 0,
-        opened: emailStats?.filter((e: { opened_at: string | null }) => e.opened_at).length || 0,
-        failed: emailStats?.filter((e: { status: string }) => e.status === 'FAILED').length || 0
+        delivered: emailStats?.filter((e: { status: string }) => e.status === 'sent' || e.status === 'delivered').length || 0,
+        opened: emailStats?.filter((e: { read_at: string | null }) => e.read_at).length || 0,
+        failed: emailStats?.filter((e: { status: string }) => e.status === 'failed').length || 0
       };
 
       // Calculate available communication services (total number of services)
@@ -355,7 +372,7 @@ Best regards,
         email: emailStatsCalculated,
         messagesOut: allComms?.length || 0,
         deliveryRate: allComms?.length > 0 ? 
-          (allComms.filter((c: { status: string }) => c.status === 'SENT' || c.status === 'DELIVERED').length / allComms.length) * 100 : 0,
+          (allComms.filter((c: { status: string }) => c.status === 'sent' || c.status === 'delivered').length / allComms.length) * 100 : 0,
         engagementRate: 75, // Mock for now
         activeAutomations: totalAvailableServices
       });
@@ -369,23 +386,24 @@ Best regards,
   const loadMessages = async () => {
     try {
       const { data } = await supabase
-        .from('communications_log')
-        .select(`
-          *,
-          patients (first_name, last_name, avatar)
-        `)
+        .from('communications_log_view')
+        .select('*')
         .eq('practice_id', practiceId)
         .order('created_at', { ascending: false })
         .limit(50);
 
       // Mock some additional fields for demo
-      const enrichedMessages = (data || []).map((msg: Message) => ({
+      const enrichedMessages = (data || []).map((msg: any) => ({
         ...msg,
-        direction: msg.direction || 'outbound',
-        subject: msg.subject || (msg.type === 'EMAIL' ? 'Appointment Reminder' : undefined),
-        body: msg.body || msg.body_preview,
+        direction: 'outbound',
+        type: msg.communication_type?.toUpperCase() || 'SMS',
+        subject: msg.subject || (msg.communication_type === 'email' ? 'Appointment Reminder' : undefined),
+        body: msg.message || msg.body_preview,
+        body_preview: msg.message?.substring(0, 100) + '...',
         sender_address: msg.sender_address || 'noreply@practice.com',
-        status: msg.status || 'delivered'
+        status: msg.status || 'delivered',
+        recipient: msg.recipient_contact,
+        timestamp: msg.created_at
       }));
 
       setMessages(enrichedMessages);
@@ -779,9 +797,8 @@ Best regards,
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: 'solar:chart-bold-duotone', description: 'Overview & Stats' },
-    { id: 'messaging', label: 'Messaging', icon: 'solar:chat-round-dots-bold-duotone', description: 'All Messages' },
+    { id: 'messaging', label: 'Messaging', icon: 'solar:chat-round-dots-bold-duotone', description: 'All Messages', badge: unreadCount },
     { id: 'automations', label: 'Automations', icon: 'solar:widget-add-bold-duotone', description: 'Smart Workflows' },
-    { id: 'analytics', label: 'Analytics', icon: 'solar:graph-bold-duotone', description: 'Performance' },
     { id: 'settings', label: 'Settings', icon: 'solar:settings-bold-duotone', description: 'Configuration' }
   ];
 
@@ -789,7 +806,6 @@ Best regards,
     dashboard: 'solar:chart-bold-duotone',
     messaging: 'solar:chat-round-dots-bold-duotone',
     automations: 'solar:widget-add-bold-duotone',
-    analytics: 'solar:graph-bold-duotone',
     settings: 'solar:settings-bold-duotone'
   };
 
@@ -804,7 +820,7 @@ Best regards,
               {/* Page Title and Icon */}
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg">
-                  <Icon icon="solar:chat-round-bold-duotone" className="w-8 h-8 text-white" />
+                  <Icon icon="solar:letter-bold-duotone" className="w-8 h-8 text-white" />
                 </div>
                 <div>
                   <h1 className="text-2xl font-semibold text-gray-800">Communications Center</h1>
@@ -820,9 +836,9 @@ Best regards,
                     onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
                     className="relative group focus:outline-none"
                   >
-                    {/* Pulsating outer ring */}
-                    <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
-                    <div className={`absolute -inset-1 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full opacity-50`}></div>
+                    {/* Pulsating outer ring - ORANGE */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
+                    <div className="absolute -inset-1 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full opacity-50"></div>
                     
                     {/* Avatar circle */}
                     <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
@@ -913,7 +929,7 @@ Best regards,
 
         {/* Premium Navigation Tabs */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-5 gap-0 w-full">
+          <div className="grid grid-cols-4 gap-0 w-full">
             {(tabs).map((tab) => {
               const iconName = tabIcons[tab.id as TabType];
               const isActive = activeTab === tab.id;
@@ -927,7 +943,14 @@ Best regards,
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
-                  <Icon icon={iconName} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
+                  <div className="relative inline-flex">
+                    <Icon icon={iconName} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
+                    {tab.badge && tab.badge > 0 && (
+                      <span className="absolute -top-2 -right-2 px-1.5 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
+                        {tab.badge > 99 ? '99+' : tab.badge}
+                      </span>
+                    )}
+                  </div>
                   <span className="truncate text-center sm:text-left">{tab.label}</span>
                 </button>
               );
@@ -936,7 +959,7 @@ Best regards,
         </div>
 
         {/* Main Content Area */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="bg-transparent rounded-2xl shadow-none border-0 overflow-hidden">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -947,213 +970,17 @@ Best regards,
               className="min-h-[600px]"
             >
               {/* Dashboard Tab */}
-              {activeTab === 'dashboard' && (
-                <div className="p-6 space-y-6">
-                  {/* Premium Overview stats - Only in Dashboard */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    {/* SMS Available Card */}
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.05, duration: 0.3 }}
-                      className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-300"
-                    >
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg">
-                          <Icon icon="solar:chat-round-bold-duotone" className="w-6 h-6 text-white" />
-                        </div>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">SMS</span>
-                      </div>
-                      <p className="text-gray-600 text-sm font-medium mb-1">SMS Available</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {settingsLoading ? '...' : stats.sms.available}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2">of {settingsLoading ? '...' : stats.sms.assigned} assigned</p>
-                    </motion.div>
+              {activeTab === 'dashboard' && <CommunicationsDashboard />}
 
-                    {/* Email Available Card */}
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1, duration: 0.3 }}
-                      className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-300"
-                    >
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg">
-                          <Icon icon="solar:letter-bold-duotone" className="w-6 h-6 text-white" />
-                        </div>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">EMAIL</span>
-                      </div>
-                      <p className="text-gray-600 text-sm font-medium mb-1">Available Emails</p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {settingsLoading ? '...' : stats.email.available}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2">{settingsLoading ? '...' : stats.email.assigned} assigned</p>
-                    </motion.div>
-
-                    {/* Delivery Rate Card */}
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.15, duration: 0.3 }}
-                      className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-300"
-                    >
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg">
-                          <Icon icon="solar:graph-up-bold-duotone" className="w-6 h-6 text-white" />
-                        </div>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">RATE</span>
-                      </div>
-                      <p className="text-gray-600 text-sm font-medium mb-1">Delivery Rate</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.deliveryRate.toFixed(1)}%</p>
-                      <p className="text-xs text-gray-500 mt-2">last 30 days</p>
-                    </motion.div>
-
-                    {/* Active Services Card */}
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2, duration: 0.3 }}
-                      className="bg-white rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-300"
-                    >
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg">
-                          <Icon icon="solar:widget-add-bold-duotone" className="w-6 h-6 text-white" />
-                        </div>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">AUTO</span>
-                      </div>
-                      <p className="text-gray-600 text-sm font-medium mb-1">Communication Services</p>
-                      <p className="text-2xl font-bold text-gray-900">{stats.activeAutomations}</p>
-                      <p className="text-xs text-gray-500 mt-2">services available</p>
-                    </motion.div>
-                  </div>
-
-                  {/* Charts Section */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Premium Message Volume Chart */}
-                    <motion.div 
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.1, duration: 0.3 }}
-                      className="bg-gradient-to-br from-white via-orange-50/30 to-amber-50/50 rounded-2xl shadow-xl border border-orange-100/50 p-6 backdrop-blur-sm hover:shadow-2xl transition-all duration-300"
-                    >
-                      <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-3">
-                          <div className="p-2 bg-gradient-to-r from-amber-500 to-orange-600 rounded-lg shadow-lg">
-                            <Icon icon="solar:graph-bold-duotone" className="w-5 h-5 text-white" />
-                          </div>
-                          Message Volume
-                        </h3>
-                        <div className="text-xs bg-gradient-to-r from-amber-500 to-orange-600 text-white px-3 py-1 rounded-full font-medium">
-                          Last 7 Days
-                        </div>
-                      </div>
-                      <div className="h-64 flex items-end justify-between bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-4 border border-orange-100/50">
-                        {[12, 8, 15, 22, 18, 25, 30].map((value, index) => {
-                          const height = (value / 30) * 100;
-                          const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                          return (
-                            <div key={index} className="flex flex-col items-center gap-2 group">
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: `${height}%`, opacity: 1 }}
-                                transition={{ duration: 0.6, delay: index * 0.05, ease: "easeOut" }}
-                                whileHover={{ scale: 1.05 }}
-                                className="bg-gradient-to-t from-amber-500 via-orange-500 to-orange-600 rounded-t-lg w-8 min-h-[6px] shadow-lg group-hover:shadow-xl transition-all duration-300 cursor-pointer relative overflow-hidden"
-                                title={`${value} messages`}
-                              >
-                                <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                              </motion.div>
-                              <span className="text-xs font-medium text-gray-600 group-hover:text-orange-600 transition-colors duration-300">{days[index]}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </motion.div>
-
-                    {/* Quick Actions */}
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-                      <div className="space-y-3">
-                        <button
-                          onClick={() => {
-                            setActiveTab('messaging');
-                            setComposeMode(true);
-                          }}
-                          className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg hover:shadow-lg transition-all"
-                        >
-                          <div className="flex items-center gap-3">
-                            <Icon icon="solar:pen-new-square-bold-duotone" className="w-5 h-5" />
-                            <span className="font-medium">Compose Message</span>
-                          </div>
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                        
-                        <button
-                          onClick={() => setActiveTab('automations')}
-                          className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <Icon icon="solar:widget-add-bold-duotone" className="w-5 h-5 text-purple-600" />
-                            <span className="font-medium text-gray-900">Setup Automations</span>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-gray-400" />
-                        </button>
-
-                        <button
-                          onClick={() => setActiveTab('settings')}
-                          className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <Icon icon="solar:settings-bold-duotone" className="w-5 h-5 text-gray-600" />
-                            <span className="font-medium text-gray-900">Communication Settings</span>
-                          </div>
-                          <ChevronRight className="w-4 h-4 text-gray-400" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Recent Activity */}
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
-                      <button
-                        onClick={() => setActiveTab('messaging')}
-                        className="text-[#01b9d5] hover:text-[#01a3c7] text-sm font-medium"
-                      >
-                        View All
-                      </button>
-                    </div>
-                    
-                    <div className="space-y-3 max-h-80 overflow-y-auto">
-                      {messages.slice(0, 5).map((message) => (
-                        <div key={message.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                          <div className="p-2 bg-white rounded-lg">
-                            <Icon icon={message.type === 'SMS' ? 'solar:chat-square-bold-duotone' : 'solar:letter-bold-duotone'} 
-                              className={`w-4 h-4 ${message.type === 'SMS' ? 'text-purple-600' : 'text-blue-600'}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900 truncate">
-                              {message.patients ? 
-                                `${message.patients.first_name} ${message.patients.last_name}` : 
-                                message.recipient_address
-                              }
-                            </p>
-                            <p className="text-sm text-gray-600 truncate">{message.body_preview}</p>
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {format(new Date(message.created_at), 'HH:mm')}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+              {/* Messaging Tab - Enhanced Internal Messaging System V2 */}
+              {activeTab === 'messaging' && (
+                <EnhancedMessagingV2 
+                  practiceId={practiceId || ''} 
+                />
               )}
 
-              {/* Messaging Tab - Combined Compose and Inbox */}
-              {activeTab === 'messaging' && (
+              {/* OLD Messaging Tab - Kept for reference, remove when ready */}
+              {false && activeTab === 'messaging' && (
                 <div className="flex h-[calc(100vh-300px)]">
                   {/* Message List Sidebar */}
                   <div className="w-96 border-r border-gray-200 flex flex-col">
@@ -1507,16 +1334,6 @@ Best regards,
                 </div>
               )}
 
-              {/* Analytics Tab */}
-              {activeTab === 'analytics' && (
-                <div className="p-6">
-                  <div className="text-center py-12">
-                    <Icon icon="solar:graph-bold-duotone" className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Analytics Dashboard</h3>
-                    <p className="text-gray-600">Detailed communication analytics coming soon.</p>
-                  </div>
-                </div>
-              )}
 
               {/* Settings Tab */}
               {activeTab === 'settings' && (
@@ -1678,6 +1495,11 @@ Best regards,
           serviceName={showEmailPreview}
           practiceData={currentPracticeData}
         />
+      )}
+
+      {/* Floating Visit Tracker */}
+      {practiceId && (
+        <FloatingVisitTracker practiceId={practiceId} />
       )}
     </div>
   );

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { X, Send, MessageSquare, Phone, User, Clock, Sparkles, FileText } from 'lucide-react';
 import Button from '../ui/Button';
 import FullScreenModal from '../ui/FullScreenModal';
-import { defaultSMSService } from '../../services/smsPortal';
+import { communicationService } from '../../services/communicationService';
 import { useTheme } from '../../stores/themeStore';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
@@ -68,50 +68,30 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
       return;
     }
 
+    if (!practiceId) {
+      alert('Practice ID not found. Please ensure you are logged in properly.');
+      return;
+    }
+
     setIsSending(true);
     setSendStatus('idle');
 
     try {
-      const response = await defaultSMSService.sendSMS(phoneNumber, message);
+      // Use centralized communication service
+      const response = await communicationService.sendSMS({
+        practiceId: practiceId as string,
+        recipientPhone: phoneNumber,
+        messageContent: message,
+        messageType: 'custom',
+        patientId: patient?.id,
+        metadata: {
+          sentBy: user?.email || 'Unknown',
+          sentByUserId: user?.id,
+          source: 'SendMessageModal'
+        }
+      });
       
       if (response.success) {
-        // Log successful SMS to database
-        try {
-          await supabase
-            .from('sms_usage_logs')
-            .insert({
-              practice_id: practiceId,
-              recipient_phone: phoneNumber,
-              message_content: message,
-              status: 'sent',
-              cost: response.cost || 0,
-              message_id: response.messageId,
-              sent_at: new Date().toISOString(),
-              user_id: user?.id
-            });
-
-          // Also log to communications_log if patient is known
-          if (patient?.id) {
-            await supabase
-              .from('communications_log')
-              .insert({
-                practice_id: practiceId,
-                patient_id: patient.id,
-                type: 'SMS',
-                direction: 'OUTGOING',
-                sender_address: 'System',
-                recipient_address: phoneNumber,
-                subject: 'Manual SMS',
-                body_preview: message.substring(0, 200),
-                status: 'SENT',
-                sent_at: new Date().toISOString()
-              });
-          }
-        } catch (dbError) {
-          console.error('Error logging SMS to database:', dbError);
-          // Don't fail the SMS send if logging fails
-        }
-
         setSendStatus('success');
         setMessage('');
         setTimeout(() => {
@@ -119,48 +99,14 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
           setSendStatus('idle');
         }, 2000);
       } else {
-        // Log failed SMS to database
-        try {
-          await supabase
-            .from('sms_usage_logs')
-            .insert({
-              practice_id: practiceId,
-              recipient_phone: phoneNumber,
-              message_content: message,
-              status: 'failed',
-              error_message: response.error,
-              cost: 0,
-              sent_at: new Date().toISOString(),
-              user_id: user?.id
-            });
-        } catch (dbError) {
-          console.error('Error logging failed SMS to database:', dbError);
-        }
-
         setSendStatus('error');
         console.error('SMS sending failed:', response.error);
+        alert(`Failed to send SMS: ${response.error || 'Unknown error'}`);
       }
     } catch (error) {
-      // Log error to database
-      try {
-        await supabase
-          .from('sms_usage_logs')
-          .insert({
-            practice_id: practiceId,
-            recipient_phone: phoneNumber,
-            message_content: message,
-            status: 'failed',
-            error_message: error instanceof Error ? error.message : 'Unknown error',
-            cost: 0,
-            sent_at: new Date().toISOString(),
-            user_id: user?.id
-          });
-      } catch (dbError) {
-        console.error('Error logging SMS error to database:', dbError);
-      }
-
       setSendStatus('error');
       console.error('Error sending SMS:', error);
+      alert('Failed to send SMS. Please try again.');
     } finally {
       setIsSending(false);
     }

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Messaging Fixes</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Test Messaging System Fixes</h1>
+    <button onclick="testChannelCreation()">Test Channel Creation</button>
+    <div id="result"></div>
+
+    <script>
+        const { createClient } = supabase
+        const supabaseUrl = 'https://jjxlfunlbyayxwvlpgwt.supabase.co'
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjQ2MDU0MDAsImV4cCI6MjA0MDE4MTQwMH0.D8vTZbezKfU3AABZfOc1QjeYlx_LP81hBXLIBB69n5Y'
+        const client = createClient(supabaseUrl, supabaseAnonKey)
+
+        async function testChannelCreation() {
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                // Sign in first (you'll need to replace with valid credentials)
+                const { data: authData, error: authError } = await client.auth.signInWithPassword({
+                    email: 'happy@example.com',
+                    password: 'yourpassword'
+                });
+
+                if (authError) {
+                    resultDiv.innerHTML = `<p style="color: red;">Auth Error: ${authError.message}</p>`;
+                    return;
+                }
+
+                // Get user's practice
+                const { data: user } = await client
+                    .from('users')
+                    .select('practice_id')
+                    .eq('id', authData.user.id)
+                    .single();
+
+                // Test creating an announcement channel
+                const { data: channel, error } = await client
+                    .from('internal_message_channels')
+                    .insert({
+                        practice_id: user.practice_id,
+                        channel_type: 'announcement',
+                        name: 'Test Announcements',
+                        created_by: authData.user.id
+                    })
+                    .select()
+                    .single();
+
+                if (error) {
+                    resultDiv.innerHTML = `<p style="color: red;">Channel Creation Error: ${error.message}</p>`;
+                } else {
+                    resultDiv.innerHTML = `<p style="color: green;">Success! Created channel: ${channel.name}</p>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `<p style="color: red;">Error: ${err.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { sendSimpleEmail } from '../services/simpleEmailService';
+import { communicationService } from '../services/communicationService';
+import { useAuthStore } from '../stores/authStore';
 
 export function SimpleEmailExample() {
   const [to, setTo] = useState('');
@@ -13,22 +14,40 @@ export function SimpleEmailExample() {
       return;
     }
 
+    const user = useAuthStore.getState().user;
+    const practiceId = user?.practice_id || localStorage.getItem('currentPracticeId');
+    
+    if (!practiceId) {
+      alert('Practice ID not found. Please ensure you are logged in properly.');
+      return;
+    }
+
     setSending(true);
     try {
-      await sendSimpleEmail({
-        to,
-        subject,
-        html: `<p>${message}</p>`,
-        text: message
+      const response = await communicationService.sendEmail({
+        practiceId: practiceId as string,
+        recipientEmail: to,
+        subject: subject,
+        htmlContent: `<p>${message}</p>`,
+        textContent: message,
+        emailType: 'custom',
+        metadata: {
+          source: 'SimpleEmailExample',
+          sentBy: user?.email || 'Unknown'
+        }
       });
       
-      alert('Email sent successfully!');
-      // Clear form
-      setTo('');
-      setSubject('');
-      setMessage('');
+      if (response.success) {
+        alert('Email sent successfully!');
+        // Clear form
+        setTo('');
+        setSubject('');
+        setMessage('');
+      } else {
+        alert('Failed to send email: ' + (response.error || 'Unknown error'));
+      }
     } catch (error) {
-      alert('Failed to send email: ' + error.message);
+      alert('Failed to send email: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setSending(false);
     }

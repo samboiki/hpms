@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { format, parse, addDays, addWeeks, addMonths, subHours, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
-import { SMSPortalService, createSMSService } from './smsPortal';
+import { communicationService } from './communicationService';
 
 interface RecurrenceRule {
   frequency: 'daily' | 'weekly' | 'monthly';
@@ -38,6 +38,17 @@ interface WaitlistEntry {
 }
 
 export class AppointmentService {
+  /**
+   * Replace template variables with actual values
+   */
+  static replaceTemplateVariables(template: string, variables: Record<string, string>): string {
+    let result = template;
+    Object.entries(variables).forEach(([key, value]) => {
+      result = result.replace(new RegExp(`{{${key}}}`, 'g'), value);
+    });
+    return result;
+  }
+
   /**
    * Create a single or recurring appointment
    */
@@ -276,27 +287,33 @@ export class AppointmentService {
       };
 
       // Replace template variables
-      const messageContent = SMSPortalService.replaceTemplateVariables(template.content, variables);
+      const messageContent = this.replaceTemplateVariables(template.content, variables);
 
       // Send SMS if enabled
       if (practice?.notification_settings?.sms?.enabled && patient.cell_number) {
-        const smsService = createSMSService(practice);
-        
-        if (smsService) {
-          const result = await smsService.sendSMS({
-            to: patient.cell_number,
-            content: messageContent,
-            reference: `reminder-${reminderId}`,
-          });
+        const result = await communicationService.sendSMS({
+          practiceId: practice.id,
+          recipientPhone: patient.cell_number,
+          messageContent: messageContent,
+          messageType: 'appointment_reminder',
+          patientId: patient.id,
+          appointmentId: appointment.id,
+          metadata: {
+            reminderId: reminderId,
+            appointmentDate: appointment.date,
+            appointmentTime: appointment.time,
+            doctorName: doctor.user_metadata?.full_name || 'Doctor'
+          }
+        });
 
-          if (result.success) {
-            // Create message record
-            const { data: message } = await supabase
-              .from('messages')
-              .insert({
-                type: 'sms',
-                recipient: patient.cell_number,
-                content: messageContent,
+        if (result.success) {
+          // Create message record
+          const { data: message } = await supabase
+            .from('messages')
+            .insert({
+              type: 'sms',
+              recipient: patient.cell_number,
+              content: messageContent,
                 status: 'sent',
                 sent_at: new Date().toISOString(),
                 practice_id: reminder.practice_id,
@@ -526,19 +543,25 @@ export class AppointmentService {
         time: format(parse(appointment.time, 'HH:mm:ss', new Date()), 'h:mm a'),
       };
 
-      const messageContent = SMSPortalService.replaceTemplateVariables(template.content, variables);
+      const messageContent = this.replaceTemplateVariables(template.content, variables);
 
       // Send SMS
       if (practice?.notification_settings?.sms?.enabled && waitlistEntry.patients.cell_number) {
-        const smsService = createSMSService(practice);
-        
-        if (smsService) {
-          await smsService.sendSMS({
-            to: waitlistEntry.patients.cell_number,
-            content: messageContent,
-            reference: `waitlist-${waitlistEntry.id}`,
-          });
-        }
+        await communicationService.sendSMS({
+          practiceId: practice.id,
+          recipientPhone: waitlistEntry.patients.cell_number,
+          messageContent: messageContent,
+          messageType: 'appointment_reminder',
+          patientId: waitlistEntry.patient_id,
+          appointmentId: appointment.id,
+          metadata: {
+            waitlistId: waitlistEntry.id,
+            appointmentDate: appointment.date,
+            appointmentTime: appointment.time,
+            doctorName: doctor?.user_metadata?.full_name || 'Doctor',
+            source: 'waitlist_notification'
+          }
+        });
       }
 
       return { success: true };

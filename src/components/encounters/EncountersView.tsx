@@ -5,6 +5,8 @@ import { usePractice } from '../../contexts/PracticeContext';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
+import { toast } from 'react-hot-toast';
 
 interface EncounterRecord {
   visit_id: string;
@@ -50,8 +52,8 @@ export const EncountersView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
-  const [sortField, setSortField] = useState<keyof EncounterRecord>('created_at');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [sortField, setSortField] = useState<keyof EncounterRecord>('sequential_number');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -60,6 +62,7 @@ export const EncountersView: React.FC = () => {
       fetchEncounters();
       fetchBranches();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [practiceId, statusFilter, branchFilter]);
 
   const fetchEncounters = async () => {
@@ -70,7 +73,7 @@ export const EncountersView: React.FC = () => {
       let query = supabase
         .from('encounters_view')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('sequential_number', { ascending: true });
 
       if (practiceId) {
         query = query.eq('practice_id', practiceId);
@@ -175,38 +178,81 @@ export const EncountersView: React.FC = () => {
       }
     }
 
-    // Sort with proper type handling
-    filtered.sort((a, b) => {
-      const aValue = a[sortField];
-      const bValue = b[sortField];
+    // Robust sorting algorithm with proper type handling
+    filtered = [...filtered].sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
       
-      // Handle null/undefined values
-      if (aValue === null || aValue === undefined) return sortDirection === 'asc' ? 1 : -1;
-      if (bValue === null || bValue === undefined) return sortDirection === 'asc' ? -1 : 1;
+      // Special handling for date fields
+      if (sortField === 'visit_date' || sortField === 'schedule_date' || sortField === 'created_at' || sortField === 'updated_at') {
+        // Convert string dates to Date objects for proper comparison
+        aValue = aValue ? new Date(aValue as string) : null;
+        bValue = bValue ? new Date(bValue as string) : null;
+      }
       
-      // Handle different data types
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        // Case-insensitive string comparison
-        const compareResult = aValue.toLowerCase().localeCompare(bValue.toLowerCase());
-        return sortDirection === 'asc' ? compareResult : -compareResult;
-      } else if (typeof aValue === 'number' && typeof bValue === 'number') {
-        // Numeric comparison
-        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-      } else if (aValue instanceof Date && bValue instanceof Date) {
-        // Date comparison
-        return sortDirection === 'asc' ? aValue.getTime() - bValue.getTime() : bValue.getTime() - aValue.getTime();
-      } else {
-        // Default comparison
+      // Handle null/undefined values - nulls always go to the end regardless of sort direction
+      if (aValue === null || aValue === undefined || aValue === '') {
+        return 1;
+      }
+      if (bValue === null || bValue === undefined || bValue === '') {
+        return -1;
+      }
+      
+      // Numeric comparison (for numbers and sequential_number)
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
         if (sortDirection === 'asc') {
-          return aValue > bValue ? 1 : -1;
+          return aValue - bValue;
         } else {
-          return aValue < bValue ? 1 : -1;
+          return bValue - aValue;
         }
+      }
+      
+      // Date comparison
+      if (aValue instanceof Date && bValue instanceof Date) {
+        const aTime = aValue.getTime();
+        const bTime = bValue.getTime();
+        if (sortDirection === 'asc') {
+          return aTime - bTime;
+        } else {
+          return bTime - aTime;
+        }
+      }
+      
+      // String comparison (case-insensitive)
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        const aLower = aValue.toLowerCase().trim();
+        const bLower = bValue.toLowerCase().trim();
+        
+        // Natural sort for strings with numbers
+        const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+        const compareResult = collator.compare(aLower, bLower);
+        
+        if (sortDirection === 'asc') {
+          return compareResult;
+        } else {
+          return -compareResult;
+        }
+      }
+      
+      // Boolean comparison
+      if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+        if (sortDirection === 'asc') {
+          return aValue === bValue ? 0 : aValue ? 1 : -1;
+        } else {
+          return aValue === bValue ? 0 : aValue ? -1 : 1;
+        }
+      }
+      
+      // Default comparison for any other types
+      if (sortDirection === 'asc') {
+        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
       }
     });
 
     return filtered;
-  }, [encounters, searchTerm, statusFilter, sortField, sortDirection]);
+  }, [encounters, searchTerm, statusFilter, branchFilter, sortField, sortDirection]);
 
   const paginatedEncounters = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -220,7 +266,13 @@ export const EncountersView: React.FC = () => {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
-      setSortDirection('desc');
+      // Default to descending for dates and numbers, ascending for text
+      if (field === 'visit_date' || field === 'schedule_date' || field === 'created_at' || 
+          field === 'total_bill' || field === 'pending_lab_requests' || field === 'pending_imaging_requests') {
+        setSortDirection('desc');
+      } else {
+        setSortDirection('asc');
+      }
     }
   };
 
@@ -233,6 +285,126 @@ export const EncountersView: React.FC = () => {
     
     // Navigate to patient modal with visit edit action
     navigate(`/patients?patientId=${patientId}&visitId=${visitId}&action=edit-visit`);
+  };
+
+  const exportToCSV = () => {
+    try {
+      // Prepare data for export
+      const exportData = filteredAndSortedEncounters.map(encounter => ({
+        'Visit #': encounter.sequential_number,
+        'System Visit #': encounter.system_sequence_visit_number,
+        'Visit Date': encounter.visit_date ? format(new Date(encounter.visit_date), 'yyyy-MM-dd HH:mm') : '',
+        'Schedule Date': encounter.schedule_date ? format(new Date(encounter.schedule_date), 'yyyy-MM-dd HH:mm') : '',
+        'Status': encounter.visit_status,
+        'Patient Name': encounter.patient_name,
+        'Medical Aid': encounter.medical_aid_name || 'Self-Pay',
+        'Medical Aid Number': encounter.medical_aid_number || '',
+        'Visit Type': encounter.visit_type,
+        'Chief Complaint': encounter.chief_complaint,
+        'Total Bill': encounter.total_bill?.toFixed(2) || '0.00',
+        'Invoice Number': encounter.invoice_number || '',
+        'Payment Status': encounter.payment_status || 'Pending',
+        'Template': encounter.template_name || '',
+        'Branch': encounter.branch_name || 'Main',
+        'Duration (min)': encounter.duration_minutes || '',
+        'Pending Labs': encounter.pending_lab_requests || 0,
+        'Pending Imaging': encounter.pending_imaging_requests || 0
+      }));
+
+      // Convert to CSV format
+      const headers = Object.keys(exportData[0] || {});
+      const csvContent = [
+        headers.join(','),
+        ...exportData.map(row => 
+          headers.map(header => {
+            const value = row[header as keyof typeof row];
+            // Escape commas and quotes in values
+            const stringValue = String(value || '');
+            if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+              return `"${stringValue.replace(/"/g, '""')}"`;
+            }
+            return stringValue;
+          }).join(',')
+        )
+      ].join('\n');
+
+      // Download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `encounters_export_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+
+      toast.success('Encounters exported successfully');
+    } catch (error) {
+      console.error('Error exporting to CSV:', error);
+      toast.error('Failed to export encounters');
+    }
+  };
+
+  const exportToExcel = () => {
+    try {
+      // Prepare data for export
+      const exportData = filteredAndSortedEncounters.map(encounter => ({
+        'Visit #': encounter.sequential_number,
+        'System Visit #': encounter.system_sequence_visit_number,
+        'Visit Date': encounter.visit_date ? format(new Date(encounter.visit_date), 'yyyy-MM-dd HH:mm') : '',
+        'Schedule Date': encounter.schedule_date ? format(new Date(encounter.schedule_date), 'yyyy-MM-dd HH:mm') : '',
+        'Status': encounter.visit_status,
+        'Patient Name': encounter.patient_name,
+        'Medical Aid': encounter.medical_aid_name || 'Self-Pay',
+        'Medical Aid Number': encounter.medical_aid_number || '',
+        'Visit Type': encounter.visit_type,
+        'Chief Complaint': encounter.chief_complaint,
+        'Total Bill': encounter.total_bill || 0,
+        'Invoice Number': encounter.invoice_number || '',
+        'Payment Status': encounter.payment_status || 'Pending',
+        'Template': encounter.template_name || '',
+        'Branch': encounter.branch_name || 'Main',
+        'Duration (min)': encounter.duration_minutes || '',
+        'Pending Labs': encounter.pending_lab_requests || 0,
+        'Pending Imaging': encounter.pending_imaging_requests || 0
+      }));
+
+      // Create worksheet
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+      // Set column widths
+      const columnWidths = [
+        { wch: 8 },  // Visit #
+        { wch: 12 }, // System Visit #
+        { wch: 18 }, // Visit Date
+        { wch: 18 }, // Schedule Date
+        { wch: 12 }, // Status
+        { wch: 25 }, // Patient Name
+        { wch: 20 }, // Medical Aid
+        { wch: 15 }, // Medical Aid Number
+        { wch: 15 }, // Visit Type
+        { wch: 30 }, // Chief Complaint
+        { wch: 12 }, // Total Bill
+        { wch: 15 }, // Invoice Number
+        { wch: 15 }, // Payment Status
+        { wch: 20 }, // Template
+        { wch: 15 }, // Branch
+        { wch: 12 }, // Duration
+        { wch: 12 }, // Pending Labs
+        { wch: 15 }  // Pending Imaging
+      ];
+      worksheet['!cols'] = columnWidths;
+
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Encounters');
+
+      // Generate file and download
+      XLSX.writeFile(workbook, `encounters_export_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.xlsx`);
+
+      toast.success('Encounters exported successfully');
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      toast.error('Failed to export encounters');
+    }
   };
 
   if (loading) {
@@ -277,8 +449,23 @@ export const EncountersView: React.FC = () => {
               <button
                 onClick={fetchEncounters}
                 className="p-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all"
+                title="Refresh"
               >
                 <Icon icon="solar:refresh-linear" className="w-5 h-5" />
+              </button>
+              <button
+                onClick={exportToCSV}
+                className="p-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all"
+                title="Export to CSV"
+              >
+                <Icon icon="solar:document-text-bold-duotone" className="w-5 h-5" />
+              </button>
+              <button
+                onClick={exportToExcel}
+                className="p-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all"
+                title="Export to Excel"
+              >
+                <Icon icon="solar:file-bold-duotone" className="w-5 h-5" />
               </button>
             </div>
 
@@ -414,29 +601,53 @@ export const EncountersView: React.FC = () => {
                 <th className="px-2 py-3 text-left">
                   <button
                     onClick={() => handleSort('sequential_number')}
-                    className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                    className={`flex items-center gap-1 transition-colors ${
+                      sortField === 'sequential_number' ? 'text-blue-600 font-semibold' : 'hover:text-gray-700'
+                    }`}
                   >
                     #
-                    <Icon icon={sortField === 'sequential_number' ? (sortDirection === 'asc' ? 'solar:sort-from-bottom-to-top-linear' : 'solar:sort-from-top-to-bottom-linear') : 'solar:sort-linear'} className="w-3 h-3" />
+                    <Icon 
+                      icon={sortField === 'sequential_number' ? 
+                        (sortDirection === 'asc' ? 'solar:sort-from-bottom-to-top-bold' : 'solar:sort-from-top-to-bottom-bold') : 
+                        'solar:sort-linear'
+                      } 
+                      className={`w-3 h-3 ${sortField === 'sequential_number' ? 'text-blue-600' : ''}`} 
+                    />
                   </button>
                 </th>
                 <th className="px-2 py-3 text-left">
                   <button
                     onClick={() => handleSort('visit_date')}
-                    className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                    className={`flex items-center gap-1 transition-colors ${
+                      sortField === 'visit_date' ? 'text-blue-600 font-semibold' : 'hover:text-gray-700'
+                    }`}
                   >
                     Date
-                    <Icon icon={sortField === 'visit_date' ? (sortDirection === 'asc' ? 'solar:sort-from-bottom-to-top-linear' : 'solar:sort-from-top-to-bottom-linear') : 'solar:sort-linear'} className="w-3 h-3" />
+                    <Icon 
+                      icon={sortField === 'visit_date' ? 
+                        (sortDirection === 'asc' ? 'solar:sort-from-bottom-to-top-bold' : 'solar:sort-from-top-to-bottom-bold') : 
+                        'solar:sort-linear'
+                      } 
+                      className={`w-3 h-3 ${sortField === 'visit_date' ? 'text-blue-600' : ''}`} 
+                    />
                   </button>
                 </th>
                 <th className="px-2 py-3 text-left">Status</th>
                 <th className="px-2 py-3 text-left">
                   <button
                     onClick={() => handleSort('patient_name')}
-                    className="flex items-center gap-1 hover:text-gray-700 transition-colors"
+                    className={`flex items-center gap-1 transition-colors ${
+                      sortField === 'patient_name' ? 'text-blue-600 font-semibold' : 'hover:text-gray-700'
+                    }`}
                   >
                     Patient
-                    <Icon icon={sortField === 'patient_name' ? (sortDirection === 'asc' ? 'solar:sort-from-bottom-to-top-linear' : 'solar:sort-from-top-to-bottom-linear') : 'solar:sort-linear'} className="w-3 h-3" />
+                    <Icon 
+                      icon={sortField === 'patient_name' ? 
+                        (sortDirection === 'asc' ? 'solar:sort-from-bottom-to-top-bold' : 'solar:sort-from-top-to-bottom-bold') : 
+                        'solar:sort-linear'
+                      } 
+                      className={`w-3 h-3 ${sortField === 'patient_name' ? 'text-blue-600' : ''}`} 
+                    />
                   </button>
                 </th>
                 <th className="px-2 py-3 text-left">Type</th>
@@ -444,31 +655,55 @@ export const EncountersView: React.FC = () => {
                 <th className="px-2 py-3 text-center">
                   <button
                     onClick={() => handleSort('pending_lab_requests')}
-                    className="flex items-center gap-1 hover:text-gray-700 transition-colors mx-auto"
+                    className={`flex items-center gap-1 transition-colors mx-auto ${
+                      sortField === 'pending_lab_requests' ? 'text-blue-600 font-semibold' : 'hover:text-gray-700'
+                    }`}
                   >
                     <Icon icon="solar:test-tube-minimalistic-linear" className="w-3 h-3" />
                     Labs
-                    <Icon icon={sortField === 'pending_lab_requests' ? (sortDirection === 'asc' ? 'solar:sort-from-bottom-to-top-linear' : 'solar:sort-from-top-to-bottom-linear') : 'solar:sort-linear'} className="w-3 h-3" />
+                    <Icon 
+                      icon={sortField === 'pending_lab_requests' ? 
+                        (sortDirection === 'asc' ? 'solar:sort-from-bottom-to-top-bold' : 'solar:sort-from-top-to-bottom-bold') : 
+                        'solar:sort-linear'
+                      } 
+                      className={`w-3 h-3 ${sortField === 'pending_lab_requests' ? 'text-blue-600' : ''}`} 
+                    />
                   </button>
                 </th>
                 <th className="px-2 py-3 text-center">
                   <button
                     onClick={() => handleSort('pending_imaging_requests')}
-                    className="flex items-center gap-1 hover:text-gray-700 transition-colors mx-auto"
+                    className={`flex items-center gap-1 transition-colors mx-auto ${
+                      sortField === 'pending_imaging_requests' ? 'text-blue-600 font-semibold' : 'hover:text-gray-700'
+                    }`}
                   >
                     <Icon icon="solar:monitor-camera-linear" className="w-3 h-3" />
                     Imaging
-                    <Icon icon={sortField === 'pending_imaging_requests' ? (sortDirection === 'asc' ? 'solar:sort-from-bottom-to-top-linear' : 'solar:sort-from-top-to-bottom-linear') : 'solar:sort-linear'} className="w-3 h-3" />
+                    <Icon 
+                      icon={sortField === 'pending_imaging_requests' ? 
+                        (sortDirection === 'asc' ? 'solar:sort-from-bottom-to-top-bold' : 'solar:sort-from-top-to-bottom-bold') : 
+                        'solar:sort-linear'
+                      } 
+                      className={`w-3 h-3 ${sortField === 'pending_imaging_requests' ? 'text-blue-600' : ''}`} 
+                    />
                   </button>
                 </th>
                 <th className="px-2 py-3 text-left">Medical Aid</th>
                 <th className="px-2 py-3 text-right">
                   <button
                     onClick={() => handleSort('total_bill')}
-                    className="flex items-center gap-1 hover:text-gray-700 transition-colors ml-auto"
+                    className={`flex items-center gap-1 transition-colors ml-auto ${
+                      sortField === 'total_bill' ? 'text-blue-600 font-semibold' : 'hover:text-gray-700'
+                    }`}
                   >
                     Amount
-                    <Icon icon={sortField === 'total_bill' ? (sortDirection === 'asc' ? 'solar:sort-from-bottom-to-top-linear' : 'solar:sort-from-top-to-bottom-linear') : 'solar:sort-linear'} className="w-3 h-3" />
+                    <Icon 
+                      icon={sortField === 'total_bill' ? 
+                        (sortDirection === 'asc' ? 'solar:sort-from-bottom-to-top-bold' : 'solar:sort-from-top-to-bottom-bold') : 
+                        'solar:sort-linear'
+                      } 
+                      className={`w-3 h-3 ${sortField === 'total_bill' ? 'text-blue-600' : ''}`} 
+                    />
                   </button>
                 </th>
                 <th className="pl-2 pr-4 py-3 text-center">Actions</th>
@@ -513,8 +748,7 @@ export const EncountersView: React.FC = () => {
                     </td>
                     <td className="px-2 py-2">
                       <span className="text-xs font-medium text-gray-900">
-                        {filteredAndSortedEncounters.length - 
-                         (filteredAndSortedEncounters.findIndex(e => e.visit_id === encounter.visit_id))}
+                        {encounter.sequential_number}
                       </span>
                     </td>
                     <td className="px-2 py-2">

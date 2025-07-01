@@ -27,7 +27,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
-import { defaultSMSService, SMSPortalService } from '../../services/smsPortal';
+import { communicationService } from '../../services/communicationService';
 import { toast } from 'react-hot-toast';
 
 interface PracticeSettings {
@@ -259,10 +259,21 @@ const EnhancedSettings: React.FC = () => {
     try {
       toast.loading('Sending test SMS...', { id: 'test-sms' });
       
-      const result = await defaultSMSService.sendSMS({
-        to: testPhoneNumber,
-        content: 'Test message from HPMS. Your SMS reminders are configured correctly!',
-        reference: 'test-connection'
+      const practiceId = user?.practice_id || localStorage.getItem('currentPracticeId');
+      
+      if (!practiceId) {
+        throw new Error('Practice ID not found');
+      }
+
+      const result = await communicationService.sendSMS({
+        practiceId: practiceId as string,
+        recipientPhone: testPhoneNumber,
+        messageContent: 'Test message from HPMS. Your SMS reminders are configured correctly!',
+        messageType: 'system',
+        metadata: {
+          source: 'EnhancedSettings_TestConnection',
+          sentBy: user?.email || 'Unknown'
+        }
       });
 
       if (result.success) {

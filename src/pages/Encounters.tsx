@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -13,6 +14,7 @@ import ImagingTabContent from '../components/requests/ImagingTabContent';
 import FollowUpAutomationTab from '../components/encounters/FollowUpAutomationTab';
 import { AdvancedEncountersDashboard } from '../components/encounters/AdvancedEncountersDashboard';
 import { EncountersView } from '../components/encounters/EncountersView';
+import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
 
 interface DashboardStats {
   totalVisits: number;
@@ -61,15 +63,16 @@ interface DashboardStats {
 // Main Encounters Page Component
 const Encounters: React.FC = () => {
   const { practiceId } = usePractice();
-  const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<string>('overview');
+  const { user, logout } = useAuthStore();
+  const [activeTab, setActiveTab] = useState<string>('analytics');
   const [activeSubTab] = useState<string>('analytics');
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
-    start: startOfMonth(new Date()),
-    end: endOfMonth(new Date())
+    start: subMonths(new Date(), 1), // Last 30 days by default
+    end: new Date()
   });
-  const [dateFilter, setDateFilter] = useState<'30d' | '3m' | '6m' | '12m'>('30d');
+  const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
+  const avatarButtonRef = useRef<HTMLButtonElement>(null);
   
   const [stats, setStats] = useState<DashboardStats>({
     totalVisits: 0,
@@ -727,6 +730,7 @@ const Encounters: React.FC = () => {
           visit_date: visit.visit_date,
           status: visit.status,
           scheduled_time: visit.scheduled_time,
+          branch_id: visit.branch_id,
           patient: visit.patient ? {
             gender: visit.patient.gender,
             date_of_birth: visit.patient.date_of_birth
@@ -741,46 +745,24 @@ const Encounters: React.FC = () => {
   };
 
   const tabIcons = {
-    overview: "solar:chart-square-bold-duotone",
+    analytics: "solar:chart-square-bold-duotone",
     encounters: "solar:document-text-bold-duotone",
-    visits: "solar:clipboard-list-bold-duotone",
-    clinical: "solar:health-bold-duotone",
-    operations: "solar:settings-minimalistic-bold-duotone",
+    automations: "solar:settings-minimalistic-bold-duotone",
   };
   
-  const handleDateFilterChange = (filter: '30d' | '3m' | '6m' | '12m') => {
-    setDateFilter(filter);
-    const end = new Date();
-    let start = new Date();
-    
-    switch (filter) {
-      case '30d':
-        start = subMonths(end, 1);
-        break;
-      case '3m':
-        start = subMonths(end, 3);
-        break;
-      case '6m':
-        start = subMonths(end, 6);
-        break;
-      case '12m':
-        start = subMonths(end, 12);
-        break;
-    }
-    
-    setDateRange({ start, end });
-  };
 
   // Handle date range changes from the dashboard
   const handleDashboardDateRangeChange = useCallback((newRange: { start: Date; end: Date }) => {
     setDateRange(newRange);
-    // Update the date filter button to reflect custom range
-    const daysDiff = Math.ceil((newRange.end.getTime() - newRange.start.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysDiff <= 30) setDateFilter('30d');
-    else if (daysDiff <= 90) setDateFilter('3m');
-    else if (daysDiff <= 180) setDateFilter('6m');
-    else setDateFilter('12m');
   }, []);
+  
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
 
   if (loading) {
     return (
@@ -807,44 +789,109 @@ const Encounters: React.FC = () => {
                 </div>
               </div>
               
-              {/* Date Filter and Avatar */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
-                  {(['30d', '3m', '6m', '12m'] as const).map((filter) => (
-                    <button
-                      key={filter}
-                      onClick={() => handleDateFilterChange(filter)}
-                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                        dateFilter === filter
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-900'
-                      }`}
-                    >
-                      {filter === '30d' ? '30 Days' : filter === '3m' ? '3 Months' : filter === '6m' ? '6 Months' : '1 Year'}
-                    </button>
-                  ))}
-                </div>
-                
+              {/* User Avatar with Dropdown - Same as Dashboard */}
+              {user && (
                 <div className="relative">
-                  <button className="relative group focus:outline-none">
-                    <div className="relative h-10 w-10 rounded-full overflow-hidden border-2 border-gray-200 shadow-sm group-hover:scale-105 transition-transform duration-200">
+                  <button
+                    ref={avatarButtonRef}
+                    onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
+                    className="relative group focus:outline-none"
+                  >
+                    {/* Pulsating outer ring */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
+                    <div className="absolute -inset-1 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full opacity-50"></div>
+                    
+                    {/* Avatar circle */}
+                    <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
                       <img 
-                        src={user?.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`} 
-                        alt={user?.name || 'User'} 
+                        src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
+                        alt={user.name}
                         className="h-full w-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
+                        }}
                       />
                     </div>
                   </button>
+
+                  {/* Premium Dropdown Modal - Using Portal for maximum z-index control */}
+                  {isAvatarDropdownOpen && createPortal(
+                    <>
+                      {/* Backdrop */}
+                      <div 
+                        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[99998] animate-in fade-in duration-200" 
+                        onClick={() => setIsAvatarDropdownOpen(false)}
+                      />
+                      
+                      {/* Premium Modal Dropdown */}
+                      <div 
+                        style={{
+                          position: 'fixed',
+                          top: avatarButtonRef.current ? avatarButtonRef.current.getBoundingClientRect().bottom + 16 : 0,
+                          right: avatarButtonRef.current ? window.innerWidth - avatarButtonRef.current.getBoundingClientRect().right : 0,
+                          zIndex: 99999
+                        }}
+                        className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 w-[320px] animate-in fade-in slide-in-from-top-3 duration-300"
+                      >
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-6">
+                          <h3 className="text-xl font-bold text-gray-900">User Profile</h3>
+                          <button 
+                            onClick={() => setIsAvatarDropdownOpen(false)}
+                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                          >
+                            <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
+                          </button>
+                        </div>
+                        
+                        {/* User Info Card */}
+                        <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl p-4 mb-6">
+                          <div className="flex items-center gap-4">
+                            <div className="relative">
+                              <div className="h-14 w-14 rounded-full overflow-hidden border-3 border-white shadow-lg">
+                                <img 
+                                  src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
+                                  alt={user.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              </div>
+                              <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-base font-semibold text-gray-900">{user.name}</p>
+                              <p className="text-sm text-gray-500">{user.email}</p>
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-500 to-indigo-600 text-white mt-1">
+                                {user.role}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Logout Button */}
+                        <button
+                          onClick={() => {
+                            setIsAvatarDropdownOpen(false);
+                            handleLogout();
+                          }}
+                          className="w-full px-4 py-3 text-sm bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl transition-colors font-semibold hover:shadow-lg flex items-center justify-center gap-2"
+                        >
+                          <Icon icon="solar:logout-3-bold-duotone" className="w-4 h-4" />
+                          Logout
+                        </button>
+                      </div>
+                    </>,
+                    document.body
+                  )}
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Main Tab Navigation - Professional Style */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-5 gap-0 w-full">
-            {(['overview', 'encounters', 'visits', 'clinical', 'operations'] as const).map((tab) => {
+          <div className="grid grid-cols-3 gap-0 w-full">
+            {(['analytics', 'encounters', 'automations'] as const).map((tab) => {
               const iconName = tabIcons[tab];
               const isActive = activeTab === tab;
               return (
@@ -868,9 +915,9 @@ const Encounters: React.FC = () => {
         {/* Tab Content */}
         <div className="min-h-[600px]">
           <AnimatePresence mode="wait">
-            {activeTab === 'overview' && (
+            {activeTab === 'analytics' && (
               <motion.div
-                key="overview"
+                key="analytics"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -899,81 +946,10 @@ const Encounters: React.FC = () => {
               </motion.div>
             )}
             
-            {activeTab === 'visits' && (
-              <motion.div
-                key="visits"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-              >
-                <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                  <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-cyan-100 rounded-lg">
-                        <Icon icon="solar:clipboard-list-bold-duotone" className="w-5 h-5 text-cyan-600" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg font-semibold text-gray-900">Visit Management</CardTitle>
-                        <p className="text-sm text-gray-500">Schedule and manage patient visits</p>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center py-12">
-                      <Icon icon="solar:calendar-bold-duotone" className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500">Visit scheduling interface coming soon</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-            
-            {activeTab === 'clinical' && (
-              <motion.div
-                key="clinical"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-              >
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Laboratory Management */}
-                  <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <CardHeader>
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-emerald-100 rounded-lg">
-                          <Icon icon="solar:test-tube-bold-duotone" className="w-5 h-5 text-emerald-600" />
-                        </div>
-                        <CardTitle className="text-lg font-semibold text-gray-900">Laboratory</CardTitle>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <LaboratoryTabContent />
-                    </CardContent>
-                  </Card>
-                  
-                  {/* Imaging Management */}
-                  <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <CardHeader>
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-purple-100 rounded-lg">
-                          <Icon icon="solar:scan-bold-duotone" className="w-5 h-5 text-purple-600" />
-                        </div>
-                        <CardTitle className="text-lg font-semibold text-gray-900">Imaging</CardTitle>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <ImagingTabContent />
-                    </CardContent>
-                  </Card>
-                </div>
-              </motion.div>
-            )}
 
-            {activeTab === 'operations' && (
+            {activeTab === 'automations' && (
               <motion.div
-                key="operations"
+                key="automations"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -985,6 +961,9 @@ const Encounters: React.FC = () => {
           </AnimatePresence>
         </div>
       </div>
+      
+      {/* Floating Visit Tracker - Same as Dashboard */}
+      {practiceId && <FloatingVisitTracker practiceId={practiceId} selectedDate={new Date()} />}
     </div>
   );
 };

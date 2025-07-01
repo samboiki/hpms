@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Bell, 
@@ -21,6 +21,10 @@ import {
 } from 'lucide-react';
 import { format, differenceInMinutes, differenceInHours, isToday, isTomorrow } from 'date-fns';
 import { cn } from '../../utils/cn';
+import { useMessagingStore } from '../../stores/messagingStore';
+import { useAuthStore } from '../../stores/authStore';
+import { useNotificationSubscription } from '../../hooks/useRealtimeMessaging';
+import { SystemNotification } from '../../types/internal-messaging.types';
 
 export interface Notification {
   id: string;
@@ -45,6 +49,42 @@ export interface Notification {
   };
 }
 
+// Helper function to convert system notifications to component format
+const convertSystemNotifications = (systemNotifications: SystemNotification[]): Notification[] => {
+  return systemNotifications.map(sn => {
+    // Map notification types
+    const typeMap: Record<string, Notification['type']> = {
+      'appointment_reminder': 'booking',
+      'lab_results': 'lab-result',
+      'follow_up': 'follow-up',
+      'prescription_renewal': 'prescription',
+      'patient_message': 'message',
+      'system_update': 'system',
+      'task_assigned': 'reminder',
+      'visit_status': 'booking'
+    };
+    
+    return {
+      id: sn.id,
+      type: typeMap[sn.notification_type] || 'system',
+      priority: sn.priority === 'critical' ? 'urgent' : sn.priority as Notification['priority'],
+      title: sn.title,
+      description: sn.message,
+      time: new Date(sn.created_at),
+      actionRequired: sn.action_required || false,
+      data: sn.action_data,
+      read: sn.status === 'read' || sn.status === 'dismissed',
+      actions: sn.action_url ? {
+        primary: {
+          label: 'View',
+          onClick: () => window.location.href = sn.action_url!,
+          variant: 'neutral' as const
+        }
+      } : undefined
+    };
+  });
+};
+
 interface NotificationsPanelProps {
   notifications: Notification[];
   onNotificationAction?: (notificationId: string, action: 'primary' | 'secondary') => void;
@@ -53,13 +93,36 @@ interface NotificationsPanelProps {
 }
 
 export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({
-  notifications,
+  notifications: propNotifications,
   onNotificationAction,
   onMarkAsRead,
   onMarkAllAsRead
 }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'unread' | 'urgent'>('all');
+  const { user } = useAuthStore();
+  
+  // Connect to messaging store for real-time notifications
+  const {
+    notifications: systemNotifications,
+    loadNotifications,
+    markNotificationRead,
+    markAllNotificationsRead: markAllSystemNotificationsRead,
+    unreadNotificationCount
+  } = useMessagingStore();
+  
+  // Set up real-time subscription
+  useNotificationSubscription(user?.id || '', user?.practice_id || '');
+  
+  // Load notifications on mount
+  useEffect(() => {
+    if (user?.id && user?.practice_id) {
+      loadNotifications(user.id, user.practice_id);
+    }
+  }, [user?.id, user?.practice_id, loadNotifications]);
+  
+  // Merge prop notifications with system notifications if needed
+  const notifications = propNotifications || convertSystemNotifications(systemNotifications);
 
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
@@ -108,8 +171,26 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({
     return true;
   });
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = propNotifications ? notifications.filter(n => !n.read).length : unreadNotificationCount;
   const urgentCount = notifications.filter(n => n.priority === 'urgent' || n.priority === 'high').length;
+  
+  // Handle mark as read - use system notifications if available
+  const handleMarkAsRead = async (notificationId: string) => {
+    if (!propNotifications && systemNotifications.length > 0) {
+      await markNotificationRead(notificationId);
+    } else if (onMarkAsRead) {
+      onMarkAsRead(notificationId);
+    }
+  };
+  
+  // Handle mark all as read
+  const handleMarkAllAsRead = async () => {
+    if (!propNotifications && systemNotifications.length > 0) {
+      await markAllSystemNotificationsRead();
+    } else if (onMarkAllAsRead) {
+      onMarkAllAsRead();
+    }
+  };
 
   return (
     <motion.div
@@ -137,7 +218,7 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({
           </h3>
           {unreadCount > 0 && (
             <button
-              onClick={onMarkAllAsRead}
+              onClick={handleMarkAllAsRead}
               className="text-xs font-medium text-[#01b9d5] hover:text-[#0197a4] transition-colors"
             >
               Mark all as read
@@ -212,8 +293,8 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({
                     className="p-4 cursor-pointer"
                     onClick={() => {
                       setExpandedId(isExpanded ? null : notification.id);
-                      if (!notification.read && onMarkAsRead) {
-                        onMarkAsRead(notification.id);
+                      if (!notification.read) {
+                        handleMarkAsRead(notification.id);
                       }
                     }}
                   >

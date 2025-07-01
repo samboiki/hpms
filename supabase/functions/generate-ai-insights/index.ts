@@ -78,6 +78,19 @@ serve(async (req) => {
     });
 
     console.log('🔍 Fetching visits data...');
+    
+    // First, let's check if the practice exists
+    const { data: practiceCheck, error: practiceError } = await supabaseClient
+      .from('practices')
+      .select('id')
+      .eq('id', practiceId)
+      .single();
+      
+    if (practiceError || !practiceCheck) {
+      console.error('❌ Practice not found:', practiceId);
+      throw new Error(`Practice not found: ${practiceId}`);
+    }
+    
     // Fetch visits data with related information
     const { data: visits, error: visitsError } = await supabaseClient
       .from('visits')
@@ -85,10 +98,10 @@ serve(async (req) => {
         *,
         patient:patients!visits_patient_id_fkey(
           id,
-          name,
+          first_name,
+          last_name,
           gender,
-          date_of_birth,
-          medical_aid
+          date_of_birth
         ),
         vitals:vitals!vitals_visit_id_fkey(
           blood_pressure_systolic,
@@ -237,7 +250,9 @@ async function analyzeHealthcareData(visits: any[]): Promise<any> {
   // Calculate summary metrics
   const totalDays = 90; // 3 months
   insights.summary.averageVisitsPerDay = Math.round(visits.length / totalDays * 10) / 10;
-  insights.summary.noShowRate = visits.filter(v => v.no_show).length / visits.length * 100;
+  insights.summary.noShowRate = visits.length > 0 
+    ? Math.round((visits.filter(v => v.no_show).length / visits.length) * 100) 
+    : 0;
 
   // Analyze patient demographics
   const genderCounts: Record<string, number> = {};
@@ -265,17 +280,14 @@ async function analyzeHealthcareData(visits: any[]): Promise<any> {
         else ageGroups['71+']++;
       }
 
-      // Medical aid coverage
-      if (visit.patient.medical_aid) {
-        insights.patientDemographics.medicalAidCoverage++;
-      }
+      // Medical aid coverage - check from invoices
+      // We'll calculate this from invoice data instead
     }
   });
 
   insights.patientDemographics.genderDistribution = genderCounts;
   insights.patientDemographics.ageGroups = ageGroups;
-  insights.patientDemographics.medicalAidCoverage = 
-    Math.round((insights.patientDemographics.medicalAidCoverage / visits.length) * 100);
+  // Medical aid coverage will be calculated from invoices data later
 
   // Analyze clinical data
   const diagnosisCounts: Record<string, number> = {};
@@ -405,6 +417,9 @@ async function analyzeHealthcareData(visits: any[]): Promise<any> {
   insights.financialInsights.unpaidInvoicesValue = Math.round(unpaidInvoices);
   insights.financialInsights.medicalAidClaimRate = 
     visits.length > 0 ? Math.round((medicalAidClaims / visits.length) * 100) : 0;
+  
+  // Set medical aid coverage based on claims
+  insights.patientDemographics.medicalAidCoverage = insights.financialInsights.medicalAidClaimRate;
   
   const totalPayments = paymentCounts.paid + paymentCounts.pending + paymentCounts.overdue;
   if (totalPayments > 0) {

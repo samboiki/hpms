@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Enhanced Messaging</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 10px; border: 1px solid #ddd; }
+        .success { color: green; }
+        .error { color: red; }
+        button { padding: 10px; margin: 5px; background: #ffa500; color: white; border: none; cursor: pointer; }
+        button:hover { background: #ff8c00; }
+        .enhancement { background: #fffacd; padding: 10px; margin: 10px 0; border-left: 4px solid #ffa500; }
+        h3 { color: #333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Enhanced Messaging Test</h1>
+        
+        <div class="section">
+            <h2>10 Highlighted Enhancements:</h2>
+            <div class="enhancement">
+                <h3>✨ ENHANCEMENT 1: User names cache</h3>
+                <p>Shows full names instead of user IDs</p>
+            </div>
+            <div class="enhancement">
+                <h3>✨ ENHANCEMENT 2: Auto-scroll to bottom</h3>
+                <p>New messages automatically scroll into view</p>
+            </div>
+            <div class="enhancement">
+                <h3>✨ ENHANCEMENT 3: Real-time subscription</h3>
+                <p>Messages appear instantly without refresh</p>
+            </div>
+            <div class="enhancement">
+                <h3>✨ ENHANCEMENT 4: Sort channels by newest</h3>
+                <p>Most recent channels appear first</p>
+            </div>
+            <div class="enhancement">
+                <h3>✨ ENHANCEMENT 5: Channel icons</h3>
+                <p>Different icons for direct, group, and announcement channels</p>
+            </div>
+            <div class="enhancement">
+                <h3>✨ ENHANCEMENT 6: Channel header</h3>
+                <p>Shows channel name and icon at the top</p>
+            </div>
+            <div class="enhancement">
+                <h3>✨ ENHANCEMENT 7: Date separators</h3>
+                <p>Messages grouped by date</p>
+            </div>
+            <div class="enhancement">
+                <h3>✨ ENHANCEMENT 8: User avatars</h3>
+                <p>Circular avatars for each user</p>
+            </div>
+            <div class="enhancement">
+                <h3>✨ ENHANCEMENT 9: Message timestamps</h3>
+                <p>Shows time for each message</p>
+            </div>
+            <div class="enhancement">
+                <h3>✨ ENHANCEMENT 10: Better input area</h3>
+                <p>Improved message input with attachment button</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Quick Tests:</h2>
+            <button onclick="testRealTimeMessage()">Test Real-Time Message</button>
+            <button onclick="createTestChannel()">Create Test Channel</button>
+            <button onclick="checkDatabaseStructure()">Check Database Structure</button>
+            <div id="test-results"></div>
+        </div>
+
+        <div class="section">
+            <h2>Instructions:</h2>
+            <ol>
+                <li>Go to Communications > Messages tab in the main app</li>
+                <li>You should see the enhanced interface with all 10 features</li>
+                <li>Try selecting a channel - names should load automatically</li>
+                <li>Send a message - it should appear instantly</li>
+                <li>Check the date separators and timestamps</li>
+                <li>Notice the improved UI with gradients and icons</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        const { createClient } = supabase;
+        const supabaseUrl = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjQ2MDU0MDAsImV4cCI6MjA0MDE4MTQwMH0.D8vTZbezKfU3AABZfOc1QjeYlx_LP81hBXLIBB69n5Y';
+        const client = createClient(supabaseUrl, supabaseAnonKey);
+
+        let currentUser = null;
+        let practiceId = null;
+
+        async function init() {
+            const { data: { user } } = await client.auth.getUser();
+            if (user) {
+                currentUser = user;
+                const { data: userData } = await client
+                    .from('users')
+                    .select('practice_id, full_name')
+                    .eq('id', user.id)
+                    .single();
+                
+                if (userData) {
+                    practiceId = userData.practice_id;
+                    document.getElementById('test-results').innerHTML = 
+                        `<p class="success">✅ Logged in as: ${userData.full_name}</p>`;
+                }
+            } else {
+                document.getElementById('test-results').innerHTML = 
+                    '<p class="error">❌ Not logged in. Please log in to the main app first.</p>';
+            }
+        }
+
+        async function testRealTimeMessage() {
+            const results = document.getElementById('test-results');
+            try {
+                // Get first thread
+                const { data: threads } = await client
+                    .from('internal_message_threads')
+                    .select('id')
+                    .eq('practice_id', practiceId)
+                    .limit(1);
+
+                if (!threads || threads.length === 0) {
+                    results.innerHTML = '<p class="error">No threads found. Create a channel first.</p>';
+                    return;
+                }
+
+                const threadId = threads[0].id;
+                
+                // Send test message
+                const { error } = await client
+                    .from('internal_messages')
+                    .insert({
+                        thread_id: threadId,
+                        sender_id: currentUser.id,
+                        practice_id: practiceId,
+                        content: `Test real-time message: ${new Date().toLocaleTimeString()}`,
+                        content_type: 'text',
+                        mentions: [],
+                        importance_score: 1
+                    });
+
+                if (error) throw error;
+                results.innerHTML = '<p class="success">✅ Real-time message sent! Check the app to see it appear instantly.</p>';
+            } catch (error) {
+                results.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function createTestChannel() {
+            const results = document.getElementById('test-results');
+            try {
+                const channelName = `Test Channel ${new Date().toLocaleTimeString()}`;
+                
+                const { data, error } = await client
+                    .from('internal_message_channels')
+                    .insert({
+                        practice_id: practiceId,
+                        name: channelName,
+                        channel_type: 'group',
+                        created_by: currentUser.id
+                    })
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                results.innerHTML = `<p class="success">✅ Created channel: ${channelName}</p>`;
+            } catch (error) {
+                results.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function checkDatabaseStructure() {
+            const results = document.getElementById('test-results');
+            try {
+                const checks = [];
+                
+                // Check channels
+                const { data: channels, error: channelsError } = await client
+                    .from('internal_message_channels')
+                    .select('*')
+                    .eq('practice_id', practiceId)
+                    .limit(1);
+                checks.push(`Channels: ${channelsError ? '❌ ' + channelsError.message : '✅ OK'}`);
+                
+                // Check threads
+                const { data: threads, error: threadsError } = await client
+                    .from('internal_message_threads')
+                    .select('*')
+                    .eq('practice_id', practiceId)
+                    .limit(1);
+                checks.push(`Threads: ${threadsError ? '❌ ' + threadsError.message : '✅ OK'}`);
+                
+                // Check messages
+                const { data: messages, error: messagesError } = await client
+                    .from('internal_messages')
+                    .select('*')
+                    .eq('practice_id', practiceId)
+                    .limit(1);
+                checks.push(`Messages: ${messagesError ? '❌ ' + messagesError.message : '✅ OK'}`);
+                
+                results.innerHTML = '<h3>Database Structure:</h3>' + checks.map(c => `<p>${c}</p>`).join('');
+            } catch (error) {
+                results.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        // Initialize
+        init();
+    </script>
+</body>
+</html>

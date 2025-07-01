@@ -92,12 +92,103 @@ practices ←→ branches ←→ practice_staff ←→ doctor_branch_schedules
 practice_settings  practice_types  practice_features  practice_tariffs
 ```
 
+**COMMUNICATION ECOSYSTEM (NEW):**
+```
+practice_sms_logs ←→ practice_sms_subscriptions
+    ↓                    ↓
+patients             usage tracking
+    ↓                    ↓
+appointments         billing
+
+practice_email_logs ←→ practice_email_subscriptions
+    ↓                     ↓
+invoices              usage tracking
+    ↓                     ↓
+reports               billing
+```
+
 #### 🔗 INTELLIGENT RELATIONSHIP ANALYSIS:
 **ALWAYS understand these critical relationships:**
 - **users.id** → Central hub linking to visits, payslips, leave_requests, timesheets, messages
 - **patients.id** → Patient journey through visits, lab_requests, imaging_requests, invoices
 - **practices.id** → Multi-tenant architecture connecting users, branches, settings, staff
 - **visits.id** → Core workflow hub linking patients, scheduling, medical records, billing, lab requests
+
+---
+
+## 📡 CENTRALIZED COMMUNICATION GATEWAY
+
+### 🚨 CRITICAL: ALL SMS & EMAIL MUST GO THROUGH CENTRALIZED GATEWAYS
+
+#### 📱 SMS GATEWAY - SMSPortal Integration
+**Edge Function**: `centralized-sms-gateway`
+**Provider**: SMSPortal
+**Features**:
+- Complete logging in `practice_sms_logs` table
+- Automatic subscription usage tracking
+- Practice-level SMS limits enforcement
+- Cost tracking and reporting
+- Message type categorization
+- Patient/appointment/visit linking
+
+**Usage**:
+```typescript
+import { communicationService } from '@/services/communicationService';
+
+await communicationService.sendSMS({
+  practiceId: 'practice-uuid',
+  recipientPhone: '+27123456789',
+  messageContent: 'Your appointment is confirmed',
+  messageType: 'appointment_reminder',
+  patientId: 'patient-uuid',
+  appointmentId: 'appointment-uuid'
+});
+```
+
+#### 📧 EMAIL GATEWAY - Resend API Integration
+**Edge Function**: `centralized-email-gateway`
+**Provider**: Resend
+**Features**:
+- Complete logging in `practice_email_logs` table
+- Automatic subscription usage tracking
+- Practice-level email limits enforcement
+- HTML/Text content support
+- Attachment support
+- Open/click tracking ready
+- Email type categorization
+- Patient/appointment/visit/invoice linking
+
+**Usage**:
+```typescript
+import { communicationService } from '@/services/communicationService';
+
+await communicationService.sendEmail({
+  practiceId: 'practice-uuid',
+  recipientEmail: 'patient@example.com',
+  subject: 'Your Invoice',
+  htmlContent: '<html>...</html>',
+  emailType: 'invoice',
+  patientId: 'patient-uuid',
+  invoiceId: 'invoice-uuid'
+});
+```
+
+#### 🔒 SECURITY & COMPLIANCE:
+- All communications logged with full audit trail
+- RLS policies ensure practice data isolation
+- Sensitive data never exposed in logs
+- Subscription limits strictly enforced
+- Provider credentials stored securely in environment variables
+
+#### 📊 MONITORING & REPORTING:
+- Real-time usage statistics
+- Cost tracking per practice
+- Delivery success rates
+- Failure reason tracking
+- Message type analytics
+- Patient communication history
+
+---
 
 ### 🎯 ADVANCED WORKFLOW PATTERNS:
 
@@ -137,12 +228,14 @@ When writing queries:
 - **"Show me users"** → Provide table schema + sample data + relationships + performance insights + form suggestions
 - **"Create visit form"** → Build complete scheduling/visit form with validation + related lookups + error handling + TypeScript types + responsive design + Solar icons
 - **"Fix this query"** → Optimize query + explain performance + suggest indexes + provide alternative approaches + add error handling
+- **"Send SMS"** → Use centralized gateway + log properly + check subscription + handle errors + provide delivery status
 
 #### 🔥 INTELLIGENT ANTICIPATION:
 - **Database changes** → Automatically suggest migration scripts + rollback plans + testing strategies
 - **New features** → Provide full-stack implementation + security considerations + performance implications
 - **Bug fixes** → Identify root causes + prevent recurrence + improve related code
 - **Performance issues** → Analyze bottlenecks + optimize queries + suggest caching strategies
+- **Communication needs** → Always use centralized gateways + proper logging + subscription checking
 
 ### 🎨 VISUAL DESIGN EXCELLENCE:
 
@@ -220,6 +313,7 @@ When writing queries:
 - **Multi-tenant**: Practice separation, role-based access, data isolation
 - **Billing Integration**: Insurance claims, payment processing, financial reporting
 - **Reporting**: Clinical reports, administrative dashboards, compliance tracking
+- **Communication**: Centralized SMS/Email with full tracking and compliance
 
 ### 🚀 DEPLOYMENT EXCELLENCE:
 - **Environment Management**: Development, staging, production configurations
@@ -243,6 +337,17 @@ When writing queries:
 // 4. Generate TypeScript interfaces
 // 5. Suggest form components and validation rules
 // 6. Identify potential improvements
+```
+
+#### "Send [SMS/Email]" → CENTRALIZED COMMUNICATION:
+```typescript
+// Always use centralized gateways:
+// 1. Use communicationService.sendSMS() or sendEmail()
+// 2. Include proper practice ID and message type
+// 3. Link to patient/appointment/visit records
+// 4. Handle subscription limits gracefully
+// 5. Log all communications for audit trail
+// 6. Provide delivery status tracking
 ```
 
 #### "Create [feature]" → FULL-STACK IMPLEMENTATION:
@@ -310,6 +415,7 @@ npm run test       # Run comprehensive test suite
 - Considers the healthcare domain and user experience in every decision
 - Uses advanced patterns and best practices automatically
 - Provides comprehensive solutions, not just quick fixes
+- ALWAYS uses centralized communication gateways for SMS/Email
 
 **OPERATE AT MAXIMUM INTELLIGENCE AND EFFICIENCY. EXCEED EXPECTATIONS EVERY TIME.**
 
@@ -362,18 +468,25 @@ Standards: <200ms response times, 99.9% uptime, seamless integration
 Team: Test Engineers, QA Specialists, Edge Case Analysts
 Standards: 100% test coverage, zero critical bugs, comprehensive testing
 
+📡 COMMUNICATION GATEWAY MANAGER
+
+Team: SMS Engineers, Email Specialists, Notification Architects
+Standards: 100% delivery tracking, centralized logging, subscription compliance
+
 👨‍💼 SUPERVISORS:
 
 Code Quality Supervisor: World-class code standards enforcement
 Integration Supervisor: System-wide impact validation
 Healthcare Compliance Supervisor: Medical workflow compliance
 Testing Supervisor: Comprehensive testing oversight
+Communication Supervisor: SMS/Email gateway compliance
 
 👷 SPECIALIZED WORKERS (Simultaneous Execution):
 
 MCP Operations Team: Database specialists, schema analysts, query optimizers
 Frontend Development Team: React builders, TypeScript engineers, validation specialists
 System Integration Team: Integration testers, performance monitors, compatibility checkers
+Communication Team: SMS/Email gateway specialists, delivery monitors
 
 🔬 RESEARCH & INTELLIGENCE TEAM:
 
@@ -397,7 +510,8 @@ VISIBLE RESPONSE FORMAT:
 ├─ 🏥 HEALTHCARE MANAGER → [Specific tasks assigned]
 ├─ 🔐 SECURITY MANAGER → [Specific tasks assigned]
 ├─ ⚡ PERFORMANCE MANAGER → [Specific tasks assigned]
-└─ 🧪 QA MANAGER → [Specific tasks assigned]
+├─ 🧪 QA MANAGER → [Specific tasks assigned]
+└─ 📡 COMMUNICATION MANAGER → [Specific tasks assigned]
 
 ⚡ WORKERS EXECUTING IN PARALLEL:
 ├─ MCP Specialist: [Real MCP operations and results]
@@ -405,13 +519,15 @@ VISIBLE RESPONSE FORMAT:
 ├─ Healthcare Analyst: [Workflow validation results]
 ├─ Security Engineer: [Security implementation]
 ├─ Performance Engineer: [Optimization results]
-└─ Test Engineer: [Testing strategy and results]
+├─ Test Engineer: [Testing strategy and results]
+└─ Communication Specialist: [SMS/Email gateway implementation]
 
 👨‍💼 SUPERVISORS REVIEWING:
 ├─ Code Quality: ✅ APPROVED / ⚠️ NEEDS ITERATION
 ├─ Integration: ✅ APPROVED / ⚠️ NEEDS ITERATION
 ├─ Healthcare: ✅ APPROVED / ⚠️ NEEDS ITERATION
-└─ Testing: ✅ APPROVED / ⚠️ NEEDS ITERATION
+├─ Testing: ✅ APPROVED / ⚠️ NEEDS ITERATION
+└─ Communication: ✅ APPROVED / ⚠️ NEEDS ITERATION
 
 [IF CONFLICTS] 🔄 CONFLICT RESOLUTION:
 Manager [X] vs Manager [Y]: [Issue description]
@@ -433,12 +549,14 @@ Manager [X] vs Manager [Y]: [Issue description]
 "List all database tables" → Direct MCP operation with context
 "Show me the users table schema" → Schema analysis with relationships
 "Create a simple login form" → Complete form with validation
+"Send appointment reminder SMS" → Use centralized gateway with logging
 
 🔥 FULL THROTTLE MODE EXAMPLES:
 
 "FULL THROTTLE create a complete patient visit management system"
 "AGENTIC MODE build comprehensive payroll processing workflow"
 "ENTERPRISE LEVEL design entire practice management dashboard"
+"FULL THROTTLE implement complete SMS/Email campaign system"
 
 
 ⚡ MODE SELECTION LOGIC
@@ -450,6 +568,7 @@ Full-stack application development
 Complex workflow implementations
 Performance optimization projects
 Security audit requests
+Communication system implementations
 
 DEFAULT MODE FOR:
 
@@ -459,6 +578,7 @@ Basic queries and data retrieval
 Quick fixes and modifications
 Schema exploration
 Simple form creation
+Individual SMS/Email sending
 
 
 🔧 CORE STANDARDS (ALL MODES)
@@ -485,12 +605,22 @@ Medical workflow accuracy
 Multi-tenant practice support
 Audit trail requirements
 
+COMMUNICATION STANDARDS (ALWAYS):
+
+ALL SMS must use centralized-sms-gateway
+ALL Email must use centralized-email-gateway
+Full logging in practice_sms_logs and practice_email_logs
+Subscription limit enforcement
+Complete audit trails
+
 
 🎯 ACTIVATION EXAMPLES
 Simple Request (Default Mode):
 "Show me all patients"
+"Send SMS to patient"
 Complex Request (Full Throttle):
 "FULL THROTTLE create a comprehensive patient visit scheduling system with medical records integration, billing workflow, and real-time notifications"
+"AGENTIC MODE implement complete SMS/Email campaign management with tracking, analytics, and subscription management"
 The system will automatically match the complexity to the appropriate mode!
 
 
@@ -513,3 +643,8 @@ After making any code changes:
    ```bash
    npm run lint
 **ONLY AFTER THIS VALIDATION, execute the user's request.**
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.

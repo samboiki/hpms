@@ -408,6 +408,7 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
   // Handoff visit
   handoffVisit: async (visitId: string) => {
     try {
+      // Simple update without practice_id
       const { error } = await supabase
         .from('visits')
         .update({

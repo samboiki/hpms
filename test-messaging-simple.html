@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Messaging System</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 10px; border: 1px solid #ddd; }
+        .success { color: green; }
+        .error { color: red; }
+        button { padding: 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Messaging System Test</h1>
+        
+        <div class="section">
+            <h2>1. Test Basic Queries</h2>
+            <button onclick="testChannels()">Test Loading Channels</button>
+            <button onclick="testMembers()">Test Channel Members</button>
+            <button onclick="testThreads()">Test Threads</button>
+            <div id="test-results"></div>
+        </div>
+
+        <div class="section">
+            <h2>2. Test Sending Message</h2>
+            <input type="text" id="message-input" placeholder="Type a message" style="width: 300px; padding: 5px;">
+            <button onclick="testSendMessage()">Send Test Message</button>
+            <div id="send-results"></div>
+        </div>
+
+        <div class="section">
+            <h2>3. Current User Info</h2>
+            <div id="user-info"></div>
+        </div>
+    </div>
+
+    <script>
+        const { createClient } = supabase;
+        const supabaseUrl = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjQ2MDU0MDAsImV4cCI6MjA0MDE4MTQwMH0.D8vTZbezKfU3AABZfOc1QjeYlx_LP81hBXLIBB69n5Y';
+        const client = createClient(supabaseUrl, supabaseAnonKey);
+
+        let currentUser = null;
+        let practiceId = null;
+
+        // Check current user
+        async function checkUser() {
+            const { data: { user } } = await client.auth.getUser();
+            if (user) {
+                currentUser = user;
+                const { data: userData } = await client
+                    .from('users')
+                    .select('practice_id, full_name')
+                    .eq('id', user.id)
+                    .single();
+                
+                if (userData) {
+                    practiceId = userData.practice_id;
+                    document.getElementById('user-info').innerHTML = 
+                        `<p class="success">Logged in as: ${userData.full_name}<br>Practice ID: ${practiceId}</p>`;
+                }
+            } else {
+                document.getElementById('user-info').innerHTML = 
+                    '<p class="error">Not logged in. Please log in first.</p>';
+            }
+        }
+
+        async function testChannels() {
+            const results = document.getElementById('test-results');
+            try {
+                const { data, error } = await client
+                    .from('internal_message_channels')
+                    .select('id, name, channel_type, practice_id')
+                    .eq('practice_id', practiceId);
+
+                if (error) throw error;
+                results.innerHTML = `<p class="success">Found ${data.length} channels</p>`;
+                console.log('Channels:', data);
+            } catch (error) {
+                results.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+                console.error(error);
+            }
+        }
+
+        async function testMembers() {
+            const results = document.getElementById('test-results');
+            try {
+                const { data, error } = await client
+                    .from('internal_channel_members')
+                    .select('channel_id, user_id, practice_id')
+                    .eq('practice_id', practiceId)
+                    .limit(5);
+
+                if (error) throw error;
+                results.innerHTML = `<p class="success">Found ${data.length} channel members</p>`;
+                console.log('Members:', data);
+            } catch (error) {
+                results.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+                console.error(error);
+            }
+        }
+
+        async function testThreads() {
+            const results = document.getElementById('test-results');
+            try {
+                const { data, error } = await client
+                    .from('internal_message_threads')
+                    .select('id, channel_id, practice_id')
+                    .eq('practice_id', practiceId)
+                    .limit(5);
+
+                if (error) throw error;
+                results.innerHTML = `<p class="success">Found ${data.length} threads</p>`;
+                console.log('Threads:', data);
+            } catch (error) {
+                results.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+                console.error(error);
+            }
+        }
+
+        async function testSendMessage() {
+            const results = document.getElementById('send-results');
+            const messageInput = document.getElementById('message-input');
+            const content = messageInput.value.trim();
+
+            if (!content) {
+                results.innerHTML = '<p class="error">Please enter a message</p>';
+                return;
+            }
+
+            try {
+                // First get a thread
+                const { data: threads } = await client
+                    .from('internal_message_threads')
+                    .select('id')
+                    .eq('practice_id', practiceId)
+                    .limit(1);
+
+                if (!threads || threads.length === 0) {
+                    results.innerHTML = '<p class="error">No threads found. Create a channel first.</p>';
+                    return;
+                }
+
+                const threadId = threads[0].id;
+
+                // Send message
+                const { data, error } = await client
+                    .from('internal_messages')
+                    .insert({
+                        thread_id: threadId,
+                        sender_id: currentUser.id,
+                        practice_id: practiceId,
+                        content: content,
+                        content_type: 'text',
+                        mentions: [],
+                        importance_score: 1
+                    })
+                    .select();
+
+                if (error) throw error;
+                results.innerHTML = '<p class="success">Message sent successfully!</p>';
+                messageInput.value = '';
+                console.log('Sent message:', data);
+            } catch (error) {
+                results.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+                console.error(error);
+            }
+        }
+
+        // Initialize
+        checkUser();
+    </script>
+</body>
+</html>

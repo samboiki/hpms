@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '../../utils/cn';
 import { Icon } from '@iconify/react';
 import { useAuthStore } from '../../stores/authStore';
 import { useTheme } from '../../stores/themeStore';
+import { unreadMessagesService } from '../../services/unreadMessagesService';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -24,15 +25,28 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleFullscreen,
   onOpenPatients
 }) => {
-  const { isSuperAdmin, canManagePractices } = useAuthStore();
+  const { isSuperAdmin, canManagePractices, user } = useAuthStore();
   const { currentTheme } = useTheme();
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Subscribe to unread messages
+  useEffect(() => {
+    if (user?.id && user?.practice_id) {
+      console.log('[Sidebar] Initializing unread messages service with practice:', user.practice_id);
+      unreadMessagesService.initialize(user.id, user.practice_id);
+      const unsubscribe = unreadMessagesService.subscribe(setUnreadCount);
+      return () => {
+        unsubscribe();
+      };
+    }
+  }, [user?.id, user?.practice_id]);
 
   const navItems = [
     { icon: 'solar:widget-bold-duotone', label: 'Dashboard', path: '/', isRoute: true },
     { icon: 'solar:users-group-rounded-bold-duotone', label: 'Patients', path: '/patients', isRoute: false, onClick: onOpenPatients },
     { icon: 'solar:clipboard-list-bold-duotone', label: 'Encounters', path: '/encounters', isRoute: true },
-    { icon: 'solar:letter-bold-duotone', label: 'Messages', path: '/communications', isRoute: true },
+    { icon: 'solar:letter-bold-duotone', label: 'Messages', path: '/communications', isRoute: true, badge: unreadCount },
     { icon: 'solar:wallet-money-bold-duotone', label: 'Finance', path: '/finance', isRoute: true },
   ];
 
@@ -77,7 +91,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 )}
                 onClick={isMobile ? onMobileClose : undefined}
               >
-                <Icon icon={item.icon} className="w-5 h-5" />
+                <div className="relative">
+                  <Icon icon={item.icon} className="w-5 h-5" />
+                  {item.badge && item.badge > 0 && (
+                    <span className="absolute -top-2 -right-2 px-1.5 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </span>
+                  )}
+                </div>
                 {(!collapsed || isMobile) && (
                   <span className="ml-3 text-sm font-medium">{item.label}</span>
                 )}
@@ -206,7 +227,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 )}
                 onClick={isMobile ? onMobileClose : undefined}
               >
-                <Icon icon={item.icon} className="w-5 h-5" />
+                <div className="relative">
+                  <Icon icon={item.icon} className="w-5 h-5" />
+                  {item.badge && item.badge > 0 && (
+                    <span className="absolute -top-2 -right-2 px-1.5 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
+                      {item.badge > 99 ? '99+' : item.badge}
+                    </span>
+                  )}
+                </div>
                 {(!collapsed || isMobile) && (
                   <span className="ml-3 text-sm font-medium">{item.label}</span>
                 )}

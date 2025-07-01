@@ -75,7 +75,7 @@ const CommunicationHub: React.FC = () => {
       description: 'Reduce no-shows with automated 24h and 2h reminders',
       icon: Calendar,
       color: 'blue',
-      gradient: 'from-blue-500 to-indigo-600',
+      gradient: 'from-amber-500 to-orange-600',
       status: setupStatus['appointment-reminders'] || 'not_setup',
       setupTime: '2 minutes',
       impact: '50% fewer no-shows',
@@ -185,7 +185,7 @@ const CommunicationHub: React.FC = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'delivered': return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'sent': return <Clock className="w-4 h-4 text-blue-600" />;
+      case 'sent': return <Clock className="w-4 h-4 text-amber-600" />;
       case 'failed': return <AlertCircle className="w-4 h-4 text-red-600" />;
       default: return <Clock className="w-4 h-4 text-gray-600" />;
     }
@@ -360,7 +360,7 @@ const CommunicationHub: React.FC = () => {
                         {message.type === 'SMS' ? (
                           <Phone className="w-4 h-4 text-purple-600" />
                         ) : (
-                          <Mail className="w-4 h-4 text-blue-600" />
+                          <Mail className="w-4 h-4 text-amber-600" />
                         )}
                         {getStatusIcon(message.status)}
                       </div>
@@ -375,7 +375,7 @@ const CommunicationHub: React.FC = () => {
                       <p className="text-sm font-medium text-gray-900">{message.time}</p>
                       <p className={`text-xs ${
                         message.status === 'delivered' ? 'text-green-600' :
-                        message.status === 'sent' ? 'text-blue-600' : 'text-red-600'
+                        message.status === 'sent' ? 'text-amber-600' : 'text-red-600'
                       }`}>
                         {message.status}
                       </p>
@@ -425,7 +425,7 @@ const CommunicationHub: React.FC = () => {
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       suggestion.priority === 'high' ? 'bg-red-100 text-red-700' :
                       suggestion.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-blue-100 text-blue-700'
+                      'bg-amber-100 text-amber-700'
                     }`}>
                       {suggestion.priority}
                     </span>
@@ -525,7 +525,7 @@ const CommunicationHub: React.FC = () => {
             >
               <div className="text-center mb-6">
                 <div className={`w-16 h-16 mx-auto mb-4 bg-gradient-to-br ${
-                  selectedCampaign === 'appointment-reminders' ? 'from-blue-500 to-indigo-600' :
+                  selectedCampaign === 'appointment-reminders' ? 'from-amber-500 to-orange-600' :
                   selectedCampaign === 'birthday-greetings' ? 'from-pink-500 to-rose-600' :
                   selectedCampaign === 'follow-up-care' ? 'from-red-500 to-pink-600' :
                   'from-green-500 to-emerald-600'
@@ -587,11 +587,11 @@ const CommunicationHub: React.FC = () => {
                 </div>
 
                 <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                  <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                  <h4 className="font-semibold text-amber-900 mb-2 flex items-center gap-2">
                     <Target className="w-5 h-5" />
                     Expected Impact:
                   </h4>
-                  <p className="text-blue-800 font-medium">
+                  <p className="text-amber-800 font-medium">
                     {quickActions.find(a => a.id === selectedCampaign)?.impact}
                   </p>
                 </div>
@@ -609,7 +609,7 @@ const CommunicationHub: React.FC = () => {
                   whileTap={{ scale: 0.98 }}
                   onClick={handleActivateCampaign}
                   className={`flex-1 py-3 px-4 bg-gradient-to-r ${
-                    selectedCampaign === 'appointment-reminders' ? 'from-blue-500 to-indigo-600' :
+                    selectedCampaign === 'appointment-reminders' ? 'from-amber-500 to-orange-600' :
                     selectedCampaign === 'birthday-greetings' ? 'from-pink-500 to-rose-600' :
                     selectedCampaign === 'follow-up-care' ? 'from-red-500 to-pink-600' :
                     'from-green-500 to-emerald-600'

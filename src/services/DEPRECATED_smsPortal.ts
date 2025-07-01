@@ -1,4 +1,20 @@
-// SMS Portal Integration Service
+/**
+ * @deprecated This service is deprecated. Use communicationService instead.
+ * 
+ * DEPRECATED: DO NOT USE THIS SERVICE
+ * This SMS Portal integration has been replaced by the centralized communication gateway.
+ * All SMS sending should now go through:
+ * - communicationService.sendSMS() for application code
+ * - centralized-sms-gateway edge function for direct calls
+ * 
+ * This file is kept only for reference and will be removed in a future release.
+ * 
+ * Migration guide:
+ * Old: defaultSMSService.sendSMS({ to, content, reference })
+ * New: communicationService.sendSMS({ practiceId, recipientPhone, messageContent, messageType, ... })
+ */
+
+// SMS Portal Integration Service (DEPRECATED)
 // Documentation: https://www.smsportal.com/api
 
 interface SMSPortalConfig {

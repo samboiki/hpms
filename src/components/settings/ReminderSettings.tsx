@@ -21,7 +21,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
-import { defaultSMSService } from '../../services/smsPortal';
+import { communicationService } from '../../services/communicationService';
 import Button from '../ui/Button';
 import { toast } from 'react-hot-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
@@ -159,20 +159,32 @@ const ReminderSettings: React.FC = () => {
     }
 
     try {
-      const balance = await defaultSMSService.getBalance();
+      const practiceId = user?.practice_id || localStorage.getItem('currentPracticeId');
       
-      if (!balance.success) {
-        throw new Error('Failed to check balance');
+      if (!practiceId) {
+        throw new Error('Practice ID not found');
       }
 
-      const result = await defaultSMSService.sendSMS({
-        to: testPhoneNumber,
-        content: 'Test message from HPMS. Your SMS reminders are configured correctly!',
-        reference: 'test-connection'
+      // Check subscription status first
+      const subscriptionStatus = await communicationService.checkSubscriptionStatus(practiceId as string);
+      
+      if (!subscriptionStatus.sms.active) {
+        throw new Error('No active SMS subscription');
+      }
+
+      const result = await communicationService.sendSMS({
+        practiceId: practiceId as string,
+        recipientPhone: testPhoneNumber,
+        messageContent: 'Test message from HPMS. Your SMS reminders are configured correctly!',
+        messageType: 'system',
+        metadata: {
+          source: 'ReminderSettings_TestConnection',
+          sentBy: user?.email || 'Unknown'
+        }
       });
 
       if (result.success) {
-        toast.success(`Test SMS sent successfully! Credits remaining: ${balance.credits}`);
+        toast.success(`Test SMS sent successfully! Credits remaining: ${subscriptionStatus.sms.remaining}`);
       } else {
         throw new Error(result.error);
       }

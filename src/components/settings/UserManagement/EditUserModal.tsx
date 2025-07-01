@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { DepartmentSelectionModal } from './DepartmentSelectionModal';
 import DateInput from '../../ui/DateInput';
+import { getGenderAppropriateAvatar } from '../../../utils/avatarUtils';
 
 interface UserData {
   id: string;
@@ -21,6 +22,11 @@ interface UserData {
   start_date?: string;
   employee_number?: string;
   reporting_manager_id?: string;
+  avatar?: string;
+  bank_name?: string;
+  account_number?: string;
+  account_type?: string;
+  gender?: string;
 }
 
 interface EditUserModalProps {
@@ -32,6 +38,9 @@ interface EditUserModalProps {
 export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [showDepartmentModal, setShowDepartmentModal] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>(user.avatar || '');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [formData, setFormData] = useState({
     full_name: user.full_name,
     role: user.role,
@@ -42,9 +51,62 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
     employee_number: user.employee_number || '',
     start_date: user.start_date || '',
     is_active: user.is_active,
+    bank_name: user.bank_name || '',
+    account_number: user.account_number || '',
+    account_type: user.account_type || '',
+    gender: user.gender || '',
     newPassword: '',
     confirmPassword: ''
   });
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Avatar image must be less than 5MB');
+        return;
+      }
+      
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadAvatar = async (file: File, userId: string): Promise<string | null> => {
+    try {
+      setUploadingAvatar(true);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}_${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      // Upload to documents bucket
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      toast.error('Failed to upload avatar');
+      return null;
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +124,19 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
     setLoading(true);
 
     try {
+      let avatarUrl = user.avatar;
+      
+      // Upload avatar if a new file was selected
+      if (avatarFile) {
+        const uploadedUrl = await uploadAvatar(avatarFile, user.id);
+        if (uploadedUrl) {
+          avatarUrl = uploadedUrl;
+        }
+      } else if (!avatarUrl && formData.gender) {
+        // If no avatar exists and gender is set, assign a gender-appropriate avatar
+        avatarUrl = getGenderAppropriateAvatar(formData.gender, user.email);
+      }
+
       // Update user record
       const { error: userError } = await supabase
         .from('users')
@@ -74,7 +149,12 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
           address: formData.address || null,
           employee_number: formData.employee_number || null,
           start_date: formData.start_date || null,
-          is_active: formData.is_active
+          is_active: formData.is_active,
+          bank_name: formData.bank_name || null,
+          account_number: formData.account_number || null,
+          account_type: formData.account_type || null,
+          gender: formData.gender || null,
+          avatar: avatarUrl || null
         })
         .eq('id', user.id);
 
@@ -91,9 +171,10 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
       }
 
       onSuccess();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating user:', error);
-      toast.error(error.message || 'Failed to update user');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update user';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -118,6 +199,57 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Avatar Upload */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Profile Photo</h3>
+                <div className="flex items-center gap-6">
+                  <div className="relative">
+                    <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-gray-200">
+                      <img 
+                        src={avatarPreview || user.avatar || getGenderAppropriateAvatar(formData.gender || user.gender, user.email)}
+                        alt={user.full_name}
+                        className="w-full h-full object-cover"
+                        onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                          e.currentTarget.src = getGenderAppropriateAvatar(formData.gender || user.gender, user.email);
+                        }}
+                      />
+                    </div>
+                    {uploadingAvatar && (
+                      <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      id="avatar-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                      disabled={uploadingAvatar}
+                    />
+                    <label htmlFor="avatar-upload">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        className="cursor-pointer" 
+                        disabled={uploadingAvatar}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          document.getElementById('avatar-upload')?.click();
+                        }}
+                      >
+                        <Icon icon={SolarIcons.upload} className="w-4 h-4 mr-2" />
+                        Upload New Photo
+                      </Button>
+                    </label>
+                    <p className="text-xs text-gray-500 mt-2">JPG, PNG or GIF. Max size 5MB.</p>
+                    <p className="text-xs text-gray-500">If no photo is uploaded, a default from Unsplash will be used.</p>
+                  </div>
+                </div>
+              </div>
+
               {/* Basic Information */}
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
@@ -144,6 +276,27 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
                       onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Gender
+                    </label>
+                    <select
+                      value={formData.gender}
+                      onChange={(e) => {
+                        setFormData({ ...formData, gender: e.target.value });
+                        // Update avatar preview if no custom avatar
+                        if (!avatarFile && !user.avatar) {
+                          setAvatarPreview(getGenderAppropriateAvatar(e.target.value, user.email));
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    >
+                      <option value="">Select gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -262,6 +415,52 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       rows={2}
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Banking Details */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Banking Details</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Bank Name
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.bank_name}
+                      onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                      placeholder="e.g., Standard Bank"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Account Number
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.account_number}
+                      onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
+                      placeholder="e.g., 123456789"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Account Type
+                    </label>
+                    <select
+                      value={formData.account_type}
+                      onChange={(e) => setFormData({ ...formData, account_type: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    >
+                      <option value="">Select account type</option>
+                      <option value="savings">Savings</option>
+                      <option value="current">Current/Cheque</option>
+                      <option value="credit">Credit</option>
+                    </select>
                   </div>
                 </div>
               </div>

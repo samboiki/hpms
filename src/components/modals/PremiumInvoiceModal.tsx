@@ -25,6 +25,8 @@ import { useTheme } from '../../stores/themeStore';
 import { toast } from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import { supabase } from '../../lib/supabase';
+import { communicationService } from '../../services/communicationService';
+import { useAuthStore } from '../../stores/authStore';
 
 interface PremiumInvoiceModalProps {
   isOpen: boolean;
@@ -421,18 +423,44 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
       return;
     }
 
+    const user = useAuthStore.getState().user;
+    const practiceId = user?.practice_id || practiceInfo?.id;
+
+    if (!practiceId) {
+      toast.error('Practice information not found');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const invoiceHTML = generateInvoiceHTML();
       
-      // Here you would implement the actual email sending using your Resend API
-      // For now, we'll simulate the process
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      toast.success('Invoice email sent successfully!');
-      setIsEmailModalOpen(false);
+      // Use centralized communication service
+      const response = await communicationService.sendEmail({
+        practiceId: practiceId,
+        recipientEmail: emailAddress,
+        recipientName: patient ? `${patient.first_name} ${patient.last_name}` : 'Patient',
+        subject: `Invoice #${invoice?.id || 'N/A'} from ${practiceInfo?.name || 'Practice'}`,
+        htmlContent: invoiceHTML,
+        emailType: 'invoice',
+        patientId: patient?.id,
+        invoiceId: invoice?.id,
+        metadata: {
+          invoiceNumber: invoice?.id,
+          amount: invoice?.total_amount,
+          patientName: patient ? `${patient.first_name} ${patient.last_name}` : 'Unknown'
+        }
+      });
+
+      if (response.success) {
+        toast.success('Invoice email sent successfully!');
+        setIsEmailModalOpen(false);
+      } else {
+        toast.error(response.error || 'Failed to send email');
+      }
     } catch (error) {
       toast.error('Failed to send email. Please try again.');
+      console.error('Email error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -444,16 +472,44 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
       return;
     }
 
+    const user = useAuthStore.getState().user;
+    const practiceId = user?.practice_id || practiceInfo?.id;
+
+    if (!practiceId) {
+      toast.error('Practice information not found');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Here you would implement the actual SMS sending
-      // For now, we'll simulate the process
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Prepare SMS message with invoice details
+      const smsMessage = `Invoice #${invoice?.id || 'N/A'} from ${practiceInfo?.name || 'Practice'}. Amount: ${practiceInfo?.currency || 'R'}${invoice?.total_amount || '0.00'}. Please contact us for payment details.`;
       
-      toast.success('Invoice SMS sent successfully!');
-      setIsSmsModalOpen(false);
+      // Use centralized communication service
+      const response = await communicationService.sendSMS({
+        practiceId: practiceId,
+        recipientPhone: phoneNumber,
+        messageContent: smsMessage,
+        messageType: 'custom',
+        patientId: patient?.id,
+        metadata: {
+          invoiceId: invoice?.id,
+          invoiceNumber: invoice?.id,
+          amount: invoice?.total_amount,
+          patientName: patient ? `${patient.first_name} ${patient.last_name}` : 'Unknown',
+          source: 'invoice_sms'
+        }
+      });
+
+      if (response.success) {
+        toast.success('Invoice SMS sent successfully!');
+        setIsSmsModalOpen(false);
+      } else {
+        toast.error(response.error || 'Failed to send SMS');
+      }
     } catch (error) {
       toast.error('Failed to send SMS. Please try again.');
+      console.error('SMS error:', error);
     } finally {
       setIsLoading(false);
     }

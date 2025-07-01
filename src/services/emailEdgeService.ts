@@ -1,10 +1,17 @@
 import { supabase } from '../lib/supabase';
+import { communicationService } from './communicationService';
+import { useAuthStore } from '../stores/authStore';
 
 interface EmailData {
   to: string;
   subject: string;
   html: string;
   text?: string;
+  practiceId?: string;
+  patientId?: string;
+  appointmentId?: string;
+  visitId?: string;
+  invoiceId?: string;
 }
 
 interface EmailResponse {
@@ -29,37 +36,57 @@ interface PracticeEmailData {
     website?: string;
     themeColor?: string;
   };
+  practiceId?: string;
+  patientId?: string;
+  appointmentId?: string;
+  visitId?: string;
+  invoiceId?: string;
 }
 
 class EmailEdgeService {
   /**
-   * Send email using Supabase Edge Function (which uses Resend)
+   * Send email using centralized communication gateway
    */
   async sendEmail(emailData: EmailData): Promise<EmailResponse> {
     try {
-      console.log('📧 Sending email via Supabase Edge Function...');
+      console.log('📧 Sending email via centralized gateway...');
       
-      // Use the individual email function for single emails
-      const { data, error } = await supabase.functions.invoke('send-individual-email', {
-        body: {
-          to: emailData.to,
-          subject: emailData.subject,
-          html: emailData.html,
-          text: emailData.text
-        }
-      });
-
-      if (error) {
-        console.error('Edge function error:', error);
+      // Get practice ID from auth store or use provided one
+      const practiceId = emailData.practiceId || useAuthStore.getState().user?.practice_id;
+      
+      if (!practiceId) {
+        console.error('No practice ID available for email sending');
         return {
           success: false,
-          error: error.message || 'Failed to send email via edge function'
+          error: 'Practice ID is required to send emails'
+        };
+      }
+
+      // Use centralized communication service
+      const response = await communicationService.sendEmail({
+        practiceId,
+        recipientEmail: emailData.to,
+        subject: emailData.subject,
+        htmlContent: emailData.html,
+        textContent: emailData.text,
+        emailType: 'custom',
+        patientId: emailData.patientId,
+        appointmentId: emailData.appointmentId,
+        visitId: emailData.visitId,
+        invoiceId: emailData.invoiceId
+      });
+
+      if (!response.success) {
+        console.error('Communication service error:', response.error);
+        return {
+          success: false,
+          error: response.error || 'Failed to send email'
         };
       }
 
       return {
         success: true,
-        id: data?.email_id || data?.id
+        id: response.messageId || response.logId
       };
 
     } catch (error) {
@@ -651,7 +678,12 @@ class EmailEdgeService {
       to: data.recipientEmail,
       subject: data.subject,
       html: htmlContent,
-      text: data.message // Fallback plain text
+      text: data.message, // Fallback plain text
+      practiceId: data.practiceId,
+      patientId: data.patientId,
+      appointmentId: data.appointmentId,
+      visitId: data.visitId,
+      invoiceId: data.invoiceId
     });
   }
 }

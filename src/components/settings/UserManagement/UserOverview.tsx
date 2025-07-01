@@ -2,6 +2,7 @@ import React from 'react';
 import Icon, { SolarIcons } from '../../ui/Icon';
 import Button from '../../ui/Button';
 import { format } from 'date-fns';
+import { getGenderAppropriateAvatar, getFallbackAvatarColors } from '../../../utils/avatarUtils';
 
 interface UserData {
   id: string;
@@ -16,6 +17,11 @@ interface UserData {
   start_date?: string;
   employee_number?: string;
   reporting_manager_id?: string;
+  avatar?: string;
+  bank_name?: string;
+  account_number?: string;
+  account_type?: string;
+  gender?: string;
 }
 
 interface UserOverviewProps {
@@ -43,10 +49,24 @@ export const UserOverview: React.FC<UserOverviewProps> = ({ user, canEdit, onEdi
       {/* User Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
-            <span className="text-white text-2xl font-bold">
-              {user.full_name.charAt(0).toUpperCase()}
-            </span>
+          <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-gray-200">
+            <img 
+              src={user.avatar || getGenderAppropriateAvatar(user.gender, user.email)}
+              alt={user.full_name}
+              className="w-full h-full object-cover"
+              onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                const target = e.currentTarget;
+                // If the avatar fails to load, show initials with gender-appropriate colors
+                const parent = target.parentElement;
+                if (parent) {
+                  parent.innerHTML = `
+                    <div class="w-full h-full bg-gradient-to-br ${getFallbackAvatarColors(user.gender)} flex items-center justify-center">
+                      <span class="text-white text-2xl font-bold">${user.full_name.charAt(0).toUpperCase()}</span>
+                    </div>
+                  `;
+                }
+              }}
+            />
           </div>
           <div>
             <h3 className="text-2xl font-bold text-gray-900">{user.full_name}</h3>
@@ -127,6 +147,34 @@ export const UserOverview: React.FC<UserOverviewProps> = ({ user, canEdit, onEdi
             <div>
               <p className="text-sm text-gray-600">Start Date</p>
               <p className="font-medium text-gray-900">{formatDate(user.start_date)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Banking Information */}
+        <div className="bg-gray-50 rounded-lg p-6">
+          <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Icon icon={SolarIcons.wallet} className="w-5 h-5 text-gray-600" />
+            Banking Details
+          </h4>
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm text-gray-600">Bank Name</p>
+              <p className="font-medium text-gray-900">{user.bank_name || 'Not provided'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Account Number</p>
+              <p className="font-medium text-gray-900">
+                {user.account_number ? `•••• ${user.account_number.slice(-4)}` : 'Not provided'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Account Type</p>
+              <p className="font-medium text-gray-900">
+                {user.account_type ? 
+                  user.account_type.charAt(0).toUpperCase() + user.account_type.slice(1) 
+                  : 'Not provided'}
+              </p>
             </div>
           </div>
         </div>

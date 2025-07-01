@@ -6,100 +6,103 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface SMSPortalMessage {
-  to: string
-  content: string
-  reference?: string
-}
-
-interface SMSPortalResponse {
-  messages: Array<{
-    messageId: string
-    status: string
-    error?: string
-  }>
-  cost?: number
-  remainingCredits?: number
-}
-
-async function sendSMSViaPortal(
-  clientId: string,
-  apiSecret: string,
-  messages: SMSPortalMessage[]
-): Promise<SMSPortalResponse> {
-  const credentials = btoa(`${clientId}:${apiSecret}`)
-  
-  const response = await fetch('https://rest.smsportal.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${credentials}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ messages }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`SMS Portal API Error: ${response.status}`)
-  }
-
-  return await response.json()
-}
-
 serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
 
-    // Get current time
     const now = new Date().toISOString()
 
-    // Fetch pending reminders that should be sent now
-    const { data: reminders, error: fetchError } = await supabase
+    // Get pending reminders
+    const { data: reminders, error: reminderError } = await supabaseClient
       .from('appointment_reminders')
       .select(`
         *,
-        appointments(
-          *,
-          patients(*),
-          users!doctor_id(*),
-          practices(*)
+        appointments!inner(
+          id,
+          date,
+          time,
+          patient_id,
+          doctor_id,
+          practice_id,
+          type,
+          status
         )
       `)
       .eq('status', 'pending')
       .lte('scheduled_for', now)
-      .lt('attempts', 3)
+      .limit(50)
 
-    if (fetchError) {
-      throw new Error(`Failed to fetch reminders: ${fetchError.message}`)
-    }
-
-    if (!reminders || reminders.length === 0) {
-      return new Response(
-        JSON.stringify({ message: 'No reminders to send', count: 0 }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (reminderError) {
+      throw reminderError
     }
 
     const results = []
 
-    // Process each reminder
-    for (const reminder of reminders) {
+    for (const reminder of reminders || []) {
       try {
         const appointment = reminder.appointments
-        const patient = appointment.patients
-        const doctor = appointment.users
-        const practice = appointment.practices
+
+        // Skip if appointment is cancelled
+        if (appointment.status === 'cancelled') {
+          await supabaseClient
+            .from('appointment_reminders')
+            .update({ 
+              status: 'cancelled',
+              error_message: 'Appointment cancelled'
+            })
+            .eq('id', reminder.id)
+          
+          results.push({ 
+            reminderId: reminder.id, 
+            status: 'cancelled', 
+            reason: 'appointment_cancelled' 
+          })
+          continue
+        }
+
+        // Get patient and practice info
+        const [patientResult, practiceResult, doctorResult] = await Promise.all([
+          supabaseClient
+            .from('patients')
+            .select('*')
+            .eq('id', appointment.patient_id)
+            .single(),
+          supabaseClient
+            .from('practices')
+            .select('*')
+            .eq('id', appointment.practice_id)
+            .single(),
+          supabaseClient
+            .from('users')
+            .select('*')
+            .eq('id', appointment.doctor_id)
+            .single()
+        ])
+
+        const patient = patientResult.data
+        const practice = practiceResult.data
+        const doctor = doctorResult.data
+
+        if (!patient || !practice) {
+          throw new Error('Patient or practice not found')
+        }
+
+        // Check if patient has a phone number
+        if (!patient.cell_number) {
+          throw new Error('Patient has no phone number')
+        }
 
         // Check if patient has opted out
         if (!patient.notification_preferences?.reminders) {
-          await supabase
+          await supabaseClient
             .from('appointment_reminders')
             .update({ 
               status: 'cancelled',
@@ -115,19 +118,8 @@ serve(async (req) => {
           continue
         }
 
-        // Check if practice has SMS enabled
-        const smsSettings = practice.notification_settings?.sms
-        if (!smsSettings?.enabled || !smsSettings?.credentials) {
-          results.push({ 
-            reminderId: reminder.id, 
-            status: 'skipped', 
-            reason: 'sms_not_configured' 
-          })
-          continue
-        }
-
         // Get reminder template
-        const { data: template } = await supabase
+        const { data: template } = await supabaseClient
           .from('reminder_templates')
           .select('*')
           .eq('practice_id', practice.id)
@@ -166,101 +158,100 @@ serve(async (req) => {
           messageContent = messageContent.replace(new RegExp(`{{\\s*${key}\\s*}}`, 'g'), value)
         }
 
-        // Send SMS
-        const smsResponse = await sendSMSViaPortal(
-          smsSettings.credentials.clientId,
-          smsSettings.credentials.apiSecret,
-          [{
-            to: patient.cell_number,
-            content: messageContent,
-            reference: `reminder-${reminder.id}`
-          }]
-        )
+        // Send SMS using centralized gateway
+        const smsResponse = await supabaseClient.functions.invoke('centralized-sms-gateway', {
+          body: {
+            practiceId: practice.id,
+            recipientPhone: patient.cell_number,
+            messageContent: messageContent,
+            messageType: 'appointment_reminder',
+            patientId: patient.id,
+            appointmentId: appointment.id,
+            metadata: {
+              reminderId: reminder.id,
+              reminderType: reminder.reminder_type,
+              appointmentDate: appointment.date,
+              appointmentTime: appointment.time,
+              doctorId: appointment.doctor_id,
+              source: 'send-appointment-reminders'
+            }
+          }
+        })
 
-        const messageSent = smsResponse.messages[0]
+        if (smsResponse.error) {
+          throw new Error(smsResponse.error.message || 'Failed to send SMS')
+        }
 
-        if (messageSent.status === 'sent') {
-          // Create message record
-          const { data: message } = await supabase
-            .from('messages')
-            .insert({
-              type: 'sms',
-              recipient: patient.cell_number,
-              content: messageContent,
+        const smsResult = smsResponse.data
+
+        if (smsResult.success) {
+          // Update reminder status
+          await supabaseClient
+            .from('appointment_reminders')
+            .update({ 
               status: 'sent',
               sent_at: now,
-              practice_id: practice.id,
-              metadata: {
-                appointment_id: appointment.id,
-                reminder_id: reminder.id,
-                sms_message_id: messageSent.messageId,
-              }
-            })
-            .select()
-            .single()
-
-          // Update reminder status
-          await supabase
-            .from('appointment_reminders')
-            .update({
-              status: 'sent',
-              message_id: message?.id,
-              updated_at: now
+              message_id: smsResult.messageId || smsResult.logId
             })
             .eq('id', reminder.id)
 
-          // Update appointment
-          await supabase
-            .from('appointments')
-            .update({ reminder_sent_at: now })
-            .eq('id', appointment.id)
-
-          results.push({
-            reminderId: reminder.id,
+          results.push({ 
+            reminderId: reminder.id, 
             status: 'sent',
-            messageId: messageSent.messageId
+            messageId: smsResult.messageId || smsResult.logId
           })
         } else {
-          throw new Error(messageSent.error || 'Failed to send SMS')
+          throw new Error(smsResult.error || 'SMS sending failed')
         }
+
       } catch (error) {
+        console.error(`Error processing reminder ${reminder.id}:`, error)
+        
         // Update reminder with error
-        await supabase
+        await supabaseClient
           .from('appointment_reminders')
-          .update({
+          .update({ 
             status: 'failed',
             error_message: error.message,
-            attempts: reminder.attempts + 1,
-            last_attempt_at: now
+            failed_at: now
           })
           .eq('id', reminder.id)
 
-        results.push({
-          reminderId: reminder.id,
-          status: 'failed',
-          error: error.message
+        results.push({ 
+          reminderId: reminder.id, 
+          status: 'failed', 
+          error: error.message 
         })
       }
     }
 
     return new Response(
-      JSON.stringify({
-        message: 'Reminders processed',
-        processed: results.length,
-        results
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
-  } catch (error) {
-    console.error('Edge function error:', error)
-    return new Response(
       JSON.stringify({ 
-        error: error.message,
-        details: error.stack 
+        success: true, 
+        processed: results.length,
+        results 
       }),
       { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
+      }
+    )
+
+  } catch (error) {
+    console.error('Error in send-appointment-reminders:', error)
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: error.message 
+      }),
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        },
+        status: 500
       }
     )
   }

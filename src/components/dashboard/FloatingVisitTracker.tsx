@@ -10,6 +10,11 @@ import FullScreenEditVisitModal from '../visits/FullScreenEditVisitModal';
 import VisitActionModal from '../modals/VisitActionModal';
 import EnhancedSmsModal from '../messages/EnhancedSmsModal';
 import { Settings, MessageCircle } from 'lucide-react';
+import { NotificationsList } from '../messages/InternalMessaging/NotificationsList';
+import { useMessagingStore } from '../../stores/messagingStore';
+import { useAuthStore } from '../../stores/authStore';
+import { cn } from '../../utils/cn';
+import { unreadMessagesService } from '../../services/unreadMessagesService';
 
 interface Visit {
   id: string;
@@ -36,14 +41,28 @@ interface FloatingVisitTrackerProps {
 const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId, selectedDate }) => {
   const { currentTheme } = useTheme();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'visits' | 'messages'>('visits');
   const [showTopShadow, setShowTopShadow] = useState(false);
   const [showBottomShadow, setShowBottomShadow] = useState(true);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [selectedVisitForEdit, setSelectedVisitForEdit] = useState<Visit | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Subscribe to unread messages
+  useEffect(() => {
+    if (user?.id && practiceId) {
+      const unsubscribe = unreadMessagesService.subscribe(setUnreadCount);
+      return () => unsubscribe();
+    }
+  }, [user?.id, practiceId]);
   const [isEditVisitModalOpen, setIsEditVisitModalOpen] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Messaging store
+  const { unreadNotificationCount } = useMessagingStore();
   
   // Use visits store instead of appointments
   const { visits, loading, fetchTodayVisits, fetchVisits, startVisit } = useVisitsStore();
@@ -217,6 +236,13 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
               <p className="text-xs text-gray-500 -mt-1">Visits</p>
             </div>
           </div>
+          
+          {/* Notification Badge */}
+          {unreadCount > 0 && (
+            <div className="absolute -top-1 -right-1 px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[24px] text-center shadow-lg">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </div>
+          )}
 
         </button>
 
@@ -236,45 +262,93 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
               className="fixed inset-x-4 bottom-20 md:right-6 md:left-auto md:w-[580px] bg-white rounded-2xl shadow-2xl z-50 max-h-[85vh] h-[85vh] overflow-hidden flex flex-col"
             >
               {/* Fixed Header */}
-              <div className="flex-shrink-0 p-6 border-b border-gray-100 bg-white">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-800">
-                      {selectedDate && !isSameDay(selectedDate, new Date()) ? 'Visits' : "Today's Visits"}
-                    </h2>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {format(selectedDate || new Date(), 'EEEE, MMMM d, yyyy')}
-                    </p>
+              <div className="flex-shrink-0 border-b border-gray-100 bg-white">
+                <div className="p-6 pb-0">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-800">
+                        {activeTab === 'visits' 
+                          ? (selectedDate && !isSameDay(selectedDate, new Date()) ? 'Visits' : "Today's Visits")
+                          : 'Messages & Notifications'
+                        }
+                      </h2>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {activeTab === 'visits' 
+                          ? format(selectedDate || new Date(), 'EEEE, MMMM d, yyyy')
+                          : `${unreadNotificationCount} unread notifications`
+                        }
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setIsOpen(false)}
+                      className="p-2 hover:bg-gray-100 rounded-xl"
+                    >
+                      <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-400" />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setIsOpen(false)}
-                    className="p-2 hover:bg-gray-100 rounded-xl"
-                  >
-                    <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-400" />
-                  </button>
+                  
+                  {/* Tab Navigation */}
+                  <div className="flex gap-1 p-1 bg-gray-100 rounded-lg -mx-2">
+                    <button
+                      onClick={() => setActiveTab('visits')}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all",
+                        activeTab === 'visits'
+                          ? "bg-white text-gray-900 shadow-sm"
+                          : "text-gray-600 hover:text-gray-900"
+                      )}
+                    >
+                      <Icon icon="solar:stethoscope-bold-duotone" className="w-4 h-4" />
+                      Visits
+                      {nonCancelledCount > 0 && (
+                        <span className="ml-1 px-2 py-0.5 bg-[#01b9d5] text-white text-xs rounded-full">
+                          {nonCancelledCount}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('messages')}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all",
+                        activeTab === 'messages'
+                          ? "bg-white text-gray-900 shadow-sm"
+                          : "text-gray-600 hover:text-gray-900"
+                      )}
+                    >
+                      <Icon icon="solar:bell-bing-bold-duotone" className="w-4 h-4" />
+                      Messages
+                      {unreadNotificationCount > 0 && (
+                        <span className="ml-1 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
+                          {unreadNotificationCount}
+                        </span>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
               {/* Single Scrollable Content Area */}
               <div className="relative flex-1 overflow-hidden">
-                {/* Scroll Shadow Indicators */}
-                <div className={`absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-white via-white/90 to-transparent z-10 pointer-events-none transition-opacity duration-200 ${showTopShadow ? 'opacity-100' : 'opacity-0'}`}></div>
-                <div className={`absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white via-white/90 to-transparent z-10 pointer-events-none transition-opacity duration-200 ${showBottomShadow ? 'opacity-100' : 'opacity-0'}`}></div>
-                
-                {/* High-performance Scrollable Container */}
-                <div 
-                  ref={scrollContainerRef}
-                  onScroll={handleScroll}
-                  className="overflow-y-auto h-full scroll-smooth overscroll-contain"
-                  style={{
-                    scrollbarWidth: 'thin',
-                    scrollbarGutter: 'stable',
-                    WebkitOverflowScrolling: 'touch',
-                    scrollBehavior: 'smooth',
-                    willChange: 'scroll-position'
-                  }}
-                >
-                  <div className="p-6 space-y-6">
+                {activeTab === 'visits' ? (
+                  <>
+                    {/* Scroll Shadow Indicators */}
+                    <div className={`absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-white via-white/90 to-transparent z-10 pointer-events-none transition-opacity duration-200 ${showTopShadow ? 'opacity-100' : 'opacity-0'}`}></div>
+                    <div className={`absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white via-white/90 to-transparent z-10 pointer-events-none transition-opacity duration-200 ${showBottomShadow ? 'opacity-100' : 'opacity-0'}`}></div>
+                    
+                    {/* High-performance Scrollable Container */}
+                    <div 
+                      ref={scrollContainerRef}
+                      onScroll={handleScroll}
+                      className="overflow-y-auto h-full scroll-smooth overscroll-contain"
+                      style={{
+                        scrollbarWidth: 'thin',
+                        scrollbarGutter: 'stable',
+                        WebkitOverflowScrolling: 'touch',
+                        scrollBehavior: 'smooth',
+                        willChange: 'scroll-position'
+                      }}
+                    >
+                      <div className="p-6 space-y-6">
                     {/* Full Width Progress Bar */}
                     <div className="w-full">
                       <div className="flex items-center justify-between mb-2">
@@ -618,10 +692,19 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                     )}
                   </div>
                 </div>
-              </div>
-            </div>
-          </>
-      )}
+              </>
+            ) : (
+              /* Messages Tab */
+              <NotificationsList
+                practiceId={practiceId}
+                userId={user?.id || ''}
+                className="h-full"
+              />
+            )}
+          </div>
+        </div>
+      </>
+    )}
 
       {/* Patient Modal */}
       {selectedPatientId && (

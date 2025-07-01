@@ -1,3 +1,19 @@
+/**
+ * @deprecated This service is deprecated. Use communicationService instead.
+ * 
+ * DEPRECATED: DO NOT USE THIS SERVICE
+ * This simple email service has been replaced by the centralized communication gateway.
+ * All email sending should now go through:
+ * - communicationService.sendEmail() for application code
+ * - centralized-email-gateway edge function for direct calls
+ * 
+ * This file is kept only for reference and will be removed in a future release.
+ * 
+ * Migration guide:
+ * Old: sendSimpleEmail({ to, subject, html, text })
+ * New: communicationService.sendEmail({ practiceId, recipientEmail, subject, htmlContent, emailType, ... })
+ */
+
 import { supabase } from '../lib/supabase';
 
 interface SimpleEmailData {

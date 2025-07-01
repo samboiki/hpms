@@ -45,7 +45,7 @@ import { format } from 'date-fns';
 import { usePatientsStoreNew, Patient } from '../stores/patientsStoreNew';
 import { useTheme } from '../stores/themeStore';
 import { toast } from 'react-hot-toast';
-import { defaultSMSService } from '../services/smsPortal';
+import { communicationService } from '../services/communicationService';
 
 interface PatientOld {
   id: string;
@@ -1609,10 +1609,21 @@ The AI uses GPT-4 to understand natural language queries like:
 
                       for (const patient of patientsWithPhone) {
                         try {
-                          const result = await defaultSMSService.sendSMS({
-                            to: patient.cell_number!,
-                            content: smsContent,
-                            reference: `bulk-patient-${patient.id}-${Date.now()}`
+                          const user = useAuthStore.getState().user;
+                          const practiceId = user?.practice_id || localStorage.getItem('currentPracticeId');
+                          
+                          const result = await communicationService.sendSMS({
+                            practiceId: practiceId as string,
+                            recipientPhone: patient.cell_number!,
+                            messageContent: smsContent,
+                            messageType: 'marketing',
+                            patientId: patient.id,
+                            metadata: {
+                              source: 'Patients_Page_Bulk',
+                              sentBy: user?.email || 'Unknown',
+                              reference: `bulk-patient-${patient.id}-${Date.now()}`,
+                              bulkSend: true
+                            }
                           });
                           if (result.success) successCount++;
                           else failureCount++;

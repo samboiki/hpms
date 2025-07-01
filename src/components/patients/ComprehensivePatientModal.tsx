@@ -89,7 +89,7 @@ import { EnhancedEmailModal } from '../messages/EnhancedEmailModal';
 import MessageConfirmationModal from '../modals/MessageConfirmationModal';
 import { usePatientModalState } from '../../hooks/usePatientModalState';
 import { useAiSearch } from '../../hooks/useAiSearch';
-import { defaultSMSService } from '../../services/smsPortal';
+import { communicationService } from '../../services/communicationService';
 import { medicalAidService } from '../../services/medicalAidService';
 import { useAuthStore } from '../../stores/authStore';
 import { LabResultsContent, DocumentsContent, BillingContent } from './DirectTabContent';
@@ -1892,10 +1892,25 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
 
     setIsSendingSms(true);
     try {
-      const result = await defaultSMSService.sendSMS({
-        to: smsPhone,
-        content: smsContent,
-        reference: `patient-${selectedPatientDetails?.id}-${Date.now()}`
+      const user = useAuthStore.getState().user;
+      const practiceId = user?.practice_id || localStorage.getItem('currentPracticeId');
+      
+      if (!practiceId) {
+        toast.error('Practice ID not found');
+        return;
+      }
+
+      const result = await communicationService.sendSMS({
+        practiceId: practiceId as string,
+        recipientPhone: smsPhone,
+        messageContent: smsContent,
+        messageType: 'custom',
+        patientId: selectedPatientDetails?.id,
+        metadata: {
+          source: 'ComprehensivePatientModal',
+          sentBy: user?.email || 'Unknown',
+          reference: `patient-${selectedPatientDetails?.id}-${Date.now()}`
+        }
       });
 
       if (result.success) {
@@ -1930,10 +1945,21 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         const phone = patient.cell_number || patient.emergency_contact_phone;
         if (phone) {
           try {
-            const result = await defaultSMSService.sendSMS({
-              to: phone,
-              content: smsContent,
-              reference: `bulk-patient-${patient.id}-${Date.now()}`
+            const user = useAuthStore.getState().user;
+            const practiceId = user?.practice_id || localStorage.getItem('currentPracticeId');
+            
+            const result = await communicationService.sendSMS({
+              practiceId: practiceId as string,
+              recipientPhone: phone,
+              messageContent: smsContent,
+              messageType: 'marketing',
+              patientId: patient.id,
+              metadata: {
+                source: 'ComprehensivePatientModal_Bulk',
+                sentBy: user?.email || 'Unknown',
+                reference: `bulk-patient-${patient.id}-${Date.now()}`,
+                bulkSend: true
+              }
             });
             if (result.success) successCount++;
             else failureCount++;
@@ -1970,10 +1996,25 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
     }
 
     try {
-      const result = await defaultSMSService.sendSMS({
-        to: phone,
-        content: message,
-        reference: `patient-${selectedPatientDetails.id}-${Date.now()}`
+      const user = useAuthStore.getState().user;
+      const practiceId = user?.practice_id || localStorage.getItem('currentPracticeId');
+      
+      if (!practiceId) {
+        toast.error('Practice ID not found');
+        return;
+      }
+
+      const result = await communicationService.sendSMS({
+        practiceId: practiceId as string,
+        recipientPhone: phone,
+        messageContent: message,
+        messageType: 'custom',
+        patientId: selectedPatientDetails.id,
+        metadata: {
+          source: 'ComprehensivePatientModal_Enhanced',
+          sentBy: user?.email || 'Unknown',
+          reference: `patient-${selectedPatientDetails.id}-${Date.now()}`
+        }
       });
 
       if (result.success) {

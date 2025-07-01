@@ -16,6 +16,7 @@ import { EditUserModal } from './UserManagement/EditUserModal';
 import { DeleteUserModal } from './UserManagement/DeleteUserModal';
 import { UserOverview } from './UserManagement/UserOverview';
 import { TeamOverview } from './UserManagement/TeamOverview';
+import { getGenderAppropriateAvatar, getFallbackAvatarColors } from '../../utils/avatarUtils';
 
 type TabType = 'overview' | 'payroll' | 'leave' | 'timesheets';
 
@@ -34,6 +35,9 @@ interface UserData {
   start_date?: string;
   employee_number?: string;
   reporting_manager_id?: string;
+  bank_name?: string;
+  account_number?: string;
+  account_type?: string;
 }
 
 interface UserStats {
@@ -309,19 +313,24 @@ export const EnhancedUserManagement: React.FC = () => {
                       selectedUser?.id === userData.id ? 'bg-purple-50 border-l-2 border-purple-500' : ''
                     }`}
                   >
-                    {userData.avatar ? (
+                    <div className="w-8 h-8 rounded-full overflow-hidden">
                       <img
-                        src={userData.avatar}
+                        src={userData.avatar || getGenderAppropriateAvatar(userData.gender, userData.email)}
                         alt={userData.full_name}
-                        className="w-8 h-8 rounded-full object-cover"
+                        className="w-full h-full object-cover"
+                        onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                          const target = e.currentTarget;
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = `
+                              <div class="w-full h-full bg-gradient-to-br ${getFallbackAvatarColors(userData.gender)} flex items-center justify-center">
+                                <span class="text-white text-xs font-medium">${userData.full_name.charAt(0).toUpperCase()}</span>
+                              </div>
+                            `;
+                          }
+                        }}
                       />
-                    ) : (
-                      <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
-                        <span className="text-white text-xs font-medium">
-                          {userData.full_name.charAt(0)}
-                        </span>
-                      </div>
-                    )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">
                         {userData.full_name}

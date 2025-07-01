@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AppointmentService } from '../appointmentService';
-import { SMSPortalService } from '../smsPortal';
+import { communicationService } from '../communicationService';
 
 // Mock Supabase
 vi.mock('../../lib/supabase', () => ({
@@ -19,15 +19,14 @@ vi.mock('../../lib/supabase', () => ({
   },
 }));
 
-// Mock SMS Portal
-vi.mock('../smsPortal', () => ({
-  SMSPortalService: {
-    replaceTemplateVariables: vi.fn((template, vars) => {
-      let result = template;
-      Object.entries(vars).forEach(([key, value]) => {
-        result = result.replace(`{{${key}}}`, value as string);
-      });
-      return result;
+// Mock Communication Service
+vi.mock('../communicationService', () => ({
+  communicationService: {
+    sendSMS: vi.fn().mockResolvedValue({ success: true, messageId: 'test-123' }),
+    sendEmail: vi.fn().mockResolvedValue({ success: true, messageId: 'test-456' }),
+    checkSubscriptionStatus: vi.fn().mockResolvedValue({
+      sms: { active: true, remaining: 100 },
+      email: { active: true, remaining: 1000 }
     }),
   },
   createSMSService: vi.fn(),

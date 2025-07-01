@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
 import Settings from './pages/Settings';
 import Communications from './pages/Communications';
+import TestCommunication from './pages/TestCommunication';
 import Encounters from './pages/Encounters';
 import Layout from './components/layout/Layout';
 import Login from './pages/auth/Login';
@@ -85,6 +86,7 @@ function App() {
               <Route path="patients" element={<Patients />} />
               <Route path="encounters" element={<Encounters />} />
               <Route path="communications" element={<Communications />} />
+              <Route path="test-communication" element={<TestCommunication />} />
               <Route path="finance" element={<Finance />} />
               <Route path="billing/workflow" element={<BillingWorkflow />} />
               <Route path="practice-profile" element={<EnhancedPracticeProfile />} />

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SMS Debug Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        pre { background: #f0f0f0; padding: 10px; overflow-x: auto; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>SMS Debug Test</h1>
+    <button onclick="testDebug()">Run Debug Test</button>
+    <div id="result"></div>
+
+    <script>
+        async function testDebug() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>Running debug test...</p>';
+            
+            try {
+                const response = await fetch('https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/test-sms-debug', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                const result = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <h3>Debug Results:</h3>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                    ${result.logs ? '<h3>Logs:</h3><ul>' + result.logs.map(log => `<li>${log}</li>`).join('') + '</ul>' : ''}
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `<h3>Error:</h3><p>${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

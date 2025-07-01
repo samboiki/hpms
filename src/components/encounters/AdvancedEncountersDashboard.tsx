@@ -6,8 +6,7 @@ import {
   ComposedChart, Bar, Line, Area,
   PieChart, Pie, Cell,
   BarChart, LineChart,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-  Treemap
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import { format, parseISO, eachDayOfInterval, subDays } from 'date-fns';
 import { supabase } from '../../lib/supabase';
@@ -37,6 +36,7 @@ interface DashboardStats {
     status: string; 
     patient?: { gender?: string; date_of_birth?: string; }; 
     scheduled_time?: string;
+    branch_id?: string;
   }>;
 }
 
@@ -71,134 +71,280 @@ const COLORS = {
   }
 };
 
-// Custom Treemap Component that fills entire area
-const TreemapVisualization: React.FC<{ data: any[] }> = ({ data }) => {
+// Beautiful Treemap with Squarified Layout and Monochrome Design
+interface TreemapItem {
+  suburb: string;
+  city: string;
+  patients: number;
+  visits: number;
+  value: number;
+  fill?: string;
+}
+
+const TreemapVisualization: React.FC<{ data: TreemapItem[] }> = ({ data }) => {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<string | null>(null);
   
   // Calculate total for percentages
   const totalValue = data.reduce((sum, item) => sum + item.value, 0);
+  const maxValue = Math.max(...data.map(d => d.value));
   
   // Sort data by value descending
   const sortedData = [...data].sort((a, b) => b.value - a.value);
   
-  // Calculate treemap layout using squarified algorithm
-  const calculateLayout = (items: any[], containerWidth: number, containerHeight: number) => {
+  // Squarified Treemap Algorithm - Better space utilization
+  const squarify = (items: TreemapItem[], x: number, y: number, width: number, height: number): any[] => {
+    if (items.length === 0) return [];
+    
     const layouts: any[] = [];
-    const currentX = 0;
-    let currentY = 0;
-    const remainingWidth = containerWidth;
-    let remainingHeight = containerHeight;
+    const totalArea = width * height;
+    const itemsValue = items.reduce((sum, item) => sum + item.value, 0);
     
-    // Simple row-based layout
-    let currentRowItems: any[] = [];
-    let currentRowValue = 0;
-    const totalArea = containerWidth * containerHeight;
+    // Base case - single item
+    if (items.length === 1) {
+      return [{
+        ...items[0],
+        x, y, width, height
+      }];
+    }
     
-    items.forEach((item, index) => {
-      const itemArea = (item.value / totalValue) * totalArea;
-      const itemRatio = itemArea / (remainingWidth * remainingHeight);
-      
-      currentRowItems.push(item);
-      currentRowValue += item.value;
-      
-      // Check if we should start a new row
-      const shouldStartNewRow = index === items.length - 1 || 
-        (currentRowItems.length > 0 && itemRatio < 0.3);
-      
-      if (shouldStartNewRow) {
-        // Layout current row
-        const rowHeight = (currentRowValue / totalValue) * containerHeight;
-        let rowX = currentX;
-        
-        currentRowItems.forEach((rowItem) => {
-          const itemWidth = (rowItem.value / currentRowValue) * remainingWidth;
-          layouts.push({
-            ...rowItem,
-            x: rowX,
-            y: currentY,
-            width: itemWidth,
-            height: rowHeight
-          });
-          rowX += itemWidth;
-        });
-        
-        currentY += rowHeight;
-        remainingHeight -= rowHeight;
-        currentRowItems = [];
-        currentRowValue = 0;
-      }
-    });
+    // Recursive squarification
+    const pivot = Math.ceil(items.length / 2);
+    const leftItems = items.slice(0, pivot);
+    const rightItems = items.slice(pivot);
+    
+    const leftValue = leftItems.reduce((sum, item) => sum + item.value, 0);
+    const leftRatio = leftValue / itemsValue;
+    
+    if (width > height) {
+      // Split vertically
+      const leftWidth = width * leftRatio;
+      layouts.push(...squarify(leftItems, x, y, leftWidth, height));
+      layouts.push(...squarify(rightItems, x + leftWidth, y, width - leftWidth, height));
+    } else {
+      // Split horizontally  
+      const leftHeight = height * leftRatio;
+      layouts.push(...squarify(leftItems, x, y, width, leftHeight));
+      layouts.push(...squarify(rightItems, x, y + leftHeight, width, height - leftHeight));
+    }
     
     return layouts;
   };
   
-  const layouts = calculateLayout(sortedData, 870, 400); // Container dimensions
+  // Use refs to get actual container dimensions
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  
+  React.useEffect(() => {
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        // Use the full width available in the container
+        setDimensions({ width: rect.width, height: 520 });
+      }
+    };
+    
+    // Initial measurement
+    updateDimensions();
+    
+    // Add a small delay to ensure DOM is ready
+    const timer = setTimeout(updateDimensions, 100);
+    
+    window.addEventListener('resize', updateDimensions);
+    return () => {
+      window.removeEventListener('resize', updateDimensions);
+      clearTimeout(timer);
+    };
+  }, [data]); // Re-measure when data changes
+  
+  // Use actual dimensions when available
+  const containerWidth = dimensions.width > 0 ? dimensions.width : 900;
+  const containerHeight = 520; // Fixed height as requested
+  const layouts = dimensions.width > 0 ? squarify(sortedData, 0, 0, containerWidth, containerHeight) : [];
+  
+  // Calculate solid color based on value - Blue-500 based opacity scale
+  const getGradientColor = (value: number) => {
+    const intensity = value / maxValue;
+    
+    // Solid colors with blue-500 (#3B82F6) at different opacities
+    if (intensity >= 0.8) {
+      // Highest density - Full blue-500
+      return '#3B82F6';
+    } else if (intensity >= 0.6) {
+      // High density - 90% opacity
+      return 'rgba(59, 130, 246, 0.9)';
+    } else if (intensity >= 0.4) {
+      // Medium-high density - 75% opacity
+      return 'rgba(59, 130, 246, 0.75)';
+    } else if (intensity >= 0.25) {
+      // Medium density - 60% opacity
+      return 'rgba(59, 130, 246, 0.6)';
+    } else if (intensity >= 0.15) {
+      // Low-medium density - 45% opacity
+      return 'rgba(59, 130, 246, 0.45)';
+    } else if (intensity >= 0.08) {
+      // Low density - 30% opacity
+      return 'rgba(59, 130, 246, 0.3)';
+    } else {
+      // Very low density - 15% opacity
+      return 'rgba(59, 130, 246, 0.15)';
+    }
+  };
+  
+  // Determine text color based on background darkness
+  const getTextColor = (value: number) => {
+    const intensity = value / maxValue;
+    // Professional contrast - white for dark backgrounds, blue for light
+    if (intensity >= 0.6) {
+      return '#FFFFFF'; // Pure white for dark backgrounds
+    } else if (intensity >= 0.25) {
+      return '#1E40AF'; // Dark blue for medium backgrounds
+    } else {
+      return '#3B82F6'; // Blue-500 for light backgrounds
+    }
+  };
+  
+  // Calculate optimal font size based on box dimensions
+  const getFontSize = (width: number, height: number, textLength: number) => {
+    const area = width * height;
+    const baseFontSize = Math.sqrt(area) / 10;
+    const lengthFactor = Math.max(0.7, 1 - (textLength - 10) * 0.03);
+    return Math.max(10, Math.min(20, baseFontSize * lengthFactor));
+  };
   
   return (
-    <div className="w-full h-full relative bg-gray-100">
+    <div ref={containerRef} className="w-full h-full relative rounded-lg overflow-hidden">
       {layouts.map((item, index) => {
         const percentage = ((item.value / totalValue) * 100).toFixed(1);
         const isHovered = hoveredItem === item.suburb;
-        const isSmall = item.width < 100 || item.height < 60;
-        const isTiny = item.width < 60 || item.height < 40;
+        const isSelected = selectedItem === item.suburb;
+        const bgGradient = getGradientColor(item.value);
+        const textColor = getTextColor(item.value);
+        const fontSize = getFontSize(item.width, item.height, item.suburb.length);
         
         return (
-          <div
+          <motion.div
             key={index}
-            className={`absolute transition-all duration-200 ${
-              isHovered ? 'z-10 ring-2 ring-white ring-opacity-60' : ''
-            }`}
+            className="absolute cursor-pointer"
             style={{
-              left: `${item.x}px`,
-              top: `${item.y}px`,
-              width: `${item.width}px`,
-              height: `${item.height}px`,
-              backgroundColor: item.fill,
-              opacity: isHovered ? 1 : 0.9
+              left: `${item.x + 1}px`,
+              top: `${item.y + 1}px`,
+              width: `${item.width - 2}px`,
+              height: `${item.height - 2}px`,
+              backgroundColor: bgGradient,
+              borderRadius: '8px',
+              boxShadow: isHovered ? '0 8px 24px rgba(37, 99, 235, 0.15)' : '0 2px 4px rgba(0,0,0,0.06)'
             }}
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ 
+              scale: isHovered ? 1.02 : (isSelected ? 1.01 : 1),
+              opacity: 1,
+              zIndex: isHovered || isSelected ? 10 : 1
+            }}
+            transition={{ 
+              duration: 0.3,
+              type: "spring",
+              stiffness: 300
+            }}
+            whileHover={{ transition: { duration: 0.2 } }}
             onMouseEnter={() => setHoveredItem(item.suburb)}
             onMouseLeave={() => setHoveredItem(null)}
+            onClick={() => setSelectedItem(item.suburb === selectedItem ? null : item.suburb)}
           >
-            <div className="w-full h-full p-2 flex flex-col items-center justify-center text-white">
-              {!isTiny && (
-                <>
-                  <p className={`font-bold text-center ${isSmall ? 'text-xs' : 'text-sm'}`}>
-                    {item.suburb}
-                  </p>
-                  {!isSmall && (
-                    <>
-                      <p className="text-xs opacity-90 mt-1">{item.patients} patients</p>
-                      <p className="text-xs opacity-80">{item.visits} visits</p>
-                    </>
-                  )}
-                  <p className={`font-semibold mt-1 ${isSmall ? 'text-xs' : 'text-sm'}`}>
-                    {percentage}%
-                  </p>
-                </>
+            <div className="w-full h-full p-3 flex flex-col items-center justify-center relative">
+              <p 
+                className="font-semibold text-center leading-tight"
+                style={{ 
+                  fontSize: `${fontSize}px`,
+                  color: textColor,
+                  textShadow: item.value / maxValue > 0.6 ? '0 1px 2px rgba(0,0,0,0.2)' : 'none',
+                  fontWeight: '600'
+                }}
+              >
+                {item.suburb}
+              </p>
+              
+              {/* Show percentage for larger boxes */}
+              {item.height > 80 && item.width > 100 && (
+                <p 
+                  className="text-center mt-2 font-medium opacity-80"
+                  style={{ 
+                    fontSize: `${fontSize * 0.7}px`,
+                    color: textColor
+                  }}
+                >
+                  {percentage}%
+                </p>
               )}
+              
             </div>
-          </div>
+            
+            {/* Selection/hover border */}
+            {(isHovered || isSelected) && (
+              <motion.div 
+                className="absolute inset-0 rounded-md pointer-events-none"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                style={{
+                  border: `2px solid ${isSelected ? '#1E40AF' : '#3B82F6'}`,
+                }}
+              />
+            )}
+          </motion.div>
         );
       })}
       
-      {/* Hover tooltip for small areas */}
-      {hoveredItem && (
-        <div className="absolute top-2 left-2 bg-white p-3 rounded-lg shadow-lg border border-gray-200 z-20">
-          <p className="font-semibold text-gray-800">{hoveredItem}</p>
-          {(() => {
-            const item = data.find(d => d.suburb === hoveredItem);
-            if (!item) return null;
-            const percentage = ((item.value / totalValue) * 100).toFixed(1);
-            return (
-              <>
-                <p className="text-sm text-gray-600">Patients: {item.patients}</p>
-                <p className="text-sm text-gray-600">Visits: {item.visits}</p>
-                <p className="text-sm text-gray-600 font-semibold">{percentage}%</p>
-              </>
-            );
-          })()}
-        </div>
-      )}
+      {/* Enhanced Tooltip */}
+      <AnimatePresence>
+        {(hoveredItem || selectedItem) && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            className="absolute top-4 right-4 bg-white/98 backdrop-blur-md p-5 rounded-xl shadow-2xl border border-blue-100 z-20"
+            style={{ minWidth: '220px' }}
+          >
+            {(() => {
+              const item = data.find(d => d.suburb === (selectedItem || hoveredItem));
+              if (!item) return null;
+              const percentage = ((item.value / totalValue) * 100).toFixed(1);
+              return (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-bold text-gray-900 text-lg">{item.suburb}</h3>
+                    <div 
+                      className="w-6 h-6 rounded shadow-sm"
+                      style={{ backgroundColor: getGradientColor(item.value) }}
+                    />
+                  </div>
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500 font-medium">Patients</span>
+                      <span className="text-sm font-bold text-gray-900">{item.patients.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500 font-medium">Total Visits</span>
+                      <span className="text-sm font-bold text-gray-900">{item.visits.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500 font-medium">Avg Visits/Patient</span>
+                      <span className="text-sm font-bold text-gray-900">
+                        {item.patients > 0 ? (item.visits / item.patients).toFixed(1) : '0'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2.5 border-t border-gray-100">
+                      <span className="text-sm text-gray-500 font-medium">Distribution</span>
+                      <span className="text-base font-bold text-blue-700">
+                        {percentage}%
+                      </span>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -362,7 +508,9 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
   const [selectedDateRange, setSelectedDateRange] = useState<'7d' | '30d' | '3m' | '6m'>('30d');
   const [selectedGender, setSelectedGender] = useState<string>('All');
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<string>('All Ages');
-  const [activeModal, setActiveModal] = useState<'date' | 'gender' | 'age' | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<string>('All Branches');
+  const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
+  const [activeModal, setActiveModal] = useState<'date' | 'gender' | 'age' | 'branch' | null>(null);
   const [activeSubTabState, setActiveSubTabState] = useState<string>(activeSubTab || 'analytics');
   const [aiInsights, setAiInsights] = useState<any>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
@@ -380,6 +528,32 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
       practiceId
     });
   }, [aiInsights, loadingInsights, insightsError, activeSubTabState, practiceId]);
+
+  // Fetch branches when component mounts
+  useEffect(() => {
+    const fetchBranches = async () => {
+      if (!practiceId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('branches')
+          .select('id, name')
+          .eq('practice_id', practiceId)
+          .eq('is_active', true)
+          .order('name');
+          
+        if (error) throw error;
+        
+        if (data) {
+          setBranches(data);
+        }
+      } catch (error) {
+        console.error('Error fetching branches:', error);
+      }
+    };
+    
+    fetchBranches();
+  }, [practiceId]);
 
   // Fetch geographic data when geographic tab is active
   useEffect(() => {
@@ -531,6 +705,14 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
         if (!ageInRange) return false;
       }
       
+      // Branch filter
+      if (selectedBranch !== 'All Branches') {
+        const branchData = branches.find(b => b.name === selectedBranch);
+        if (branchData && visit.branch_id !== branchData.id) {
+          return false;
+        }
+      }
+      
       return true;
     });
     
@@ -590,7 +772,7 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
     };
     
     return result;
-  }, [stats, selectedDateRange, selectedGender, selectedAgeGroup]);
+  }, [stats, selectedDateRange, selectedGender, selectedAgeGroup, selectedBranch, branches]);
   
   // Process data for visualizations
   const visitTrendData = useMemo(() => {
@@ -1033,32 +1215,6 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
             </div>
             <p className="text-xl font-bold text-gray-900">{filteredStats.newPatients || 0}</p>
             <p className="text-xs text-gray-600 mt-1">New Patients</p>
-          </div>
-          
-          {/* Revenue Tile */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <Icon icon="solar:dollar-bold-duotone" className="w-6 h-6 text-amber-500" />
-              <span className="text-xs text-amber-600">
-                {selectedDateRange === '7d' ? '7D' : 
-                 selectedDateRange === '30d' ? '30D' : 
-                 selectedDateRange === '3m' ? '3M' : '6M'}
-              </span>
-            </div>
-            <p className="text-xl font-bold text-gray-900">N${((filteredStats.totalRevenue || 0) / 1000).toFixed(1)}k</p>
-            <p className="text-xs text-gray-600 mt-1">Revenue</p>
-          </div>
-
-          {/* Highest Day Tile */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <Icon icon="solar:chart-square-bold-duotone" className="w-6 h-6 text-emerald-500" />
-              <span className="text-xs text-emerald-600">Peak</span>
-            </div>
-            <p className="text-xl font-bold text-gray-900">
-              {Math.max(...(dailyVisitsData?.slice(0, 7).map(d => d.visits) || [12, 8, 15, 11, 9, 6, 14]))}
-            </p>
-            <p className="text-xs text-gray-600 mt-1">Highest Day</p>
           </div>
         </div>
         
@@ -1657,6 +1813,19 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
               {selectedAgeGroup === 'All Ages' ? 'All Ages' : `${selectedAgeGroup} years`}
             </p>
           </button>
+          
+          {/* Branch Filter */}
+          <button
+            onClick={() => setActiveModal('branch')}
+            className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <Icon icon="solar:buildings-2-bold-duotone" className="w-5 h-5 text-indigo-500" />
+              <Icon icon="solar:alt-arrow-right-linear" className="w-4 h-4 text-gray-400" />
+            </div>
+            <h4 className="text-sm font-medium text-gray-900 text-left">Branch</h4>
+            <p className="text-xs text-indigo-600 text-left mt-1">{selectedBranch}</p>
+          </button>
         </div>
       </div>
 
@@ -1788,6 +1957,52 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
                   </div>
                 </>
               )}
+
+              {activeModal === 'branch' && (
+                <>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-2xl font-bold text-gray-900">Select Branch</h3>
+                    <button 
+                      onClick={() => setActiveModal(null)}
+                      className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                    >
+                      <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-500" />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-3 mb-6">
+                    <button
+                      className={`w-full px-4 py-3 rounded-xl font-medium transition-all ${
+                        selectedBranch === 'All Branches'
+                          ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                      onClick={() => {
+                        setSelectedBranch('All Branches');
+                        setActiveModal(null);
+                      }}
+                    >
+                      All Branches
+                    </button>
+                    {branches.map((branch) => (
+                      <button
+                        key={branch.id}
+                        className={`w-full px-4 py-3 rounded-xl font-medium transition-all ${
+                          selectedBranch === branch.name
+                            ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                        onClick={() => {
+                          setSelectedBranch(branch.name);
+                          setActiveModal(null);
+                        }}
+                      >
+                        {branch.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </motion.div>
           </motion.div>
         )}
@@ -1835,32 +2050,6 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
             </div>
             <p className="text-xl font-bold text-gray-900">{filteredStats.newPatients || 0}</p>
             <p className="text-xs text-gray-600 mt-1">New Patients</p>
-          </div>
-          
-          {/* Revenue Tile */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <Icon icon="solar:dollar-bold-duotone" className="w-6 h-6 text-amber-500" />
-              <span className="text-xs text-amber-600">
-                {selectedDateRange === '7d' ? '7D' : 
-                 selectedDateRange === '30d' ? '30D' : 
-                 selectedDateRange === '3m' ? '3M' : '6M'}
-              </span>
-            </div>
-            <p className="text-xl font-bold text-gray-900">N${((filteredStats.totalRevenue || 0) / 1000).toFixed(1)}k</p>
-            <p className="text-xs text-gray-600 mt-1">Revenue</p>
-          </div>
-
-          {/* Highest Day Tile */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <Icon icon="solar:chart-square-bold-duotone" className="w-6 h-6 text-emerald-500" />
-              <span className="text-xs text-emerald-600">Peak</span>
-            </div>
-            <p className="text-xl font-bold text-gray-900">
-              {Math.max(...(dailyVisitsData?.slice(0, 7).map(d => d.visits) || [12, 8, 15, 11, 9, 6, 14]))}
-            </p>
-            <p className="text-xs text-gray-600 mt-1">Highest Day</p>
           </div>
         </div>
         
@@ -1912,16 +2101,16 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
           <DashboardSection
             title="Patient Geographic Distribution"
             icon="solar:map-bold-duotone"
-            iconColor="from-cyan-500 to-blue-500"
+            iconColor="from-blue-600 to-indigo-600"
             actions={
               <div className="flex items-center gap-2 text-xs">
                 <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 bg-cyan-500 rounded"></div>
-                  <span>High Density</span>
+                  <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                  <span className="text-gray-600">High Density</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 bg-gray-400 rounded"></div>
-                  <span>Low Density</span>
+                  <div className="w-3 h-3 bg-blue-500/20 rounded"></div>
+                  <span className="text-gray-600">Low Density</span>
                 </div>
               </div>
             }
@@ -1940,7 +2129,7 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
                   <p className="text-gray-600 mb-4">No geographic data available yet.</p>
                   <button 
                     onClick={processPatientLocations}
-                    className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors flex items-center gap-2 mx-auto"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 mx-auto"
                   >
                     <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4" />
                     Process Patient Locations
@@ -1949,64 +2138,48 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
               </div>
             ) : (
               <>
-                {console.log('🗺️ Rendering treemap with data:', geographicData)}
-                {console.log('📊 Geographic data length:', geographicData.length)}
-                {console.log('📍 First item:', geographicData[0])}
-                <div className="w-full h-[400px] relative overflow-hidden">
-                  {/* Custom Treemap Implementation */}
-                  <TreemapVisualization data={geographicData} />
+                <div className="w-full h-[520px] relative overflow-hidden rounded-xl bg-gradient-to-br from-gray-50 to-blue-50/30 p-1">
+                  <div className="w-full h-full rounded-lg overflow-hidden">
+                    <TreemapVisualization data={geographicData} />
+                  </div>
                 </div>
               </>
             )}
             
-            {/* Debug info and manual refresh */}
-            <div className="mt-4 p-3 bg-gray-100 rounded-lg text-xs">
-              <p>Practice ID: {practiceId || 'Not loaded'}</p>
-              <p>Data points: {geographicData.length}</p>
-              <button 
-                onClick={() => {
-                  console.log('Manual refresh clicked');
-                  fetchGeographicData();
-                }}
-                className="mt-2 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Manual Refresh
-              </button>
-            </div>
             
             {/* Treemap Insights */}
             {geographicData.length > 0 && (
             <div className="grid grid-cols-3 gap-3 mt-4">
-              <div className="text-center p-3 bg-cyan-50 rounded-lg border border-cyan-100">
-                <p className="text-xs text-cyan-600 mb-1">Top Suburb</p>
-                <p className="text-sm font-bold text-cyan-700">{geographicData[0]?.suburb || 'N/A'}</p>
-                <p className="text-xs text-cyan-500">{geographicData[0]?.patients || 0} patients</p>
+              <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-lg border border-blue-200">
+                <p className="text-xs text-blue-700 font-medium mb-1">Top Suburb</p>
+                <p className="text-sm font-bold text-blue-900">{geographicData[0]?.suburb || 'N/A'}</p>
+                <p className="text-xs text-blue-600">{geographicData[0]?.patients || 0} patients</p>
               </div>
-              <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <p className="text-xs text-blue-600 mb-1">Coverage</p>
-                <p className="text-sm font-bold text-blue-700">{geographicData.length} Areas</p>
-                <p className="text-xs text-blue-500">Active locations</p>
+              <div className="text-center p-3 bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-lg border border-gray-200">
+                <p className="text-xs text-gray-700 font-medium mb-1">Coverage</p>
+                <p className="text-sm font-bold text-gray-900">{geographicData.length} Areas</p>
+                <p className="text-xs text-gray-600">Active locations</p>
               </div>
-              <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">
-                <p className="text-xs text-green-600 mb-1">Density Score</p>
-                <p className="text-sm font-bold text-green-700">{totalGeographicPatients > 0 ? (totalGeographicVisits / totalGeographicPatients).toFixed(1) : '0'}</p>
-                <p className="text-xs text-green-500">Visits per patient</p>
+              <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                <p className="text-xs text-blue-700 font-medium mb-1">Density Score</p>
+                <p className="text-sm font-bold text-blue-900">{totalGeographicPatients > 0 ? (totalGeographicVisits / totalGeographicPatients).toFixed(1) : '0'}</p>
+                <p className="text-xs text-blue-600">Visits per patient</p>
               </div>
             </div>
             )}
           </DashboardSection>
 
           {/* Geographic Insights */}
-          <div className="bg-gradient-to-r from-cyan-50 to-blue-50 rounded-xl border border-cyan-100 p-6">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <Icon icon="solar:lightbulb-bolt-bold-duotone" className="w-6 h-6 text-cyan-600" />
-                <h3 className="text-lg font-semibold text-cyan-800">Geographic Insights</h3>
+                <Icon icon="solar:lightbulb-bolt-bold-duotone" className="w-6 h-6 text-blue-700" />
+                <h3 className="text-lg font-semibold text-blue-900">Geographic Insights</h3>
               </div>
               {geographicData.length > 0 && (
                 <button 
                   onClick={processPatientLocations}
-                  className="text-sm text-cyan-600 hover:text-cyan-700 font-medium transition-colors flex items-center gap-1"
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors flex items-center gap-1"
                 >
                   <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4" />
                   Refresh Data
@@ -2092,6 +2265,19 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
             <p className="text-xs text-green-600 text-left mt-1">
               {selectedAgeGroup === 'All Ages' ? 'All Ages' : `${selectedAgeGroup} years`}
             </p>
+          </button>
+          
+          {/* Branch Filter */}
+          <button
+            onClick={() => setActiveModal('branch')}
+            className="w-full bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <Icon icon="solar:buildings-2-bold-duotone" className="w-5 h-5 text-indigo-500" />
+              <Icon icon="solar:alt-arrow-right-linear" className="w-4 h-4 text-gray-400" />
+            </div>
+            <h4 className="text-sm font-medium text-gray-900 text-left">Branch</h4>
+            <p className="text-xs text-indigo-600 text-left mt-1">{selectedBranch}</p>
           </button>
         </div>
       </div>

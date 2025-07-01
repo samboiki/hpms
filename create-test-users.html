@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Test Users</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .preset-users {
+            margin-top: 30px;
+            border-top: 2px solid #eee;
+            padding-top: 20px;
+        }
+        .preset-btn {
+            background-color: #2196F3;
+            margin-bottom: 10px;
+        }
+        .preset-btn:hover {
+            background-color: #0b7dda;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Create Test Users</h1>
+        
+        <form id="createUserForm">
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="text" id="password" name="password" value="Test123!" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="fullName">Full Name:</label>
+                <input type="text" id="fullName" name="fullName" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="role">Role:</label>
+                <select id="role" name="role">
+                    <option value="receptionist">Receptionist</option>
+                    <option value="doctor">Doctor</option>
+                    <option value="admin">Admin</option>
+                    <option value="nurse">Nurse</option>
+                </select>
+            </div>
+            
+            <button type="submit">Create Test User</button>
+        </form>
+        
+        <div id="result" class="result"></div>
+        
+        <div class="preset-users">
+            <h3>Quick Create Preset Users:</h3>
+            <button class="preset-btn" onclick="createPresetUser('josephine@onehealth.com', 'Test123!', 'Josephine Mbangula', 'receptionist')">
+                Create Josephine Mbangula (Receptionist)
+            </button>
+            <button class="preset-btn" onclick="createPresetUser('doctor@onehealth.com', 'Test123!', 'Dr. Test User', 'doctor')">
+                Create Test Doctor
+            </button>
+            <button class="preset-btn" onclick="createPresetUser('admin@onehealth.com', 'Test123!', 'Admin User', 'admin')">
+                Create Test Admin
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Replace with your Supabase URL and anon key
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY'; // You need to add this
+        const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/create-test-user`;
+        
+        document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {
+                email: formData.get('email'),
+                password: formData.get('password'),
+                fullName: formData.get('fullName'),
+                role: formData.get('role')
+            };
+            
+            await createUser(data);
+        });
+        
+        async function createPresetUser(email, password, fullName, role) {
+            await createUser({ email, password, fullName, role });
+        }
+        
+        async function createUser(userData) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch(EDGE_FUNCTION_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify(userData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <strong>Success!</strong><br>
+                        User created: ${userData.email}<br>
+                        Password: ${userData.password}<br>
+                        Role: ${userData.role}
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `<strong>Error:</strong> ${result.error}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
+            }
+            
+            resultDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

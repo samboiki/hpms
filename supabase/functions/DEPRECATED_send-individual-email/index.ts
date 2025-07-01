@@ -1,4 +1,16 @@
-// Individual Email Service - Resend Integration
+/**
+ * @deprecated This edge function is deprecated. Use centralized-email-gateway instead.
+ * 
+ * DEPRECATED: DO NOT USE THIS EDGE FUNCTION
+ * This edge function has been replaced by the centralized email gateway.
+ * All email sending should now go through:
+ * - centralized-email-gateway edge function
+ * - communicationService.sendEmail() in application code
+ * 
+ * This function is kept only for reference and will be removed in a future release.
+ */
+
+// Individual Email Service - Resend Integration (DEPRECATED)
 // Sends individual emails using Resend API for patient communications
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
