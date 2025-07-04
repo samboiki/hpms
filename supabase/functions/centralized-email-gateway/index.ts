@@ -238,7 +238,7 @@ serve(async (req) => {
         }
       }
 
-      const emailData: Record<string, any> = {
+      const emailData: Record<string, unknown> = {
         from: `${senderName} <${senderEmail}>`,
         to: recipientName ? `${recipientName} <${recipientEmail}>` : recipientEmail,
         subject: finalSubject

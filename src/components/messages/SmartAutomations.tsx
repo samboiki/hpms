@@ -655,7 +655,7 @@ const SmartAutomations: React.FC = () => {
     
     try {
       const { data, error } = await supabase
-        .from('automation_settings' as any)
+        .from('automation_settings')
         .select('*')
         .eq('practice_id', user.practice_id);
       
@@ -702,7 +702,7 @@ const SmartAutomations: React.FC = () => {
       const newStatus = !card.isActive;
       
       const { error } = await supabase
-        .from('automation_settings' as any)
+        .from('automation_settings')
         .upsert({
           practice_id: user?.practice_id,
           automation_id: card.id,
@@ -729,12 +729,14 @@ const SmartAutomations: React.FC = () => {
     }
   };
 
-  const handleCardClick = (card: AutomationCard) => {
+  const handleCardClick = async (card: AutomationCard) => {
     setSelectedCard(card);
     
     // Initialize setup data with card defaults
     const defaultChannel = card.defaultChannels[0];
-    setSetupData({
+    
+    // Default setup data
+    let setupDataToUse = {
       channels: { 
         sms: defaultChannel.type === 'SMS' || defaultChannel.type === 'BOTH',
         email: defaultChannel.type === 'EMAIL' || defaultChannel.type === 'BOTH'
@@ -747,9 +749,46 @@ const SmartAutomations: React.FC = () => {
         subject: defaultChannel.template?.subject || '',
         body: defaultChannel.type !== 'SMS' ? defaultChannel.template?.body || '' : 'Dear {{patientName}},\n\n{{message}}\n\nBest regards,\n{{practiceName}}'
       },
+      smsTemplateId: null as string | null,
+      emailTemplateId: null as string | null,
+      smsTemplateVariables: [] as string[],
+      emailTemplateVariables: [] as string[],
       testMode: !card.isActive
-    });
+    };
     
+    // Try to load existing settings from database
+    if (user?.practice_id) {
+      try {
+        const { data, error } = await supabase
+          .from('automation_settings')
+          .select('*')
+          .eq('practice_id', user.practice_id)
+          .eq('automation_id', card.id)
+          .single();
+          
+        if (!error && data) {
+          // Update setup data with saved settings
+          setupDataToUse = {
+            channels: {
+              sms: data.channels?.some((c: ChannelConfig) => c.type === 'SMS' || c.type === 'BOTH') || false,
+              email: data.channels?.some((c: ChannelConfig) => c.type === 'EMAIL' || c.type === 'BOTH') || false
+            },
+            timings: data.timings || card.defaultTimings,
+            smsTemplate: data.sms_template || setupDataToUse.smsTemplate,
+            emailTemplate: data.email_template || setupDataToUse.emailTemplate,
+            smsTemplateId: data.sms_template_id || null,
+            emailTemplateId: data.email_template_id || null,
+            smsTemplateVariables: data.variables?.filter((v: string) => v.includes('sms')) || [],
+            emailTemplateVariables: data.variables?.filter((v: string) => v.includes('email')) || [],
+            testMode: !data.is_active
+          };
+        }
+      } catch (error) {
+        console.error('Error loading automation settings:', error);
+      }
+    }
+    
+    setSetupData(setupDataToUse);
     setCurrentStep(0);
     setShowSetupWizard(true);
   };
@@ -793,7 +832,7 @@ const SmartAutomations: React.FC = () => {
     if (window.confirm(`Are you sure you want to delete "${automation.name}"?`)) {
       try {
         const { error } = await supabase
-          .from('automation_settings' as any)
+          .from('automation_settings')
           .delete()
           .eq('practice_id', user?.practice_id)
           .eq('automation_id', automationId);
@@ -869,7 +908,7 @@ const SmartAutomations: React.FC = () => {
     // Save to database
     try {
       const { error } = await supabase
-        .from('automation_settings' as any)
+        .from('automation_settings')
         .insert({
           practice_id: user?.practice_id,
           automation_id: customCard.id,
@@ -942,7 +981,7 @@ const SmartAutomations: React.FC = () => {
       }
       
       const { error } = await supabase
-        .from('automation_settings' as any)
+        .from('automation_settings')
         .upsert({
           practice_id: user?.practice_id,
           automation_id: selectedCard.id,
@@ -1512,7 +1551,7 @@ const SmartAutomations: React.FC = () => {
               key={view.id}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setActiveView(view.id as any)}
+              onClick={() => setActiveView(view.id as 'all' | 'active' | 'inactive')}
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all",
                 activeView === view.id

@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { TemplateProcessor } from './template-processor.ts';
 
 // CORS headers with additional allowed headers
 const corsHeaders = {
@@ -48,16 +49,41 @@ serve(async (req) => {
       appointmentId,
       visitId,
       metadata = {},
-      tags = []
+      tags = [],
+      templateId,
+      templateVariables = {}
     } = await req.json();
 
-    console.log('SMS Request:', { practiceId, recipientPhone, messageType });
+    console.log('SMS Request:', { practiceId, recipientPhone, messageType, templateId });
 
-    if (!practiceId || !recipientPhone || !messageContent) {
+    // Process template if templateId is provided
+    let finalMessageContent = messageContent;
+    
+    if (templateId) {
+      const templateProcessor = new TemplateProcessor(supabaseUrl, supabaseServiceKey);
+      const processedTemplate = await templateProcessor.processTemplate(templateId, templateVariables);
+      
+      if (processedTemplate) {
+        finalMessageContent = processedTemplate.content;
+      } else {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Template not found or inactive'
+          }),
+          { 
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+    }
+
+    if (!practiceId || !recipientPhone || !finalMessageContent) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Missing required fields: practiceId, recipientPhone, messageContent'
+          error: 'Missing required fields: practiceId, recipientPhone, and either messageContent or valid templateId'
         }),
         { 
           status: 400,
@@ -129,14 +155,14 @@ serve(async (req) => {
       practice_id: practiceId,
       recipient_phone: recipientPhone,
       sender_phone: senderPhone,
-      message_content: messageContent,
+      message_content: finalMessageContent,
       message_type: messageType,
       provider: 'smsportal',
       status: 'pending',
       patient_id: patientId || null,
       appointment_id: appointmentId || null,
       visit_id: visitId || null,
-      metadata: metadata || {},
+      metadata: { ...metadata, template_id: templateId },
       tags: tags || []
     };
 
@@ -208,7 +234,7 @@ serve(async (req) => {
         },
         messages: [
           {
-            content: messageContent,
+            content: finalMessageContent,
             destination: cleanPhone,
             customerId: metadata.reference || `msg-${Date.now()}`
           }
@@ -238,7 +264,7 @@ serve(async (req) => {
       let smsResult;
       try {
         smsResult = JSON.parse(responseText);
-      } catch (e) {
+      } catch (_e) {
         console.error('Failed to parse SMS Portal response as JSON:', responseText);
         throw new Error(`Invalid response from SMS Portal: ${responseText.substring(0, 200)}`);
       }

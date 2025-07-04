@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Happy Joy Email</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f3f4f6;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        button {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: white;
+            border: none;
+            padding: 16px 40px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:hover { opacity: 0.9; }
+        button:disabled { background: #9ca3af; cursor: not-allowed; }
+        .log {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📧 Send Happy Joy's Welcome Email</h1>
+        <p>Direct email through centralized-email-gateway with beautiful template</p>
+        
+        <button onclick="sendEmail()" id="sendBtn">Send Welcome Email</button>
+        
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+        
+        function log(message, type = '') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div class="${type}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        async function sendEmail() {
+            const btn = document.getElementById('sendBtn');
+            btn.disabled = true;
+            
+            try {
+                const authData = localStorage.getItem('hpms-auth');
+                if (!authData) {
+                    log('❌ Please login to HPMS first', 'error');
+                    return;
+                }
+                
+                const { access_token } = JSON.parse(authData);
+                log('🚀 Sending welcome email to Happy Joy...');
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/centralized-email-gateway`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${access_token}`,
+                        'apikey': ANON_KEY
+                    },
+                    body: JSON.stringify({
+                        practiceId: 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3',
+                        recipientEmail: 'ksnahol@gmail.com',
+                        recipientName: 'Happy Joy',
+                        subject: 'Welcome to New Charm Dental Practice!',
+                        textContent: `Dear Happy Joy,
+
+Welcome to New Charm Dental Practice! We are thrilled to have you as our patient.
+
+As a new patient, you can:
+- Schedule appointments online
+- Access your medical records
+- Message your healthcare team
+- View test results
+
+If you have any questions, please do not hesitate to contact us at +264 81 435 8843.
+
+We look forward to being your healthcare partner!
+
+Best regards,
+The New Charm Dental Practice Team`,
+                        emailType: 'welcome',
+                        patientId: '54c9df8a-257b-463c-b43d-5c2db19c000a',
+                        metadata: {
+                            automation_execution_id: 'c1e40a7e-495d-4ed5-9bea-c4725b0ea6fc'
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    log('✅ Email sent successfully!', 'success');
+                    log(`📧 Message ID: ${result.messageId}`, 'success');
+                    log(`📝 Log ID: ${result.logId}`);
+                } else {
+                    log(`❌ Failed: ${result.error}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        window.onload = () => {
+            log('Ready to send Happy Joy\'s welcome email');
+        };
+    </script>
+</body>
+</html>

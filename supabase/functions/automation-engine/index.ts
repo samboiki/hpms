@@ -13,8 +13,8 @@ interface AutomationExecution {
   invoice_id?: string;
   scheduled_at: string;
   channel: 'SMS' | 'EMAIL';
-  template_data: any;
-  variables_used: any;
+  template_data: Record<string, string>;
+  variables_used: Record<string, string>;
 }
 
 interface AutomationSettings {
@@ -23,10 +23,12 @@ interface AutomationSettings {
   automation_id: string;
   name: string;
   is_active: boolean;
-  channels: any[];
-  timings: any[];
-  sms_template: any;
-  email_template: any;
+  channels: Array<{ type: string; enabled: boolean; template?: { body?: string; subject?: string } }>;
+  timings: Array<{ delay_minutes: number; delay_days: number }>;
+  sms_template: { body?: string };
+  email_template: { subject?: string; body?: string };
+  sms_template_id?: string;
+  email_template_id?: string;
   variables: string[];
 }
 
@@ -152,7 +154,7 @@ serve(async (req) => {
   }
 });
 
-async function prepareVariables(supabase: any, execution: AutomationExecution): Promise<Record<string, string>> {
+async function prepareVariables(supabase: ReturnType<typeof createClient>, execution: AutomationExecution): Promise<Record<string, string>> {
   const variables: Record<string, string> = {};
 
   // Get patient info if available
@@ -229,7 +231,7 @@ async function prepareVariables(supabase: any, execution: AutomationExecution): 
   return variables;
 }
 
-async function sendSMS(supabase: any, execution: AutomationExecution, automation: AutomationSettings, variables: Record<string, string>) {
+async function sendSMS(supabase: ReturnType<typeof createClient>, execution: AutomationExecution, automation: AutomationSettings, variables: Record<string, string>) {
   // Get recipient phone
   let recipientPhone = variables.patientPhone;
   if (!recipientPhone && execution.patient_id) {
@@ -246,26 +248,36 @@ async function sendSMS(supabase: any, execution: AutomationExecution, automation
     throw new Error('No phone number available for SMS');
   }
 
-  // Get SMS template
-  const template = automation.sms_template?.body || automation.channels[0]?.template?.body || '';
-  const message = replaceVariables(template, variables);
+  // Prepare SMS payload
+  const smsPayload: Record<string, unknown> = {
+    practiceId: execution.practice_id,
+    recipientPhone: recipientPhone,
+    messageType: 'system',
+    patientId: execution.patient_id,
+    appointmentId: execution.appointment_id,
+    visitId: execution.visit_id,
+    metadata: {
+      automation_id: automation.id,
+      automation_type: automation.automation_id,
+      execution_id: execution.id
+    }
+  };
+
+  // Check if template ID is available
+  if (automation.sms_template_id) {
+    // Use template ID approach
+    smsPayload.templateId = automation.sms_template_id;
+    smsPayload.templateVariables = variables;
+  } else {
+    // Fall back to inline template
+    const template = automation.sms_template?.body || automation.channels[0]?.template?.body || '';
+    const message = replaceVariables(template, variables);
+    smsPayload.messageContent = message;
+  }
 
   // Call centralized SMS gateway
   const { data, error } = await supabase.functions.invoke('centralized-sms-gateway', {
-    body: {
-      practiceId: execution.practice_id,  // Changed from practice_id to practiceId
-      recipientPhone: recipientPhone,
-      messageContent: message,  // Changed from message_content to messageContent
-      messageType: 'system',  // Changed from automation.automation_id to 'system'
-      patientId: execution.patient_id,  // Changed from patient_id to patientId
-      appointmentId: execution.appointment_id,  // Added appointmentId
-      visitId: execution.visit_id,  // Changed from visit_id to visitId
-      metadata: {
-        automation_id: automation.id,
-        automation_type: automation.automation_id,
-        execution_id: execution.id
-      }
-    }
+    body: smsPayload
   });
 
   if (error) throw error;
@@ -282,7 +294,7 @@ async function sendSMS(supabase: any, execution: AutomationExecution, automation
   }
 }
 
-async function sendEmail(supabase: any, execution: AutomationExecution, automation: AutomationSettings, variables: Record<string, string>) {
+async function sendEmail(supabase: ReturnType<typeof createClient>, execution: AutomationExecution, automation: AutomationSettings, variables: Record<string, string>) {
   // Get recipient email
   let recipientEmail = variables.patientEmail;
   if (!recipientEmail && execution.patient_id) {
@@ -299,35 +311,45 @@ async function sendEmail(supabase: any, execution: AutomationExecution, automati
     throw new Error('No email address available');
   }
 
-  // Get email template
-  const subject = replaceVariables(
-    automation.email_template?.subject || automation.channels[0]?.template?.subject || 'Notification',
-    variables
-  );
-  const body = replaceVariables(
-    automation.email_template?.body || automation.channels[0]?.template?.body || '',
-    variables
-  );
+  // Prepare email payload
+  const emailPayload: Record<string, unknown> = {
+    practiceId: execution.practice_id,
+    recipientEmail: recipientEmail,
+    recipientName: variables.patientName || variables.patient_name || 'Valued Patient',
+    emailType: 'system',
+    patientId: execution.patient_id,
+    appointmentId: execution.appointment_id,
+    visitId: execution.visit_id,
+    invoiceId: execution.invoice_id,
+    metadata: {
+      automation_id: automation.id,
+      automation_type: automation.automation_id,
+      execution_id: execution.id
+    }
+  };
+
+  // Check if template ID is available
+  if (automation.email_template_id) {
+    // Use template ID approach
+    emailPayload.templateId = automation.email_template_id;
+    emailPayload.templateVariables = variables;
+  } else {
+    // Fall back to inline template
+    const subject = replaceVariables(
+      automation.email_template?.subject || automation.channels[0]?.template?.subject || 'Notification',
+      variables
+    );
+    const body = replaceVariables(
+      automation.email_template?.body || automation.channels[0]?.template?.body || '',
+      variables
+    );
+    emailPayload.subject = subject;
+    emailPayload.textContent = body;
+  }
 
   // Call centralized email gateway
   const { data, error } = await supabase.functions.invoke('centralized-email-gateway', {
-    body: {
-      practiceId: execution.practice_id,  // Changed to camelCase
-      recipientEmail: recipientEmail,  // Changed to camelCase
-      subject: subject,
-      htmlContent: convertToHtml(body),  // Changed to camelCase
-      textContent: body,  // Changed to camelCase
-      emailType: 'system',  // Changed from automation.automation_id to 'system'
-      patientId: execution.patient_id,  // Changed to camelCase
-      appointmentId: execution.appointment_id,  // Added
-      visitId: execution.visit_id,  // Changed to camelCase
-      invoiceId: execution.invoice_id,  // Changed to camelCase
-      metadata: {
-        automation_id: automation.id,
-        automation_type: automation.automation_id,
-        execution_id: execution.id
-      }
-    }
+    body: emailPayload
   });
 
   if (error) throw error;
@@ -415,30 +437,3 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-function convertToHtml(text: string): string {
-  // Convert line breaks to <br> tags
-  let html = text.replace(/\n/g, '<br>');
-  
-  // Wrap in basic HTML template
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <style>
-        body {
-          font-family: Arial, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-        }
-      </style>
-    </head>
-    <body>
-      ${html}
-    </body>
-    </html>
-  `;
-}

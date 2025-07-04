@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnose Auth Token</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f3f4f6;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .log {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .info { color: #3b82f6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Auth Token Diagnostic</h1>
+        
+        <p>This will check all possible localStorage keys for Supabase auth tokens.</p>
+        
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        function checkAuth() {
+            const log = document.getElementById('log');
+            let output = '';
+            
+            output += '=== Checking localStorage for auth tokens ===\n\n';
+            
+            // Check all localStorage keys
+            const keys = Object.keys(localStorage);
+            output += `Found ${keys.length} keys in localStorage:\n`;
+            
+            keys.forEach(key => {
+                output += `\n🔑 Key: ${key}\n`;
+                
+                if (key.includes('supabase') || key.includes('auth')) {
+                    try {
+                        const value = localStorage.getItem(key);
+                        const parsed = JSON.parse(value);
+                        
+                        if (parsed.access_token) {
+                            output += `✅ Found access_token!\n`;
+                            output += `   Token length: ${parsed.access_token.length}\n`;
+                            output += `   Token preview: ${parsed.access_token.substring(0, 20)}...\n`;
+                        }
+                        
+                        if (parsed.user) {
+                            output += `✅ Found user data!\n`;
+                            output += `   User ID: ${parsed.user.id}\n`;
+                            output += `   Email: ${parsed.user.email}\n`;
+                        }
+                        
+                        if (parsed.expires_at) {
+                            const expiresAt = new Date(parsed.expires_at * 1000);
+                            const now = new Date();
+                            const isExpired = expiresAt < now;
+                            
+                            output += `⏰ Expires at: ${expiresAt.toLocaleString()}\n`;
+                            output += isExpired ? `❌ Token is EXPIRED!\n` : `✅ Token is still valid\n`;
+                        }
+                        
+                    } catch (e) {
+                        output += `   (Not JSON or error parsing)\n`;
+                    }
+                }
+            });
+            
+            // Try specific Supabase keys
+            output += '\n\n=== Checking specific Supabase patterns ===\n';
+            
+            const supabaseKeys = [
+                'sb-jjxlfunlbyayxwvlpgwt-auth-token',
+                'supabase.auth.token',
+                'supabase-auth-token',
+                'sb-auth-token'
+            ];
+            
+            supabaseKeys.forEach(key => {
+                const value = localStorage.getItem(key);
+                if (value) {
+                    output += `\n✅ Found: ${key}\n`;
+                    try {
+                        const parsed = JSON.parse(value);
+                        output += `   Has access_token: ${!!parsed.access_token}\n`;
+                    } catch (e) {
+                        output += `   Value: ${value.substring(0, 50)}...\n`;
+                    }
+                } else {
+                    output += `❌ Not found: ${key}\n`;
+                }
+            });
+            
+            // Also check sessionStorage
+            output += '\n\n=== Checking sessionStorage ===\n';
+            const sessionKeys = Object.keys(sessionStorage);
+            output += `Found ${sessionKeys.length} keys in sessionStorage\n`;
+            
+            sessionKeys.forEach(key => {
+                if (key.includes('supabase') || key.includes('auth')) {
+                    output += `🔑 Session Key: ${key}\n`;
+                }
+            });
+            
+            log.textContent = output;
+        }
+        
+        window.onload = checkAuth;
+    </script>
+</body>
+</html>
