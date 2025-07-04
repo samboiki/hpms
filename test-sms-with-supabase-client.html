@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test SMS with Supabase Client</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        input { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        button { padding: 15px 30px; background: #28a745; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 18px; margin: 10px 0; }
+        button:hover { background: #218838; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .result { margin-top: 20px; padding: 15px; background: white; border-radius: 5px; }
+        .success { border-left: 4px solid #28a745; background: #d4edda; }
+        .error { border-left: 4px solid #dc3545; background: #f8d7da; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Test SMS with Supabase Client</h1>
+        <p>This test uses the official Supabase JavaScript client to invoke the edge function.</p>
+        
+        <label>Recipient Name:</label>
+        <input type="text" id="recipientName" value="Test User" />
+        
+        <label>Phone Number:</label>
+        <input type="text" id="phoneNumber" value="0812222331" />
+        
+        <button onclick="testSMS()" id="sendBtn">Send Test SMS</button>
+        
+        <div id="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjczMTMzNzcsImV4cCI6MjA0Mjg4OTM3N30.q6-a0gaVpGF1ZQRhmLgLkz5xGppXqz9v9xF4kLkyfGg';
+        const PRACTICE_ID = 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3';
+        
+        // Initialize Supabase client
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        function showResult(success, content) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = `result ${success ? 'success' : 'error'}`;
+            resultDiv.innerHTML = content;
+        }
+        
+        async function testSMS() {
+            const sendBtn = document.getElementById('sendBtn');
+            const recipientName = document.getElementById('recipientName').value;
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            
+            if (!recipientName || !phoneNumber) {
+                showResult(false, '<h3>❌ Error</h3><p>Please enter both recipient name and phone number.</p>');
+                return;
+            }
+            
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+            
+            try {
+                console.log('Invoking centralized-sms-gateway with:', {
+                    practiceId: PRACTICE_ID,
+                    recipientPhone: phoneNumber,
+                    messageContent: `Test SMS for ${recipientName}`,
+                    messageType: 'test'
+                });
+                
+                // Use Supabase client to invoke the function
+                const { data, error } = await supabaseClient.functions.invoke('centralized-sms-gateway', {
+                    body: {
+                        practiceId: PRACTICE_ID,
+                        recipientPhone: phoneNumber,
+                        messageContent: `Dear ${recipientName}, this is a test SMS from HPMS sent at ${new Date().toLocaleTimeString()}. If you receive this, the SMS gateway is working correctly!`,
+                        messageType: 'test',
+                        metadata: {
+                            test: true,
+                            timestamp: new Date().toISOString()
+                        }
+                    }
+                });
+                
+                console.log('Edge function response:', { data, error });
+                
+                if (error) {
+                    showResult(false, `
+                        <h3>❌ Edge Function Error</h3>
+                        <p><strong>Error Message:</strong> ${error.message}</p>
+                        <p><strong>Error Details:</strong></p>
+                        <pre>${JSON.stringify(error, null, 2)}</pre>
+                    `);
+                } else if (data && data.success) {
+                    showResult(true, `
+                        <h3>✅ SMS Sent Successfully!</h3>
+                        <p><strong>Recipient:</strong> ${phoneNumber}</p>
+                        <p><strong>SMS Log ID:</strong> ${data.logId}</p>
+                        <p><strong>Status:</strong> ${data.status}</p>
+                        <p><strong>Remaining Credits:</strong> ${data.remainingCredits || 'N/A'}</p>
+                        <hr>
+                        <p><strong>Note:</strong> Check your phone now. If you don't receive the SMS within 2 minutes, check:</p>
+                        <ul>
+                            <li>SMS Portal credentials are valid production credentials</li>
+                            <li>SMS Portal account has credits</li>
+                            <li>Phone number format is correct</li>
+                        </ul>
+                    `);
+                } else {
+                    showResult(false, `
+                        <h3>❌ SMS Failed</h3>
+                        <p><strong>Response:</strong></p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `);
+                }
+                
+            } catch (error) {
+                console.error('Unexpected error:', error);
+                showResult(false, `
+                    <h3>❌ Unexpected Error</h3>
+                    <p>${error.message}</p>
+                    <pre>${JSON.stringify(error, null, 2)}</pre>
+                `);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send Test SMS';
+            }
+        }
+        
+        // Test authentication on load
+        window.onload = async () => {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            console.log('Current session:', session ? 'Authenticated' : 'Not authenticated');
+            
+            if (!session) {
+                console.log('Note: Running without authentication. Edge function should still work with anon key.');
+            }
+        };
+    </script>
+</body>
+</html>

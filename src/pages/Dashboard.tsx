@@ -571,7 +571,7 @@ function Dashboard() {
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3">
                   {/* Practice Logo */}
-                  <div className="p-3 bg-gradient-to-br from-[#01b9d4] to-cyan-600 rounded-xl shadow-lg">
+                  <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg">
                     <Icon icon="solar:buildings-bold-duotone" className="w-8 h-8 text-white" />
                   </div>
                   <div>

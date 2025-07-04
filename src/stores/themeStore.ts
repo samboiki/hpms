@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { supabase } from '../lib/supabase';
 
 export interface Theme {
   id: string;
@@ -507,7 +508,8 @@ const defaultThemes: Theme[] = [
 interface ThemeState {
   currentTheme: Theme;
   themes: Theme[];
-  setTheme: (themeId: string) => void;
+  setTheme: (themeId: string, practiceId?: string) => void;
+  loadThemeFromDatabase: (practiceId: string) => Promise<void>;
   getThemeById: (themeId: string) => Theme | undefined;
   addCustomTheme: (theme: Theme) => void;
   removeCustomTheme: (themeId: string) => void;
@@ -519,7 +521,7 @@ export const useThemeStore = create<ThemeState>()(
     (set, get) => ({
       currentTheme: defaultThemes[0], // Default to sunset theme
       themes: defaultThemes,
-      setTheme: (themeId: string) => {
+      setTheme: async (themeId: string, practiceId?: string) => {
         const theme = get().themes.find(t => t.id === themeId);
         if (theme) {
           set({ currentTheme: theme });
@@ -547,6 +549,62 @@ export const useThemeStore = create<ThemeState>()(
           // Border colors
           root.style.setProperty('--theme-border-primary', theme.colors.border.primary);
           root.style.setProperty('--theme-border-secondary', theme.colors.border.secondary);
+          
+          // Save to database if practiceId is provided
+          if (practiceId) {
+            try {
+              const { error } = await supabase
+                .from('practices')
+                .update({ theme_id: themeId })
+                .eq('id', practiceId);
+                
+              if (error) {
+                console.error('Error saving theme preference:', error);
+              } else {
+                console.log('✅ Theme preference saved to database');
+              }
+            } catch (error) {
+              console.error('Error saving theme preference:', error);
+            }
+          }
+        }
+      },
+      loadThemeFromDatabase: async (practiceId: string) => {
+        try {
+          const { data, error } = await supabase
+            .from('practices')
+            .select('theme_id')
+            .eq('id', practiceId)
+            .single();
+            
+          if (!error && data?.theme_id) {
+            const theme = get().themes.find(t => t.id === data.theme_id);
+            if (theme) {
+              set({ currentTheme: theme });
+              
+              // Apply CSS custom properties
+              const root = document.documentElement;
+              root.style.setProperty('--theme-primary-from', theme.colors.primary.from);
+              root.style.setProperty('--theme-primary-to', theme.colors.primary.to);
+              root.style.setProperty('--theme-primary-via', theme.colors.primary.via || '');
+              root.style.setProperty('--theme-sidebar-gradient', theme.gradients.sidebar);
+              root.style.setProperty('--theme-button-gradient', theme.gradients.button);
+              root.style.setProperty('--theme-card-gradient', theme.gradients.card);
+              root.style.setProperty('--theme-accent-gradient', theme.gradients.accent);
+              root.style.setProperty('--theme-text-primary', theme.colors.text.primary);
+              root.style.setProperty('--theme-text-secondary', theme.colors.text.secondary);
+              root.style.setProperty('--theme-text-muted', theme.colors.text.muted);
+              root.style.setProperty('--theme-bg-primary', theme.colors.background.primary);
+              root.style.setProperty('--theme-bg-secondary', theme.colors.background.secondary);
+              root.style.setProperty('--theme-bg-card', theme.colors.background.card);
+              root.style.setProperty('--theme-border-primary', theme.colors.border.primary);
+              root.style.setProperty('--theme-border-secondary', theme.colors.border.secondary);
+              
+              console.log('✅ Theme loaded from database:', data.theme_id);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading theme from database:', error);
         }
       },
       getThemeById: (themeId: string) => {
@@ -601,6 +659,6 @@ export const getButtonClass = (theme: Theme, variant: 'primary' | 'secondary' | 
 
 // Hook to use theme in components
 export const useTheme = () => {
-  const { currentTheme, setTheme, themes } = useThemeStore();
-  return { currentTheme, setTheme, themes };
+  const { currentTheme, setTheme, themes, loadThemeFromDatabase } = useThemeStore();
+  return { currentTheme, setTheme, themes, loadThemeFromDatabase };
 };

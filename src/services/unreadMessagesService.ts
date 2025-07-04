@@ -6,6 +6,10 @@ class UnreadMessagesService {
   private subscription: any = null;
   private userId: string | null = null;
   private practiceId: string | null = null;
+  private activeChannelId: string | null = null;
+  private channelUnreadCounts: Record<string, number> = {};
+  private updateTimer: NodeJS.Timeout | null = null;
+  private pendingUpdate: boolean = false;
 
   // Initialize the service
   async initialize(userId: string, practiceId: string) {
@@ -65,10 +69,22 @@ class UnreadMessagesService {
       console.log('[UnreadMessagesService] RPC response:', unreadData);
 
       if (unreadData) {
-        const totalUnread = unreadData.reduce((sum: number, channel: any) => 
-          sum + (channel.unread_count || 0), 0
-        );
-        console.log('[UnreadMessagesService] Total unread count:', totalUnread);
+        // Store individual channel counts
+        this.channelUnreadCounts = {};
+        unreadData.forEach((channel: any) => {
+          this.channelUnreadCounts[channel.channel_id] = channel.unread_count || 0;
+        });
+        
+        // Calculate total excluding active channel
+        const totalUnread = unreadData.reduce((sum: number, channel: any) => {
+          // Exclude active channel from global count
+          if (this.activeChannelId && channel.channel_id === this.activeChannelId) {
+            return sum;
+          }
+          return sum + (channel.unread_count || 0);
+        }, 0);
+        
+        console.log('[UnreadMessagesService] Total unread count (excluding active):', totalUnread);
         this.setUnreadCount(totalUnread);
       }
     } catch (error) {
@@ -96,10 +112,25 @@ class UnreadMessagesService {
       }, async (payload) => {
         const newMessage = payload.new;
         
-        // Only count if not from current user
+        // Only count if not from current user and not in active channel
         if (newMessage.sender_id !== this.userId) {
-          // Increment unread count
-          this.setUnreadCount(this.unreadCount + 1);
+          // First, we need to find which channel this message belongs to
+          const { data: channelData } = await supabase
+            .from('internal_message_threads')
+            .select('channel_id')
+            .eq('id', newMessage.thread_id)
+            .single();
+            
+          if (channelData) {
+            const messageChannelId = channelData.channel_id;
+            
+            // Don't increment if message is in active channel
+            if (messageChannelId !== this.activeChannelId) {
+              // Update channel count
+              this.channelUnreadCounts[messageChannelId] = (this.channelUnreadCounts[messageChannelId] || 0) + 1;
+              this.debouncedRecalculate();
+            }
+          }
         }
       })
       .subscribe();
@@ -139,7 +170,7 @@ class UnreadMessagesService {
 
     try {
       // Update read status
-      await supabase
+      const { error } = await supabase
         .from('internal_channel_read_status')
         .upsert({
           channel_id: channelId,
@@ -149,17 +180,89 @@ class UnreadMessagesService {
           onConflict: 'channel_id,user_id'
         });
 
-      // Reload unread count
-      await this.loadUnreadCount();
+      if (error) {
+        console.error('[UnreadMessagesService] Error updating read status:', error);
+        return;
+      }
+
+      // Update local channel count immediately
+      if (this.channelUnreadCounts[channelId] > 0) {
+        this.channelUnreadCounts[channelId] = 0;
+        this.debouncedRecalculate();
+      }
+
+      // Then reload the actual count from database in background
+      this.loadUnreadCount();
     } catch (error) {
-      console.error('Error marking channel as read:', error);
+      console.error('[UnreadMessagesService] Error marking channel as read:', error);
     }
   }
 
+  // Get unread count for a specific channel
+  private async getChannelUnreadCount(channelId: string): Promise<number> {
+    if (!this.userId) return 0;
+
+    try {
+      const { data } = await supabase
+        .rpc('get_channel_last_messages', {
+          channel_ids: [channelId],
+          user_id: this.userId
+        });
+
+      if (data && data.length > 0) {
+        return data[0].unread_count || 0;
+      }
+    } catch (error) {
+      console.error('[UnreadMessagesService] Error getting channel unread count:', error);
+    }
+    return 0;
+  }
+
+  // Set active channel (to exclude from global count)
+  setActiveChannel(channelId: string | null) {
+    const previousActiveChannel = this.activeChannelId;
+    this.activeChannelId = channelId;
+    
+    // Mark channel as read immediately when selected
+    if (channelId && channelId !== previousActiveChannel) {
+      this.markChannelAsRead(channelId);
+    }
+    
+    // Debounce the recalculation to prevent flickering
+    this.debouncedRecalculate();
+  }
+  
+  // Debounced recalculation to prevent flickering
+  private debouncedRecalculate() {
+    if (this.updateTimer) {
+      clearTimeout(this.updateTimer);
+    }
+    
+    this.updateTimer = setTimeout(() => {
+      this.recalculateTotalCount();
+      this.updateTimer = null;
+    }, 100); // Small delay to prevent flickering
+  }
+  
+  // Recalculate total count excluding active channel
+  private recalculateTotalCount() {
+    let total = 0;
+    for (const [channelId, count] of Object.entries(this.channelUnreadCounts)) {
+      if (this.activeChannelId && channelId === this.activeChannelId) {
+        continue; // Skip active channel
+      }
+      total += count;
+    }
+    this.setUnreadCount(total);
+  }
+  
   // Clean up
   destroy() {
     if (this.subscription) {
       this.subscription.unsubscribe();
+    }
+    if (this.updateTimer) {
+      clearTimeout(this.updateTimer);
     }
     this.listeners.clear();
   }

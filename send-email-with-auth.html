@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Email with Auth</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        button:hover { background: #059669; }
+        button:disabled { background: #9ca3af; cursor: not-allowed; }
+        .log {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .success { color: #10b981; font-weight: bold; }
+        .error { color: #ef4444; font-weight: bold; }
+        .info { color: #3b82f6; font-weight: bold; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>📧 Send Happy Joy's Email</h1>
+    
+    <div class="card">
+        <h2>Instructions</h2>
+        <p class="info">First, copy your authentication token from the HPMS app:</p>
+        <ol>
+            <li>Open the HPMS app in another tab (make sure you're logged in)</li>
+            <li>Open Browser Developer Tools (F12)</li>
+            <li>Go to Application/Storage → Local Storage → Find the auth token</li>
+            <li>Or just click "Get Token from App" button below if HPMS is open in another tab</li>
+        </ol>
+        <button onclick="getTokenFromApp()" id="tokenBtn">Get Token from App</button>
+        <button onclick="sendEmailDirectly()" id="sendBtn">Send Email Directly</button>
+    </div>
+
+    <div class="card">
+        <h2>Activity Log</h2>
+        <div id="log" class="log">Ready...</div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const emoji = type === 'error' ? '❌' : type === 'success' ? '✅' : '📌';
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logDiv.innerHTML += `${emoji} [${timestamp}] <span class="${className}">${message}</span>\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        async function getTokenFromApp() {
+            try {
+                // Try to get the token from localStorage
+                const authToken = localStorage.getItem('sb-jjxlfunlbyayxwvlpgwt-auth-token');
+                if (authToken) {
+                    const tokenData = JSON.parse(authToken);
+                    log('Found auth token!', 'success');
+                    log(`Token preview: ${tokenData.access_token.substring(0, 20)}...`, 'info');
+                    window.authToken = tokenData.access_token;
+                    return tokenData.access_token;
+                } else {
+                    log('No auth token found in this tab', 'error');
+                    log('Make sure HPMS is open and you are logged in', 'error');
+                }
+            } catch (error) {
+                log(`Error getting token: ${error.message}`, 'error');
+            }
+        }
+
+        async function sendEmailDirectly() {
+            const btn = document.getElementById('sendBtn');
+            btn.disabled = true;
+            
+            try {
+                log('Attempting to send email directly...');
+                
+                // First try to get token
+                const token = window.authToken || await getTokenFromApp();
+                
+                if (!token) {
+                    log('No authentication token available', 'error');
+                    return;
+                }
+                
+                const emailPayload = {
+                    practiceId: 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3',
+                    recipientEmail: 'ksnahol@gmail.com',
+                    recipientName: 'Happy Joy',
+                    senderEmail: 'onboarding@resend.dev',
+                    senderName: 'HPMS',
+                    subject: 'Welcome to New Charm Dental Practice!',
+                    htmlContent: `<div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                        Dear Happy Joy,<br><br>
+                        Welcome to New Charm Dental Practice! We are thrilled to have you as our patient.<br><br>
+                        As a new patient, you can:<br>
+                        - Schedule appointments online<br>
+                        - Access your medical records<br>
+                        - Message your healthcare team<br>
+                        - View test results<br><br>
+                        If you have any questions, please do not hesitate to contact us at +264 81 435 8843 or reply to this email.<br><br>
+                        We look forward to being your healthcare partner!<br><br>
+                        Best regards,<br>
+                        The New Charm Dental Practice Team
+                    </div>`,
+                    textContent: `Dear Happy Joy,\n\nWelcome to New Charm Dental Practice! We are thrilled to have you as our patient.\n\nAs a new patient, you can:\n- Schedule appointments online\n- Access your medical records\n- Message your healthcare team\n- View test results\n\nIf you have any questions, please do not hesitate to contact us at +264 81 435 8843 or reply to this email.\n\nWe look forward to being your healthcare partner!\n\nBest regards,\nThe New Charm Dental Practice Team`,
+                    emailType: 'welcome',
+                    patientId: '54c9df8a-257b-463c-b43d-5c2db19c000a',
+                    metadata: {
+                        email_log_id: '86a3735f-37aa-4962-aa67-48a8d0bfae40'
+                    }
+                };
+                
+                log('Calling edge function with authentication...');
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/centralized-email-gateway`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                        'apikey': token
+                    },
+                    body: JSON.stringify(emailPayload)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    log('✅ EMAIL SENT SUCCESSFULLY!', 'success');
+                    log(`Message ID: ${data.messageId}`, 'success');
+                    log('Check your inbox (ksnahol@gmail.com)', 'success');
+                } else {
+                    log(`Failed: ${data.error || 'Unknown error'}`, 'error');
+                    console.error('Full response:', data);
+                }
+                
+            } catch (error) {
+                log(`Exception: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Alternative: Process via automation button
+        async function useAutomationButton() {
+            log('Alternative: Use the "Process Automations" button in the HPMS app', 'info');
+            log('Go to Communications → Automations → Click "Process Automations"', 'info');
+            log('This will process all pending automations including Happy Joy\'s email', 'info');
+        }
+
+        // Initialize
+        window.onload = async () => {
+            log('Checking for existing auth token...');
+            const token = await getTokenFromApp();
+            if (token) {
+                log('Ready to send email!', 'success');
+            } else {
+                log('Please get token from HPMS app first', 'info');
+                useAutomationButton();
+            }
+        };
+    </script>
+</body>
+</html>

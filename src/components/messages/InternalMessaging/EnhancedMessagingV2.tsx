@@ -4,6 +4,9 @@ import { supabase } from '../../../lib/supabase';
 import { useAuthStore } from '../../../stores/authStore';
 import { format } from 'date-fns';
 import { cn } from '../../../utils/cn';
+import { unreadMessagesService } from '../../../services/unreadMessagesService';
+import { NotificationBadge } from '../../ui/NotificationBadge';
+import { NotificationPreferences } from '../NotificationPreferences';
 
 export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practiceId }) => {
   const { user } = useAuthStore();
@@ -47,6 +50,11 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
   const [showManageGroupModal, setShowManageGroupModal] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
   
+  // Typing indicators state
+  const [typingUsers, setTypingUsers] = useState<Record<string, string[]>>({});
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   // ========== ENHANCEMENT 13: Create channel modal ==========
   const [showCreateChannelModal, setShowCreateChannelModal] = useState(false);
   const [channelsLoading, setChannelsLoading] = useState(true);
@@ -54,12 +62,53 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelDescription, setNewChannelDescription] = useState('');
   const [newChannelMembers, setNewChannelMembers] = useState<string[]>([]);
+  
+  // Notification preferences modal
+  const [showNotificationPrefs, setShowNotificationPrefs] = useState(false);
+  
+  // Real-time typing subscription
+  const [typingSubscription, setTypingSubscription] = useState<any>(null);
+  const typingPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Define handler functions before useEffect
+  // Handle typing indicator changes
+  const handleTypingIndicatorChange = (payload: any) => {
+    console.log('[Typing Indicator] Received event:', payload);
+    if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+      const indicator = payload.new;
+      console.log('[Typing Indicator] Processing:', indicator);
+      if (indicator.user_id !== user?.id && indicator.is_typing) {
+        // Add user to typing list for their channel
+        setTypingUsers(prev => ({
+          ...prev,
+          [indicator.channel_id]: [...(prev[indicator.channel_id] || []).filter(id => id !== indicator.user_id), indicator.user_id]
+        }));
+        
+        // Remove after expiration
+        setTimeout(() => {
+          setTypingUsers(prev => ({
+            ...prev,
+            [indicator.channel_id]: (prev[indicator.channel_id] || []).filter(id => id !== indicator.user_id)
+          }));
+        }, 10000); // 10 seconds
+      } else if (!indicator.is_typing) {
+        // Remove user from typing list
+        setTypingUsers(prev => ({
+          ...prev,
+          [indicator.channel_id]: (prev[indicator.channel_id] || []).filter(id => id !== indicator.user_id)
+        }));
+      }
+    }
+  };
 
   // Load channels and set up real-time
   useEffect(() => {
     if (!user?.id || !practiceId) return;
     
     loadChannels();
+    
+    // Initialize unread messages service
+    unreadMessagesService.initialize(user.id, practiceId);
     
     // Single subscription for all real-time updates
     const channelSub = supabase
@@ -72,8 +121,27 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
       }, handleMessageChange)
       .subscribe();
       
+    // Set up typing indicators subscription
+    const typingSub = supabase
+      .channel(`typing-indicators-${practiceId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'typing_indicators',
+        filter: `practice_id=eq.${practiceId}`
+      }, handleTypingIndicatorChange)
+      .subscribe((status) => {
+        console.log('[Typing Indicator] Subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('[Typing Indicator] Successfully subscribed to typing indicators');
+        }
+      });
+      
+    setTypingSubscription(typingSub);
+      
     return () => {
       channelSub.unsubscribe();
+      typingSub.unsubscribe();
     };
   }, [practiceId, user?.id]);
 
@@ -81,6 +149,134 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Update active channel when selection changes
+  useEffect(() => {
+    unreadMessagesService.setActiveChannel(selectedChannelId);
+    
+    // Set up polling for typing indicators as a fallback
+    if (selectedChannelId) {
+      const pollTypingIndicators = async () => {
+        try {
+          const { data: indicators, error } = await supabase
+            .from('typing_indicators')
+            .select('*')
+            .eq('channel_id', selectedChannelId)
+            .eq('is_typing', true)
+            .gt('expires_at', new Date().toISOString())
+            .neq('user_id', user?.id);
+            
+          if (!error && indicators) {
+            console.log('[Typing Indicator] Polling found indicators:', indicators);
+            const typingUserIds = indicators.map(i => i.user_id);
+            setTypingUsers(prev => ({
+              ...prev,
+              [selectedChannelId]: typingUserIds
+            }));
+          }
+        } catch (err) {
+          console.error('[Typing Indicator] Polling error:', err);
+        }
+      };
+      
+      // Poll immediately
+      pollTypingIndicators();
+      
+      // Set up interval
+      typingPollIntervalRef.current = setInterval(pollTypingIndicators, 2000);
+    }
+    
+    return () => {
+      if (typingPollIntervalRef.current) {
+        clearInterval(typingPollIntervalRef.current);
+      }
+    };
+  }, [selectedChannelId, user?.id]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      unreadMessagesService.setActiveChannel(null);
+      // Clear typing indicator on unmount
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (typingPollIntervalRef.current) {
+        clearInterval(typingPollIntervalRef.current);
+      }
+      if (isTyping) {
+        sendTypingIndicator(false);
+      }
+    };
+  }, []);
+  
+  // Send typing indicator
+  const sendTypingIndicator = async (typing: boolean) => {
+    if (!selectedChannelId) {
+      console.log('[Typing Indicator] No channel selected');
+      return;
+    }
+    
+    console.log('[Typing Indicator] Sending typing status:', typing, 'for channel:', selectedChannelId);
+    
+    try {
+      const { data, error } = await supabase.rpc('send_typing_indicator', {
+        channel_uuid: selectedChannelId,
+        typing_status: typing
+      });
+      
+      if (error) {
+        console.error('[Typing Indicator] RPC error:', error);
+      } else {
+        console.log('[Typing Indicator] RPC success:', data);
+        
+        // Also query typing indicators to verify
+        const { data: indicators, error: queryError } = await supabase
+          .from('typing_indicators')
+          .select('*')
+          .eq('channel_id', selectedChannelId)
+          .eq('is_typing', true)
+          .gt('expires_at', new Date().toISOString());
+          
+        console.log('[Typing Indicator] Current typing indicators in DB:', indicators, queryError);
+      }
+    } catch (error) {
+      console.error('[Typing Indicator] Error sending typing indicator:', error);
+    }
+  };
+  
+  // Handle input change with typing indicator
+  const handleInputChange = (value: string) => {
+    console.log('[Typing Indicator] Input changed, length:', value.length);
+    setMessageInput(value);
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Send typing indicator
+    if (value.length > 0 && !isTyping) {
+      console.log('[Typing Indicator] Starting typing');
+      setIsTyping(true);
+      sendTypingIndicator(true);
+    } else if (value.length === 0 && isTyping) {
+      console.log('[Typing Indicator] Stopping typing (empty input)');
+      setIsTyping(false);
+      sendTypingIndicator(false);
+    }
+    
+    // Stop typing after 3 seconds of inactivity
+    if (value.length > 0) {
+      typingTimeoutRef.current = setTimeout(() => {
+        if (isTyping) {
+          console.log('[Typing Indicator] Stopping typing (timeout)');
+          setIsTyping(false);
+          sendTypingIndicator(false);
+        }
+      }, 3000);
+    }
+  };
 
   const loadChannels = async () => {
     setChannelsLoading(true);
@@ -163,9 +359,20 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
         setUserAvatars(prev => ({ ...prev, ...avatarsMap }));
       }
       
-      // Load last messages and unread counts in a single query
+      // Load threads for all channels to populate threadChannelMap
       const channelIds = enhancedChannels.map(c => c.id);
       if (channelIds.length > 0) {
+        // Get all threads for these channels
+        const { data: threads } = await supabase
+          .from('internal_message_threads')
+          .select('id, channel_id')
+          .in('channel_id', channelIds);
+          
+        if (threads) {
+          threads.forEach(thread => {
+            threadChannelMap.current[thread.id] = thread.channel_id;
+          });
+        }
         const { data: lastMessagesData } = await supabase
           .rpc('get_channel_last_messages', { 
             channel_ids: channelIds,
@@ -204,9 +411,25 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
     if (payload.eventType === 'INSERT') {
       const newMessage = payload.new;
       
-      // Quick channel lookup from thread
-      const channelId = threadChannelMap.current[newMessage.thread_id];
-      if (!channelId) return;
+      // Find which channel this message belongs to
+      let channelId = threadChannelMap.current[newMessage.thread_id];
+      
+      // If not in map, try to find it from our loaded channels
+      if (!channelId) {
+        // Query to find the channel for this thread
+        const { data: threadData } = await supabase
+          .from('internal_message_threads')
+          .select('channel_id')
+          .eq('id', newMessage.thread_id)
+          .single();
+          
+        if (threadData) {
+          channelId = threadData.channel_id;
+          threadChannelMap.current[newMessage.thread_id] = channelId;
+        } else {
+          return; // Can't find channel
+        }
+      }
       
       // Update last message immediately
       setLastMessages(prev => ({
@@ -226,12 +449,35 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
         }));
       }
       
-      // If in current channel, add to messages
+      // If in current channel, add to messages and mark as read
       if (selectedChannelId === channelId && threadId === newMessage.thread_id) {
         setMessages(prev => {
           const exists = prev.some(m => m.id === newMessage.id);
           return exists ? prev : [...prev, newMessage];
         });
+        
+        // Mark as read immediately since user is in this channel
+        if (newMessage.sender_id !== user?.id) {
+          // Keep unread count at 0 for active channel
+          setUnreadCounts(prev => ({ ...prev, [channelId]: 0 }));
+          
+          // Update database in background
+          supabase
+            .from('internal_channel_read_status')
+            .upsert({
+              channel_id: channelId,
+              user_id: user?.id,
+              last_read_at: new Date().toISOString()
+            }, {
+              onConflict: 'channel_id,user_id'
+            })
+            .then(() => {
+              console.log('[EnhancedMessagingV2] Read status updated for active channel');
+            })
+            .catch(err => {
+              console.error('[EnhancedMessagingV2] Error updating read status:', err);
+            });
+        }
       }
     }
   };
@@ -304,6 +550,9 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
     setMessageMenuId(null);
     setEditingMessageId(null);
     
+    // Clear unread count immediately for smooth UX
+    setUnreadCounts(prev => ({ ...prev, [channelId]: 0 }));
+    
     // Get channel creator info
     const selectedChannel = channels.find(c => c.id === channelId);
     setCurrentChannelCreator(selectedChannel?.created_by || null);
@@ -314,6 +563,15 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
     // ========== ENHANCEMENT 3: Clean up previous subscription ==========
     if (subscription) {
       subscription.unsubscribe();
+    }
+    
+    // Stop typing indicator when switching channels
+    if (isTyping) {
+      setIsTyping(false);
+      sendTypingIndicator(false);
+    }
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
     }
 
     try {
@@ -346,10 +604,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
           loadUserNames(senderIds);
         }
         
-        // Mark channel as read
-        setUnreadCounts(prev => ({ ...prev, [channelId]: 0 }));
-        
-        // Update read status in database
+        // Update read status in database (don't await to keep UI responsive)
         supabase
           .from('internal_channel_read_status')
           .upsert({
@@ -359,7 +614,13 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
           }, {
             onConflict: 'channel_id,user_id'
           })
-          .then(() => {});
+          .then(() => {
+            // Update global service in background
+            console.log('[EnhancedMessagingV2] Channel marked as read:', channelId);
+          })
+          .catch(err => {
+            console.error('[EnhancedMessagingV2] Error marking channel as read:', err);
+          });
         
         // ========== ENHANCEMENT 3: Subscribe to new messages ==========
         const newSub = supabase
@@ -448,6 +709,15 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
   // Send message
   const sendMessage = async () => {
     if (!messageInput.trim() || !threadId) return;
+
+    // Stop typing indicator
+    if (isTyping) {
+      setIsTyping(false);
+      sendTypingIndicator(false);
+    }
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
 
     const content = messageInput.trim();
     setMessageInput('');
@@ -876,13 +1146,22 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
               <Icon icon="solar:chat-square-bold-duotone" className="w-5 h-5 text-amber-500" />
               Messages
             </h3>
-            <button
-              onClick={() => setShowCreateChannelModal(true)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title="New conversation"
-            >
-              <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5 text-amber-600" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowNotificationPrefs(true)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Notification preferences"
+              >
+                <Icon icon="solar:bell-bold-duotone" className="w-5 h-5 text-gray-600" />
+              </button>
+              <button
+                onClick={() => setShowCreateChannelModal(true)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="New conversation"
+              >
+                <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5 text-amber-600" />
+              </button>
+            </div>
           </div>
           
           {/* New Conversation Button */}
@@ -954,32 +1233,53 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-gray-900 truncate">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="font-medium text-gray-900 truncate flex-1">
                         {channel.name || 'Unnamed Channel'}
                       </h4>
-                      {unreadCounts[channel.id] > 0 && (
-                        <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">
-                          {unreadCounts[channel.id]}
-                        </span>
+                      {unreadCounts[channel.id] > 0 && !isSelected && (
+                        <div className="flex-shrink-0 bg-gradient-to-r from-red-500 to-red-600 text-white text-[11px] font-bold rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 shadow-sm">
+                          {unreadCounts[channel.id] > 99 ? '99+' : unreadCounts[channel.id]}
+                        </div>
+                      )}
+                      {/* Show typing indicator */}
+                      {typingUsers[channel.id]?.length > 0 && !isSelected && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <div className="flex space-x-0.5">
+                            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                            <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                          </div>
+                        </div>
                       )}
                     </div>
-                    {lastMessages[channel.id] ? (
-                      <div className="mt-1">
-                        <p className="text-xs text-gray-600 truncate">
-                          {lastMessages[channel.id].sender_id === user?.id ? (
-                            <span className="font-medium">You: </span>
-                          ) : (
-                            <span className="font-medium">
-                              {userNames[lastMessages[channel.id].sender_id] || 'Someone'}: 
-                            </span>
-                          )}
-                          {lastMessages[channel.id].content}
+                    {typingUsers[channel.id]?.length > 0 && !isSelected ? (
+                      <div className="mt-1 flex items-center gap-1">
+                        <p className="text-[11px] text-amber-600 italic">
+                          {typingUsers[channel.id].length === 1
+                            ? `${userNames[typingUsers[channel.id][0]] || 'Someone'} is typing...`
+                            : `${typingUsers[channel.id].length} people are typing...`
+                          }
                         </p>
                       </div>
+                    ) : lastMessages[channel.id] ? (
+                      <div className="mt-1 flex items-baseline gap-1">
+                        {/* Only show sender name for groups, not direct messages */}
+                        {channel.channel_type === 'group' && (
+                          <span className="text-[11px] font-semibold text-gray-700">
+                            {lastMessages[channel.id].sender_id === user?.id ? 'You' : userNames[lastMessages[channel.id].sender_id] || 'Someone'}:
+                          </span>
+                        )}
+                        <p className="text-[11px] text-gray-600 truncate flex-1">
+                          {lastMessages[channel.id].content}
+                        </p>
+                        <span className="text-[10px] text-gray-400 whitespace-nowrap ml-1">
+                          {format(new Date(lastMessages[channel.id].created_at), 'HH:mm')}
+                        </span>
+                      </div>
                     ) : (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {channel.channel_type === 'direct' ? 'Direct message' : 'Group conversation'}
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        {channel.channel_type === 'direct' ? 'Start a conversation' : 'No messages yet'}
                       </p>
                     )}
                   </div>
@@ -1253,6 +1553,26 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
               )}
             </div>
             
+            {/* Typing Indicators */}
+            {console.log('[Typing Indicator] Current typing users for channel', selectedChannelId, ':', typingUsers[selectedChannelId])}
+            {typingUsers[selectedChannelId]?.length > 0 && (
+              <div className="px-4 py-2 bg-gray-50 border-t border-gray-100">
+                <div className="flex items-center gap-2">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                  <span className="text-sm text-gray-600">
+                    {typingUsers[selectedChannelId].length === 1
+                      ? `${userNames[typingUsers[selectedChannelId][0]] || 'Someone'} is typing...`
+                      : `${typingUsers[selectedChannelId].length} people are typing...`
+                    }
+                  </span>
+                </div>
+              </div>
+            )}
+            
             {/* ========== ENHANCEMENT 10: Better input area ==========*/}
             <div className="p-4 border-t border-gray-200 bg-white">
               <div className="flex items-center gap-3">
@@ -1263,7 +1583,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                 <input
                   type="text"
                   value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
+                  onChange={(e) => handleInputChange(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                   placeholder="Type a message..."
                   className="flex-1 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
@@ -1748,6 +2068,26 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                 </div>
                 <span className="font-medium text-red-700">Delete Message</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Notification Preferences Modal */}
+      {showNotificationPrefs && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-[700px] max-h-[85vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white p-6 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-xl font-semibold text-gray-900">Notification Preferences</h3>
+              <button
+                onClick={() => setShowNotificationPrefs(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6">
+              <NotificationPreferences className="shadow-none" />
             </div>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { notificationDeliveryService } from './notificationDeliveryService';
 
 // SMS Types
 export type SMSMessageType = 
@@ -19,6 +20,7 @@ export interface SendSMSRequest {
   visitId?: string;
   metadata?: Record<string, any>;
   tags?: string[];
+  notificationId?: string; // Link to system notification for delivery tracking
 }
 
 export interface SendSMSResponse {
@@ -28,6 +30,7 @@ export interface SendSMSResponse {
   status: string;
   remainingCredits?: number;
   error?: string;
+  deliveryId?: string; // Delivery tracking ID
 }
 
 // Email Types
@@ -45,15 +48,20 @@ export interface EmailAttachment {
   type?: string;
 }
 
+export interface TemplateVariable {
+  key: string;
+  value: string;
+}
+
 export interface SendEmailRequest {
   practiceId: string;
   recipientEmail: string;
   recipientName?: string;
   senderEmail?: string;
   senderName?: string;
-  subject: string;
-  htmlContent?: string;
-  textContent?: string;
+  subject?: string; // Optional when using template
+  htmlContent?: string; // Optional when using template
+  textContent?: string; // Optional when using template
   emailType: EmailType;
   attachments?: EmailAttachment[];
   patientId?: string;
@@ -62,6 +70,9 @@ export interface SendEmailRequest {
   invoiceId?: string;
   metadata?: Record<string, any>;
   tags?: string[];
+  notificationId?: string; // Link to system notification for delivery tracking
+  templateId?: string; // Email template ID
+  templateVariables?: TemplateVariable[]; // Variables for template replacement
 }
 
 export interface SendEmailResponse {
@@ -70,6 +81,7 @@ export interface SendEmailResponse {
   messageId?: string;
   status: string;
   error?: string;
+  deliveryId?: string; // Delivery tracking ID
 }
 
 // Communication Log Types
@@ -139,7 +151,23 @@ class CommunicationService {
    * Send SMS through centralized gateway
    */
   async sendSMS(request: SendSMSRequest): Promise<SendSMSResponse> {
+    let deliveryId: string | undefined;
+    
     try {
+      // Create delivery tracking record if notification ID provided
+      if (request.notificationId) {
+        try {
+          const delivery = await notificationDeliveryService.createDeliveryTracking({
+            notificationId: request.notificationId,
+            channels: { sms: true }
+          });
+          deliveryId = delivery.id;
+        } catch (trackingError) {
+          console.error('Failed to create delivery tracking:', trackingError);
+          // Continue with SMS sending even if tracking fails
+        }
+      }
+      
       const { data, error } = await supabase.functions.invoke('centralized-sms-gateway', {
         body: request
       });
@@ -147,13 +175,24 @@ class CommunicationService {
       if (error) {
         console.error('SMS sending error:', error);
         
+        // Update delivery tracking if available
+        if (deliveryId) {
+          notificationDeliveryService.updateDeliveryStatus({
+            deliveryId,
+            channel: 'sms',
+            status: 'failed',
+            failureReason: error.message
+          }).catch(console.error);
+        }
+        
         // Check if it's a limit reached error
         if (error.message?.includes('subscription limit reached')) {
           return {
             success: false,
             logId: '',
             status: 'blocked',
-            error: 'SMS_LIMIT_REACHED'
+            error: 'SMS_LIMIT_REACHED',
+            deliveryId
           };
         }
         
@@ -161,31 +200,64 @@ class CommunicationService {
           success: false,
           logId: '',
           status: 'failed',
-          error: error.message || 'Failed to send SMS'
+          error: error.message || 'Failed to send SMS',
+          deliveryId
         };
       }
 
       // Handle limit reached response from edge function
       if (!data.success && data.error?.includes('subscription limit reached')) {
+        if (deliveryId) {
+          notificationDeliveryService.updateDeliveryStatus({
+            deliveryId,
+            channel: 'sms',
+            status: 'failed',
+            failureReason: 'Subscription limit reached'
+          }).catch(console.error);
+        }
+        
         return {
           success: false,
           logId: data.logId || '',
           status: 'blocked',
-          error: 'SMS_LIMIT_REACHED'
+          error: 'SMS_LIMIT_REACHED',
+          deliveryId
         };
+      }
+      
+      // Update delivery tracking on success
+      if (deliveryId && data.success) {
+        notificationDeliveryService.updateDeliveryStatus({
+          deliveryId,
+          channel: 'sms',
+          status: 'delivered',
+          timestamp: new Date().toISOString()
+        }).catch(console.error);
       }
 
       return {
         success: true,
-        ...data
+        ...data,
+        deliveryId
       };
     } catch (error) {
       console.error('SMS service error:', error);
+      
+      if (deliveryId) {
+        notificationDeliveryService.updateDeliveryStatus({
+          deliveryId,
+          channel: 'sms',
+          status: 'failed',
+          failureReason: error instanceof Error ? error.message : 'Unknown error'
+        }).catch(console.error);
+      }
+      
       return {
         success: false,
         logId: '',
         status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        deliveryId
       };
     }
   }
@@ -194,32 +266,82 @@ class CommunicationService {
    * Send email through centralized gateway
    */
   async sendEmail(request: SendEmailRequest): Promise<SendEmailResponse> {
+    let deliveryId: string | undefined;
+    
     try {
+      // Create delivery tracking record if notification ID provided
+      if (request.notificationId) {
+        try {
+          const delivery = await notificationDeliveryService.createDeliveryTracking({
+            notificationId: request.notificationId,
+            channels: { email: true }
+          });
+          deliveryId = delivery.id;
+        } catch (trackingError) {
+          console.error('Failed to create delivery tracking:', trackingError);
+          // Continue with email sending even if tracking fails
+        }
+      }
+      
       const { data, error } = await supabase.functions.invoke('centralized-email-gateway', {
         body: request
       });
 
       if (error) {
         console.error('Email sending error:', error);
+        
+        // Update delivery tracking if available
+        if (deliveryId) {
+          notificationDeliveryService.updateDeliveryStatus({
+            deliveryId,
+            channel: 'email',
+            status: 'failed',
+            failureReason: error.message
+          }).catch(console.error);
+        }
+        
         return {
           success: false,
           logId: '',
           status: 'failed',
-          error: error.message || 'Failed to send email'
+          error: error.message || 'Failed to send email',
+          deliveryId
         };
+      }
+      
+      // Update delivery tracking on success
+      if (deliveryId && data.success) {
+        notificationDeliveryService.updateDeliveryStatus({
+          deliveryId,
+          channel: 'email',
+          status: 'delivered',
+          timestamp: new Date().toISOString()
+        }).catch(console.error);
       }
 
       return {
         success: true,
-        ...data
+        ...data,
+        deliveryId
       };
     } catch (error) {
       console.error('Email service error:', error);
+      
+      if (deliveryId) {
+        notificationDeliveryService.updateDeliveryStatus({
+          deliveryId,
+          channel: 'email',
+          status: 'failed',
+          failureReason: error instanceof Error ? error.message : 'Unknown error'
+        }).catch(console.error);
+      }
+      
       return {
         success: false,
         logId: '',
         status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        deliveryId
       };
     }
   }

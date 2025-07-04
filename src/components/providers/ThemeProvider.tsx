@@ -1,12 +1,21 @@
 import React, { useEffect } from 'react';
 import { useThemeStore } from '../../stores/themeStore';
+import { usePractice } from '../../contexts/PracticeContext';
 
 interface ThemeProviderProps {
   children: React.ReactNode;
 }
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const { currentTheme, setTheme } = useThemeStore();
+  const { currentTheme, loadThemeFromDatabase } = useThemeStore();
+  const { practiceId, isLoading: practiceLoading } = usePractice();
+
+  // Load theme from database when practice ID is available
+  useEffect(() => {
+    if (practiceId && !practiceLoading) {
+      loadThemeFromDatabase(practiceId);
+    }
+  }, [practiceId, practiceLoading, loadThemeFromDatabase]);
 
   useEffect(() => {
     // Apply theme CSS variables on mount and when theme changes

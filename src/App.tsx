@@ -6,6 +6,10 @@ import Patients from './pages/Patients';
 import Settings from './pages/Settings';
 import Communications from './pages/Communications';
 import TestCommunication from './pages/TestCommunication';
+import TestSMSSend from './pages/TestSMSSend';
+import TestSMSDirectSend from './pages/TestSMSDirectSend';
+import WorkingSMSTest from './pages/WorkingSMSTest';
+import TestSMSWithAuth from './pages/TestSMSWithAuth';
 import Encounters from './pages/Encounters';
 import Layout from './components/layout/Layout';
 import Login from './pages/auth/Login';
@@ -23,6 +27,7 @@ import { PracticeTariffsProvider } from './contexts/PracticeTariffsContext';
 import { PracticeProvider } from './contexts/PracticeContext';
 import ThemeProvider from './components/providers/ThemeProvider';
 import EmergencySchemaExporter from './emergency-schema-exporter';
+import { automationProcessingService } from './services/automationProcessingService';
 
 function App() {
   const { isAuthenticated, login } = useAuthStore();
@@ -33,13 +38,38 @@ function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         login(session.user.email!, '');
+        
+        // Start automatic automation processing when user is authenticated
+        // Don't await to prevent blocking
+        automationProcessingService.start().catch(error => {
+          console.error('Failed to start automation service:', error);
+        });
+      } else {
+        // Stop processing when user logs out
+        automationProcessingService.stop();
       }
+      setIsLoading(false);
+    });
+
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        login(session.user.email!, '');
+        // Don't await to prevent blocking
+        automationProcessingService.start().catch(error => {
+          console.error('Failed to start automation service:', error);
+        });
+      }
+      setIsLoading(false);
+    }).catch(error => {
+      console.error('Error getting session:', error);
       setIsLoading(false);
     });
 
     // Cleanup subscription
     return () => {
       subscription.unsubscribe();
+      automationProcessingService.stop();
     };
   }, [login]);
 
@@ -56,8 +86,8 @@ function App() {
   }
 
   return (
-    <ThemeProvider>
-      <PracticeProvider>
+    <PracticeProvider>
+      <ThemeProvider>
         <PracticeTariffsProvider>
           <Toaster 
             position="top-right"
@@ -87,6 +117,10 @@ function App() {
               <Route path="encounters" element={<Encounters />} />
               <Route path="communications" element={<Communications />} />
               <Route path="test-communication" element={<TestCommunication />} />
+              <Route path="test-sms-send" element={<TestSMSSend />} />
+              <Route path="test-sms-direct" element={<TestSMSDirectSend />} />
+              <Route path="working-sms-test" element={<WorkingSMSTest />} />
+              <Route path="test-sms-auth" element={<TestSMSWithAuth />} />
               <Route path="finance" element={<Finance />} />
               <Route path="billing/workflow" element={<BillingWorkflow />} />
               <Route path="practice-profile" element={<EnhancedPracticeProfile />} />
@@ -98,8 +132,8 @@ function App() {
             </Route>
           </Routes>
         </PracticeTariffsProvider>
-      </PracticeProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </PracticeProvider>
   );
 }
 

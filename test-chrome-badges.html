@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chrome Badge Compatibility Test</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Simple, Chrome-compatible animation */
+    @keyframes simple-pulse {
+      0% {
+        opacity: 0.4;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0;
+        transform: scale(1.5);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(1.5);
+      }
+    }
+    
+    .pulse-animation {
+      animation: simple-pulse 2s infinite;
+    }
+    
+    /* Force hardware acceleration */
+    .badge-container {
+      transform: translateZ(0);
+      will-change: transform;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+    
+    /* Ensure badges are visible in Chrome */
+    .notification-badge {
+      position: relative;
+      z-index: 50;
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+    }
+  </style>
+</head>
+<body class="bg-gray-100 p-8">
+  <div class="max-w-4xl mx-auto">
+    <h1 class="text-2xl font-bold mb-6">Chrome Badge Compatibility Test</h1>
+    
+    <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+      <h2 class="text-lg font-semibold mb-4">Browser Detection</h2>
+      <div id="browserInfo" class="text-sm"></div>
+    </div>
+    
+    <div class="bg-white p-6 rounded-lg shadow-lg">
+      <h2 class="text-lg font-semibold mb-4">Badge Variations</h2>
+      
+      <div class="grid grid-cols-4 gap-8">
+        <!-- Simple Badge (Most Compatible) -->
+        <div>
+          <h3 class="text-sm font-medium mb-3">Simple Badge</h3>
+          <div class="relative inline-block">
+            <div class="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center">
+              <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <div class="absolute -top-2 -right-2 badge-container">
+              <div class="notification-badge bg-red-500 text-white text-xs font-bold rounded-full min-w-[24px] h-[24px] flex items-center justify-center px-1.5 shadow-md border-2 border-white">
+                5
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Badge with CSS Animation -->
+        <div>
+          <h3 class="text-sm font-medium mb-3">With Animation</h3>
+          <div class="relative inline-block">
+            <div class="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center">
+              <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+            </div>
+            <div class="absolute -top-2 -right-2 badge-container">
+              <div class="relative">
+                <div class="absolute inset-0 bg-red-500 rounded-full pulse-animation opacity-75"></div>
+                <div class="notification-badge relative bg-red-500 text-white text-xs font-bold rounded-full min-w-[24px] h-[24px] flex items-center justify-center px-1.5 shadow-md border-2 border-white">
+                  12
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Badge with Transform -->
+        <div>
+          <h3 class="text-sm font-medium mb-3">With Transform</h3>
+          <div class="relative inline-block">
+            <div class="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center">
+              <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </div>
+            <div class="absolute -top-2 -right-2 badge-container" style="transform: translateZ(0);">
+              <div class="notification-badge bg-red-500 text-white text-xs font-bold rounded-full min-w-[24px] h-[24px] flex items-center justify-center px-1.5 shadow-md border-2 border-white transform hover:scale-110 transition-transform">
+                3
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Badge with High Z-Index -->
+        <div>
+          <h3 class="text-sm font-medium mb-3">High Z-Index</h3>
+          <div class="relative inline-block">
+            <div class="w-16 h-16 bg-gray-700 rounded-lg flex items-center justify-center">
+              <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            </div>
+            <div class="absolute -top-2 -right-2" style="z-index: 9999;">
+              <div class="bg-red-500 text-white text-xs font-bold rounded-full min-w-[24px] h-[24px] flex items-center justify-center px-1.5 shadow-md border-2 border-white">
+                99+
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Additional Test Cases -->
+      <div class="mt-8 pt-8 border-t">
+        <h3 class="text-sm font-medium mb-4">Stress Test - Multiple Badges</h3>
+        <div class="flex gap-4 flex-wrap" id="stressTest">
+          <!-- Will be populated by JavaScript -->
+        </div>
+      </div>
+      
+      <!-- Performance Monitor -->
+      <div class="mt-8 pt-8 border-t">
+        <h3 class="text-sm font-medium mb-4">Performance Monitor</h3>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span class="text-gray-600">Render Time:</span>
+            <span id="renderTime" class="font-mono ml-2">0ms</span>
+          </div>
+          <div>
+            <span class="text-gray-600">Animation FPS:</span>
+            <span id="animationFPS" class="font-mono ml-2">0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Browser detection
+    const browserInfo = document.getElementById('browserInfo');
+    const isChrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+    const chromeVersion = navigator.userAgent.match(/Chrome\/(\d+)/)?.[1];
+    
+    browserInfo.innerHTML = `
+      <div>User Agent: ${navigator.userAgent}</div>
+      <div>Is Chrome: <span class="${isChrome ? 'text-green-600' : 'text-red-600'}">${isChrome}</span></div>
+      ${chromeVersion ? `<div>Chrome Version: ${chromeVersion}</div>` : ''}
+      <div>Hardware Acceleration: ${window.CSS && CSS.supports('transform', 'translateZ(0)') ? 'Supported' : 'Not Supported'}</div>
+    `;
+    
+    // Stress test - create many badges
+    const stressTestContainer = document.getElementById('stressTest');
+    const startTime = performance.now();
+    
+    for (let i = 0; i < 20; i++) {
+      const badge = document.createElement('div');
+      badge.className = 'relative inline-block';
+      badge.innerHTML = `
+        <div class="w-12 h-12 bg-gray-600 rounded-lg flex items-center justify-center">
+          <span class="text-white text-sm">${i + 1}</span>
+        </div>
+        <div class="absolute -top-1 -right-1 badge-container">
+          <div class="notification-badge bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1 shadow-sm border border-white">
+            ${Math.floor(Math.random() * 99) + 1}
+          </div>
+        </div>
+      `;
+      stressTestContainer.appendChild(badge);
+    }
+    
+    const renderTime = performance.now() - startTime;
+    document.getElementById('renderTime').textContent = `${renderTime.toFixed(2)}ms`;
+    
+    // FPS monitor for animations
+    let lastTime = performance.now();
+    let frameCount = 0;
+    let fps = 0;
+    
+    function updateFPS() {
+      frameCount++;
+      const currentTime = performance.now();
+      
+      if (currentTime >= lastTime + 1000) {
+        fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
+        document.getElementById('animationFPS').textContent = fps;
+        frameCount = 0;
+        lastTime = currentTime;
+      }
+      
+      requestAnimationFrame(updateFPS);
+    }
+    
+    updateFPS();
+    
+    // Test badge visibility
+    setTimeout(() => {
+      const badges = document.querySelectorAll('.notification-badge');
+      let visibleCount = 0;
+      
+      badges.forEach(badge => {
+        const rect = badge.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          visibleCount++;
+        }
+      });
+      
+      console.log(`Badge visibility test: ${visibleCount}/${badges.length} badges visible`);
+    }, 100);
+  </script>
+</body>
+</html>

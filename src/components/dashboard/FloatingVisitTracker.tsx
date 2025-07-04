@@ -15,6 +15,7 @@ import { useMessagingStore } from '../../stores/messagingStore';
 import { useAuthStore } from '../../stores/authStore';
 import { cn } from '../../utils/cn';
 import { unreadMessagesService } from '../../services/unreadMessagesService';
+import { NotificationBadge } from '../ui/NotificationBadge';
 
 interface Visit {
   id: string;
@@ -119,7 +120,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
 
   // SVG path for donut chart
   const createPath = (percentage: number) => {
-    const radius = 36; // Match the actual circle radius
+    const radius = 30; // Match the actual circle radius
     const circumference = radius * 2 * Math.PI;
     const strokeLength = (percentage / 100) * circumference;
     const strokeDasharray = `${strokeLength} ${circumference}`;
@@ -186,22 +187,23 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
       <div className="fixed bottom-6 right-6 z-40 float-animation">
         <button
           onClick={() => setIsOpen(true)}
-          className="relative w-20 h-20 bg-white rounded-full shadow-2xl border-2 border-white/50 backdrop-blur-xl overflow-hidden group hover:shadow-3xl"
+          className="relative w-20 h-20 bg-white rounded-full shadow-2xl backdrop-blur-xl group hover:shadow-3xl"
           style={{ 
             background: 'rgba(255, 255, 255, 0.9)',
-            backdropFilter: 'blur(20px)'
+            backdropFilter: 'blur(20px)',
+            overflow: 'visible'
           }}
         >
           {/* Donut Chart */}
-          <svg className="absolute inset-0 w-full h-full">
+          <svg className="absolute inset-1 w-[72px] h-[72px]" viewBox="0 0 72 72">
             {/* Full background circle in light grey */}
             <circle
-              cx="50%"
-              cy="50%"
-              r="36"
+              cx="36"
+              cy="36"
+              r="30"
               fill="none"
               stroke="#D1D5DB"
-              strokeWidth="8"
+              strokeWidth="6"
               style={{
                 transformOrigin: '50% 50%',
                 transform: 'rotate(-90deg)'
@@ -211,12 +213,12 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
             {/* Completed segment - darker grey, overlays on top */}
             {completionPercentage > 0 && (
               <circle
-                cx="50%"
-                cy="50%"
-                r="36"
+                cx="36"
+                cy="36"
+                r="30"
                 fill="none"
                 stroke="#6B7280"
-                strokeWidth="8"
+                strokeWidth="6"
                 strokeLinecap="round"
                 style={{
                   strokeDasharray: createPath(completionPercentage).strokeDasharray,
@@ -236,16 +238,20 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
               <p className="text-xs text-gray-500 -mt-1">Visits</p>
             </div>
           </div>
-          
-          {/* Notification Badge */}
-          {unreadCount > 0 && (
-            <div className="absolute -top-1 -right-1 px-2 py-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[24px] text-center shadow-lg">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </div>
-          )}
 
         </button>
-
+        
+        {/* Notification Badge - Outside button to avoid clipping */}
+        {unreadCount > 0 && (
+          <div className="absolute -top-1 -right-1">
+            <div className="relative">
+              <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75"></div>
+              <div className="relative bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold rounded-full min-w-[24px] h-[24px] flex items-center justify-center px-1.5 shadow-lg">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal */}

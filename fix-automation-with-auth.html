@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix Automation System - Authenticated</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        .auth-section {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            margin-right: 10px;
+        }
+        button:hover { background: #4338ca; }
+        button:disabled { background: #9ca3af; cursor: not-allowed; }
+        .success { background: #10b981; }
+        .success:hover { background: #059669; }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        .log {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .status { margin: 10px 0; padding: 10px; border-radius: 6px; }
+        .status.success { background: #d1fae5; color: #065f46; }
+        .status.error { background: #fee2e2; color: #991b1b; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>🔐 Automation System - Authenticated Version</h1>
+    
+    <div class="auth-section" id="authSection">
+        <h2>Step 1: Authenticate First</h2>
+        <p>You need to sign in with your Supabase credentials to access the automation system.</p>
+        <input type="email" id="email" placeholder="Email" value="">
+        <input type="password" id="password" placeholder="Password" value="">
+        <button onclick="signIn()">Sign In</button>
+        <div id="authStatus"></div>
+    </div>
+
+    <div class="card" id="mainSection" style="display: none;">
+        <h2>🚀 Automation Controls</h2>
+        <button onclick="processHappyJoyDirectly()" class="success">Send Happy Joy's Welcome (Direct)</button>
+        <button onclick="processViaEngine()">Process via Automation Engine</button>
+        <button onclick="checkStatus()">Check Status</button>
+        
+        <div id="status"></div>
+    </div>
+
+    <div class="card">
+        <h2>📝 Activity Log</h2>
+        <div id="log" class="log">Waiting for authentication...</div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+        
+        let supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let isAuthenticated = false;
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const emoji = type === 'error' ? '❌' : type === 'success' ? '✅' : '📌';
+            logDiv.innerHTML += `${emoji} [${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        async function signIn() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                showAuthStatus('Please enter email and password', 'error');
+                return;
+            }
+            
+            try {
+                log('Attempting to sign in...');
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+                
+                if (error) throw error;
+                
+                isAuthenticated = true;
+                showAuthStatus('✅ Signed in successfully!', 'success');
+                log('Authentication successful!', 'success');
+                
+                // Show main section
+                document.getElementById('authSection').style.display = 'none';
+                document.getElementById('mainSection').style.display = 'block';
+                
+                // Check current session
+                const session = await supabase.auth.getSession();
+                log(`Session active: ${session.data.session ? 'Yes' : 'No'}`);
+                
+            } catch (error) {
+                showAuthStatus(`Error: ${error.message}`, 'error');
+                log(`Authentication failed: ${error.message}`, 'error');
+            }
+        }
+
+        function showAuthStatus(message, type) {
+            const statusDiv = document.getElementById('authStatus');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        async function processHappyJoyDirectly() {
+            if (!isAuthenticated) {
+                log('Not authenticated!', 'error');
+                return;
+            }
+            
+            try {
+                log('Processing Happy Joy welcome messages directly...');
+                
+                // First check the current status
+                const { data: execution } = await supabase
+                    .from('automation_executions')
+                    .select('*')
+                    .eq('patient_id', '54c9df8a-257b-463c-b43d-5c2db19c000a')
+                    .single();
+                
+                log(`Current status: ${execution.status}, Channel: ${execution.channel || 'None'}`);
+                
+                // Send SMS
+                log('Sending SMS...');
+                const { data: smsData, error: smsError } = await supabase.functions.invoke('centralized-sms-gateway', {
+                    body: {
+                        practiceId: 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3',
+                        recipientPhone: '+264812222331',
+                        messageContent: 'Dear Happy Joy, welcome to New Charm Dental Practice! We are excited to be your healthcare partner. Access your patient portal to manage appointments. Call +264 81 435 8843 for assistance.',
+                        messageType: 'welcome',
+                        patientId: '54c9df8a-257b-463c-b43d-5c2db19c000a',
+                        metadata: {
+                            automation_id: execution.automation_id,
+                            execution_id: execution.id
+                        }
+                    }
+                });
+                
+                if (smsError) {
+                    log(`SMS Error: ${smsError.message}`, 'error');
+                } else {
+                    log(`SMS sent! Log ID: ${smsData.logId}`, 'success');
+                }
+                
+                // Send Email
+                log('Sending Email...');
+                const emailBody = `Dear Happy Joy,
+
+Welcome to New Charm Dental Practice! We are thrilled to have you as our patient.
+
+As a new patient, you can:
+- Schedule appointments online
+- Access your medical records
+- Message your healthcare team
+- View test results
+
+If you have any questions, please do not hesitate to contact us at +264 81 435 8843 or reply to this email.
+
+We look forward to being your healthcare partner!
+
+Best regards,
+The New Charm Dental Practice Team`;
+
+                const { data: emailData, error: emailError } = await supabase.functions.invoke('centralized-email-gateway', {
+                    body: {
+                        practiceId: 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3',
+                        recipientEmail: 'ksnahol@gmail.com',
+                        subject: 'Welcome to New Charm Dental Practice!',
+                        htmlContent: `<div style="font-family: Arial, sans-serif; line-height: 1.6;">${emailBody.replace(/\n/g, '<br>')}</div>`,
+                        textContent: emailBody,
+                        emailType: 'welcome',
+                        patientId: '54c9df8a-257b-463c-b43d-5c2db19c000a',
+                        metadata: {
+                            automation_id: execution.automation_id,
+                            execution_id: execution.id
+                        }
+                    }
+                });
+                
+                if (emailError) {
+                    log(`Email Error: ${emailError.message}`, 'error');
+                } else {
+                    log(`Email sent! Log ID: ${emailData.logId}`, 'success');
+                }
+                
+                // Update automation execution
+                const { error: updateError } = await supabase
+                    .from('automation_executions')
+                    .update({
+                        status: 'completed',
+                        channel: 'BOTH',
+                        executed_at: new Date().toISOString(),
+                        variables_used: {
+                            patientName: 'Happy Joy',
+                            practiceName: 'New Charm Dental Practice',
+                            practicePhone: '+264 81 435 8843'
+                        }
+                    })
+                    .eq('id', execution.id);
+                
+                if (!updateError) {
+                    log('Automation execution updated successfully!', 'success');
+                }
+                
+                showStatus('Welcome messages processed!', 'success');
+                
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function processViaEngine() {
+            if (!isAuthenticated) {
+                log('Not authenticated!', 'error');
+                return;
+            }
+            
+            try {
+                log('Processing via automation engine...');
+                
+                const { data, error } = await supabase.functions.invoke('automation-engine', {
+                    body: {}
+                });
+                
+                if (error) throw error;
+                
+                log(`Engine response: ${JSON.stringify(data)}`, 'success');
+                showStatus('Processed via engine', 'success');
+                
+            } catch (error) {
+                log(`Engine error: ${error.message}`, 'error');
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkStatus() {
+            if (!isAuthenticated) {
+                log('Not authenticated!', 'error');
+                return;
+            }
+            
+            try {
+                // Check Happy Joy's status
+                const { data: execution } = await supabase
+                    .from('automation_executions')
+                    .select('*')
+                    .eq('patient_id', '54c9df8a-257b-463c-b43d-5c2db19c000a')
+                    .single();
+                
+                // Check SMS logs
+                const { data: smsLogs } = await supabase
+                    .from('practice_sms_logs')
+                    .select('status, created_at')
+                    .eq('patient_id', '54c9df8a-257b-463c-b43d-5c2db19c000a')
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+                
+                // Check email logs
+                const { data: emailLogs } = await supabase
+                    .from('practice_email_logs')
+                    .select('status, created_at')
+                    .eq('patient_id', '54c9df8a-257b-463c-b43d-5c2db19c000a')
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+                
+                log(`Automation: ${execution.status}, Channel: ${execution.channel || 'None'}`);
+                log(`SMS: ${smsLogs?.[0]?.status || 'No SMS sent'}`);
+                log(`Email: ${emailLogs?.[0]?.status || 'No Email sent'}`);
+                
+                showStatus(`Status checked - see log for details`, 'success');
+                
+            } catch (error) {
+                log(`Error checking status: ${error.message}`, 'error');
+            }
+        }
+
+        // Check if already authenticated
+        window.onload = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                isAuthenticated = true;
+                document.getElementById('authSection').style.display = 'none';
+                document.getElementById('mainSection').style.display = 'block';
+                log('Already authenticated!', 'success');
+                
+                // Auto-check status
+                await checkStatus();
+            }
+        };
+    </script>
+</body>
+</html>

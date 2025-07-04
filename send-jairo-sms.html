@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Send Welcome SMS to Jairo</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 600px; margin: 0 auto; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; }
+        button { padding: 15px 30px; background: #28a745; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 18px; }
+        button:hover { background: #218838; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .result { margin-top: 20px; padding: 15px; background: white; border-radius: 5px; }
+        .success { border-left: 4px solid #28a745; background: #d4edda; }
+        .error { border-left: 4px solid #dc3545; background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Send Welcome SMS to Jairo Lumbabi</h1>
+        
+        <p><strong>Recipient:</strong> Jairo Lumbabi (0812222331)</p>
+        <p><strong>Message:</strong> Dear Jairo Lumbabi, welcome to New Charm Dental Practice! We are excited to be your healthcare partner. Access your patient portal to manage appointments. Call +264 81 435 8843 for assistance.</p>
+        
+        <button onclick="sendSMS()" id="sendBtn">Send Welcome SMS Now</button>
+        
+        <div id="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcwNjE2ODksImV4cCI6MjA2MjYzNzY4OX0.TCNww59ZpJ00QhZgld4QJkYCHz53GAtyjw4F5hptFAM';
+        const SMS_ID = 'de65dbd4-03ea-42dd-8208-6dca044f6be0';
+        
+        async function sendSMS() {
+            const resultDiv = document.getElementById('result');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            resultDiv.style.display = 'none';
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+            
+            try {
+                // Call the RPC function to send SMS
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/send_sms_direct`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ p_sms_id: SMS_ID })
+                });
+                
+                const result = await response.json();
+                
+                resultDiv.style.display = 'block';
+                if (response.ok && result[0]?.send_sms_direct?.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ SMS Sent Successfully!</h3>
+                        <p><strong>Recipient:</strong> ${result[0].send_sms_direct.recipient}</p>
+                        <p><strong>Message:</strong> ${result[0].send_sms_direct.message}</p>
+                        <p>The SMS has been marked as sent in the database.</p>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h3>❌ Failed to Send SMS</h3>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Error</h3>
+                    <p>${error.message}</p>
+                `;
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send Welcome SMS Now';
+            }
+        }
+    </script>
+</body>
+</html>

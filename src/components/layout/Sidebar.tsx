@@ -5,6 +5,7 @@ import { Icon } from '@iconify/react';
 import { useAuthStore } from '../../stores/authStore';
 import { useTheme } from '../../stores/themeStore';
 import { unreadMessagesService } from '../../services/unreadMessagesService';
+import { NotificationBadge } from '../ui/NotificationBadge';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -46,7 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: 'solar:widget-bold-duotone', label: 'Dashboard', path: '/', isRoute: true },
     { icon: 'solar:users-group-rounded-bold-duotone', label: 'Patients', path: '/patients', isRoute: false, onClick: onOpenPatients },
     { icon: 'solar:clipboard-list-bold-duotone', label: 'Encounters', path: '/encounters', isRoute: true },
-    { icon: 'solar:letter-bold-duotone', label: 'Messages', path: '/communications', isRoute: true, badge: unreadCount },
+    { icon: 'solar:letter-bold-duotone', label: 'Messages', path: '/communications', isRoute: true, badge: unreadCount > 0 ? unreadCount : undefined },
     { icon: 'solar:wallet-money-bold-duotone', label: 'Finance', path: '/finance', isRoute: true },
   ];
 
@@ -91,16 +92,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                 )}
                 onClick={isMobile ? onMobileClose : undefined}
               >
-                <div className="relative">
-                  <Icon icon={item.icon} className="w-5 h-5" />
-                  {item.badge && item.badge > 0 && (
-                    <span className="absolute -top-2 -right-2 px-1.5 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
-                      {item.badge > 99 ? '99+' : item.badge}
-                    </span>
-                  )}
-                </div>
+                <Icon icon={item.icon} className="w-5 h-5" />
                 {(!collapsed || isMobile) && (
-                  <span className="ml-3 text-sm font-medium">{item.label}</span>
+                  <span className="ml-3 text-sm font-medium flex-1">{item.label}</span>
+                )}
+                {/* Keep badge in same position regardless of collapsed state */}
+                {item.badge && item.badge > 0 && (!collapsed || isMobile) && (
+                  <div className="bg-gradient-to-r from-red-500 to-red-600 text-white text-[10px] font-bold rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1.5 shadow-md border-2 border-white">
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </div>
                 )}
               </NavLink>
             );
@@ -227,16 +227,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                 )}
                 onClick={isMobile ? onMobileClose : undefined}
               >
-                <div className="relative">
-                  <Icon icon={item.icon} className="w-5 h-5" />
-                  {item.badge && item.badge > 0 && (
-                    <span className="absolute -top-2 -right-2 px-1.5 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
-                      {item.badge > 99 ? '99+' : item.badge}
-                    </span>
-                  )}
-                </div>
+                <Icon icon={item.icon} className="w-5 h-5" />
                 {(!collapsed || isMobile) && (
-                  <span className="ml-3 text-sm font-medium">{item.label}</span>
+                  <span className="ml-3 text-sm font-medium flex-1">{item.label}</span>
+                )}
+                {/* Keep badge in same position regardless of collapsed state */}
+                {item.badge && item.badge > 0 && (!collapsed || isMobile) && (
+                  <div className="bg-gradient-to-r from-red-500 to-red-600 text-white text-[10px] font-bold rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1.5 shadow-md border-2 border-white">
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </div>
                 )}
               </NavLink>
             ))}

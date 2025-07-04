@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Automation Queue</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .section {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .success {
+            color: #10b981;
+        }
+        .error {
+            color: #ef4444;
+        }
+        .log {
+            background: #1e293b;
+            color: #94a3b8;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background: #e5e7eb;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Automation Queue Debugger</h1>
+    
+    <div class="section">
+        <h2>Queue Status</h2>
+        <button onclick="checkQueueStatus()">Check Queue Status</button>
+        <button onclick="processQueue()">Process Queue Manually</button>
+        <div id="queueStatus"></div>
+    </div>
+
+    <div class="section">
+        <h2>Happy Joy's Automation</h2>
+        <button onclick="processHappyJoy()">Process Happy Joy's Welcome Email</button>
+        <div id="happyJoyStatus"></div>
+    </div>
+
+    <div class="section">
+        <h2>Edge Function Test</h2>
+        <button onclick="testEdgeFunction()">Test Automation Engine</button>
+        <button onclick="testQueueWorker()">Test Queue Worker</button>
+        <div id="edgeFunctionStatus"></div>
+    </div>
+
+    <div class="section">
+        <h2>Console Log</h2>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#94a3b8';
+            logDiv.innerHTML += `<span style="color: ${color}">[${timestamp}] ${message}</span>\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        async function checkQueueStatus() {
+            try {
+                log('Checking queue status...');
+                
+                // Get queue statistics
+                const { data, error } = await supabase
+                    .from('automation_queue')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+                
+                if (error) throw error;
+                
+                const stats = {
+                    total: data.length,
+                    queued: data.filter(d => d.status === 'queued').length,
+                    processing: data.filter(d => d.status === 'processing').length,
+                    completed: data.filter(d => d.status === 'completed').length,
+                    failed: data.filter(d => d.status === 'failed').length
+                };
+                
+                const statusDiv = document.getElementById('queueStatus');
+                statusDiv.innerHTML = `
+                    <h3>Queue Statistics</h3>
+                    <p>Total: ${stats.total} | Queued: ${stats.queued} | Processing: ${stats.processing} | Completed: ${stats.completed} | Failed: ${stats.failed}</p>
+                    <table>
+                        <tr>
+                            <th>ID</th>
+                            <th>Status</th>
+                            <th>Scheduled For</th>
+                            <th>Worker ID</th>
+                            <th>Error</th>
+                        </tr>
+                        ${data.map(item => `
+                            <tr>
+                                <td>${item.id.substring(0, 8)}...</td>
+                                <td class="${item.status === 'failed' ? 'error' : item.status === 'completed' ? 'success' : ''}">${item.status}</td>
+                                <td>${new Date(item.scheduled_for).toLocaleString()}</td>
+                                <td>${item.worker_id || '-'}</td>
+                                <td>${item.error_message || '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                `;
+                
+                log(`Queue status retrieved: ${stats.queued} items waiting`, 'success');
+            } catch (error) {
+                log(`Error checking queue: ${error.message}`, 'error');
+            }
+        }
+
+        async function processQueue() {
+            try {
+                log('Manually processing queue...');
+                
+                const { data, error } = await supabase.functions.invoke('automation-queue-worker', {
+                    body: {
+                        action: 'process',
+                        workerId: 'manual-browser-' + Date.now()
+                    }
+                });
+                
+                if (error) throw error;
+                
+                log(`Queue processed: ${data.processed} items`, 'success');
+                if (data.results) {
+                    data.results.forEach(r => {
+                        log(`- ${r.execution_id}: ${r.success ? 'SUCCESS' : 'FAILED'} ${r.error || ''}`);
+                    });
+                }
+                
+                // Refresh queue status
+                await checkQueueStatus();
+            } catch (error) {
+                log(`Error processing queue: ${error.message}`, 'error');
+            }
+        }
+
+        async function processHappyJoy() {
+            try {
+                log('Processing Happy Joy\'s welcome automation...');
+                
+                // First, get Happy Joy's execution
+                const { data: executions, error: fetchError } = await supabase
+                    .from('automation_executions')
+                    .select('*')
+                    .eq('patient_id', '54c9df8a-257b-463c-b43d-5c2db19c000a')
+                    .single();
+                
+                if (fetchError) throw fetchError;
+                
+                log(`Found execution: ${executions.id}`);
+                
+                // Call automation engine directly
+                const { data, error } = await supabase.functions.invoke('automation-engine', {
+                    body: {
+                        executionId: executions.id
+                    }
+                });
+                
+                if (error) throw error;
+                
+                log('Automation processed successfully!', 'success');
+                
+                const statusDiv = document.getElementById('happyJoyStatus');
+                statusDiv.innerHTML = `
+                    <h3>Processing Result</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+                // Check email/SMS logs
+                await checkCommunicationLogs();
+            } catch (error) {
+                log(`Error processing Happy Joy: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkCommunicationLogs() {
+            try {
+                // Check SMS logs
+                const { data: smsLogs } = await supabase
+                    .from('practice_sms_logs')
+                    .select('*')
+                    .eq('patient_id', '54c9df8a-257b-463c-b43d-5c2db19c000a')
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+                
+                // Check email logs
+                const { data: emailLogs } = await supabase
+                    .from('practice_email_logs')
+                    .select('*')
+                    .eq('patient_id', '54c9df8a-257b-463c-b43d-5c2db19c000a')
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+                
+                log(`Found ${smsLogs?.length || 0} SMS logs and ${emailLogs?.length || 0} email logs`);
+            } catch (error) {
+                log(`Error checking logs: ${error.message}`, 'error');
+            }
+        }
+
+        async function testEdgeFunction() {
+            try {
+                log('Testing automation engine edge function...');
+                
+                const { data, error } = await supabase.functions.invoke('automation-engine', {
+                    body: {
+                        test: true
+                    }
+                });
+                
+                if (error) throw error;
+                
+                log('Edge function responded successfully', 'success');
+                
+                const statusDiv = document.getElementById('edgeFunctionStatus');
+                statusDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                log(`Edge function error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testQueueWorker() {
+            try {
+                log('Testing queue worker edge function...');
+                
+                const { data, error } = await supabase.functions.invoke('automation-queue-worker', {
+                    body: {
+                        action: 'test',
+                        workerId: 'test-worker'
+                    }
+                });
+                
+                if (error) throw error;
+                
+                log('Queue worker responded successfully', 'success');
+                
+                const statusDiv = document.getElementById('edgeFunctionStatus');
+                statusDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                log(`Queue worker error: ${error.message}`, 'error');
+            }
+        }
+
+        // Initial load
+        window.onload = () => {
+            log('Automation Queue Debugger loaded');
+            checkQueueStatus();
+        };
+    </script>
+</body>
+</html>

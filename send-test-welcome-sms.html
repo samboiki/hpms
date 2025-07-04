@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Send Test Welcome SMS</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        input, select { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        button { padding: 15px 30px; background: #28a745; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 18px; margin: 10px 0; }
+        button:hover { background: #218838; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .result { margin-top: 20px; padding: 15px; background: white; border-radius: 5px; }
+        .success { border-left: 4px solid #28a745; background: #d4edda; }
+        .error { border-left: 4px solid #dc3545; background: #f8d7da; }
+        .info { border-left: 4px solid #007bff; background: #d1ecf1; }
+        .option-btn { background: #007bff; margin: 5px; }
+        .option-btn:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Send Test Welcome SMS</h1>
+        
+        <div style="margin: 20px 0;">
+            <h3>Option 1: Send Direct SMS (Immediate)</h3>
+            <p>This will send an SMS immediately using the centralized gateway.</p>
+            <label>Patient Name:</label>
+            <input type="text" id="patientName" value="Test Patient" />
+            
+            <label>Phone Number:</label>
+            <input type="text" id="phoneNumber" value="0812222331" />
+            
+            <button onclick="sendDirectSMS()" id="directBtn" class="option-btn">Send Direct SMS Now</button>
+        </div>
+
+        <hr style="margin: 30px 0;">
+
+        <div style="margin: 20px 0;">
+            <h3>Option 2: Create Test Patient (Automated Welcome)</h3>
+            <p>This will create a new patient and trigger the automated welcome SMS (1-2 minute delay).</p>
+            <label>First Name:</label>
+            <input type="text" id="firstName" value="Test" />
+            
+            <label>Last Name:</label>
+            <input type="text" id="lastName" value="Automation" />
+            
+            <label>Phone Number:</label>
+            <input type="text" id="patientPhone" value="0812222331" />
+            
+            <button onclick="createPatient()" id="createBtn" class="option-btn">Create Patient & Trigger Automation</button>
+        </div>
+
+        <hr style="margin: 30px 0;">
+
+        <div style="margin: 20px 0;">
+            <h3>Option 3: Process Pending Automations</h3>
+            <p>This will trigger the automation engine to process any pending SMS.</p>
+            <button onclick="processAutomations()" id="processBtn" class="option-btn">Process Pending Automations</button>
+        </div>
+        
+        <div id="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjczMTMzNzcsImV4cCI6MjA0Mjg4OTM3N30.q6-a0gaVpGF1ZQRhmLgLkz5xGppXqz9v9xF4kLkyfGg';
+        const PRACTICE_ID = 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3'; // New Charm
+        
+        function showResult(success, title, content) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = `result ${success ? 'success' : 'error'}`;
+            resultDiv.innerHTML = `<h3>${title}</h3>${content}`;
+        }
+
+        async function sendDirectSMS() {
+            const directBtn = document.getElementById('directBtn');
+            const patientName = document.getElementById('patientName').value;
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            
+            if (!patientName || !phoneNumber) {
+                showResult(false, '❌ Error', '<p>Please enter both patient name and phone number.</p>');
+                return;
+            }
+            
+            directBtn.disabled = true;
+            directBtn.textContent = 'Sending...';
+            
+            try {
+                // Use the proper format for edge function invocation
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/centralized-sms-gateway`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({
+                        practiceId: PRACTICE_ID, // Note: camelCase
+                        recipientPhone: phoneNumber,
+                        messageContent: `Dear ${patientName}, welcome to New Charm Dental Practice! We are excited to be your healthcare partner. Access your patient portal to manage appointments. Call +264 81 435 8843 for assistance.`,
+                        messageType: 'welcome-test',
+                        metadata: {
+                            test: true,
+                            sent_from: 'test_page'
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    showResult(true, '✅ SMS Sent Successfully!', `
+                        <p><strong>Recipient:</strong> ${phoneNumber}</p>
+                        <p><strong>Message ID:</strong> ${result.logId || result.log_id}</p>
+                        <p><strong>Status:</strong> ${result.status}</p>
+                        <p>The SMS has been sent immediately.</p>
+                    `);
+                } else {
+                    showResult(false, '❌ Failed to Send SMS', `<pre>${JSON.stringify(result, null, 2)}</pre>`);
+                }
+            } catch (error) {
+                showResult(false, '❌ Error', `<p>${error.message}</p>`);
+            } finally {
+                directBtn.disabled = false;
+                directBtn.textContent = 'Send Direct SMS Now';
+            }
+        }
+
+        async function createPatient() {
+            const createBtn = document.getElementById('createBtn');
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            const phone = document.getElementById('patientPhone').value;
+            
+            if (!firstName || !lastName || !phone) {
+                showResult(false, '❌ Error', '<p>Please enter all patient details.</p>');
+                return;
+            }
+            
+            createBtn.disabled = true;
+            createBtn.textContent = 'Creating Patient...';
+            
+            try {
+                // First, get the auth token
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    showResult(false, '❌ Error', '<p>You must be logged in to create a patient.</p>');
+                    return;
+                }
+
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/patients`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify({
+                        practice_id: PRACTICE_ID,
+                        first_name: firstName,
+                        last_name: lastName,
+                        cell_number: phone,
+                        is_active: true
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result[0]) {
+                    showResult(true, '✅ Patient Created Successfully!', `
+                        <p><strong>Patient:</strong> ${firstName} ${lastName}</p>
+                        <p><strong>Phone:</strong> ${phone}</p>
+                        <p><strong>Patient ID:</strong> ${result[0].id}</p>
+                        <div class="result info" style="margin-top: 10px;">
+                            <p><strong>Note:</strong> The welcome SMS will be sent automatically in 1-2 minutes.</p>
+                            <p>You can click "Process Pending Automations" to send it immediately.</p>
+                        </div>
+                    `);
+                } else {
+                    showResult(false, '❌ Failed to Create Patient', `<pre>${JSON.stringify(result, null, 2)}</pre>`);
+                }
+            } catch (error) {
+                showResult(false, '❌ Error', `<p>${error.message}</p>`);
+            } finally {
+                createBtn.disabled = false;
+                createBtn.textContent = 'Create Patient & Trigger Automation';
+            }
+        }
+
+        async function processAutomations() {
+            const processBtn = document.getElementById('processBtn');
+            processBtn.disabled = true;
+            processBtn.textContent = 'Processing...';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/automation-engine`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ trigger: 'manual' })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    showResult(true, '✅ Automations Processed!', `
+                        <p><strong>Processed:</strong> ${result.processed} automation(s)</p>
+                        <p><strong>Results:</strong></p>
+                        <pre>${JSON.stringify(result.results, null, 2)}</pre>
+                    `);
+                } else {
+                    showResult(false, '❌ Failed to Process Automations', `<pre>${JSON.stringify(result, null, 2)}</pre>`);
+                }
+            } catch (error) {
+                showResult(false, '❌ Error', `<p>${error.message}</p>`);
+            } finally {
+                processBtn.disabled = false;
+                processBtn.textContent = 'Process Pending Automations';
+            }
+        }
+
+        // Import Supabase client
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+        script.onload = () => {
+            window.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        };
+        document.head.appendChild(script);
+    </script>
+</body>
+</html>

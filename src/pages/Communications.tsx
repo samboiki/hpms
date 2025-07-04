@@ -6,16 +6,11 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { usePracticeSettings } from '../hooks/usePracticeSettings';
 import { format, startOfDay, endOfDay } from 'date-fns';
-import { useTheme } from '../stores/themeStore';
 import { 
-  ChevronRight,
   Eye,
   ChevronDown,
   ChevronUp,
   Copy,
-  Search,
-  Send,
-  Paperclip,
   MoreVertical
 } from 'lucide-react';
 
@@ -24,75 +19,28 @@ import SmartAutomations from '../components/messages/SmartAutomations';
 import EmailTemplatePreview from '../components/messages/EmailTemplatePreview';
 import EmailTemplatePreviews from '../components/messages/EmailTemplatePreviews';
 import { CommunicationsDashboard } from '../components/communications/CommunicationsDashboard';
-import { InternalMessagingView } from '../components/messages/InternalMessaging';
-import { SimpleMessagingView } from '../components/messages/InternalMessaging/SimpleMessagingView';
-import { BasicMessaging } from '../components/messages/InternalMessaging/BasicMessaging';
-import { EnhancedMessaging } from '../components/messages/InternalMessaging/EnhancedMessaging';
 import { EnhancedMessagingV2 } from '../components/messages/InternalMessaging/EnhancedMessagingV2';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
+import { NotificationBadge } from '../components/ui/NotificationBadge';
+import { DeliveryStatsDashboard } from '../components/communications/DeliveryStatsDashboard';
+import { TelemedicineRoom } from '../components/telemedicine/TelemedicineRoom';
+import { toast } from 'react-hot-toast';
+import { communicationService } from '../services/communicationService';
 import { unreadMessagesService } from '../services/unreadMessagesService';
+import FormModal from '../components/modals/FormModal';
+import PremiumAddAppointmentForm from '../components/forms/PremiumAddAppointmentForm';
 
-type TabType = 'dashboard' | 'messaging' | 'automations' | 'settings';
+type TabType = 'dashboard' | 'messaging' | 'automations' | 'settings' | 'telemedicine';
 
-interface SMSStats {
-  available: number;
-  assigned: number;
-  used: number;
-  cost: number;
-}
 
-interface EmailStats {
-  sent: number;
-  delivered: number;
-  opened: number;
-  failed: number;
-}
 
-interface CommunicationStats {
-  sms: SMSStats;
-  email: EmailStats;
-  messagesOut: number;
-  deliveryRate: number;
-  engagementRate: number;
-  activeAutomations: number;
-}
-
-interface Message {
-  id: string;
-  type: 'SMS' | 'EMAIL';
-  direction: 'inbound' | 'outbound';
-  recipient_address: string;
-  sender_address?: string;
-  subject?: string;
-  body_preview: string;
-  body?: string;
-  status: 'sent' | 'delivered' | 'failed' | 'received';
-  created_at: string;
-  opened_at?: string;
-  patients?: {
-    first_name: string;
-    last_name: string;
-    avatar?: string;
-  };
-}
 
 const Communications: React.FC = () => {
   const { user, logout } = useAuthStore();
-  const { currentTheme } = useTheme();
   const { settings: practiceSettings, loading: settingsLoading } = usePracticeSettings();
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [unreadCount, setUnreadCount] = useState(0);
-  const [messagingView, setMessagingView] = useState<'all' | 'sms' | 'email'>('all');
-  const [messageFilter, setMessageFilter] = useState<'all' | 'inbox' | 'sent'>('all');
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const [composeMode, setComposeMode] = useState(false);
-  const [messageSearch, setMessageSearch] = useState('');
-  const [newMessage, setNewMessage] = useState({
-    type: 'email' as 'email' | 'sms',
-    recipient: '',
-    subject: '',
-    body: ''
-  });
+  const [showDeliveryStats, setShowDeliveryStats] = useState(false);
   
   const [currentPracticeData, setCurrentPracticeData] = useState<{
     id: string;
@@ -101,16 +49,7 @@ const Communications: React.FC = () => {
     website_url?: string;
     domain?: string;
   } | null>(null);
-  const [stats, setStats] = useState<CommunicationStats>({
-    sms: { available: 0, assigned: 0, used: 0, cost: 0 },
-    email: { sent: 0, delivered: 0, opened: 0, failed: 0 },
-    messagesOut: 0,
-    deliveryRate: 0,
-    engagementRate: 0,
-    activeAutomations: 0
-  });
   const [, setIsLoading] = useState(true);
-  const [messages, setMessages] = useState<Message[]>([]);
   const [expandedService, setExpandedService] = useState<string | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<{
     title: string;
@@ -119,6 +58,42 @@ const Communications: React.FC = () => {
   const [showEmailPreview, setShowEmailPreview] = useState<string | null>(null);
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
+  
+  // Telemedicine state
+  const [showTelemedicineRoom, setShowTelemedicineRoom] = useState(false);
+  const [currentTelemedicineSession, setCurrentTelemedicineSession] = useState<{
+    roomUrl: string;
+    patientName: string;
+    doctorName: string;
+    appointmentId: string;
+  } | null>(null);
+  interface TelemedicineVisit {
+    id: string;
+    practice_id: string;
+    patient_id: string;
+    visit_date: string;
+    visit_time?: string;
+    scheduled_time?: string;
+    visit_type?: string;
+    status?: string;
+    is_checked_in?: boolean;
+    patient?: {
+      id: string;
+      first_name: string;
+      last_name: string;
+      mobile_phone?: string;
+      email?: string;
+    };
+    doctor?: {
+      id: string;
+      first_name: string;
+      last_name: string;
+      email?: string;
+    };
+  }
+  
+  const [upcomingTelemedicineVisits, setUpcomingTelemedicineVisits] = useState<TelemedicineVisit[]>([]);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   
   const [automationSettings, setAutomationSettings] = useState({
     appointmentReminders: { 
@@ -269,7 +244,6 @@ Best regards,
 
   useEffect(() => {
     if (practiceId) {
-      loadMessages();
       loadAutomationSettings();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -285,12 +259,50 @@ Best regards,
 
   // Update available services count when automation settings change
   useEffect(() => {
-    const totalAvailableServices = Object.keys(automationSettings).length; // Total number of services available
-    setStats(prevStats => ({
-      ...prevStats,
-      activeAutomations: totalAvailableServices
-    }));
+    // Stats tracking removed - can be reimplemented if needed
   }, [automationSettings]);
+
+  // Fetch telemedicine visits
+  useEffect(() => {
+    const fetchTelemedicineVisits = async () => {
+      if (!practiceId || activeTab !== 'telemedicine') return;
+      
+      try {
+        const today = format(new Date(), 'yyyy-MM-dd');
+        const { data, error } = await supabase
+          .from('visits')
+          .select(`
+            *,
+            patient:patients(
+              id,
+              first_name,
+              last_name,
+              mobile_phone,
+              email
+            ),
+            doctor:users(
+              id,
+              first_name,
+              last_name,
+              email
+            )
+          `)
+          .eq('practice_id', practiceId)
+          .eq('visit_date', today)
+          .eq('status', 'checked_in')
+          .or('status.eq.scheduled,status.eq.confirmed')
+          .order('scheduled_time', { ascending: true });
+        
+        if (error) throw error;
+        
+        setUpcomingTelemedicineVisits(data || []);
+      } catch (error) {
+        console.error('Error fetching telemedicine visits:', error);
+      }
+    };
+    
+    fetchTelemedicineVisits();
+  }, [practiceId, activeTab]);
 
   const loadCommunicationStats = async () => {
     try {
@@ -329,17 +341,6 @@ Best regards,
         console.error('Email stats error:', emailError);
       }
 
-      // Load overall communications
-      const { data: allComms, error: allCommsError } = await supabase
-        .from('communications_log_view')
-        .select('*')
-        .eq('practice_id', practiceId)
-        .gte('created_at', startOfToday)
-        .lte('created_at', endOfToday);
-
-      if (allCommsError) {
-        console.error('All communications error:', allCommsError);
-      }
 
       // Use real practice settings for stats - ensure we have valid numbers
       const smsStats = {
@@ -367,15 +368,7 @@ Best regards,
         totalServices: totalAvailableServices
       });
 
-      setStats({
-        sms: smsStats,
-        email: emailStatsCalculated,
-        messagesOut: allComms?.length || 0,
-        deliveryRate: allComms?.length > 0 ? 
-          (allComms.filter((c: { status: string }) => c.status === 'sent' || c.status === 'delivered').length / allComms.length) * 100 : 0,
-        engagementRate: 75, // Mock for now
-        activeAutomations: totalAvailableServices
-      });
+      // Stats tracking removed - data is now available in smsStats and emailStatsCalculated variables
     } catch (error) {
       console.error('Error loading communication stats:', error);
     } finally {
@@ -383,34 +376,6 @@ Best regards,
     }
   };
 
-  const loadMessages = async () => {
-    try {
-      const { data } = await supabase
-        .from('communications_log_view')
-        .select('*')
-        .eq('practice_id', practiceId)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      // Mock some additional fields for demo
-      const enrichedMessages = (data || []).map((msg: any) => ({
-        ...msg,
-        direction: 'outbound',
-        type: msg.communication_type?.toUpperCase() || 'SMS',
-        subject: msg.subject || (msg.communication_type === 'email' ? 'Appointment Reminder' : undefined),
-        body: msg.message || msg.body_preview,
-        body_preview: msg.message?.substring(0, 100) + '...',
-        sender_address: msg.sender_address || 'noreply@practice.com',
-        status: msg.status || 'delivered',
-        recipient: msg.recipient_contact,
-        timestamp: msg.created_at
-      }));
-
-      setMessages(enrichedMessages);
-    } catch (error) {
-      console.error('Error loading messages:', error);
-    }
-  };
 
   const loadAutomationSettings = async () => {
     try {
@@ -454,35 +419,6 @@ Best regards,
     }
   };
 
-  const sendMessage = async () => {
-    // Implementation for sending message
-    console.log('Sending message:', newMessage);
-    setComposeMode(false);
-    setNewMessage({ type: 'email', recipient: '', subject: '', body: '' });
-    // Reload messages after sending
-    loadMessages();
-  };
-
-  const filteredMessages = messages.filter(msg => {
-    // Filter by type
-    if (messagingView !== 'all' && msg.type !== messagingView.toUpperCase()) return false;
-    
-    // Filter by direction
-    if (messageFilter === 'inbox' && msg.direction !== 'inbound') return false;
-    if (messageFilter === 'sent' && msg.direction !== 'outbound') return false;
-    
-    // Filter by search
-    if (messageSearch) {
-      const searchLower = messageSearch.toLowerCase();
-      const patientName = msg.patients ? `${msg.patients.first_name} ${msg.patients.last_name}`.toLowerCase() : '';
-      return patientName.includes(searchLower) || 
-             msg.recipient_address.toLowerCase().includes(searchLower) ||
-             msg.body_preview.toLowerCase().includes(searchLower) ||
-             (msg.subject && msg.subject.toLowerCase().includes(searchLower));
-    }
-    
-    return true;
-  });
 
   const renderServiceCard = (serviceKey: string, config: {
     title: string;
@@ -797,16 +733,18 @@ Best regards,
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: 'solar:chart-bold-duotone', description: 'Overview & Stats' },
-    { id: 'messaging', label: 'Messaging', icon: 'solar:chat-round-dots-bold-duotone', description: 'All Messages', badge: unreadCount },
+    { id: 'messaging', label: 'Messaging', icon: 'solar:chat-round-dots-bold-duotone', description: 'All Messages', badge: unreadCount > 0 ? unreadCount : undefined },
     { id: 'automations', label: 'Automations', icon: 'solar:widget-add-bold-duotone', description: 'Smart Workflows' },
-    { id: 'settings', label: 'Settings', icon: 'solar:settings-bold-duotone', description: 'Configuration' }
+    { id: 'settings', label: 'Settings', icon: 'solar:settings-bold-duotone', description: 'Configuration' },
+    { id: 'telemedicine', label: 'Telemedicine', icon: 'solar:videocamera-bold-duotone', description: 'Virtual Care' }
   ];
 
   const tabIcons: { [key in TabType]: string } = {
     dashboard: 'solar:chart-bold-duotone',
     messaging: 'solar:chat-round-dots-bold-duotone',
     automations: 'solar:widget-add-bold-duotone',
-    settings: 'solar:settings-bold-duotone'
+    settings: 'solar:settings-bold-duotone',
+    telemedicine: 'solar:videocamera-bold-duotone'
   };
 
   return (
@@ -929,7 +867,7 @@ Best regards,
 
         {/* Premium Navigation Tabs */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-4 gap-0 w-full">
+          <div className="grid grid-cols-5 gap-0 w-full">
             {(tabs).map((tab) => {
               const iconName = tabIcons[tab.id as TabType];
               const isActive = activeTab === tab.id;
@@ -943,15 +881,16 @@ Best regards,
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
-                  <div className="relative inline-flex">
-                    <Icon icon={iconName} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
-                    {tab.badge && tab.badge > 0 && (
-                      <span className="absolute -top-2 -right-2 px-1.5 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] text-center">
-                        {tab.badge > 99 ? '99+' : tab.badge}
-                      </span>
-                    )}
-                  </div>
+                  <Icon icon={iconName} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
                   <span className="truncate text-center sm:text-left">{tab.label}</span>
+                  {tab.badge && tab.badge > 0 && (
+                    <NotificationBadge 
+                      count={tab.badge} 
+                      size="sm" 
+                      animate={false}
+                      className="absolute top-2 right-2"
+                    />
+                  )}
                 </button>
               );
             })}
@@ -970,7 +909,34 @@ Best regards,
               className="min-h-[600px]"
             >
               {/* Dashboard Tab */}
-              {activeTab === 'dashboard' && <CommunicationsDashboard />}
+              {activeTab === 'dashboard' && (
+                <div className="space-y-6">
+                  {/* Toggle Button for Delivery Stats */}
+                  <div className="flex justify-end px-6">
+                    <button
+                      onClick={() => setShowDeliveryStats(!showDeliveryStats)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                        showDeliveryStats 
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg' 
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <Icon icon="solar:delivery-bold-duotone" className="w-5 h-5" />
+                      {showDeliveryStats ? 'Hide' : 'Show'} Delivery Tracking
+                    </button>
+                  </div>
+                  
+                  {/* Main Dashboard or Delivery Stats */}
+                  {showDeliveryStats ? (
+                    <DeliveryStatsDashboard 
+                      practiceId={practiceId || ''} 
+                      className="px-6 pb-6"
+                    />
+                  ) : (
+                    <CommunicationsDashboard />
+                  )}
+                </div>
+              )}
 
               {/* Messaging Tab - Enhanced Internal Messaging System V2 */}
               {activeTab === 'messaging' && (
@@ -979,353 +945,6 @@ Best regards,
                 />
               )}
 
-              {/* OLD Messaging Tab - Kept for reference, remove when ready */}
-              {false && activeTab === 'messaging' && (
-                <div className="flex h-[calc(100vh-300px)]">
-                  {/* Message List Sidebar */}
-                  <div className="w-96 border-r border-gray-200 flex flex-col">
-                    {/* Messaging Header */}
-                    <div className="p-4 border-b border-gray-200">
-                      <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
-                        <button
-                          onClick={() => setComposeMode(!composeMode)}
-                          className="p-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:shadow-lg transition-all"
-                        >
-                          <Icon icon="solar:pen-new-square-bold-duotone" className="w-5 h-5" />
-                        </button>
-                      </div>
-                      
-                      {/* Search Bar */}
-                      <div className="relative mb-4">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="text"
-                          placeholder="Search messages..."
-                          value={messageSearch}
-                          onChange={(e) => setMessageSearch(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                        />
-                      </div>
-                      
-                      {/* Filter Tabs */}
-                      <div className="flex gap-2 mb-4">
-                        {['all', 'sms', 'email'].map((view) => (
-                          <button
-                            key={view}
-                            onClick={() => setMessagingView(view as typeof messagingView)}
-                            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                              messagingView === view
-                                ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                          >
-                            {view === 'all' && <Icon icon="solar:list-bold-duotone" className="w-4 h-4 inline mr-1" />}
-                            {view === 'sms' && <Icon icon="solar:chat-square-bold-duotone" className="w-4 h-4 inline mr-1" />}
-                            {view === 'email' && <Icon icon="solar:letter-bold-duotone" className="w-4 h-4 inline mr-1" />}
-                            {view.toUpperCase()}
-                          </button>
-                        ))}
-                      </div>
-                      
-                      {/* Inbox/Sent Filters */}
-                      <div className="flex gap-2">
-                        {['all', 'inbox', 'sent'].map((filter) => (
-                          <button
-                            key={filter}
-                            onClick={() => setMessageFilter(filter as typeof messageFilter)}
-                            className={`flex-1 py-1.5 px-3 rounded text-xs font-medium transition-all ${
-                              messageFilter === filter
-                                ? 'bg-gray-900 text-white'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}
-                          >
-                            {filter === 'all' && 'All Messages'}
-                            {filter === 'inbox' && 'Inbox'}
-                            {filter === 'sent' && 'Sent'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Message List */}
-                    <div className="flex-1 overflow-y-auto">
-                      {filteredMessages.length === 0 ? (
-                        <div className="text-center py-12">
-                          <Icon icon="solar:inbox-bold-duotone" className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-500">No messages found</p>
-                        </div>
-                      ) : (
-                        filteredMessages.map((message) => (
-                          <div
-                            key={message.id}
-                            onClick={() => setSelectedMessage(message)}
-                            className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-all ${
-                              selectedMessage?.id === message.id ? 'bg-amber-50 border-l-4 border-amber-500' : ''
-                            }`}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className="flex-shrink-0">
-                                {message.patients?.avatar ? (
-                                  <img 
-                                    src={message.patients.avatar} 
-                                    alt="" 
-                                    className="w-10 h-10 rounded-full"
-                                  />
-                                ) : (
-                                  <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center">
-                                    <span className="text-white font-semibold">
-                                      {message.patients?.first_name?.[0] || message.recipient_address[0].toUpperCase()}
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1">
-                                  <p className="font-medium text-gray-900 truncate">
-                                    {message.patients ? 
-                                      `${message.patients.first_name} ${message.patients.last_name}` : 
-                                      message.recipient_address
-                                    }
-                                  </p>
-                                  <span className="text-xs text-gray-500">
-                                    {format(new Date(message.created_at), 'MMM d')}
-                                  </span>
-                                </div>
-                                {message.subject && (
-                                  <p className="text-sm font-medium text-gray-800 truncate mb-1">{message.subject}</p>
-                                )}
-                                <p className="text-sm text-gray-600 truncate">{message.body_preview}</p>
-                                <div className="flex items-center gap-2 mt-2">
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                    message.type === 'SMS' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                                  }`}>
-                                    <Icon icon={message.type === 'SMS' ? 'solar:chat-square-bold' : 'solar:letter-bold'} className="w-3 h-3 mr-1" />
-                                    {message.type}
-                                  </span>
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                                    message.direction === 'inbound' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                                  }`}>
-                                    <Icon icon={message.direction === 'inbound' ? 'solar:inbox-in-bold' : 'solar:inbox-out-bold'} className="w-3 h-3 mr-1" />
-                                    {message.direction === 'inbound' ? 'Received' : 'Sent'}
-                                  </span>
-                                  {message.status === 'delivered' && (
-                                    <Icon icon="solar:check-read-bold" className="w-4 h-4 text-green-600" />
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Message Detail / Compose Area */}
-                  <div className="flex-1 flex flex-col">
-                    {composeMode ? (
-                      /* Compose Mode */
-                      <div className="flex-1 p-6">
-                        <div className="max-w-4xl mx-auto">
-                          <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-xl font-semibold text-gray-900">New Message</h2>
-                            <button
-                              onClick={() => setComposeMode(false)}
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                              <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
-                            </button>
-                          </div>
-                          
-                          {/* Message Type Selector */}
-                          <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Message Type</label>
-                            <div className="flex gap-3">
-                              <button
-                                onClick={() => setNewMessage({ ...newMessage, type: 'email' })}
-                                className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
-                                  newMessage.type === 'email'
-                                    ? 'border-amber-500 bg-amber-50 text-amber-700'
-                                    : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                              >
-                                <Icon icon="solar:letter-bold-duotone" className="w-5 h-5 inline mr-2" />
-                                Email
-                              </button>
-                              <button
-                                onClick={() => setNewMessage({ ...newMessage, type: 'sms' })}
-                                className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
-                                  newMessage.type === 'sms'
-                                    ? 'border-amber-500 bg-amber-50 text-amber-700'
-                                    : 'border-gray-200 hover:border-gray-300'
-                                }`}
-                              >
-                                <Icon icon="solar:chat-square-bold-duotone" className="w-5 h-5 inline mr-2" />
-                                SMS
-                              </button>
-                            </div>
-                          </div>
-                          
-                          {/* Recipient */}
-                          <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              {newMessage.type === 'email' ? 'Email Address' : 'Phone Number'}
-                            </label>
-                            <input
-                              type={newMessage.type === 'email' ? 'email' : 'tel'}
-                              value={newMessage.recipient}
-                              onChange={(e) => setNewMessage({ ...newMessage, recipient: e.target.value })}
-                              placeholder={newMessage.type === 'email' ? 'patient@example.com' : '+264 81 234 5678'}
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                            />
-                          </div>
-                          
-                          {/* Subject (Email only) */}
-                          {newMessage.type === 'email' && (
-                            <div className="mb-6">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
-                              <input
-                                type="text"
-                                value={newMessage.subject}
-                                onChange={(e) => setNewMessage({ ...newMessage, subject: e.target.value })}
-                                placeholder="Enter email subject"
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                              />
-                            </div>
-                          )}
-                          
-                          {/* Message Body */}
-                          <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
-                            <textarea
-                              value={newMessage.body}
-                              onChange={(e) => setNewMessage({ ...newMessage, body: e.target.value })}
-                              placeholder={newMessage.type === 'email' ? 'Type your email message...' : 'Type your SMS message (160 characters)'}
-                              rows={newMessage.type === 'email' ? 12 : 4}
-                              maxLength={newMessage.type === 'sms' ? 160 : undefined}
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent resize-none"
-                            />
-                            {newMessage.type === 'sms' && (
-                              <p className="text-xs text-gray-500 mt-1 text-right">
-                                {newMessage.body.length}/160 characters
-                              </p>
-                            )}
-                          </div>
-                          
-                          {/* Actions */}
-                          <div className="flex items-center justify-between">
-                            <button
-                              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                              <Paperclip className="w-4 h-4" />
-                              Attach File
-                            </button>
-                            
-                            <div className="flex gap-3">
-                              <button
-                                onClick={() => {
-                                  setComposeMode(false);
-                                  setNewMessage({ type: 'email', recipient: '', subject: '', body: '' });
-                                }}
-                                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                onClick={sendMessage}
-                                className="px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
-                              >
-                                <Send className="w-4 h-4" />
-                                Send {newMessage.type === 'email' ? 'Email' : 'SMS'}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : selectedMessage ? (
-                      /* Message Detail View */
-                      <div className="flex-1 flex flex-col">
-                        {/* Message Header */}
-                        <div className="p-4 border-b border-gray-200 bg-gray-50">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              {selectedMessage.patients?.avatar ? (
-                                <img 
-                                  src={selectedMessage.patients.avatar} 
-                                  alt="" 
-                                  className="w-12 h-12 rounded-full"
-                                />
-                              ) : (
-                                <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center">
-                                  <span className="text-white font-semibold text-lg">
-                                    {selectedMessage.patients?.first_name?.[0] || selectedMessage.recipient_address[0].toUpperCase()}
-                                  </span>
-                                </div>
-                              )}
-                              <div>
-                                <h3 className="font-semibold text-gray-900">
-                                  {selectedMessage.patients ? 
-                                    `${selectedMessage.patients.first_name} ${selectedMessage.patients.last_name}` : 
-                                    selectedMessage.recipient_address
-                                  }
-                                </h3>
-                                <p className="text-sm text-gray-500">
-                                  {selectedMessage.type} • {format(new Date(selectedMessage.created_at), 'MMM d, yyyy h:mm a')}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-2">
-                              <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
-                                <Icon icon="solar:reply-bold-duotone" className="w-5 h-5 text-gray-600" />
-                              </button>
-                              <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
-                                <Icon icon="solar:forward-bold-duotone" className="w-5 h-5 text-gray-600" />
-                              </button>
-                              <button className="p-2 hover:bg-gray-200 rounded-lg transition-colors">
-                                <MoreVertical className="w-5 h-5 text-gray-600" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* Message Content */}
-                        <div className="flex-1 p-6 overflow-y-auto">
-                          {selectedMessage.subject && (
-                            <h2 className="text-xl font-semibold text-gray-900 mb-4">{selectedMessage.subject}</h2>
-                          )}
-                          <div className="prose prose-gray max-w-none">
-                            <p className="whitespace-pre-wrap">{selectedMessage.body || selectedMessage.body_preview}</p>
-                          </div>
-                        </div>
-                        
-                        {/* Reply Section */}
-                        <div className="p-4 border-t border-gray-200 bg-gray-50">
-                          <div className="flex gap-3">
-                            <input
-                              type="text"
-                              placeholder="Type a reply..."
-                              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                            />
-                            <button className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg hover:shadow-lg transition-all">
-                              <Send className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      /* No Message Selected */
-                      <div className="flex-1 flex items-center justify-center">
-                        <div className="text-center">
-                          <Icon icon="solar:chat-round-dots-bold-duotone" className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                          <p className="text-gray-500 text-lg">Select a message to view details</p>
-                          <p className="text-gray-400 text-sm mt-2">Or compose a new message</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* Automations Tab */}
               {activeTab === 'automations' && (
@@ -1473,6 +1092,222 @@ Best regards,
                   </div>
                 </div>
               )}
+
+              {/* Telemedicine Tab */}
+              {activeTab === 'telemedicine' && (
+                <div className="space-y-6">
+                  {/* Header - matching other tabs */}
+                  <div className="px-6 pt-6">
+                    <div className="mb-8">
+                      <h2 className="text-3xl font-bold text-gray-900 mb-2">Telemedicine</h2>
+                      <p className="text-gray-600">Provide virtual healthcare consultations and remote patient care</p>
+                    </div>
+
+                    {/* Quick Actions */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        toast('Select a patient from the upcoming appointments to start a consultation', {
+                          icon: 'ℹ️',
+                        });
+                      }}
+                      className="p-6 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl text-white shadow-lg hover:shadow-xl transition-all"
+                    >
+                      <Icon icon="solar:video-frame-play-horizontal-bold-duotone" className="w-12 h-12 mb-3" />
+                      <h3 className="text-lg font-semibold mb-1">Start Virtual Consultation</h3>
+                      <p className="text-sm opacity-90">Begin telemedicine session now</p>
+                    </motion.button>
+
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        setIsScheduleModalOpen(true);
+                      }}
+                      className="p-6 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl text-white shadow-lg hover:shadow-xl transition-all"
+                    >
+                      <Icon icon="solar:calendar-add-bold-duotone" className="w-12 h-12 mb-3" />
+                      <h3 className="text-lg font-semibold mb-1">Schedule Appointment</h3>
+                      <p className="text-sm opacity-90">Book a telemedicine visit</p>
+                    </motion.button>
+
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="p-6 bg-gradient-to-r from-green-500 to-green-600 rounded-xl text-white shadow-lg hover:shadow-xl transition-all"
+                    >
+                      <Icon icon="solar:users-group-rounded-bold-duotone" className="w-12 h-12 mb-3" />
+                      <h3 className="text-lg font-semibold mb-1">Virtual Waiting Room</h3>
+                      <p className="text-sm opacity-90">
+                        {upcomingTelemedicineVisits.filter(v => v.status === 'checked_in').length} patients waiting
+                      </p>
+                    </motion.button>
+                  </div>
+
+                    {/* Upcoming Consultations */}
+                    <div className="bg-white rounded-xl shadow-lg p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                        <Icon icon="solar:calendar-bold-duotone" className="w-6 h-6 text-amber-500" />
+                        Today's Telemedicine Appointments
+                      </h3>
+                      <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                        {format(new Date(), 'EEEE, MMM d')}
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {upcomingTelemedicineVisits.length === 0 ? (
+                        <div className="text-center py-8">
+                          <Icon icon="solar:video-frame-cut-bold-duotone" className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                          <p className="text-gray-500">No telemedicine appointments scheduled for today</p>
+                        </div>
+                      ) : (
+                        upcomingTelemedicineVisits.map((visit) => {
+                          const initials = visit.patient ? 
+                            `${visit.patient.first_name?.[0] || ''}${visit.patient.last_name?.[0] || ''}` : 
+                            'P';
+                          const bgColors = ['bg-blue-500', 'bg-purple-500', 'bg-green-500', 'bg-pink-500'];
+                          const bgColor = bgColors[Math.floor(Math.random() * bgColors.length)];
+                          
+                          const isCheckedIn = visit.status === 'checked_in';
+                          return (
+                            <div 
+                              key={visit.id} 
+                              className={`flex items-center justify-between p-4 rounded-lg border ${
+                                isCheckedIn ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                              }`}
+                            >
+                              <div className="flex items-center gap-4">
+                                <div className={`w-12 h-12 ${bgColor} rounded-full flex items-center justify-center text-white font-semibold`}>
+                                  {initials}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-900">
+                                    {visit.patient?.first_name} {visit.patient?.last_name}
+                                  </p>
+                                  <p className="text-sm text-gray-600">
+                                    {visit.visit_type || 'Telemedicine Consultation'} • {visit.scheduled_time || visit.visit_time}
+                                  </p>
+                                  {isCheckedIn && (
+                                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                                      <Icon icon="solar:check-circle-bold" className="w-3 h-3" />
+                                      Patient checked in - Ready to start
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {isCheckedIn ? (
+                                  <button 
+                                    onClick={async () => {
+                                      const roomName = `hpms-${user?.practice_id}-${visit.id}`;
+                                      const roomUrl = `https://meet.jit.si/${roomName}`;
+                                      
+                                      // Set up the session
+                                      setCurrentTelemedicineSession({
+                                        roomUrl,
+                                        patientName: `${visit.patient?.first_name} ${visit.patient?.last_name}`,
+                                        doctorName: user?.first_name + ' ' + user?.last_name || 'Doctor',
+                                        appointmentId: visit.id
+                                      });
+                                      
+                                      // Send SMS to patient with room link
+                                      if (visit.patient?.mobile_phone) {
+                                        try {
+                                          await communicationService.sendSMS({
+                                            practiceId: user?.practice_id || '',
+                                            recipientPhone: visit.patient.mobile_phone,
+                                            messageContent: `Your telemedicine appointment is starting now. Join here: ${roomUrl}`,
+                                            messageType: 'telemedicine_invite',
+                                            patientId: visit.patient_id,
+                                            appointmentId: visit.id
+                                          });
+                                          toast.success('Patient has been notified');
+                                        } catch (error) {
+                                          console.error('Failed to send SMS:', error);
+                                        }
+                                      }
+                                      
+                                      setShowTelemedicineRoom(true);
+                                    }}
+                                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+                                  >
+                                    <Icon icon="solar:video-camera-bold" className="w-4 h-4" />
+                                    Start Call
+                                  </button>
+                                ) : (
+                                  <span className="text-sm text-gray-500">
+                                    Waiting for check-in
+                                  </span>
+                                )}
+                                <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    <div className="mt-4 text-center">
+                      <button 
+                        onClick={() => window.location.href = '/appointments?type=telemedicine'}
+                        className="text-amber-600 hover:text-amber-700 font-medium text-sm"
+                      >
+                        View All Telemedicine Appointments →
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Meeting Settings */}
+                  <div className="bg-white rounded-xl shadow-lg p-6">
+                    <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <Icon icon="solar:settings-bold-duotone" className="w-6 h-6 text-gray-600" />
+                      Telemedicine Settings
+                    </h3>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-gray-900">Auto-record sessions</p>
+                          <p className="text-sm text-gray-500">Save telemedicine recordings for medical records</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" className="sr-only peer" />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-gray-900">Send reminders</p>
+                          <p className="text-sm text-gray-500">Notify patients 15 minutes before appointment</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" defaultChecked className="sr-only peer" />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-gray-900">Waiting room</p>
+                          <p className="text-sm text-gray-500">Patients wait for approval before joining</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" defaultChecked className="sr-only peer" />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -1501,6 +1336,108 @@ Best regards,
       {practiceId && (
         <FloatingVisitTracker practiceId={practiceId} />
       )}
+
+      {/* Telemedicine Room Modal */}
+      {showTelemedicineRoom && currentTelemedicineSession && (
+        <TelemedicineRoom
+          roomUrl={currentTelemedicineSession.roomUrl}
+          patientName={currentTelemedicineSession.patientName}
+          doctorName={currentTelemedicineSession.doctorName}
+          appointmentId={currentTelemedicineSession.appointmentId}
+          onEnd={() => {
+            setShowTelemedicineRoom(false);
+            setCurrentTelemedicineSession(null);
+            
+            // Refresh the visits list
+            if (practiceId && activeTab === 'telemedicine') {
+              const fetchTelemedicineVisits = async () => {
+                try {
+                  const today = format(new Date(), 'yyyy-MM-dd');
+                  const { data, error } = await supabase
+                    .from('visits')
+                    .select(`
+                      *,
+                      patient:patients(
+                        id,
+                        first_name,
+                        last_name,
+                        mobile_phone,
+                        email
+                      ),
+                      doctor:users(
+                        id,
+                        first_name,
+                        last_name,
+                        email
+                      )
+                    `)
+                    .eq('practice_id', practiceId)
+                    .eq('visit_date', today)
+                    .eq('status', 'checked_in')
+          .or('status.eq.scheduled,status.eq.confirmed')
+                    .order('scheduled_time', { ascending: true });
+                  
+                  if (error) throw error;
+                  
+                  setUpcomingTelemedicineVisits(data || []);
+                } catch (error) {
+                  console.error('Error fetching telemedicine visits:', error);
+                }
+              };
+              
+              fetchTelemedicineVisits();
+            }
+            
+            toast.success('Telemedicine session ended');
+          }}
+        />
+      )}
+      {/* Schedule Appointment Modal */}
+      <FormModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        title="Schedule Telemedicine Appointment"
+      >
+        <PremiumAddAppointmentForm
+          onSuccess={() => {
+            setIsScheduleModalOpen(false);
+            // Refresh telemedicine visits
+            if (practiceId && activeTab === 'telemedicine') {
+              const today = format(new Date(), 'yyyy-MM-dd');
+              supabase
+                .from('visits')
+                .select(`
+                  *,
+                  patient:patients(
+                    id,
+                    first_name,
+                    last_name,
+                    mobile_phone,
+                    email
+                  ),
+                  doctor:users(
+                    id,
+                    first_name,
+                    last_name,
+                    email
+                  )
+                `)
+                .eq('practice_id', practiceId)
+                .eq('visit_date', today)
+                .eq('status', 'checked_in')
+                .or('status.eq.scheduled,status.eq.confirmed')
+                .order('scheduled_time', { ascending: true })
+                .then(({ data, error }) => {
+                  if (!error) {
+                    setUpcomingTelemedicineVisits(data || []);
+                  }
+                });
+            }
+            toast.success('Appointment scheduled successfully');
+          }}
+          onCancel={() => setIsScheduleModalOpen(false)}
+        />
+      </FormModal>
     </div>
   );
 };
