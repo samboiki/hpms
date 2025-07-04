@@ -48,6 +48,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: 'solar:users-group-rounded-bold-duotone', label: 'Patients', path: '/patients', isRoute: false, onClick: onOpenPatients },
     { icon: 'solar:clipboard-list-bold-duotone', label: 'Encounters', path: '/encounters', isRoute: true },
     { icon: 'solar:letter-bold-duotone', label: 'Messages', path: '/communications', isRoute: true, badge: unreadCount > 0 ? unreadCount : undefined },
+    { icon: 'solar:test-tube-bold-duotone', label: 'Automation Test', path: '/automation-test', isRoute: true },
     { icon: 'solar:wallet-money-bold-duotone', label: 'Finance', path: '/finance', isRoute: true },
   ];
 

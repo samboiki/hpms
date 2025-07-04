@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { notificationDeliveryService } from './notificationDeliveryService';
+import { edgeFunctionService } from './edgeFunctionService';
 
 // SMS Types
 export type SMSMessageType = 
@@ -168,9 +169,8 @@ class CommunicationService {
         }
       }
       
-      const { data, error } = await supabase.functions.invoke('centralized-sms-gateway', {
-        body: request
-      });
+      // Use edge function service instead of supabase.functions.invoke
+      const { data, error } = await edgeFunctionService.sendSMS(request);
 
       if (error) {
         console.error('SMS sending error:', error);
@@ -283,9 +283,8 @@ class CommunicationService {
         }
       }
       
-      const { data, error } = await supabase.functions.invoke('centralized-email-gateway', {
-        body: request
-      });
+      // Use edge function service instead of supabase.functions.invoke
+      const { data, error } = await edgeFunctionService.sendEmail(request);
 
       if (error) {
         console.error('Email sending error:', error);

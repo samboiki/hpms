@@ -4,6 +4,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8';
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-application-name',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
 interface AutomationExecution {
   id: string;
   automation_id: string;
@@ -33,13 +39,8 @@ interface AutomationSettings {
 }
 
 serve(async (req) => {
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-application-name',
-  };
-
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
@@ -61,6 +62,7 @@ serve(async (req) => {
       throw new Error(`Failed to fetch pending executions: ${fetchError.message}`);
     }
 
+    console.log(`Found ${pendingExecutions?.length || 0} pending executions to process`);
     const results = [];
 
     for (const execution of pendingExecutions || []) {
@@ -91,22 +93,26 @@ serve(async (req) => {
         // Prepare variables
         const variables = await prepareVariables(supabase, execution);
         
-        // Process each channel
-        for (const channel of automation.channels) {
-          if (!channel.enabled) continue;
+        // Process based on execution channel
+        const executionChannel = execution.channel;
+        const result: any = { execution_id: execution.id };
 
-          try {
-            if (channel.type === 'SMS' || channel.type === 'BOTH') {
-              await sendSMS(supabase, execution, automation, variables);
-            }
-            
-            if (channel.type === 'EMAIL' || channel.type === 'BOTH') {
-              await sendEmail(supabase, execution, automation, variables);
-            }
-          } catch (error) {
-            console.error(`Error sending ${channel.type}:`, error);
-            // Continue with other channels even if one fails
+        try {
+          if (executionChannel === 'SMS') {
+            await sendSMS(supabase, execution, automation, variables);
+            result.sms = { success: true };
+          } else if (executionChannel === 'EMAIL') {
+            await sendEmail(supabase, execution, automation, variables);
+            result.email = { success: true };
           }
+        } catch (error: any) {
+          console.error(`Error sending ${executionChannel}:`, error);
+          if (executionChannel === 'SMS') {
+            result.sms = { success: false, error: error.message };
+          } else if (executionChannel === 'EMAIL') {
+            result.email = { success: false, error: error.message };
+          }
+          throw error; // Re-throw to mark execution as failed
         }
 
         // Mark as completed
@@ -120,7 +126,7 @@ serve(async (req) => {
           })
           .eq('id', execution.id);
 
-        results.push({ id: execution.id, status: 'completed' });
+        results.push({ ...result, status: 'completed' });
       } catch (error) {
         // Mark as failed
         await supabase
@@ -275,12 +281,24 @@ async function sendSMS(supabase: ReturnType<typeof createClient>, execution: Aut
     smsPayload.messageContent = message;
   }
 
-  // Call centralized SMS gateway
-  const { data, error } = await supabase.functions.invoke('centralized-sms-gateway', {
-    body: smsPayload
+  // Call SMS gateway using direct fetch (supabase.functions.invoke has issues)
+  console.log('Calling centralized-sms-gateway with payload:', smsPayload);
+  
+  const smsResponse = await fetch(`${supabaseUrl}/functions/v1/centralized-sms-gateway`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${supabaseServiceKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(smsPayload)
   });
 
-  if (error) throw error;
+  const data = await smsResponse.json();
+  
+  if (!smsResponse.ok) {
+    console.error('SMS gateway error:', data);
+    throw new Error(data.error || 'Failed to send SMS');
+  }
 
   // Update execution with message ID
   if (data?.log_id) {
@@ -347,12 +365,24 @@ async function sendEmail(supabase: ReturnType<typeof createClient>, execution: A
     emailPayload.textContent = body;
   }
 
-  // Call centralized email gateway
-  const { data, error } = await supabase.functions.invoke('centralized-email-gateway', {
-    body: emailPayload
+  // Call email gateway using direct fetch (supabase.functions.invoke has issues)
+  console.log('Calling email-gateway-v2 with payload:', emailPayload);
+  
+  const emailResponse = await fetch(`${supabaseUrl}/functions/v1/email-gateway-v2`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${supabaseServiceKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(emailPayload)
   });
 
-  if (error) throw error;
+  const data = await emailResponse.json();
+  
+  if (!emailResponse.ok) {
+    console.error('Email gateway error:', data);
+    throw new Error(data.error || 'Failed to send email');
+  }
 
   // Update execution with message ID
   if (data?.log_id) {

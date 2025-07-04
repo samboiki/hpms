@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Email Edge Function</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f3f4f6;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        button {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { opacity: 0.9; }
+        button:disabled { background: #9ca3af; cursor: not-allowed; }
+        .log {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .info { color: #3b82f6; }
+        .warning { color: #f59e0b; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Email Edge Function</h1>
+        <p>This tests the centralized-email-gateway edge function with your authentication.</p>
+        
+        <div>
+            <button onclick="testEmailGateway()">Test Email Gateway</button>
+            <button onclick="testWithMinimalData()">Test Minimal Email</button>
+            <button onclick="checkEmailLogs()">Check Email Logs</button>
+            <button onclick="clearLogs()">Clear Logs</button>
+        </div>
+        
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const PRACTICE_ID = 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3';
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div class="${type}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('log').innerHTML = '';
+            log('Logs cleared');
+        }
+
+        async function getAuthToken() {
+            const authData = localStorage.getItem('hpms-auth');
+            if (!authData) {
+                log('❌ No auth data found. Please login to HPMS first.', 'error');
+                return null;
+            }
+            return JSON.parse(authData).access_token;
+        }
+
+        async function testEmailGateway() {
+            log('📧 Testing email gateway...');
+            
+            const token = await getAuthToken();
+            if (!token) return;
+
+            try {
+                const emailData = {
+                    practiceId: PRACTICE_ID,
+                    recipientEmail: 'ksnahol@gmail.com',
+                    recipientName: 'Test User',
+                    subject: 'Test Email from HPMS',
+                    textContent: 'This is a test email to verify the email gateway is working correctly.',
+                    emailType: 'test'
+                };
+
+                log(`Request data: ${JSON.stringify(emailData, null, 2)}`);
+
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/centralized-email-gateway`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(emailData)
+                });
+
+                const responseText = await response.text();
+                log(`Response status: ${response.status} ${response.statusText}`);
+                log(`Response: ${responseText}`);
+
+                if (response.ok) {
+                    try {
+                        const result = JSON.parse(responseText);
+                        if (result.success) {
+                            log(`✅ Email sent successfully!`, 'success');
+                            log(`Log ID: ${result.logId}`);
+                            log(`Message ID: ${result.messageId}`);
+                        } else {
+                            log(`❌ Email failed: ${result.error}`, 'error');
+                        }
+                    } catch (e) {
+                        log(`Response parsing error: ${e.message}`, 'error');
+                    }
+                } else {
+                    log(`❌ Request failed`, 'error');
+                }
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
+            }
+        }
+
+        async function testWithMinimalData() {
+            log('📧 Testing with minimal data...');
+            
+            const token = await getAuthToken();
+            if (!token) return;
+
+            try {
+                // Absolute minimal data
+                const emailData = {
+                    practiceId: PRACTICE_ID,
+                    recipientEmail: 'ksnahol@gmail.com',
+                    subject: 'Test',
+                    textContent: 'Test email'
+                };
+
+                log(`Minimal request: ${JSON.stringify(emailData, null, 2)}`);
+
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/centralized-email-gateway`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(emailData)
+                });
+
+                const responseText = await response.text();
+                log(`Response: ${responseText}`);
+
+                if (!response.ok) {
+                    log(`❌ Status: ${response.status}`, 'error');
+                }
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkEmailLogs() {
+            log('📋 Checking email logs...');
+            
+            const token = await getAuthToken();
+            if (!token) return;
+
+            try {
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/practice_email_logs?practice_id=eq.${PRACTICE_ID}&order=created_at.desc&limit=5`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'apikey': token
+                        }
+                    }
+                );
+
+                if (response.ok) {
+                    const logs = await response.json();
+                    log(`Found ${logs.length} email logs:`);
+                    logs.forEach(emailLog => {
+                        const time = new Date(emailLog.created_at).toLocaleTimeString();
+                        log(`\n📧 ${time}`);
+                        log(`  To: ${emailLog.recipient_email}`);
+                        log(`  Status: ${emailLog.status}`);
+                        log(`  Subject: ${emailLog.subject}`);
+                        if (emailLog.failure_reason) {
+                            log(`  ❌ Error: ${emailLog.failure_reason}`, 'error');
+                        }
+                        if (emailLog.provider_message_id) {
+                            log(`  ✅ Message ID: ${emailLog.provider_message_id}`, 'success');
+                        }
+                    });
+                } else {
+                    log(`❌ Failed to fetch logs: ${response.statusText}`, 'error');
+                }
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        window.onload = () => {
+            log('🧪 Email Edge Function Test Ready');
+            log('ℹ️ Make sure you are logged into HPMS', 'info');
+        };
+    </script>
+</body>
+</html>

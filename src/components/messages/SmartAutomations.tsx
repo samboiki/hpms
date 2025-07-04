@@ -10,6 +10,7 @@ import { Stepper } from '../ui/Stepper';
 import { TimingPicker, TimingOption } from '../ui/TimingPicker';
 import { triggerAutomationEngine } from '../../utils/automationTrigger';
 import { TemplateSelector } from '../ui/TemplateSelector';
+import { TemplateEditor } from '../ui/TemplateEditor';
 
 interface AutomationCard {
   id: string;
@@ -580,6 +581,87 @@ const automationCards: AutomationCard[] = [
     ]
   }
 ];
+
+// Get available variables based on automation type
+const getVariablesForAutomationType = (automationId: string) => {
+  const baseVariables = [
+    { key: 'patientName', description: 'Patient full name' },
+    { key: 'patientFirstName', description: 'Patient first name' },
+    { key: 'patientLastName', description: 'Patient last name' },
+    { key: 'practiceName', description: 'Practice/clinic name' },
+    { key: 'practicePhone', description: 'Practice phone number' },
+    { key: 'practiceEmail', description: 'Practice email address' }
+  ];
+
+  const appointmentVariables = [
+    { key: 'appointmentDate', description: 'Appointment date' },
+    { key: 'appointmentTime', description: 'Appointment time' },
+    { key: 'doctorName', description: 'Doctor name' },
+    { key: 'confirmationCode', description: 'Appointment confirmation code' }
+  ];
+
+  const healthVariables = [
+    { key: 'medicationName', description: 'Medication name' },
+    { key: 'dosageInstructions', description: 'Dosage instructions' },
+    { key: 'refillDate', description: 'Refill date' },
+    { key: 'testDate', description: 'Test/lab date' },
+    { key: 'testName', description: 'Test/lab name' },
+    { key: 'followUpInstructions', description: 'Follow-up care instructions' }
+  ];
+
+  const billingVariables = [
+    { key: 'invoiceNumber', description: 'Invoice number' },
+    { key: 'invoiceAmount', description: 'Invoice amount' },
+    { key: 'dueDate', description: 'Payment due date' },
+    { key: 'paymentLink', description: 'Online payment link' },
+    { key: 'outstandingBalance', description: 'Outstanding balance' }
+  ];
+
+  const engagementVariables = [
+    { key: 'birthdayOffer', description: 'Birthday special offer' },
+    { key: 'referralBonus', description: 'Referral bonus details' },
+    { key: 'reviewLink', description: 'Review/feedback link' },
+    { key: 'programName', description: 'Wellness program name' },
+    { key: 'programDate', description: 'Program start date' },
+    { key: 'programDescription', description: 'Program description' }
+  ];
+
+  switch (automationId) {
+    case 'appointment-reminder':
+    case 'appointment-confirmation':
+    case 'no-show-followup':
+    case 'surgery-pre-op':
+      return [...baseVariables, ...appointmentVariables];
+    
+    case 'follow-up':
+    case 'medication-reminder':
+    case 'prescription-refill':
+    case 'lab-results':
+    case 'test-results-follow-up':
+    case 'post-procedure-care':
+    case 'chronic-condition-monitoring':
+      return [...baseVariables, ...healthVariables];
+    
+    case 'payment-reminder':
+    case 'invoice-sent':
+    case 'payment-received':
+    case 'insurance-verification':
+      return [...baseVariables, ...billingVariables];
+    
+    case 'birthday-wishes':
+    case 'patient-feedback':
+    case 'referral-program':
+    case 'wellness-program':
+    case 'practice-announcements':
+      return [...baseVariables, ...engagementVariables];
+    
+    case 'annual-checkup':
+      return [...baseVariables, { key: 'lastVisitDate', description: 'Last visit date' }];
+    
+    default:
+      return baseVariables;
+  }
+};
 
 const SmartAutomations: React.FC = () => {
   const { user } = useAuthStore();
@@ -1222,49 +1304,15 @@ const SmartAutomations: React.FC = () => {
 
                     {/* Custom Message Input (only show if no template selected) */}
                     {!setupData.smsTemplateId && (
-                      <>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Message Content</label>
-                          <textarea
-                            value={setupData.smsTemplate.body}
-                            onChange={(e) => setSetupData({ 
-                              ...setupData, 
-                              smsTemplate: { ...setupData.smsTemplate, body: e.target.value }
-                            })}
-                            className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            rows={5}
-                            maxLength={160}
-                          />
-                          <div className="mt-2 flex items-center justify-between text-sm">
-                            <span className="text-gray-500">
-                              {setupData.smsTemplate.body.length}/160 characters
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <p className="text-sm font-medium text-gray-700 mb-2">Quick Variables</p>
-                          <div className="flex flex-wrap gap-2">
-                            {['{{patientName}}', '{{appointmentDate}}', '{{appointmentTime}}', '{{practicePhone}}'].map(variable => (
-                              <button
-                                key={variable}
-                                onClick={() => {
-                                  const newBody = setupData.smsTemplate.body + ' ' + variable;
-                                  if (newBody.length <= 160) {
-                                    setSetupData({ 
-                                      ...setupData, 
-                                      smsTemplate: { ...setupData.smsTemplate, body: newBody }
-                                    });
-                                  }
-                                }}
-                                className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm hover:bg-purple-200 transition-colors"
-                              >
-                                {variable}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </>
+                      <TemplateEditor
+                        type="sms"
+                        content={setupData.smsTemplate.body}
+                        variables={getVariablesForAutomationType(selectedCard?.id || '')}
+                        onUpdate={(data) => setSetupData({
+                          ...setupData,
+                          smsTemplate: { ...setupData.smsTemplate, body: data.content }
+                        })}
+                      />
                     )}
                   </div>
                   
@@ -1327,57 +1375,19 @@ const SmartAutomations: React.FC = () => {
 
                     {/* Custom Message Input (only show if no template selected) */}
                     {!setupData.emailTemplateId && (
-                      <>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Subject Line</label>
-                          <input
-                            type="text"
-                            value={setupData.emailTemplate.subject}
-                            onChange={(e) => setSetupData({ 
-                              ...setupData, 
-                              emailTemplate: { ...setupData.emailTemplate, subject: e.target.value }
-                            })}
-                            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter email subject..."
-                          />
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Email Body</label>
-                          <textarea
-                            value={setupData.emailTemplate.body}
-                            onChange={(e) => setSetupData({ 
-                              ...setupData, 
-                              emailTemplate: { ...setupData.emailTemplate, body: e.target.value }
-                            })}
-                            className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            rows={8}
-                          />
-                        </div>
-                        
-                        <div>
-                          <p className="text-sm font-medium text-gray-700 mb-2">Quick Variables</p>
-                          <div className="flex flex-wrap gap-2">
-                            {['{{patientName}}', '{{appointmentDate}}', '{{appointmentTime}}', '{{doctorName}}', '{{practiceName}}'].map(variable => (
-                              <button
-                                key={variable}
-                                onClick={() => {
-                                  setSetupData({ 
-                                    ...setupData, 
-                                    emailTemplate: { 
-                                      ...setupData.emailTemplate, 
-                                      body: setupData.emailTemplate.body + ' ' + variable 
-                                    }
-                                  });
-                                }}
-                                className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm hover:bg-blue-200 transition-colors"
-                              >
-                                {variable}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </>
+                      <TemplateEditor
+                        type="email"
+                        subject={setupData.emailTemplate.subject}
+                        content={setupData.emailTemplate.body}
+                        variables={getVariablesForAutomationType(selectedCard?.id || '')}
+                        onUpdate={(data) => setSetupData({
+                          ...setupData,
+                          emailTemplate: { 
+                            subject: data.subject || setupData.emailTemplate.subject,
+                            body: data.content 
+                          }
+                        })}
+                      />
                     )}
                   </div>
                   
@@ -2077,22 +2087,18 @@ const SmartAutomations: React.FC = () => {
                       
                       {newAutomation.channels.sms.enabled && (
                         <div className="mt-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">SMS Template</label>
-                          <textarea
-                            value={newAutomation.channels.sms.template}
-                            onChange={(e) => setNewAutomation({
+                          <TemplateEditor
+                            type="sms"
+                            content={newAutomation.channels.sms.template}
+                            variables={getVariablesForAutomationType(newAutomation.trigger)}
+                            onUpdate={(data) => setNewAutomation({
                               ...newAutomation,
                               channels: {
                                 ...newAutomation.channels,
-                                sms: { ...newAutomation.channels.sms, template: e.target.value }
+                                sms: { ...newAutomation.channels.sms, template: data.content }
                               }
                             })}
-                            placeholder="Hi {{patientName}}, this is your custom message..."
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                            rows={3}
-                            maxLength={160}
                           />
-                          <p className="text-xs text-gray-500 mt-1">{newAutomation.channels.sms.template.length}/160 characters</p>
                         </div>
                       )}
                     </div>
@@ -2119,39 +2125,24 @@ const SmartAutomations: React.FC = () => {
                       </label>
                       
                       {newAutomation.channels.email.enabled && (
-                        <div className="mt-4 space-y-3">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Email Subject</label>
-                            <input
-                              type="text"
-                              value={newAutomation.channels.email.subject}
-                              onChange={(e) => setNewAutomation({
-                                ...newAutomation,
-                                channels: {
-                                  ...newAutomation.channels,
-                                  email: { ...newAutomation.channels.email, subject: e.target.value }
+                        <div className="mt-4">
+                          <TemplateEditor
+                            type="email"
+                            subject={newAutomation.channels.email.subject}
+                            content={newAutomation.channels.email.template}
+                            variables={getVariablesForAutomationType(newAutomation.trigger)}
+                            onUpdate={(data) => setNewAutomation({
+                              ...newAutomation,
+                              channels: {
+                                ...newAutomation.channels,
+                                email: { 
+                                  ...newAutomation.channels.email, 
+                                  subject: data.subject || newAutomation.channels.email.subject,
+                                  template: data.content 
                                 }
-                              })}
-                              placeholder="Your Custom Subject - {{practiceName}}"
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Email Body</label>
-                            <textarea
-                              value={newAutomation.channels.email.template}
-                              onChange={(e) => setNewAutomation({
-                                ...newAutomation,
-                                channels: {
-                                  ...newAutomation.channels,
-                                  email: { ...newAutomation.channels.email, template: e.target.value }
-                                }
-                              })}
-                              placeholder="Dear {{patientName}},\n\nYour custom email content here...\n\nBest regards,\n{{practiceName}}"
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                              rows={5}
-                            />
-                          </div>
+                              }
+                            })}
+                          />
                         </div>
                       )}
                     </div>

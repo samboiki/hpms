@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { edgeFunctionService } from '../services/edgeFunctionService';
 
 /**
  * Manually trigger the automation engine to process pending automations
@@ -18,9 +19,8 @@ export async function triggerAutomationEngine() {
     
     // If there are pending automations, invoke the edge function
     if (pendingCount > 0) {
-      const { data, error } = await supabase.functions.invoke('automation-engine', {
-        body: {}
-      });
+      // Use edge function service instead of supabase.functions.invoke
+      const { data, error } = await edgeFunctionService.processAutomations();
       
       if (error) {
         console.error('Error invoking automation engine:', error);
