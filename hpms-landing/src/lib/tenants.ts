@@ -76,6 +76,8 @@ export async function getPracticeByDomain(domain: string, searchParams?: URLSear
       'healthpractice.vercel.app': 'drpolina.vercel.app',
       'newcharm.vercel.app': 'newcharm.vercel.app',
       'newcharm-dental.vercel.app': 'newcharm.vercel.app',
+      'newcharmdentalpractice.com': 'www.newcharmdentalpractice.com',
+      'www.newcharmdentalpractice.com': 'www.newcharmdentalpractice.com',
     };
 
     // Method 4: Use domain mapping or return null for practice directory
