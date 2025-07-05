@@ -78,7 +78,9 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({
     if (template) {
       setSelectedTemplate(template);
       updateVariables(template);
-      onTemplateSelect(template.id, template.variables);
+      // Ensure variables is always an array
+      const variables = Array.isArray(template.variables) ? template.variables : [];
+      onTemplateSelect(template.id, variables);
     }
   };
 

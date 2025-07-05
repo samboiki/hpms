@@ -29,8 +29,9 @@ import { communicationService } from '../services/communicationService';
 import { unreadMessagesService } from '../services/unreadMessagesService';
 import FormModal from '../components/modals/FormModal';
 import PremiumAddAppointmentForm from '../components/forms/PremiumAddAppointmentForm';
+import GoogleReviewManager from '../components/reviews/GoogleReviewManager';
 
-type TabType = 'dashboard' | 'messaging' | 'automations' | 'settings' | 'telemedicine';
+type TabType = 'dashboard' | 'messaging' | 'automations' | 'settings' | 'telemedicine' | 'reviews';
 
 
 
@@ -735,6 +736,7 @@ Best regards,
     { id: 'dashboard', label: 'Dashboard', icon: 'solar:chart-bold-duotone', description: 'Overview & Stats' },
     { id: 'messaging', label: 'Messaging', icon: 'solar:chat-round-dots-bold-duotone', description: 'All Messages', badge: unreadCount > 0 ? unreadCount : undefined },
     { id: 'automations', label: 'Automations', icon: 'solar:widget-add-bold-duotone', description: 'Smart Workflows' },
+    { id: 'reviews', label: 'Reviews', icon: 'solar:star-bold-duotone', description: 'Google Reviews' },
     { id: 'settings', label: 'Settings', icon: 'solar:settings-bold-duotone', description: 'Configuration' },
     { id: 'telemedicine', label: 'Telemedicine', icon: 'solar:videocamera-bold-duotone', description: 'Virtual Care' }
   ];
@@ -743,6 +745,7 @@ Best regards,
     dashboard: 'solar:chart-bold-duotone',
     messaging: 'solar:chat-round-dots-bold-duotone',
     automations: 'solar:widget-add-bold-duotone',
+    reviews: 'solar:star-bold-duotone',
     settings: 'solar:settings-bold-duotone',
     telemedicine: 'solar:videocamera-bold-duotone'
   };
@@ -1093,6 +1096,13 @@ Best regards,
                 </div>
               )}
 
+              {/* Reviews Tab */}
+              {activeTab === 'reviews' && (
+                <div className="p-6">
+                  <GoogleReviewManager />
+                </div>
+              )}
+
               {/* Telemedicine Tab */}
               {activeTab === 'telemedicine' && (
                 <div className="space-y-6">
@@ -1438,6 +1448,9 @@ Best regards,
           onCancel={() => setIsScheduleModalOpen(false)}
         />
       </FormModal>
+
+      {/* Floating Visit Tracker */}
+      <FloatingVisitTracker />
     </div>
   );
 };

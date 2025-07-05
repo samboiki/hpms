@@ -45,13 +45,9 @@ class EmailTemplateService {
    * Get all email templates for a practice (including default system templates)
    */
   async getEmailTemplates(practiceId: string): Promise<EmailTemplate[]> {
+    // Use RPC function to avoid RLS issues
     const { data, error } = await supabase
-      .from('email_templates')
-      .select('*')
-      .or(`practice_id.eq.${practiceId},practice_id.is.null`)
-      .eq('is_active', true)
-      .order('is_default', { ascending: false })
-      .order('name');
+      .rpc('get_email_templates_for_practice', { p_practice_id: practiceId });
 
     if (error) {
       console.error('Error fetching email templates:', error);
@@ -65,13 +61,9 @@ class EmailTemplateService {
    * Get all SMS templates for a practice (including default system templates)
    */
   async getSmsTemplates(practiceId: string): Promise<SmsTemplate[]> {
+    // Use RPC function to avoid RLS issues
     const { data, error } = await supabase
-      .from('sms_templates')
-      .select('*')
-      .or(`practice_id.eq.${practiceId},practice_id.is.null`)
-      .eq('is_active', true)
-      .order('is_default', { ascending: false })
-      .order('name');
+      .rpc('get_sms_templates_for_practice', { p_practice_id: practiceId });
 
     if (error) {
       console.error('Error fetching SMS templates:', error);
@@ -85,10 +77,9 @@ class EmailTemplateService {
    * Get email template by ID
    */
   async getEmailTemplate(templateId: string): Promise<EmailTemplate | null> {
+    // Use RPC function to avoid RLS issues
     const { data, error } = await supabase
-      .from('email_templates')
-      .select('*')
-      .eq('id', templateId)
+      .rpc('get_email_template_by_id', { p_template_id: templateId })
       .single();
 
     if (error) {
@@ -103,10 +94,9 @@ class EmailTemplateService {
    * Get SMS template by ID
    */
   async getSmsTemplate(templateId: string): Promise<SmsTemplate | null> {
+    // Use RPC function to avoid RLS issues
     const { data, error } = await supabase
-      .from('sms_templates')
-      .select('*')
-      .eq('id', templateId)
+      .rpc('get_sms_template_by_id', { p_template_id: templateId })
       .single();
 
     if (error) {

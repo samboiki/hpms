@@ -11,6 +11,7 @@ import { TimingPicker, TimingOption } from '../ui/TimingPicker';
 import { triggerAutomationEngine } from '../../utils/automationTrigger';
 import { TemplateSelector } from '../ui/TemplateSelector';
 import { TemplateEditor } from '../ui/TemplateEditor';
+import { emailTemplateService } from '../../services/emailTemplateService';
 
 interface AutomationCard {
   id: string;
@@ -732,6 +733,53 @@ const SmartAutomations: React.FC = () => {
     loadActiveAutomations();
   }, [user?.practice_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load SMS template content when template is selected
+  useEffect(() => {
+    const loadSmsTemplate = async () => {
+      if (setupData.smsTemplateId) {
+        try {
+          const template = await emailTemplateService.getSmsTemplate(setupData.smsTemplateId);
+          if (template) {
+            setSetupData(prev => ({
+              ...prev,
+              smsTemplate: { body: template.content },
+              smsTemplateVariables: template.variables || []
+            }));
+          }
+        } catch (error) {
+          console.error('Error loading SMS template:', error);
+          toast.error('Failed to load SMS template');
+        }
+      }
+    };
+    loadSmsTemplate();
+  }, [setupData.smsTemplateId]);  
+
+  // Load Email template content when template is selected
+  useEffect(() => {
+    const loadEmailTemplate = async () => {
+      if (setupData.emailTemplateId) {
+        try {
+          const template = await emailTemplateService.getEmailTemplate(setupData.emailTemplateId);
+          if (template) {
+            setSetupData(prev => ({
+              ...prev,
+              emailTemplate: { 
+                subject: template.subject,
+                body: template.content 
+              },
+              emailTemplateVariables: template.variables || []
+            }));
+          }
+        } catch (error) {
+          console.error('Error loading email template:', error);
+          toast.error('Failed to load email template');
+        }
+      }
+    };
+    loadEmailTemplate();
+  }, [setupData.emailTemplateId]);  
+
   const loadActiveAutomations = async () => {
     if (!user?.practice_id) return;
     
@@ -1110,22 +1158,62 @@ const SmartAutomations: React.FC = () => {
   };
 
   const replaceVariables = (text: string) => {
-    const variables: Record<string, string> = {
-      '{{patientName}}': 'John Smith',
-      '{{appointmentDate}}': format(new Date(Date.now() + 86400000), 'MMMM d, yyyy'),
-      '{{appointmentTime}}': '2:30 PM',
-      '{{doctorName}}': 'Dr. Sarah Johnson',
-      '{{practicePhone}}': '(555) 123-4567',
-      '{{practiceName}}': 'HealthCare Clinic',
-      '{{amount}}': '$125.00',
-      '{{paymentLink}}': 'pay.healthcareclinic.com',
-      '{{followUpInstructions}}': 'take your medication daily and rest',
-      '{{message}}': 'this is your customized message'
+    const sampleData: Record<string, string> = {
+      // camelCase versions
+      patientName: 'John Smith',
+      patientFirstName: 'John',
+      appointmentDate: format(new Date(Date.now() + 86400000), 'MMMM d, yyyy'),
+      appointmentTime: '2:30 PM',
+      doctorName: 'Dr. Sarah Johnson',
+      practicePhone: '(555) 123-4567',
+      practiceName: 'HealthCare Clinic',
+      practiceEmail: 'info@healthcareclinic.com',
+      practiceAddress: '123 Main St, City, State 12345',
+      practiceLogo: '/logo.png',
+      branchName: 'Main Branch',
+      branchAddress: '123 Main St',
+      invoiceNumber: 'INV-2024-001',
+      invoiceDate: 'March 1, 2024',
+      invoiceAmount: '$250.00',
+      amount: '$125.00',
+      dueDate: 'March 31, 2024',
+      billingPhone: '(123) 456-7891',
+      billingEmail: 'billing@practice.com',
+      taxNumber: '123-45-6789',
+      practiceHours: 'Mon-Fri 9AM-5PM',
+      confirmationCode: 'APT-12345',
+      paymentLink: 'pay.healthcareclinic.com',
+      followUpInstructions: 'take your medication daily and rest',
+      message: 'this is your customized message',
+      medicationName: 'Aspirin',
+      dosageInstructions: 'Take 1 tablet daily with food',
+      testDate: 'March 10, 2024',
+      portalLink: 'portal.healthcareclinic.com',
+      transactionId: 'TRX-12345',
+      paymentDate: format(new Date(), 'MMMM d, yyyy'),
+      conditionType: 'Diabetes',
+      programName: 'Wellness Program',
+      programDate: 'April 1, 2024',
+      programDescription: 'Join our wellness program for better health',
+      // snake_case versions (for backward compatibility)
+      patient_name: 'John Smith',
+      appointment_date: format(new Date(Date.now() + 86400000), 'MMMM d, yyyy'),
+      appointment_time: '2:30 PM',
+      doctor_name: 'Dr. Sarah Johnson',
+      practice_phone: '(555) 123-4567',
+      practice_name: 'HealthCare Clinic',
+      practice_email: 'info@healthcareclinic.com',
+      practice_address: '123 Main St, City, State 12345',
+      practice_logo: '/logo.png',
+      branch_name: 'Main Branch',
+      branch_address: '123 Main St'
     };
 
     let result = text;
-    Object.entries(variables).forEach(([key, value]) => {
-      result = result.replace(new RegExp(key, 'g'), value);
+    // Replace all variables in {{variableName}} format
+    Object.entries(sampleData).forEach(([key, value]) => {
+      const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
+      result = result.replace(regex, value);
     });
     return result;
   };
@@ -1302,18 +1390,25 @@ const SmartAutomations: React.FC = () => {
                       templateType={selectedCard?.id === 'appointment-reminder' ? 'appointment_reminder' : undefined}
                     />
 
-                    {/* Custom Message Input (only show if no template selected) */}
-                    {!setupData.smsTemplateId && (
-                      <TemplateEditor
-                        type="sms"
-                        content={setupData.smsTemplate.body}
-                        variables={getVariablesForAutomationType(selectedCard?.id || '')}
-                        onUpdate={(data) => setSetupData({
-                          ...setupData,
-                          smsTemplate: { ...setupData.smsTemplate, body: data.content }
-                        })}
-                      />
+                    {/* Message Editor - Always show to allow template customization */}
+                    {setupData.smsTemplateId && (
+                      <div className="flex items-center gap-2 text-sm text-amber-600 mb-2">
+                        <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
+                        <span>Editing template - Feel free to customize the message</span>
+                      </div>
                     )}
+                    <TemplateEditor
+                      type="sms"
+                      content={setupData.smsTemplate.body}
+                      variables={getVariablesForAutomationType(selectedCard?.id || '')}
+                      onUpdate={(data) => {
+                        setSetupData({
+                          ...setupData,
+                          smsTemplate: { ...setupData.smsTemplate, body: data.content },
+                          // Keep the template ID to show it's based on a template
+                        });
+                      }}
+                    />
                   </div>
                   
                   <div>
@@ -1331,7 +1426,7 @@ const SmartAutomations: React.FC = () => {
                         </div>
                         <div className="bg-purple-100 rounded-lg p-3">
                           <p className="text-sm text-gray-800">
-                            {replaceVariables(setupData.smsTemplate.body) || 'Your message will appear here...'}
+                            {replaceVariables(setupData.smsTemplate.body || '') || 'Your message will appear here...'}
                           </p>
                         </div>
                       </div>
@@ -1373,22 +1468,26 @@ const SmartAutomations: React.FC = () => {
                       templateType={selectedCard?.id === 'appointment-reminder' ? 'appointment_reminder' : undefined}
                     />
 
-                    {/* Custom Message Input (only show if no template selected) */}
-                    {!setupData.emailTemplateId && (
-                      <TemplateEditor
-                        type="email"
-                        subject={setupData.emailTemplate.subject}
-                        content={setupData.emailTemplate.body}
-                        variables={getVariablesForAutomationType(selectedCard?.id || '')}
-                        onUpdate={(data) => setSetupData({
-                          ...setupData,
-                          emailTemplate: { 
-                            subject: data.subject || setupData.emailTemplate.subject,
-                            body: data.content 
-                          }
-                        })}
-                      />
+                    {/* Message Editor - Always show to allow template customization */}
+                    {setupData.emailTemplateId && (
+                      <div className="flex items-center gap-2 text-sm text-amber-600 mb-2">
+                        <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
+                        <span>Editing template - Feel free to customize the message</span>
+                      </div>
                     )}
+                    <TemplateEditor
+                      type="email"
+                      subject={setupData.emailTemplate.subject}
+                      content={setupData.emailTemplate.body}
+                      variables={getVariablesForAutomationType(selectedCard?.id || '')}
+                      onUpdate={(data) => setSetupData({
+                        ...setupData,
+                        emailTemplate: { 
+                          subject: data.subject || setupData.emailTemplate.subject,
+                          body: data.content 
+                        }
+                      })}
+                    />
                   </div>
                   
                   <div>
@@ -1397,7 +1496,7 @@ const SmartAutomations: React.FC = () => {
                       <div className="bg-white rounded-lg shadow-sm h-full overflow-hidden">
                         <div className="bg-gray-50 px-4 py-3 border-b">
                           <p className="text-sm font-medium text-gray-700">
-                            {replaceVariables(setupData.emailTemplate.subject) || 'Email subject...'}
+                            {replaceVariables(setupData.emailTemplate.subject || '') || 'Email subject...'}
                           </p>
                         </div>
                         <div className="p-4">
@@ -1412,7 +1511,7 @@ const SmartAutomations: React.FC = () => {
                           </div>
                           <div className="prose prose-sm max-w-none">
                             <p className="whitespace-pre-wrap text-gray-700">
-                              {replaceVariables(setupData.emailTemplate.body) || 'Your email content will appear here...'}
+                              {replaceVariables(setupData.emailTemplate.body || '') || 'Your email content will appear here...'}
                             </p>
                           </div>
                         </div>
