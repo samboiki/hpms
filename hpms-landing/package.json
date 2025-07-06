@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0",
     "dev:newcharm": "cross-env NEXT_PUBLIC_PRACTICE=newcharm-dental next dev",
     "dev:polina": "cross-env NEXT_PUBLIC_PRACTICE=dr-polina-aesthetics next dev",
     "dev:cityclinic": "cross-env NEXT_PUBLIC_PRACTICE=cityclinic next dev",
