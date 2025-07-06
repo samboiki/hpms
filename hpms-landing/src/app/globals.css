@@ -45,3 +45,31 @@ select:focus {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--secondary-color, #0196be);
 }
+
+/* NewCharm Dental Custom Animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes float-delay {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-delay {
+  animation: float-delay 6s ease-in-out infinite;
+  animation-delay: 2s;
+}

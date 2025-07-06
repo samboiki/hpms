@@ -7,8 +7,6 @@ import AboutSection from '@/components/AboutSection';
 import TestimonialsSection from '@/components/TestimonialsSection';
 import BeforeAfterGallery from '@/components/BeforeAfterGallery';
 import Gallery from '@/components/Gallery';
-import PremiumGallery from '@/components/PremiumGallery';
-import DentalBeforeAfterGallery from '@/components/DentalBeforeAfterGallery';
 import EnhancedContactSection from '@/components/EnhancedContactSection';
 import EnhancedBookingWidget from '@/components/EnhancedBookingWidget';
 import PremiumNavbar from '@/components/PremiumNavbar';
@@ -17,6 +15,14 @@ import LocationMap from '@/components/LocationMap';
 import { useState } from 'react';
 import { SubService, ServiceCategory } from '@/data/dr-polina-services';
 import { SubService as NewCharmSubService, ServiceCategory as NewCharmServiceCategory } from '@/data/newcharm-services';
+
+// NewCharm specific components
+import NewCharmNavbar from '@/components/newcharm/NewCharmNavbar';
+import NewCharmHero from '@/components/newcharm/NewCharmHero';
+import NewCharmServices from '@/components/newcharm/NewCharmServices';
+import NewCharmAbout from '@/components/newcharm/NewCharmAbout';
+import NewCharmTestimonials from '@/components/newcharm/NewCharmTestimonials';
+import NewCharmContact from '@/components/newcharm/NewCharmContact';
 
 interface PageWrapperProps {
   practice: Practice;
@@ -32,8 +38,24 @@ export default function PageWrapper({ practice }: PageWrapperProps) {
   };
 
   const isAesthetic = practice.slug === 'dr-polina-aesthetics';
-  const isDental = practice.slug === 'newcharm-dental';
+  const isNewCharm = practice.slug === 'newcharm-dental';
 
+  // NewCharm gets completely custom components
+  if (isNewCharm) {
+    return (
+      <div className="min-h-screen bg-white">
+        <NewCharmNavbar logo={practice.logo} />
+        <NewCharmHero />
+        <NewCharmServices />
+        <NewCharmAbout />
+        <NewCharmTestimonials />
+        <NewCharmContact />
+        <Footer practice={practice} />
+      </div>
+    );
+  }
+
+  // Default components for other practices
   return (
     <div 
       className="min-h-screen"
@@ -54,19 +76,13 @@ export default function PageWrapper({ practice }: PageWrapperProps) {
           <BeforeAfterGallery practice={practice} />
         </>
       )}
-      {isDental && (
-        <>
-          <PremiumGallery practiceSlug={practice.slug} />
-          <DentalBeforeAfterGallery practiceMetadata={practice.metadata} />
-        </>
-      )}
       <TestimonialsSection practice={practice} />
       <EnhancedBookingWidget 
         practice={practice} 
         preSelectedService={selectedService}
         preSelectedCategory={selectedCategory}
       />
-      {(isAesthetic || isDental) && <LocationMap practice={practice} />}
+      {isAesthetic && <LocationMap practice={practice} />}
       <EnhancedContactSection practice={practice} />
       <Footer practice={practice} />
     </div>
