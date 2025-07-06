@@ -78,23 +78,35 @@ export default function Navbar({ practice }: NavbarProps) {
               transition={{ duration: 0.6 }}
             >
               <Link href="/" className="flex items-center space-x-3">
-                <div 
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: `${practice.primary_color}20` }}
-                >
-                  <Shield className="w-6 h-6" style={{ color: practice.primary_color }} />
-                </div>
-                <div>
-                  <span 
-                    className="text-2xl font-bold"
-                    style={{ color: scrolled ? practice.primary_color : '#ffffff' }}
-                  >
-                    {practice.name}
-                  </span>
-                  <p className={`text-xs ${scrolled ? 'text-gray-600' : 'text-white/80'}`}>
-                    Excellence in Healthcare
-                  </p>
-                </div>
+                {practice.logo_url ? (
+                  <motion.img
+                    src={practice.logo_url}
+                    alt={practice.name}
+                    className="h-12 w-auto object-contain"
+                    whileHover={{ scale: 1.05 }}
+                    transition={{ duration: 0.3 }}
+                  />
+                ) : (
+                  <>
+                    <div 
+                      className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: `${practice.primary_color}20` }}
+                    >
+                      <Shield className="w-6 h-6" style={{ color: practice.primary_color }} />
+                    </div>
+                    <div>
+                      <span 
+                        className="text-2xl font-bold"
+                        style={{ color: scrolled ? practice.primary_color : '#ffffff' }}
+                      >
+                        {practice.name}
+                      </span>
+                      <p className={`text-xs ${scrolled ? 'text-gray-600' : 'text-white/80'}`}>
+                        Excellence in Healthcare
+                      </p>
+                    </div>
+                  </>
+                )}
               </Link>
             </motion.div>
 

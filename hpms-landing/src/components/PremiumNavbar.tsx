@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Menu, X, Phone, Calendar, ChevronDown, Globe, Shield, Sparkles } from 'lucide-react';
+import { Menu, X, Phone, Calendar, Shield, Sparkles } from 'lucide-react';
 import { Practice } from '@/lib/tenants';
 import { motion, AnimatePresence } from 'framer-motion';
 import PracticeSwitcher from '@/components/PracticeSwitcher';
@@ -81,31 +81,43 @@ export default function PremiumNavbar({ practice }: PremiumNavbarProps) {
               transition={{ duration: 0.6 }}
             >
               <Link href="/" className="flex items-center space-x-2">
-                <motion.div 
-                  className="w-8 h-8 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: `${practice.primary_color}20` }}
-                  whileHover={{ rotate: 360 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  {isAesthetic ? (
-                    <Sparkles className="w-5 h-5" style={{ color: practice.primary_color }} />
-                  ) : (
-                    <Shield className="w-5 h-5" style={{ color: practice.primary_color }} />
-                  )}
-                </motion.div>
-                <div>
-                  <span 
-                    className="text-xl font-bold"
-                    style={{ color: scrolled ? practice.primary_color : '#ffffff' }}
+                {practice.logo_url ? (
+                  <motion.img
+                    src={practice.logo_url}
+                    alt={practice.name}
+                    className="h-10 w-auto object-contain"
+                    whileHover={{ scale: 1.05 }}
+                    transition={{ duration: 0.3 }}
+                  />
+                ) : (
+                  <motion.div 
+                    className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: `${practice.primary_color}20` }}
+                    whileHover={{ rotate: 360 }}
+                    transition={{ duration: 0.5 }}
                   >
-                    {practice.name}
-                  </span>
-                  {isAesthetic && (
-                    <p className={`text-xs ${scrolled ? 'text-gray-600' : 'text-white/80'}`}>
-                      Beauty & Aesthetics
-                    </p>
-                  )}
-                </div>
+                    {isAesthetic ? (
+                      <Sparkles className="w-5 h-5" style={{ color: practice.primary_color }} />
+                    ) : (
+                      <Shield className="w-5 h-5" style={{ color: practice.primary_color }} />
+                    )}
+                  </motion.div>
+                )}
+                {!practice.logo_url && (
+                  <div>
+                    <span 
+                      className="text-xl font-bold"
+                      style={{ color: scrolled ? practice.primary_color : '#ffffff' }}
+                    >
+                      {practice.name}
+                    </span>
+                    {isAesthetic && (
+                      <p className={`text-xs ${scrolled ? 'text-gray-600' : 'text-white/80'}`}>
+                        Beauty & Aesthetics
+                      </p>
+                    )}
+                  </div>
+                )}
               </Link>
             </motion.div>
 
