@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
 import { communicationService } from './communicationService';
 
 interface ReviewRequestData {
@@ -117,36 +117,24 @@ export class GoogleReviewService {
     method: 'sms' | 'email', 
     status: 'sent' | 'failed'
   ): Promise<void> {
-    try {
-      await supabase.from('review_requests').insert({
-        practice_id: data.practiceId,
-        patient_id: data.patientId,
-        visit_id: data.visitId,
-        method,
-        status,
-        sent_at: new Date().toISOString()
-      });
-    } catch (error) {
-      console.error('Failed to log review request:', error);
-    }
+    // TODO: Implement review_requests table first
+    console.log('Would log review request:', {
+      practice_id: data.practiceId,
+      patient_id: data.patientId,
+      visit_id: data.visitId,
+      method,
+      status,
+      sent_at: new Date().toISOString()
+    });
   }
 
   /**
    * Check if a review request was already sent for this visit
    */
   static async wasReviewRequested(visitId: string): Promise<boolean> {
-    try {
-      const { data, error } = await supabase
-        .from('review_requests')
-        .select('id')
-        .eq('visit_id', visitId)
-        .eq('status', 'sent')
-        .single();
-
-      return !!data && !error;
-    } catch {
-      return false;
-    }
+    // TODO: Implement review_requests table first
+    console.log('Checking if review was requested for visit:', visitId);
+    return false;
   }
 
   /**
@@ -158,37 +146,14 @@ export class GoogleReviewService {
     failedRequests: number;
     conversionRate: number;
   }> {
-    try {
-      const { data, error } = await supabase
-        .from('review_requests')
-        .select('status')
-        .eq('practice_id', practiceId);
-
-      if (error) throw error;
-
-      const stats = {
-        totalRequests: data?.length || 0,
-        sentRequests: data?.filter(r => r.status === 'sent').length || 0,
-        failedRequests: data?.filter(r => r.status === 'failed').length || 0,
-        conversionRate: 0
-      };
-
-      // Calculate conversion rate (this would need actual review tracking)
-      if (stats.sentRequests > 0) {
-        // Placeholder - you'd need to track actual reviews submitted
-        stats.conversionRate = 0.15; // Industry average is 10-15%
-      }
-
-      return stats;
-    } catch (error) {
-      console.error('Failed to get review stats:', error);
-      return {
-        totalRequests: 0,
-        sentRequests: 0,
-        failedRequests: 0,
-        conversionRate: 0
-      };
-    }
+    // TODO: Implement review_requests table first
+    console.log('Review stats requested for practice:', practiceId);
+    return {
+      totalRequests: 0,
+      sentRequests: 0,
+      failedRequests: 0,
+      conversionRate: 0
+    };
   }
 }
 

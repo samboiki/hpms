@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
-import { supabase } from '@/lib/supabase';
-import GoogleReviewService from '@/services/googleReviewService';
-import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
+import GoogleReviewService from '../../services/googleReviewService';
+import { useAuthStore } from '../../stores/authStore';
 import { toast } from 'react-hot-toast';
 
 interface Practice {
@@ -27,7 +27,7 @@ interface RecentVisit {
 }
 
 export default function GoogleReviewManager() {
-  const { user } = useAuth();
+  const user = useAuthStore((state) => state.user);
   const [practice, setPractice] = useState<Practice | null>(null);
   const [recentVisits, setRecentVisits] = useState<RecentVisit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,12 +50,16 @@ export default function GoogleReviewManager() {
       // Load practice details
       const { data: practiceData } = await supabase
         .from('practices')
-        .select('id, name, google_place_id, google_review_url')
+        .select('id, name')
         .eq('id', user.practice_id)
         .single();
 
       if (practiceData) {
-        setPractice(practiceData);
+        setPractice({
+          ...practiceData,
+          google_place_id: '',
+          google_review_url: ''
+        });
       }
 
       // Load recent completed visits (last 7 days)
@@ -84,18 +88,9 @@ export default function GoogleReviewManager() {
         .limit(20);
 
       if (visitsData) {
-        // Filter out visits that already have review requests
-        const visitIds = visitsData.map(v => v.id);
-        const { data: existingRequests } = await supabase
-          .from('review_requests')
-          .select('visit_id')
-          .in('visit_id', visitIds)
-          .eq('status', 'sent');
-
-        const requestedVisitIds = new Set(existingRequests?.map(r => r.visit_id) || []);
-        const eligibleVisits = visitsData.filter(v => !requestedVisitIds.has(v.id));
-        
-        setRecentVisits(eligibleVisits);
+        // TODO: Implement review_requests table and filtering
+        // For now, show all recent visits
+        setRecentVisits(visitsData as RecentVisit[]);
       }
 
       // Load stats
@@ -152,28 +147,8 @@ export default function GoogleReviewManager() {
   };
 
   const updateGooglePlaceId = async () => {
-    const placeId = prompt('Enter your Google Place ID (you can find this in your Google Business Profile)');
-    if (!placeId || !practice) return;
-
-    try {
-      const reviewUrl = GoogleReviewService.generateReviewUrl(placeId);
-      
-      const { error } = await supabase
-        .from('practices')
-        .update({
-          google_place_id: placeId,
-          google_review_url: reviewUrl
-        })
-        .eq('id', practice.id);
-
-      if (error) throw error;
-
-      toast.success('Google Place ID updated successfully');
-      await loadData();
-    } catch (error) {
-      console.error('Error updating Place ID:', error);
-      toast.error('Failed to update Google Place ID');
-    }
+    // TODO: Implement google_place_id and google_review_url columns in practices table
+    toast.info('Google Review integration is coming soon!');
   };
 
   if (loading) {
