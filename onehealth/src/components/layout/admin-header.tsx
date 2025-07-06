@@ -44,15 +44,15 @@ export function AdminHeader() {
         {/* User menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center space-x-2 px-3">
-              <div className="h-8 w-8 rounded-full bg-onehealth-100 flex items-center justify-center">
+            <Button variant="ghost" className="flex items-start space-x-2 px-3">
+              <div className="h-8 w-8 rounded-full bg-onehealth-100 flex items-center justify-center flex-shrink-0">
                 <User className="h-4 w-4 text-onehealth-600" />
               </div>
-              <div className="text-left hidden sm:block">
+              <div className="text-left hidden sm:block overflow-hidden">
                 <div className="text-sm font-poppins font-medium text-gray-900">
                   {user?.user_metadata?.full_name || 'Admin User'}
                 </div>
-                <div className="text-xs font-montserrat text-gray-500">
+                <div className="text-xs font-montserrat text-gray-500 break-words" style={{ wordBreak: 'break-word' }}>
                   {user?.email}
                 </div>
               </div>
@@ -60,11 +60,11 @@ export function AdminHeader() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
-              <div className="flex flex-col space-y-1">
+              <div className="flex flex-col space-y-1 overflow-hidden">
                 <p className="text-sm font-poppins font-medium leading-none">
                   {user?.user_metadata?.full_name || 'Admin User'}
                 </p>
-                <p className="text-xs font-montserrat leading-none text-muted-foreground">
+                <p className="text-xs font-montserrat leading-none text-muted-foreground break-words" style={{ wordBreak: 'break-word' }}>
                   {user?.email}
                 </p>
               </div>

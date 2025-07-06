@@ -97,6 +97,7 @@ export const SolarIcons = {
   checkCircle: 'solar:check-circle-bold-duotone',
   infoCircle: 'solar:info-circle-bold-duotone',
   dangerCircle: 'solar:danger-circle-bold-duotone',
+  loader: 'solar:refresh-bold-duotone',
   
   // Additional icons for HR features
   history: 'solar:history-bold-duotone',

@@ -24,6 +24,7 @@ interface AuthState {
   selectedPracticeId: string | null;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
   switchPractice: (practiceId: string) => Promise<boolean>;
   getUserPractices: () => Promise<any[]>;
   isSuperAdmin: () => boolean;
@@ -252,6 +253,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.error('❌ Unexpected logout error:', error);
       // Still ensure state is cleared even if there's an error
       set({ isAuthenticated: false, user: null, selectedPracticeId: null });
+    }
+  },
+  updateUser: (updates: Partial<User>) => {
+    const currentUser = get().user;
+    if (currentUser) {
+      set({ user: { ...currentUser, ...updates } });
     }
   },
   switchPractice: async (practiceId: string) => {

@@ -119,8 +119,8 @@ const Settings: React.FC = () => {
                         
                         {/* User Info Card */}
                         <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl p-4 mb-6">
-                          <div className="flex items-center gap-4">
-                            <div className="relative">
+                          <div className="flex items-start gap-3">
+                            <div className="relative flex-shrink-0">
                               <div className="h-14 w-14 rounded-full overflow-hidden border-3 border-white shadow-lg">
                                 <img 
                                   src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
@@ -130,9 +130,9 @@ const Settings: React.FC = () => {
                               </div>
                               <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
                             </div>
-                            <div className="flex-1">
-                              <p className="text-base font-semibold text-gray-900">{user.name}</p>
-                              <p className="text-sm text-gray-500">{user.email}</p>
+                            <div className="flex-1 min-w-0 overflow-hidden">
+                              <p className="text-base font-semibold text-gray-900 truncate">{user.name}</p>
+                              <p className="text-sm text-gray-500 break-words" style={{ wordBreak: 'break-word' }}>{user.email}</p>
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-500 to-indigo-600 text-white mt-1">
                                 {user.role}
                               </span>
@@ -1725,14 +1725,78 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
 // Account Tab Content Component with Security Integration
 const AccountTabContent: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const [accountTab, setAccountTab] = useState<'profile' | 'preferences' | 'security'>('profile');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const accountTabs = [
     { id: 'profile' as const, label: 'Profile', icon: SolarIcons.userCircle },
     { id: 'preferences' as const, label: 'Preferences', icon: SolarIcons.settingsMinimalistic },
     { id: 'security' as const, label: 'Security', icon: SolarIcons.lock }
   ];
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      // Create a unique file name
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      // Update user profile in database
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ avatar: publicUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      updateUser({ avatar: publicUrl });
+
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      alert('Failed to upload avatar. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -1791,10 +1855,24 @@ const AccountTabContent: React.FC = () => {
                 <h3 className="text-lg font-medium text-gray-900">{user?.name}</h3>
                 <p className="text-gray-500">{user?.email}</p>
                 <p className="text-sm text-gray-500 capitalize">{user?.role}</p>
-                <Button variant="outline" size="sm" className="mt-2">
-                  <Icon icon={SolarIcons.camera} className="w-4 h-4 mr-2" />
-                  Change Avatar
-                </Button>
+                <div className="mt-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                  >
+                    <Icon icon={isUploading ? SolarIcons.loader : SolarIcons.camera} className={`w-4 h-4 mr-2 ${isUploading ? 'animate-spin' : ''}`} />
+                    {isUploading ? 'Uploading...' : 'Change Avatar'}
+                  </Button>
+                </div>
               </div>
             </div>
             
