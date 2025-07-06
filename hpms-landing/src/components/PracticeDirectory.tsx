@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase-safe'
+import { supabase } from '@/lib/supabase'
 import { Practice } from '@/lib/tenants'
 import { 
   Building2, 

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Practice } from '@/lib/tenants';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReCAPTCHA from "react-google-recaptcha";
-import { supabase } from '@/lib/supabase-safe';
+import { supabase } from '@/lib/supabase';
 import ModernCalendar from './ModernCalendar';
 import { 
   Calendar, 
