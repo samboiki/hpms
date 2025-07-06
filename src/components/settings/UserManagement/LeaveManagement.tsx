@@ -754,13 +754,15 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-3 mb-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: request.leave_type.color }}
-                        />
-                        <span className="font-medium text-gray-900">{request.leave_type.name}</span>
-                      </div>
+                      {request.leave_type && (
+                        <div className="flex items-center gap-3 mb-2">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: request.leave_type.color || '#6B7280' }}
+                          />
+                          <span className="font-medium text-gray-900">{request.leave_type.name}</span>
+                        </div>
+                      )}
 
                       <div className="text-sm text-gray-600 space-y-1">
                         <div className="flex items-center gap-2">

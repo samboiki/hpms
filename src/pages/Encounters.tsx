@@ -846,8 +846,8 @@ const Encounters: React.FC = () => {
                         
                         {/* User Info Card */}
                         <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl p-4 mb-6">
-                          <div className="flex items-center gap-4">
-                            <div className="relative">
+                          <div className="flex items-start gap-4">
+                            <div className="relative flex-shrink-0">
                               <div className="h-14 w-14 rounded-full overflow-hidden border-3 border-white shadow-lg">
                                 <img 
                                   src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
@@ -857,9 +857,9 @@ const Encounters: React.FC = () => {
                               </div>
                               <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 overflow-hidden">
                               <p className="text-base font-semibold text-gray-900">{user.name}</p>
-                              <p className="text-sm text-gray-500">{user.email}</p>
+                              <p className="text-sm text-gray-500 break-words" style={{ wordBreak: 'break-word' }}>{user.email}</p>
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-500 to-indigo-600 text-white mt-1">
                                 {user.role}
                               </span>
