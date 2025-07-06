@@ -1,28 +1,26 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Create a singleton instance with guaranteed values
-let supabaseInstance: ReturnType<typeof createClient> | null = null;
+// Hardcoded values to avoid ANY environment variable issues
+const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcwNjE2ODksImV4cCI6MjA2MjYzNzY4OX0.TCNww59ZpJ00QhZgld4QJkYCHz53GAtyjw4F5hptFAM';
 
-export function getSupabaseClient() {
-  if (!supabaseInstance) {
-    // Always use these hardcoded values
-    const url = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
-    const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcwNjE2ODksImV4cCI6MjA2MjYzNzY4OX0.TCNww59ZpJ00QhZgld4QJkYCHz53GAtyjw4F5hptFAM';
-    
-    console.log('Creating Supabase client with hardcoded values');
-    
-    supabaseInstance = createClient(url, anonKey, {
-      db: {
-        schema: 'public'
-      },
-      auth: {
-        persistSession: true
-      }
-    });
+// Create client directly - no singleton pattern, no validation
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  db: {
+    schema: 'public'
+  },
+  auth: {
+    persistSession: true
   }
-  
-  return supabaseInstance;
+});
+
+// For backward compatibility
+export function getSupabaseClient() {
+  return supabase;
 }
 
-// Export a default client for backward compatibility
-export const supabase = getSupabaseClient();
+// Export config for debugging
+export const SUPABASE_CONFIG = {
+  url: SUPABASE_URL,
+  key: SUPABASE_ANON_KEY
+};
