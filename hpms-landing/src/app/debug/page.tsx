@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase-safe';
 
 export default function DebugPage() {
   const [data, setData] = useState<any>(null);

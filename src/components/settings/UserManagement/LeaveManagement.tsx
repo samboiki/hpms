@@ -148,7 +148,8 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
           user:user_id (
             full_name,
             email,
-            avatar
+            avatar,
+            practice_id
           ),
           leave_type:leave_type_id (*)
         `)
@@ -160,7 +161,13 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
 
       const { data, error } = await query;
       if (error) throw error;
-      return data as LeaveRequest[];
+      
+      // Filter by practice after fetching
+      const filteredData = (data || []).filter(request => 
+        request.user?.practice_id === user?.practice_id
+      );
+      
+      return filteredData as LeaveRequest[];
     },
     enabled: !!user?.practice_id,
     onError: (error) => {
@@ -602,13 +609,13 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
                       <div className="flex items-center gap-2">
                         <div
                           className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: balance.leave_type.color }}
+                          style={{ backgroundColor: balance.leave_type?.color || '#6B7280' }}
                         />
                         <h4 className="font-semibold text-gray-900">
-                          {balance.leave_type.name}
+                          {balance.leave_type?.name || 'Unknown Leave Type'}
                         </h4>
                       </div>
-                      {balance.leave_type.is_paid && (
+                      {balance.leave_type?.is_paid && (
                         <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
                           Paid
                         </span>
@@ -659,10 +666,10 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
                         <div className="flex items-center gap-3 mb-2">
                           <div
                             className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: request.leave_type.color }}
+                            style={{ backgroundColor: request.leave_type?.color || '#6B7280' }}
                           />
                           <h4 className="font-semibold text-gray-900">
-                            {request.leave_type.name}
+                            {request.leave_type?.name || 'Unknown Leave Type'}
                           </h4>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getLeaveStatusColor(request.status)}`}>
                             {request.status}
@@ -871,8 +878,8 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
                           key={`${leave.id}-${idx}`}
                           className="text-xs p-1 rounded truncate"
                           style={{
-                            backgroundColor: leave.leave_type.color + '20',
-                            color: leave.leave_type.color
+                            backgroundColor: (leave.leave_type?.color || '#6B7280') + '20',
+                            color: leave.leave_type?.color || '#6B7280'
                           }}
                         >
                           {leave.user.full_name.split(' ')[0]}

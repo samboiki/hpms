@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from './supabase-safe';
 
 export interface Practice {
   id: string;
