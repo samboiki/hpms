@@ -27,6 +27,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script src="/env-fix.js" />
+      </head>
       <body
         className={`${poppins.variable} ${inter.variable} font-poppins antialiased`}
         suppressHydrationWarning
