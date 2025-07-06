@@ -1,2 +1,2 @@
-// Export the safe version with hardcoded values
-export { supabase, SUPABASE_CONFIG } from './supabase-safe';
+// FINAL VERSION - Direct export, no environment variables
+export { supabase } from './supabase-final';
