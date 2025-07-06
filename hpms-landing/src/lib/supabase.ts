@@ -1,2 +1,2 @@
-// Re-export from the safe version
-export { supabase } from './supabase-safe';
+// Use production version to bypass ALL environment checks
+export { supabase, SUPABASE_CONFIG } from './supabase-production';

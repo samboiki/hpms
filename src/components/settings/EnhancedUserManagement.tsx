@@ -100,6 +100,66 @@ export const EnhancedUserManagement: React.FC = () => {
     enabled: !!practiceId
   });
 
+  // Fetch pending leave requests count for this practice
+  const { data: pendingLeaveCount = 0 } = useQuery({
+    queryKey: ['pending-leave-count', practiceId],
+    queryFn: async () => {
+      // First get all users from this practice
+      const { data: practiceUsers, error: usersError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('practice_id', practiceId);
+      
+      if (usersError || !practiceUsers) return 0;
+      
+      const userIds = practiceUsers.map(u => u.id);
+      
+      // Then get pending leave requests for these users
+      const { count, error } = await supabase
+        .from('leave_requests')
+        .select('*', { count: 'exact', head: true })
+        .in('user_id', userIds)
+        .eq('status', 'pending');
+      
+      if (error) {
+        console.error('Error fetching pending leave count:', error);
+        return 0;
+      }
+      return count || 0;
+    },
+    enabled: !!practiceId && isViewingTeam
+  });
+
+  // Fetch pending timesheets count
+  const { data: pendingTimesheetCount = 0 } = useQuery({
+    queryKey: ['pending-timesheet-count', practiceId],
+    queryFn: async () => {
+      // First get all users from this practice
+      const { data: practiceUsers, error: usersError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('practice_id', practiceId);
+      
+      if (usersError || !practiceUsers) return 0;
+      
+      const userIds = practiceUsers.map(u => u.id);
+      
+      // Then get submitted timesheets for these users
+      const { count, error } = await supabase
+        .from('timesheets')
+        .select('*', { count: 'exact', head: true })
+        .in('user_id', userIds)
+        .eq('status', 'submitted');
+      
+      if (error) {
+        console.error('Error fetching pending timesheet count:', error);
+        return 0;
+      }
+      return count || 0;
+    },
+    enabled: !!practiceId && isViewingTeam
+  });
+
   // Fetch user stats
   const { data: userStats } = useQuery<UserStats>({
     queryKey: ['user-stats', selectedUser?.id],
@@ -596,11 +656,11 @@ export const EnhancedUserManagement: React.FC = () => {
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Pending Leave Requests</span>
-                  <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">3</span>
+                  <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">{pendingLeaveCount}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Timesheets to Approve</span>
-                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">5</span>
+                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{pendingTimesheetCount}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Payroll Due</span>
