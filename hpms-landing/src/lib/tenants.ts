@@ -85,16 +85,23 @@ export async function getPracticeByDomain(domain: string, searchParams?: URLSear
     
     // Handle Vercel preview deployments
     if (!mappedDomain && domain.includes('vercel.app')) {
-      // Check for NewCharm preview deployments
-      if (domain.includes('newcharm')) {
-        console.log('🔍 Detected NewCharm preview deployment');
+      // Check for NewCharm preview deployments (handle various patterns)
+      if (domain.includes('newcharm') || 
+          domain.includes('newcharmdental') || 
+          domain.startsWith('newcharmdental-')) {
+        console.log('🔍 Detected NewCharm preview deployment:', domain);
         return await getPracticeBySlug('newcharm-dental');
       }
       // Check for Dr. Polina preview deployments
-      if (domain.includes('dr-polina') || domain.includes('drpolina')) {
-        console.log('🔍 Detected Dr. Polina preview deployment');
+      if (domain.includes('dr-polina') || 
+          domain.includes('drpolina') || 
+          domain.includes('healthpractice')) {
+        console.log('🔍 Detected Dr. Polina preview deployment:', domain);
         return await getPracticeBySlug('dr-polina-aesthetics');
       }
+      // Default to NewCharm for unmatched preview deployments
+      console.log('🔍 Defaulting to NewCharm for preview deployment:', domain);
+      return await getPracticeBySlug('newcharm-dental');
     }
     
     if (!mappedDomain && domain.includes('localhost')) {

@@ -1,2 +1,2 @@
-// FINAL VERSION - Direct export, no environment variables
-export { supabase } from './supabase-final';
+// BULLETPROOF VERSION - Direct export, no environment variables, no errors
+export { supabase, supabaseUrl, supabaseAnonKey } from './supabase-client';

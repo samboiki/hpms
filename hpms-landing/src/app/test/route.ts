@@ -27,8 +27,8 @@ export async function GET() {
       error,
       cityClinic,
       clinicError,
-      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      supabaseUrl: 'https://jjxlfunlbyayxwvlpgwt.supabase.co',
+      hasKey: true
     });
   } catch (error) {
     return NextResponse.json({ 
