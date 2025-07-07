@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quick Communication Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        pre { background: #f0f0f0; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Test Communication Gateway</h1>
+    
+    <div class="test-section">
+        <h2>Quick Test - Click to Send</h2>
+        <button onclick="testSMS()">📱 Send Test SMS to +264812222331</button>
+        <button onclick="testEmail()">📧 Send Test Email to ksnahol@gmail.com</button>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const PRACTICE_ID = '5da3896d-b9f3-4b0a-996a-3adca867cb30';
+        
+        async function getAnonKey() {
+            // Try to get from localStorage (if logged in to the app)
+            const key = localStorage.getItem('supabase.auth.token');
+            if (key) {
+                try {
+                    const parsed = JSON.parse(key);
+                    return parsed.access_token;
+                } catch (e) {}
+            }
+            
+            // Fallback - you may need to provide this
+            return prompt('Please enter your Supabase anon key (from Settings > API):');
+        }
+        
+        async function testSMS() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>Sending SMS...</p>';
+            
+            try {
+                const token = await getAnonKey();
+                if (!token) {
+                    throw new Error('No auth token found. Please log in to the app first.');
+                }
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/centralized-sms-gateway`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        practiceId: PRACTICE_ID,
+                        recipientPhone: '+264812222331',
+                        messageContent: 'Test SMS from HPMS Centralized Gateway at ' + new Date().toLocaleString() + '. Your SMS gateway is working!',
+                        messageType: 'system',
+                        metadata: {
+                            source: 'test-communication-now.html',
+                            testRun: true
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    resultDiv.innerHTML = `
+                        <h3 class="success">✅ SMS Sent Successfully!</h3>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                        <p>Check your phone for the message!</p>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <h3 class="error">❌ SMS Failed</h3>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                        <p>Error: ${result.error || 'Unknown error'}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3 class="error">❌ Error</h3>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+        
+        async function testEmail() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>Sending Email...</p>';
+            
+            try {
+                const token = await getAnonKey();
+                if (!token) {
+                    throw new Error('No auth token found. Please log in to the app first.');
+                }
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/centralized-email-gateway`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        practiceId: PRACTICE_ID,
+                        recipientEmail: 'ksnahol@gmail.com',
+                        recipientName: 'Test User',
+                        subject: 'Test Email from HPMS Centralized Gateway',
+                        htmlContent: `
+                            <h2>Test Email from HPMS</h2>
+                            <p>This is a test email sent at ${new Date().toLocaleString()}</p>
+                            <p>If you're receiving this email, your centralized email gateway is working correctly!</p>
+                            <hr>
+                            <p><small>Sent via centralized communication gateway</small></p>
+                        `,
+                        textContent: 'Test Email from HPMS. This is a test email sent at ' + new Date().toLocaleString(),
+                        emailType: 'system',
+                        metadata: {
+                            source: 'test-communication-now.html',
+                            testRun: true
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    resultDiv.innerHTML = `
+                        <h3 class="success">✅ Email Sent Successfully!</h3>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                        <p>Check your inbox at ksnahol@gmail.com!</p>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <h3 class="error">❌ Email Failed</h3>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                        <p>Error: ${result.error || 'Unknown error'}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3 class="error">❌ Error</h3>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

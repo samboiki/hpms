@@ -1,0 +1,122 @@
+[
+  {
+    "Category": "Consultation & Examination",
+    "Subcategory": "Emergency",
+    "Code": "004",
+    "Description": "Emergency oral examination",
+    "Price": 135,
+    "Complexity": "Simple",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 135,
+    "Notes": ""
+  },
+  {
+    "Category": "Consultation & Examination",
+    "Subcategory": "Emergency",
+    "Code": "005",
+    "Description": "Emergency examination after hours",
+    "Price": 185,
+    "Complexity": "Simple",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 185,
+    "Notes": ""
+  },
+  {
+    "Category": "Consultation & Examination",
+    "Subcategory": "Follow-up",
+    "Code": "009",
+    "Description": "Post-operative examination",
+    "Price": 45,
+    "Complexity": "Simple",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 45,
+    "Notes": ""
+  },
+  {
+    "Category": "Consultation & Examination",
+    "Subcategory": "Follow-up",
+    "Code": "003",
+    "Description": "Limited oral examination - problem focused",
+    "Price": 55,
+    "Complexity": "Simple",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 55,
+    "Notes": ""
+  },
+  {
+    "Category": "Consultation & Examination",
+    "Subcategory": "Follow-up",
+    "Code": "002",
+    "Description": "Periodic oral examination",
+    "Price": 65,
+    "Complexity": "Simple",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 65,
+    "Notes": ""
+  },
+  {
+    "Category": "Consultation & Examination",
+    "Subcategory": "Follow-up",
+    "Code": "008",
+    "Description": "Pre-operative consultation",
+    "Price": 85,
+    "Complexity": "Simple",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 85,
+    "Notes": ""
+  },
+  {
+    "Category": "Consultation & Examination",
+    "Subcategory": "Initial Consultation",
+    "Code": "001",
+    "Description": "Initial comprehensive oral examination",
+    "Price": 95,
+    "Complexity": "Simple",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 95,
+    "Notes": ""
+  },
+  {
+    "Category": "Consultation & Examination",
+    "Subcategory": "Specialist",
+    "Code": "010",
+    "Description": "Oral cancer screening",
+    "Price": 115,
+    "Complexity": "Moderate",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 115,
+    "Notes": ""
+  },
+  {
+    "Category": "Consultation & Examination",
+    "Subcategory": "Specialist",
+    "Code": "007",
+    "Description": "Second opinion consultation",
+    "Price": 125,
+    "Complexity": "Simple",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 125,
+    "Notes": ""
+  },
+  {
+    "Category": "Consultation & Examination",
+    "Subcategory": "Specialist",
+    "Code": "006",
+    "Description": "Specialist consultation",
+    "Price": 155,
+    "Complexity": "Moderate",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 155,
+    "Notes": ""
+  }
+]

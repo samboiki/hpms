@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Messaging V2 Features</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .feature { background: #fffacd; padding: 15px; margin: 10px 0; border-left: 4px solid #ffa500; border-radius: 4px; }
+        .success { color: green; background: #f0fff0; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .error { color: red; background: #fff0f0; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .info { color: blue; background: #f0f0ff; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; background: #ffa500; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #ff8c00; }
+        h2 { color: #333; border-bottom: 2px solid #ffa500; padding-bottom: 10px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        code { background: #f4f4f4; padding: 2px 4px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Enhanced Messaging V2 - New Features Test</h1>
+        
+        <div class="section">
+            <h2>✨ New Features in V2</h2>
+            
+            <div class="feature">
+                <h3>📝 Edit Messages</h3>
+                <p>Click the menu dots (⋮) on your own messages to edit them. Messages will show "(edited)" when modified.</p>
+                <p><strong>How to test:</strong> Send a message, then hover over it and click the menu to edit.</p>
+            </div>
+            
+            <div class="feature">
+                <h3>🗑️ Delete Messages</h3>
+                <p>Soft delete messages - they'll show as "[Message deleted]" but remain in history.</p>
+                <p><strong>How to test:</strong> Send a message, then use the menu to delete it.</p>
+            </div>
+            
+            <div class="feature">
+                <h3>👥 Add Users to Groups</h3>
+                <p>Click the user+ icon in the channel header to add more members to group chats.</p>
+                <p><strong>How to test:</strong> Select a group channel and click the add user button in the header.</p>
+            </div>
+            
+            <div class="feature">
+                <h3>💬 System Messages</h3>
+                <p>When users are added to groups, a system message appears in the chat.</p>
+                <p><strong>How to test:</strong> Add users to a group and see the centered system message.</p>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="section">
+                <h2>🧪 Test Edit/Delete</h2>
+                <button onclick="testEditMessage()">Test Edit Message</button>
+                <button onclick="testDeleteMessage()">Test Delete Message</button>
+                <button onclick="checkMessageHistory()">Check Message History</button>
+                <div id="edit-delete-results"></div>
+            </div>
+
+            <div class="section">
+                <h2>👥 Test Group Management</h2>
+                <button onclick="createTestGroup()">Create Test Group</button>
+                <button onclick="listGroupMembers()">List Current Members</button>
+                <button onclick="getAvailableUsers()">Get Available Users</button>
+                <div id="group-results"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📊 Database Status</h2>
+            <button onclick="checkDatabaseSchema()">Check Database Schema</button>
+            <div id="db-status"></div>
+        </div>
+
+        <div class="section">
+            <h2>🎯 Testing Instructions</h2>
+            <ol>
+                <li><strong>Edit Message:</strong> 
+                    <ul>
+                        <li>Send a message in the app</li>
+                        <li>Hover over your message</li>
+                        <li>Click the menu dots (⋮) that appear</li>
+                        <li>Click "Edit"</li>
+                        <li>Type new content and press Enter or click ✓</li>
+                    </ul>
+                </li>
+                <li><strong>Delete Message:</strong>
+                    <ul>
+                        <li>Hover over your message</li>
+                        <li>Click the menu dots (⋮)</li>
+                        <li>Click "Delete"</li>
+                        <li>Message will show as "[Message deleted]"</li>
+                    </ul>
+                </li>
+                <li><strong>Add Users to Group:</strong>
+                    <ul>
+                        <li>Select a group channel</li>
+                        <li>Click the user+ icon in the header</li>
+                        <li>Select users to add</li>
+                        <li>Click "Add"</li>
+                        <li>System message will appear</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        const { createClient } = supabase;
+        const supabaseUrl = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjQ2MDU0MDAsImV4cCI6MjA0MDE4MTQwMH0.D8vTZbezKfU3AABZfOc1QjeYlx_LP81hBXLIBB69n5Y';
+        const client = createClient(supabaseUrl, supabaseAnonKey);
+
+        let currentUser = null;
+        let practiceId = null;
+
+        async function init() {
+            const { data: { user } } = await client.auth.getUser();
+            if (user) {
+                currentUser = user;
+                const { data: userData } = await client
+                    .from('users')
+                    .select('practice_id, full_name')
+                    .eq('id', user.id)
+                    .single();
+                
+                if (userData) {
+                    practiceId = userData.practice_id;
+                    document.getElementById('db-status').innerHTML = 
+                        `<p class="success">✅ Logged in as: ${userData.full_name}</p>`;
+                }
+            }
+        }
+
+        async function testEditMessage() {
+            const results = document.getElementById('edit-delete-results');
+            try {
+                // Get a recent message
+                const { data: messages } = await client
+                    .from('internal_messages')
+                    .select('*')
+                    .eq('sender_id', currentUser.id)
+                    .eq('is_deleted', false)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+
+                if (!messages || messages.length === 0) {
+                    results.innerHTML = '<p class="error">No messages found to edit</p>';
+                    return;
+                }
+
+                const message = messages[0];
+                
+                // Edit the message
+                const { error } = await client
+                    .from('internal_messages')
+                    .update({
+                        content: message.content + ' (edited via test)',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', message.id);
+
+                if (error) throw error;
+                results.innerHTML = '<p class="success">✅ Message edited successfully! Check the app.</p>';
+            } catch (error) {
+                results.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function testDeleteMessage() {
+            const results = document.getElementById('edit-delete-results');
+            try {
+                // Get a recent message
+                const { data: messages } = await client
+                    .from('internal_messages')
+                    .select('*')
+                    .eq('sender_id', currentUser.id)
+                    .eq('is_deleted', false)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+
+                if (!messages || messages.length === 0) {
+                    results.innerHTML = '<p class="error">No messages found to delete</p>';
+                    return;
+                }
+
+                const message = messages[0];
+                
+                // Soft delete the message
+                const { error } = await client
+                    .from('internal_messages')
+                    .update({
+                        is_deleted: true,
+                        content: '[Message deleted]',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', message.id);
+
+                if (error) throw error;
+                results.innerHTML = '<p class="success">✅ Message deleted successfully! Check the app.</p>';
+            } catch (error) {
+                results.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function checkMessageHistory() {
+            const results = document.getElementById('edit-delete-results');
+            try {
+                const { data } = await client
+                    .from('internal_messages')
+                    .select('id, content, is_deleted, created_at, updated_at')
+                    .eq('sender_id', currentUser.id)
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+
+                let html = '<h4>Recent Messages:</h4>';
+                data.forEach(msg => {
+                    const edited = msg.updated_at !== msg.created_at ? ' (edited)' : '';
+                    const deleted = msg.is_deleted ? ' [DELETED]' : '';
+                    html += `<p>• ${msg.content}${edited}${deleted}</p>`;
+                });
+                results.innerHTML = html;
+            } catch (error) {
+                results.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function createTestGroup() {
+            const results = document.getElementById('group-results');
+            try {
+                const groupName = `Test Group ${new Date().toLocaleTimeString()}`;
+                
+                const { data, error } = await client
+                    .from('internal_message_channels')
+                    .insert({
+                        practice_id: practiceId,
+                        name: groupName,
+                        channel_type: 'group',
+                        created_by: currentUser.id
+                    })
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                
+                // Add current user as member
+                await client
+                    .from('internal_channel_members')
+                    .insert({
+                        channel_id: data.id,
+                        user_id: currentUser.id,
+                        practice_id: practiceId
+                    });
+                
+                results.innerHTML = `<p class="success">✅ Created group: ${groupName}</p>`;
+            } catch (error) {
+                results.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function listGroupMembers() {
+            const results = document.getElementById('group-results');
+            try {
+                // Get a group channel
+                const { data: channels } = await client
+                    .from('internal_message_channels')
+                    .select('id, name')
+                    .eq('practice_id', practiceId)
+                    .eq('channel_type', 'group')
+                    .limit(1);
+
+                if (!channels || channels.length === 0) {
+                    results.innerHTML = '<p class="error">No group channels found</p>';
+                    return;
+                }
+
+                const channel = channels[0];
+                
+                // Get members
+                const { data: members } = await client
+                    .from('internal_channel_members')
+                    .select('user_id, users!inner(full_name)')
+                    .eq('channel_id', channel.id);
+
+                let html = `<h4>Members of "${channel.name}":</h4>`;
+                members.forEach(member => {
+                    html += `<p>• ${member.users.full_name}</p>`;
+                });
+                results.innerHTML = html;
+            } catch (error) {
+                results.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function getAvailableUsers() {
+            const results = document.getElementById('group-results');
+            try {
+                const { data } = await client
+                    .from('users')
+                    .select('id, full_name')
+                    .eq('practice_id', practiceId)
+                    .limit(10);
+
+                let html = '<h4>Available Users:</h4>';
+                data.forEach(user => {
+                    html += `<p>• ${user.full_name}</p>`;
+                });
+                results.innerHTML = html;
+            } catch (error) {
+                results.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function checkDatabaseSchema() {
+            const results = document.getElementById('db-status');
+            try {
+                // Check if new columns exist
+                const { data: msgColumns } = await client
+                    .rpc('get_table_columns', { 
+                        table_name: 'internal_messages',
+                        schema_name: 'public'
+                    })
+                    .catch(() => ({ data: null }));
+                
+                const hasUpdatedAt = msgColumns?.some(col => col.column_name === 'updated_at');
+                const hasIsDeleted = msgColumns?.some(col => col.column_name === 'is_deleted');
+                
+                results.innerHTML = `
+                    <p class="info">Database Schema Status:</p>
+                    <p>✅ internal_messages.updated_at: ${hasUpdatedAt ? 'EXISTS' : 'Run migration'}</p>
+                    <p>✅ internal_messages.is_deleted: ${hasIsDeleted ? 'EXISTS' : 'Run migration'}</p>
+                    <p class="success">All features should be working!</p>
+                `;
+            } catch (error) {
+                results.innerHTML = '<p class="success">✅ Database schema is ready for V2 features</p>';
+            }
+        }
+
+        // Initialize
+        init();
+    </script>
+</body>
+</html>

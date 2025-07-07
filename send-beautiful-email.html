@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Beautiful Email</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f3f4f6;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        button {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: white;
+            border: none;
+            padding: 16px 40px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .preview {
+            margin-top: 30px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        .log {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>📧 Send Beautiful Welcome Email</h1>
+        
+        <p>This will send Happy Joy's welcome email with the new beautiful template design.</p>
+        
+        <button onclick="previewEmail()" id="previewBtn">Preview Email</button>
+        <button onclick="sendEmail()" id="sendBtn">Send Beautiful Email</button>
+        
+        <div id="preview" class="preview" style="display: none;"></div>
+        
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#e5e7eb';
+            logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function previewEmail() {
+            const previewDiv = document.getElementById('preview');
+            previewDiv.style.display = 'block';
+            previewDiv.innerHTML = `
+                <h3>Email Preview</h3>
+                <p><strong>To:</strong> ksnahol@gmail.com</p>
+                <p><strong>Subject:</strong> Welcome to New Charm Dental Practice!</p>
+                <iframe src="data:text/html;charset=utf-8,${encodeURIComponent(generateEmailHTML())}" 
+                        style="width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 4px;">
+                </iframe>
+            `;
+        }
+
+        function generateEmailHTML() {
+            return `
+<!DOCTYPE html>
+<html>
+<head>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Montserrat', Arial, sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6;">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07); overflow: hidden;">
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); padding: 40px; text-align: center;">
+                            <h1 style="margin: 0; font-family: 'Rubik', Arial, sans-serif; font-size: 32px; font-weight: 700; color: #ffffff;">
+                                New Charm Dental Practice
+                            </h1>
+                            <p style="margin: 10px 0 0 0; font-family: 'Montserrat', Arial, sans-serif; font-size: 14px; color: rgba(255, 255, 255, 0.9);">
+                                Excellence in Healthcare
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 40px;">
+                            <p style="font-size: 18px; margin: 0 0 20px 0;">Dear Happy Joy,</p>
+                            <p style="font-size: 16px; line-height: 1.6; color: #333333;">
+                                Welcome to New Charm Dental Practice! We are thrilled to have you as our patient.
+                            </p>
+                            <p style="font-size: 16px; line-height: 1.6; color: #333333;">
+                                As a new patient, you can:
+                            </p>
+                            <ul style="font-size: 16px; line-height: 1.8; color: #333333;">
+                                <li>Schedule appointments online</li>
+                                <li>Access your medical records</li>
+                                <li>Message your healthcare team</li>
+                                <li>View test results</li>
+                            </ul>
+                            <p style="font-size: 16px; line-height: 1.6; color: #333333;">
+                                If you have any questions, please do not hesitate to contact us.
+                            </p>
+                            <p style="font-size: 16px; line-height: 1.6; color: #333333;">
+                                We look forward to being your healthcare partner!
+                            </p>
+                            <p style="font-size: 16px; line-height: 1.6; color: #333333;">
+                                Best regards,<br>
+                                The New Charm Dental Practice Team
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0 40px 40px 40px; text-align: center;">
+                            <a href="tel:+264814358843" style="display: inline-block; padding: 14px 30px; background-color: #4f46e5; color: #ffffff; text-decoration: none; font-family: 'Rubik', Arial, sans-serif; font-size: 16px; font-weight: 600; border-radius: 8px;">
+                                Call Us: +264 81 435 8843
+                            </a>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 30px 40px; text-align: center;">
+                            <p style="margin: 0; font-family: 'Rubik', Arial, sans-serif; font-size: 18px; font-weight: 600; color: #4f46e5;">
+                                New Charm Dental Practice
+                            </p>
+                            <p style="margin: 5px 0; font-family: 'Montserrat', Arial, sans-serif; font-size: 14px; color: #666666;">
+                                📞 +264 81 435 8843<br>
+                                ✉️ info@newcharmdental.na<br>
+                                🌐 www.newcharmdental.na
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+            `;
+        }
+
+        async function sendEmail() {
+            const btn = document.getElementById('sendBtn');
+            btn.disabled = true;
+            
+            try {
+                // Get auth token
+                const authData = localStorage.getItem('sb-jjxlfunlbyayxwvlpgwt-auth-token');
+                if (!authData) {
+                    log('Please login to HPMS first', 'error');
+                    return;
+                }
+                
+                const { access_token } = JSON.parse(authData);
+                log('Sending beautiful email...');
+                
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/centralized-email-gateway`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${access_token}`,
+                        'apikey': access_token
+                    },
+                    body: JSON.stringify({
+                        practiceId: 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3',
+                        recipientEmail: 'ksnahol@gmail.com',
+                        recipientName: 'Happy Joy',
+                        senderEmail: 'onboarding@resend.dev',
+                        senderName: 'HPMS',
+                        subject: 'Welcome to New Charm Dental Practice!',
+                        textContent: `Dear Happy Joy,
+
+Welcome to New Charm Dental Practice! We are thrilled to have you as our patient.
+
+As a new patient, you can:
+- Schedule appointments online
+- Access your medical records
+- Message your healthcare team
+- View test results
+
+If you have any questions, please do not hesitate to contact us at +264 81 435 8843 or reply to this email.
+
+We look forward to being your healthcare partner!
+
+Best regards,
+The New Charm Dental Practice Team`,
+                        emailType: 'welcome',
+                        patientId: '54c9df8a-257b-463c-b43d-5c2db19c000a',
+                        metadata: {
+                            email_log_id: '86a3735f-37aa-4962-aa67-48a8d0bfae40'
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    log('✅ Beautiful email sent successfully!', 'success');
+                    log(`Message ID: ${result.messageId}`, 'success');
+                } else {
+                    log(`Failed: ${result.error}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        window.onload = () => {
+            log('Ready to send beautiful email');
+        };
+    </script>
+</body>
+</html>

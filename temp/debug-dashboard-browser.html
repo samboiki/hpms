@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Dashboard</title>
+</head>
+<body>
+    <script>
+        console.log('🔍 Starting browser debug test...');
+        
+        // Open dashboard in iframe to check for console logs
+        const iframe = document.createElement('iframe');
+        iframe.src = 'http://localhost:5000/';
+        iframe.style.width = '100%';
+        iframe.style.height = '600px';
+        iframe.onload = function() {
+            console.log('📄 Iframe loaded');
+            setTimeout(() => {
+                try {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    const dashboardContent = iframeDoc.querySelector('div[class*="min-h-screen"]');
+                    if (dashboardContent) {
+                        console.log('✅ Dashboard content found in iframe');
+                    } else {
+                        console.log('❌ No dashboard content found in iframe');
+                    }
+                } catch (e) {
+                    console.log('❌ Cannot access iframe content (CORS):', e.message);
+                }
+            }, 2000);
+        };
+        iframe.onerror = function() {
+            console.log('❌ Iframe failed to load');
+        };
+        
+        document.body.appendChild(iframe);
+        
+        // Also try direct fetch
+        fetch('http://localhost:5000/')
+            .then(response => response.text())
+            .then(html => {
+                console.log('📡 Direct fetch response length:', html.length);
+                if (html.includes('Dashboard')) {
+                    console.log('✅ "Dashboard" text found in HTML');
+                } else {
+                    console.log('❌ "Dashboard" text not found in HTML');
+                }
+                if (html.includes('🚀 Dashboard component starting')) {
+                    console.log('✅ Console log found in HTML');
+                } else {
+                    console.log('❌ Console log not found in HTML');
+                }
+            })
+            .catch(err => console.log('❌ Fetch failed:', err));
+    </script>
+    <h1>Dashboard Debug Test</h1>
+    <p>Check browser console for results</p>
+</body>
+</html>

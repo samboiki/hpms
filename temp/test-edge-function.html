@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Edge Function</title>
+</head>
+<body>
+    <h1>Test Batch Email Edge Function</h1>
+    <button onclick="testFunction()">Test Function</button>
+    <div id="result"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Initialize Supabase client
+        const supabaseUrl = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU3NzY4NTQsImV4cCI6MjAzMTM1Mjg1NH0.KDe8_bQVGKoahcb7CRrl5_n6K-6lV7LmdEWLX8JJPH8';
+        
+        const supabase = supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+        async function testFunction() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>Testing...</p>';
+            
+            try {
+                console.log('🚀 Testing edge function...');
+                
+                const { data, error } = await supabase.functions.invoke('send-batch-email', {
+                    body: { batch_id: '782752c0-cb09-4c11-b43a-0365c2a0d152' }
+                });
+
+                if (error) {
+                    console.error('❌ Edge function error:', error);
+                    resultDiv.innerHTML = `<p style="color: red;">Error: ${JSON.stringify(error, null, 2)}</p>`;
+                } else {
+                    console.log('✅ Success:', data);
+                    resultDiv.innerHTML = `<p style="color: green;">Success: ${JSON.stringify(data, null, 2)}</p>`;
+                }
+            } catch (error) {
+                console.error('💥 Exception:', error);
+                resultDiv.innerHTML = `<p style="color: red;">Exception: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
@@ -40,15 +40,93 @@ interface PatientRegistrationFormData {
   };
 }
 
+interface MedicalAidProvider {
+  id: string;
+  name: string;
+  short_name: string;
+}
+
+
 interface Props {
   onSuccess?: () => void;
 }
 
 const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
-  const { register, handleSubmit, formState: { errors } } = useForm<PatientRegistrationFormData>();
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<PatientRegistrationFormData>();
+  const [providers, setProviders] = useState<MedicalAidProvider[]>([]);
+  const [loadingProviders, setLoadingProviders] = useState(true);
+
+  const selectedProvider = watch('medicalAid.provider');
+
+  // Fetch medical aid providers
+  useEffect(() => {
+    const fetchProviders = async () => {
+      try {
+        // Try the new function first, fallback to direct table access
+        let data, error;
+        
+        try {
+          const result = await supabase.rpc('get_medical_aid_providers');
+          data = result.data;
+          error = result.error;
+        } catch (funcError) {
+          // Function doesn't exist yet, use direct table access
+          const result = await supabase
+            .from('medical_aid_providers')
+            .select('id, name, short_name')
+            .order('name');
+          data = result.data;
+          error = result.error;
+        }
+
+        if (error) throw error;
+        setProviders(data || []);
+      } catch (error) {
+        console.error('Error fetching providers:', error);
+      } finally {
+        setLoadingProviders(false);
+      }
+    };
+
+    fetchProviders();
+  }, []);
+
 
   const onSubmit = async (data: PatientRegistrationFormData) => {
     try {
+      // Check for duplicate ID number first
+      const { data: existingPatient, error: checkError } = await supabase
+        .from('patients')
+        .select('id, first_name, last_name')
+        .eq('id_number', data.idNumber)
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+
+      if (existingPatient) {
+        alert(`Patient with ID number ${data.idNumber} already exists: ${existingPatient.first_name} ${existingPatient.last_name}`);
+        return;
+      }
+
+      // Add practice_id to patient data
+      const { data: { user } } = await supabase.auth.getUser();
+      let practiceId = 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3'; // Default to Dr. Polina's practice
+
+      // Try to get user's practice from users table
+      if (user) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('practice_id')
+          .eq('id', user.id)
+          .single();
+        
+        if (userData?.practice_id) {
+          practiceId = userData.practice_id;
+        }
+      }
+
       // Insert patient data
       const { data: patientData, error: patientError } = await supabase
         .from('patients')
@@ -65,7 +143,8 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
           email: data.email,
           home_address: data.homeAddress,
           postal_address: data.postalAddress,
-          postal_code: data.postalCode
+          postal_code: data.postalCode,
+          practice_id: practiceId
         }])
         .select()
         .single();
@@ -74,12 +153,17 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
 
       // Insert medical aid details
       if (data.medicalAid.provider) {
+        // Get provider name for storing in medical_aid_details
+        const selectedProviderData = providers.find(p => p.id === data.medicalAid.provider);
+
         const { error: medicalAidError } = await supabase
           .from('medical_aid_details')
           .insert([{
             patient_id: patientData.id,
-            provider: data.medicalAid.provider,
+            provider: selectedProviderData?.name || data.medicalAid.provider,
             scheme: data.medicalAid.scheme,
+            plan_type: data.medicalAid.scheme,
+            medical_aid_provider_id: data.medicalAid.provider,
             membership_number: data.medicalAid.membershipNumber,
             main_member_name: data.medicalAid.mainMemberName,
             main_member_id_number: data.medicalAid.mainMemberIdNumber,
@@ -277,19 +361,30 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Provider</label>
-            <input
-              type="text"
+            <select
               {...register('medicalAid.provider')}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
-            />
+              disabled={loadingProviders}
+            >
+              <option value="">Select provider</option>
+              {providers.map((provider) => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.name}
+                </option>
+              ))}
+            </select>
+            {loadingProviders && (
+              <p className="mt-1 text-sm text-gray-500">Loading providers...</p>
+            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Scheme</label>
+            <label className="block text-sm font-medium text-gray-700">Scheme/Plan</label>
             <input
               type="text"
               {...register('medicalAid.scheme')}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
+              placeholder="e.g., Family Plan, Executive Plan"
             />
           </div>
 

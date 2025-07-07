@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test SMS with JWT Authentication</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        input { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        button { padding: 15px 30px; background: #28a745; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 18px; margin: 10px 0; }
+        button:hover { background: #218838; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .result { margin-top: 20px; padding: 15px; background: white; border-radius: 5px; }
+        .success { border-left: 4px solid #28a745; background: #d4edda; }
+        .error { border-left: 4px solid #dc3545; background: #f8d7da; }
+        .info { border-left: 4px solid #007bff; background: #d1ecf1; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; white-space: pre-wrap; }
+        .auth-status { padding: 10px; margin-bottom: 20px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Test SMS with JWT Authentication</h1>
+        <p>This test uses proper JWT authentication with Supabase.</p>
+        
+        <div id="authStatus" class="auth-status"></div>
+        
+        <div id="loginSection" style="display: none;">
+            <h3>Login Required</h3>
+            <label>Email:</label>
+            <input type="email" id="email" value="" placeholder="your@email.com" />
+            
+            <label>Password:</label>
+            <input type="password" id="password" placeholder="Your password" />
+            
+            <button onclick="login()" id="loginBtn">Login</button>
+        </div>
+        
+        <div id="smsSection" style="display: none;">
+            <label>Recipient Name:</label>
+            <input type="text" id="recipientName" value="Test User" />
+            
+            <label>Phone Number:</label>
+            <input type="text" id="phoneNumber" value="0812222331" />
+            
+            <button onclick="sendSMS()" id="sendBtn">Send Test SMS</button>
+            <button onclick="logout()" style="background: #dc3545;">Logout</button>
+        </div>
+        
+        <div id="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjczMTMzNzcsImV4cCI6MjA0Mjg4OTM3N30.q6-a0gaVpGF1ZQRhmLgLkz5xGppXqz9v9xF4kLkyfGg';
+        const PRACTICE_ID = 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3';
+        
+        // Initialize Supabase client
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        function showResult(success, content, divId = 'result') {
+            const resultDiv = document.getElementById(divId);
+            resultDiv.style.display = 'block';
+            resultDiv.className = `result ${success ? 'success' : success === null ? 'info' : 'error'}`;
+            resultDiv.innerHTML = content;
+        }
+        
+        async function checkAuth() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const authStatus = document.getElementById('authStatus');
+            const loginSection = document.getElementById('loginSection');
+            const smsSection = document.getElementById('smsSection');
+            
+            if (session) {
+                authStatus.className = 'auth-status success';
+                authStatus.innerHTML = `
+                    <strong>✅ Authenticated</strong><br>
+                    User: ${session.user.email}<br>
+                    Token expires: ${new Date(session.expires_at * 1000).toLocaleString()}
+                `;
+                loginSection.style.display = 'none';
+                smsSection.style.display = 'block';
+                
+                // Store the access token for debugging
+                window.currentAccessToken = session.access_token;
+                console.log('Current JWT token:', session.access_token);
+            } else {
+                authStatus.className = 'auth-status error';
+                authStatus.innerHTML = '<strong>❌ Not Authenticated</strong><br>Please login to send SMS';
+                loginSection.style.display = 'block';
+                smsSection.style.display = 'none';
+            }
+        }
+        
+        async function login() {
+            const loginBtn = document.getElementById('loginBtn');
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (!email || !password) {
+                showResult(false, 'Please enter email and password');
+                return;
+            }
+            
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Logging in...';
+            
+            try {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({
+                    email,
+                    password
+                });
+                
+                if (error) {
+                    showResult(false, `Login failed: ${error.message}`);
+                } else {
+                    showResult(true, 'Login successful!');
+                    await checkAuth();
+                }
+            } catch (error) {
+                showResult(false, `Error: ${error.message}`);
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = 'Login';
+            }
+        }
+        
+        async function logout() {
+            await supabaseClient.auth.signOut();
+            await checkAuth();
+            showResult(null, 'Logged out successfully');
+        }
+        
+        async function sendSMS() {
+            const sendBtn = document.getElementById('sendBtn');
+            const recipientName = document.getElementById('recipientName').value;
+            const phoneNumber = document.getElementById('phoneNumber').value;
+            
+            if (!recipientName || !phoneNumber) {
+                showResult(false, '<h3>❌ Error</h3><p>Please enter both recipient name and phone number.</p>');
+                return;
+            }
+            
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+            
+            try {
+                // Get current session to ensure we have fresh token
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) {
+                    showResult(false, 'Session expired. Please login again.');
+                    await checkAuth();
+                    return;
+                }
+                
+                console.log('Invoking edge function with authenticated session');
+                console.log('JWT Token being used:', session.access_token);
+                
+                // Method 1: Using Supabase client (recommended)
+                const { data, error } = await supabaseClient.functions.invoke('centralized-sms-gateway', {
+                    body: {
+                        practiceId: PRACTICE_ID,
+                        recipientPhone: phoneNumber,
+                        messageContent: `Dear ${recipientName}, this is a test SMS from HPMS sent at ${new Date().toLocaleTimeString()}. If you receive this, the SMS gateway is working correctly!`,
+                        messageType: 'test',
+                        metadata: {
+                            test: true,
+                            authenticated: true,
+                            userId: session.user.id,
+                            timestamp: new Date().toISOString()
+                        }
+                    }
+                });
+                
+                console.log('Edge function response:', { data, error });
+                
+                if (error) {
+                    showResult(false, `
+                        <h3>❌ Edge Function Error</h3>
+                        <p><strong>Error Message:</strong> ${error.message}</p>
+                        <p><strong>Error Details:</strong></p>
+                        <pre>${JSON.stringify(error, null, 2)}</pre>
+                        <hr>
+                        <p>Debug Info:</p>
+                        <ul>
+                            <li>Authenticated: ${session ? 'Yes' : 'No'}</li>
+                            <li>User ID: ${session?.user?.id || 'N/A'}</li>
+                            <li>Token Expiry: ${session ? new Date(session.expires_at * 1000).toLocaleString() : 'N/A'}</li>
+                        </ul>
+                    `);
+                } else if (data && data.success) {
+                    showResult(true, `
+                        <h3>✅ SMS Sent Successfully!</h3>
+                        <p><strong>Recipient:</strong> ${phoneNumber}</p>
+                        <p><strong>SMS Log ID:</strong> ${data.logId}</p>
+                        <p><strong>Status:</strong> ${data.status}</p>
+                        <p><strong>Remaining Credits:</strong> ${data.remainingCredits || 'N/A'}</p>
+                        <hr>
+                        <p><strong>Authentication Info:</strong></p>
+                        <ul>
+                            <li>Sent by: ${session.user.email}</li>
+                            <li>User ID: ${session.user.id}</li>
+                        </ul>
+                    `);
+                } else {
+                    showResult(false, `
+                        <h3>❌ SMS Failed</h3>
+                        <p><strong>Response:</strong></p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `);
+                }
+                
+            } catch (error) {
+                console.error('Unexpected error:', error);
+                showResult(false, `
+                    <h3>❌ Unexpected Error</h3>
+                    <p>${error.message}</p>
+                    <pre>${JSON.stringify(error, null, 2)}</pre>
+                `);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send Test SMS';
+            }
+        }
+        
+        // Alternative: Direct fetch with JWT (for debugging)
+        async function sendSMSDirectFetch() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) {
+                console.error('No session available');
+                return;
+            }
+            
+            const response = await fetch(`${SUPABASE_URL}/functions/v1/centralized-sms-gateway`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                    'apikey': SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify({
+                    practiceId: PRACTICE_ID,
+                    recipientPhone: '0812222331',
+                    messageContent: 'Test SMS with direct fetch',
+                    messageType: 'test'
+                })
+            });
+            
+            const result = await response.json();
+            console.log('Direct fetch result:', result);
+        }
+        
+        // Check auth status on load
+        window.onload = async () => {
+            await checkAuth();
+            
+            // Listen for auth changes
+            supabaseClient.auth.onAuthStateChange(async (event, session) => {
+                console.log('Auth state changed:', event);
+                await checkAuth();
+            });
+        };
+        
+        // Export for debugging
+        window.testDirectFetch = sendSMSDirectFetch;
+        window.supabaseClient = supabaseClient;
+    </script>
+</body>
+</html>

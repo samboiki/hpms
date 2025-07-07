@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SMS Diagnostic Tool</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 1000px; margin: 0 auto; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .diagnostic { background: white; padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 4px solid #007bff; }
+        .success { border-left-color: #28a745; }
+        .warning { border-left-color: #ffc107; }
+        .error { border-left-color: #dc3545; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; margin: 5px; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; }
+        .status-badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 12px; font-weight: bold; }
+        .status-sent { background: #d4edda; color: #155724; }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-failed { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 SMS Diagnostic Tool</h1>
+        <p>This tool will help diagnose why SMS messages are not being delivered to your phone.</p>
+    </div>
+
+    <div class="container">
+        <h2>Step 1: Check Recent SMS Logs</h2>
+        <button onclick="checkRecentLogs()" id="logsBtn">Check Recent SMS Logs</button>
+        <div id="logsResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 2: Test SMS Gateway Connection</h2>
+        <button onclick="testGatewayConnection()" id="gatewayBtn">Test Gateway Connection</button>
+        <div id="gatewayResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 3: Send Test SMS with Debug Mode</h2>
+        <label>Phone Number (include country code, e.g., +264812222331):</label>
+        <input type="text" id="testPhone" value="+264812222331" style="width: 300px; padding: 5px; margin: 10px 0;">
+        <br>
+        <button onclick="sendDebugSMS()" id="debugBtn">Send Debug SMS</button>
+        <div id="debugResult"></div>
+    </div>
+
+    <div class="container">
+        <h2>Step 4: Check SMS Portal Credentials</h2>
+        <button onclick="checkCredentials()" id="credsBtn">Check Credentials Status</button>
+        <div id="credsResult"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjczMTMzNzcsImV4cCI6MjA0Mjg4OTM3N30.q6-a0gaVpGF1ZQRhmLgLkz5xGppXqz9v9xF4kLkyfGg';
+        const PRACTICE_ID = 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3';
+
+        async function checkRecentLogs() {
+            const btn = document.getElementById('logsBtn');
+            const result = document.getElementById('logsResult');
+            btn.disabled = true;
+            btn.textContent = 'Checking...';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/practice_sms_logs?practice_id=eq.${PRACTICE_ID}&order=created_at.desc&limit=5`, {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+                
+                const logs = await response.json();
+                
+                let html = '<div class="diagnostic">';
+                html += '<h3>Recent SMS Logs (Last 5)</h3>';
+                
+                if (logs.length === 0) {
+                    html += '<p>No SMS logs found.</p>';
+                } else {
+                    html += '<table style="width: 100%; border-collapse: collapse;">';
+                    html += '<tr style="background: #f8f9fa;"><th>Time</th><th>Phone</th><th>Status</th><th>Provider Response</th></tr>';
+                    
+                    logs.forEach(log => {
+                        const status = log.status;
+                        const statusClass = status === 'sent' ? 'status-sent' : status === 'pending' ? 'status-pending' : 'status-failed';
+                        
+                        html += '<tr style="border-bottom: 1px solid #dee2e6;">';
+                        html += `<td style="padding: 8px;">${new Date(log.created_at).toLocaleString()}</td>`;
+                        html += `<td>${log.recipient_phone}</td>`;
+                        html += `<td><span class="status-badge ${statusClass}">${status}</span></td>`;
+                        html += `<td style="font-size: 12px;">${log.provider_response ? JSON.stringify(log.provider_response).substring(0, 100) + '...' : 'No response'}</td>`;
+                        html += '</tr>';
+                    });
+                    
+                    html += '</table>';
+                    
+                    // Analysis
+                    const sentCount = logs.filter(l => l.status === 'sent').length;
+                    const deliveredCount = logs.filter(l => l.delivered_at).length;
+                    
+                    html += '<div style="margin-top: 15px; padding: 10px; background: #f8f9fa;">';
+                    html += '<strong>Analysis:</strong><br>';
+                    html += `• ${sentCount} out of ${logs.length} marked as sent<br>`;
+                    html += `• ${deliveredCount} confirmed delivered<br>`;
+                    
+                    if (sentCount > 0 && deliveredCount === 0) {
+                        html += '<span style="color: #dc3545;">⚠️ SMS are being accepted by the gateway but not delivered to phones</span>';
+                    }
+                    html += '</div>';
+                }
+                
+                html += '</div>';
+                result.innerHTML = html;
+                result.className = sentCount > 0 && deliveredCount === 0 ? 'warning' : 'success';
+                
+            } catch (error) {
+                result.innerHTML = `<div class="diagnostic error"><h3>Error</h3><p>${error.message}</p></div>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Check Recent SMS Logs';
+            }
+        }
+
+        async function testGatewayConnection() {
+            const btn = document.getElementById('gatewayBtn');
+            const result = document.getElementById('gatewayResult');
+            btn.disabled = true;
+            btn.textContent = 'Testing...';
+            
+            try {
+                // Test the edge function health
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/centralized-sms-gateway`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+                
+                let html = '<div class="diagnostic">';
+                html += '<h3>Gateway Connection Test</h3>';
+                html += `<p>• Edge Function Status: ${response.ok ? '✅ Active' : '❌ Not responding'}</p>`;
+                html += `<p>• Response Status: ${response.status}</p>`;
+                html += `<p>• CORS Headers: ${response.headers.get('Access-Control-Allow-Origin') ? '✅ Present' : '❌ Missing'}</p>`;
+                html += '</div>';
+                
+                result.innerHTML = html;
+                result.className = response.ok ? 'success' : 'error';
+                
+            } catch (error) {
+                result.innerHTML = `<div class="diagnostic error"><h3>Error</h3><p>${error.message}</p></div>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Test Gateway Connection';
+            }
+        }
+
+        async function sendDebugSMS() {
+            const btn = document.getElementById('debugBtn');
+            const result = document.getElementById('debugResult');
+            const phone = document.getElementById('testPhone').value;
+            
+            if (!phone) {
+                result.innerHTML = '<div class="diagnostic error"><p>Please enter a phone number</p></div>';
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.textContent = 'Sending...';
+            
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/centralized-sms-gateway`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        practice_id: PRACTICE_ID,
+                        recipient_phone: phone,
+                        message_content: `HPMS Debug Test SMS sent at ${new Date().toLocaleTimeString()}. If you receive this, SMS delivery is working.`,
+                        message_type: 'debug-test',
+                        metadata: {
+                            debug: true,
+                            test_timestamp: new Date().toISOString()
+                        }
+                    })
+                });
+                
+                const responseData = await response.json();
+                
+                let html = '<div class="diagnostic">';
+                html += '<h3>Debug SMS Result</h3>';
+                html += `<p>• Response Status: ${response.status}</p>`;
+                html += `<p>• Success: ${responseData.success ? '✅ Yes' : '❌ No'}</p>`;
+                
+                if (responseData.success) {
+                    html += `<p>• SMS Log ID: ${responseData.log_id}</p>`;
+                    html += `<p>• Status: ${responseData.status}</p>`;
+                    html += '<p style="color: #28a745;"><strong>✅ SMS was accepted by the gateway</strong></p>';
+                    html += '<p>Check your phone now. If you don\'t receive it within 2 minutes, the issue is likely:</p>';
+                    html += '<ul>';
+                    html += '<li>SMS Portal account is in test/demo mode</li>';
+                    html += '<li>Phone number format issue</li>';
+                    html += '<li>Network/carrier blocking</li>';
+                    html += '<li>Invalid SMS Portal credentials</li>';
+                    html += '</ul>';
+                } else {
+                    html += `<p>• Error: ${responseData.error}</p>`;
+                    html += '<p style="color: #dc3545;"><strong>❌ SMS was not accepted by the gateway</strong></p>';
+                }
+                
+                html += '<h4>Full Response:</h4>';
+                html += `<pre>${JSON.stringify(responseData, null, 2)}</pre>`;
+                html += '</div>';
+                
+                result.innerHTML = html;
+                result.className = responseData.success ? 'success' : 'error';
+                
+            } catch (error) {
+                result.innerHTML = `<div class="diagnostic error"><h3>Error</h3><p>${error.message}</p></div>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Send Debug SMS';
+            }
+        }
+
+        async function checkCredentials() {
+            const btn = document.getElementById('credsBtn');
+            const result = document.getElementById('credsResult');
+            btn.disabled = true;
+            btn.textContent = 'Checking...';
+            
+            let html = '<div class="diagnostic">';
+            html += '<h3>SMS Portal Credentials Check</h3>';
+            html += '<p><strong>Note:</strong> The actual credentials are stored securely in Supabase environment variables.</p>';
+            html += '<h4>Required Environment Variables:</h4>';
+            html += '<ul>';
+            html += '<li><code>SMS_PORTAL_CLIENT_ID</code> - Your SMS Portal client ID</li>';
+            html += '<li><code>SMS_PORTAL_API_SECRET</code> - Your SMS Portal API secret</li>';
+            html += '</ul>';
+            html += '<h4>Common Issues:</h4>';
+            html += '<ul>';
+            html += '<li>Using test/demo credentials instead of production</li>';
+            html += '<li>Credentials not set in Supabase dashboard</li>';
+            html += '<li>Account suspended or out of credits</li>';
+            html += '<li>API access not enabled for the account</li>';
+            html += '</ul>';
+            html += '<p><strong>Action Required:</strong> Check the Supabase dashboard → Settings → Edge Functions → Environment Variables</p>';
+            html += '</div>';
+            
+            result.innerHTML = html;
+            result.className = 'warning';
+            
+            btn.disabled = false;
+            btn.textContent = 'Check Credentials Status';
+        }
+
+        // Auto-run the first check
+        window.onload = () => {
+            checkRecentLogs();
+        };
+    </script>
+</body>
+</html>

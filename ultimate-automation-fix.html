@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Automation Fix</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+        .hero {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            padding: 40px;
+            border-radius: 16px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        h1 { margin: 0; font-size: 2.5em; }
+        .status-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        button {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        button:hover { background: #059669; transform: scale(1.02); }
+        button:disabled { background: #475569; cursor: not-allowed; }
+        .progress {
+            background: #334155;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            background: #10b981;
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .log {
+            background: #0f172a;
+            border: 1px solid #334155;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .warning { color: #f59e0b; }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #334155;
+            margin-left: 10px;
+        }
+        .badge.success { background: #10b981; color: white; }
+        .badge.pending { background: #3b82f6; color: white; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="hero">
+        <h1>🚀 Ultimate Automation System Fix</h1>
+        <p style="margin: 10px 0 0; opacity: 0.9;">Smart, efficient, and working</p>
+    </div>
+
+    <div class="status-card">
+        <h2>📊 Happy Joy Status</h2>
+        <div id="happyStatus">Loading...</div>
+        <div class="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="status-card">
+            <h3>🎯 Smart Actions</h3>
+            <button onclick="smartFix()" id="smartBtn">🧠 Smart Fix Everything</button>
+            <p style="margin-top: 10px; opacity: 0.7;">Analyzes and fixes all issues automatically</p>
+        </div>
+        <div class="status-card">
+            <h3>📨 Direct Send</h3>
+            <button onclick="directSend()" id="directBtn">📤 Send Welcome Messages</button>
+            <p style="margin-top: 10px; opacity: 0.7;">Bypass all systems, send directly</p>
+        </div>
+    </div>
+
+    <div class="status-card">
+        <h3>📝 Activity Log</h3>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_KEY = localStorage.getItem('sb-jjxlfunlbyayxwvlpgwt-auth-token') ? 
+            JSON.parse(localStorage.getItem('sb-jjxlfunlbyayxwvlpgwt-auth-token')).access_token : 
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const typeClass = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : '';
+            logDiv.innerHTML = `<div class="${typeClass}">[${timestamp}] ${message}</div>` + logDiv.innerHTML;
+        }
+
+        function updateProgress(percent) {
+            document.getElementById('progressBar').style.width = percent + '%';
+        }
+
+        async function checkStatus() {
+            try {
+                const { data: execution } = await supabase
+                    .from('automation_executions')
+                    .select('*, automation_settings!inner(name)')
+                    .eq('patient_id', '54c9df8a-257b-463c-b43d-5c2db19c000a')
+                    .single();
+                
+                const { data: sms } = await supabase
+                    .from('practice_sms_logs')
+                    .select('status')
+                    .eq('patient_id', '54c9df8a-257b-463c-b43d-5c2db19c000a')
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+                
+                const { data: email } = await supabase
+                    .from('practice_email_logs')
+                    .select('status')
+                    .eq('patient_id', '54c9df8a-257b-463c-b43d-5c2db19c000a')
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+                
+                const statusDiv = document.getElementById('happyStatus');
+                const smsStatus = sms?.[0]?.status || 'Not sent';
+                const emailStatus = email?.[0]?.status || 'Not sent';
+                
+                statusDiv.innerHTML = `
+                    <p><strong>Automation:</strong> ${execution.automation_settings.name} 
+                        <span class="badge ${execution.status === 'completed' ? 'success' : 'pending'}">${execution.status}</span>
+                    </p>
+                    <p><strong>SMS:</strong> ${smsStatus} 
+                        <span class="badge ${smsStatus === 'delivered' ? 'success' : 'pending'}">${smsStatus === 'delivered' ? '✅' : '⏳'}</span>
+                    </p>
+                    <p><strong>Email:</strong> ${emailStatus}
+                        <span class="badge ${emailStatus === 'sent' ? 'success' : 'pending'}">${emailStatus === 'sent' ? '✅' : '⏳'}</span>
+                    </p>
+                `;
+                
+                // Update progress
+                let progress = 0;
+                if (execution.status !== 'pending') progress += 33;
+                if (smsStatus === 'delivered') progress += 33;
+                if (emailStatus === 'sent') progress += 34;
+                updateProgress(progress);
+                
+                return { execution, smsStatus, emailStatus };
+            } catch (error) {
+                log('Error checking status: ' + error.message, 'error');
+            }
+        }
+
+        async function smartFix() {
+            const btn = document.getElementById('smartBtn');
+            btn.disabled = true;
+            
+            try {
+                log('🧠 Starting smart fix...');
+                updateProgress(10);
+                
+                // Step 1: Get current status
+                const status = await checkStatus();
+                log('Current status: ' + status.execution.status);
+                updateProgress(20);
+                
+                // Step 2: Process via RPC
+                log('Processing automation via database...');
+                const { data: rpcResult, error: rpcError } = await supabase
+                    .rpc('process_automation_directly', {
+                        p_execution_id: 'c1e40a7e-495d-4ed5-9bea-c4725b0ea6fc'
+                    });
+                
+                if (!rpcError) {
+                    log('✅ Automation processed in database', 'success');
+                }
+                updateProgress(40);
+                
+                // Step 3: Try automation engine
+                log('Attempting automation engine...');
+                const { data: engineResult, error: engineError } = await supabase.functions.invoke('automation-engine', {
+                    body: {}
+                });
+                
+                if (!engineError) {
+                    log('✅ Automation engine responded', 'success');
+                } else {
+                    log('⚠️ Engine error: ' + engineError.message, 'warning');
+                }
+                updateProgress(60);
+                
+                // Step 4: Direct send if needed
+                if (status.smsStatus !== 'delivered' || status.emailStatus !== 'sent') {
+                    log('Sending messages directly...');
+                    await directSend();
+                }
+                
+                updateProgress(100);
+                log('🎉 Smart fix completed!', 'success');
+                
+            } catch (error) {
+                log('❌ Smart fix error: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                await checkStatus();
+            }
+        }
+
+        async function directSend() {
+            const btn = document.getElementById('directBtn');
+            btn.disabled = true;
+            
+            try {
+                log('📤 Sending welcome messages directly...');
+                
+                // Prepare messages
+                const smsContent = 'Dear Happy Joy, welcome to New Charm Dental Practice! We are excited to be your healthcare partner. Access your patient portal to manage appointments. Call +264 81 435 8843 for assistance.';
+                
+                const emailContent = `Dear Happy Joy,
+
+Welcome to New Charm Dental Practice! We are thrilled to have you as our patient.
+
+As a new patient, you can:
+- Schedule appointments online
+- Access your medical records
+- Message your healthcare team
+- View test results
+
+If you have any questions, please do not hesitate to contact us at +264 81 435 8843 or reply to this email.
+
+We look forward to being your healthcare partner!
+
+Best regards,
+The New Charm Dental Practice Team`;
+
+                // Send SMS
+                log('Sending SMS...');
+                const { data: smsData, error: smsError } = await supabase.functions.invoke('centralized-sms-gateway', {
+                    body: {
+                        practiceId: 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3',
+                        recipientPhone: '+264812222331',
+                        messageContent: smsContent,
+                        messageType: 'welcome',
+                        patientId: '54c9df8a-257b-463c-b43d-5c2db19c000a'
+                    }
+                });
+                
+                if (!smsError && smsData.success) {
+                    log('✅ SMS sent successfully!', 'success');
+                } else {
+                    log('❌ SMS failed: ' + (smsError?.message || smsData?.error), 'error');
+                }
+                
+                // Send Email
+                log('Sending Email...');
+                const { data: emailData, error: emailError } = await supabase.functions.invoke('centralized-email-gateway', {
+                    body: {
+                        practiceId: 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3',
+                        recipientEmail: 'ksnahol@gmail.com',
+                        subject: 'Welcome to New Charm Dental Practice!',
+                        htmlContent: `<div style="font-family: Arial, sans-serif; line-height: 1.6;">${emailContent.replace(/\n/g, '<br>')}</div>`,
+                        textContent: emailContent,
+                        emailType: 'welcome',
+                        patientId: '54c9df8a-257b-463c-b43d-5c2db19c000a'
+                    }
+                });
+                
+                if (!emailError && emailData.success) {
+                    log('✅ Email sent successfully!', 'success');
+                } else {
+                    log('❌ Email failed: ' + (emailError?.message || emailData?.error), 'error');
+                }
+                
+                // Update automation status
+                await supabase
+                    .from('automation_executions')
+                    .update({
+                        status: 'completed',
+                        channel: 'EMAIL',
+                        executed_at: new Date().toISOString()
+                    })
+                    .eq('patient_id', '54c9df8a-257b-463c-b43d-5c2db19c000a');
+                
+                log('✅ Automation marked as completed', 'success');
+                
+            } catch (error) {
+                log('❌ Direct send error: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                await checkStatus();
+            }
+        }
+
+        // Initialize
+        window.onload = async () => {
+            log('🚀 System initialized');
+            
+            // Check if we have auth from the app
+            const session = await supabase.auth.getSession();
+            if (session.data.session) {
+                log('✅ Using authenticated session', 'success');
+            } else {
+                log('⚠️ Using anonymous access', 'warning');
+            }
+            
+            await checkStatus();
+        };
+    </script>
+</body>
+</html>

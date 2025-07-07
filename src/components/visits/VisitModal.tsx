@@ -1,24 +1,32 @@
-import React from 'react';
-import { format } from 'date-fns';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Activity,
   FileText, 
-  Clock,
+  Clock, 
   User,
   Heart,
-  Thermometer,
+  Activity,
   Stethoscope,
   Pill,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
+  Clipboard,
+  Brain,
   Edit3,
-  ImageIcon,
+  Trash2,
+  XCircle,
+  X,
+  Download,
+  ZoomIn,
+  ChevronLeft,
+  ChevronRight,
+  Image as ImageIcon,
+  File,
   Microscope
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
+import { supabase } from '../../lib/supabase';
+import { format } from 'date-fns';
 
 interface VisitModalProps {
   visit: any;
@@ -28,314 +36,565 @@ interface VisitModalProps {
 }
 
 const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange, onEdit }) => {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'success';
-      case 'in-progress':
-        return 'warning';
-      default:
-        return 'error';
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [isDeletingMedia, setIsDeletingMedia] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true);
+
+      // Delete vitals
+      const { error: vitalsError } = await supabase
+        .from('vitals')
+        .delete()
+        .eq('visit_id', visit.id);
+
+      if (vitalsError) throw vitalsError;
+
+      // Delete lab requests (this will cascade delete lab_results)
+      const { error: labRequestsError } = await supabase
+        .from('lab_requests')
+        .delete()
+        .eq('visit_id', visit.id);
+
+      if (labRequestsError) throw labRequestsError;
+
+      // Delete media
+      const { error: mediaError } = await supabase
+        .from('visit_media')
+        .delete()
+        .eq('visit_id', visit.id);
+
+      if (mediaError) throw mediaError;
+
+      // Delete media requests (table may not exist yet)
+      try {
+        const { error: mediaRequestsError } = await supabase
+          .from('media_requests')
+          .delete()
+          .eq('visit_id', visit.id);
+
+        if (mediaRequestsError) throw mediaRequestsError;
+      } catch (err) {
+        // Table doesn't exist yet, skip this deletion
+      }
+
+      // Finally, delete the visit
+      const { error: visitError } = await supabase
+        .from('visits')
+        .delete()
+        .eq('id', visit.id);
+
+      if (visitError) throw visitError;
+
+      onClose();
+      window.location.reload(); // Refresh to update the visits list
+    } catch (error) {
+      console.error('Error deleting visit:', error);
+      alert('Failed to delete visit. Please try again.');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  const handleDeleteMedia = async (mediaId: string) => {
+    try {
+      setIsDeletingMedia(mediaId);
+      
+      // Delete from visit_media table
+      const { error: deleteError } = await supabase
+        .from('visit_media')
+        .delete()
+        .eq('id', mediaId);
+
+      if (deleteError) throw deleteError;
+
+      // Refresh the page to update the media list
+      window.location.reload();
+    } catch (error) {
+      console.error('Error deleting media:', error);
+      alert('Failed to delete media. Please try again.');
+    } finally {
+      setIsDeletingMedia(null);
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)} Visit
-          </h2>
-          <p className="text-gray-500">
-            {format(new Date(visit.visit_date), 'MMMM d, yyyy')} at {visit.visit_time}
-          </p>
+      {/* Header Section */}
+      <div className={`bg-gradient-to-r ${visit.status === 'in-progress' ? 'from-amber-500 to-orange-600' : 'from-[#01b9d4] to-[#0197d4]'} -mx-6 -mt-6 p-6 text-white rounded-t-xl`}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-2xl font-bold">
+              {visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1)} Visit
+            </h3>
+            <div className="flex items-center mt-2 space-x-4 text-white/80">
+              <div className="flex items-center">
+                <Clock size={16} className="mr-2" />
+                {format(new Date(visit.visit_date), 'MMMM d, yyyy')} at {visit.visit_time}
+              </div>
+              <div className="flex items-center">
+                <User size={16} className="mr-2" />
+                {visit.doctor_name || 'No doctor assigned'}
+              </div>
+            </div>
+          </div>
+          <Badge
+            variant={
+              visit.status === 'completed' ? 'success' :
+              visit.status === 'in-progress' ? 'warning' :
+              'error'
+            }
+            size="sm"
+            className="uppercase tracking-wider"
+          >
+            {visit.status}
+          </Badge>
         </div>
-        <Badge variant={getStatusColor(visit.status)} size="sm">
-          {visit.status}
-        </Badge>
       </div>
 
-      {/* Actions */}
-      <div className="flex justify-between items-center">
+      {/* Vitals Row */}
+      {visit.vitals && (
+        <div className="flex divide-x divide-gray-200 bg-gray-50 p-4 rounded-lg">
+          {[
+            {
+              key: 'blood_pressure',
+              label: 'Blood Pressure',
+              value: visit.vitals.blood_pressure,
+              unit: 'mmHg',
+              isGood: (val: string) => {
+                // parse "120/80"
+                const [systolic, diastolic] = val?.split('/').map(Number) ?? [];
+                return systolic < 120 && diastolic < 80;
+              },
+            },
+            {
+              key: 'temperature',
+              label: 'Temperature',
+              value: visit.vitals.temperature,
+              unit: '°C',
+              isGood: (val: number) => val >= 36.5 && val <= 37.5,
+            },
+            {
+              key: 'pulse_rate',
+              label: 'Pulse Rate',
+              value: visit.vitals.pulse_rate,
+              unit: 'bpm',
+              isGood: (val: number) => val >= 60 && val <= 100,
+            },
+            {
+              key: 'weight',
+              label: 'Weight',
+              value: visit.vitals.weight,
+              unit: 'kg',
+              isGood: () => true,   // no "bad" weight coloring here
+            },
+            {
+              key: 'height',
+              label: 'Height',
+              value: visit.vitals.height,
+              unit: 'cm',
+              isGood: () => true,
+            },
+            {
+              key: 'bmi',
+              label: 'BMI',
+              value: visit.vitals.bmi,
+              unit: '',
+              isGood: (val: number) => val >= 18.5 && val <= 24.9,
+            },
+          ].map(({ key, label, value, unit, isGood }) =>
+            value != null ? (
+              <div
+                key={key}
+                className={`flex-1 px-4 text-center ${
+                  isGood(value)
+                    ? 'text-emerald-600'
+                    : 'text-rose-400'
+                }`}
+              >
+                <div className="text-sm text-gray-500">{label}</div>
+                <div className="text-xs font-bold">
+                  {value}
+                  {unit}
+                </div>
+              </div>
+            ) : null
+          )}
+        </div>
+      )}
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-12 gap-6">
+        {/* Clinical Information */}
+        <div className="col-span-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl font-bold text-[#494c61] flex items-center">
+                <Stethoscope size={24} className="mr-3" />
+                Clinical Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Chief Complaint */}
+              <div>
+                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                  <Clipboard size={18} className="mr-2 text-teal-500" />
+                  Chief Complaint
+                </h4>
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.chief_complaint}
+                </p>
+              </div>
+
+              {/* Diagnosis */}
+              <div>
+                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                  <Brain size={18} className="mr-2 text-indigo-500" />
+                  Diagnosis
+                </h4>
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.diagnosis}
+                </p>
+              </div>
+
+              {/* Treatment Plan */}
+              <div>
+                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                  <Activity size={18} className="mr-2 text-amber-500" />
+                  Treatment Plan
+                </h4>
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.treatment_plan}
+                </p>
+              </div>
+
+              {/* Prescription */}
+              <div>
+                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                  <Pill size={18} className="mr-2 text-red-500" />
+                  Prescription
+                </h4>
+                <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.prescription}
+                </p>
+              </div>
+
+              {/* Additional Notes */}
+              <div>
+                <h4 className="flex items-center text-sm font-semibold mb-2 text-gray-800">
+                  <FileText size={18} className="mr-2 text-blue-500" />
+                  Additional Notes
+                </h4>
+                <p className="text-gray-700 bg-gray-50 p-4 rounded-lg">
+                  {visit.notes}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Lab Results and Media */}
+        <div className="col-span-4 space-y-6">
+          {/* Lab Results */}
+          <Card className="bg-gray-50">
+            <CardHeader>
+              <CardTitle className="text-lg font-medium flex items-center">
+                <Microscope size={20} className="mr-2 text-[#01b9d4]" />
+                Lab Results
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {visit.lab_results?.length > 0 ? (
+                <div className="space-y-3">
+                  {visit.lab_results.map((result: any, index: number) => (
+                    <div 
+                      key={index}
+                      className="bg-white rounded-lg p-4 shadow-sm"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-gray-900">{result.name}</p>
+                          <p className="text-sm text-gray-500">
+                            {result.value} {result.unit}
+                            {result.reference_range && (
+                              <span className="ml-2 text-gray-400">
+                                (Ref: {result.reference_range})
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={
+                            result.status === 'normal' ? 'success' :
+                            result.status === 'high' ? 'warning' :
+                            result.status === 'low' ? 'azure' :
+                            'error'
+                          }
+                          size="sm"
+                        >
+                          {result.status}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-gray-500">
+                  <Microscope size={32} className="mx-auto mb-2 text-gray-400" />
+                  No lab results available
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Media Gallery */}
+          <Card className="bg-gray-50">
+            <CardHeader>
+              <CardTitle className="text-lg font-medium flex items-center">
+                <ImageIcon size={20} className="mr-2 text-[#01b9d4]" />
+                Media Files
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {visit.media && visit.media.length > 0 ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {visit.media.map((item: any, index: number) => (
+                    <div
+                      key={item.id}
+                      className="relative group bg-white rounded-lg overflow-hidden shadow-sm"
+                    >
+                      {/* Preview */}
+                      <div
+                        className="aspect-square cursor-pointer"
+                        onClick={() => setSelectedImageIndex(index)}
+                      >
+                        {item.url ? (
+                          <img
+                            src={item.url}
+                            alt={item.description || `Media ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                            <File size={24} className="text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Overlay with actions */}
+                      <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <div className="space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-white/90 hover:bg-white"
+                            onClick={() => setSelectedImageIndex(index)}
+                          >
+                            <ZoomIn size={14} className="mr-1" />
+                            View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-white/90 hover:bg-white text-red-600 hover:text-red-700"
+                            onClick={() => handleDeleteMedia(item.id)}
+                            disabled={isDeletingMedia === item.id}
+                          >
+                            {isDeletingMedia === item.id ? (
+                              <span className="flex items-center">
+                                <Clock size={14} className="animate-spin mr-1" />
+                                Deleting...
+                              </span>
+                            ) : (
+                              <span className="flex items-center">
+                                <Trash2 size={14} className="mr-1" />
+                                Delete
+                              </span>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Type badge */}
+                      <div className="absolute top-2 right-2">
+                        <Badge
+                          variant={
+                            item.type === 'xray' ? 'azure' :
+                            item.type === 'ct' ? 'coral' :
+                            item.type === 'mri' ? 'lavender' :
+                            'glass'
+                          }
+                          size="sm"
+                        >
+                          {item.type}
+                        </Badge>
+                      </div>
+
+                      {/* Info overlay */}
+                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-75 text-white p-2 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span>{format(new Date(item.date), 'MMM d, yyyy')}</span>
+                        </div>
+                        {item.description && (
+                          <p className="mt-1 truncate">{item.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <ImageIcon size={32} className="mx-auto text-gray-300 mb-2" />
+                  <p className="text-gray-500">No media files available</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Footer Actions */}
+      <div className="flex justify-between items-center pt-6 mt-6 border-t border-gray-200">
         <div className="space-x-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => onStatusChange('completed')}
-            disabled={visit.status === 'completed'}
+            disabled={visit.status === 'completed' || isDeleting}
           >
-            <CheckCircle size={14} className="mr-2" />
+            <Activity size={16} className="mr-2" />
             Complete
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={() => onStatusChange('in-progress')}
-            disabled={visit.status === 'in-progress'}
+            disabled={visit.status === 'in-progress' || isDeleting}
           >
-            <Clock size={14} className="mr-2" />
+            <Clock size={16} className="mr-2" />
             In Progress
           </Button>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onEdit}
-        >
-          <Edit3 size={14} className="mr-2" />
-          Edit Visit
-        </Button>
+        <div className="space-x-2">
+          {showDeleteConfirm ? (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="bg-red-50 text-red-600 hover:bg-red-100"
+                onClick={handleDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="text-red-600 hover:bg-red-50"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={isDeleting}
+              >
+                <Trash2 size={16} className="mr-2" />
+                Delete Visit
+              </Button>
+              <Button variant="outline" size="sm" onClick={onClose} disabled={isDeleting}>
+                <XCircle size={16} className="mr-2" />
+                Close
+              </Button>
+              <Button
+                onClick={onEdit}
+                disabled={isDeleting}
+                style={{ backgroundColor: '#01b9d4' }}     
+                className="text-white hover:bg-opacity-90"
+                size="sm"
+              >
+                <Edit3 size={16} className="mr-2" />
+                Edit Visit
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Visit Details */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Main Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Stethoscope size={18} className="mr-2" />
-              Clinical Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h4 className="text-sm font-medium text-gray-700">Chief Complaint</h4>
-              <p className="mt-1 text-gray-900">{visit.chief_complaint}</p>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-gray-700">Diagnosis</h4>
-              <p className="mt-1 text-gray-900">{visit.diagnosis}</p>
-            </div>
-            
-            <div>
-              <h4 className="text-sm font-medium text-gray-700">Treatment Plan</h4>
-              <p className="mt-1 text-gray-900">{visit.treatment_plan}</p>
-            </div>
+      {/* Full-screen Image Modal */}
+      <AnimatePresence>
+        {selectedImageIndex !== null && visit.media && visit.media[selectedImageIndex] && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center"
+            onClick={() => setSelectedImageIndex(null)}
+          >
+            <div className="relative w-full h-full flex items-center justify-center">
+              {/* Navigation */}
+              {selectedImageIndex > 0 && (
+                <button
+                  className="absolute left-4 p-2 text-white hover:bg-white/10 rounded-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedImageIndex(selectedImageIndex - 1);
+                  }}
+                >
+                  <ChevronLeft size={24} />
+                </button>
+              )}
+              {selectedImageIndex < visit.media.length - 1 && (
+                <button
+                  className="absolute right-4 p-2 text-white hover:bg-white/10 rounded-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedImageIndex(selectedImageIndex + 1);
+                  }}
+                >
+                  <ChevronRight size={24} />
+                </button>
+              )}
 
-            {visit.prescription && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-700">Prescription</h4>
-                <p className="mt-1 text-gray-900">{visit.prescription}</p>
+              {/* Close button */}
+              <button
+                className="absolute top-4 right-4 p-2 text-white hover:bg-white/10 rounded-full"
+                onClick={() => setSelectedImageIndex(null)}
+              >
+                <X size={24} />
+              </button>
+
+              {/* Image */}
+              <img
+                src={visit.media[selectedImageIndex].url}
+                alt={visit.media[selectedImageIndex].description || 'Image'}
+                className="max-h-[90vh] max-w-[90vw] object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+
+              {/* Image info */}
+              <div className="absolute bottom-4 left-4 right-4 bg-black/50 text-white p-4 rounded-lg">
+                <p className="font-medium">
+                  {visit.media[selectedImageIndex].description || `Image ${selectedImageIndex + 1}`}
+                </p>
+                <p className="text-sm text-white/80">
+                  {format(new Date(visit.media[selectedImageIndex].date), 'MMMM d, yyyy')}
+                </p>
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Vitals */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Heart size={18} className="mr-2" />
-              Vitals
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              {visit.vitals?.blood_pressure && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Blood Pressure</p>
-                  <p className="text-lg font-medium">{visit.vitals.blood_pressure}</p>
-                </div>
-              )}
-              
-              {visit.vitals?.temperature && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Temperature</p>
-                  <p className="text-lg font-medium">{visit.vitals.temperature}°C</p>
-                </div>
-              )}
-              
-              {visit.vitals?.pulse_rate && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Pulse Rate</p>
-                  <p className="text-lg font-medium">{visit.vitals.pulse_rate} bpm</p>
-                </div>
-              )}
-              
-              {visit.vitals?.respiratory_rate && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Respiratory Rate</p>
-                  <p className="text-lg font-medium">{visit.vitals.respiratory_rate} /min</p>
-                </div>
-              )}
-              
-              {visit.vitals?.weight && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Weight</p>
-                  <p className="text-lg font-medium">{visit.vitals.weight} kg</p>
-                </div>
-              )}
-              
-              {visit.vitals?.height && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Height</p>
-                  <p className="text-lg font-medium">{visit.vitals.height} cm</p>
-                </div>
-              )}
-              
-              {visit.vitals?.bmi && (
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">BMI</p>
-                  <p className="text-lg font-medium">{visit.vitals.bmi}</p>
-                </div>
-              )}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Lab Results */}
-        {visit.lab_results && visit.lab_results.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Microscope size={18} className="mr-2" />
-                Lab Results
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {visit.lab_results.map((result: any) => (
-                  <div key={result.id} className="p-4 bg-gray-50 rounded-lg">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h4 className="font-medium text-gray-900">{result.name}</h4>
-                        <p className="text-sm text-gray-500">
-                          {format(new Date(result.date), 'MMM d, yyyy')}
-                        </p>
-                      </div>
-                      <Badge
-                        variant={
-                          result.status === 'normal' ? 'success' :
-                          result.status === 'high' ? 'warning' :
-                          result.status === 'low' ? 'azure' :
-                          'error'
-                        }
-                        size="sm"
-                      >
-                        {result.status}
-                      </Badge>
-                    </div>
-                    <div className="mt-2">
-                      <p className="text-sm">
-                        <span className="font-medium">{result.value}</span> {result.unit}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Reference Range: {result.reference_range}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          </motion.div>
         )}
-
-        {/* Media */}
-        {visit.media && visit.media.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <ImageIcon size={18} className="mr-2" />
-                Media
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                {visit.media.map((item: any) => (
-                  <div key={item.id} className="relative">
-                    <img
-                      src={item.url}
-                      alt={item.description}
-                      className="w-full h-48 object-cover rounded-lg"
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-2 rounded-b-lg">
-                      <p className="text-sm font-medium">{item.description}</p>
-                      <p className="text-xs">{format(new Date(item.date), 'MMM d, yyyy')}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Pending Requests */}
-        {((visit.pending_requests?.lab_requests?.length > 0) || 
-          (visit.pending_requests?.media_requests?.length > 0)) && (
-          <Card className="md:col-span-2">
-            <CardHeader>
-              <CardTitle>Pending Requests</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {visit.pending_requests.lab_requests?.map((request: any) => (
-                  <div key={request.id} className="bg-amber-50 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <Microscope size={16} className="text-amber-600 mr-2" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{request.test_name}</p>
-                          <p className="text-xs text-gray-500">Lab Test</p>
-                        </div>
-                      </div>
-                      <Badge
-                        variant={
-                          request.priority === 'stat' ? 'error' :
-                          request.priority === 'urgent' ? 'warning' :
-                          'success'
-                        }
-                        size="sm"
-                      >
-                        {request.priority}
-                      </Badge>
-                    </div>
-                    <div className="mt-2 text-xs text-gray-500">
-                      Expected: {format(new Date(request.expected_completion_date), 'MMM d, yyyy')}
-                    </div>
-                  </div>
-                ))}
-
-                {visit.pending_requests.media_requests?.map((request: any) => (
-                  <div key={request.id} className="bg-purple-50 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <ImageIcon size={16} className="text-purple-600 mr-2" />
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">
-                            {request.type.toUpperCase()} - {request.body_part}
-                          </p>
-                          <p className="text-xs text-gray-500">Imaging</p>
-                        </div>
-                      </div>
-                      <Badge
-                        variant={
-                          request.priority === 'stat' ? 'error' :
-                          request.priority === 'urgent' ? 'warning' :
-                          'success'
-                        }
-                        size="sm"
-                      >
-                        {request.priority}
-                      </Badge>
-                    </div>
-                    <div className="mt-2 text-xs text-gray-500">
-                      Expected: {format(new Date(request.expected_completion_date), 'MMM d, yyyy')}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={onClose}>
-          Close
-        </Button>
-      </div>
+      </AnimatePresence>
     </div>
   );
 };

@@ -1,149 +1,245 @@
 import { create } from 'zustand';
-import { Appointment } from './patientsStore';
+import { supabase } from '../lib/supabase';
+import { useAuthStore } from './authStore';
+import { practiceDataService } from '../lib/practiceDataService';
+
+export interface Appointment {
+  id: string;
+  patient_id: string;
+  doctor_id: string;
+  date: string;
+  time: string;
+  duration: number;
+  type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
+  status: 'pending' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
+  notes?: string;
+  patient?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  };
+  doctor?: {
+    id: string;
+    full_name: string;
+  };
+}
 
 interface AppointmentsState {
   appointments: Appointment[];
   isLoading: boolean;
   error: string | null;
-  fetchAppointments: () => Promise<void>;
+  fetchAppointments: (date?: string) => Promise<void>;
+  fetchAppointmentsByPatient: (patientId: string) => Promise<void>;
   addAppointment: (appointment: Omit<Appointment, 'id'>) => Promise<void>;
-  updateAppointment: (id: string, appointment: Partial<Appointment>) => Promise<void>;
+  updateAppointment: (id: string, updates: Partial<Appointment>) => Promise<void>;
+  checkInAppointment: (id: string) => Promise<string | null>; // Returns visit ID if successful
   cancelAppointment: (id: string) => Promise<void>;
-  getAverageWaitTime: () => number;
 }
 
-// Mock data
-const mockAppointments: Appointment[] = [
-  {
-    id: 'a1',
-    patientId: '1',
-    doctorId: 'd1',
-    doctorName: 'Dr. Jane Smith',
-    date: new Date().toISOString().split('T')[0],
-    time: '10:30',
-    duration: 30,
-    type: 'follow-up',
-    status: 'scheduled',
-    checkInTime: '10:25',
-    estimatedWaitTime: 15,
-  },
-  {
-    id: 'a2',
-    patientId: '3',
-    doctorId: 'd1',
-    doctorName: 'Dr. Jane Smith',
-    date: new Date().toISOString().split('T')[0],
-    time: '14:15',
-    duration: 45,
-    type: 'check-up',
-    status: 'in-progress',
-    checkInTime: '14:10',
-    estimatedWaitTime: 0,
-  },
-  {
-    id: 'a3',
-    patientId: '2',
-    doctorId: 'd2',
-    doctorName: 'Dr. Michael Chen',
-    date: new Date().toISOString().split('T')[0],
-    time: '09:00',
-    duration: 60,
-    type: 'consultation',
-    status: 'completed',
-    notes: 'Patient discussed ongoing migraine issues. Adjusted medication.',
-    checkInTime: '08:55',
-    estimatedWaitTime: 0,
-  },
-  {
-    id: 'a4',
-    patientId: '1',
-    doctorId: 'd1',
-    doctorName: 'Dr. Jane Smith',
-    date: new Date().toISOString().split('T')[0],
-    time: '11:45',
-    duration: 30,
-    type: 'follow-up',
-    status: 'scheduled',
-    checkInTime: '11:40',
-    estimatedWaitTime: 25,
-  },
-  {
-    id: 'a5',
-    patientId: '3',
-    doctorId: 'd3',
-    doctorName: 'Dr. Sarah Johnson',
-    date: new Date().toISOString().split('T')[0],
-    time: '13:30',
-    duration: 45,
-    type: 'consultation',
-    status: 'scheduled',
-    checkInTime: '13:25',
-    estimatedWaitTime: 20,
-  },
-];
-
 export const useAppointmentsStore = create<AppointmentsState>((set, get) => ({
-  appointments: mockAppointments,
+  appointments: [],
   isLoading: false,
   error: null,
-  fetchAppointments: async () => {
+  
+  fetchAppointments: async (date) => {
     set({ isLoading: true, error: null });
     try {
-      // In a real app, this would be an API call
-      set({ appointments: mockAppointments, isLoading: false });
+      console.log('🔄 [AppointmentsStore] Starting fetchAppointments', { date });
+      
+      // Get authenticated user context
+      const authContext = await practiceDataService.getAuthContext();
+      if (!authContext) {
+        console.log('❌ [AppointmentsStore] No valid auth context, returning empty appointments');
+        set({ appointments: [], isLoading: false });
+        return;
+      }
+
+      console.log('✅ [AppointmentsStore] Auth context established', authContext);
+
+      // Use the robust practice data service
+      const appointments = await practiceDataService.getPracticeAppointments(authContext.practiceId, date);
+      
+      console.log(`✅ [AppointmentsStore] Final result: ${appointments.length} appointments for practice ${authContext.practiceId}`);
+      
+      set({ appointments, isLoading: false });
     } catch (error) {
+      console.error('❌ [AppointmentsStore] Error fetching appointments:', error);
       set({ error: 'Failed to fetch appointments', isLoading: false });
     }
   },
+  
+  fetchAppointmentsByPatient: async (patientId) => {
+    set({ isLoading: true, error: null });
+    try {
+      // First get appointments without relationships
+      const { data: appointmentsData, error: appointmentsError } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('patient_id', patientId)
+        .order('date', { ascending: true })
+        .order('time', { ascending: true });
+      
+      if (appointmentsError) throw appointmentsError;
+      
+      if (!appointmentsData || appointmentsData.length === 0) {
+        set({ appointments: [], isLoading: false });
+        return;
+      }
+
+      // Get unique patient and doctor IDs
+      const patientIds = [...new Set(appointmentsData.map(apt => apt.patient_id).filter(Boolean))];
+      const doctorIds = [...new Set(appointmentsData.map(apt => apt.doctor_id).filter(Boolean))];
+
+      // Fetch patients and doctors separately
+      const [patientsResponse, doctorsResponse] = await Promise.all([
+        patientIds.length > 0 ? supabase
+          .from('patients')
+          .select('id, first_name, last_name')
+          .in('id', patientIds) : Promise.resolve({ data: [] }),
+        doctorIds.length > 0 ? supabase
+          .from('users')
+          .select('id, full_name')
+          .in('id', doctorIds) : Promise.resolve({ data: [] })
+      ]);
+
+      // Create lookup maps
+      const patientsMap = new Map((patientsResponse.data || []).map(p => [p.id, p]));
+      const doctorsMap = new Map((doctorsResponse.data || []).map(d => [d.id, d]));
+
+      // Combine data
+      const enrichedAppointments = appointmentsData.map(appointment => ({
+        ...appointment,
+        patient: appointment.patient_id ? patientsMap.get(appointment.patient_id) : undefined,
+        doctor: appointment.doctor_id ? doctorsMap.get(appointment.doctor_id) : undefined
+      }));
+      
+      set({ appointments: enrichedAppointments, isLoading: false });
+    } catch (error) {
+      console.error('Error fetching patient appointments:', error);
+      set({ error: 'Failed to fetch appointments', isLoading: false });
+    }
+  },
+  
   addAppointment: async (appointment) => {
     set({ isLoading: true, error: null });
     try {
-      const newAppointment = {
-        ...appointment,
-        id: Math.random().toString(36).substring(2, 11),
-      } as Appointment;
+      const { data, error } = await supabase
+        .from('appointments')
+        .insert([appointment])
+        .select();
       
-      set(state => ({
-        appointments: [...state.appointments, newAppointment],
-        isLoading: false,
-      }));
+      if (error) throw error;
+      
+      // Refresh appointments
+      await get().fetchAppointments(appointment.date);
+      set({ isLoading: false });
     } catch (error) {
+      console.error('Error adding appointment:', error);
       set({ error: 'Failed to add appointment', isLoading: false });
     }
   },
+  
   updateAppointment: async (id, updates) => {
     set({ isLoading: true, error: null });
     try {
-      set(state => ({
-        appointments: state.appointments.map(appointment =>
-          appointment.id === id ? { ...appointment, ...updates } : appointment
-        ),
-        isLoading: false,
-      }));
+      const { error } = await supabase
+        .from('appointments')
+        .update(updates)
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // Refresh appointments
+      const currentAppointments = get().appointments;
+      const updatedAppointment = currentAppointments.find(a => a.id === id);
+      if (updatedAppointment) {
+        await get().fetchAppointments(updates.date || updatedAppointment.date);
+      } else {
+        await get().fetchAppointments();
+      }
+      
+      set({ isLoading: false });
     } catch (error) {
+      console.error('Error updating appointment:', error);
       set({ error: 'Failed to update appointment', isLoading: false });
     }
   },
+  
+  checkInAppointment: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      // Get the appointment details
+      const { data: appointmentData, error: appointmentError } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (appointmentError) throw appointmentError;
+      
+      // Create a visit for this appointment
+      const { data: visitData, error: visitError } = await supabase
+        .from('visits')
+        .insert([{
+          appointment_id: id,
+          patient_id: appointmentData.patient_id,
+          doctor_id: appointmentData.doctor_id,
+          visit_date: appointmentData.date,
+          visit_time: appointmentData.time,
+          visit_type: appointmentData.type,
+          status: 'in-progress'
+        }])
+        .select()
+        .single();
+      
+      if (visitError) throw visitError;
+      
+      // Update appointment status
+      const { error: updateError } = await supabase
+        .from('appointments')
+        .update({ status: 'in-progress' })
+        .eq('id', id);
+      
+      if (updateError) throw updateError;
+      
+      // Refresh appointments
+      await get().fetchAppointments(appointmentData.date);
+      set({ isLoading: false });
+      
+      return visitData.id;
+    } catch (error) {
+      console.error('Error checking in appointment:', error);
+      set({ error: 'Failed to check in appointment', isLoading: false });
+      return null;
+    }
+  },
+  
   cancelAppointment: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      set(state => ({
-        appointments: state.appointments.map(appointment =>
-          appointment.id === id ? { ...appointment, status: 'cancelled' } : appointment
-        ),
-        isLoading: false,
-      }));
+      // Get the appointment details
+      const { data: appointmentData, error: appointmentError } = await supabase
+        .from('appointments')
+        .select('date')
+        .eq('id', id)
+        .single();
+      
+      if (appointmentError) throw appointmentError;
+      
+      // Update appointment status
+      const { error: updateError } = await supabase
+        .from('appointments')
+        .update({ status: 'cancelled' })
+        .eq('id', id);
+      
+      if (updateError) throw updateError;
+      
+      // Refresh appointments
+      await get().fetchAppointments(appointmentData.date);
+      set({ isLoading: false });
     } catch (error) {
+      console.error('Error cancelling appointment:', error);
       set({ error: 'Failed to cancel appointment', isLoading: false });
     }
-  },
-  getAverageWaitTime: () => {
-    const appointments = get().appointments;
-    const waitTimes = appointments
-      .filter(app => app.estimatedWaitTime && app.estimatedWaitTime > 0)
-      .map(app => app.estimatedWaitTime);
-    
-    if (waitTimes.length === 0) return 0;
-    return Math.round(waitTimes.reduce((sum, time) => sum + time, 0) / waitTimes.length);
-  },
+  }
 }));

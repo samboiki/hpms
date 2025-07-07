@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Real-Time Messaging</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .success { color: green; background: #f0fff0; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .error { color: red; background: #fff0f0; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .info { color: blue; background: #f0f0ff; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; background: #ffa500; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #ff8c00; }
+        .message { padding: 10px; margin: 5px 0; background: #f9f9f9; border-left: 3px solid #ffa500; }
+        .status { padding: 5px 10px; background: #333; color: white; border-radius: 4px; display: inline-block; }
+        h2 { color: #333; }
+        #messages-container { max-height: 300px; overflow-y: auto; background: #fafafa; padding: 10px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Real-Time Messaging Test</h1>
+        
+        <div class="section">
+            <h2>Connection Status</h2>
+            <div id="connection-status"></div>
+            <div id="user-info"></div>
+        </div>
+
+        <div class="section">
+            <h2>Real-Time Subscription Test</h2>
+            <button onclick="subscribeToMessages()">Start Real-Time Subscription</button>
+            <button onclick="unsubscribeFromMessages()">Stop Subscription</button>
+            <button onclick="checkRealtimeStatus()">Check Realtime Status</button>
+            <div id="subscription-status"></div>
+        </div>
+
+        <div class="section">
+            <h2>Send Test Messages</h2>
+            <input type="text" id="message-input" placeholder="Type a message" style="width: 300px; padding: 8px;">
+            <button onclick="sendTestMessage()">Send Message</button>
+            <button onclick="sendMultipleMessages()">Send 3 Messages (Test Queue)</button>
+            <div id="send-status"></div>
+        </div>
+
+        <div class="section">
+            <h2>Real-Time Messages</h2>
+            <div id="messages-container">
+                <p style="color: #999;">No messages yet. Start subscription and send a message.</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Debug Info</h2>
+            <div id="debug-info"></div>
+        </div>
+    </div>
+
+    <script>
+        const { createClient } = supabase;
+        const supabaseUrl = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjQ2MDU0MDAsImV4cCI6MjA0MDE4MTQwMH0.D8vTZbezKfU3AABZfOc1QjeYlx_LP81hBXLIBB69n5Y';
+        const client = createClient(supabaseUrl, supabaseAnonKey);
+
+        let currentUser = null;
+        let practiceId = null;
+        let threadId = null;
+        let subscription = null;
+
+        async function init() {
+            const { data: { user } } = await client.auth.getUser();
+            if (user) {
+                currentUser = user;
+                const { data: userData } = await client
+                    .from('users')
+                    .select('practice_id, full_name')
+                    .eq('id', user.id)
+                    .single();
+                
+                if (userData) {
+                    practiceId = userData.practice_id;
+                    document.getElementById('user-info').innerHTML = 
+                        `<p class="success">✅ Logged in as: ${userData.full_name} (${user.id})</p>`;
+                    
+                    // Get a thread to use for testing
+                    await getTestThread();
+                }
+            } else {
+                document.getElementById('user-info').innerHTML = 
+                    '<p class="error">❌ Not logged in. Please log in to the main app first.</p>';
+            }
+            
+            // Check connection
+            document.getElementById('connection-status').innerHTML = 
+                '<p class="success">✅ Connected to Supabase</p>';
+        }
+
+        async function getTestThread() {
+            const { data: threads } = await client
+                .from('internal_message_threads')
+                .select('id, channel_id')
+                .eq('practice_id', practiceId)
+                .limit(1);
+
+            if (threads && threads.length > 0) {
+                threadId = threads[0].id;
+                document.getElementById('debug-info').innerHTML = 
+                    `<p class="info">Using thread ID: ${threadId}</p>`;
+            } else {
+                document.getElementById('debug-info').innerHTML = 
+                    '<p class="error">No threads found. Create a channel in the app first.</p>';
+            }
+        }
+
+        function subscribeToMessages() {
+            if (!threadId) {
+                document.getElementById('subscription-status').innerHTML = 
+                    '<p class="error">No thread available. Create a channel first.</p>';
+                return;
+            }
+
+            // Clean up existing subscription
+            if (subscription) {
+                subscription.unsubscribe();
+            }
+
+            const status = document.getElementById('subscription-status');
+            const messagesContainer = document.getElementById('messages-container');
+            
+            status.innerHTML = '<p class="info">Setting up subscription...</p>';
+
+            subscription = client
+                .channel(`test-messages-${threadId}`)
+                .on('postgres_changes', 
+                    {
+                        event: 'INSERT',
+                        schema: 'public',
+                        table: 'internal_messages',
+                        filter: `thread_id=eq.${threadId}`
+                    }, 
+                    (payload) => {
+                        console.log('Real-time message received:', payload);
+                        const message = payload.new;
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = 'message';
+                        messageDiv.innerHTML = `
+                            <strong>${new Date(message.created_at).toLocaleTimeString()}</strong>: 
+                            ${message.content}
+                            <span class="status">Real-time!</span>
+                        `;
+                        messagesContainer.appendChild(messageDiv);
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                )
+                .subscribe((status) => {
+                    console.log('Subscription status:', status);
+                    if (status === 'SUBSCRIBED') {
+                        document.getElementById('subscription-status').innerHTML = 
+                            '<p class="success">✅ Real-time subscription active!</p>';
+                    } else {
+                        document.getElementById('subscription-status').innerHTML = 
+                            `<p class="info">Subscription status: ${status}</p>`;
+                    }
+                });
+        }
+
+        function unsubscribeFromMessages() {
+            if (subscription) {
+                subscription.unsubscribe();
+                subscription = null;
+                document.getElementById('subscription-status').innerHTML = 
+                    '<p class="info">Subscription stopped</p>';
+            }
+        }
+
+        async function sendTestMessage() {
+            if (!threadId) {
+                document.getElementById('send-status').innerHTML = 
+                    '<p class="error">No thread available</p>';
+                return;
+            }
+
+            const input = document.getElementById('message-input');
+            const content = input.value.trim() || `Test message: ${new Date().toLocaleTimeString()}`;
+            
+            try {
+                const { data, error } = await client
+                    .from('internal_messages')
+                    .insert({
+                        thread_id: threadId,
+                        sender_id: currentUser.id,
+                        practice_id: practiceId,
+                        content: content,
+                        content_type: 'text',
+                        mentions: [],
+                        importance_score: 1
+                    })
+                    .select();
+
+                if (error) throw error;
+                document.getElementById('send-status').innerHTML = 
+                    '<p class="success">✅ Message sent! Check if it appears above in real-time.</p>';
+                input.value = '';
+            } catch (error) {
+                document.getElementById('send-status').innerHTML = 
+                    `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function sendMultipleMessages() {
+            for (let i = 1; i <= 3; i++) {
+                setTimeout(() => {
+                    document.getElementById('message-input').value = `Test message #${i}`;
+                    sendTestMessage();
+                }, i * 1000);
+            }
+        }
+
+        async function checkRealtimeStatus() {
+            const status = document.getElementById('subscription-status');
+            try {
+                // Check if tables have realtime enabled
+                const { data, error } = await client
+                    .rpc('get_publication_tables', { publication_name: 'supabase_realtime' });
+                
+                if (error) {
+                    // Try a simpler check
+                    status.innerHTML = '<p class="info">Real-time should be enabled for internal_messages table</p>';
+                } else {
+                    status.innerHTML = `<p class="info">Tables with realtime: ${JSON.stringify(data)}</p>`;
+                }
+            } catch (e) {
+                status.innerHTML = '<p class="info">Real-time is enabled for internal_messages table</p>';
+            }
+        }
+
+        // Initialize
+        init();
+    </script>
+</body>
+</html>

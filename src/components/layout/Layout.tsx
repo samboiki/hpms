@@ -1,95 +1,109 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import Header from './Header';
+import { Menu } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import ComprehensivePatientModal from '../patients/ComprehensivePatientModal';
 
 const Layout: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+      if (window.innerWidth >= 1024) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Fullscreen functionality
+  const toggleFullscreen = () => {
+    if (!isFullscreen) {
+      document.documentElement.requestFullscreen?.();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen?.();
+      setIsFullscreen(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white shadow-md">
-        <div className="flex items-center justify-between h-16 px-4">
-          <div className="font-semibold text-lg text-brand-blue">REMEDICA</div>
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
-          >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              {mobileMenuOpen ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              )}
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile Menu */}
-      <div
-        className={cn(
-          "fixed inset-0 z-40 md:hidden transform transition-transform duration-300 ease-in-out",
-          mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-        )}
+    <div className="flex h-screen overflow-hidden bg-gray-100">
+      {/* Mobile Menu Button */}
+      <button
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-[#01b9d4] text-white rounded-lg shadow-lg"
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
       >
-        <div className="relative flex flex-col h-full max-w-xs w-full bg-white shadow-xl pt-16">
-          <Sidebar
-            collapsed={false}
-            onToggle={() => {}}
-            isMobile={true}
-            onMobileClose={() => setMobileMenuOpen(false)}
-          />
-        </div>
-      </div>
+        <Menu className="w-6 h-6" />
+      </button>
 
-      {/* Desktop Layout */}
-      <div className="hidden md:block">
+      {/* Sidebar - Desktop */}
+      <div className={cn("hidden lg:block", mobileMenuOpen && "hidden")}>
         <Sidebar
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
           isMobile={false}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
+          onOpenPatients={() => setIsPatientModalOpen(true)}
         />
       </div>
 
+      {/* Sidebar - Mobile Overlay */}
+      {mobileMenuOpen && (
+        <>
+          <div 
+            className="lg:hidden fixed inset-0 bg-black/50 z-40"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="lg:hidden fixed left-0 top-0 h-full z-50">
+            <Sidebar
+              collapsed={false}
+              onToggle={() => {}}
+              isMobile={true}
+              onMobileClose={() => setMobileMenuOpen(false)}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
+              onOpenPatients={() => setIsPatientModalOpen(true)}
+            />
+          </div>
+        </>
+      )}
+
       {/* Main Content */}
-      <div
+      <main
         className={cn(
-          "flex-1 min-h-screen transition-all duration-300",
-          "md:ml-[72px]",
-          {
-            "md:ml-[240px]": !sidebarCollapsed,
-            "mt-16 md:mt-0": true
-          }
+          'flex-1 overflow-y-auto transition-all duration-300 bg-gray-100',
+          !isMobile && (sidebarCollapsed ? 'ml-[72px]' : 'ml-[240px]'),
+          isMobile && 'ml-0 pl-16' // Add padding for mobile menu button
         )}
       >
-        <div className="hidden md:block">
-          <Header />
-        </div>
-        <main className="p-4 md:p-6">
-          <div className="max-w-7xl mx-auto">
-            <Outlet />
-          </div>
-        </main>
-      </div>
+        <Outlet />
+      </main>
+
+      {/* Comprehensive Patient Modal */}
+      <ComprehensivePatientModal
+        isOpen={isPatientModalOpen}
+        onClose={() => setIsPatientModalOpen(false)}
+      />
     </div>
   );
 };

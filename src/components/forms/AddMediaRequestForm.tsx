@@ -86,10 +86,17 @@ const AddMediaRequestForm: React.FC<Props> = ({ doctorId, onSuccess }) => {
           notes: data.notes
         }]);
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST116' || error.message.includes('does not exist')) {
+          alert('Media requests feature is not available yet. Please contact your administrator.');
+          return;
+        }
+        throw error;
+      }
       onSuccess();
     } catch (error) {
       console.error('Error creating media request:', error);
+      alert('Failed to create media request. Please try again.');
     }
   };
 

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Aid Display Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-2xl mx-auto">
+        <h1 class="text-2xl font-bold text-gray-800 mb-6">Medical Aid Display Preview</h1>
+        
+        <!-- Test Patient Card -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <i data-lucide="user" class="w-6 h-6 text-blue-600"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800">Test Patient</h2>
+                    <p class="text-sm text-gray-500">Patient ID: ef260dfa</p>
+                </div>
+            </div>
+
+            <!-- Medical Aid Display -->
+            <div class="mt-3 bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/50 backdrop-blur-sm rounded-xl border border-blue-200/60 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <div class="bg-gradient-to-r from-blue-500/5 via-indigo-500/5 to-purple-500/5 p-3 border-b border-blue-200/40">
+                    <div class="flex items-center gap-3">
+                        <div class="relative">
+                            <div class="absolute inset-0 bg-white rounded-lg shadow-md"></div>
+                            <div class="relative h-10 w-16 bg-blue-600 rounded-lg p-1 shadow-sm flex items-center justify-center">
+                                <span class="text-white font-bold text-xs">NMC</span>
+                            </div>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="text-sm font-bold text-gray-800 mb-1">Namibia Medical Care (NMC)</h3>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <div class="flex items-center gap-1">
+                                    <i data-lucide="shield" class="w-3 h-3 text-blue-600"></i>
+                                    <span class="text-xs bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-800 px-2 py-1 rounded-full font-semibold border border-blue-200/50">Diamond</span>
+                                </div>
+                                <span class="text-xs bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 px-2 py-1 rounded-full font-semibold border border-emerald-200/50">Premium</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="flex items-center gap-1 mb-1">
+                                <i data-lucide="credit-card" class="w-3 h-3 text-gray-500"></i>
+                                <span class="text-xs text-gray-500 font-medium">Member #</span>
+                            </div>
+                            <span class="text-sm font-bold text-gray-800 font-mono bg-gray-50 px-2 py-1 rounded border">TEST123456</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-3 space-y-2">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="user" class="w-3 h-3 text-gray-500"></i>
+                            <span class="text-gray-600 font-medium">Main Member:</span>
+                            <span class="text-gray-800 font-semibold">Test Patient</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="heart" class="w-3 h-3 text-gray-500"></i>
+                            <span class="text-gray-600 font-medium">Relationship:</span>
+                            <span class="text-gray-800 font-semibold capitalize">Self</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Information -->
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div class="flex items-center gap-2 mb-2">
+                <i data-lucide="alert-circle" class="w-5 h-5 text-yellow-600"></i>
+                <h3 class="font-semibold text-yellow-800">Current Status</h3>
+            </div>
+            <p class="text-sm text-yellow-700 mb-3">
+                Medical aid data is currently blocked by Row Level Security (RLS) policies in the database.
+            </p>
+            <div class="text-xs text-yellow-600 space-y-1">
+                <p><strong>Test Patient Created:</strong> ✅</p>
+                <p><strong>Medical Aid Data Created:</strong> ✅</p>
+                <p><strong>Frontend Can Access Patient:</strong> ✅</p>
+                <p><strong>Frontend Can Access Medical Aid:</strong> ❌ (RLS blocking)</p>
+            </div>
+        </div>
+
+        <!-- Solution Options -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+            <div class="flex items-center gap-2 mb-2">
+                <i data-lucide="lightbulb" class="w-5 h-5 text-blue-600"></i>
+                <h3 class="font-semibold text-blue-800">Solutions</h3>
+            </div>
+            <div class="text-sm text-blue-700 space-y-2">
+                <p><strong>Option 1:</strong> Add RLS policy: <code class="bg-blue-100 px-1 rounded">CREATE POLICY "read_medical_aid" ON medical_aid_details FOR SELECT USING (true);</code></p>
+                <p><strong>Option 2:</strong> Deploy Edge Function: <code class="bg-blue-100 px-1 rounded">npx supabase functions deploy get-medical-aid</code></p>
+                <p><strong>Current:</strong> The medical aid service will gracefully handle the RLS restriction and show "No Medical Aid" when blocked.</p>
+            </div>
+        </div>
+
+        <!-- Test URL -->
+        <div class="bg-gray-100 border border-gray-300 rounded-lg p-4 mt-4">
+            <div class="flex items-center gap-2 mb-2">
+                <i data-lucide="external-link" class="w-5 h-5 text-gray-600"></i>
+                <h3 class="font-semibold text-gray-800">Test in Application</h3>
+            </div>
+            <p class="text-sm text-gray-700 mb-2">Visit the patient page to test the actual implementation:</p>
+            <div class="bg-white rounded border p-2">
+                <code class="text-sm text-blue-600">http://localhost:5174/patients/ef260dfa-78f7-430a-9b0e-673c7163735c</code>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>

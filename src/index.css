@@ -2,23 +2,132 @@
 @import '@fontsource/rubik/500.css';
 @import '@fontsource/montserrat/400.css';
 @import '@fontsource/montserrat/600.css';
+@import '@fontsource/poppins/600.css';
+@import '@fontsource/poppins/700.css';
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Simple no-shake solution - only prevent scale transforms */
+.hover\:scale-105:hover,
+.hover\:scale-110:hover,
+.hover\:scale-95:hover,
+.active\:scale-95:active,
+.active\:scale-105:active {
+  transform: none !important;
+}
+
+/* Floating animation for visit tracker button */
+@keyframes gentle-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.float-animation {
+  animation: gentle-float 3s ease-in-out infinite;
+}
+
 @layer base {
   html {
     font-family: 'Montserrat', sans-serif;
-    background: theme('colors.gray.50');
     color: theme('colors.gray.900');
+    scroll-behavior: smooth;
   }
+  
+  body {
+    background-color: #f3f4f6 !important; /* gray-100 */
+    background: #f3f4f6 !important;
+  }
+
+  /* Custom scrollbar styles for better performance */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded-lg;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-purple-300 rounded-lg;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    @apply bg-purple-400;
+  }
+
+  /* Optimize scrolling performance */
+  .scroll-container {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    will-change: scroll-position;
+  }
+  
+  /* Prevent scroll jank */
+  .scroll-container > * {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  /* Premium gradient animations */
+  @keyframes gradient-x {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  .animate-gradient-x {
+    animation: gradient-x 6s ease infinite;
+  }
+
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Rubik', sans-serif;
     font-weight: 500;
     line-height: 1.4;
     letter-spacing: -0.02em;
+  }
+
+  /* Keep header and sidebar visible when modal is open */
+  /* Removed the rule that was hiding header and nav when modal opens */
+
+  /* Custom styles for react-day-picker */
+  .custom-day-picker {
+    --rdp-cell-size: 40px;
+    --rdp-accent-color: #01b9d4;
+    --rdp-background-color: #e6f7ff;
+    font-family: 'Montserrat', sans-serif;
+  }
+
+  .custom-day-picker .rdp-day_selected:not([disabled]) {
+    background-color: var(--rdp-accent-color);
+    color: white;
+  }
+
+  .custom-day-picker .rdp-day_selected:hover:not([disabled]) {
+    background-color: #0197d4;
+  }
+
+  .custom-day-picker .rdp-day:hover:not([disabled]) {
+    background-color: var(--rdp-background-color);
+  }
+
+  .custom-day-picker .rdp-head_cell {
+    font-weight: 600;
+    color: #4b5563;
   }
 }
 
@@ -94,6 +203,132 @@
   }
 
   @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-float {
+    animation: float 20s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0) translateX(0);
+    }
+    25% {
+      transform: translateY(-20px) translateX(10px);
+    }
+    50% {
+      transform: translateY(10px) translateX(-5px);
+    }
+    75% {
+      transform: translateY(-10px) translateX(-10px);
+    }
+  }
+  
+  .animate-float-delayed {
+    animation: float-delayed 25s ease-in-out infinite;
+  }
+
+  @keyframes float-delayed {
+    0%, 100% {
+      transform: translateY(0) translateX(0);
+    }
+    25% {
+      transform: translateY(15px) translateX(-10px);
+    }
+    50% {
+      transform: translateY(-25px) translateX(15px);
+    }
+    75% {
+      transform: translateY(5px) translateX(5px);
+    }
+  }
+
+  .animate-float-slow {
+    animation: float-slow 30s ease-in-out infinite;
+  }
+
+  @keyframes float-slow {
+    0%, 100% {
+      transform: translateY(0) translateX(0);
+    }
+    33% {
+      transform: translateY(-30px) translateX(20px);
+    }
+    66% {
+      transform: translateY(20px) translateX(-15px);
+    }
+  }
+
+  .animate-gradient-x {
+    animation: gradient-x 15s ease infinite;
+  }
+
+  @keyframes gradient-x {
+    0%, 100% { transform: translateX(0%); }
+    50% { transform: translateX(-100%); }
+  }
+
+  .animate-spin-slow {
+    animation: spin 3s linear infinite;
+  }
+
+  .animation-delay-1000 {
+    animation-delay: 1s;
+  }
+
+  .animation-delay-2000 {
+    animation-delay: 2s;
+  }
+
+  /* Animated gradient background */
+  .animate-gradient-shift {
+    animation: gradient-shift 45s ease infinite;
+    background-size: 200% 200%;
+  }
+
+  @keyframes gradient-shift {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  .animate-gradient-diagonal {
+    animation: gradient-diagonal 60s ease infinite;
+    background-size: 400% 400%;
+  }
+
+  @keyframes gradient-diagonal {
+    0%, 100% {
+      background-position: 0% 0%;
+    }
+    25% {
+      background-position: 100% 0%;
+    }
+    50% {
+      background-position: 100% 100%;
+    }
+    75% {
+      background-position: 0% 100%;
+    }
+  }
+
+  /* Fade in animation for date picker modal */
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out;
+  }
+
+  @keyframes fade-in {
     from {
       opacity: 0;
       transform: scale(0.95);

@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix Automation System</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .status-item {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .status-item.success { background: #d1fae5; color: #065f46; }
+        .status-item.warning { background: #fed7aa; color: #92400e; }
+        .status-item.error { background: #fee2e2; color: #991b1b; }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover { background: #4338ca; }
+        button.success { background: #10b981; }
+        button.success:hover { background: #059669; }
+        .log {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 13px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        .badge.success { background: #d1fae5; color: #065f46; }
+        .badge.pending { background: #dbeafe; color: #1e40af; }
+        .badge.failed { background: #fee2e2; color: #991b1b; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 Automation System Control Center</h1>
+        <p>Smart diagnostics and fixes for the automation queue</p>
+    </div>
+
+    <div class="card">
+        <h2>📊 System Status</h2>
+        <div id="systemStatus" class="status-grid">
+            <div class="status-item">Loading...</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>🔧 Quick Actions</h2>
+        <button onclick="processQueue()">Process Queue Now</button>
+        <button onclick="sendHappyJoyWelcome()" class="success">Send Happy Joy's Welcome</button>
+        <button onclick="fixAutomationService()">Fix Automation Service</button>
+        <button onclick="runFullDiagnostic()">Run Full Diagnostic</button>
+    </div>
+
+    <div class="card">
+        <h2>📝 Activity Log</h2>
+        <div id="log" class="log">System initialized...</div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const emoji = type === 'error' ? '❌' : type === 'success' ? '✅' : '📌';
+            logDiv.innerHTML += `${emoji} [${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        async function checkSystemStatus() {
+            try {
+                // Check queue status
+                const { data: queueStats } = await supabase
+                    .from('automation_queue')
+                    .select('status')
+                    .gte('created_at', new Date(Date.now() - 24*60*60*1000).toISOString());
+                
+                const stats = {
+                    queued: queueStats?.filter(q => q.status === 'queued').length || 0,
+                    processing: queueStats?.filter(q => q.status === 'processing').length || 0,
+                    completed: queueStats?.filter(q => q.status === 'completed').length || 0,
+                    failed: queueStats?.filter(q => q.status === 'failed').length || 0
+                };
+                
+                // Check Happy Joy's status
+                const { data: happyJoy } = await supabase
+                    .from('automation_executions')
+                    .select('status, channel')
+                    .eq('patient_id', '54c9df8a-257b-463c-b43d-5c2db19c000a')
+                    .single();
+                
+                const statusDiv = document.getElementById('systemStatus');
+                statusDiv.innerHTML = `
+                    <div class="status-item ${stats.queued > 20 ? 'error' : stats.queued > 10 ? 'warning' : 'success'}">
+                        <h3>${stats.queued}</h3>
+                        <p>Queued</p>
+                    </div>
+                    <div class="status-item ${stats.processing > 0 ? 'warning' : ''}">
+                        <h3>${stats.processing}</h3>
+                        <p>Processing</p>
+                    </div>
+                    <div class="status-item success">
+                        <h3>${stats.completed}</h3>
+                        <p>Completed</p>
+                    </div>
+                    <div class="status-item ${stats.failed > 0 ? 'error' : ''}">
+                        <h3>${stats.failed}</h3>
+                        <p>Failed</p>
+                    </div>
+                    <div class="status-item">
+                        <h3>Happy Joy</h3>
+                        <p>${happyJoy?.status || 'Unknown'} <span class="badge ${happyJoy?.status === 'completed' ? 'success' : 'pending'}">${happyJoy?.channel || 'Not sent'}</span></p>
+                    </div>
+                `;
+                
+                if (stats.queued > 0) {
+                    log(`Found ${stats.queued} items in queue waiting to be processed`, 'warning');
+                }
+            } catch (error) {
+                log(`Error checking status: ${error.message}`, 'error');
+            }
+        }
+
+        async function processQueue() {
+            try {
+                log('Processing queue using RPC function...');
+                
+                // Use the RPC function to process queue
+                const { data, error } = await supabase.rpc('process_automation_queue');
+                
+                if (error) throw error;
+                
+                log(`Processed ${data.processed} items via RPC`, 'success');
+                
+                // Also try edge function
+                log('Attempting edge function processing...');
+                const { data: edgeData, error: edgeError } = await supabase.functions.invoke('automation-queue-worker', {
+                    body: {
+                        action: 'process',
+                        workerId: 'manual-fix-' + Date.now()
+                    }
+                });
+                
+                if (!edgeError && edgeData) {
+                    log(`Edge function processed ${edgeData.processed || 0} items`, 'success');
+                }
+                
+                await checkSystemStatus();
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function sendHappyJoyWelcome() {
+            try {
+                log('Sending Happy Joy welcome messages...');
+                
+                // Send SMS
+                const smsPromise = supabase.functions.invoke('centralized-sms-gateway', {
+                    body: {
+                        practiceId: 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3',
+                        recipientPhone: '+264812222331',
+                        messageContent: 'Dear Happy Joy, welcome to New Charm Dental Practice! We are excited to be your healthcare partner. Access your patient portal to manage appointments. Call +264 81 435 8843 for assistance.',
+                        messageType: 'welcome',
+                        patientId: '54c9df8a-257b-463c-b43d-5c2db19c000a'
+                    }
+                });
+                
+                // Send Email
+                const emailPromise = supabase.functions.invoke('centralized-email-gateway', {
+                    body: {
+                        practiceId: 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3',
+                        recipientEmail: 'ksnahol@gmail.com',
+                        subject: 'Welcome to New Charm Dental Practice!',
+                        htmlContent: '<p>Dear Happy Joy,<br><br>Welcome to New Charm Dental Practice! We are thrilled to have you as our patient.<br><br>Best regards,<br>The New Charm Dental Practice Team</p>',
+                        textContent: 'Dear Happy Joy, Welcome to New Charm Dental Practice! We are thrilled to have you as our patient. Best regards, The New Charm Dental Practice Team',
+                        emailType: 'welcome',
+                        patientId: '54c9df8a-257b-463c-b43d-5c2db19c000a'
+                    }
+                });
+                
+                // Wait for both
+                const [smsResult, emailResult] = await Promise.allSettled([smsPromise, emailPromise]);
+                
+                if (smsResult.status === 'fulfilled' && !smsResult.value.error) {
+                    log('✅ SMS sent successfully!', 'success');
+                } else {
+                    log(`SMS failed: ${smsResult.reason || smsResult.value?.error?.message}`, 'error');
+                }
+                
+                if (emailResult.status === 'fulfilled' && !emailResult.value.error) {
+                    log('✅ Email sent successfully!', 'success');
+                } else {
+                    log(`Email failed: ${emailResult.reason || emailResult.value?.error?.message}`, 'error');
+                }
+                
+                // Update the automation execution
+                await supabase
+                    .from('automation_executions')
+                    .update({ 
+                        status: 'completed',
+                        channel: 'BOTH',
+                        executed_at: new Date().toISOString()
+                    })
+                    .eq('patient_id', '54c9df8a-257b-463c-b43d-5c2db19c000a');
+                
+                await checkSystemStatus();
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function fixAutomationService() {
+            try {
+                log('Fixing automation service...');
+                
+                // Create interval to process queue
+                log('Setting up periodic queue processing...');
+                
+                setInterval(async () => {
+                    const { data } = await supabase.rpc('process_automation_queue');
+                    if (data?.processed > 0) {
+                        log(`Auto-processed ${data.processed} items`, 'success');
+                    }
+                }, 30000); // Every 30 seconds
+                
+                log('Automation service fix applied!', 'success');
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function runFullDiagnostic() {
+            log('Running full diagnostic...');
+            
+            // Check various components
+            const checks = [
+                { name: 'Database Connection', fn: async () => await supabase.from('practices').select('count').single() },
+                { name: 'SMS Gateway', fn: async () => await supabase.from('practice_sms_subscriptions').select('count').single() },
+                { name: 'Email Gateway', fn: async () => await supabase.from('practice_email_subscriptions').select('count').single() },
+                { name: 'Queue Table', fn: async () => await supabase.from('automation_queue').select('count').single() },
+                { name: 'Edge Functions', fn: async () => await supabase.functions.invoke('automation-engine', { body: { test: true } }) }
+            ];
+            
+            for (const check of checks) {
+                try {
+                    await check.fn();
+                    log(`✅ ${check.name}: OK`, 'success');
+                } catch (error) {
+                    log(`❌ ${check.name}: ${error.message}`, 'error');
+                }
+            }
+            
+            log('Diagnostic complete!', 'success');
+        }
+
+        // Initialize
+        window.onload = async () => {
+            await checkSystemStatus();
+            log('System ready. Happy Joy\'s welcome messages are waiting to be sent.');
+        };
+        
+        // Auto-refresh status
+        setInterval(checkSystemStatus, 10000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Send Pending SMS - Final Version</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 800px; margin: 0 auto; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; margin: 5px; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .result { margin-top: 20px; padding: 15px; background: white; border-radius: 5px; }
+        .success { border-left: 4px solid #28a745; background: #d4edda; }
+        .error { border-left: 4px solid #dc3545; background: #f8d7da; }
+        .info { background: #e3f2fd; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .warning { background: #fff3cd; padding: 10px; border-radius: 4px; margin: 10px 0; border: 1px solid #ffeaa7; }
+        pre { white-space: pre-wrap; word-wrap: break-word; font-size: 12px; }
+        .sms-info { background: #f0f0f0; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        .sms-info h3 { margin-top: 0; }
+        .status { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 12px; font-weight: bold; }
+        .status.pending { background: #ffc107; color: #000; }
+        .status.sent { background: #28a745; color: #fff; }
+        .status.failed { background: #dc3545; color: #fff; }
+        .sms-item { background: white; padding: 15px; margin: 10px 0; border-radius: 5px; border: 1px solid #ddd; }
+        .sms-item.sent { opacity: 0.7; }
+        .btn-small { padding: 5px 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Send Pending SMS Messages</h1>
+        
+        <div class="warning">
+            <strong>⚠️ Important:</strong> This page sends pending SMS messages using the RPC function.
+            <br>The SMS will be marked as sent in the database but won't actually send via SMS Portal.
+            <br>For real SMS delivery, use the authenticated app at <a href="http://localhost:5001/test-sms-auth">http://localhost:5001/test-sms-auth</a>
+        </div>
+        
+        <div class="info">
+            <strong>ℹ️ Welcome SMS Status:</strong> The welcome SMS to 0812222331 was already sent on 2025-07-04 02:44:51 UTC.
+        </div>
+        
+        <div>
+            <button onclick="loadAllSMS()" id="refreshBtn">Refresh All SMS</button>
+        </div>
+        
+        <div id="pendingSMS" class="sms-info">
+            <h3>Pending SMS Messages</h3>
+            <p>Loading...</p>
+        </div>
+        
+        <div id="recentSMS" class="sms-info">
+            <h3>Recently Sent SMS</h3>
+            <p>Loading...</p>
+        </div>
+        
+        <div id="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcwNjE2ODksImV4cCI6MjA2MjYzNzY4OX0.TCNww59ZpJ00QhZgld4QJkYCHz53GAtyjw4F5hptFAM';
+        
+        // Load all SMS on page load
+        window.onload = function() {
+            loadAllSMS();
+        };
+        
+        async function loadAllSMS() {
+            const refreshBtn = document.getElementById('refreshBtn');
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = 'Loading...';
+            
+            await Promise.all([
+                loadPendingSMS(),
+                loadRecentSMS()
+            ]);
+            
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = 'Refresh All SMS';
+        }
+        
+        async function loadPendingSMS() {
+            const pendingSMSDiv = document.getElementById('pendingSMS');
+            
+            try {
+                // Fetch pending SMS
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/practice_sms_logs?status=eq.pending&select=*&order=created_at.desc&limit=10`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.length > 0) {
+                    let html = '<h3>Pending SMS Messages</h3>';
+                    result.forEach(sms => {
+                        html += `
+                            <div class="sms-item">
+                                <p><strong>To:</strong> ${sms.recipient_phone} <span class="status pending">PENDING</span></p>
+                                <p><strong>Type:</strong> ${sms.message_type}</p>
+                                <p><strong>Message:</strong> ${sms.message_content}</p>
+                                <p><small>Created: ${new Date(sms.created_at).toLocaleString()}</small></p>
+                                <button class="btn-small" onclick="sendSMS('${sms.id}')">Send This SMS</button>
+                            </div>
+                        `;
+                    });
+                    pendingSMSDiv.innerHTML = html;
+                } else {
+                    pendingSMSDiv.innerHTML = '<h3>Pending SMS Messages</h3><p>No pending SMS messages found.</p>';
+                }
+            } catch (error) {
+                pendingSMSDiv.innerHTML = `<h3>Pending SMS Messages</h3><p class="error">Error: ${error.message}</p>`;
+            }
+        }
+        
+        async function loadRecentSMS() {
+            const recentSMSDiv = document.getElementById('recentSMS');
+            
+            try {
+                // Fetch recent sent SMS
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/practice_sms_logs?status=eq.sent&select=*&order=sent_at.desc&limit=5`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.length > 0) {
+                    let html = '<h3>Recently Sent SMS</h3>';
+                    result.forEach(sms => {
+                        const isWelcomeSMS = sms.recipient_phone === '0812222331' && sms.message_content.includes('welcome');
+                        html += `
+                            <div class="sms-item sent">
+                                ${isWelcomeSMS ? '<strong>✅ Welcome SMS to 0812222331</strong>' : ''}
+                                <p><strong>To:</strong> ${sms.recipient_phone} <span class="status sent">SENT</span></p>
+                                <p><strong>Type:</strong> ${sms.message_type}</p>
+                                <p><strong>Message:</strong> ${sms.message_content}</p>
+                                <p><small>Sent: ${new Date(sms.sent_at).toLocaleString()}</small></p>
+                            </div>
+                        `;
+                    });
+                    recentSMSDiv.innerHTML = html;
+                } else {
+                    recentSMSDiv.innerHTML = '<h3>Recently Sent SMS</h3><p>No recently sent SMS messages found.</p>';
+                }
+            } catch (error) {
+                recentSMSDiv.innerHTML = `<h3>Recently Sent SMS</h3><p class="error">Error: ${error.message}</p>`;
+            }
+        }
+        
+        async function sendSMS(smsId) {
+            const resultDiv = document.getElementById('result');
+            
+            resultDiv.style.display = 'none';
+            
+            try {
+                // Call the RPC function to send SMS
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/send_sms_direct`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ p_sms_id: smsId })
+                });
+                
+                const result = await response.json();
+                
+                resultDiv.style.display = 'block';
+                if (response.ok && result[0]?.send_sms_direct?.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ SMS Sent Successfully!</h3>
+                        <p><strong>Recipient:</strong> ${result[0].send_sms_direct.recipient}</p>
+                        <p><strong>Message:</strong> ${result[0].send_sms_direct.message}</p>
+                        <p>The SMS has been marked as sent in the database.</p>
+                        <p><small>Note: This simulates sending. For actual SMS delivery through SMS Portal, use the authenticated app.</small></p>
+                    `;
+                    
+                    // Refresh SMS lists
+                    setTimeout(() => {
+                        loadAllSMS();
+                        resultDiv.style.display = 'none';
+                    }, 3000);
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h3>❌ Failed to Send SMS</h3>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Error</h3>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

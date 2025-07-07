@@ -1,0 +1,312 @@
+{
+  "practiceId": "5da3896d-b9f3-4b0a-996a-3adca867cb30",
+  "lastUpdated": "2025-06-30T23:50:00.000Z",
+  "sms": {
+    "summary": {
+      "totalMessages": 14,
+      "sentMessages": 0,
+      "deliveredMessages": 11,
+      "failedMessages": 1,
+      "pendingMessages": 2,
+      "uniqueRecipients": 9,
+      "messageTypesUsed": 6,
+      "deliveryRate": 78.57,
+      "failureRate": 7.14,
+      "firstMessageDate": "2025-06-15T23:49:10.611896+00:00",
+      "lastMessageDate": "2025-06-30T23:49:10.611896+00:00"
+    },
+    "byMessageType": [
+      {
+        "type": "appointment_reminder",
+        "count": 5,
+        "delivered": 4,
+        "failed": 0,
+        "successRate": 80
+      },
+      {
+        "type": "billing",
+        "count": 2,
+        "delivered": 1,
+        "failed": 1,
+        "successRate": 50
+      },
+      {
+        "type": "general",
+        "count": 2,
+        "delivered": 2,
+        "failed": 0,
+        "successRate": 100
+      },
+      {
+        "type": "lab_result",
+        "count": 3,
+        "delivered": 2,
+        "failed": 0,
+        "successRate": 66.67
+      },
+      {
+        "type": "prescription",
+        "count": 1,
+        "delivered": 1,
+        "failed": 0,
+        "successRate": 100
+      },
+      {
+        "type": "welcome",
+        "count": 1,
+        "delivered": 1,
+        "failed": 0,
+        "successRate": 100
+      }
+    ],
+    "byDay": [
+      { "date": "2025-06-30", "count": 5, "delivered": 3, "failed": 0 },
+      { "date": "2025-06-29", "count": 1, "delivered": 1, "failed": 0 },
+      { "date": "2025-06-28", "count": 2, "delivered": 2, "failed": 0 },
+      { "date": "2025-06-27", "count": 1, "delivered": 1, "failed": 0 },
+      { "date": "2025-06-25", "count": 1, "delivered": 1, "failed": 0 },
+      { "date": "2025-06-24", "count": 1, "delivered": 0, "failed": 1 },
+      { "date": "2025-06-23", "count": 1, "delivered": 1, "failed": 0 },
+      { "date": "2025-06-20", "count": 1, "delivered": 1, "failed": 0 },
+      { "date": "2025-06-15", "count": 1, "delivered": 1, "failed": 0 }
+    ],
+    "byHour": [
+      { "hour": 20, "count": 1 },
+      { "hour": 21, "count": 1 },
+      { "hour": 22, "count": 1 },
+      { "hour": 23, "count": 11 }
+    ],
+    "topRecipients": [
+      { "phone": "+27826789012", "messageCount": 2, "deliveredCount": 1 },
+      { "phone": "+27821234567", "messageCount": 2, "deliveredCount": 2 },
+      { "phone": "+27823456789", "messageCount": 2, "deliveredCount": 2 },
+      { "phone": "+27824567890", "messageCount": 2, "deliveredCount": 2 },
+      { "phone": "+27825678901", "messageCount": 2, "deliveredCount": 1 }
+    ],
+    "subscription": {
+      "monthlyLimit": 2000,
+      "additionalPurchased": 0,
+      "currentUsage": 0,
+      "totalCredits": 2000,
+      "remainingCredits": 2000,
+      "usagePercentage": 0,
+      "billingCycleStart": "2025-06-04",
+      "billingCycleEnd": "2025-07-04",
+      "daysRemaining": 4,
+      "isActive": true,
+      "autoRenew": true
+    }
+  },
+  "email": {
+    "summary": {
+      "totalEmails": 12,
+      "sentEmails": 2,
+      "deliveredEmails": 3,
+      "failedEmails": 1,
+      "pendingEmails": 0,
+      "openedEmails": 4,
+      "clickedEmails": 2,
+      "uniqueRecipients": 12,
+      "emailTypesUsed": 9,
+      "deliveryRate": 25,
+      "failureRate": 8.33,
+      "openRate": 33.33,
+      "clickThroughRate": 16.67,
+      "firstEmailDate": "2025-06-15T23:50:36.813578+00:00",
+      "lastEmailDate": "2025-06-30T23:20:36.813578+00:00"
+    },
+    "byEmailType": [
+      {
+        "type": "appointment_confirmation",
+        "count": 2,
+        "delivered": 0,
+        "opened": 1,
+        "clicked": 0,
+        "failed": 1,
+        "successRate": 50
+      },
+      {
+        "type": "appointment_reminder",
+        "count": 1,
+        "delivered": 1,
+        "opened": 0,
+        "clicked": 0,
+        "failed": 0,
+        "successRate": 100
+      },
+      {
+        "type": "general",
+        "count": 1,
+        "delivered": 0,
+        "opened": 0,
+        "clicked": 0,
+        "failed": 0,
+        "successRate": 0
+      },
+      {
+        "type": "invoice",
+        "count": 2,
+        "delivered": 0,
+        "opened": 1,
+        "clicked": 1,
+        "failed": 0,
+        "successRate": 100
+      },
+      {
+        "type": "lab_result",
+        "count": 2,
+        "delivered": 0,
+        "opened": 1,
+        "clicked": 1,
+        "failed": 0,
+        "successRate": 100
+      },
+      {
+        "type": "newsletter",
+        "count": 1,
+        "delivered": 1,
+        "opened": 0,
+        "clicked": 0,
+        "failed": 0,
+        "successRate": 100
+      },
+      {
+        "type": "payment_reminder",
+        "count": 1,
+        "delivered": 1,
+        "opened": 0,
+        "clicked": 0,
+        "failed": 0,
+        "successRate": 100
+      },
+      {
+        "type": "prescription",
+        "count": 1,
+        "delivered": 0,
+        "opened": 0,
+        "clicked": 0,
+        "failed": 0,
+        "successRate": 0
+      },
+      {
+        "type": "welcome",
+        "count": 1,
+        "delivered": 0,
+        "opened": 1,
+        "clicked": 0,
+        "failed": 0,
+        "successRate": 100
+      }
+    ],
+    "byDay": [
+      { "date": "2025-06-30", "count": 2, "delivered": 0, "opened": 0, "failed": 0 },
+      { "date": "2025-06-29", "count": 1, "delivered": 0, "opened": 0, "failed": 1 },
+      { "date": "2025-06-28", "count": 1, "delivered": 1, "opened": 0, "failed": 0 },
+      { "date": "2025-06-27", "count": 1, "delivered": 1, "opened": 0, "failed": 0 },
+      { "date": "2025-06-26", "count": 1, "delivered": 0, "opened": 1, "failed": 0 },
+      { "date": "2025-06-25", "count": 1, "delivered": 0, "opened": 0, "failed": 0 },
+      { "date": "2025-06-24", "count": 1, "delivered": 0, "opened": 1, "failed": 0 },
+      { "date": "2025-06-23", "count": 1, "delivered": 0, "opened": 1, "failed": 0 },
+      { "date": "2025-06-22", "count": 1, "delivered": 0, "opened": 0, "failed": 0 },
+      { "date": "2025-06-20", "count": 1, "delivered": 0, "opened": 1, "failed": 0 },
+      { "date": "2025-06-15", "count": 1, "delivered": 1, "opened": 0, "failed": 0 }
+    ],
+    "byHour": [
+      { "hour": 22, "count": 1 },
+      { "hour": 23, "count": 11 }
+    ],
+    "topRecipients": [
+      { "email": "david.taylor@example.com", "messageCount": 1, "openedCount": 0, "clickedCount": 0 },
+      { "email": "emma.white@example.com", "messageCount": 1, "openedCount": 0, "clickedCount": 0 },
+      { "email": "john.smith@example.com", "messageCount": 1, "openedCount": 1, "clickedCount": 0 },
+      { "email": "sarah.jones@example.com", "messageCount": 1, "openedCount": 0, "clickedCount": 1 },
+      { "email": "mary.wilson@example.com", "messageCount": 1, "openedCount": 1, "clickedCount": 0 },
+      { "email": "lisa.anderson@example.com", "messageCount": 1, "openedCount": 1, "clickedCount": 0 },
+      { "email": "robert.davis@example.com", "messageCount": 1, "openedCount": 0, "clickedCount": 1 }
+    ],
+    "subscription": {
+      "monthlyLimit": 100,
+      "additionalPurchased": 0,
+      "currentUsage": 0,
+      "totalCredits": 100,
+      "remainingCredits": 100,
+      "usagePercentage": 0,
+      "billingCycleStart": "2025-06-30",
+      "billingCycleEnd": "2025-07-30",
+      "daysRemaining": 30,
+      "isActive": true,
+      "autoRenew": true
+    }
+  },
+  "automationPatterns": {
+    "smsPatterns": [
+      { "messageType": "appointment_reminder", "hour": 20, "count": 1, "successRate": 100 },
+      { "messageType": "appointment_reminder", "hour": 23, "count": 4, "successRate": 75 },
+      { "messageType": "billing", "hour": 23, "count": 2, "successRate": 50 },
+      { "messageType": "general", "hour": 23, "count": 2, "successRate": 100 },
+      { "messageType": "lab_result", "hour": 23, "count": 3, "successRate": 66.67 },
+      { "messageType": "prescription", "hour": 21, "count": 1, "successRate": 100 },
+      { "messageType": "welcome", "hour": 22, "count": 1, "successRate": 100 }
+    ],
+    "emailPatterns": [
+      { "emailType": "appointment_confirmation", "hour": 23, "count": 2, "successRate": 50 },
+      { "emailType": "appointment_reminder", "hour": 23, "count": 1, "successRate": 100 },
+      { "emailType": "general", "hour": 23, "count": 1, "successRate": 0 },
+      { "emailType": "invoice", "hour": 23, "count": 2, "successRate": 100 },
+      { "emailType": "lab_result", "hour": 23, "count": 2, "successRate": 100 },
+      { "emailType": "newsletter", "hour": 23, "count": 1, "successRate": 100 },
+      { "emailType": "payment_reminder", "hour": 23, "count": 1, "successRate": 100 },
+      { "emailType": "prescription", "hour": 22, "count": 1, "successRate": 0 },
+      { "emailType": "welcome", "hour": 23, "count": 1, "successRate": 100 }
+    ],
+    "peakHours": {
+      "sms": [
+        { "hour": 23, "percentage": 78.57 },
+        { "hour": 20, "percentage": 7.14 },
+        { "hour": 21, "percentage": 7.14 },
+        { "hour": 22, "percentage": 7.14 }
+      ],
+      "email": [
+        { "hour": 23, "percentage": 91.67 },
+        { "hour": 22, "percentage": 8.33 }
+      ]
+    }
+  },
+  "recentActivity": [
+    {
+      "channel": "SMS",
+      "timestamp": "2025-06-30T23:49:10.611896+00:00",
+      "type": "lab_result",
+      "status": "pending",
+      "recipient": "+27826789012"
+    },
+    {
+      "channel": "SMS",
+      "timestamp": "2025-06-30T23:49:10.611896+00:00",
+      "type": "appointment_reminder",
+      "status": "pending",
+      "recipient": "+27825678901"
+    },
+    {
+      "channel": "Email",
+      "timestamp": "2025-06-30T23:20:36.813578+00:00",
+      "type": "general",
+      "status": "sent",
+      "recipient": "william.harris@example.com"
+    },
+    {
+      "channel": "Email",
+      "timestamp": "2025-06-30T22:50:36.813578+00:00",
+      "type": "prescription",
+      "status": "sent",
+      "recipient": "emma.white@example.com"
+    },
+    {
+      "channel": "SMS",
+      "timestamp": "2025-06-30T22:49:10.611896+00:00",
+      "type": "welcome",
+      "status": "delivered",
+      "recipient": "+27824567890"
+    }
+  ]
+}

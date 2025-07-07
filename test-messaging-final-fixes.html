@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Messaging Final Fixes</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .fix { background: #e6ffe6; padding: 15px; margin: 10px 0; border-left: 4px solid #4caf50; border-radius: 4px; }
+        .feature { background: #fffacd; padding: 15px; margin: 10px 0; border-left: 4px solid #ffa500; border-radius: 4px; }
+        .success { color: green; background: #f0fff0; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .error { color: red; background: #fff0f0; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; background: #ffa500; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #ff8c00; }
+        h2 { color: #333; border-bottom: 2px solid #ffa500; padding-bottom: 10px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Messaging System - Final Fixes</h1>
+        
+        <div class="section">
+            <h2>✅ Fixes Applied</h2>
+            
+            <div class="fix">
+                <h3>🔧 Fixed: Direct Message practice_id Error</h3>
+                <p><strong>Problem:</strong> "null value in column 'practice_id' of relation 'system_notifications'"</p>
+                <p><strong>Solution:</strong> Updated the notification trigger to properly handle practice_id</p>
+                <p><strong>Result:</strong> Direct messages now send without errors</p>
+            </div>
+            
+            <div class="fix">
+                <h3>🗑️ Added: Delete Direct Messages</h3>
+                <p><strong>Feature:</strong> Trash icon in direct message header</p>
+                <p><strong>Behavior:</strong> Removes conversation from your view only</p>
+                <p><strong>Smart cleanup:</strong> If both users delete, the conversation is fully removed</p>
+            </div>
+            
+            <div class="fix">
+                <h3>👥 Enhanced: Group Management</h3>
+                <p><strong>Creator privileges:</strong> Remove members, delete group</p>
+                <p><strong>Member visibility:</strong> Shows all members including creator</p>
+                <p><strong>Avatar display:</strong> Real user avatars throughout</p>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="section">
+                <h2>🧪 Test Direct Messages</h2>
+                <button onclick="testCreateDirectMessage()">Create Test Direct Message</button>
+                <button onclick="testSendDirectMessage()">Send Direct Message</button>
+                <button onclick="checkNotifications()">Check Notifications</button>
+                <div id="dm-results"></div>
+            </div>
+
+            <div class="section">
+                <h2>👥 Test Group Management</h2>
+                <button onclick="testGroupCreatorFeatures()">Test Creator Features</button>
+                <button onclick="listAllChannelMembers()">List All Members</button>
+                <div id="group-results"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🎯 Feature Summary</h2>
+            
+            <div class="feature">
+                <h3>Direct Messages</h3>
+                <ul>
+                    <li>✅ Shows other user's name and avatar in channel list</li>
+                    <li>✅ Delete button to remove conversation</li>
+                    <li>✅ Fixed practice_id error when sending</li>
+                    <li>✅ Privacy: Only see your own conversations</li>
+                </ul>
+            </div>
+            
+            <div class="feature">
+                <h3>Group Management (Creator Only)</h3>
+                <ul>
+                    <li>✅ Manage button for group creators</li>
+                    <li>✅ Remove individual members</li>
+                    <li>✅ Delete entire group with confirmation</li>
+                    <li>✅ Creator badge in member list</li>
+                </ul>
+            </div>
+            
+            <div class="feature">
+                <h3>Visual Improvements</h3>
+                <ul>
+                    <li>✅ Real user avatars from database</li>
+                    <li>✅ Fallback to colorful initials</li>
+                    <li>✅ Consistent design throughout</li>
+                    <li>✅ Professional UI/UX</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createClient } = supabase;
+        const supabaseUrl = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjQ2MDU0MDAsImV4cCI6MjA0MDE4MTQwMH0.D8vTZbezKfU3AABZfOc1QjeYlx_LP81hBXLIBB69n5Y';
+        const client = createClient(supabaseUrl, supabaseAnonKey);
+
+        let currentUser = null;
+        let practiceId = null;
+
+        async function init() {
+            const { data: { user } } = await client.auth.getUser();
+            if (user) {
+                currentUser = user;
+                const { data: userData } = await client
+                    .from('users')
+                    .select('practice_id, full_name')
+                    .eq('id', user.id)
+                    .single();
+                
+                if (userData) {
+                    practiceId = userData.practice_id;
+                }
+            }
+        }
+
+        async function testCreateDirectMessage() {
+            const results = document.getElementById('dm-results');
+            try {
+                // Get another user to create DM with
+                const { data: users } = await client
+                    .from('users')
+                    .select('id, full_name')
+                    .eq('practice_id', practiceId)
+                    .neq('id', currentUser.id)
+                    .limit(1);
+
+                if (!users || users.length === 0) {
+                    results.innerHTML = '<p class="error">No other users found</p>';
+                    return;
+                }
+
+                const otherUser = users[0];
+                
+                // Create direct message channel
+                const { data: channel, error: channelError } = await client
+                    .from('internal_message_channels')
+                    .insert({
+                        practice_id: practiceId,
+                        name: 'Direct Message',
+                        channel_type: 'direct',
+                        created_by: currentUser.id
+                    })
+                    .select()
+                    .single();
+
+                if (channelError) throw channelError;
+
+                // Add both users as members
+                const { error: membersError } = await client
+                    .from('internal_channel_members')
+                    .insert([
+                        { channel_id: channel.id, user_id: currentUser.id, practice_id: practiceId },
+                        { channel_id: channel.id, user_id: otherUser.id, practice_id: practiceId }
+                    ]);
+
+                if (membersError) throw membersError;
+
+                // Create thread
+                const { data: thread, error: threadError } = await client
+                    .from('internal_message_threads')
+                    .insert({
+                        channel_id: channel.id,
+                        practice_id: practiceId,
+                        created_by: currentUser.id
+                    })
+                    .select()
+                    .single();
+
+                if (threadError) throw threadError;
+
+                results.innerHTML = `<p class="success">✅ Created direct message with ${otherUser.full_name}</p>`;
+            } catch (error) {
+                results.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function testSendDirectMessage() {
+            const results = document.getElementById('dm-results');
+            try {
+                // Get a direct message thread
+                const { data: channels } = await client
+                    .from('internal_message_channels')
+                    .select('id, name')
+                    .eq('channel_type', 'direct')
+                    .eq('practice_id', practiceId)
+                    .limit(1);
+
+                if (!channels || channels.length === 0) {
+                    results.innerHTML = '<p class="error">No direct message channels found. Create one first.</p>';
+                    return;
+                }
+
+                // Get thread
+                const { data: threads } = await client
+                    .from('internal_message_threads')
+                    .select('id')
+                    .eq('channel_id', channels[0].id)
+                    .limit(1);
+
+                if (!threads || threads.length === 0) {
+                    results.innerHTML = '<p class="error">No thread found</p>';
+                    return;
+                }
+
+                // Send message
+                const { data, error } = await client
+                    .from('internal_messages')
+                    .insert({
+                        thread_id: threads[0].id,
+                        sender_id: currentUser.id,
+                        practice_id: practiceId,
+                        content: `Test direct message sent at ${new Date().toLocaleTimeString()}`,
+                        content_type: 'text',
+                        mentions: [],
+                        importance_score: 1
+                    })
+                    .select();
+
+                if (error) throw error;
+                results.innerHTML = '<p class="success">✅ Direct message sent successfully!</p>';
+            } catch (error) {
+                results.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function checkNotifications() {
+            const results = document.getElementById('dm-results');
+            try {
+                const { data, error } = await client
+                    .from('system_notifications')
+                    .select('*')
+                    .eq('type', 'message')
+                    .eq('practice_id', practiceId)
+                    .order('created_at', { ascending: false })
+                    .limit(5);
+
+                if (error) throw error;
+                
+                if (data && data.length > 0) {
+                    results.innerHTML = `<p class="success">✅ Found ${data.length} message notifications</p>`;
+                } else {
+                    results.innerHTML = '<p class="info">No notifications found</p>';
+                }
+            } catch (error) {
+                results.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function testGroupCreatorFeatures() {
+            const results = document.getElementById('group-results');
+            try {
+                // Get groups where user is creator
+                const { data: channels } = await client
+                    .from('internal_message_channels')
+                    .select('id, name, created_by')
+                    .eq('channel_type', 'group')
+                    .eq('created_by', currentUser.id)
+                    .eq('practice_id', practiceId);
+
+                if (!channels || channels.length === 0) {
+                    results.innerHTML = '<p class="error">No groups found where you are the creator</p>';
+                    return;
+                }
+
+                let html = '<h4>Groups You Created:</h4>';
+                channels.forEach(channel => {
+                    html += `<p>✅ ${channel.name} - You have full management rights</p>`;
+                });
+                results.innerHTML = html;
+            } catch (error) {
+                results.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        async function listAllChannelMembers() {
+            const results = document.getElementById('group-results');
+            try {
+                // Get a group channel
+                const { data: channels } = await client
+                    .from('internal_message_channels')
+                    .select('id, name, created_by')
+                    .eq('channel_type', 'group')
+                    .eq('practice_id', practiceId)
+                    .limit(1);
+
+                if (!channels || channels.length === 0) {
+                    results.innerHTML = '<p class="error">No group channels found</p>';
+                    return;
+                }
+
+                const channel = channels[0];
+                
+                // Get all members including creator
+                const { data: members } = await client
+                    .from('internal_channel_members')
+                    .select('user_id, users!inner(full_name)')
+                    .eq('channel_id', channel.id);
+
+                let html = `<h4>Members of "${channel.name}":</h4>`;
+                members.forEach(member => {
+                    const isCreator = member.user_id === channel.created_by;
+                    html += `<p>• ${member.users.full_name}${isCreator ? ' <strong>(Creator)</strong>' : ''}</p>`;
+                });
+                
+                // Verify creator is in the list
+                const creatorInList = members.some(m => m.user_id === channel.created_by);
+                if (!creatorInList) {
+                    html += '<p class="error">⚠️ Creator is not in members list!</p>';
+                } else {
+                    html += '<p class="success">✅ Creator is properly included in members</p>';
+                }
+                
+                results.innerHTML = html;
+            } catch (error) {
+                results.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+            }
+        }
+
+        // Initialize
+        init();
+    </script>
+</body>
+</html>

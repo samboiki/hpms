@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test SMS Send</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        pre { background: #f0f0f0; padding: 10px; overflow-x: auto; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 10px 0; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Test SMS Send</h1>
+    <p>Click the button below to send a test SMS to +264812222331</p>
+    <button onclick="testSMS()">Send Test SMS</button>
+    <div id="result"></div>
+
+    <script>
+        async function testSMS() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>Sending SMS...</p>';
+            
+            try {
+                const response = await fetch('https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/centralized-sms-gateway', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-application-name': 'hpms-test'
+                    },
+                    body: JSON.stringify({
+                        practiceId: '5da3896d-b9f3-4b0a-996a-3adca867cb30',
+                        recipientPhone: '+264812222331',
+                        messageContent: 'Test SMS from HPMS centralized gateway. Time: ' + new Date().toLocaleString(),
+                        messageType: 'test',
+                        metadata: {
+                            test: true,
+                            timestamp: new Date().toISOString()
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    resultDiv.innerHTML = `
+                        <h3 class="success">✅ SMS Sent Successfully!</h3>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <h3 class="error">❌ SMS Send Failed</h3>
+                        <p>Status: ${response.status}</p>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3 class="error">❌ Error</h3>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

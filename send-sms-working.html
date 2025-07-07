@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Send SMS - Working Version</title>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 600px; margin: 0 auto; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; }
+        input, textarea { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .result { margin-top: 20px; padding: 15px; background: white; border-radius: 5px; }
+        .success { border-left: 4px solid #28a745; }
+        .error { border-left: 4px solid #dc3545; }
+        .info { background: #e3f2fd; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        pre { white-space: pre-wrap; word-wrap: break-word; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Send SMS - Working Version</h1>
+        
+        <div class="info">
+            <strong>ℹ️ Note:</strong> This will mark the SMS as sent in the database. For actual SMS delivery through SMS Portal, use the authenticated app.
+        </div>
+        
+        <div>
+            <label>SMS ID (leave default for welcome SMS):</label>
+            <input type="text" id="smsId" value="d0cf44b3-f48c-4f5d-9b8f-ec8753b8ebd5" />
+        </div>
+        
+        <button onclick="sendSMS()" id="sendBtn">Send SMS via Database</button>
+        
+        <div id="result" style="display: none;"></div>
+        
+        <div style="margin-top: 30px;">
+            <h3>Alternative: Use Existing Pending SMS</h3>
+            <div class="info">
+                <p>Due to security policies, anonymous users cannot create new SMS records.</p>
+                <p>Use one of these existing pending SMS IDs:</p>
+                <ul>
+                    <li><code>d0cf44b3-f48c-4f5d-9b8f-ec8753b8ebd5</code> - Welcome message to 0812222331 (PENDING)</li>
+                    <li><code>23b220bb-98b7-47d7-bf66-804d96b600dc</code> - Welcome message to 0812222331 (Already SENT)</li>
+                </ul>
+            </div>
+            <div>
+                <label>Or check for other pending SMS:</label>
+                <button onclick="checkPendingSMS()" id="checkBtn">Check Pending SMS</button>
+            </div>
+            <div id="pendingList"></div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcwNjE2ODksImV4cCI6MjA2MjYzNzY4OX0.TCNww59ZpJ00QhZgld4QJkYCHz53GAtyjw4F5hptFAM';
+        
+        async function sendSMS() {
+            const resultDiv = document.getElementById('result');
+            const sendBtn = document.getElementById('sendBtn');
+            const smsId = document.getElementById('smsId').value;
+            
+            resultDiv.style.display = 'none';
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+            
+            try {
+                // Call the RPC function to send SMS
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/send_sms_direct`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ p_sms_id: smsId })
+                });
+                
+                const result = await response.json();
+                
+                resultDiv.style.display = 'block';
+                if (response.ok && result[0]?.send_sms_direct?.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ SMS Sent Successfully!</h3>
+                        <p><strong>Recipient:</strong> ${result[0].send_sms_direct.recipient}</p>
+                        <p><strong>Message:</strong> ${result[0].send_sms_direct.message}</p>
+                        <p><small>Note: This simulates sending. For actual SMS delivery, use the authenticated app.</small></p>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h3>❌ Failed to Send SMS</h3>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Error</h3>
+                    <p>${error.message}</p>
+                `;
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send SMS via Database';
+            }
+        }
+        
+        async function checkPendingSMS() {
+            const pendingListDiv = document.getElementById('pendingList');
+            const checkBtn = document.getElementById('checkBtn');
+            
+            checkBtn.disabled = true;
+            checkBtn.textContent = 'Checking...';
+            
+            try {
+                // Try to fetch pending SMS (may be limited by RLS)
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/practice_sms_logs?status=eq.pending&select=id,recipient_phone,message_content&limit=5`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && Array.isArray(result)) {
+                    if (result.length > 0) {
+                        pendingListDiv.innerHTML = '<h4>Pending SMS found:</h4><ul>' + 
+                            result.map(sms => `<li><code>${sms.id}</code> - To: ${sms.recipient_phone}</li>`).join('') +
+                            '</ul>';
+                    } else {
+                        pendingListDiv.innerHTML = '<p>No pending SMS found (or no access due to RLS policies)</p>';
+                    }
+                } else {
+                    pendingListDiv.innerHTML = '<p>Unable to fetch pending SMS. You may need to be authenticated.</p>';
+                }
+            } catch (error) {
+                pendingListDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+            } finally {
+                checkBtn.disabled = false;
+                checkBtn.textContent = 'Check Pending SMS';
+            }
+        }
+        
+        async function createAndSendSMS_DISABLED() {
+            const resultDiv = document.getElementById('result');
+            const createBtn = document.getElementById('createBtn');
+            const phone = document.getElementById('newPhone').value;
+            const message = document.getElementById('newMessage').value;
+            
+            resultDiv.style.display = 'none';
+            createBtn.disabled = true;
+            createBtn.textContent = 'Creating...';
+            
+            try {
+                // First create the SMS log
+                const createResponse = await fetch(`${SUPABASE_URL}/rest/v1/practice_sms_logs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify({
+                        practice_id: 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3',
+                        recipient_phone: phone,
+                        message_content: message,
+                        message_type: 'custom',
+                        status: 'pending',
+                        provider: 'smsportal',
+                        metadata: {
+                            source: 'test_html_page',
+                            created_at: new Date().toISOString()
+                        }
+                    })
+                });
+                
+                const createdSMS = await createResponse.json();
+                
+                if (createResponse.ok && createdSMS[0]?.id) {
+                    // Now send it
+                    const sendResponse = await fetch(`${SUPABASE_URL}/rest/v1/rpc/send_sms_direct`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'apikey': SUPABASE_ANON_KEY,
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        },
+                        body: JSON.stringify({ p_sms_id: createdSMS[0].id })
+                    });
+                    
+                    const sendResult = await sendResponse.json();
+                    
+                    resultDiv.style.display = 'block';
+                    if (sendResponse.ok && sendResult[0]?.send_sms_direct?.success) {
+                        resultDiv.className = 'result success';
+                        resultDiv.innerHTML = `
+                            <h3>✅ SMS Created & Sent!</h3>
+                            <p><strong>ID:</strong> ${createdSMS[0].id}</p>
+                            <p><strong>To:</strong> ${phone}</p>
+                            <p><strong>Message:</strong> ${message}</p>
+                        `;
+                    } else {
+                        resultDiv.className = 'result error';
+                        resultDiv.innerHTML = `
+                            <h3>❌ Failed to Send SMS</h3>
+                            <pre>${JSON.stringify(sendResult, null, 2)}</pre>
+                        `;
+                    }
+                } else {
+                    resultDiv.style.display = 'block';
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h3>❌ Failed to Create SMS</h3>
+                        <pre>${JSON.stringify(createdSMS, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Error</h3>
+                    <p>${error.message}</p>
+                `;
+            } finally {
+                createBtn.disabled = false;
+                createBtn.textContent = 'Create & Send New SMS';
+            }
+        }
+    </script>
+</body>
+</html>

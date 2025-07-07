@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Dashboard Auth</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Dashboard Auth Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcwNjE2ODksImV4cCI6MjA2MjYzNzY4OX0.TCNww59ZpJ00QhZgld4QJkYCHz53GAtyjw4F5hptFAM';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        async function testAuth() {
+            const results = document.getElementById('results');
+            
+            // Test 1: Check current auth state
+            const { data: { user }, error: authError } = await supabase.auth.getUser();
+            results.innerHTML += `<h3>Auth State:</h3>`;
+            results.innerHTML += `<p>User: ${user ? user.email : 'Not authenticated'}</p>`;
+            results.innerHTML += `<p>Error: ${authError?.message || 'None'}</p>`;
+            
+            // Test 2: Try appointments query without auth
+            const { data: anonAppointments, error: anonError } = await supabase
+                .from('appointments')
+                .select('id, date, status, practice_id')
+                .eq('practice_id', 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3');
+                
+            results.innerHTML += `<h3>Appointments Query (No Auth):</h3>`;
+            results.innerHTML += `<p>Count: ${anonAppointments?.length || 0}</p>`;
+            results.innerHTML += `<p>Error: ${anonError?.message || 'None'}</p>`;
+            
+            // Test 3: If we have a user, try with auth
+            if (user) {
+                const { data: authAppointments, error: authError } = await supabase
+                    .from('appointments')
+                    .select(`
+                        *,
+                        patient:patients(id, first_name, last_name),
+                        doctor:users!doctor_id(id, full_name, practice_id)
+                    `)
+                    .eq('practice_id', 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3');
+                    
+                results.innerHTML += `<h3>Appointments Query (With Auth):</h3>`;
+                results.innerHTML += `<p>Count: ${authAppointments?.length || 0}</p>`;
+                results.innerHTML += `<p>Error: ${authError?.message || 'None'}</p>`;
+                
+                if (authAppointments && authAppointments.length > 0) {
+                    results.innerHTML += `<h4>Sample Appointments:</h4>`;
+                    authAppointments.slice(0, 3).forEach(apt => {
+                        results.innerHTML += `<p>${apt.date} - ${apt.patient?.first_name} ${apt.patient?.last_name} - ${apt.status}</p>`;
+                    });
+                }
+            }
+            
+            // Test 4: Check localStorage for auth tokens
+            results.innerHTML += `<h3>LocalStorage:</h3>`;
+            const authKeys = Object.keys(localStorage).filter(key => key.includes('supabase'));
+            authKeys.forEach(key => {
+                const value = localStorage.getItem(key);
+                try {
+                    const parsed = JSON.parse(value);
+                    results.innerHTML += `<p>${key}: ${parsed.access_token ? 'Has token' : 'No token'}</p>`;
+                } catch {
+                    results.innerHTML += `<p>${key}: ${value ? 'Has value' : 'Empty'}</p>`;
+                }
+            });
+        }
+        
+        testAuth();
+    </script>
+</body>
+</html>

@@ -1,0 +1,248 @@
+-- STEP 2: Insert All 179 Dental Codes (SIMPLE VERSION)
+-- Execute this AFTER Step 1 in Supabase SQL Editor
+
+-- First, let's see what columns actually exist
+SELECT column_name, data_type, is_nullable 
+FROM information_schema.columns 
+WHERE table_name = 'practice_tariffs' 
+AND table_schema = 'public'
+ORDER BY ordinal_position;
+
+-- Clear existing data
+DELETE FROM practice_tariffs;
+
+-- Get a practice_id to use for all dental codes
+DO $$
+DECLARE
+    default_practice_id UUID;
+BEGIN
+    -- Try to get an existing practice ID
+    SELECT id INTO default_practice_id FROM practices LIMIT 1;
+    
+    -- If no practice exists, we'll use a default UUID
+    IF default_practice_id IS NULL THEN
+        default_practice_id := '00000000-0000-0000-0000-000000000001';
+    END IF;
+    
+    -- Store the practice_id in a temporary table for the INSERT
+    CREATE TEMP TABLE temp_practice_id (id UUID);
+    INSERT INTO temp_practice_id VALUES (default_practice_id);
+END $$;
+
+-- Insert all 179 dental codes with only the columns that exist
+INSERT INTO practice_tariffs (
+    practice_id, code, description, price, 
+    official_2025_price_nad, on_2025_list, found_in_claims, 
+    requires_tooth_number, can_be_multiplied, business_rule_formula, 
+    example_calculation, notes, practice_type
+) 
+SELECT 
+    (SELECT id FROM temp_practice_id),
+    codes.code,
+    codes.description,
+    codes.official_2025_price_nad, -- Use the official price for the 'price' field
+    codes.official_2025_price_nad,
+    codes.on_2025_list,
+    codes.found_in_claims,
+    codes.requires_tooth_number,
+    codes.can_be_multiplied,
+    codes.business_rule_formula,
+    codes.example_calculation,
+    codes.notes,
+    codes.practice_type
+FROM (VALUES
+    (8101, 'Full mouth examination, charting and treatment planning', 254.70, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '254.7 NAD', '', 'dental'),
+    (8102, 'Comprehensive consultation', 479.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '479.0 NAD', '', 'dental'),
+    (8104, 'Examination or consultation for a specific problem', 137.40, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '137.4 NAD', '', 'dental'),
+    (8106, 'Provision of a written treatment plan and quotation', 345.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '345.6 NAD', '', 'dental'),
+    (8107, 'Intra-oral radiographs, per film', 135.40, 'YES', 'YES', 'YES', 'YES', 'Base price × number of X-rays', '78.90 × 3 = 236.70 (for 3 X-rays)', 'Multiply by number of radiographs taken', 'dental'),
+    (8108, 'Maximum for 8107 is 7 radiographs', 1061.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1061.2 NAD', '', 'dental'),
+    (8109, 'Infection control, per dentist/hygienist/assistant, per visit', 34.40, 'YES', 'YES', 'YES', 'SOMETIMES', 'Usually charged once per visit, but can be per procedure', '40.00 NAD per visit OR 20.00 × procedures', 'Two pricing models observed in claims', 'dental'),
+    (8110, 'Provision of sterilised and wrapped instrumentation', 76.80, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '76.8 NAD', '', 'dental'),
+    (8113, 'Occlusal radiographs', 234.50, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '234.5 NAD', '', 'dental'),
+    (8114, 'Hand-wrist radiograph', 549.80, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '549.8 NAD', '', 'dental'),
+    (8115, 'Extra-oral radiograph, per film', 549.80, 'YES', 'NO', 'NO', 'YES', 'Base price × number of films/photos', '549.8 × quantity', 'Multiply by number of films or photographs taken', 'dental'),
+    (8117, 'Study models - unmounted', 151.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '151.6 NAD', '', 'dental'),
+    (8119, 'Study models - mounted on adjustable articulator', 369.90, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '369.9 NAD', '', 'dental'),
+    (8121, 'Diagnostic photographs, per photograph', 151.60, 'YES', 'NO', 'NO', 'YES', 'Base price × number of films/photos', '151.6 × quantity', 'Multiply by number of films or photographs taken', 'dental'),
+    (8129, 'Additional fee for emergency treatment outside hours', 513.40, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '513.4 NAD', '', 'dental'),
+    (8131, 'Palliative treatment for dental pain', 208.20, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '208.2 NAD', '', 'dental'),
+    (8132, 'Gross pulpal debridement', 339.60, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '339.6 NAD', '', 'dental'),
+    (8133, 'Re-cementing of inlays, crowns or bridges', 208.20, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '208.2 NAD', '', 'dental'),
+    (8135, 'Removal of inlays and crowns', 412.30, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '412.3 NAD', '', 'dental'),
+    (8136, 'Access through prosthetic crown', 188.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '188.0 NAD', '', 'dental'),
+    (8137, 'Temporary crown emergency procedure', 711.50, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '711.5 NAD', '', 'dental'),
+    (8140, 'Fee for treatment at venue other than surgery', 337.50, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '337.5 NAD', '', 'dental'),
+    (8141, 'Inhalation sedation - first quarter-hour', 155.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '155.6 NAD', '', 'dental'),
+    (8143, 'Inhalation sedation - additional quarter-hour', 76.80, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '76.8 NAD', '', 'dental'),
+    (8144, 'Intravenous sedation', 93.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '93.0 NAD', '', 'dental'),
+    (8145, 'Local anaesthetic, per visit', 40.40, 'YES', 'YES', 'YES', 'YES', 'Base price × number of injections', '23.50 × 2 = 47.00 (for 2 injections)', 'Multiply by number of anaesthetic carpules administered', 'dental'),
+    (8147, 'Use of monitoring equipment for IV sedation', 329.50, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '329.5 NAD', '', 'dental'),
+    (8151, 'Oral hygiene instructions', 208.20, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '208.2 NAD', '', 'dental'),
+    (8153, 'Follow-up for oral hygiene re-evaluation', 155.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '155.6 NAD', '', 'dental'),
+    (8155, 'Polishing only - complete dentition', 208.20, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '208.2 NAD', '', 'dental'),
+    (8157, 'Re-burnishing and polishing of restorations', 208.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '208.2 NAD', '', 'dental'),
+    (8159, 'Scaling and polishing', 410.30, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '410.3 NAD', '', 'dental'),
+    (8161, 'Topical application of fluoride', 208.20, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '208.2 NAD', '', 'dental'),
+    (8163, 'Fissure sealant, per tooth', 135.40, 'YES', 'YES', 'YES', 'YES', 'Base price × number of teeth', '135.4 × number of teeth', 'Multiply by number of teeth treated', 'dental'),
+    (8167, 'Treatment of hypersensitive dentine, per visit', 159.70, 'YES', 'YES', 'YES', 'NO', 'Charged once per visit', '159.7 per visit', 'Should only appear once per invoice', 'dental'),
+    (8169, 'Bite plate for TMJ dysfunction', 802.40, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '802.4 NAD', '', 'dental'),
+    (8170, 'Minor occlusal adjustment', 456.80, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '456.8 NAD', '', 'dental'),
+    (8173, 'Space maintainer - fixed, per abutment', 390.10, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '390.1 NAD', '', 'dental'),
+    (8175, 'Space maintainer - removable', 493.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '493.2 NAD', '', 'dental'),
+    (8176, 'Periodontal screening', 252.70, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '252.7 NAD', '', 'dental'),
+    (8177, 'Oral hygiene instruction for periodontally compromised', 315.30, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '315.3 NAD', '', 'dental'),
+    (8178, 'Oral hygiene evaluation for periodontally compromised', 169.80, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '169.8 NAD', '', 'dental'),
+    (8179, 'Plaque removal for periodontally compromised', 236.50, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '236.5 NAD', '', 'dental'),
+    (8180, 'Scaling and polishing for periodontally compromised', 444.70, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '444.7 NAD', '', 'dental'),
+    (8182, 'Root planing with/without curettage, per quadrant', 832.80, 'YES', 'NO', 'NO', 'YES', 'Base price × number of quadrants (max 4)', '832.8 × quadrants', 'Multiply by number of quadrants treated', 'dental'),
+    (8183, 'Intra-muscular or sub-cutaneous injection', 93.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '93.0 NAD', '', 'dental'),
+    (8184, 'Root planing with/without curettage, per sextant', 660.90, 'YES', 'YES', 'YES', 'YES', 'Base price × number of sextants (max 6)', '660.9 × sextants', 'Multiply by number of sextants treated', 'dental'),
+    (8185, 'Gingivectomy-gingivoplasty, per quadrant', 1087.40, 'YES', 'YES', 'YES', 'YES', 'Base price × number of quadrants (max 4)', '1087.4 × quadrants', 'Multiply by number of quadrants treated', 'dental'),
+    (8186, 'Gingivectomy-gingivoplasty, per sextant', 865.10, 'YES', 'YES', 'YES', 'YES', 'Base price × number of sextants (max 6)', '865.1 × sextants', 'Multiply by number of sextants treated', 'dental'),
+    (8188, 'Biopsy - intra-oral', 529.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '529.6 NAD', '', 'dental'),
+    (8192, 'Appositioning of soft tissue injuries', 1024.80, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1024.8 NAD', '', 'dental'),
+    (8193, 'Osseo-integrated abutment restoration', 3082.40, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '3082.4 NAD', '', 'dental'),
+    (8194, 'Placement of single osseo-integrated implant', 1932.30, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1932.3 NAD', '', 'dental'),
+    (8195, 'Placement of second osseo-integrated implant', 1445.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1445.2 NAD', '', 'dental'),
+    (8196, 'Placement of third osseo-integrated implant', 962.10, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '962.1 NAD', '', 'dental'),
+    (8198, 'Exposure of single osseo-integrated implant', 715.50, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '715.5 NAD', '', 'dental'),
+    (8199, 'Exposure of second osseo-integrated implant', 537.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '537.6 NAD', '', 'dental'),
+    (8200, 'Exposure of third osseo-integrated implant', 359.80, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '359.8 NAD', '', 'dental'),
+    (8201, 'Single tooth extraction', 208.20, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '208.2 NAD', '', 'dental'),
+    (8202, 'Each additional tooth extraction same quadrant', 82.90, 'YES', 'NO', 'NO', 'PROGRESSIVE', 'First item at full price, additional items at reduced price', 'First: 82.9, Additional: varies', 'Different prices for first vs additional items', 'dental'),
+    (8209, 'Surgical removal of erupted tooth', 895.40, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '895.4 NAD', '', 'dental'),
+    (8210, 'Removal of unerupted/impacted tooth - first', 1489.70, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '1489.7 NAD', '', 'dental'),
+    (8211, 'Removal of unerupted/impacted tooth - second', 802.40, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '802.4 NAD', '', 'dental'),
+    (8212, 'Removal of unerupted/impacted tooth - additional', 452.80, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '452.8 NAD', '', 'dental'),
+    (8213, 'Surgical removal of residual roots', 895.40, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '895.4 NAD', '', 'dental'),
+    (8214, 'Surgical removal of residual roots - subsequent', 695.30, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '695.3 NAD', '', 'dental'),
+    (8215, 'Surgical exposure of impacted teeth for orthodontics', 1661.50, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1661.5 NAD', '', 'dental'),
+    (8221, 'Local treatment of post-extraction haemorrhage', 155.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '155.6 NAD', '', 'dental'),
+    (8223, 'Post-extraction haemorrhage - additional visit', 103.10, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '103.1 NAD', '', 'dental'),
+    (8225, 'Treatment of septic socket - initial', 155.60, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '155.6 NAD', '', 'dental'),
+    (8227, 'Treatment of septic socket - additional', 103.10, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '103.1 NAD', '', 'dental'),
+    (8229, 'Apicoectomy including retrograde filling', 1024.80, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1024.8 NAD', '', 'dental'),
+    (8231, 'Full upper and lower dentures', 3355.30, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '3355.3 NAD', '', 'dental'),
+    (8232, 'Full upper or lower denture', 2067.70, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '2067.7 NAD', '', 'dental'),
+    (8233, 'Partial denture, one tooth', 960.10, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '960.1 NAD', '', 'dental'),
+    (8234, 'Partial denture, two teeth', 960.10, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '960.1 NAD', '', 'dental'),
+    (8235, 'Partial denture, three teeth', 1443.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1443.2 NAD', '', 'dental'),
+    (8236, 'Partial denture, four teeth', 1443.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1443.2 NAD', '', 'dental'),
+    (8237, 'Partial denture, five teeth', 1443.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1443.2 NAD', '', 'dental'),
+    (8238, 'Partial denture, six teeth', 1910.10, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1910.1 NAD', '', 'dental'),
+    (8239, 'Partial denture, seven teeth', 1910.10, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1910.1 NAD', '', 'dental'),
+    (8240, 'Partial denture, eight teeth', 1910.10, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1910.1 NAD', '', 'dental'),
+    (8241, 'Partial denture, nine or more teeth', 1910.10, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1910.1 NAD', '', 'dental'),
+    (8251, 'Cast gold clasp or rest', 192.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '192.0 NAD', '', 'dental'),
+    (8253, 'Wrought gold clasp or rest', 192.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '192.0 NAD', '', 'dental'),
+    (8255, 'Stainless steel clasp or rest', 200.10, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '200.1 NAD', '', 'dental'),
+    (8257, 'Lingual bar or palatal bar', 234.50, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '234.5 NAD', '', 'dental'),
+    (8259, 'Re-base of denture', 784.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '784.2 NAD', '', 'dental'),
+    (8261, 'Re-model of denture', 1255.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1255.2 NAD', '', 'dental'),
+    (8263, 'Reline of denture in selfcuring acrylic', 493.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '493.2 NAD', '', 'dental'),
+    (8265, 'Tissue conditioner and soft reline', 329.50, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '329.5 NAD', '', 'dental'),
+    (8267, 'Soft base re-line per denture', 1142.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1142.0 NAD', '', 'dental'),
+    (8269, 'Repair of denture', 266.80, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '266.8 NAD', '', 'dental'),
+    (8270, 'Add clasp to existing partial denture', 192.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '192.0 NAD', '', 'dental'),
+    (8271, 'Add tooth to existing partial denture', 192.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '192.0 NAD', '', 'dental'),
+    (8273, 'Additional fee where impression required', 155.60, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '155.6 NAD', '', 'dental'),
+    (8275, 'Adjustment of denture', 155.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '155.6 NAD', '', 'dental'),
+    (8281, 'Metal base to partial denture', 2241.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '2241.6 NAD', '', 'dental'),
+    (8303, 'Indirect pulp capping', 278.90, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '278.9 NAD', '', 'dental'),
+    (8304, 'Rubber dam, per arch', 161.70, 'YES', 'YES', 'YES', 'YES', 'Base price × number of arches (max 2)', '161.7 × arches', 'Multiply by number of arches (upper/lower)', 'dental'),
+    (8305, 'Apexification of root canal, per visit', 278.90, 'YES', 'NO', 'NO', 'NO', 'Charged once per visit', '278.9 per visit', 'Should only appear once per invoice', 'dental'),
+    (8307, 'Amputation of pulp (pulpotomy)', 274.90, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '274.9 NAD', '', 'dental'),
+    (8325, 'Bleaching of non-vital teeth, per tooth', 491.20, 'YES', 'NO', 'NO', 'YES', 'Base price × number of teeth', '491.2 × number of teeth', 'Multiply by number of teeth treated', 'dental'),
+    (8327, 'Additional visit for bleaching non-vital tooth', 234.50, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '234.5 NAD', '', 'dental'),
+    (8328, 'Each additional canal - anteriors and premolars', 390.10, 'YES', 'NO', 'NO', 'PROGRESSIVE', 'First item at full price, additional items at reduced price', 'First: 390.1, Additional: varies', 'Different prices for first vs additional items', 'dental'),
+    (8329, 'Each additional canal - anteriors and premolars', 479.00, 'YES', 'YES', 'YES', 'PROGRESSIVE', 'First item at full price, additional items at reduced price', 'First: 479.0, Additional: varies', 'Different prices for first vs additional items', 'dental'),
+    (8330, 'Removal of fractured post or instrument', 274.90, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '274.9 NAD', '', 'dental'),
+    (8332, 'Single-canal tooth, per visit', 208.20, 'YES', 'NO', 'NO', 'NO', 'Charged once per visit', '208.2 per visit', 'Should only appear once per invoice', 'dental'),
+    (8333, 'Multi-canal tooth, per visit', 289.00, 'YES', 'NO', 'NO', 'NO', 'Charged once per visit', '289.0 per visit', 'Should only appear once per invoice', 'dental'),
+    (8334, 'Re-preparation of previously obturated canal', 309.30, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '309.3 NAD', '', 'dental'),
+    (8335, 'First canal - anteriors and premolars', 939.90, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '939.9 NAD', '', 'dental'),
+    (8336, 'First canal - molars', 1297.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1297.6 NAD', '', 'dental'),
+    (8337, 'Each additional canal - molars', 390.10, 'YES', 'NO', 'NO', 'PROGRESSIVE', 'First item at full price, additional items at reduced price', 'First: 390.1, Additional: varies', 'Different prices for first vs additional items', 'dental'),
+    (8338, 'First canal - anteriors and premolars', 1445.20, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '1445.2 NAD', '', 'dental'),
+    (8339, 'First canal - molars', 1986.90, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '1986.9 NAD', '', 'dental'),
+    (8340, 'Each additional canal - molars', 479.00, 'YES', 'YES', 'YES', 'PROGRESSIVE', 'First item at full price, additional items at reduced price', 'First: 479.0, Additional: varies', 'Different prices for first vs additional items', 'dental'),
+    (8341, 'Amalgam - one surface', 373.90, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '373.9 NAD', '', 'dental'),
+    (8342, 'Amalgam - two surfaces', 468.90, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '468.9 NAD', '', 'dental'),
+    (8343, 'Amalgam - three surfaces', 563.90, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '563.9 NAD', '', 'dental'),
+    (8344, 'Amalgam - four or more surfaces', 632.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '632.6 NAD', '', 'dental'),
+    (8345, 'Preformed post retention, per post', 410.30, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '410.3 NAD', '', 'dental'),
+    (8346, 'RESTORATIVE MATERIAL (TOOTH-SPECIFIC)', 50.84, 'YES', 'YES', 'YES', 'NO', 'TOOTH-SPECIFIC PRICING', 'Tooth 11: 50.84, Tooth 47: 46.71, Tooth 36: 45.33', 'Price varies by tooth location. Use tooth lookup table.', 'dental'),
+    (8347, 'Pin retention for restoration, first pin', 202.10, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '202.1 NAD', '', 'dental'),
+    (8348, 'Pin retention, each additional pin', 192.00, 'YES', 'NO', 'NO', 'PROGRESSIVE', 'First item at full price, additional items at reduced price', 'First: 192.0, Additional: varies', 'Different prices for first vs additional items', 'dental'),
+    (8349, 'Carving plastic restoration for prosthesis', 82.90, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '82.9 NAD', '', 'dental'),
+    (8351, 'Resin - one surface, anterior', 412.30, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '412.3 NAD', '', 'dental'),
+    (8352, 'Resin - two surfaces, anterior', 523.50, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '523.5 NAD', '', 'dental'),
+    (8353, 'Resin - three surfaces, anterior', 620.50, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '620.5 NAD', '', 'dental'),
+    (8354, 'Resin - four or more surfaces, anterior', 695.30, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '695.3 NAD', '', 'dental'),
+    (8355, 'Composite veneers (Direct)', 723.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '723.6 NAD', '', 'dental'),
+    (8356, 'Bridge per abutment - Maryland type', 925.80, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '925.8 NAD', '', 'dental'),
+    (8357, 'Preformed metal crown', 422.40, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '422.4 NAD', '', 'dental'),
+    (8361, 'Inlay, metallic - one surface', 636.70, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '636.7 NAD', '', 'dental'),
+    (8362, 'Inlay, metallic - two surfaces', 925.70, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '925.7 NAD', '', 'dental'),
+    (8363, 'Inlay, metallic - three surfaces', 1538.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1538.2 NAD', '', 'dental'),
+    (8364, 'Inlay, metallic - four or more surfaces', 1863.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1863.6 NAD', '', 'dental'),
+    (8366, 'Pin retention as part of cast restoration', 309.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '309.2 NAD', '', 'dental'),
+    (8367, 'Resin - one surface, posterior', 448.70, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '448.7 NAD', '', 'dental'),
+    (8368, 'Resin - two surfaces, posterior', 551.80, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '551.8 NAD', '', 'dental'),
+    (8369, 'Resin - three surfaces, posterior', 663.00, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '663.0 NAD', '', 'dental'),
+    (8370, 'Resin - four or more surfaces, posterior', 723.60, 'YES', 'YES', 'YES', 'NO', 'Fixed price', '723.6 NAD', '', 'dental'),
+    (8371, 'Inlay, ceramic/resin - one surface', 760.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '760.0 NAD', '', 'dental'),
+    (8372, 'Inlay, ceramic/resin - two surfaces', 1125.80, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1125.8 NAD', '', 'dental'),
+    (8373, 'Inlay, ceramic/resin - three surfaces', 1851.40, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1851.4 NAD', '', 'dental'),
+    (8374, 'Inlay, ceramic/resin - four or more surfaces', 2241.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '2241.6 NAD', '', 'dental'),
+    (8376, 'Prefabricated post and core', 1129.90, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1129.9 NAD', '', 'dental'),
+    (8391, 'Cast post and core - single', 477.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '477.0 NAD', '', 'dental'),
+    (8393, 'Cast post and core - double', 760.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '760.0 NAD', '', 'dental'),
+    (8395, 'Cast post and core - triple', 1101.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1101.6 NAD', '', 'dental'),
+    (8396, 'Cast coping', 311.30, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '311.3 NAD', '', 'dental'),
+    (8397, 'Cast core with pins', 760.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '760.0 NAD', '', 'dental'),
+    (8398, 'Core build-up, including any pins', 925.70, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '925.7 NAD', '', 'dental'),
+    (8401, 'Cast full crown', 2379.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '2379.0 NAD', '', 'dental'),
+    (8403, 'Cast three-quarter crown', 2379.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '2379.0 NAD', '', 'dental'),
+    (8407, 'Acrylic veneered crown', 2379.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '2379.0 NAD', '', 'dental'),
+    (8409, 'Porcelain jacket crown', 2379.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '2379.0 NAD', '', 'dental'),
+    (8411, 'Porcelain veneered crown', 2379.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '2379.0 NAD', '', 'dental'),
+    (8413, 'Facing replacement', 464.90, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '464.9 NAD', '', 'dental'),
+    (8414, 'Additional fee for crown within clasp', 135.40, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '135.4 NAD', '', 'dental'),
+    (8420, 'Sanitary pontic', 1156.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1156.2 NAD', '', 'dental'),
+    (8422, 'Posterior pontic', 1538.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1538.2 NAD', '', 'dental'),
+    (8424, 'Anterior pontic', 1940.40, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1940.4 NAD', '', 'dental'),
+    (8570, 'Computer generated ceramic restoration', 2374.90, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '2374.9 NAD', '', 'dental'),
+    (8811, 'Tracing and analysis of extra-oral film', 62.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '62.6 NAD', '', 'dental'),
+    (8812, 'CBCT capture limited field - less than one jaw', 1155.50, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1155.5 NAD', '', 'dental'),
+    (8813, 'CBCT capture one full arch - mandible', 1290.70, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1290.7 NAD', '', 'dental'),
+    (8814, 'CBCT capture one full arch - maxilla', 1290.70, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1290.7 NAD', '', 'dental'),
+    (8815, 'CBCT capture both arches without orbits', 1352.10, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1352.1 NAD', '', 'dental'),
+    (8816, 'CBCT capture for TMJ series', 1352.10, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1352.1 NAD', '', 'dental'),
+    (8817, 'CBCT capture maxilla with orbits', 1475.10, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1475.1 NAD', '', 'dental'),
+    (8818, 'CBCT capture both arches with orbits', 1647.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '1647.2 NAD', '', 'dental'),
+    (8819, 'Interpretation of diagnostic image', 491.60, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '491.6 NAD', '', 'dental'),
+    (8820, 'CBCT image capture limited - less than one jaw', 693.20, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '693.2 NAD', '', 'dental'),
+    (8821, 'CBCT image capture one arch - mandible', 774.40, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '774.4 NAD', '', 'dental'),
+    (8822, 'CBCT image capture one arch - maxilla', 774.40, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '774.4 NAD', '', 'dental'),
+    (8823, 'CBCT capture both arches without orbits', 811.30, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '811.3 NAD', '', 'dental'),
+    (8824, 'CBCT capture for TMJ series', 811.30, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '811.3 NAD', '', 'dental'),
+    (8825, 'CBCT capture maxilla with orbits', 885.00, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '885.0 NAD', '', 'dental'),
+    (8826, 'CBCT capture both arches with orbits', 988.30, 'YES', 'NO', 'NO', 'NO', 'Fixed price', '988.3 NAD', '', 'dental')
+) AS codes(code, description, official_2025_price_nad, on_2025_list, found_in_claims, requires_tooth_number, can_be_multiplied, business_rule_formula, example_calculation, notes, practice_type);
+
+-- Clean up temporary table
+DROP TABLE IF EXISTS temp_practice_id;
+
+-- Verification queries
+SELECT 'Total codes imported:' as description, COUNT(*) as count FROM practice_tariffs;
+SELECT 'Codes with multiplication rules:' as description, COUNT(*) as count FROM practice_tariffs WHERE can_be_multiplied != 'NO';
+SELECT 'Progressive pricing codes:' as description, COUNT(*) as count FROM practice_tariffs WHERE can_be_multiplied = 'PROGRESSIVE';
+SELECT 'Special tooth-specific code 8346:' as description, COUNT(*) as count FROM practice_tariffs WHERE code = 8346;
+
+-- Show sample of imported data
+SELECT code, description, official_2025_price_nad, can_be_multiplied 
+FROM practice_tariffs 
+ORDER BY code 
+LIMIT 10;

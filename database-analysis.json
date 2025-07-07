@@ -1,0 +1,779 @@
+{
+  "timestamp": "2025-06-10T19:13:13.256Z",
+  "tableAnalysis": {
+    "patients": {
+      "columns": "Could not retrieve",
+      "sampleData": [
+        {
+          "id": "d09ad54c-b7df-4c1f-b11b-994048aa730b",
+          "first_name": "Johannes",
+          "last_name": "van der Merwe",
+          "id_number": "8005155012087",
+          "date_of_birth": "1980-05-15",
+          "gender": "male",
+          "marital_status": "married",
+          "occupation": "Teacher",
+          "employer": "Ministry of Education",
+          "home_language": "Afrikaans",
+          "cell_number": "081 123 4567",
+          "email": "johannes.vdm@example.com",
+          "home_address": "123 Independence Ave, Windhoek",
+          "postal_address": null,
+          "postal_code": null,
+          "created_at": "2025-05-12T15:08:59.298839+00:00",
+          "updated_at": "2025-05-12T15:08:59.298839+00:00",
+          "practice_id": "b64632c2-3a56-44cf-a2c9-0e42be03a2d3"
+        },
+        {
+          "id": "2a2136ad-7af7-47d0-b431-7dcef3411859",
+          "first_name": "Maria",
+          "last_name": "Shilongo",
+          "id_number": "8508121234567",
+          "date_of_birth": "1985-08-12",
+          "gender": "female",
+          "marital_status": "married",
+          "occupation": "Nurse",
+          "employer": "Windhoek Central Hospital",
+          "home_language": "Oshiwambo",
+          "cell_number": "081 234 5678",
+          "email": "maria.s@example.com",
+          "home_address": "456 Sam Nujoma Dr, Windhoek",
+          "postal_address": null,
+          "postal_code": null,
+          "created_at": "2025-05-12T15:08:59.298839+00:00",
+          "updated_at": "2025-05-12T15:08:59.298839+00:00",
+          "practice_id": "b64632c2-3a56-44cf-a2c9-0e42be03a2d3"
+        },
+        {
+          "id": "327925ed-6d7d-4464-8581-5a6fae75931e",
+          "first_name": "Thomas",
+          "last_name": "Amukwaya",
+          "id_number": "9002198765432",
+          "date_of_birth": "1990-02-19",
+          "gender": "male",
+          "marital_status": "single",
+          "occupation": "Engineer",
+          "employer": "NamPower",
+          "home_language": "English",
+          "cell_number": "081 345 6789",
+          "email": "thomas.a@example.com",
+          "home_address": "789 Robert Mugabe Ave, Windhoek",
+          "postal_address": null,
+          "postal_code": null,
+          "created_at": "2025-05-12T15:08:59.298839+00:00",
+          "updated_at": "2025-05-12T15:08:59.298839+00:00",
+          "practice_id": "b64632c2-3a56-44cf-a2c9-0e42be03a2d3"
+        }
+      ],
+      "totalRows": 35
+    },
+    "appointments": {
+      "columns": "Could not retrieve",
+      "sampleData": [
+        {
+          "id": "dd466946-1cd8-4e1c-bc97-690ee2a02531",
+          "patient_id": "327925ed-6d7d-4464-8581-5a6fae75931e",
+          "doctor_id": null,
+          "date": "2025-05-13",
+          "time": "14:15:00",
+          "duration": 30,
+          "type": "consultation",
+          "status": "scheduled",
+          "notes": "Thyroid check",
+          "created_at": "2025-05-12T16:07:32.664537+00:00",
+          "updated_at": "2025-05-12T16:07:32.664537+00:00",
+          "practice_id": "b64632c2-3a56-44cf-a2c9-0e42be03a2d3"
+        },
+        {
+          "id": "ff5e5c47-3029-4d3c-a30d-1956c5c95d40",
+          "patient_id": "d09ad54c-b7df-4c1f-b11b-994048aa730b",
+          "doctor_id": null,
+          "date": "2025-05-16",
+          "time": "11:00:00",
+          "duration": 60,
+          "type": "procedure",
+          "status": "confirmed",
+          "notes": "Annual physical examination",
+          "created_at": "2025-05-12T16:07:32.664537+00:00",
+          "updated_at": "2025-05-12T16:07:32.664537+00:00",
+          "practice_id": "b64632c2-3a56-44cf-a2c9-0e42be03a2d3"
+        },
+        {
+          "id": "cbaafa12-cd67-407f-91a6-ec57acfdff44",
+          "patient_id": "327925ed-6d7d-4464-8581-5a6fae75931e",
+          "doctor_id": "22222222-2222-2222-2222-222222222222",
+          "date": "2025-05-22",
+          "time": "16:42:00",
+          "duration": 30,
+          "type": "consultation",
+          "status": "in-progress",
+          "notes": "",
+          "created_at": "2025-05-22T14:37:31.992975+00:00",
+          "updated_at": "2025-05-22T14:37:31.992975+00:00",
+          "practice_id": "b64632c2-3a56-44cf-a2c9-0e42be03a2d3"
+        }
+      ],
+      "totalRows": 61
+    },
+    "visits": {
+      "columns": "Could not retrieve",
+      "sampleData": [
+        {
+          "id": "32359a3d-ca9f-4eab-bc8d-8b9d894ea435",
+          "patient_id": "327925ed-6d7d-4464-8581-5a6fae75931e",
+          "doctor_id": null,
+          "appointment_id": null,
+          "visit_date": "2025-05-15",
+          "visit_time": "08:15:49",
+          "visit_type": "consultation",
+          "chief_complaint": "Chest Pain",
+          "diagnosis": "c",
+          "treatment_plan": "cc",
+          "prescription": "Aspirin 81 mg orally once daily, indefinitely, to inhibit platelet aggregation.\n\nNitroglycerin 0.4 mg sublingual tablet PRN chest pain; may repeat every 5 minutes up to three doses, call EMS if no relief.\n\nBisoprolol 2.5 mg orally once daily to reduce myocardial oxygen demand; up-titrate as tolerated.\n\nAtorvastatin 20 mg orally at bedtime pending lipid results; aim for LDL < 70 mg/dL.",
+          "follow_up_required": false,
+          "follow_up_date": null,
+          "notes": null,
+          "status": "completed",
+          "created_at": "2025-05-15T06:15:50.062744+00:00",
+          "updated_at": "2025-05-15T06:15:50.062744+00:00",
+          "practice_id": null
+        },
+        {
+          "id": "5f9de9f2-5140-4710-bfc5-1683bfcea621",
+          "patient_id": "c9a85cfa-c639-4d19-8632-cf29be2c6241",
+          "doctor_id": null,
+          "appointment_id": null,
+          "visit_date": "2024-01-29",
+          "visit_time": "13:37:00",
+          "visit_type": "consultation",
+          "chief_complaint": "Dizziness",
+          "diagnosis": "Upper Respiratory Infection",
+          "treatment_plan": "Medication prescribed, lifestyle modifications advised, follow-up in 2 weeks",
+          "prescription": "Amlodipine 5mg",
+          "follow_up_required": true,
+          "follow_up_date": "2024-02-12",
+          "notes": null,
+          "status": "completed",
+          "created_at": "2025-05-24T20:05:36.295659+00:00",
+          "updated_at": "2025-05-24T20:05:36.295659+00:00",
+          "practice_id": null
+        },
+        {
+          "id": "10a3f88e-29af-4e76-925f-81dea535ea76",
+          "patient_id": "c9a85cfa-c639-4d19-8632-cf29be2c6241",
+          "doctor_id": null,
+          "appointment_id": null,
+          "visit_date": "2024-07-10",
+          "visit_time": "19:06:00",
+          "visit_type": "consultation",
+          "chief_complaint": "Diabetes check-up",
+          "diagnosis": "Upper Respiratory Infection",
+          "treatment_plan": "Medication prescribed, lifestyle modifications advised, follow-up in 2 weeks",
+          "prescription": "Amoxicillin 500mg",
+          "follow_up_required": false,
+          "follow_up_date": null,
+          "notes": null,
+          "status": "completed",
+          "created_at": "2025-05-24T20:05:36.992763+00:00",
+          "updated_at": "2025-05-24T20:05:36.992763+00:00",
+          "practice_id": null
+        }
+      ],
+      "totalRows": 87
+    },
+    "medical_records": {
+      "columns": "Could not retrieve",
+      "sampleData": [],
+      "totalRows": 0
+    },
+    "vitals": {
+      "columns": "Could not retrieve",
+      "sampleData": [
+        {
+          "id": "c98df2a8-e500-46c5-af64-2d47c3f7f712",
+          "visit_id": "32359a3d-ca9f-4eab-bc8d-8b9d894ea435",
+          "blood_pressure": "120/80",
+          "temperature": 35,
+          "pulse_rate": 46,
+          "respiratory_rate": 35,
+          "weight": 45,
+          "height": 178,
+          "bmi": 14.2,
+          "created_at": "2025-05-15T11:27:21.004968+00:00",
+          "updated_at": "2025-06-09T14:14:48.980556+00:00"
+        },
+        {
+          "id": "87eea1ce-0855-45b4-93f5-5c6310f9dc61",
+          "visit_id": "1ea96c58-7a62-49e1-8065-cf2325e096f1",
+          "blood_pressure": null,
+          "temperature": null,
+          "pulse_rate": null,
+          "respiratory_rate": null,
+          "weight": null,
+          "height": null,
+          "bmi": null,
+          "created_at": "2025-05-15T12:58:44.144055+00:00",
+          "updated_at": "2025-06-09T14:14:48.980556+00:00"
+        },
+        {
+          "id": "a02f19e0-14c2-4ccb-a06e-172e11f7cdaa",
+          "visit_id": "a043fa56-ad04-406d-82c1-1223c9c5bd2a",
+          "blood_pressure": "120/80",
+          "temperature": 35,
+          "pulse_rate": 43,
+          "respiratory_rate": 23,
+          "weight": 69,
+          "height": 180,
+          "bmi": 21.3,
+          "created_at": "2025-05-16T14:54:50.758033+00:00",
+          "updated_at": "2025-06-09T14:14:48.980556+00:00"
+        }
+      ],
+      "totalRows": 63
+    },
+    "medical_aid_details": {
+      "columns": "Could not retrieve",
+      "sampleData": [
+        {
+          "id": "29b01fc0-9e24-4b84-9b66-d6e6ed3124c8",
+          "patient_id": "2a2136ad-7af7-47d0-b431-7dcef3411859",
+          "provider": "Discovery Health",
+          "scheme": "Executive Plan",
+          "membership_number": "DH789012",
+          "plan_type": "Premium",
+          "main_member_name": "Sarah Johnson",
+          "main_member_id_number": "9208210123456",
+          "relationship_to_main": "Self",
+          "created_at": "2025-05-12T16:24:48.914538+00:00",
+          "updated_at": "2025-05-12T16:24:48.914538+00:00"
+        },
+        {
+          "id": "2f379a66-8555-4cae-98bd-15109a5ccb7e",
+          "patient_id": "327925ed-6d7d-4464-8581-5a6fae75931e",
+          "provider": "Bonitas",
+          "scheme": "BonComprehensive",
+          "membership_number": "BON345678",
+          "plan_type": "Standard",
+          "main_member_name": "Michael Brown",
+          "main_member_id_number": "7506125034089",
+          "relationship_to_main": "Self",
+          "created_at": "2025-05-12T16:24:48.914538+00:00",
+          "updated_at": "2025-05-12T16:24:48.914538+00:00"
+        },
+        {
+          "id": "58da87e9-f6f0-4e1b-bb67-b86bd901a940",
+          "patient_id": "d09ad54c-b7df-4c1f-b11b-994048aa730b",
+          "provider": "Momentum Health",
+          "scheme": "Extender",
+          "membership_number": "MH901234",
+          "plan_type": "Elite",
+          "main_member_name": "Emily Wilson",
+          "main_member_id_number": "8912150067234",
+          "relationship_to_main": "Self",
+          "created_at": "2025-05-12T16:24:48.914538+00:00",
+          "updated_at": "2025-05-12T16:24:48.914538+00:00"
+        }
+      ],
+      "totalRows": 24
+    },
+    "medical_aid_providers": {
+      "columns": "Could not retrieve",
+      "sampleData": [
+        {
+          "id": "b763f347-bc31-4992-ab12-cd4a49a48789",
+          "name": "Nammed Medical Aid Fund",
+          "short_name": "Nammed",
+          "logo_url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/medical-aid-logos/NAMM.png",
+          "contact_number": "+264 61 270 9300",
+          "email": "info@nammed.com.na",
+          "website": "www.nammed.com.na",
+          "address": "Windhoek, Namibia",
+          "created_at": "2025-06-01T23:11:23.705528+00:00",
+          "updated_at": "2025-06-10T14:13:53.441+00:00",
+          "medical_aid_reference": "NAMM"
+        },
+        {
+          "id": "794b73d7-18c9-4752-93af-f239835c7702",
+          "name": "Namibia Medical Care",
+          "short_name": "NMC",
+          "logo_url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/medical-aid-logos//NMC1.png",
+          "contact_number": "+264 61 285 5400",
+          "email": "info@nmc.com.na",
+          "website": "www.nmc.com.na",
+          "address": "Windhoek, Namibia",
+          "created_at": "2025-06-01T23:11:23.705528+00:00",
+          "updated_at": "2025-06-10T14:13:52.655+00:00",
+          "medical_aid_reference": "NMC1"
+        },
+        {
+          "id": "472cf1b4-cce0-47bb-b674-5874e01c1eb9",
+          "name": "Namibia Health Plan",
+          "short_name": "NHP",
+          "logo_url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/medical-aid-logos//NHPM.png",
+          "contact_number": "+264 61 285 5600",
+          "email": "info@nhp.com.na",
+          "website": "www.nhp.com.na",
+          "address": "Windhoek, Namibia",
+          "created_at": "2025-06-01T23:11:23.705528+00:00",
+          "updated_at": "2025-06-10T14:13:53.124+00:00",
+          "medical_aid_reference": "NHPM"
+        }
+      ],
+      "totalRows": 5
+    },
+    "practices": {
+      "columns": "Could not retrieve",
+      "sampleData": [
+        {
+          "id": "e0716e54-f808-4905-a1f8-85090dd3d9e2",
+          "slug": "coastalmed",
+          "name": "Coastal Medical Center",
+          "domain": "coastalmed.vercel.app",
+          "logo_url": null,
+          "primary_color": "#01b9d5",
+          "secondary_color": "#0196be",
+          "contact_email": "hello@coastalmed.com",
+          "contact_phone": "+264 64 987 6543",
+          "address": "45 Beach Road",
+          "city": "Swakopmund",
+          "country": "Namibia",
+          "postal_code": null,
+          "business_hours": {
+            "friday": {
+              "open": "08:00",
+              "close": "17:00"
+            },
+            "monday": {
+              "open": "08:00",
+              "close": "17:00"
+            },
+            "sunday": {
+              "closed": true
+            },
+            "tuesday": {
+              "open": "08:00",
+              "close": "17:00"
+            },
+            "saturday": {
+              "open": "08:00",
+              "close": "13:00"
+            },
+            "thursday": {
+              "open": "08:00",
+              "close": "17:00"
+            },
+            "wednesday": {
+              "open": "08:00",
+              "close": "17:00"
+            }
+          },
+          "features": {
+            "lab_results": true,
+            "telemedicine": false,
+            "online_booking": true,
+            "online_payments": true
+          },
+          "settings": {},
+          "hero_title": "Excellence in Healthcare by the Sea",
+          "hero_subtitle": "Where compassionate care meets medical excellence",
+          "hero_image_url": null,
+          "about_text": "Coastal Medical Center is Swakopmund's premier healthcare facility, offering state-of-the-art medical services in a serene coastal setting.",
+          "services": [
+            {
+              "id": "1",
+              "icon": "users",
+              "name": "Family Medicine",
+              "description": "Comprehensive care for the whole family"
+            },
+            {
+              "id": "2",
+              "icon": "user-md",
+              "name": "Specialist Consultations",
+              "description": "Access to various medical specialists"
+            },
+            {
+              "id": "3",
+              "icon": "heart",
+              "name": "Wellness Programs",
+              "description": "Preventive health and wellness services"
+            },
+            {
+              "id": "4",
+              "icon": "plane",
+              "name": "Travel Medicine",
+              "description": "Vaccinations and travel health advice"
+            }
+          ],
+          "social_links": {},
+          "created_at": "2025-05-26T06:55:55.843602+00:00",
+          "updated_at": "2025-06-09T08:51:55.514252+00:00",
+          "status": "active",
+          "subscription_tier": "standard",
+          "subscription_expires_at": null,
+          "max_users": 10,
+          "max_patients": 1000,
+          "timezone": "Africa/Windhoek",
+          "currency": "NAD",
+          "tax_number": null,
+          "license_number": null,
+          "admin_user_id": null,
+          "practice_type": "medical",
+          "practice_subtypes": [
+            "General Practice"
+          ],
+          "testimonials": [],
+          "metadata": {},
+          "practice_type_id": "0ca4a368-6e28-4ee6-b9e1-e183fc765e16",
+          "practice_number": null
+        },
+        {
+          "id": "9f9966b9-d515-470a-b6c5-c15330bbe7b7",
+          "slug": "cityclinic",
+          "name": "City Clinic Windhoek",
+          "domain": "cityclinic.vercel.app",
+          "logo_url": null,
+          "primary_color": "#01b9d5",
+          "secondary_color": "#0196be",
+          "contact_email": "info@cityclinic.com",
+          "contact_phone": "+264 61 123 4567",
+          "address": "123 Independence Avenue",
+          "city": "Windhoek",
+          "country": "Namibia",
+          "postal_code": null,
+          "business_hours": {
+            "friday": {
+              "open": "08:00",
+              "close": "17:00"
+            },
+            "monday": {
+              "open": "08:00",
+              "close": "17:00"
+            },
+            "sunday": {
+              "closed": true
+            },
+            "tuesday": {
+              "open": "08:00",
+              "close": "17:00"
+            },
+            "saturday": {
+              "open": "08:00",
+              "close": "13:00"
+            },
+            "thursday": {
+              "open": "08:00",
+              "close": "17:00"
+            },
+            "wednesday": {
+              "open": "08:00",
+              "close": "17:00"
+            }
+          },
+          "features": {
+            "lab_results": true,
+            "telemedicine": false,
+            "online_booking": true,
+            "online_payments": true
+          },
+          "settings": {},
+          "hero_title": "Your Health, Our Priority",
+          "hero_subtitle": "Modern healthcare facility in the heart of Windhoek",
+          "hero_image_url": null,
+          "about_text": "City Clinic has been serving the Windhoek community for over 20 years. We pride ourselves on providing comprehensive healthcare services with a personal touch.",
+          "services": [
+            {
+              "id": "1",
+              "icon": "stethoscope",
+              "name": "General Consultation",
+              "description": "Comprehensive health checkups and consultations"
+            },
+            {
+              "id": "2",
+              "icon": "microscope",
+              "name": "Laboratory Services",
+              "description": "Full range of diagnostic tests"
+            },
+            {
+              "id": "3",
+              "icon": "baby",
+              "name": "Pediatric Care",
+              "description": "Specialized care for children"
+            },
+            {
+              "id": "4",
+              "icon": "ambulance",
+              "name": "Emergency Services",
+              "description": "24/7 emergency medical care"
+            }
+          ],
+          "social_links": {},
+          "created_at": "2025-05-26T06:55:55.843602+00:00",
+          "updated_at": "2025-06-09T08:51:55.514252+00:00",
+          "status": "active",
+          "subscription_tier": "standard",
+          "subscription_expires_at": null,
+          "max_users": 10,
+          "max_patients": 1000,
+          "timezone": "Africa/Windhoek",
+          "currency": "NAD",
+          "tax_number": null,
+          "license_number": null,
+          "admin_user_id": null,
+          "practice_type": "medical",
+          "practice_subtypes": [
+            "General Practice"
+          ],
+          "testimonials": [],
+          "metadata": {},
+          "practice_type_id": "0ca4a368-6e28-4ee6-b9e1-e183fc765e16",
+          "practice_number": null
+        },
+        {
+          "id": "5da3896d-b9f3-4b0a-996a-3adca867cb30",
+          "slug": "dr-polina",
+          "name": "Dr. Polina Aesthetic Clinic",
+          "domain": "drpolina.com",
+          "logo_url": null,
+          "primary_color": "#01b9d5",
+          "secondary_color": "#0196be",
+          "contact_email": "info@drpolina.com",
+          "contact_phone": "+264 61 555 0123",
+          "address": "123 Aesthetic Avenue",
+          "city": "Windhoek",
+          "country": "Namibia",
+          "postal_code": null,
+          "business_hours": {
+            "friday": {
+              "open": "08:00",
+              "close": "17:00"
+            },
+            "monday": {
+              "open": "08:00",
+              "close": "17:00"
+            },
+            "sunday": {
+              "closed": true
+            },
+            "tuesday": {
+              "open": "08:00",
+              "close": "17:00"
+            },
+            "saturday": {
+              "open": "08:00",
+              "close": "13:00"
+            },
+            "thursday": {
+              "open": "08:00",
+              "close": "17:00"
+            },
+            "wednesday": {
+              "open": "08:00",
+              "close": "17:00"
+            }
+          },
+          "features": {
+            "lab_results": true,
+            "telemedicine": false,
+            "online_booking": true,
+            "online_payments": true
+          },
+          "settings": {},
+          "hero_title": "Transform Your Beauty with Expert Care",
+          "hero_subtitle": "Leading aesthetic treatments in Namibia",
+          "hero_image_url": null,
+          "about_text": "Dr. Polina brings years of experience in aesthetic medicine to help you achieve your beauty goals with safe, effective treatments.",
+          "services": [
+            {
+              "id": "1",
+              "icon": "sparkles",
+              "name": "Botox",
+              "description": "Anti-aging wrinkle treatments"
+            },
+            {
+              "id": "2",
+              "icon": "heart",
+              "name": "Dermal Fillers",
+              "description": "Facial volume restoration"
+            },
+            {
+              "id": "3",
+              "icon": "refresh",
+              "name": "Chemical Peels",
+              "description": "Skin renewal treatments"
+            },
+            {
+              "id": "4",
+              "icon": "sun",
+              "name": "Skin Rejuvenation",
+              "description": "Advanced skin therapy"
+            }
+          ],
+          "social_links": {},
+          "created_at": "2025-06-04T05:10:48.843514+00:00",
+          "updated_at": "2025-06-09T08:51:55.514252+00:00",
+          "status": "active",
+          "subscription_tier": "premium",
+          "subscription_expires_at": null,
+          "max_users": 10,
+          "max_patients": 1000,
+          "timezone": "Africa/Windhoek",
+          "currency": "NAD",
+          "tax_number": null,
+          "license_number": null,
+          "admin_user_id": null,
+          "practice_type": "aesthetic",
+          "practice_subtypes": [
+            "Aesthetic Medicine",
+            "Cosmetic Procedures"
+          ],
+          "testimonials": [],
+          "metadata": {},
+          "practice_type_id": "29c37b6c-c19b-4b4c-8e41-dc71f5ded65c",
+          "practice_number": null
+        }
+      ],
+      "totalRows": 5
+    },
+    "visit_services": {
+      "columns": "Could not retrieve",
+      "sampleData": [],
+      "totalRows": 0
+    },
+    "practice_tariffs": {
+      "columns": "Could not retrieve",
+      "sampleData": [
+        {
+          "id": "cd3d4e57-18ce-4039-841b-846b2fcf9a2f",
+          "code": "8113",
+          "price": 234.5,
+          "unit": "per visit",
+          "is_active": true,
+          "effective_from": "2025-01-01",
+          "effective_to": null,
+          "created_at": "2025-06-09T01:44:45.274981+00:00",
+          "updated_at": "2025-06-09T01:44:45.274981+00:00",
+          "description": "Occlusal radiographs",
+          "official_2025_price_nad": 234.5,
+          "on_2025_list": "YES",
+          "found_in_claims": "NO",
+          "requires_tooth_number": "NO",
+          "can_be_multiplied": "NO",
+          "business_rule_formula": "Fixed price",
+          "example_calculation": "234.5 NAD",
+          "notes": "",
+          "practice_type_id": "73a45bcb-b68a-4746-8c96-a6d081fc690f"
+        },
+        {
+          "id": "14878822-4b14-41a7-9f65-de3e1de94ae7",
+          "code": "8114",
+          "price": 549.8,
+          "unit": "per visit",
+          "is_active": true,
+          "effective_from": "2025-01-01",
+          "effective_to": null,
+          "created_at": "2025-06-09T01:44:45.274981+00:00",
+          "updated_at": "2025-06-09T01:44:45.274981+00:00",
+          "description": "Hand-wrist radiograph",
+          "official_2025_price_nad": 549.8,
+          "on_2025_list": "YES",
+          "found_in_claims": "NO",
+          "requires_tooth_number": "NO",
+          "can_be_multiplied": "NO",
+          "business_rule_formula": "Fixed price",
+          "example_calculation": "549.8 NAD",
+          "notes": "",
+          "practice_type_id": "73a45bcb-b68a-4746-8c96-a6d081fc690f"
+        },
+        {
+          "id": "244aac7b-8030-4620-9d4d-3aea68edf003",
+          "code": "8115",
+          "price": 549.8,
+          "unit": "per item",
+          "is_active": true,
+          "effective_from": "2025-01-01",
+          "effective_to": null,
+          "created_at": "2025-06-09T01:44:45.274981+00:00",
+          "updated_at": "2025-06-09T01:44:45.274981+00:00",
+          "description": "Extra-oral radiograph, per film",
+          "official_2025_price_nad": 549.8,
+          "on_2025_list": "YES",
+          "found_in_claims": "NO",
+          "requires_tooth_number": "NO",
+          "can_be_multiplied": "YES",
+          "business_rule_formula": "Base price � number of films/photos",
+          "example_calculation": "549.8 � quantity",
+          "notes": "Multiply by number of films or photographs taken",
+          "practice_type_id": "73a45bcb-b68a-4746-8c96-a6d081fc690f"
+        }
+      ],
+      "totalRows": 179
+    },
+    "users": {
+      "columns": "Could not retrieve",
+      "sampleData": [
+        {
+          "id": "5a776a02-1a18-44c4-ab2f-5468533e56f3",
+          "email": "doctor@drpolina.com",
+          "full_name": "Dr. Polina",
+          "role": "doctor",
+          "created_at": "2025-05-26T16:46:26.072+00:00",
+          "last_login": null,
+          "avatar": null,
+          "practice_id": "b64632c2-3a56-44cf-a2c9-0e42be03a2d3",
+          "is_super_admin": false,
+          "can_manage_practices": false,
+          "permissions": {},
+          "last_active_at": null
+        },
+        {
+          "id": "c973bccf-dfb3-47cd-9541-2dbd56b6c1e9",
+          "email": "reception@drpolina.com",
+          "full_name": "Reception Staff",
+          "role": "receptionist",
+          "created_at": "2025-05-26T16:46:26.912+00:00",
+          "last_login": null,
+          "avatar": null,
+          "practice_id": "b64632c2-3a56-44cf-a2c9-0e42be03a2d3",
+          "is_super_admin": false,
+          "can_manage_practices": false,
+          "permissions": {},
+          "last_active_at": null
+        },
+        {
+          "id": "e00fef75-fba0-4fc7-87d4-1d22ae4bb854",
+          "email": "simple@drpolina.com",
+          "full_name": "Simple User",
+          "role": "admin",
+          "created_at": "2025-05-26T17:54:42.435917+00:00",
+          "last_login": null,
+          "avatar": null,
+          "practice_id": "b64632c2-3a56-44cf-a2c9-0e42be03a2d3",
+          "is_super_admin": false,
+          "can_manage_practices": false,
+          "permissions": {},
+          "last_active_at": null
+        }
+      ],
+      "totalRows": 11
+    },
+    "invoices": {
+      "columns": "Could not retrieve",
+      "sampleData": [],
+      "totalRows": 0
+    },
+    "invoice_items": {
+      "columns": "Could not retrieve",
+      "sampleData": [],
+      "totalRows": 0
+    },
+    "billing_transactions": {
+      "columns": "Could not retrieve",
+      "sampleData": [],
+      "totalRows": 0
+    }
+  },
+  "summary": {
+    "totalTablesAnalyzed": 14,
+    "tablesWithData": 9
+  }
+}

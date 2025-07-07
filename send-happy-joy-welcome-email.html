@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Happy Joy Welcome Email</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f3f4f6;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        button {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: white;
+            border: none;
+            padding: 16px 40px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .info { color: #e5e7eb; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📧 Send Happy Joy's Welcome Email</h1>
+        
+        <p>This will send Happy Joy's welcome email using the beautiful template through centralized-email-gateway.</p>
+        
+        <div>
+            <button onclick="processAutomation()" id="processBtn">Process Happy Joy's Automation</button>
+        </div>
+        
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcwNjE2ODksImV4cCI6MjA2MjYzNzY4OX0.TCNww59ZpJ00QhZgld4QJkYCHz53GAtyjw4F5hptFAM';
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            logDiv.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        async function processAutomation() {
+            const btn = document.getElementById('processBtn');
+            btn.disabled = true;
+            
+            try {
+                // Get auth token
+                const authData = localStorage.getItem('hpms-auth');
+                if (!authData) {
+                    log('❌ Please login to HPMS first', 'error');
+                    return;
+                }
+                
+                const { access_token } = JSON.parse(authData);
+                log('🔄 Processing Happy Joy\'s automation...');
+                
+                // Call automation engine directly
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/automation-engine`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${access_token}`,
+                        'apikey': ANON_KEY
+                    },
+                    body: JSON.stringify({
+                        executionId: 'c1e40a7e-495d-4ed5-9bea-c4725b0ea6fc'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    log('✅ Automation engine response received', 'success');
+                    log(`Processed: ${result.processed || 0} automations`);
+                    
+                    if (result.results && result.results.length > 0) {
+                        result.results.forEach((res, idx) => {
+                            if (res.sms) {
+                                log(`📱 SMS: ${res.sms.success ? '✅ Sent' : '❌ Failed: ' + res.sms.error}`);
+                            }
+                            if (res.email) {
+                                log(`📧 Email: ${res.email.success ? '✅ Sent' : '❌ Failed: ' + res.email.error}`);
+                                if (res.email.messageId) {
+                                    log(`   Message ID: ${res.email.messageId}`, 'success');
+                                }
+                            }
+                        });
+                    }
+                    
+                    // Check email log
+                    log('🔍 Checking email log status...');
+                    const logResponse = await fetch(`${SUPABASE_URL}/rest/v1/practice_email_logs?email_log_id=eq.86a3735f-37aa-4962-aa67-48a8d0bfae40&select=*`, {
+                        headers: {
+                            'Authorization': `Bearer ${access_token}`,
+                            'apikey': ANON_KEY
+                        }
+                    });
+                    
+                    if (logResponse.ok) {
+                        const logs = await logResponse.json();
+                        if (logs && logs.length > 0) {
+                            const emailLog = logs[0];
+                            log(`📧 Email Status: ${emailLog.status}`, emailLog.status === 'sent' ? 'success' : 'info');
+                            if (emailLog.provider_message_id) {
+                                log(`   Provider Message ID: ${emailLog.provider_message_id}`, 'success');
+                            }
+                        }
+                    }
+                } else {
+                    log(`❌ Failed: ${result.error || 'Unknown error'}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        window.onload = () => {
+            log('Ready to process Happy Joy\'s welcome email');
+            log('Automation ID: c1e40a7e-495d-4ed5-9bea-c4725b0ea6fc');
+            log('Patient: Happy Joy (54c9df8a-257b-463c-b43d-5c2db19c000a)');
+            log('Email: ksnahol@gmail.com');
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Direct SMS Portal Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        input, textarea { width: 100%; padding: 10px; margin: 5px 0; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        pre { white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Direct SMS Portal Test</h1>
+        <p>This tests SMS sending directly through the Supabase Edge Function</p>
+        
+        <div>
+            <label>Phone Number:</label>
+            <input type="text" id="phone" value="0812222331" />
+        </div>
+        
+        <div>
+            <label>Message:</label>
+            <textarea id="message" rows="4">Dear S N Naholo Naholo, welcome to New Charm Dental Practice! We are excited to be your healthcare partner. Access your patient portal to manage appointments. Call +264 81 435 8843 for assistance.</textarea>
+        </div>
+        
+        <button onclick="sendDirectSMS()">Send SMS via Edge Function</button>
+        
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjczMTMzNzcsImV4cCI6MjA0Mjg4OTM3N30.q6-a0gaVpGF1ZQRhmLgLkz5xGppXqz9v9xF4kLkyfGg';
+        
+        async function sendDirectSMS() {
+            const resultDiv = document.getElementById('result');
+            const phone = document.getElementById('phone').value;
+            const message = document.getElementById('message').value;
+            
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<p>Sending SMS...</p>';
+            
+            try {
+                // First, let's try to get a session token
+                const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY
+                    },
+                    body: JSON.stringify({
+                        email: 'ksnahol@gmail.com', // You'll need to enter your email
+                        password: 'your_password' // You'll need to enter your password
+                    })
+                });
+                
+                let accessToken = SUPABASE_ANON_KEY;
+                
+                if (authResponse.ok) {
+                    const authData = await authResponse.json();
+                    accessToken = authData.access_token || SUPABASE_ANON_KEY;
+                }
+                
+                // Now send the SMS
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/centralized-sms-gateway`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`,
+                        'x-application-name': 'hpms-test'
+                    },
+                    body: JSON.stringify({
+                        practiceId: 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3',
+                        recipientPhone: phone,
+                        messageContent: message,
+                        messageType: 'automation',
+                        patientId: '37cfcc1a-22d1-4ef4-8cfa-142953c1802d',
+                        metadata: {
+                            source: 'direct_test',
+                            timestamp: new Date().toISOString()
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    resultDiv.innerHTML = `
+                        <h3 class="success">✅ SMS Sent Successfully!</h3>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <h3 class="error">❌ SMS Send Failed</h3>
+                        <p>Status: ${response.status}</p>
+                        <pre>${JSON.stringify(result, null, 2)}</pre>
+                        <p>Note: You may need to update the email/password in the code to authenticate properly.</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3 class="error">❌ Error</h3>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

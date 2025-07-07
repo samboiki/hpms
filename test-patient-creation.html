@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Patient Creation</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f3f4f6;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        button {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { opacity: 0.9; }
+        button:disabled { background: #9ca3af; cursor: not-allowed; }
+        input {
+            width: 200px;
+            padding: 8px 12px;
+            margin: 5px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+        }
+        .log {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .info { color: #3b82f6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Patient Creation</h1>
+        
+        <div>
+            <input type="text" id="firstName" placeholder="First Name" value="John">
+            <input type="text" id="lastName" placeholder="Last Name" value="Doe">
+            <input type="email" id="email" placeholder="Email" value="ksnahol@gmail.com">
+            <input type="tel" id="phone" placeholder="Phone" value="0812222331">
+            <br>
+            <button onclick="testAuth()">Test Auth</button>
+            <button onclick="createPatient()">Create Patient</button>
+            <button onclick="checkLogs()">Check Logs</button>
+        </div>
+        
+        <div id="log" class="log"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<div class="${type}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        async function testAuth() {
+            try {
+                const authData = localStorage.getItem('hpms-auth');
+                if (!authData) {
+                    log('❌ No auth data in localStorage', 'error');
+                    return;
+                }
+                
+                const auth = JSON.parse(authData);
+                log('✅ Found auth data', 'success');
+                log(`User: ${auth.user.email}`);
+                log(`Token length: ${auth.access_token.length}`);
+                log(`Expires: ${new Date(auth.expires_at * 1000).toLocaleString()}`);
+                
+                // Test the token
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/practices?select=name&limit=1`, {
+                    headers: {
+                        'Authorization': `Bearer ${auth.access_token}`,
+                        'apikey': auth.access_token
+                    }
+                });
+                
+                if (response.ok) {
+                    log('✅ Token is valid!', 'success');
+                } else {
+                    log(`❌ Token test failed: ${response.status} ${response.statusText}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function createPatient() {
+            try {
+                const authData = localStorage.getItem('hpms-auth');
+                if (!authData) {
+                    log('❌ Please login to HPMS first', 'error');
+                    return;
+                }
+                
+                const { access_token, user } = JSON.parse(authData);
+                const firstName = document.getElementById('firstName').value;
+                const lastName = document.getElementById('lastName').value;
+                const email = document.getElementById('email').value;
+                const phone = document.getElementById('phone').value;
+                
+                log(`Creating patient: ${firstName} ${lastName}...`);
+                
+                const patientData = {
+                    practice_id: 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3',
+                    first_name: firstName,
+                    last_name: lastName,
+                    email: email,
+                    cell_number: phone,
+                    date_of_birth: '2010-01-01',
+                    gender: 'male',
+                    created_by: user.id
+                };
+                
+                log(`Request data: ${JSON.stringify(patientData, null, 2)}`);
+                
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/patients`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${access_token}`,
+                        'apikey': access_token,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=representation'
+                    },
+                    body: JSON.stringify(patientData)
+                });
+                
+                const responseText = await response.text();
+                log(`Response status: ${response.status}`);
+                log(`Response: ${responseText}`);
+                
+                if (response.ok) {
+                    const patients = JSON.parse(responseText);
+                    if (patients && patients.length > 0) {
+                        log(`✅ Patient created successfully!`, 'success');
+                        log(`Patient ID: ${patients[0].id}`);
+                        
+                        // Check for automation
+                        setTimeout(() => checkAutomation(patients[0].id), 3000);
+                    }
+                } else {
+                    log(`❌ Failed to create patient`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkAutomation(patientId) {
+            try {
+                const authData = localStorage.getItem('hpms-auth');
+                const { access_token } = JSON.parse(authData);
+                
+                log(`\n🔍 Checking automation for patient ${patientId}...`);
+                
+                const response = await fetch(
+                    `${SUPABASE_URL}/rest/v1/automation_executions?patient_id=eq.${patientId}`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${access_token}`,
+                            'apikey': access_token
+                        }
+                    }
+                );
+                
+                if (response.ok) {
+                    const executions = await response.json();
+                    if (executions && executions.length > 0) {
+                        log(`✅ Found ${executions.length} automation(s)!`, 'success');
+                        executions.forEach(exec => {
+                            log(`\nAutomation ID: ${exec.id}`);
+                            log(`Status: ${exec.status}`);
+                            log(`Created: ${new Date(exec.created_at).toLocaleString()}`);
+                        });
+                    } else {
+                        log('⚠️ No automations found yet', 'error');
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Error checking automation: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkLogs() {
+            try {
+                const authData = localStorage.getItem('hpms-auth');
+                const { access_token } = JSON.parse(authData);
+                
+                log('\n📋 Checking recent logs...');
+                
+                // Check SMS logs
+                const smsResponse = await fetch(
+                    `${SUPABASE_URL}/rest/v1/practice_sms_logs?practice_id=eq.b64632c2-3a56-44cf-a2c9-0e42be03a2d3&order=created_at.desc&limit=5`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${access_token}`,
+                            'apikey': access_token
+                        }
+                    }
+                );
+                
+                if (smsResponse.ok) {
+                    const smsLogs = await smsResponse.json();
+                    log(`\n📱 Recent SMS (${smsLogs.length}):`);
+                    smsLogs.forEach(sms => {
+                        log(`  ${new Date(sms.created_at).toLocaleTimeString()} - ${sms.status} - ${sms.recipient_phone}`);
+                    });
+                }
+                
+                // Check Email logs
+                const emailResponse = await fetch(
+                    `${SUPABASE_URL}/rest/v1/practice_email_logs?practice_id=eq.b64632c2-3a56-44cf-a2c9-0e42be03a2d3&order=created_at.desc&limit=5`,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${access_token}`,
+                            'apikey': access_token
+                        }
+                    }
+                );
+                
+                if (emailResponse.ok) {
+                    const emailLogs = await emailResponse.json();
+                    log(`\n📧 Recent Emails (${emailLogs.length}):`);
+                    emailLogs.forEach(email => {
+                        log(`  ${new Date(email.created_at).toLocaleTimeString()} - ${email.status} - ${email.recipient_email}`);
+                        if (email.failure_reason) {
+                            log(`    ❌ ${email.failure_reason}`, 'error');
+                        }
+                    });
+                }
+                
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        window.onload = () => {
+            log('🧪 Patient Creation Test Ready');
+            testAuth();
+        };
+    </script>
+</body>
+</html>

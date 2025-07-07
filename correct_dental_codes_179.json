@@ -1,0 +1,122 @@
+[
+  {
+    "Category": "Diagnostic",
+    "Subcategory": "Advanced Imaging",
+    "Code": "821",
+    "Description": "CBCT scan limited area",
+    "Price": 485,
+    "Complexity": "Moderate",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 485,
+    "Notes": ""
+  },
+  {
+    "Category": "Diagnostic",
+    "Subcategory": "Advanced Imaging",
+    "Code": "822",
+    "Description": "CBCT scan full mouth",
+    "Price": 685,
+    "Complexity": "Moderate",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 685,
+    "Notes": ""
+  },
+  {
+    "Category": "Diagnostic",
+    "Subcategory": "Digital Services",
+    "Code": "832",
+    "Description": "Digital impressions",
+    "Price": 185,
+    "Complexity": "Moderate",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 185,
+    "Notes": ""
+  },
+  {
+    "Category": "Diagnostic",
+    "Subcategory": "Extraoral X-rays",
+    "Code": "812",
+    "Description": "Cephalometric x-ray",
+    "Price": 95,
+    "Complexity": "Simple",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 95,
+    "Notes": ""
+  },
+  {
+    "Category": "Diagnostic",
+    "Subcategory": "Extraoral X-rays",
+    "Code": "811",
+    "Description": "Panoramic x-ray",
+    "Price": 125,
+    "Complexity": "Simple",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 125,
+    "Notes": ""
+  },
+  {
+    "Category": "Diagnostic",
+    "Subcategory": "Intraoral X-rays",
+    "Code": "803",
+    "Description": "Periapical x-ray single",
+    "Price": 35,
+    "Complexity": "Simple",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 35,
+    "Notes": ""
+  },
+  {
+    "Category": "Diagnostic",
+    "Subcategory": "Intraoral X-rays",
+    "Code": "801",
+    "Description": "Bitewing x-rays 2 films",
+    "Price": 55,
+    "Complexity": "Simple",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 55,
+    "Notes": ""
+  },
+  {
+    "Category": "Diagnostic",
+    "Subcategory": "Intraoral X-rays",
+    "Code": "802",
+    "Description": "Bitewing x-rays 4 films",
+    "Price": 85,
+    "Complexity": "Simple",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 85,
+    "Notes": ""
+  },
+  {
+    "Category": "Diagnostic",
+    "Subcategory": "Intraoral X-rays",
+    "Code": "804",
+    "Description": "Full mouth x-ray series",
+    "Price": 185,
+    "Complexity": "Simple",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 185,
+    "Notes": ""
+  },
+  {
+    "Category": "Diagnostic",
+    "Subcategory": "Photography",
+    "Code": "831",
+    "Description": "Intraoral camera photos",
+    "Price": 45,
+    "Complexity": "Simple",
+    "Selected": false,
+    "Quantity": 1,
+    "Total": 45,
+    "Notes": ""
+  }
+]

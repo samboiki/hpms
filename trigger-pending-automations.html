@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Trigger Pending Automations</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: Arial; padding: 20px; max-width: 600px; margin: 0 auto; }
+        .container { background: #f5f5f5; padding: 20px; border-radius: 8px; }
+        button { padding: 15px 30px; background: #28a745; color: white; border: none; cursor: pointer; border-radius: 4px; font-size: 18px; }
+        button:hover { background: #218838; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .result { margin-top: 20px; padding: 15px; background: white; border-radius: 5px; }
+        .success { border-left: 4px solid #28a745; background: #d4edda; }
+        .error { border-left: 4px solid #dc3545; background: #f8d7da; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Trigger Pending Automations</h1>
+        <p>Click the button below to process all pending automation SMS messages.</p>
+        
+        <button onclick="triggerAutomations()" id="triggerBtn">Process Pending Automations Now</button>
+        
+        <div id="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjczMTMzNzcsImV4cCI6MjA0Mjg4OTM3N30.q6-a0gaVpGF1ZQRhmLgLkz5xGppXqz9v9xF4kLkyfGg';
+        
+        // Initialize Supabase client
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        async function triggerAutomations() {
+            const resultDiv = document.getElementById('result');
+            const triggerBtn = document.getElementById('triggerBtn');
+            
+            resultDiv.style.display = 'none';
+            triggerBtn.disabled = true;
+            triggerBtn.textContent = 'Processing...';
+            
+            try {
+                // First check pending count
+                const { data: pendingCount, error: countError } = await supabaseClient.rpc('trigger_automations');
+                
+                if (countError) {
+                    throw new Error(`Error checking pending automations: ${countError.message}`);
+                }
+                
+                console.log(`Found ${pendingCount} pending automations`);
+                
+                if (pendingCount === 0) {
+                    resultDiv.style.display = 'block';
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h3>✅ No Pending Automations</h3>
+                        <p>There are no pending automations to process.</p>
+                    `;
+                    return;
+                }
+                
+                // Invoke the automation engine
+                const { data, error } = await supabaseClient.functions.invoke('automation-engine', {
+                    body: {}
+                });
+                
+                if (error) {
+                    throw error;
+                }
+                
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `
+                    <h3>✅ Automations Processed Successfully!</h3>
+                    <p><strong>Pending automations found:</strong> ${pendingCount}</p>
+                    <p><strong>Processing results:</strong></p>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                    <hr>
+                    <p>The welcome SMS messages should be delivered to the recipients now!</p>
+                `;
+                
+            } catch (error) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Error Processing Automations</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <pre>${JSON.stringify(error, null, 2)}</pre>
+                `;
+            } finally {
+                triggerBtn.disabled = false;
+                triggerBtn.textContent = 'Process Pending Automations Now';
+            }
+        }
+    </script>
+</body>
+</html>

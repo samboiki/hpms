@@ -1,0 +1,32 @@
+{
+  "name": "hpms-pdf-server",
+  "version": "1.0.0",
+  "description": "Server-side PDF generation API for HPMS using Puppeteer",
+  "main": "puppeteer-api.js",
+  "scripts": {
+    "start": "node puppeteer-api.js",
+    "dev": "nodemon puppeteer-api.js",
+    "docker:build": "docker build -t hpms-pdf-server .",
+    "docker:run": "docker run -p 3001:3001 hpms-pdf-server"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "puppeteer": "^21.6.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "pdf",
+    "puppeteer",
+    "invoice",
+    "healthcare",
+    "api"
+  ],
+  "author": "HPMS Team",
+  "license": "MIT"
+}

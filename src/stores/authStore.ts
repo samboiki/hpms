@@ -7,87 +7,321 @@ interface User {
   name: string;
   role: 'admin' | 'doctor' | 'nurse' | 'receptionist';
   avatar?: string | null;
+  practice_id?: string;
+  practices?: {
+    id: string;
+    name: string;
+  };
+  is_super_admin?: boolean;
+  can_manage_practices?: boolean;
+  permissions?: Record<string, any>;
+  last_active_at?: string;
 }
 
 interface AuthState {
   isAuthenticated: boolean;
   user: User | null;
+  selectedPracticeId: string | null;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
+  switchPractice: (practiceId: string) => Promise<boolean>;
+  getUserPractices: () => Promise<any[]>;
+  isSuperAdmin: () => boolean;
+  canManagePractices: () => boolean;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   user: null,
+  selectedPracticeId: null,
   login: async (email: string, password: string) => {
+    console.log('🔐 Login attempt for:', email);
+    
     try {
-      // First authenticate with Supabase auth
+      // If no password provided, assume we're restoring a session
+      if (!password) {
+        console.log('📌 Restoring session for:', email);
+        
+        // Get current auth session first
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session?.user) {
+          console.error('❌ No valid session found');
+          return false;
+        }
+
+        // First try to get user data from users table
+        let dbUser = null;
+        try {
+          const { data, error } = await supabase
+            .from('users')
+            .select(`
+              id, 
+              email, 
+              full_name, 
+              role, 
+              avatar, 
+              practice_id, 
+              is_super_admin, 
+              can_manage_practices, 
+              permissions, 
+              last_active_at,
+              practices:practice_id (
+                id,
+                name
+              )
+            `)
+            .eq('id', session.user.id)
+            .single();
+          
+          if (error) {
+            console.error('Error fetching user from DB:', error);
+          } else {
+            dbUser = data;
+            console.log('✅ Session user data from DB:', dbUser);
+            console.log('📍 Session Practice ID from DB:', dbUser?.practice_id);
+          }
+        } catch (e) {
+          console.log('No user found in database, using auth metadata');
+        }
+
+        // Use database user data if available, otherwise fallback to auth metadata
+        const authUser = session.user;
+        const user: User = dbUser ? {
+          id: dbUser.id,
+          email: dbUser.email,
+          name: dbUser.full_name,
+          role: dbUser.role,
+          avatar: dbUser.avatar || null,
+          practice_id: dbUser.practice_id,
+          practices: dbUser.practices,
+          is_super_admin: dbUser.is_super_admin || false,
+          can_manage_practices: dbUser.can_manage_practices || false,
+          permissions: dbUser.permissions || {},
+          last_active_at: dbUser.last_active_at
+        } : {
+          id: authUser.id,
+          email: authUser.email || email,
+          name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+          role: (authUser.user_metadata?.role as any) || 'doctor',
+          avatar: authUser.user_metadata?.avatar || null,
+          practice_id: authUser.user_metadata?.practice_id || null,
+          is_super_admin: authUser.user_metadata?.is_super_admin || false,
+          can_manage_practices: authUser.user_metadata?.can_manage_practices || false
+        };
+
+        set({ isAuthenticated: true, user });
+        console.log('✅ Session restored successfully');
+        return true;
+      }
+
+      // Otherwise, perform password authentication
+      console.log('🔑 Attempting password authentication...');
       const { data: { user: authUser }, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
       if (authError) {
-        console.error('Authentication error:', authError.message);
+        console.error('❌ Authentication error:', {
+          message: authError.message,
+          status: authError.status,
+          name: authError.name,
+          details: authError
+        });
         return false;
       }
 
       if (!authUser) {
-        console.error('Authentication failed - no user returned');
+        console.error('❌ Authentication failed - no user returned');
         return false;
       }
 
-      // Then fetch the user profile data
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, email, full_name, role, avatar')
-        .eq('id', authUser.id)
-        .single();
+      console.log('✅ Auth successful, user ID:', authUser.id);
+      console.log('📊 Auth user metadata:', authUser.user_metadata);
 
-      if (userError) {
-        console.error('Error fetching user data:', userError.message);
-        return false;
+      // Try to fetch user profile from users table, but use auth metadata as fallback
+      console.log('🔍 Trying to fetch user profile from users table...');
+      let userData = null;
+      let userError = null;
+      
+      try {
+        const result = await supabase
+          .from('users')
+          .select(`
+            id, 
+            email, 
+            full_name, 
+            role, 
+            avatar, 
+            practice_id, 
+            is_super_admin, 
+            can_manage_practices, 
+            permissions, 
+            last_active_at,
+            practices:practice_id (
+              id,
+              name
+            )
+          `)
+          .eq('id', authUser.id)
+          .single();
+          
+        userData = result.data;
+        userError = result.error;
+        
+        if (userData) {
+          console.log('✅ User data from DB:', userData);
+          console.log('📍 Practice ID from DB:', userData.practice_id);
+        }
+      } catch (e) {
+        console.log('⚠️ Users table query failed, using auth metadata');
+        userError = e;
       }
 
-      if (!userData) {
-        console.error('No user profile found');
-        return false;
+      let user: User;
+
+      if (userError || !userData) {
+        console.log('🔧 Using auth metadata as primary user source');
+        // Use auth metadata as the primary source
+        user = {
+          id: authUser.id,
+          email: authUser.email || email,
+          name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+          role: (authUser.user_metadata?.role as any) || 'doctor',
+          avatar: authUser.user_metadata?.avatar || null,
+          practice_id: authUser.user_metadata?.practice_id || null,
+          is_super_admin: authUser.user_metadata?.is_super_admin || false,
+          can_manage_practices: authUser.user_metadata?.can_manage_practices || false,
+          permissions: authUser.user_metadata?.permissions || {},
+          last_active_at: authUser.last_sign_in_at
+        };
+      } else {
+        console.log('✅ User profile loaded from users table');
+        user = {
+          id: userData.id,
+          email: userData.email,
+          name: userData.full_name,
+          role: userData.role,
+          avatar: userData.avatar || null,
+          practice_id: userData.practice_id,
+          practices: userData.practices,
+          is_super_admin: userData.is_super_admin || false,
+          can_manage_practices: userData.can_manage_practices || false,
+          permissions: userData.permissions || {},
+          last_active_at: userData.last_active_at
+        };
       }
 
-      const user: User = {
-        id: userData.id,
-        email: userData.email,
-        name: userData.full_name,
-        role: userData.role,
-        avatar: userData.avatar || null
-      };
-
-      // Update last login timestamp
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ last_login: new Date().toISOString() })
-        .eq('id', user.id);
-
-      if (updateError) {
-        console.error('Error updating last login:', updateError.message);
-        // Don't fail the login if this update fails
-      }
-
-      set({ isAuthenticated: true, user });
+      // Set selected practice ID to user's practice or null if super admin
+      const selectedPracticeId = user.is_super_admin ? null : user.practice_id || null;
+      
+      set({ 
+        isAuthenticated: true, 
+        user,
+        selectedPracticeId
+      });
+      console.log('✅ Login complete!');
       return true;
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('💥 Unexpected login error:', error);
       return false;
     }
   },
   logout: async () => {
     try {
+      console.log('🔐 Starting logout process...');
+      
+      // Clear auth state immediately to prevent any race conditions
+      set({ isAuthenticated: false, user: null, selectedPracticeId: null });
+      
+      // Clear any cached data
+      localStorage.removeItem('supabase.auth.token');
+      sessionStorage.clear();
+      
+      // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      set({ isAuthenticated: false, user: null });
+      
+      if (error) {
+        console.error('⚠️ Supabase signOut error:', error);
+        // Don't throw here - we've already cleared local state
+      }
+      
+      console.log('✅ Logout completed successfully');
     } catch (error) {
-      console.error('Logout error:', error);
-      throw error;
+      console.error('❌ Unexpected logout error:', error);
+      // Still ensure state is cleared even if there's an error
+      set({ isAuthenticated: false, user: null, selectedPracticeId: null });
     }
+  },
+  updateUser: (updates: Partial<User>) => {
+    const currentUser = get().user;
+    if (currentUser) {
+      set({ user: { ...currentUser, ...updates } });
+    }
+  },
+  switchPractice: async (practiceId: string) => {
+    try {
+      const user = get().user;
+      if (!user) return false;
+
+      // Super admins can switch to any practice
+      if (user.is_super_admin) {
+        set({ selectedPracticeId: practiceId });
+        return true;
+      }
+
+      // Regular users can only access their assigned practices
+      const userPractices = await get().getUserPractices();
+      const hasAccess = userPractices.some(p => p.id === practiceId);
+      
+      if (hasAccess) {
+        set({ selectedPracticeId: practiceId });
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error switching practice:', error);
+      return false;
+    }
+  },
+  getUserPractices: async () => {
+    try {
+      const user = get().user;
+      if (!user) return [];
+
+      // Super admins can see all practices
+      if (user.is_super_admin) {
+        const { data: practices, error } = await supabase
+          .from('practices')
+          .select('*')
+          .order('name');
+        
+        if (error) throw error;
+        return practices || [];
+      }
+
+      // Regular users see practices they're assigned to
+      const { data: practices, error } = await supabase
+        .from('practices')
+        .select('*')
+        .eq('id', user.practice_id);
+        
+      if (error) throw error;
+      return practices || [];
+    } catch (error) {
+      console.error('Error getting user practices:', error);
+      return [];
+    }
+  },
+  isSuperAdmin: () => {
+    const user = get().user;
+    return user?.is_super_admin || false;
+  },
+  canManagePractices: () => {
+    const user = get().user;
+    return user?.is_super_admin || user?.can_manage_practices || false;
   }
 }));

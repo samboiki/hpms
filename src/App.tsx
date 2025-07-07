@@ -1,18 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
+import { supabase } from './lib/supabase';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
-import Appointments from './pages/Appointments';
-import PatientDetail from './pages/PatientDetail';
-import Finance from './pages/Finance';
 import Settings from './pages/Settings';
+import Communications from './pages/Communications';
+import TestCommunication from './pages/TestCommunication';
+import TestSMSSend from './pages/TestSMSSend';
+import TestSMSDirectSend from './pages/TestSMSDirectSend';
+import WorkingSMSTest from './pages/WorkingSMSTest';
+import TestSMSWithAuth from './pages/TestSMSWithAuth';
+import AutomationTest from './pages/AutomationTest';
+import Encounters from './pages/Encounters';
 import Layout from './components/layout/Layout';
 import Login from './pages/auth/Login';
 import { useAuthStore } from './stores/authStore';
 import NotFound from './pages/NotFound';
 import PracticeProfile from './pages/PracticeProfile';
-import { supabase } from './lib/supabase';
-import Requests from './pages/Requests';
+import EnhancedPracticeProfile from './pages/EnhancedPracticeProfile';
+import Inventory from './pages/Inventory';
+import PracticesManagement from './pages/admin/PracticesManagement';
+import TariffManagement from './pages/admin/TariffManagement';
+import BillingWorkflow from './pages/BillingWorkflow';
+import Finance from './pages/Finance';
+import { Toaster } from 'react-hot-toast';
+import { PracticeTariffsProvider } from './contexts/PracticeTariffsContext';
+import { PracticeProvider } from './contexts/PracticeContext';
+import ThemeProvider from './components/providers/ThemeProvider';
+import EmergencySchemaExporter from './emergency-schema-exporter';
+import { automationProcessingService } from './services/automationProcessingService';
 
 function App() {
   const { isAuthenticated, login } = useAuthStore();
@@ -23,13 +39,38 @@ function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         login(session.user.email!, '');
+        
+        // Start automatic automation processing when user is authenticated
+        // Don't await to prevent blocking
+        automationProcessingService.start().catch(error => {
+          console.error('Failed to start automation service:', error);
+        });
+      } else {
+        // Stop processing when user logs out
+        automationProcessingService.stop();
       }
+      setIsLoading(false);
+    });
+
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        login(session.user.email!, '');
+        // Don't await to prevent blocking
+        automationProcessingService.start().catch(error => {
+          console.error('Failed to start automation service:', error);
+        });
+      }
+      setIsLoading(false);
+    }).catch(error => {
+      console.error('Error getting session:', error);
       setIsLoading(false);
     });
 
     // Cleanup subscription
     return () => {
       subscription.unsubscribe();
+      automationProcessingService.stop();
     };
   }, [login]);
 
@@ -46,19 +87,55 @@ function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/" element={<Layout />}>
-        <Route index element={<Dashboard />} />
-        <Route path="patients" element={<Patients />} />
-        <Route path="patients/:id" element={<PatientDetail />} />
-        <Route path="appointments" element={<Appointments />} />
-        <Route path="requests" element={<Requests />} />
-        <Route path="finance" element={<Finance />} />
-        <Route path="practice-profile" element={<PracticeProfile />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="*" element={<NotFound />} />
-      </Route>
-    </Routes>
+    <PracticeProvider>
+      <ThemeProvider>
+        <PracticeTariffsProvider>
+          <Toaster 
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: '#363636',
+                color: '#fff',
+              },
+              success: {
+                style: {
+                  background: '#10b981',
+                },
+              },
+              error: {
+                style: {
+                  background: '#ef4444',
+                },
+              },
+            }}
+          />
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="patients" element={<Patients />} />
+              <Route path="encounters" element={<Encounters />} />
+              <Route path="communications" element={<Communications />} />
+              <Route path="test-communication" element={<TestCommunication />} />
+              <Route path="test-sms-send" element={<TestSMSSend />} />
+              <Route path="test-sms-direct" element={<TestSMSDirectSend />} />
+              <Route path="working-sms-test" element={<WorkingSMSTest />} />
+              <Route path="test-sms-auth" element={<TestSMSWithAuth />} />
+              <Route path="automation-test" element={<AutomationTest />} />
+              <Route path="finance" element={<Finance />} />
+              <Route path="billing/workflow" element={<BillingWorkflow />} />
+              <Route path="practice-profile" element={<EnhancedPracticeProfile />} />
+              <Route path="admin/practices" element={<PracticesManagement />} />
+              <Route path="admin/tariffs" element={<TariffManagement />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="emergency-export" element={<EmergencySchemaExporter />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </PracticeTariffsProvider>
+      </ThemeProvider>
+    </PracticeProvider>
   );
 }
 

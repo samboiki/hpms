@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Notification Badges</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .button:hover {
+            background: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            white-space: pre-wrap;
+        }
+        .channel-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #f0f0f0;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .badge {
+            background: #ff4444;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .last-message {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .sender {
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Notification Badges System</h1>
+        
+        <div>
+            <h3>Test Settings</h3>
+            <label>Practice ID: <input type="text" id="practiceId" value="b64632c2-3a56-44cf-a2c9-0e42be03a2d3" style="width: 300px;"></label><br>
+            <label>User ID: <input type="text" id="userId" value="c973bccf-dfb3-47cd-9541-2dbd56b6c1e9" style="width: 300px;"></label>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <button class="button" onclick="loadChannels()">1. Load Channels</button>
+            <button class="button" onclick="testRPCFunction()">2. Test RPC Function</button>
+            <button class="button" onclick="sendTestMessage()">3. Send Test Message</button>
+            <button class="button" onclick="markChannelAsRead()">4. Mark Channel as Read</button>
+            <button class="button" onclick="checkReadStatus()">5. Check Read Status</button>
+        </div>
+
+        <div id="channels" style="margin-top: 20px;"></div>
+        <div id="result" class="result"></div>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+        
+        const supabaseUrl = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTQ4OTI5NzQsImV4cCI6MjAzMDQ2ODk3NH0.f9CQZQ-AanmdRidL3uV8TqfvmJfzfG5OzKy5OdPQHRo';
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        window.supabase = supabase;
+        
+        window.selectedChannelId = null;
+        
+        function log(message, data = null) {
+            const result = document.getElementById('result');
+            const timestamp = new Date().toLocaleTimeString();
+            result.innerHTML += `[${timestamp}] ${message}\n`;
+            if (data) {
+                result.innerHTML += JSON.stringify(data, null, 2) + '\n';
+            }
+            result.innerHTML += '\n';
+            result.scrollTop = result.scrollHeight;
+        }
+        
+        window.loadChannels = async function() {
+            const practiceId = document.getElementById('practiceId').value;
+            const userId = document.getElementById('userId').value;
+            
+            log('Loading channels...');
+            
+            try {
+                // Load user's channels
+                const { data: channelMembers, error: channelError } = await supabase
+                    .from('internal_channel_members')
+                    .select(`
+                        channel_id,
+                        internal_message_channels!inner(
+                            id,
+                            name,
+                            channel_type,
+                            created_at
+                        )
+                    `)
+                    .eq('user_id', userId)
+                    .eq('practice_id', practiceId);
+                
+                if (channelError) throw channelError;
+                
+                log(`Found ${channelMembers?.length || 0} channels`);
+                
+                // Extract channel IDs
+                const channelIds = channelMembers?.map(cm => cm.channel_id) || [];
+                
+                if (channelIds.length > 0) {
+                    // Get last messages and unread counts
+                    const { data: messageData, error: rpcError } = await supabase
+                        .rpc('get_channel_last_messages', {
+                            channel_ids: channelIds,
+                            user_id: userId
+                        });
+                    
+                    if (rpcError) throw rpcError;
+                    
+                    log('RPC Response:', messageData);
+                    
+                    // Display channels
+                    const channelsDiv = document.getElementById('channels');
+                    channelsDiv.innerHTML = '<h3>Channels:</h3>';
+                    
+                    let totalUnread = 0;
+                    
+                    channelMembers.forEach(cm => {
+                        const channel = cm.internal_message_channels;
+                        const msgData = messageData?.find(m => m.channel_id === channel.id);
+                        
+                        const channelDiv = document.createElement('div');
+                        channelDiv.className = 'channel-item';
+                        channelDiv.onclick = () => { window.selectedChannelId = channel.id; log(`Selected channel: ${channel.id}`); };
+                        
+                        let html = `<div>
+                            <strong>${channel.name}</strong> (${channel.channel_type})`;
+                        
+                        if (msgData?.last_message) {
+                            html += `<div class="last-message">
+                                <span class="sender">${msgData.last_message.sender_id === userId ? 'You' : 'Someone'}:</span>
+                                ${msgData.last_message.content}
+                            </div>`;
+                        }
+                        
+                        html += `</div>`;
+                        
+                        if (msgData?.unread_count > 0) {
+                            html += `<span class="badge">${msgData.unread_count}</span>`;
+                            totalUnread += msgData.unread_count;
+                        }
+                        
+                        channelDiv.innerHTML = html;
+                        channelsDiv.appendChild(channelDiv);
+                    });
+                    
+                    log(`Total unread messages: ${totalUnread}`);
+                }
+                
+            } catch (error) {
+                log('Error loading channels:', error);
+            }
+        };
+        
+        window.testRPCFunction = async function() {
+            const practiceId = document.getElementById('practiceId').value;
+            const userId = document.getElementById('userId').value;
+            
+            log('Testing RPC function directly...');
+            
+            try {
+                // Get channel IDs first
+                const { data: channels } = await supabase
+                    .from('internal_channel_members')
+                    .select('channel_id')
+                    .eq('user_id', userId)
+                    .eq('practice_id', practiceId);
+                
+                const channelIds = channels?.map(c => c.channel_id) || [];
+                
+                log(`Testing with ${channelIds.length} channels`);
+                
+                const { data, error } = await supabase
+                    .rpc('get_channel_last_messages', {
+                        channel_ids: channelIds,
+                        user_id: userId
+                    });
+                
+                if (error) throw error;
+                
+                log('RPC Function Result:', data);
+                
+            } catch (error) {
+                log('RPC Error:', error);
+            }
+        };
+        
+        window.sendTestMessage = async function() {
+            if (!window.selectedChannelId) {
+                log('Please select a channel first');
+                return;
+            }
+            
+            const userId = document.getElementById('userId').value;
+            const practiceId = document.getElementById('practiceId').value;
+            
+            log('Sending test message...');
+            
+            try {
+                // Get thread ID
+                const { data: thread, error: threadError } = await supabase
+                    .from('internal_message_threads')
+                    .select('id')
+                    .eq('channel_id', window.selectedChannelId)
+                    .single();
+                
+                if (threadError) throw threadError;
+                
+                // Send message
+                const { data: message, error: msgError } = await supabase
+                    .from('internal_messages')
+                    .insert({
+                        thread_id: thread.id,
+                        sender_id: userId,
+                        practice_id: practiceId,
+                        content: `Test message at ${new Date().toLocaleTimeString()}`,
+                        content_type: 'text',
+                        mentions: [],
+                        importance_score: 1
+                    })
+                    .select()
+                    .single();
+                
+                if (msgError) throw msgError;
+                
+                log('Message sent successfully:', message);
+                
+            } catch (error) {
+                log('Error sending message:', error);
+            }
+        };
+        
+        window.markChannelAsRead = async function() {
+            if (!window.selectedChannelId) {
+                log('Please select a channel first');
+                return;
+            }
+            
+            const userId = document.getElementById('userId').value;
+            
+            log('Marking channel as read...');
+            
+            try {
+                const { data, error } = await supabase
+                    .from('internal_channel_read_status')
+                    .upsert({
+                        channel_id: window.selectedChannelId,
+                        user_id: userId,
+                        last_read_at: new Date().toISOString()
+                    }, {
+                        onConflict: 'channel_id,user_id'
+                    })
+                    .select();
+                
+                if (error) throw error;
+                
+                log('Channel marked as read:', data);
+                
+            } catch (error) {
+                log('Error marking as read:', error);
+            }
+        };
+        
+        window.checkReadStatus = async function() {
+            const userId = document.getElementById('userId').value;
+            
+            log('Checking read status...');
+            
+            try {
+                const { data, error } = await supabase
+                    .from('internal_channel_read_status')
+                    .select('*')
+                    .eq('user_id', userId);
+                
+                if (error) throw error;
+                
+                log('Read status records:', data);
+                
+            } catch (error) {
+                log('Error checking read status:', error);
+            }
+        };
+        
+        // Auto-load on page load
+        window.addEventListener('load', () => {
+            log('Test page ready. Click "Load Channels" to begin.');
+        });
+    </script>
+</body>
+</html>

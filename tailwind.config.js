@@ -6,27 +6,26 @@ export default {
   ],
   theme: {
     extend: {
-      fontFamily: {
-        heading: ['Rubik', 'sans-serif'],
-        body: ['Montserrat', 'sans-serif'],
-      },
       colors: {
         'brand': {
-          50: '#e0f7ff',
-          100: '#b3e7ff',
-          200: '#80d5ff',
-          300: '#4dc3ff',
-          400: '#26b5ff',
-          500: '#01b9d4',
-          600: '#0197d4',
-          700: '#0077a3',
-          800: '#005c80',
-          900: '#003d54',
+          50: '#f0fdfa',
+          100: '#ccfbf1',
+          200: '#99f6e4',
+          300: '#5eead4',
+          400: '#2dd4bf',
+          500: '#14b8a6',
+          600: '#0d9488',
+          700: '#0f766e',
+          800: '#115e59',
+          900: '#134e4a',
+          'sidebar': '#01b9d4',
         },
         'accent': {
           coral: '#ff6b6b',
           lavender: '#9b6bff',
           azure: '#01b9d4',
+          mint: '#00d68f',
+          gold: '#ffd700',
         },
         'success': {
           50: '#f0fdf4',
@@ -44,41 +43,26 @@ export default {
           600: '#dc2626',
         },
       },
-      screens: {
-        'xs': '475px',
-        'sm': '640px',
-        'md': '768px',
-        'lg': '1024px',
-        'xl': '1280px',
-        '2xl': '1536px',
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+        heading: ['Rubik', 'sans-serif'],
+        rubik: ['Rubik', 'sans-serif'],
       },
-      spacing: {
-        '18': '4.5rem',
-        '112': '28rem',
-        '128': '32rem',
-      },
-      maxWidth: {
-        '8xl': '88rem',
-        '9xl': '96rem',
-      },
-      minHeight: {
-        'screen-75': '75vh',
-        'screen-85': '85vh',
+      boxShadow: {
+        'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
+        'glow': '0 0 15px rgba(94, 234, 212, 0.3)',
+        'float': '0 10px 30px -5px rgba(1, 185, 212, 0.1)',
       },
       animation: {
-        'scale-in': 'scaleIn 0.2s ease-out',
-        'fade-in': 'fadeIn 0.3s ease-out',
+        'pulse-subtle': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'float': 'float 3s ease-in-out infinite',
       },
       keyframes: {
-        scaleIn: {
-          '0%': { transform: 'scale(0.95)', opacity: 0 },
-          '100%': { transform: 'scale(1)', opacity: 1 },
-        },
-        fadeIn: {
-          '0%': { opacity: 0 },
-          '100%': { opacity: 1 },
-        },
-      },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-5px)' },
+        }
+      }
     },
   },
   plugins: [],

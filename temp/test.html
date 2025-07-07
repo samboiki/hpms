@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HPMS Connection Test</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 50px auto; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+        }
+        .status { 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-radius: 10px; 
+            background: rgba(255,255,255,0.1);
+        }
+        .success { background: rgba(0,255,0,0.2); }
+        .error { background: rgba(255,0,0,0.2); }
+        button {
+            background: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🏥 HPMS Development Server Test</h1>
+    
+    <div class="status" id="status">
+        <h2>🔍 Testing Connection...</h2>
+        <p>Checking if the development server is accessible...</p>
+    </div>
+
+    <div class="status">
+        <h3>📊 Server Information</h3>
+        <p><strong>Time:</strong> <span id="time"></span></p>
+        <p><strong>Port:</strong> 5173</p>
+        <p><strong>URL:</strong> http://localhost:5173</p>
+        <p><strong>Status:</strong> <span id="server-status">Checking...</span></p>
+    </div>
+
+    <button onclick="testConnection()">🔄 Test Connection</button>
+    <button onclick="window.location.reload()">↻ Refresh Page</button>
+    
+    <div class="status">
+        <h3>✅ Quick Fixes</h3>
+        <p>1. Make sure the development server is running</p>
+        <p>2. Try refreshing this page</p>
+        <p>3. Check if port 5173 is available</p>
+        <p>4. Clear browser cache</p>
+    </div>
+
+    <script>
+        function updateTime() {
+            document.getElementById('time').textContent = new Date().toLocaleString();
+        }
+        
+        function testConnection() {
+            const status = document.getElementById('status');
+            const serverStatus = document.getElementById('server-status');
+            
+            status.innerHTML = '<h2>🔄 Testing...</h2><p>Attempting to connect to Vite server...</p>';
+            serverStatus.textContent = 'Testing...';
+            
+            // Test if we can reach the Vite server
+            fetch('http://localhost:5173')
+                .then(response => {
+                    if (response.ok) {
+                        status.className = 'status success';
+                        status.innerHTML = '<h2>✅ SUCCESS!</h2><p>Development server is working perfectly!</p><p><a href="http://localhost:5173" style="color: white;">Click here to open HPMS</a></p>';
+                        serverStatus.textContent = 'Connected ✅';
+                    } else {
+                        throw new Error('Server responded but with error status');
+                    }
+                })
+                .catch(error => {
+                    status.className = 'status error';
+                    status.innerHTML = '<h2>❌ Connection Failed</h2><p>Cannot connect to development server</p><p>Error: ' + error.message + '</p>';
+                    serverStatus.textContent = 'Disconnected ❌';
+                });
+        }
+        
+        // Update time every second
+        setInterval(updateTime, 1000);
+        updateTime();
+        
+        // Test connection on load
+        setTimeout(testConnection, 1000);
+        
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            testConnection();
+        }, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Template Selection in Automations</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">Template Selection Test</h1>
+        
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Instructions</h2>
+            <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                <li>Navigate to the Smart Automations page in your HPMS application</li>
+                <li>Click on any automation card (e.g., "Appointment Reminder")</li>
+                <li>Go through the setup wizard to the "Customize" step</li>
+                <li>Check if the template dropdowns appear for SMS and Email</li>
+                <li>Select a template from the dropdown</li>
+                <li>Save the automation</li>
+                <li>Click on the same automation again to edit it</li>
+                <li>Verify that the previously selected template is pre-selected in the dropdown</li>
+            </ol>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">What was fixed:</h2>
+            <ul class="list-disc list-inside space-y-2 text-gray-700">
+                <li>Modified <code class="bg-gray-100 px-2 py-1 rounded">handleCardClick</code> function to load saved template IDs from the database</li>
+                <li>When editing an existing automation, it now fetches the saved settings including:
+                    <ul class="list-circle list-inside ml-6 mt-1">
+                        <li>sms_template_id</li>
+                        <li>email_template_id</li>
+                        <li>template variables</li>
+                        <li>custom templates</li>
+                    </ul>
+                </li>
+                <li>Fixed TypeScript type errors by removing unsafe 'any' type assertions</li>
+                <li>Template selections are now persisted and restored properly</li>
+            </ul>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mt-6">
+            <h3 class="text-lg font-semibold text-blue-900 mb-2">Testing Checklist:</h3>
+            <div class="space-y-2">
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" class="w-4 h-4">
+                    <span>Template dropdowns appear in the Customize step</span>
+                </label>
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" class="w-4 h-4">
+                    <span>Templates load from the database</span>
+                </label>
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" class="w-4 h-4">
+                    <span>Selected template is saved when automation is saved</span>
+                </label>
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" class="w-4 h-4">
+                    <span>Previously selected template is pre-selected when editing</span>
+                </label>
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" class="w-4 h-4">
+                    <span>Custom message option still works when no template is selected</span>
+                </label>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

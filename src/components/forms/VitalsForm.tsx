@@ -1,6 +1,7 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import Button from '../ui/Button';
+import { FeatureGuard } from '../practice/FeatureGuard';
 
 interface VitalsFormData {
   bloodPressure: string;
@@ -51,7 +52,8 @@ const VitalsForm: React.FC<Props> = ({ medicalRecordId, onSuccess, initialData }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <FeatureGuard feature="vitals_tracking">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700">Blood Pressure (mmHg)</label>
@@ -181,7 +183,8 @@ const VitalsForm: React.FC<Props> = ({ medicalRecordId, onSuccess, initialData }
           Save Vitals
         </Button>
       </div>
-    </form>
+      </form>
+    </FeatureGuard>
   );
 };
 

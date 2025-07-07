@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Aid Billing Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #2d3748;
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        .header p {
+            color: #718096;
+            margin: 10px 0 0 0;
+            font-size: 1.1rem;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid #4299e1;
+            background: #f7fafc;
+        }
+        .test-section h3 {
+            margin: 0 0 15px 0;
+            color: #2d3748;
+            font-size: 1.3rem;
+        }
+        .test-result {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 500;
+        }
+        .success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+        .error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #fc8181;
+        }
+        .warning {
+            background: #fefcbf;
+            color: #744210;
+            border: 1px solid #f6e05e;
+        }
+        .info {
+            background: #bee3f8;
+            color: #2a4365;
+            border: 1px solid #90cdf4;
+        }
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px 5px;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .code-block {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        .summary {
+            margin-top: 30px;
+            padding: 25px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .summary h3 {
+            margin: 0 0 15px 0;
+            font-size: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Medical Aid Billing Test</h1>
+            <p>Comprehensive test to verify medical aid patients are NOT charged</p>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Test Configuration</h3>
+            <div class="code-block" id="config">
+const supabaseUrl = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcxNDY0NDU5MiwiZXhwIjoyMDMwMjIwNTkyfQ.Kz5MUJxHyHySzFWb4nDjQcn_WH4sF5NWfagXLuWdEJY';
+
+// Test will verify:
+// ✓ Patient with medical aid: Patient Total = N$ 0.00
+// ✓ Medical aid covers 100% including tax
+// ✓ Invoice totals are calculated correctly
+// ✓ Automatic batching for medical aid claims
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🚀 Run Tests</h3>
+            <button class="button" onclick="runComprehensiveTest()" id="testBtn">
+                Start Comprehensive Test
+            </button>
+            <button class="button" onclick="executeSQL()" id="sqlBtn">
+                Execute SQL Fix First
+            </button>
+        </div>
+
+        <div class="test-section" id="results" style="display: none;">
+            <h3>📊 Test Results</h3>
+            <div id="testOutput"></div>
+        </div>
+
+        <div class="summary" id="summary" style="display: none;">
+            <h3>🎉 Test Summary</h3>
+            <div id="summaryContent"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const supabaseUrl = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcxNDY0NDU5MiwiZXhwIjoyMDMwMjIwNTkyfQ.Kz5MUJxHyHySzFWb4nDjQcn_WH4sF5NWfagXLuWdEJY';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        function log(message, type = 'info') {
+            const output = document.getElementById('testOutput');
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = message;
+            output.appendChild(div);
+            console.log(message);
+        }
+
+        function showLoading(buttonId) {
+            const btn = document.getElementById(buttonId);
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>Running...';
+        }
+
+        function hideLoading(buttonId, text) {
+            const btn = document.getElementById(buttonId);
+            btn.disabled = false;
+            btn.innerHTML = text;
+        }
+
+        async function executeSQL() {
+            showLoading('sqlBtn');
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('testOutput').innerHTML = '';
+
+            log('🔧 Executing SQL fix for medical aid billing...', 'info');
+
+            try {
+                // Execute the comprehensive SQL fix
+                const sqlCommands = [
+                    `
+                    -- Update invoice totals function to handle medical aid properly
+                    CREATE OR REPLACE FUNCTION public.update_invoice_totals()
+                    RETURNS trigger
+                    LANGUAGE plpgsql
+                    AS $function$
+                    DECLARE
+                        invoice_totals RECORD;
+                        patient_has_medical_aid BOOLEAN := FALSE;
+                    BEGIN
+                        -- Check if patient has medical aid
+                        SELECT EXISTS(
+                            SELECT 1 FROM medical_aid_details mad 
+                            JOIN invoices_enhanced inv ON mad.patient_id = inv.patient_id 
+                            WHERE inv.id = COALESCE(NEW.invoice_id, OLD.invoice_id)
+                        ) INTO patient_has_medical_aid;
+                        
+                        -- Calculate totals for the affected invoice
+                        SELECT 
+                            COALESCE(SUM(total_price), 0) as subtotal_calc,
+                            COALESCE(SUM(total_price) * 0.15, 0) as tax_calc,
+                            COALESCE(SUM(total_price) * 1.15, 0) as total_calc,
+                            CASE 
+                                WHEN patient_has_medical_aid THEN COALESCE(SUM(total_price) * 1.15, 0)
+                                ELSE 0 
+                            END as medical_aid_calc,
+                            CASE 
+                                WHEN patient_has_medical_aid THEN 0
+                                ELSE COALESCE(SUM(total_price) * 1.15, 0)
+                            END as patient_calc
+                        INTO invoice_totals
+                        FROM invoice_services 
+                        WHERE invoice_id = COALESCE(NEW.invoice_id, OLD.invoice_id);
+                        
+                        -- Update the invoice with calculated totals
+                        UPDATE invoices_enhanced 
+                        SET 
+                            subtotal = invoice_totals.subtotal_calc,
+                            tax = invoice_totals.tax_calc,
+                            total = invoice_totals.total_calc,
+                            medical_aid_total = invoice_totals.medical_aid_calc,
+                            patient_total = invoice_totals.patient_calc,
+                            updated_at = NOW()
+                        WHERE id = COALESCE(NEW.invoice_id, OLD.invoice_id);
+                        
+                        RETURN COALESCE(NEW, OLD);
+                    END;
+                    $function$;
+                    `
+                ];
+
+                for (const sql of sqlCommands) {
+                    const { error } = await supabase.rpc('exec_sql', { sql_query: sql });
+                    if (error) {
+                        log(`❌ SQL Error: ${error.message}`, 'error');
+                    } else {
+                        log('✅ SQL function updated successfully', 'success');
+                    }
+                }
+
+                // Fix existing invoices
+                log('🔄 Fixing existing medical aid invoices...', 'info');
+                
+                const { error: fixError } = await supabase.rpc('exec_sql', {
+                    sql_query: `
+                        UPDATE invoice_services 
+                        SET 
+                            medical_aid_covered = total_price,
+                            patient_portion = 0,
+                            updated_at = NOW()
+                        WHERE invoice_id IN (
+                            SELECT inv.id 
+                            FROM invoices_enhanced inv
+                            JOIN medical_aid_details mad ON inv.patient_id = mad.patient_id
+                        ) AND patient_portion > 0;
+                    `
+                });
+
+                if (fixError) {
+                    log(`⚠️ Fix warning: ${fixError.message}`, 'warning');
+                } else {
+                    log('✅ Fixed existing invoices', 'success');
+                }
+
+                log('🎉 SQL fix completed! You can now run the comprehensive test.', 'success');
+
+            } catch (error) {
+                log(`💥 Error executing SQL: ${error.message}`, 'error');
+            }
+
+            hideLoading('sqlBtn', 'Execute SQL Fix First');
+        }
+
+        async function runComprehensiveTest() {
+            showLoading('testBtn');
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('testOutput').innerHTML = '';
+
+            let testsPassed = 0;
+            let totalTests = 0;
+
+            try {
+                log('🧪 Starting comprehensive medical aid billing test...', 'info');
+
+                // Step 1: Find patient with medical aid
+                log('👤 Step 1: Finding patient with medical aid...', 'info');
+                
+                const { data: patients, error: patientError } = await supabase
+                    .from('patients')
+                    .select(`
+                        *,
+                        medical_aid_details!inner(
+                            id,
+                            medical_aid_providers(name)
+                        )
+                    `)
+                    .limit(1);
+
+                if (patientError || !patients || patients.length === 0) {
+                    log('❌ No patients with medical aid found', 'error');
+                    return;
+                }
+
+                const testPatient = patients[0];
+                const medicalAidName = testPatient.medical_aid_details[0]?.medical_aid_providers?.name || 'Unknown';
+                log(`✅ Found patient: ${testPatient.first_name} ${testPatient.last_name} (Medical Aid: ${medicalAidName})`, 'success');
+
+                // Step 2: Check existing problematic invoices
+                log('📋 Step 2: Checking existing invoices for medical aid patients...', 'info');
+                
+                const { data: problematicInvoices, error: invoiceError } = await supabase
+                    .from('invoices_enhanced')
+                    .select(`
+                        *,
+                        patients!inner(
+                            first_name,
+                            last_name,
+                            medical_aid_details!inner(
+                                medical_aid_providers(name)
+                            )
+                        )
+                    `)
+                    .gt('patient_total', 0)
+                    .limit(5);
+
+                totalTests++;
+                if (!invoiceError && problematicInvoices && problematicInvoices.length === 0) {
+                    log('✅ TEST PASSED: No medical aid patients are being charged!', 'success');
+                    testsPassed++;
+                } else if (problematicInvoices && problematicInvoices.length > 0) {
+                    log(`❌ TEST FAILED: Found ${problematicInvoices.length} invoices where medical aid patients are being charged:`, 'error');
+                    problematicInvoices.forEach((inv, i) => {
+                        const patient = inv.patients;
+                        const medicalAid = patient.medical_aid_details[0]?.medical_aid_providers?.name || 'Unknown';
+                        log(`   ${i+1}. Invoice ${inv.invoice_number}: ${patient.first_name} ${patient.last_name} (${medicalAid}) - Patient owes N$ ${inv.patient_total}`, 'error');
+                    });
+                } else {
+                    log(`⚠️ Error checking invoices: ${invoiceError?.message}`, 'warning');
+                }
+
+                // Step 3: Check medical aid coverage totals
+                log('💰 Step 3: Checking medical aid coverage totals...', 'info');
+                
+                const { data: medicalAidInvoices, error: coverageError } = await supabase
+                    .from('invoices_enhanced')
+                    .select(`
+                        invoice_number,
+                        total,
+                        medical_aid_total,
+                        patient_total,
+                        patients!inner(
+                            medical_aid_details!inner(id)
+                        )
+                    `)
+                    .gt('total', 0)
+                    .limit(10);
+
+                if (!coverageError && medicalAidInvoices) {
+                    const correctInvoices = medicalAidInvoices.filter(inv => 
+                        parseFloat(inv.patient_total) === 0 && 
+                        parseFloat(inv.medical_aid_total) === parseFloat(inv.total)
+                    );
+                    
+                    totalTests++;
+                    if (correctInvoices.length === medicalAidInvoices.length) {
+                        log(`✅ TEST PASSED: All ${medicalAidInvoices.length} medical aid invoices have correct totals`, 'success');
+                        testsPassed++;
+                    } else {
+                        log(`❌ TEST FAILED: ${correctInvoices.length}/${medicalAidInvoices.length} invoices have correct totals`, 'error');
+                    }
+
+                    // Show sample correct invoice
+                    if (correctInvoices.length > 0) {
+                        const sample = correctInvoices[0];
+                        log(`📄 Example correct invoice: ${sample.invoice_number}`, 'info');
+                        log(`   - Total: N$ ${sample.total}`, 'info');
+                        log(`   - Medical Aid Covers: N$ ${sample.medical_aid_total}`, 'info');
+                        log(`   - Patient Pays: N$ ${sample.patient_total}`, 'info');
+                    }
+                }
+
+                // Step 4: Check batching
+                log('📦 Step 4: Checking automatic batching...', 'info');
+                
+                const { data: batchedInvoices, error: batchError } = await supabase
+                    .from('invoices_enhanced')
+                    .select(`
+                        id,
+                        invoice_number,
+                        batch_id,
+                        patients!inner(
+                            medical_aid_details!inner(id)
+                        )
+                    `)
+                    .not('batch_id', 'is', null)
+                    .limit(5);
+
+                totalTests++;
+                if (!batchError && batchedInvoices && batchedInvoices.length > 0) {
+                    log(`✅ TEST PASSED: Found ${batchedInvoices.length} automatically batched medical aid invoices`, 'success');
+                    testsPassed++;
+                } else {
+                    log('⚠️ TEST SKIPPED: No batched invoices found (batching may not be set up)', 'warning');
+                }
+
+                // Step 5: Test invoice services
+                log('🛍️ Step 5: Checking invoice services...', 'info');
+                
+                const { data: services, error: servicesError } = await supabase
+                    .from('invoice_services')
+                    .select(`
+                        *,
+                        invoices_enhanced!inner(
+                            patients!inner(
+                                medical_aid_details!inner(id)
+                            )
+                        )
+                    `)
+                    .limit(10);
+
+                if (!servicesError && services) {
+                    const correctServices = services.filter(svc => 
+                        parseFloat(svc.patient_portion) === 0 && 
+                        parseFloat(svc.medical_aid_covered) > 0
+                    );
+                    
+                    totalTests++;
+                    if (correctServices.length === services.length) {
+                        log(`✅ TEST PASSED: All ${services.length} services have correct medical aid coverage`, 'success');
+                        testsPassed++;
+                    } else {
+                        log(`❌ TEST FAILED: ${correctServices.length}/${services.length} services have correct coverage`, 'error');
+                    }
+                }
+
+            } catch (error) {
+                log(`💥 Error during test: ${error.message}`, 'error');
+            }
+
+            // Show summary
+            document.getElementById('summary').style.display = 'block';
+            const summaryContent = document.getElementById('summaryContent');
+            
+            if (testsPassed === totalTests && totalTests > 0) {
+                summaryContent.innerHTML = `
+                    <p><strong>🎉 ALL TESTS PASSED! (${testsPassed}/${totalTests})</strong></p>
+                    <p>✅ Medical aid billing is working correctly!</p>
+                    <p>✅ Medical aid patients are NOT being charged</p>
+                    <p>✅ Medical aid covers 100% of costs including tax</p>
+                    <p>✅ Invoice totals are calculated properly</p>
+                `;
+            } else {
+                summaryContent.innerHTML = `
+                    <p><strong>⚠️ TESTS INCOMPLETE (${testsPassed}/${totalTests} passed)</strong></p>
+                    <p>❌ Medical aid billing may need fixes</p>
+                    <p>💡 Try running the SQL fix first, then re-test</p>
+                    <p>📋 Check the test results above for specific issues</p>
+                `;
+            }
+
+            hideLoading('testBtn', 'Start Comprehensive Test');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+[
+  {
+    "DENTAL PRACTICE INVOICE": "Practice Name:",
+    "__EMPTY": "[Enter Practice Name]",
+    "__EMPTY_2": "Patient Name:",
+    "__EMPTY_3": "[Enter Patient Name]"
+  },
+  {
+    "DENTAL PRACTICE INVOICE": "Address:",
+    "__EMPTY": "[Enter Address]",
+    "__EMPTY_2": "Date:",
+    "__EMPTY_3": "[Enter Date]"
+  },
+  {
+    "DENTAL PRACTICE INVOICE": "Phone:",
+    "__EMPTY": "[Enter Phone]",
+    "__EMPTY_2": "Invoice #:",
+    "__EMPTY_3": "[Enter Invoice Number]"
+  },
+  {
+    "DENTAL PRACTICE INVOICE": "Code",
+    "__EMPTY": "Description",
+    "__EMPTY_1": "Quantity",
+    "__EMPTY_2": "Unit Price",
+    "__EMPTY_3": "Total",
+    "__EMPTY_4": "Notes"
+  },
+  {
+    "DENTAL PRACTICE INVOICE": "",
+    "__EMPTY": "",
+    "__EMPTY_1": 1,
+    "__EMPTY_2": 0,
+    "__EMPTY_3": 0,
+    "__EMPTY_4": ""
+  },
+  {
+    "DENTAL PRACTICE INVOICE": "",
+    "__EMPTY": "",
+    "__EMPTY_1": 1,
+    "__EMPTY_2": 0,
+    "__EMPTY_3": 0,
+    "__EMPTY_4": ""
+  },
+  {
+    "DENTAL PRACTICE INVOICE": "",
+    "__EMPTY": "",
+    "__EMPTY_1": 1,
+    "__EMPTY_2": 0,
+    "__EMPTY_3": 0,
+    "__EMPTY_4": ""
+  },
+  {
+    "DENTAL PRACTICE INVOICE": "",
+    "__EMPTY": "",
+    "__EMPTY_1": 1,
+    "__EMPTY_2": 0,
+    "__EMPTY_3": 0,
+    "__EMPTY_4": ""
+  },
+  {
+    "DENTAL PRACTICE INVOICE": "",
+    "__EMPTY": "",
+    "__EMPTY_1": 1,
+    "__EMPTY_2": 0,
+    "__EMPTY_3": 0,
+    "__EMPTY_4": ""
+  },
+  {
+    "DENTAL PRACTICE INVOICE": "",
+    "__EMPTY": "",
+    "__EMPTY_1": 1,
+    "__EMPTY_2": 0,
+    "__EMPTY_3": 0,
+    "__EMPTY_4": ""
+  }
+]

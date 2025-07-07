@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Process Pending Communications</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f9fafb;
+        }
+        .header {
+            background: #1f2937;
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background: #f3f4f6;
+            font-weight: 600;
+        }
+        button {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #059669;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status.pending { background: #dbeafe; color: #1e40af; }
+        .status.sent { background: #d1fae5; color: #065f46; }
+        .status.failed { background: #fee2e2; color: #991b1b; }
+        .log {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 13px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="header">
+        <h1>📨 Process Pending Communications</h1>
+        <p>Send all pending SMS and Email messages from the queue</p>
+    </div>
+
+    <div class="card">
+        <h2>Pending Messages</h2>
+        <div id="pendingList">Loading...</div>
+    </div>
+
+    <div class="card">
+        <h2>Actions</h2>
+        <button onclick="processPendingSMS()">📱 Process Pending SMS</button>
+        <button onclick="processPendingEmails()">📧 Process Pending Emails</button>
+        <button onclick="processAll()">🚀 Process All</button>
+        <button onclick="refreshStatus()">🔄 Refresh</button>
+    </div>
+
+    <div class="card">
+        <h2>Activity Log</h2>
+        <div id="log" class="log">System initialized...</div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const emoji = type === 'error' ? '❌' : type === 'success' ? '✅' : '📌';
+            logDiv.innerHTML = `${emoji} [${timestamp}] ${message}\n` + logDiv.innerHTML;
+        }
+
+        async function loadPendingMessages() {
+            try {
+                // Get pending SMS
+                const { data: smsData } = await supabase
+                    .from('practice_sms_logs')
+                    .select('*, patients(first_name, last_name)')
+                    .eq('status', 'pending')
+                    .order('created_at', { ascending: false })
+                    .limit(20);
+                
+                // Get pending emails
+                const { data: emailData } = await supabase
+                    .from('practice_email_logs')
+                    .select('*, patients(first_name, last_name)')
+                    .eq('status', 'pending')
+                    .order('created_at', { ascending: false })
+                    .limit(20);
+                
+                const pendingDiv = document.getElementById('pendingList');
+                
+                let html = '<h3>SMS Messages</h3>';
+                if (smsData && smsData.length > 0) {
+                    html += '<table><tr><th>Patient</th><th>Phone</th><th>Message</th><th>Created</th></tr>';
+                    smsData.forEach(sms => {
+                        const patientName = sms.patients ? `${sms.patients.first_name} ${sms.patients.last_name}` : 'Unknown';
+                        html += `<tr>
+                            <td>${patientName}</td>
+                            <td>${sms.recipient_phone}</td>
+                            <td>${sms.message_content.substring(0, 50)}...</td>
+                            <td>${new Date(sms.created_at).toLocaleString()}</td>
+                        </tr>`;
+                    });
+                    html += '</table>';
+                } else {
+                    html += '<p>No pending SMS messages</p>';
+                }
+                
+                html += '<h3 style="margin-top: 20px;">Email Messages</h3>';
+                if (emailData && emailData.length > 0) {
+                    html += '<table><tr><th>Patient</th><th>Email</th><th>Subject</th><th>Created</th></tr>';
+                    emailData.forEach(email => {
+                        const patientName = email.patients ? `${email.patients.first_name} ${email.patients.last_name}` : 'Unknown';
+                        html += `<tr>
+                            <td>${patientName}</td>
+                            <td>${email.recipient_email}</td>
+                            <td>${email.subject}</td>
+                            <td>${new Date(email.created_at).toLocaleString()}</td>
+                        </tr>`;
+                    });
+                    html += '</table>';
+                } else {
+                    html += '<p>No pending email messages</p>';
+                }
+                
+                pendingDiv.innerHTML = html;
+                
+                log(`Found ${smsData?.length || 0} pending SMS and ${emailData?.length || 0} pending emails`);
+                
+            } catch (error) {
+                log(`Error loading pending messages: ${error.message}`, 'error');
+            }
+        }
+
+        async function processPendingSMS() {
+            try {
+                log('Processing pending SMS messages...');
+                
+                // Get pending SMS
+                const { data: pendingSMS } = await supabase
+                    .from('practice_sms_logs')
+                    .select('*')
+                    .eq('status', 'pending')
+                    .limit(10);
+                
+                if (!pendingSMS || pendingSMS.length === 0) {
+                    log('No pending SMS messages to process');
+                    return;
+                }
+                
+                let processed = 0;
+                for (const sms of pendingSMS) {
+                    try {
+                        const { data, error } = await supabase.functions.invoke('centralized-sms-gateway', {
+                            body: {
+                                practiceId: sms.practice_id,
+                                recipientPhone: sms.recipient_phone,
+                                messageContent: sms.message_content,
+                                messageType: sms.message_type || 'system',
+                                patientId: sms.patient_id,
+                                metadata: {
+                                    sms_log_id: sms.id,
+                                    ...sms.metadata
+                                }
+                            }
+                        });
+                        
+                        if (!error && data.success) {
+                            // Update status
+                            await supabase
+                                .from('practice_sms_logs')
+                                .update({ 
+                                    status: 'sent',
+                                    provider_message_id: data.messageId,
+                                    sent_at: new Date().toISOString()
+                                })
+                                .eq('id', sms.id);
+                            
+                            processed++;
+                            log(`✅ SMS sent to ${sms.recipient_phone}`, 'success');
+                        } else {
+                            log(`Failed to send SMS to ${sms.recipient_phone}: ${error?.message || 'Unknown error'}`, 'error');
+                        }
+                    } catch (err) {
+                        log(`Error processing SMS ${sms.id}: ${err.message}`, 'error');
+                    }
+                }
+                
+                log(`Processed ${processed} SMS messages`, 'success');
+                await loadPendingMessages();
+                
+            } catch (error) {
+                log(`Error processing SMS: ${error.message}`, 'error');
+            }
+        }
+
+        async function processPendingEmails() {
+            try {
+                log('Processing pending email messages...');
+                
+                // Get pending emails
+                const { data: pendingEmails } = await supabase
+                    .from('practice_email_logs')
+                    .select('*')
+                    .eq('status', 'pending')
+                    .limit(10);
+                
+                if (!pendingEmails || pendingEmails.length === 0) {
+                    log('No pending email messages to process');
+                    return;
+                }
+                
+                let processed = 0;
+                for (const email of pendingEmails) {
+                    try {
+                        const { data, error } = await supabase.functions.invoke('centralized-email-gateway', {
+                            body: {
+                                practiceId: email.practice_id,
+                                recipientEmail: email.recipient_email,
+                                subject: email.subject,
+                                htmlContent: email.html_content || `<p>${email.text_content?.replace(/\n/g, '<br>')}</p>`,
+                                textContent: email.text_content,
+                                emailType: email.email_type || 'system',
+                                patientId: email.patient_id,
+                                metadata: {
+                                    email_log_id: email.id,
+                                    ...email.metadata
+                                }
+                            }
+                        });
+                        
+                        if (!error && data.success) {
+                            // Update status
+                            await supabase
+                                .from('practice_email_logs')
+                                .update({ 
+                                    status: 'sent',
+                                    provider_message_id: data.messageId,
+                                    sent_at: new Date().toISOString()
+                                })
+                                .eq('id', email.id);
+                            
+                            processed++;
+                            log(`✅ Email sent to ${email.recipient_email}`, 'success');
+                        } else {
+                            log(`Failed to send email to ${email.recipient_email}: ${error?.message || 'Unknown error'}`, 'error');
+                        }
+                    } catch (err) {
+                        log(`Error processing email ${email.id}: ${err.message}`, 'error');
+                    }
+                }
+                
+                log(`Processed ${processed} email messages`, 'success');
+                await loadPendingMessages();
+                
+            } catch (error) {
+                log(`Error processing emails: ${error.message}`, 'error');
+            }
+        }
+
+        async function processAll() {
+            await processPendingSMS();
+            await processPendingEmails();
+        }
+
+        async function refreshStatus() {
+            await loadPendingMessages();
+            log('Status refreshed');
+        }
+
+        // Initialize
+        window.onload = async () => {
+            // Check auth
+            const session = await supabase.auth.getSession();
+            if (session.data.session) {
+                log('Authenticated session detected', 'success');
+            }
+            
+            await loadPendingMessages();
+        };
+    </script>
+</body>
+</html>
