@@ -20,7 +20,7 @@ import {
   AlertCircle,
   ChevronLeft
 } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
+// Removed unused import - using supabase from lib/supabase instead
 import { SubService, ServiceCategory } from '@/data/dr-polina-services';
 
 interface EnhancedBookingWidgetProps {
