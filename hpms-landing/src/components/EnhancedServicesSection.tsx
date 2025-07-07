@@ -62,44 +62,64 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Section Header */}
         <motion.div 
-          className="text-center mb-16"
-          initial={{ opacity: 0, y: 20 }}
+          className="text-center mb-20"
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.8, type: "spring" }}
         >
           <motion.span 
-            className="inline-block px-4 py-2 rounded-full text-white text-sm font-semibold mb-4"
-            style={{ backgroundColor: practice.primary_color }}
-            initial={{ scale: 0 }}
-            whileInView={{ scale: 1 }}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold mb-6 shadow-xl"
+            style={{ 
+              background: `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color} 100%)`,
+              boxShadow: `0 10px 30px ${practice.primary_color}40`,
+            }}
+            initial={{ scale: 0, rotate: -180 }}
+            whileInView={{ scale: 1, rotate: 0 }}
             viewport={{ once: true }}
             transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
           >
+            <Sparkles className="w-4 h-4" />
             Our Services
+            <Sparkles className="w-4 h-4" />
           </motion.span>
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+          <motion.h2 
+            className="text-5xl md:text-6xl lg:text-7xl font-black mb-6 bg-clip-text text-transparent"
+            style={{
+              backgroundImage: `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color} 50%, ${practice.primary_color} 100%)`,
+            }}
+            initial={{ scale: 0.8, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
             {practice.slug === 'dr-polina-aesthetics' 
               ? 'Transform Your Beauty Journey'
               : practice.slug === 'newcharm-dental'
               ? 'Premier Dental Excellence'
               : 'Comprehensive Healthcare Services'
             }
-          </h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          </motion.h2>
+          <motion.p 
+            className="text-xl md:text-2xl text-gray-600 max-w-4xl mx-auto leading-relaxed"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
             {practice.slug === 'dr-polina-aesthetics'
               ? 'Discover our range of advanced aesthetic treatments designed to enhance your natural beauty'
               : practice.slug === 'newcharm-dental'
               ? 'Experience world-class dental care with cutting-edge technology and compassionate treatment in the heart of Windhoek'
               : 'Quality medical care tailored to your needs'
             }
-          </p>
+          </motion.p>
         </motion.div>
 
         {/* Services Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {(Array.isArray(services) ? services : drPolinaServices).map((service, index) => {
-            const IconComponent = (Icons as any)[service.icon] || Icons.Activity;
+            const IconComponent = Icons[service.icon as keyof typeof Icons] || Icons.Activity;
             const isHovered = hoveredCard === service.id;
             
             return (
@@ -113,16 +133,23 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
                 onMouseLeave={() => setHoveredCard(null)}
               >
                 <motion.div
-                  className="relative h-full bg-white rounded-2xl shadow-lg overflow-hidden cursor-pointer group"
-                  whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                  className="relative h-full bg-white rounded-3xl shadow-xl overflow-hidden cursor-pointer group border-2 border-transparent"
+                  style={{
+                    background: `linear-gradient(white, white) padding-box, linear-gradient(135deg, ${practice.primary_color}20, ${practice.secondary_color}20) border-box`,
+                  }}
+                  whileHover={{ 
+                    y: -8,
+                    scale: 1.02,
+                    transition: { duration: 0.3, type: "spring", stiffness: 300 }
+                  }}
                   onClick={() => setSelectedCategory(service as ServiceCategory)}
                 >
                   {/* Service Image */}
-                  {((isDrPolina && service.hasOwnProperty('image') && (service as any).image) || 
+                  {((isDrPolina && 'image' in service && (service as ServiceCategory).image) || 
                     (isNewCharm && serviceImages[service.id])) && (
                     <div className="relative h-48 overflow-hidden">
                       <img 
-                        src={isNewCharm ? serviceImages[service.id] : (service as any).image} 
+                        src={isNewCharm ? serviceImages[service.id] : (service as ServiceCategory).image || ''} 
                         alt={service.name}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       />
@@ -139,49 +166,101 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
                     </div>
                   )}
                   
-                  {/* Gradient Border Effect */}
+                  {/* Premium Gradient Overlay */}
                   <div 
-                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-500 pointer-events-none z-10"
                     style={{
-                      background: `linear-gradient(135deg, ${practice.primary_color}20, ${practice.secondary_color}20)`,
+                      background: `linear-gradient(135deg, ${practice.primary_color}10 0%, transparent 50%, ${practice.secondary_color}10 100%)`,
+                    }}
+                  />
+                  
+                  {/* Animated Border Glow */}
+                  <div 
+                    className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-3xl"
+                    style={{
+                      boxShadow: `0 0 40px ${practice.primary_color}40, 0 0 80px ${practice.secondary_color}20`,
                     }}
                   />
                   
                   <div className="relative p-6">
-                    {/* Icon */}
+                    {/* Premium Icon with Shadow */}
                     <motion.div
-                      className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
+                      className="relative w-20 h-20 rounded-2xl flex items-center justify-center mb-6 shadow-2xl"
                       style={{
                         background: isDrPolina && 'color' in service && (service as ServiceCategory).color ? (service as ServiceCategory).color : `linear-gradient(135deg, ${practice.primary_color}, ${practice.secondary_color})`,
+                        boxShadow: isHovered ? `0 10px 30px ${practice.primary_color}50` : '0 5px 15px rgba(0,0,0,0.1)',
                       }}
-                      animate={isHovered ? { rotate: [0, -10, 10, -10, 0] } : {}}
-                      transition={{ duration: 0.5 }}
+                      animate={isHovered ? { 
+                        rotate: 10,
+                        scale: 1.1
+                      } : {
+                        rotate: 0,
+                        scale: 1
+                      }}
+                      transition={{ duration: 0.3, type: "spring", stiffness: 200 }}
                     >
-                      <IconComponent className="w-8 h-8 text-white" />
+                      <IconComponent className="w-10 h-10 text-white" />
+                      {/* Icon Glow Effect */}
+                      <motion.div
+                        className="absolute inset-0 rounded-2xl"
+                        animate={isHovered ? {
+                          opacity: [0, 0.5, 0],
+                          scale: [1, 1.2, 1.2],
+                        } : {}}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                        style={{
+                          background: `radial-gradient(circle, ${practice.primary_color}40, transparent)`,
+                        }}
+                      />
                     </motion.div>
 
-                    <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-3 group-hover:text-transparent group-hover:bg-clip-text transition-all duration-300"
+                      style={{
+                        backgroundImage: isHovered ? `linear-gradient(135deg, ${practice.primary_color}, ${practice.secondary_color})` : 'none',
+                      }}
+                    >
                       {service.name}
                     </h3>
                     
-                    <p className="text-gray-600 mb-6 line-clamp-2">
+                    <p className="text-gray-600 mb-6 line-clamp-3 leading-relaxed">
                       {service.description}
                     </p>
 
-                    {/* View Services Button */}
+                    {/* Premium View Services Button */}
                     <motion.div 
-                      className="flex items-center text-sm font-semibold group-hover:gap-3 transition-all"
-                      style={{ color: practice.primary_color }}
+                      className="relative inline-flex items-center gap-2 px-6 py-3 rounded-full font-semibold text-sm overflow-hidden"
+                      style={{ 
+                        background: `linear-gradient(135deg, ${practice.primary_color}15, ${practice.secondary_color}15)`,
+                        color: practice.primary_color,
+                      }}
                     >
-                      <span>View Services</span>
-                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                      {/* Button Shine Effect */}
+                      <motion.div
+                        className="absolute inset-0 opacity-0 group-hover:opacity-100"
+                        animate={isHovered ? {
+                          x: ['-100%', '100%'],
+                        } : {}}
+                        transition={{ duration: 0.6 }}
+                        style={{
+                          background: `linear-gradient(90deg, transparent, ${practice.primary_color}30, transparent)`,
+                        }}
+                      />
+                      <span className="relative z-10">View Services</span>
+                      <ArrowRight className="relative z-10 w-4 h-4 group-hover:translate-x-2 transition-transform duration-300" />
                     </motion.div>
 
-                    {/* Service Count Badge */}
-                    {isDrPolina && 'subServices' in service && (service as ServiceCategory).subServices && (
-                      <div className="absolute top-6 right-6 px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-700">
-                        {(service as ServiceCategory).subServices.length} treatments
-                      </div>
+                    {/* Premium Service Count Badge */}
+                    {'subServices' in service && (service as ServiceCategory).subServices && (
+                      <motion.div 
+                        className="absolute top-6 right-6 px-4 py-2 rounded-full text-sm font-medium text-white shadow-lg"
+                        style={{
+                          background: `linear-gradient(135deg, ${practice.primary_color}90, ${practice.secondary_color}90)`,
+                          backdropFilter: 'blur(10px)',
+                        }}
+                        whileHover={{ scale: 1.1 }}
+                      >
+                        {(service as ServiceCategory).subServices.length} {isNewCharm ? 'services' : 'treatments'}
+                      </motion.div>
                     )}
                   </div>
                 </motion.div>
@@ -202,11 +281,15 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
             onClick={() => setSelectedCategory(null)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 300 }}
-              className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-3xl shadow-2xl overflow-hidden"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="relative w-full max-w-4xl max-h-[90vh] bg-white rounded-3xl shadow-2xl overflow-hidden border-2"
+              style={{
+                borderColor: `${practice.primary_color}20`,
+                boxShadow: `0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 100px ${practice.primary_color}20`,
+              }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
@@ -225,7 +308,7 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
                 
                 <div className="flex items-center gap-4 mb-2">
                   {(() => {
-                    const IconComponent = (Icons as any)[selectedCategory.icon] || Icons.Activity;
+                    const IconComponent = Icons[selectedCategory.icon as keyof typeof Icons] || Icons.Activity;
                     return <IconComponent className="w-10 h-10" />;
                   })()}
                   <h3 className="text-3xl font-bold">{selectedCategory.name}</h3>
@@ -242,7 +325,10 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className="group bg-gray-50 rounded-2xl p-6 hover:bg-gray-100 transition-colors"
+                      className="group bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-100 hover:border-transparent transition-all duration-300 shadow-md hover:shadow-xl"
+                      style={{
+                        '--tw-shadow-color': practice.primary_color + '20',
+                      } as React.CSSProperties}
                     >
                       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                         <div className="flex-1">
@@ -281,16 +367,19 @@ export default function EnhancedServicesSection({ practice, onBookService }: Enh
                           </div>
                         </div>
 
-                        {/* Book Now Button */}
+                        {/* Premium Book Now Button */}
                         <motion.button
-                          whileHover={{ scale: 1.05 }}
+                          whileHover={{ scale: 1.05, boxShadow: `0 20px 40px ${practice.primary_color}40` }}
                           whileTap={{ scale: 0.95 }}
                           onClick={() => handleBookNow(subService)}
-                          className="px-6 py-3 rounded-xl text-white font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl transition-all animate-heartbeat"
-                          style={{ backgroundColor: practice.primary_color }}
+                          className="relative px-8 py-4 rounded-2xl text-white font-bold flex items-center gap-3 shadow-xl transition-all overflow-hidden group"
+                          style={{ 
+                            background: `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color} 100%)`,
+                          }}
                         >
-                          <Calendar className="w-5 h-5" />
-                          Book Now
+                          <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
+                          <Calendar className="relative z-10 w-5 h-5" />
+                          <span className="relative z-10">Book Now</span>
                         </motion.button>
                       </div>
                     </motion.div>

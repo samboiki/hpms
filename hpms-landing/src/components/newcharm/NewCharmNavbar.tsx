@@ -1,26 +1,45 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-scroll';
+import { Link, Events, scrollSpy } from 'react-scroll';
 import { Icon } from '@iconify/react';
+import { Practice } from '@/lib/tenants';
 
 interface NewCharmNavbarProps {
-  logo?: string;
+  practice: Practice;
 }
 
-const NewCharmNavbar: React.FC<NewCharmNavbarProps> = ({ logo }) => {
+const NewCharmNavbar: React.FC<NewCharmNavbarProps> = ({ practice }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState('');
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
     window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+
+    // Setup scroll spy for active section detection
+    Events.scrollEvent.register('begin', (to) => {
+      setActiveSection(to);
+    });
+
+    Events.scrollEvent.register('end', (to) => {
+      setActiveSection(to);
+    });
+
+    scrollSpy.update();
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      Events.scrollEvent.remove('begin');
+      Events.scrollEvent.remove('end');
+    };
   }, []);
 
   const navLinks = [
     { name: 'Services', to: 'services' },
     { name: 'About', to: 'about' },
+    { name: 'Team', to: 'team' },
     { name: 'Testimonials', to: 'testimonials' },
     { name: 'Contact', to: 'contact' },
   ];
@@ -33,16 +52,16 @@ const NewCharmNavbar: React.FC<NewCharmNavbarProps> = ({ logo }) => {
           : 'bg-transparent py-6'
       }`}
     >
-      <div className="container mx-auto px-6">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center">
           {/* Logo */}
           <div className="flex items-center space-x-2">
-            {logo ? (
-              <img src={logo} alt="NewCharm Dental" className="h-10 w-auto" />
+            {practice.logo_url ? (
+              <img src={practice.logo_url} alt={practice.name} className="h-14 md:h-16 w-auto" />
             ) : (
-              <div className="flex items-center space-x-2">
-                <Icon icon="solar:tooth-bold" className="w-8 h-8 text-[#7C3AED]" />
-                <span className="text-2xl font-light tracking-wide text-gray-900">
+              <div className="flex items-center space-x-3">
+                <Icon icon="solar:tooth-bold-duotone" className="w-10 h-10 md:w-12 md:h-12 text-[#00BCD4]" />
+                <span className="text-2xl md:text-3xl font-light tracking-wide text-gray-900">
                   NewCharm <span className="font-normal">Dental</span>
                 </span>
               </div>
@@ -55,17 +74,34 @@ const NewCharmNavbar: React.FC<NewCharmNavbarProps> = ({ logo }) => {
               <Link
                 key={link.name}
                 to={link.to}
+                spy={true}
                 smooth={true}
                 duration={500}
                 offset={-80}
-                className="text-gray-700 hover:text-[#7C3AED] transition-colors duration-300 cursor-pointer text-sm font-medium tracking-wide"
+                onSetActive={() => setActiveSection(link.to)}
+                className={`relative text-sm font-medium tracking-wide cursor-pointer transition-all duration-300 ${
+                  activeSection === link.to
+                    ? 'text-[#00BCD4]'
+                    : 'text-gray-700 hover:text-[#00BCD4]'
+                }`}
               >
                 {link.name}
+                {activeSection === link.to && (
+                  <span
+                    className="absolute -bottom-2 left-0 right-0 h-0.5 bg-[#00BCD4] transition-all duration-300"
+                  />
+                )}
               </Link>
             ))}
-            <button className="ml-6 px-6 py-2.5 bg-[#7C3AED] text-white rounded-full hover:bg-[#6B21A8] transition-all duration-300 text-sm font-medium shadow-sm hover:shadow-md">
+            <Link
+              to="contact"
+              smooth={true}
+              duration={500}
+              offset={-80}
+              className="ml-6 px-6 py-2.5 bg-gradient-to-r from-[#00BCD4] to-[#0097A7] text-white rounded-full hover:shadow-lg transition-all duration-300 text-sm font-medium transform hover:-translate-y-0.5"
+            >
               Book Appointment
-            </button>
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
@@ -74,7 +110,7 @@ const NewCharmNavbar: React.FC<NewCharmNavbarProps> = ({ logo }) => {
             className="lg:hidden p-2"
           >
             <Icon
-              icon={mobileMenuOpen ? "solar:close-square-bold" : "solar:hamburger-menu-bold"}
+              icon={mobileMenuOpen ? "solar:close-square-bold-duotone" : "solar:hamburger-menu-bold-duotone"}
               className="w-6 h-6 text-gray-900"
             />
           </button>
@@ -93,18 +129,30 @@ const NewCharmNavbar: React.FC<NewCharmNavbarProps> = ({ logo }) => {
               <Link
                 key={link.name}
                 to={link.to}
+                spy={true}
                 smooth={true}
                 duration={500}
                 offset={-80}
                 onClick={() => setMobileMenuOpen(false)}
-                className="block text-gray-700 hover:text-[#7C3AED] transition-colors duration-300 cursor-pointer font-medium"
+                className={`block font-medium transition-colors duration-300 cursor-pointer ${
+                  activeSection === link.to
+                    ? 'text-[#00BCD4]'
+                    : 'text-gray-700 hover:text-[#00BCD4]'
+                }`}
               >
                 {link.name}
               </Link>
             ))}
-            <button className="w-full mt-4 px-6 py-3 bg-[#7C3AED] text-white rounded-full hover:bg-[#6B21A8] transition-all duration-300 font-medium">
+            <Link
+              to="contact"
+              smooth={true}
+              duration={500}
+              offset={-80}
+              onClick={() => setMobileMenuOpen(false)}
+              className="block w-full mt-4 px-6 py-3 bg-gradient-to-r from-[#00BCD4] to-[#0097A7] text-white rounded-full text-center font-medium shadow-md"
+            >
               Book Appointment
-            </button>
+            </Link>
           </div>
         </div>
       </div>

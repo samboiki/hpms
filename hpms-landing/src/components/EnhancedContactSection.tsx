@@ -2,7 +2,7 @@
 
 import { Practice } from '@/lib/tenants';
 import { motion } from 'framer-motion';
-import { MapPin, Phone, Mail, Clock, Send, MessageCircle, Globe, Navigation } from 'lucide-react';
+import { MapPin, Phone, Mail, Send, MessageCircle, Navigation } from 'lucide-react';
 import { useState, FormEvent } from 'react';
 
 interface EnhancedContactSectionProps {
@@ -81,18 +81,34 @@ export default function EnhancedContactSection({ practice }: EnhancedContactSect
           transition={{ duration: 0.6 }}
         >
           <motion.span 
-            className="inline-block px-4 py-2 rounded-full text-white text-sm font-semibold mb-4"
-            style={{ backgroundColor: practice.primary_color }}
-            initial={{ scale: 0 }}
-            whileInView={{ scale: 1 }}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold mb-6 shadow-xl"
+            style={{ 
+              background: `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color} 100%)`,
+              boxShadow: `0 10px 30px ${practice.primary_color}40`,
+            }}
+            initial={{ scale: 0, rotate: -180 }}
+            whileInView={{ scale: 1, rotate: 0 }}
             viewport={{ once: true }}
             transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
           >
+            <MessageCircle className="w-4 h-4" />
             Contact Us
           </motion.span>
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Visit Our {locations.length > 1 ? 'Clinics' : 'Clinic'}
-          </h2>
+          <motion.h2 
+            className="text-5xl md:text-6xl font-black mb-6 bg-clip-text text-transparent"
+            style={{
+              backgroundImage: `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color} 50%, ${practice.primary_color} 100%)`,
+            }}
+            initial={{ scale: 0.8, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
+            {practice.slug === 'newcharm-dental' 
+              ? 'Visit Our Modern Dental Facility'
+              : `Visit Our ${locations.length > 1 ? 'Clinics' : 'Clinic'}`
+            }
+          </motion.h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             {practice.slug === 'dr-polina-aesthetics' 
               ? 'Experience beauty transformations at our state-of-the-art facilities'

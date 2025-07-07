@@ -67,8 +67,8 @@ export default function PremiumNavbar({ practice }: PremiumNavbarProps) {
       <nav 
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
           scrolled 
-            ? 'bg-white/95 backdrop-blur-lg shadow-lg py-2' 
-            : 'bg-transparent py-4'
+            ? 'bg-white/95 backdrop-blur-lg shadow-2xl py-3 border-b border-gray-100' 
+            : 'bg-gradient-to-b from-black/20 to-transparent backdrop-blur-sm py-5'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -82,13 +82,31 @@ export default function PremiumNavbar({ practice }: PremiumNavbarProps) {
             >
               <Link href="/" className="flex items-center space-x-2">
                 {practice.logo_url ? (
-                  <motion.img
-                    src={practice.logo_url}
-                    alt={practice.name}
-                    className="h-10 w-auto object-contain"
-                    whileHover={{ scale: 1.05 }}
-                    transition={{ duration: 0.3 }}
-                  />
+                  <motion.div className="relative">
+                    <motion.img
+                      src={practice.logo_url}
+                      alt={practice.name}
+                      className="h-20 md:h-24 w-auto object-contain drop-shadow-2xl"
+                      whileHover={{ scale: 1.1, filter: 'brightness(1.1)' }}
+                      transition={{ duration: 0.3, type: "spring" }}
+                    />
+                    {/* Logo Glow Effect */}
+                    <motion.div
+                      className="absolute inset-0 blur-xl opacity-30"
+                      style={{
+                        background: `radial-gradient(circle, ${practice.primary_color}, transparent)`,
+                      }}
+                      animate={{
+                        scale: [1, 1.2, 1],
+                        opacity: [0.3, 0.5, 0.3],
+                      }}
+                      transition={{
+                        duration: 3,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                    />
+                  </motion.div>
                 ) : (
                   <motion.div 
                     className="w-8 h-8 rounded-lg flex items-center justify-center"
@@ -178,13 +196,17 @@ export default function PremiumNavbar({ practice }: PremiumNavbarProps) {
                 
                 <motion.button
                   onClick={() => handleNavClick('#booking')}
-                  className="px-4 py-2 rounded-lg text-white text-sm font-medium transition-all duration-300 flex items-center gap-1.5 animate-heartbeat"
-                  style={{ backgroundColor: practice.primary_color }}
-                  whileHover={{ scale: 1.05 }}
+                  className="relative px-6 py-3 rounded-full text-white text-sm font-bold transition-all duration-300 flex items-center gap-2 shadow-xl overflow-hidden group"
+                  style={{ 
+                    background: `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color} 100%)`,
+                    boxShadow: `0 10px 30px ${practice.primary_color}40`,
+                  }}
+                  whileHover={{ scale: 1.05, boxShadow: `0 15px 40px ${practice.primary_color}50` }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Calendar className="w-3.5 h-3.5" />
-                  Book Now
+                  <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
+                  <Calendar className="relative z-10 w-4 h-4" />
+                  <span className="relative z-10">Book Now</span>
                 </motion.button>
               </motion.div>
             </div>
@@ -253,8 +275,11 @@ export default function PremiumNavbar({ practice }: PremiumNavbarProps) {
                 >
                   <button
                     onClick={() => handleNavClick('#booking')}
-                    className="w-full px-4 py-3 rounded-lg text-white font-medium transition-all duration-300"
-                    style={{ backgroundColor: practice.primary_color }}
+                    className="w-full px-6 py-4 rounded-2xl text-white font-bold transition-all duration-300 shadow-xl"
+                    style={{ 
+                      background: `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color} 100%)`,
+                      boxShadow: `0 10px 30px ${practice.primary_color}40`,
+                    }}
                   >
                     Book Appointment
                   </button>

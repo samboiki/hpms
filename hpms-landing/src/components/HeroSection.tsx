@@ -2,20 +2,14 @@
 
 import { Practice } from '@/lib/tenants';
 import { motion } from 'framer-motion';
-import { Calendar, Phone, MapPin, Clock, ArrowRight, Star, Shield, Award, Users } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Phone, MapPin, Clock, ArrowRight, Star, Shield, Award, Users } from 'lucide-react';
 
 interface HeroSectionProps {
   practice: Practice;
 }
 
 export default function HeroSection({ practice }: HeroSectionProps) {
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
-    return () => clearInterval(timer);
-  }, []);
+  // Removed unused currentTime state
 
   // Check practice type for specialized content
   const isAestheticPractice = practice.slug === 'dr-polina-aesthetics';
@@ -46,27 +40,29 @@ export default function HeroSection({ practice }: HeroSectionProps) {
 
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden">
-      {/* Background - Image for aesthetic practices, gradient for others */}
+      {/* Premium Background with dynamic effects */}
       <div className="absolute inset-0">
         {heroImage ? (
           <>
             <img 
               src={heroImage} 
-              alt="Dr. Polina Aesthetics" 
+              alt={practice.name} 
               className="absolute inset-0 w-full h-full object-cover"
             />
             <div 
-              className="absolute inset-0 bg-gradient-to-br opacity-85"
+              className="absolute inset-0"
               style={{
-                background: `linear-gradient(135deg, ${practice.primary_color}dd 0%, ${practice.secondary_color}dd 50%, ${practice.primary_color}dd 100%)`,
+                background: isDentalPractice 
+                  ? `linear-gradient(135deg, ${practice.primary_color}e6 0%, ${practice.secondary_color}cc 40%, ${practice.primary_color}99 100%)`
+                  : `linear-gradient(135deg, ${practice.primary_color}dd 0%, ${practice.secondary_color}dd 50%, ${practice.primary_color}dd 100%)`,
               }}
             />
           </>
         ) : (
           <div 
-            className="absolute inset-0 bg-gradient-to-br opacity-95"
+            className="absolute inset-0"
             style={{
-              background: `linear-gradient(135deg, ${practice.primary_color}dd 0%, ${practice.secondary_color}dd 50%, ${practice.primary_color}dd 100%)`,
+              background: `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color} 50%, ${practice.primary_color} 100%)`,
             }}
           />
         )}
@@ -129,26 +125,40 @@ export default function HeroSection({ practice }: HeroSectionProps) {
               {practice.hero_subtitle || 'Where compassion meets innovation'}
             </p>
 
-            {/* CTA Buttons */}
+            {/* Premium CTA Buttons with Gradient Effects */}
             <div className="flex flex-col sm:flex-row gap-4 mb-12">
               <motion.button
-                whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(0,0,0,0.3)" }}
+                whileHover={{ scale: 1.05, boxShadow: "0 25px 50px rgba(0,0,0,0.4)" }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => document.getElementById('booking')?.scrollIntoView({ behavior: 'smooth' })}
-                className="group px-8 py-4 bg-white text-gray-900 font-semibold rounded-full shadow-2xl transform transition-all duration-300 flex items-center justify-center gap-2"
+                className="relative group px-10 py-5 text-white font-bold rounded-full shadow-2xl transform transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden"
+                style={{
+                  background: `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color} 100%)`,
+                }}
               >
-                {isDentalPractice ? 'Book Dental Appointment' : 'Book Appointment'}
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-300" />
+                <span className="relative z-10">{isDentalPractice ? 'Book Dental Appointment' : 'Book Appointment'}</span>
+                <ArrowRight className="relative z-10 w-5 h-5 group-hover:translate-x-2 transition-transform duration-300" />
               </motion.button>
               
               <motion.a
-                whileHover={{ scale: 1.05, borderColor: "rgba(255,255,255,0.8)" }}
+                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 href={`tel:${practice.contact_phone}`}
-                className="px-8 py-4 bg-white/10 backdrop-blur-md border-2 border-white/30 text-white font-semibold rounded-full hover:bg-white/20 transition-all duration-300 flex items-center justify-center gap-2"
+                className="relative group px-10 py-5 backdrop-blur-md text-white font-bold rounded-full transition-all duration-300 flex items-center justify-center gap-3 overflow-hidden border-2"
+                style={{
+                  borderColor: `${practice.primary_color}80`,
+                  background: `linear-gradient(135deg, ${practice.primary_color}20 0%, ${practice.secondary_color}20 100%)`,
+                }}
               >
-                <Phone className="w-5 h-5" />
-                {isDentalPractice ? 'Emergency Dental Care' : 'Emergency Call'}
+                <div 
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  style={{
+                    background: `linear-gradient(135deg, ${practice.primary_color}40 0%, ${practice.secondary_color}40 100%)`,
+                  }}
+                />
+                <Phone className="relative z-10 w-5 h-5 animate-pulse" />
+                <span className="relative z-10">{isDentalPractice ? 'Emergency Dental Care' : 'Emergency Call'}</span>
               </motion.a>
             </div>
 

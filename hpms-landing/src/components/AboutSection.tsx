@@ -2,7 +2,7 @@
 
 import { Practice } from '@/lib/tenants';
 import { motion } from 'framer-motion';
-import { CheckCircle, Award, Users, Clock, Heart, Shield, Star, TrendingUp } from 'lucide-react';
+import { Award, Users, Heart, Shield, Star, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 
 interface AboutSectionProps {
@@ -69,19 +69,36 @@ export default function AboutSection({ practice }: AboutSectionProps) {
             transition={{ duration: 0.8 }}
             viewport={{ once: true }}
           >
-            <span 
-              className="inline-block px-4 py-2 rounded-full text-sm font-semibold mb-6"
+            <motion.span 
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold mb-6 shadow-xl"
               style={{ 
-                backgroundColor: practice.primary_color + '20',
-                color: practice.primary_color 
+                background: `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color} 100%)`,
+                boxShadow: `0 10px 30px ${practice.primary_color}40`,
               }}
+              initial={{ scale: 0, rotate: -180 }}
+              whileInView={{ scale: 1, rotate: 0 }}
+              viewport={{ once: true }}
+              transition={{ type: "spring", stiffness: 200 }}
             >
+              <Shield className="w-4 h-4" />
               About Us
-            </span>
+            </motion.span>
 
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 leading-tight">
-              Pioneering Healthcare Excellence Since 2004
-            </h2>
+            <motion.h2 
+              className="text-5xl md:text-6xl font-black mb-6 leading-tight bg-clip-text text-transparent"
+              style={{
+                backgroundImage: `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color} 50%, ${practice.primary_color} 100%)`,
+              }}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              {practice.slug === 'newcharm-dental' 
+                ? 'Creating Beautiful Smiles Since 2009'
+                : 'Pioneering Healthcare Excellence Since 2004'
+              }
+            </motion.h2>
             
             <p className="text-lg text-gray-600 mb-8 leading-relaxed">
               {practice.about_text || `At ${practice.name}, we combine decades of medical expertise with 

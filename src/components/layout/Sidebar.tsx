@@ -6,6 +6,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { useTheme } from '../../stores/themeStore';
 import { unreadMessagesService } from '../../services/unreadMessagesService';
 import { NotificationBadge } from '../ui/NotificationBadge';
+import { supabase } from '../../lib/supabase';
+import { motion } from 'framer-motion';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -26,10 +28,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleFullscreen,
   onOpenPatients
 }) => {
-  const { isSuperAdmin, canManagePractices, user } = useAuthStore();
+  const { isSuperAdmin, canManagePractices, user, selectedPracticeId } = useAuthStore();
   const { currentTheme } = useTheme();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [practiceData, setPracticeData] = useState<any>(null);
 
   // Subscribe to unread messages
   useEffect(() => {
@@ -42,6 +45,29 @@ const Sidebar: React.FC<SidebarProps> = ({
       };
     }
   }, [user?.id, user?.practice_id]);
+
+  // Fetch practice data
+  useEffect(() => {
+    const fetchPracticeData = async () => {
+      const practiceId = selectedPracticeId || user?.practice_id;
+      if (!practiceId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('practices')
+          .select('*')
+          .eq('id', practiceId)
+          .single();
+
+        if (error) throw error;
+        setPracticeData(data);
+      } catch (error) {
+        console.error('Error fetching practice data:', error);
+      }
+    };
+
+    fetchPracticeData();
+  }, [selectedPracticeId, user?.practice_id]);
 
   const navItems = [
     { icon: 'solar:widget-bold-duotone', label: 'Dashboard', path: '/', isRoute: true },
@@ -67,11 +93,58 @@ const Sidebar: React.FC<SidebarProps> = ({
         !isMobile && collapsed ? "w-[72px]" : !isMobile && "w-[240px]"
       )}
     >
-      <div className="flex items-center h-16 px-4 border-b border-white/10">
+      <div className="flex items-center justify-between h-20 px-4 border-b border-white/10">
+        {/* Practice Logo */}
+        <motion.div 
+          className="flex items-center gap-3"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          {practiceData?.logo_url ? (
+            <motion.img
+              src={practiceData.logo_url}
+              alt={practiceData.name}
+              className={cn(
+                "object-contain",
+                collapsed && !isMobile ? "h-10 w-10" : "h-14 w-auto max-w-[180px]"
+              )}
+              whileHover={{ scale: 1.05 }}
+              transition={{ duration: 0.2 }}
+            />
+          ) : (
+            <div className={cn(
+              "flex items-center",
+              collapsed && !isMobile ? "justify-center" : "gap-3"
+            )}>
+              <motion.div 
+                className={cn(
+                  "rounded-xl flex items-center justify-center",
+                  collapsed && !isMobile ? "w-10 h-10" : "w-12 h-12"
+                )}
+                style={{ 
+                  background: `linear-gradient(135deg, ${practiceData?.primary_color || '#6366f1'} 0%, ${practiceData?.secondary_color || practiceData?.primary_color || '#818cf8'} 100%)`,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                }}
+                whileHover={{ scale: 1.1, rotate: 5 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Icon icon="solar:health-bold-duotone" className="w-6 h-6 text-white" />
+              </motion.div>
+              {(!collapsed || isMobile) && (
+                <div className="text-white">
+                  <h2 className="font-bold text-lg leading-tight">{practiceData?.name || 'Practice'}</h2>
+                  <p className="text-xs text-white/70">Healthcare Excellence</p>
+                </div>
+              )}
+            </div>
+          )}
+        </motion.div>
+
         {isMobile && (
           <button
             onClick={onMobileClose}
-            className="absolute right-4 top-4 p-2 rounded-md text-white/80 hover:text-white md:hidden"
+            className="p-2 rounded-md text-white/80 hover:text-white md:hidden"
           >
             <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
           </button>

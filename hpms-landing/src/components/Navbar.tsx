@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Menu, X, Phone, Calendar, ChevronDown, Globe, Shield, ArrowRight } from 'lucide-react';
+import { Menu, X, Phone, Calendar, ChevronDown, Globe, Shield, ArrowRight, Sparkles } from 'lucide-react';
 import { Practice } from '@/lib/tenants';
 import { motion, AnimatePresence } from 'framer-motion';
+import PremiumButton from '@/components/ui/PremiumButton';
+import { extractColorsFromLogo, ExtractedColors } from '@/utils/colorExtractor';
 
 interface NavbarProps {
   practice: Practice;
@@ -14,6 +16,14 @@ export default function Navbar({ practice }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState('');
+  const [colors, setColors] = useState<ExtractedColors | null>(null);
+
+  // Extract colors from logo
+  useEffect(() => {
+    if (practice.logo_url) {
+      extractColorsFromLogo(practice.logo_url).then(setColors);
+    }
+  }, [practice.logo_url]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -62,11 +72,16 @@ export default function Navbar({ practice }: NavbarProps) {
   return (
     <>
       <nav 
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
           scrolled 
-            ? 'bg-white/95 backdrop-blur-lg shadow-lg' 
-            : 'bg-transparent'
+            ? 'bg-white/90 backdrop-blur-xl shadow-2xl border-b border-gray-100/50' 
+            : 'bg-gradient-to-b from-black/20 to-transparent backdrop-blur-sm'
         }`}
+        style={{
+          background: scrolled 
+            ? 'rgba(255, 255, 255, 0.95)' 
+            : 'linear-gradient(to bottom, rgba(0, 0, 0, 0.3), transparent)'
+        }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
@@ -82,7 +97,7 @@ export default function Navbar({ practice }: NavbarProps) {
                   <motion.img
                     src={practice.logo_url}
                     alt={practice.name}
-                    className="h-12 w-auto object-contain"
+                    className="h-16 w-auto object-contain"
                     whileHover={{ scale: 1.05 }}
                     transition={{ duration: 0.3 }}
                   />
@@ -155,34 +170,36 @@ export default function Navbar({ practice }: NavbarProps) {
 
               {/* CTA Buttons */}
               <motion.div
-                className="flex items-center gap-3 ml-6"
+                className="flex items-center gap-4 ml-6"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.5 }}
               >
-                <a
+                <PremiumButton
                   href={`tel:${practice.contact_phone}`}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
-                    scrolled 
-                      ? 'border border-gray-300 text-gray-700 hover:bg-gray-50' 
-                      : 'border border-white/30 text-white hover:bg-white/10'
-                  }`}
+                  variant={scrolled ? "outline" : "glass"}
+                  size="small"
+                  icon={<Phone className="w-4 h-4" />}
+                  iconPosition="left"
+                  className={scrolled ? 'border-gray-300 text-gray-700' : ''}
                 >
-                  <Phone className="w-4 h-4" />
                   <span className="hidden xl:inline">Call Now</span>
-                </a>
+                  <span className="xl:hidden">Call</span>
+                </PremiumButton>
                 
-                <motion.button
+                <PremiumButton
                   onClick={() => handleNavClick('#booking')}
-                  className="px-6 py-2.5 rounded-lg text-white font-medium transition-all duration-300 flex items-center gap-2 group"
-                  style={{ backgroundColor: practice.primary_color }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  variant="primary"
+                  icon={
+                    <motion.div className="flex items-center gap-1">
+                      <Sparkles className="w-4 h-4" />
+                      <ArrowRight className="w-4 h-4" />
+                    </motion.div>
+                  }
+                  gradient={colors?.gradients.primary || `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color || practice.primary_color} 100%)`}
                 >
-                  <Calendar className="w-4 h-4" />
                   Book Appointment
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                </motion.button>
+                </PremiumButton>
               </motion.div>
             </div>
 
@@ -270,14 +287,20 @@ export default function Navbar({ practice }: NavbarProps) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: (navLinks.length + 1) * 0.05 }}
                 >
-                  <button
+                  <PremiumButton
                     onClick={() => handleNavClick('#booking')}
-                    className="w-full px-6 py-3 rounded-lg text-white font-medium transition-all duration-300 flex items-center justify-center gap-2"
-                    style={{ backgroundColor: practice.primary_color }}
+                    variant="primary"
+                    fullWidth
+                    icon={
+                      <motion.div className="flex items-center gap-1">
+                        <Sparkles className="w-5 h-5" />
+                        <Calendar className="w-5 h-5" />
+                      </motion.div>
+                    }
+                    gradient={colors?.gradients.primary || `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color || practice.primary_color} 100%)`}
                   >
-                    <Calendar className="w-5 h-5" />
-                    Book Appointment
-                  </button>
+                    Book Premium Appointment
+                  </PremiumButton>
                 </motion.div>
               </div>
             </div>

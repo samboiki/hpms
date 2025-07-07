@@ -123,15 +123,33 @@ export default function TestimonialsSection({ practice }: TestimonialsSectionPro
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <span 
-            className="inline-block px-4 py-2 rounded-full text-white text-sm font-semibold mb-4"
-            style={{ backgroundColor: practice.primary_color }}
+          <motion.span 
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-bold mb-6 shadow-xl"
+            style={{ 
+              background: `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color} 100%)`,
+              boxShadow: `0 10px 30px ${practice.primary_color}40`,
+            }}
+            initial={{ scale: 0, rotate: -180 }}
+            whileInView={{ scale: 1, rotate: 0 }}
+            viewport={{ once: true }}
+            transition={{ type: "spring", stiffness: 200 }}
           >
-            Patient Stories
-          </span>
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            What Our Patients Say
-          </h2>
+            <Star className="w-4 h-4" />
+            {practice.slug === 'newcharm-dental' ? 'Patient Success Stories' : 'Patient Stories'}
+            <Star className="w-4 h-4" />
+          </motion.span>
+          <motion.h2 
+            className="text-5xl md:text-6xl lg:text-7xl font-black mb-6 bg-clip-text text-transparent"
+            style={{
+              backgroundImage: `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color} 50%, ${practice.primary_color} 100%)`,
+            }}
+            initial={{ scale: 0.8, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
+            {practice.slug === 'newcharm-dental' ? 'Smiles Tell Our Story' : 'What Our Patients Say'}
+          </motion.h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Real experiences from real patients. Discover why thousands trust us with their healthcare needs.
           </p>
@@ -154,12 +172,32 @@ export default function TestimonialsSection({ practice }: TestimonialsSectionPro
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.3 + index * 0.1 }}
             >
-              <div 
-                className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
-                style={{ backgroundColor: `${practice.primary_color}15` }}
+              <motion.div 
+                className="relative w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg"
+                style={{ 
+                  background: `linear-gradient(135deg, ${practice.primary_color}20, ${practice.secondary_color}20)`,
+                }}
+                whileHover={{ scale: 1.1, rotate: 5 }}
+                transition={{ type: "spring", stiffness: 300 }}
               >
-                <stat.icon className="w-8 h-8" style={{ color: practice.primary_color }} />
-              </div>
+                <stat.icon className="w-10 h-10" style={{ color: practice.primary_color }} />
+                {/* Pulse effect */}
+                <motion.div
+                  className="absolute inset-0 rounded-2xl"
+                  animate={{
+                    scale: [1, 1.1, 1],
+                    opacity: [0.3, 0, 0.3],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    delay: index * 0.2,
+                  }}
+                  style={{
+                    background: `radial-gradient(circle, ${practice.primary_color}40, transparent)`,
+                  }}
+                />
+              </motion.div>
               <div className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</div>
               <div className="text-gray-600">{stat.label}</div>
             </motion.div>

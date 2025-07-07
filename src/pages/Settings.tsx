@@ -1100,9 +1100,9 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
       return;
     }
 
-    // Validate file size (2MB limit)
-    if (file.size > 2 * 1024 * 1024) {
-      alert('File size must be less than 2MB');
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File size must be less than 10MB');
       return;
     }
 
@@ -1112,14 +1112,14 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
       // Generate unique filename
       const fileExt = file.name.split('.').pop();
-      const fileName = `${practiceData.id}/logo_${Date.now()}.${fileExt}`;
+      const fileName = `practice-logos/${practiceData.id}/logo_${Date.now()}.${fileExt}`;
 
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('practice-assets')
+        .from('documents')
         .upload(fileName, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true
         });
 
       if (uploadError) {
@@ -1130,7 +1130,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
       // Get public URL
       const { data: urlData } = supabase.storage
-        .from('practice-assets')
+        .from('documents')
         .getPublicUrl(fileName);
 
       if (urlData?.publicUrl) {
@@ -1293,6 +1293,71 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
             {/* Practice Info Tab */}
             {practiceTab === 'profile' && (
               <div className="space-y-6">
+                {/* Practice Logo Section */}
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <Icon icon={SolarIcons.image} className="w-5 h-5 text-purple-600" />
+                      Practice Logo
+                    </h3>
+                  </div>
+                  
+                  <div className="flex items-center gap-6">
+                    <div className="flex-shrink-0">
+                      {practiceData.logo_url ? (
+                        <img
+                          src={practiceData.logo_url}
+                          alt={`${practiceData.name} logo`}
+                          className="w-32 h-32 object-contain rounded-lg border-2 border-gray-200"
+                          onError={(e) => {
+                            e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(practiceData.name || 'Practice')}&size=128&background=6366f1&color=ffffff`;
+                          }}
+                        />
+                      ) : (
+                        <div className="w-32 h-32 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                          <Icon icon={SolarIcons.building} className="w-16 h-16 text-white" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1">
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">Upload Logo</h4>
+                      <p className="text-sm text-gray-500 mb-4">
+                        Recommended size: 512x512px. Maximum file size: 10MB. Supported formats: JPG, PNG, SVG
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="file"
+                          id="logo-upload"
+                          accept="image/*"
+                          onChange={(e) => handleLogoUpload(e as unknown as Event)}
+                          className="hidden"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => document.getElementById('logo-upload')?.click()}
+                          disabled={saving}
+                        >
+                          <Icon icon={SolarIcons.upload} className="w-4 h-4 mr-2" />
+                          {practiceData.logo_url ? 'Replace Logo' : 'Upload Logo'}
+                        </Button>
+                        {practiceData.logo_url && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => savePracticeData({ logo_url: '' })}
+                            disabled={saving}
+                          >
+                            <Icon icon={SolarIcons.trash} className="w-4 h-4 mr-2" />
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Basic Information Section */}
                 <div className="bg-gray-50 rounded-lg p-6">
                   <div className="flex items-center justify-between mb-4">

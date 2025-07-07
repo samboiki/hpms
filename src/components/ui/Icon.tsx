@@ -107,6 +107,7 @@ export const SolarIcons = {
   trash: 'solar:trash-bin-trash-bold-duotone',
   refresh: 'solar:refresh-bold-duotone',
   logout: 'solar:logout-2-bold-duotone',
+  upload: 'solar:upload-bold-duotone',
   
   // Branch management icons
   buildings: 'solar:buildings-2-bold-duotone',

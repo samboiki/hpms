@@ -94,15 +94,14 @@ serve(async (req) => {
 
     // Check subscription status
     console.log('Checking subscription for practice:', practiceId);
-    const { data: subscription, error: subError } = await supabase
+    const { data: subscriptions, error: subError } = await supabase
       .from('practice_sms_subscriptions')
       .select('*')
       .eq('practice_id', practiceId)
       .eq('is_active', true)
       .gte('billing_cycle_end', new Date().toISOString().split('T')[0]) // Use date format YYYY-MM-DD
       .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+      .limit(1);
 
     if (subError) {
       console.error('Subscription query error:', subError);
@@ -118,7 +117,7 @@ serve(async (req) => {
       );
     }
 
-    if (!subscription) {
+    if (!subscriptions || subscriptions.length === 0) {
       console.error('No active subscription found');
       return new Response(
         JSON.stringify({
@@ -131,6 +130,8 @@ serve(async (req) => {
         }
       );
     }
+
+    const subscription = subscriptions[0];
 
     console.log('Subscription found:', subscription.id);
 

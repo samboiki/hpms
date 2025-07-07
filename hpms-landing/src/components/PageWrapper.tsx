@@ -17,12 +17,17 @@ import { SubService, ServiceCategory } from '@/data/dr-polina-services';
 import { SubService as NewCharmSubService, ServiceCategory as NewCharmServiceCategory } from '@/data/newcharm-services';
 
 // NewCharm specific components
+import NewCharmHelpBar from '@/components/newcharm/NewCharmHelpBar';
 import NewCharmNavbar from '@/components/newcharm/NewCharmNavbar';
 import NewCharmHero from '@/components/newcharm/NewCharmHero';
 import NewCharmServices from '@/components/newcharm/NewCharmServices';
 import NewCharmAbout from '@/components/newcharm/NewCharmAbout';
+import NewCharmPromoBanner from '@/components/newcharm/NewCharmPromoBanner';
 import NewCharmTestimonials from '@/components/newcharm/NewCharmTestimonials';
 import NewCharmContact from '@/components/newcharm/NewCharmContact';
+import NewCharmBlogPosts from '@/components/newcharm/NewCharmBlogPosts';
+import NewCharmFooter from '@/components/newcharm/NewCharmFooter';
+import NewCharmSchema from '@/components/newcharm/NewCharmSchema';
 
 interface PageWrapperProps {
   practice: Practice;
@@ -44,13 +49,17 @@ export default function PageWrapper({ practice }: PageWrapperProps) {
   if (isNewCharm) {
     return (
       <div className="min-h-screen bg-white">
-        <NewCharmNavbar logo={practice.logo} />
-        <NewCharmHero />
-        <NewCharmServices />
-        <NewCharmAbout />
+        <NewCharmSchema />
+        <NewCharmNavbar practice={practice} />
+        <NewCharmHero practice={practice} />
+        <NewCharmServices practice={practice} onBookService={handleBookService} />
+        <NewCharmAbout practice={practice} />
+        <NewCharmPromoBanner />
         <NewCharmTestimonials />
-        <NewCharmContact />
-        <Footer practice={practice} />
+        <NewCharmContact practice={practice} preSelectedService={selectedService as NewCharmSubService} preSelectedCategory={selectedCategory as NewCharmServiceCategory} />
+        <NewCharmBlogPosts />
+        <NewCharmHelpBar />
+        <NewCharmFooter practice={practice} />
       </div>
     );
   }

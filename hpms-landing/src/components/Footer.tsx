@@ -62,9 +62,41 @@ export default function Footer({ practice }: FooterProps) {
   ];
 
   return (
-    <footer className="relative bg-gradient-to-b from-gray-900 to-black text-white">
-      {/* Decorative Top Border */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+    <footer className="relative text-white overflow-hidden">
+      {/* Premium Gradient Background */}
+      <div 
+        className="absolute inset-0"
+        style={{
+          background: `linear-gradient(180deg, 
+            ${practice.primary_color}10 0%, 
+            #0a0a0a 20%, 
+            #000000 50%, 
+            ${practice.secondary_color}05 100%
+          )`,
+        }}
+      />
+      
+      {/* Animated Gradient Border */}
+      <motion.div 
+        className="absolute top-0 left-0 right-0 h-1"
+        style={{
+          background: `linear-gradient(90deg, 
+            transparent, 
+            ${practice.primary_color}, 
+            ${practice.secondary_color}, 
+            ${practice.primary_color}, 
+            transparent
+          )`,
+        }}
+        animate={{
+          backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
+        }}
+        transition={{
+          duration: 10,
+          repeat: Infinity,
+          ease: "linear"
+        }}
+      />
       
       {/* Main Footer Content */}
       <div className="relative">
@@ -81,12 +113,16 @@ export default function Footer({ practice }: FooterProps) {
                 transition={{ duration: 0.6 }}
               >
                 <div className="mb-6">
-                  <h3 
-                    className="text-3xl font-bold mb-2"
-                    style={{ color: practice.primary_color }}
+                  <motion.h3 
+                    className="text-3xl font-bold mb-2 bg-clip-text text-transparent"
+                    style={{ 
+                      backgroundImage: `linear-gradient(135deg, ${practice.primary_color} 0%, ${practice.secondary_color} 100%)`,
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    transition={{ type: "spring", stiffness: 300 }}
                   >
                     {practice.name}
-                  </h3>
+                  </motion.h3>
                   <p className="text-gray-400 text-sm">Excellence in Healthcare</p>
                 </div>
                 

@@ -32,6 +32,7 @@ import AppointmentActionModal from '../components/modals/AppointmentActionModal'
 import AppointmentApprovalModal from '../components/modals/AppointmentApprovalModal';
 import AppointmentGridView from '../components/appointments/AppointmentGridView';
 import FullScreenEditVisitModal from '../components/visits/FullScreenEditVisitModal';
+import { usePracticeData } from '../hooks/usePracticeData';
 
 // Using Visit type from enhanced-visit.types
 import { Visit } from '../types/enhanced-visit.types';
@@ -60,6 +61,7 @@ interface ActivityItem {
 function Dashboard() {
   const { user, logout } = useAuthStore();
   const { currentTheme } = useTheme();
+  const { practiceData, colors } = usePracticeData();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patientsData, setPatientsData] = useState<any[]>([]);
   const [isAddVisitModalOpen, setIsAddVisitModalOpen] = useState(false);
@@ -726,19 +728,19 @@ function Dashboard() {
                   subtitle="Total registered patients"
                   icon={null}
                   iconName="solar:users-group-two-rounded-bold-duotone"
-                  gradient="from-[#489bfd] to-[#a4c8ff]"
+                  gradient={colors?.gradient || "from-[#489bfd] to-[#a4c8ff]"}
                   cardType="patients"
                   stats={[
-                    { label: 'Male', value: realPatientStats.male, color: '#489bfd' },
-                    { label: 'Female', value: realPatientStats.female, color: '#7db3fe' }
+                    { label: 'Male', value: realPatientStats.male, color: colors?.primary || '#489bfd' },
+                    { label: 'Female', value: realPatientStats.female, color: colors?.secondary || '#7db3fe' }
                   ]}
                   comparison={{
                     label1: 'Male',
                     value1: realPatientStats.male,
                     label2: 'Female',
                     value2: realPatientStats.female,
-                    color1: '#489bfd',
-                    color2: '#7db3fe'
+                    color1: colors?.primary || '#489bfd',
+                    color2: colors?.secondary || '#7db3fe'
                   }}
                   trend={{
                     value: `+${realPatientStats.newThisMonth}`,

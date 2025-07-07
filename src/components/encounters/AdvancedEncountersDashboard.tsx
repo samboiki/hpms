@@ -634,12 +634,14 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
       console.log('📍 Processing patient locations - CORS issues with edge function, using direct query');
       
       // Instead of edge function, directly refresh the materialized view and fetch data
-      const refreshResult = await supabase.rpc('refresh_materialized_view_concurrently', {
-        view_name: 'patient_location_density'
-      }).catch(() => {
+      try {
+        const refreshResult = await supabase.rpc('refresh_materialized_view_concurrently', {
+          view_name: 'patient_location_density'
+        });
+      } catch (rpcError) {
         // If RPC doesn't exist, just continue
-        console.log('⚠️ Could not refresh view via RPC');
-      });
+        console.log('⚠️ Could not refresh view via RPC:', rpcError);
+      }
       
       console.log('🔄 Refreshing geographic data...');
       // Refresh geographic data after processing
