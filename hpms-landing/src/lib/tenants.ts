@@ -82,6 +82,21 @@ export async function getPracticeByDomain(domain: string, searchParams?: URLSear
 
     // Method 4: Use domain mapping or return null for practice directory
     let mappedDomain = domainMap[domain];
+    
+    // Handle Vercel preview deployments
+    if (!mappedDomain && domain.includes('vercel.app')) {
+      // Check for NewCharm preview deployments
+      if (domain.includes('newcharm')) {
+        console.log('🔍 Detected NewCharm preview deployment');
+        return await getPracticeBySlug('newcharm-dental');
+      }
+      // Check for Dr. Polina preview deployments
+      if (domain.includes('dr-polina') || domain.includes('drpolina')) {
+        console.log('🔍 Detected Dr. Polina preview deployment');
+        return await getPracticeBySlug('dr-polina-aesthetics');
+      }
+    }
+    
     if (!mappedDomain && domain.includes('localhost')) {
       console.log('🏥 No specific practice mapping - will show practice directory');
       return null;
