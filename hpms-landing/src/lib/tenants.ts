@@ -76,8 +76,8 @@ export async function getPracticeByDomain(domain: string, searchParams?: URLSear
       'healthpractice.vercel.app': 'drpolina.vercel.app',
       'newcharm.vercel.app': 'newcharm.vercel.app',
       'newcharm-dental.vercel.app': 'newcharm.vercel.app',
-      'newcharmdentalpractice.com': 'www.newcharmdentalpractice.com',
-      'www.newcharmdentalpractice.com': 'www.newcharmdentalpractice.com',
+      'newcharmdentalpractice.com': 'newcharm.vercel.app',
+      'www.newcharmdentalpractice.com': 'newcharm.vercel.app',
     };
 
     // Method 4: Use domain mapping or return null for practice directory
@@ -116,6 +116,12 @@ export async function getPracticeByDomain(domain: string, searchParams?: URLSear
         return await getPracticeBySlug('dr-polina-aesthetics');
       }
       
+      // If domain not found, try fallback for NewCharm
+      if (error.code === 'PGRST116' && (domain.includes('newcharm'))) {
+        console.log('Falling back to NewCharm by slug...');
+        return await getPracticeBySlug('newcharm-dental');
+      }
+      
       return null;
     }
 
@@ -123,6 +129,10 @@ export async function getPracticeByDomain(domain: string, searchParams?: URLSear
       if (domain.includes('dr-polina') || domain.includes('healthpractice')) {
         console.log('No practice found for domain, trying fallback for Dr. Polina...');
         return await getPracticeBySlug('dr-polina-aesthetics');
+      }
+      if (domain.includes('newcharm')) {
+        console.log('No practice found for domain, trying fallback for NewCharm...');
+        return await getPracticeBySlug('newcharm-dental');
       }
     }
 
@@ -135,6 +145,10 @@ export async function getPracticeByDomain(domain: string, searchParams?: URLSear
     if (domain.includes('dr-polina') || domain.includes('healthpractice')) {
       console.log('Exception fallback for Dr. Polina...');
       return await getPracticeBySlug('dr-polina-aesthetics');
+    }
+    if (domain.includes('newcharm')) {
+      console.log('Exception fallback for NewCharm...');
+      return await getPracticeBySlug('newcharm-dental');
     }
     
     return null;
