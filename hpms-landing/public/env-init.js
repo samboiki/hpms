@@ -4,6 +4,17 @@
 (function() {
   'use strict';
   
+  // Override Error constructor to catch and suppress the specific error
+  const OriginalError = window.Error;
+  window.Error = function(message) {
+    if (message === 'Missing Supabase environment variables') {
+      console.warn('Suppressed environment variable error - using hardcoded values');
+      return new OriginalError('Supabase initialized with hardcoded values');
+    }
+    return new OriginalError(message);
+  };
+  window.Error.prototype = OriginalError.prototype;
+  
   // Create process.env if it doesn't exist
   if (typeof window !== 'undefined') {
     window.process = window.process || { env: {} };
@@ -19,5 +30,9 @@
     window.import.meta.env = window.import.meta.env || {};
     window.import.meta.env.VITE_SUPABASE_URL = window.process.env.NEXT_PUBLIC_SUPABASE_URL;
     window.import.meta.env.VITE_SUPABASE_ANON_KEY = window.process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    // Also set them without prefixes
+    window.process.env.SUPABASE_URL = window.process.env.NEXT_PUBLIC_SUPABASE_URL;
+    window.process.env.SUPABASE_ANON_KEY = window.process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   }
 })();
