@@ -16,12 +16,12 @@ const NewCharmServices: React.FC<NewCharmServicesProps> = ({ onBookService }) =>
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   const serviceImages: Record<string, string> = {
-    'general-dentistry': 'https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    'cosmetic-dentistry': 'https://images.unsplash.com/photo-1606811841689-23dfddce3e95?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    'orthodontics': 'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    'oral-surgery': 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    'emergency-care': 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    'preventive-care': 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80'
+    'general-dentistry': '/images/newcharm/images/Screenshot 2025-07-07 074156.png',
+    'cosmetic-dentistry': '/images/newcharm/images/Screenshot 2025-07-07 075054.png',
+    'orthodontics': '/images/newcharm/images/Screenshot 2025-07-07 074844.png',
+    'oral-surgery': '/images/newcharm/images/Screenshot 2025-07-07 074333.png',
+    'emergency-care': '/images/newcharm/images/Screenshot 2025-07-07 074402.png',
+    'preventive-care': '/images/newcharm/images/Screenshot 2025-07-07 074236.png'
   };
 
   const handleBookNow = (subService: SubService) => {
@@ -32,19 +32,19 @@ const NewCharmServices: React.FC<NewCharmServicesProps> = ({ onBookService }) =>
   };
 
   return (
-    <section id="services" className="py-20 md:py-24 bg-white">
+    <section id="services" className="py-20 md:py-24 bg-white border-t border-gray-100">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-12 md:mb-16">
-          <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-[#00BCD4]/10 to-[#0097A7]/10 px-4 py-2 rounded-full mb-6">
-            <Icon icon="solar:heart-shine-bold-duotone" className="w-4 h-4 text-[#00BCD4]" />
-            <span className="text-sm text-[#00BCD4] font-medium">Our Services</span>
+        <div className="text-center max-w-3xl mx-auto mb-12">
+          <div className="inline-flex items-center space-x-2 bg-[#ec7ec5]/10 px-4 py-2 rounded-full mb-4">
+            <Icon icon="solar:heart-shine-bold-duotone" className="w-4 h-4 text-[#ec7ec5]" />
+            <span className="text-sm text-[#ec7ec5] font-medium">Our Services</span>
           </div>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-light text-gray-900 mb-6 font-[Lexend]">
+          <h2 className="text-3xl md:text-4xl font-lexend font-light text-gray-900 mb-4">
             Comprehensive dental care
-            <span className="block bg-gradient-to-r from-[#00BCD4] to-[#0097A7] bg-clip-text text-transparent font-normal mt-2">tailored to you</span>
+            <span className="text-[#32b9e5] font-normal"> tailored to you</span>
           </h2>
-          <p className="text-lg text-gray-600 leading-relaxed px-4">
+          <p className="text-base text-gray-600 leading-relaxed">
             From routine cleanings to advanced procedures, we offer a full spectrum 
             of dental services using the latest technology and techniques.
           </p>
@@ -53,9 +53,6 @@ const NewCharmServices: React.FC<NewCharmServicesProps> = ({ onBookService }) =>
         {/* Services Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
           {newcharmServices.map((service, index) => {
-            const IconComponent = Icon;
-            const isHovered = hoveredCard === service.id;
-            
             return (
               <motion.div
                 key={service.id}
@@ -67,7 +64,7 @@ const NewCharmServices: React.FC<NewCharmServicesProps> = ({ onBookService }) =>
                 onMouseLeave={() => setHoveredCard(null)}
               >
                 <motion.div
-                  className="relative h-full bg-white rounded-3xl shadow-lg overflow-hidden cursor-pointer group border border-gray-100 hover:border-[#00BCD4]/30"
+                  className="relative h-full bg-white rounded-3xl shadow-lg overflow-hidden cursor-pointer group border border-gray-100 hover:border-[#32b9e5]/30"
                   whileHover={{ 
                     y: -8,
                     scale: 1.02,
@@ -82,6 +79,7 @@ const NewCharmServices: React.FC<NewCharmServicesProps> = ({ onBookService }) =>
                       alt={service.name}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#32b9e5]/20 via-transparent to-[#ec7ec5]/20" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     <div className="absolute top-4 right-4 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full">
                       <span className="text-white text-xs font-medium flex items-center gap-1">
@@ -92,26 +90,8 @@ const NewCharmServices: React.FC<NewCharmServicesProps> = ({ onBookService }) =>
                   </div>
                   
                   <div className="relative p-6">
-                    {/* Icon */}
-                    <motion.div
-                      className="relative w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-lg"
-                      style={{
-                        background: `linear-gradient(135deg, #00BCD4, #0097A7)`,
-                        boxShadow: isHovered ? `0 10px 30px rgba(0, 188, 212, 0.3)` : '0 5px 15px rgba(0,0,0,0.1)',
-                      }}
-                      animate={isHovered ? { 
-                        rotate: 10,
-                        scale: 1.1
-                      } : {
-                        rotate: 0,
-                        scale: 1
-                      }}
-                      transition={{ duration: 0.3, type: "spring", stiffness: 200 }}
-                    >
-                      <IconComponent icon={`solar:${service.icon.toLowerCase()}-bold-duotone`} className="w-8 h-8 text-white" />
-                    </motion.div>
 
-                    <h3 className="text-xl font-semibold text-gray-900 mb-3 group-hover:text-[#00BCD4] transition-colors duration-300">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-3 group-hover:text-[#32b9e5] transition-colors duration-300">
                       {service.name}
                     </h3>
                     
@@ -121,11 +101,7 @@ const NewCharmServices: React.FC<NewCharmServicesProps> = ({ onBookService }) =>
 
                     {/* View Services Button */}
                     <motion.div 
-                      className="relative inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-medium text-sm overflow-hidden"
-                      style={{ 
-                        background: `linear-gradient(135deg, rgba(0, 188, 212, 0.15), rgba(0, 151, 167, 0.15))`,
-                        color: '#00BCD4',
-                      }}
+                      className="relative inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-medium text-sm overflow-hidden bg-[#32b9e5]/10 text-[#32b9e5]"
                     >
                       <span className="relative z-10">View Services</span>
                       <ArrowRight className="relative z-10 w-4 h-4 group-hover:translate-x-2 transition-transform duration-300" />
@@ -133,11 +109,7 @@ const NewCharmServices: React.FC<NewCharmServicesProps> = ({ onBookService }) =>
 
                     {/* Service Count Badge */}
                     <motion.div 
-                      className="absolute top-4 right-4 px-3 py-1.5 rounded-full text-xs font-medium text-white shadow-lg"
-                      style={{
-                        background: `linear-gradient(135deg, rgba(0, 188, 212, 0.9), rgba(0, 151, 167, 0.9))`,
-                        backdropFilter: 'blur(10px)',
-                      }}
+                      className="absolute top-4 right-4 px-3 py-1.5 rounded-full text-xs font-medium text-white shadow-lg bg-[#ec7ec5]"
                       whileHover={{ scale: 1.1 }}
                     >
                       {service.subServices.length} services
@@ -147,27 +119,6 @@ const NewCharmServices: React.FC<NewCharmServicesProps> = ({ onBookService }) =>
               </motion.div>
             );
           })}
-        </div>
-
-        {/* CTA Section */}
-        <div className="mt-16 text-center bg-gradient-to-br from-gray-50 to-white rounded-3xl p-8 md:p-12">
-          <h3 className="text-2xl font-light text-gray-900 mb-4">
-            Ready to experience premium dental care?
-          </h3>
-          <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
-            Schedule your consultation today and discover how we can help you achieve 
-            the healthy, beautiful smile you deserve.
-          </p>
-          <Link
-            to="contact"
-            smooth={true}
-            duration={500}
-            offset={-80}
-            className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-[#00BCD4] to-[#0097A7] text-white rounded-full hover:shadow-xl transition-all duration-300 font-medium shadow-lg transform hover:-translate-y-0.5 cursor-pointer"
-          >
-            Book Your Appointment
-            <Icon icon="solar:arrow-right-bold-duotone" className="w-5 h-5 ml-2" />
-          </Link>
         </div>
       </div>
 
@@ -193,7 +144,7 @@ const NewCharmServices: React.FC<NewCharmServicesProps> = ({ onBookService }) =>
               <div 
                 className="relative px-8 py-6 text-white"
                 style={{
-                  background: `linear-gradient(135deg, #00BCD4, #0097A7)`,
+                  background: `linear-gradient(135deg, #32b9e5, #ec7ec5)`,
                 }}
               >
                 <button
@@ -219,7 +170,7 @@ const NewCharmServices: React.FC<NewCharmServicesProps> = ({ onBookService }) =>
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.1 }}
-                      className="group bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-100 hover:border-[#00BCD4]/30 transition-all duration-300 shadow-sm hover:shadow-lg"
+                      className="group bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-100 hover:border-[#32b9e5]/30 transition-all duration-300 shadow-sm hover:shadow-lg"
                     >
                       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                         <div className="flex-1">
@@ -238,7 +189,7 @@ const NewCharmServices: React.FC<NewCharmServicesProps> = ({ onBookService }) =>
                                   key={idx}
                                   className="inline-flex items-center gap-1 px-3 py-1 bg-white rounded-full text-sm text-gray-700 border border-gray-200"
                                 >
-                                  <Check className="w-3 h-3 text-[#00BCD4]" />
+                                  <Check className="w-3 h-3 text-[#32b9e5]" />
                                   {benefit}
                                 </span>
                               ))}
@@ -251,7 +202,7 @@ const NewCharmServices: React.FC<NewCharmServicesProps> = ({ onBookService }) =>
                               <Clock className="w-4 h-4" />
                               {subService.duration}
                             </span>
-                            <span className="flex items-center gap-2 font-semibold text-[#00BCD4]">
+                            <span className="flex items-center gap-2 font-semibold text-[#32b9e5]">
                               <DollarSign className="w-4 h-4" />
                               {subService.price}
                             </span>
@@ -267,7 +218,7 @@ const NewCharmServices: React.FC<NewCharmServicesProps> = ({ onBookService }) =>
                           onClick={() => {
                             handleBookNow(subService);
                           }}
-                          className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-[#00BCD4] to-[#0097A7] text-white rounded-2xl font-medium shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
+                          className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-[#32b9e5] to-[#ec7ec5] text-white rounded-2xl font-medium shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5 cursor-pointer"
                         >
                           <Calendar className="w-5 h-5 mr-2" />
                           <span>Book Now</span>

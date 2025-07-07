@@ -211,7 +211,7 @@ const NewCharmFooter: React.FC<NewCharmFooterProps> = ({ practice }) => {
           </div>
           <div className="mt-4 text-center">
             <p className="text-xs text-gray-500">
-              Powered by <a href="#" className="text-[#32b9e5] hover:underline">HPMS</a>
+              Powered by <a href="https://onehealthsystems.com" className="text-[#32b9e5] hover:underline" target="_blank" rel="noopener noreferrer">OneHealthSystems</a>
             </p>
           </div>
         </div>

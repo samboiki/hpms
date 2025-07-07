@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
-import { Poppins, Inter, Lexend } from "next/font/google";
+import { Montserrat, Poppins, Lexend, Rubik } from "next/font/google";
 import "./globals.css";
+
+const montserrat = Montserrat({
+  variable: "--font-montserrat",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
+});
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -9,16 +16,17 @@ const poppins = Poppins({
   display: "swap",
 });
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  display: "swap",
-});
-
 const lexend = Lexend({
   variable: "--font-lexend",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
+const rubik = Rubik({
+  variable: "--font-rubik",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800", "900"],
   display: "swap",
 });
 
@@ -60,7 +68,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${poppins.variable} ${inter.variable} ${lexend.variable} font-poppins antialiased`}
+        className={`${montserrat.variable} ${poppins.variable} ${lexend.variable} ${rubik.variable} font-montserrat antialiased`}
         suppressHydrationWarning
       >
         {children}

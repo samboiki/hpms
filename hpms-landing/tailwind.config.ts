@@ -11,6 +11,13 @@ export default {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        primary: "#32b9e5",
+        secondary: "#ec7ec5",
+      },
+      fontFamily: {
+        'montserrat': ['var(--font-montserrat)', 'sans-serif'],
+        'poppins': ['var(--font-poppins)', 'sans-serif'],
+        'lexend': ['var(--font-lexend)', 'sans-serif'],
       },
       animation: {
         'float': 'float 20s ease-in-out infinite',

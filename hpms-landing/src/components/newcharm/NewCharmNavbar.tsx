@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, Events, scrollSpy } from 'react-scroll';
 import { Icon } from '@iconify/react';
 import { Practice } from '@/lib/tenants';
+import { useBookingModal } from '@/contexts/BookingModalContext';
 
 interface NewCharmNavbarProps {
   practice: Practice;
@@ -11,6 +12,7 @@ const NewCharmNavbar: React.FC<NewCharmNavbarProps> = ({ practice }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('');
+  const { openBookingModal } = useBookingModal();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -57,10 +59,10 @@ const NewCharmNavbar: React.FC<NewCharmNavbarProps> = ({ practice }) => {
           {/* Logo */}
           <div className="flex items-center space-x-2">
             {practice.logo_url ? (
-              <img src={practice.logo_url} alt={practice.name} className="h-14 md:h-16 w-auto" />
+              <img src={practice.logo_url} alt={practice.name} className="h-24 md:h-28 w-auto" />
             ) : (
               <div className="flex items-center space-x-3">
-                <Icon icon="solar:tooth-bold-duotone" className="w-10 h-10 md:w-12 md:h-12 text-[#00BCD4]" />
+                <Icon icon="solar:tooth-bold-duotone" className="w-16 h-16 md:w-20 md:h-20 text-[#32b9e5]" />
                 <span className="text-2xl md:text-3xl font-light tracking-wide text-gray-900">
                   NewCharm <span className="font-normal">Dental</span>
                 </span>
@@ -81,27 +83,24 @@ const NewCharmNavbar: React.FC<NewCharmNavbarProps> = ({ practice }) => {
                 onSetActive={() => setActiveSection(link.to)}
                 className={`relative text-sm font-medium tracking-wide cursor-pointer transition-all duration-300 ${
                   activeSection === link.to
-                    ? 'text-[#00BCD4]'
-                    : 'text-gray-700 hover:text-[#00BCD4]'
+                    ? 'text-[#32b9e5]'
+                    : 'text-gray-700 hover:text-[#32b9e5]'
                 }`}
               >
                 {link.name}
                 {activeSection === link.to && (
                   <span
-                    className="absolute -bottom-2 left-0 right-0 h-0.5 bg-[#00BCD4] transition-all duration-300"
+                    className="absolute -bottom-2 left-0 right-0 h-0.5 bg-[#32b9e5] transition-all duration-300"
                   />
                 )}
               </Link>
             ))}
-            <Link
-              to="contact"
-              smooth={true}
-              duration={500}
-              offset={-80}
-              className="ml-6 px-6 py-2.5 bg-gradient-to-r from-[#00BCD4] to-[#0097A7] text-white rounded-full hover:shadow-lg transition-all duration-300 text-sm font-medium transform hover:-translate-y-0.5"
+            <button
+              onClick={() => openBookingModal()}
+              className="ml-6 px-6 py-2.5 bg-gradient-to-r from-[#32b9e5] to-[#2aa8d3] text-white rounded-xl hover:shadow-lg transition-all duration-300 text-sm font-medium transform hover:-translate-y-0.5"
             >
               Book Appointment
-            </Link>
+            </button>
           </div>
 
           {/* Mobile Menu Button */}
@@ -136,23 +135,22 @@ const NewCharmNavbar: React.FC<NewCharmNavbarProps> = ({ practice }) => {
                 onClick={() => setMobileMenuOpen(false)}
                 className={`block font-medium transition-colors duration-300 cursor-pointer ${
                   activeSection === link.to
-                    ? 'text-[#00BCD4]'
-                    : 'text-gray-700 hover:text-[#00BCD4]'
+                    ? 'text-[#32b9e5]'
+                    : 'text-gray-700 hover:text-[#32b9e5]'
                 }`}
               >
                 {link.name}
               </Link>
             ))}
-            <Link
-              to="contact"
-              smooth={true}
-              duration={500}
-              offset={-80}
-              onClick={() => setMobileMenuOpen(false)}
-              className="block w-full mt-4 px-6 py-3 bg-gradient-to-r from-[#00BCD4] to-[#0097A7] text-white rounded-full text-center font-medium shadow-md"
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                openBookingModal();
+              }}
+              className="block w-full mt-4 px-6 py-3 bg-gradient-to-r from-[#32b9e5] to-[#2aa8d3] text-white rounded-xl text-center font-medium shadow-md"
             >
               Book Appointment
-            </Link>
+            </button>
           </div>
         </div>
       </div>

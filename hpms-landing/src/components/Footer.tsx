@@ -349,11 +349,13 @@ export default function Footer({ practice }: FooterProps) {
                 <p className="text-sm text-gray-500">
                   Powered by{' '}
                   <a 
-                    href="https://hpms.com" 
+                    href="https://onehealthsystems.com" 
                     className="font-medium hover:text-white transition-colors inline-flex items-center gap-1"
                     style={{ color: practice.primary_color }}
+                    target="_blank"
+                    rel="noopener noreferrer"
                   >
-                    HPMS
+                    OneHealthSystems
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </p>

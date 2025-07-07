@@ -62,7 +62,7 @@ const NewCharmHelpBar: React.FC = () => {
                 >
                   <div className="flex items-center space-x-3">
                     <Icon icon="solar:phone-bold" className="w-8 h-8 text-gray-800" />
-                    <h3 className="text-xl font-semibold text-gray-900 group-hover:text-[#00BCD4] transition-colors">+264 61 234 5678</h3>
+                    <h3 className="text-xl font-semibold text-gray-900 group-hover:text-[#32b9e5] transition-colors">+264 61 234 5678</h3>
                   </div>
                 </a>
                 <button className="inline-flex items-center px-[1.52em] py-[0.73em] bg-[#f1f2fe] text-gray-800 rounded-full text-[1.1428em] font-semibold hover:bg-[#e8e9fc] transition-all duration-300">
@@ -76,7 +76,7 @@ const NewCharmHelpBar: React.FC = () => {
                 <p className="text-gray-700 mb-3">Monday to Saturday - 8am - 6pm</p>
                 <a 
                   href="#faq" 
-                  className="inline-flex items-center text-[#00BCD4] hover:text-[#0097A7] bg-[rgba(0,0,12,0.01)] px-4 py-2 rounded transition-all duration-300 text-sm font-medium"
+                  className="inline-flex items-center text-[#32b9e5] hover:text-[#ec7ec5] bg-[rgba(0,0,12,0.01)] px-4 py-2 rounded transition-all duration-300 text-sm font-medium"
                 >
                   <span>Frequently Asked Questions</span>
                 </a>

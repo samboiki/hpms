@@ -302,7 +302,7 @@ export default function PracticeDirectory() {
         <div className="max-w-7xl mx-auto px-4 py-8">
           <div className="text-center">
             <p className="text-gray-600">
-              Professional Healthcare Network • Powered by HPMS
+              Professional Healthcare Network • Powered by <a href="https://onehealthsystems.com" className="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">OneHealthSystems</a>
             </p>
             <p className="text-sm text-gray-500 mt-2">
               Connecting patients with quality healthcare providers across Namibia

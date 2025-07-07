@@ -17,7 +17,6 @@ import { SubService, ServiceCategory } from '@/data/dr-polina-services';
 import { SubService as NewCharmSubService, ServiceCategory as NewCharmServiceCategory } from '@/data/newcharm-services';
 
 // NewCharm specific components
-import NewCharmHelpBar from '@/components/newcharm/NewCharmHelpBar';
 import NewCharmNavbar from '@/components/newcharm/NewCharmNavbar';
 import NewCharmHero from '@/components/newcharm/NewCharmHero';
 import NewCharmServices from '@/components/newcharm/NewCharmServices';
@@ -28,9 +27,32 @@ import NewCharmContact from '@/components/newcharm/NewCharmContact';
 import NewCharmBlogPosts from '@/components/newcharm/NewCharmBlogPosts';
 import NewCharmFooter from '@/components/newcharm/NewCharmFooter';
 import NewCharmSchema from '@/components/newcharm/NewCharmSchema';
+import ImprovedBookingModal from '@/components/newcharm/ImprovedBookingModal';
+import { BookingModalProvider, useBookingModal } from '@/contexts/BookingModalContext';
 
 interface PageWrapperProps {
   practice: Practice;
+}
+
+// Separate component for NewCharm content that uses the booking modal context
+function NewCharmPageContent({ practice, onBookService }: { practice: Practice; onBookService: any }) {
+  const { isOpen, closeBookingModal } = useBookingModal();
+  
+  return (
+    <div className="min-h-screen bg-white">
+      <NewCharmSchema />
+      <NewCharmNavbar practice={practice} />
+      <NewCharmHero practice={practice} />
+      <NewCharmServices practice={practice} onBookService={onBookService} />
+      <NewCharmAbout practice={practice} />
+      <NewCharmPromoBanner />
+      <NewCharmTestimonials />
+      <NewCharmContact practice={practice} />
+      <NewCharmBlogPosts />
+      <NewCharmFooter practice={practice} />
+      <ImprovedBookingModal isOpen={isOpen} onClose={closeBookingModal} />
+    </div>
+  );
 }
 
 export default function PageWrapper({ practice }: PageWrapperProps) {
@@ -48,19 +70,9 @@ export default function PageWrapper({ practice }: PageWrapperProps) {
   // NewCharm gets completely custom components
   if (isNewCharm) {
     return (
-      <div className="min-h-screen bg-white">
-        <NewCharmSchema />
-        <NewCharmNavbar practice={practice} />
-        <NewCharmHero practice={practice} />
-        <NewCharmServices practice={practice} onBookService={handleBookService} />
-        <NewCharmAbout practice={practice} />
-        <NewCharmPromoBanner />
-        <NewCharmTestimonials />
-        <NewCharmContact practice={practice} preSelectedService={selectedService as NewCharmSubService} preSelectedCategory={selectedCategory as NewCharmServiceCategory} />
-        <NewCharmBlogPosts />
-        <NewCharmHelpBar />
-        <NewCharmFooter practice={practice} />
-      </div>
+      <BookingModalProvider>
+        <NewCharmPageContent practice={practice} onBookService={handleBookService} />
+      </BookingModalProvider>
     );
   }
 

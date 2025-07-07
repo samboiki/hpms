@@ -1,142 +1,77 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Icon } from '@iconify/react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Icon } from '@iconify/react';
 
 const NewCharmTestimonials: React.FC = () => {
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
 
-  // Testimonials with Namibian names and authentic reviews
   const testimonials = [
     {
-      name: 'Helena Shikongo',
-      role: 'Business Owner',
-      content: 'Dr. Amalwa and her team at NewCharm Dental are absolutely exceptional! They transformed my smile with veneers, and I couldn\'t be happier. The care and attention to detail is world-class.',
+      name: 'Maria Shikongo',
+      role: 'General Consultation',
+      content: 'The care I received was exceptional. From the moment I walked in, the staff made me feel comfortable and valued. Dr. Timoteus took the time to explain everything thoroughly, and my recovery has been smooth thanks to their excellent follow-up care.',
       rating: 5,
-      treatment: 'Cosmetic Dentistry',
-      image: 'https://images.unsplash.com/photo-1589156191108-c762ff4b96ab?w=400&h=400&fit=crop&crop=face',
-      source: 'google',
+      treatment: 'General Consultation',
+      image: 'https://i.pravatar.cc/150?img=1',
       date: '2 weeks ago'
     },
     {
-      name: 'Johannes Nambinga',
-      role: 'Engineer',
-      content: 'I had a complex root canal procedure, and the team made it completely painless. Their use of modern technology and gentle approach made all the difference. Highly recommend!',
+      name: 'Johannes Hamutenya',
+      role: 'Specialist Care',
+      content: 'I\'ve been coming here for over 5 years, and the consistency in quality care is remarkable. The modern facilities, combined with the compassionate staff, make this the best dental practice in Windhoek. Highly recommend!',
       rating: 5,
-      treatment: 'Endodontics',
-      image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&h=400&fit=crop&crop=face',
-      source: 'google',
+      treatment: 'Specialist Care',
+      image: 'https://i.pravatar.cc/150?img=3',
       date: '1 month ago'
     },
     {
-      name: 'Maria Kapolo',
-      role: 'Teacher',
-      content: 'As someone who was terrified of dentists, NewCharm Dental changed everything for me. They are patient, understanding, and truly care about your comfort. My whole family goes here now!',
+      name: 'Selma Nangula',
+      role: 'Dental Checkup',
+      content: 'As someone new to Windhoek, finding a trustworthy dental practice was crucial. The online booking was seamless, wait times were minimal, and the dentist addressed all my concerns. I\'m grateful to have found such professional dental care.',
       rating: 5,
-      treatment: 'Family Dentistry',
-      image: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=400&h=400&fit=crop&crop=face',
-      source: 'google',
+      treatment: 'Dental Checkup',
+      image: 'https://i.pravatar.cc/150?img=5',
       date: '3 weeks ago'
     },
     {
-      name: 'Petrus Hamutenya',
-      role: 'Government Official',
-      content: 'The professionalism at NewCharm is unmatched in Windhoek. From the reception to the dental chair, everyone makes you feel valued. My dental implants look and feel natural!',
+      name: 'Petrus Shilongo',
+      role: 'Emergency Care',
+      content: 'The emergency dental care I received was outstanding. Despite being extremely busy, the staff remained professional and attentive. They kept me informed throughout the process, and the pain relief was immediate.',
       rating: 5,
-      treatment: 'Dental Implants',
-      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face',
-      source: 'google',
+      treatment: 'Emergency Care',
+      image: 'https://i.pravatar.cc/150?img=8',
+      date: '1 week ago'
+    },
+    {
+      name: 'Elizabeth Kangootui',
+      role: 'Family Dentistry',
+      content: 'We\'ve been bringing our entire family here for years. The pediatric dental care is excellent, and they always make my children feel at ease. The Klein Windhoek location and flexible scheduling make it perfect for busy families like ours.',
+      rating: 5,
+      treatment: 'Family Dentistry',
+      image: 'https://i.pravatar.cc/150?img=9',
       date: '2 months ago'
-    },
-    {
-      name: 'Ndapewa Amadhila',
-      role: 'Pharmacist',
-      content: 'The Invisalign treatment at NewCharm gave me the confidence I\'ve always wanted. Dr. Amalwa\'s expertise and the team\'s support throughout the process was incredible!',
-      rating: 5,
-      treatment: 'Orthodontics',
-      image: 'https://images.unsplash.com/photo-1598257006458-087169a1f08d?w=400&h=400&fit=crop&crop=face',
-      source: 'google',
-      date: '1 month ago'
-    },
-    {
-      name: 'Tomas Shivute',
-      role: 'Bank Manager',
-      content: 'I\'ve been coming to NewCharm for 5 years now. They maintain the highest standards of hygiene and use the latest equipment. The best dental practice in Namibia!',
-      rating: 5,
-      treatment: 'Preventive Care',
-      image: 'https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?w=400&h=400&fit=crop&crop=face',
-      source: 'google',
-      date: '3 months ago'
-    },
-    {
-      name: 'Frieda Nghipondoka',
-      role: 'Entrepreneur',
-      content: 'The teeth whitening treatment exceeded my expectations! The results were immediate and long-lasting. NewCharm\'s attention to detail and patient care is exceptional.',
-      rating: 5,
-      treatment: 'Teeth Whitening',
-      image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&h=400&fit=crop&crop=face',
-      source: 'google',
-      date: '2 weeks ago'
-    },
-    {
-      name: 'Elias Iiyambo',
-      role: 'Architect',
-      content: 'After an accident, I needed emergency dental care. NewCharm saw me immediately and saved my tooth. Their emergency response and follow-up care were outstanding!',
-      rating: 5,
-      treatment: 'Emergency Dentistry',
-      image: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop&crop=face',
-      source: 'google',
-      date: '1 month ago'
-    },
-    {
-      name: 'Selma Haipinge',
-      role: 'Lawyer',
-      content: 'The pediatric care for my children at NewCharm is amazing. They make dental visits fun and educational. My kids actually look forward to their check-ups now!',
-      rating: 5,
-      treatment: 'Pediatric Dentistry',
-      image: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400&h=400&fit=crop&crop=face',
-      source: 'google',
-      date: '1 month ago'
     }
   ];
 
-  const checkScrollButtons = () => {
-    if (scrollContainerRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
-      setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
-    }
+  const handlePrevious = () => {
+    setActiveIndex((prev) => (prev === 0 ? testimonials.length - 1 : prev - 1));
   };
 
+  const handleNext = () => {
+    setActiveIndex((prev) => (prev === testimonials.length - 1 ? 0 : prev + 1));
+  };
+
+  // Auto-rotate testimonials
   useEffect(() => {
-    checkScrollButtons();
-    const container = scrollContainerRef.current;
-    if (container) {
-      container.addEventListener('scroll', checkScrollButtons);
-      window.addEventListener('resize', checkScrollButtons);
-      return () => {
-        container.removeEventListener('scroll', checkScrollButtons);
-        window.removeEventListener('resize', checkScrollButtons);
-      };
-    }
-  }, []);
-
-  const scrollLeft = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: -336, behavior: 'smooth' });
-    }
-  };
-
-  const scrollRight = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: 336, behavior: 'smooth' });
-    }
-  };
+    const interval = setInterval(() => {
+      handleNext();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [activeIndex]);
 
   return (
-    <section id="testimonials" className="py-16 bg-gradient-to-br from-gray-50 to-white overflow-hidden relative">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="testimonials" className="py-20 bg-gray-50 border-t border-gray-100">
+      <div className="container mx-auto px-4">
         {/* Section Header */}
         <motion.div 
           className="text-center max-w-3xl mx-auto mb-12"
@@ -145,189 +80,232 @@ const NewCharmTestimonials: React.FC = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
         >
-          <div className="inline-flex items-center space-x-2 bg-[#00BCD4]/10 px-4 py-2 rounded-full mb-4">
-            <Icon icon="solar:chat-round-like-bold-duotone" className="w-4 h-4 text-[#00BCD4]" />
-            <span className="text-sm text-[#00BCD4] font-medium">Patient Stories</span>
+          <div className="inline-flex items-center space-x-2 bg-[#32b9e5]/10 px-4 py-2 rounded-full mb-4">
+            <Icon icon="solar:chat-round-like-bold-duotone" className="w-4 h-4 text-[#32b9e5]" />
+            <span className="text-sm text-[#32b9e5] font-medium">Patient Stories</span>
           </div>
-          <h2 className="text-3xl md:text-4xl font-light text-gray-900 mb-4 font-[Lexend]">
+          <h2 className="text-3xl md:text-4xl font-lexend font-light text-gray-900 mb-4">
             Real smiles,
-            <span className="text-[#00BCD4] font-normal"> real stories</span>
+            <span className="text-[#32b9e5] font-normal"> real stories</span>
           </h2>
           <p className="text-base text-gray-600 leading-relaxed">
             Hear from our patients about their experiences at NewCharm Dental.
           </p>
         </motion.div>
-
-        {/* Testimonials Slider Container */}
-        <div className="relative max-w-7xl mx-auto">
-          {/* Professional Navigation Arrows */}
-          {canScrollLeft && (
-            <button
-              onClick={scrollLeft}
-              className="absolute -left-5 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group hover:bg-white"
-              aria-label="Previous testimonials"
-            >
-              <Icon icon="solar:alt-arrow-left-bold" className="w-5 h-5 text-gray-700 group-hover:text-[#00BCD4] transition-colors" />
-            </button>
-          )}
-          
-          {canScrollRight && (
-            <button
-              onClick={scrollRight}
-              className="absolute -right-5 top-1/2 -translate-y-1/2 z-20 w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center group hover:bg-white"
-              aria-label="Next testimonials"
-            >
-              <Icon icon="solar:alt-arrow-right-bold" className="w-5 h-5 text-gray-700 group-hover:text-[#00BCD4] transition-colors" />
-            </button>
-          )}
-
-          {/* Scrollable Container */}
-          <div className="overflow-hidden">
-            <div 
-              ref={scrollContainerRef}
-              className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2"
-              style={{ 
-                scrollbarWidth: 'none', 
-                msOverflowStyle: 'none',
-                WebkitOverflowScrolling: 'touch'
-              }}
-            >
-              {testimonials.map((testimonial, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: Math.min(index * 0.1, 0.3) }}
-                  className="flex-none w-[320px] bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden group"
+        
+        <div className="relative">
+          {/* Main Testimonial Carousel */}
+          <div className="overflow-hidden rounded-2xl" style={{ opacity: 1 }}>
+            <div className="relative bg-white shadow-xl">
+              {/* Google G Logo Background */}
+              <div 
+                className="absolute top-8 left-8 w-20 h-20 rounded-2xl flex items-center justify-center opacity-10"
+                style={{ backgroundColor: '#f5f5f5' }}
+              >
+                <svg 
+                  viewBox="0 0 48 48" 
+                  className="w-14 h-14"
+                  aria-hidden="true"
                 >
-                  {/* Google Review Badge - Simplified */}
-                  <div className="bg-gradient-to-r from-[#4285F4] to-[#34A853] p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Icon icon="logos:google-icon" className="w-5 h-5" />
-                        <span className="text-white text-xs font-medium">Google Review</span>
-                      </div>
-                      <span className="text-white/80 text-xs">{testimonial.date}</span>
-                    </div>
-                  </div>
+                  <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
+                  <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
+                  <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
+                  <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+                </svg>
+              </div>
 
-                  {/* Compact Card Content */}
-                  <div className="p-4">
-                    {/* Header with smaller image */}
-                    <div className="flex items-start space-x-3 mb-3">
+              {/* Testimonial Content */}
+              <div className="relative px-8 lg:px-16 py-12">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeIndex}
+                    initial={{ opacity: 0, x: 50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -50 }}
+                    transition={{ duration: 0.3 }}
+                    className="max-w-4xl mx-auto"
+                  >
+                    {/* Stars */}
+                    <div className="flex items-center justify-center mb-6">
+                      {[...Array(5)].map((_, i) => (
+                        <svg 
+                          key={i}
+                          xmlns="http://www.w3.org/2000/svg" 
+                          width="24" 
+                          height="24" 
+                          viewBox="0 0 24 24" 
+                          fill="currentColor" 
+                          stroke="currentColor" 
+                          strokeWidth="2" 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round" 
+                          className="w-6 h-6" 
+                          aria-hidden="true" 
+                          style={{ color: '#fbbf24' }}
+                        >
+                          <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"></path>
+                        </svg>
+                      ))}
+                    </div>
+
+                    {/* Quote */}
+                    <blockquote className="text-xl lg:text-2xl text-gray-700 text-center mb-8 leading-relaxed">
+                      "{testimonials[activeIndex].content}"
+                    </blockquote>
+
+                    {/* Author */}
+                    <div className="flex items-center justify-center">
                       <img 
-                        src={testimonial.image}
-                        alt={testimonial.name}
-                        className="w-12 h-12 rounded-full object-cover"
+                        src={testimonials[activeIndex].image}
+                        alt={testimonials[activeIndex].name}
+                        className="w-16 h-16 rounded-full object-cover mr-4"
                       />
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900 text-sm">{testimonial.name}</h4>
-                        <div className="flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Icon 
-                              key={i} 
-                              icon="solar:star-bold" 
-                              className={`w-3.5 h-3.5 ${i < testimonial.rating ? 'text-yellow-400' : 'text-gray-200'}`} 
-                            />
-                          ))}
+                      <div className="text-left">
+                        <div className="font-semibold text-gray-900">
+                          {testimonials[activeIndex].name}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {testimonials[activeIndex].treatment} • {testimonials[activeIndex].date}
                         </div>
                       </div>
                     </div>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
 
-                    {/* Testimonial Content */}
-                    <p className="text-gray-700 text-sm leading-relaxed mb-3 line-clamp-3">
-                      "{testimonial.content}"
-                    </p>
-                    
-                    {/* Treatment tag - smaller */}
-                    <div className="inline-flex items-center space-x-1.5 bg-[#00BCD4]/10 px-3 py-1 rounded-full">
-                      <Icon icon="solar:tooth-bold" className="w-3.5 h-3.5 text-[#00BCD4]" />
-                      <span className="text-xs text-gray-700">
-                        {testimonial.treatment}
-                      </span>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </div>
+              {/* Navigation Arrows */}
+              <div className="absolute inset-y-0 left-0 flex items-center">
+                <button 
+                  onClick={handlePrevious}
+                  className="ml-4 p-2 rounded-full bg-white shadow-lg hover:shadow-xl transition-shadow"
+                  style={{ color: '#32b9e5' }}
+                >
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    width="24" 
+                    height="24" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    className="w-6 h-6" 
+                    aria-hidden="true"
+                  >
+                    <path d="m15 18-6-6 6-6"></path>
+                  </svg>
+                </button>
+              </div>
+              <div className="absolute inset-y-0 right-0 flex items-center">
+                <button 
+                  onClick={handleNext}
+                  className="mr-4 p-2 rounded-full bg-white shadow-lg hover:shadow-xl transition-shadow"
+                  style={{ color: '#32b9e5' }}
+                >
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    width="24" 
+                    height="24" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    className="w-6 h-6" 
+                    aria-hidden="true"
+                  >
+                    <path d="m9 18 6-6-6-6"></path>
+                  </svg>
+                </button>
+              </div>
 
-        {/* Google Reviews Summary - Compact */}
-        <motion.div 
-          className="mt-12 text-center"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.5 }}
-        >
-          <div className="inline-flex flex-col sm:flex-row items-center gap-4 bg-white px-6 py-4 rounded-xl shadow-lg">
-            <div className="flex items-center space-x-3">
-              <Icon icon="logos:google-icon" className="w-8 h-8" />
-              <div className="text-left">
-                <div className="flex items-center space-x-2">
-                  <span className="text-2xl font-bold text-gray-900">4.9</span>
-                  <div className="flex">
-                    {[...Array(5)].map((_, i) => (
-                      <Icon key={i} icon="solar:star-bold" className="w-4 h-4 text-yellow-400" />
-                    ))}
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600">150+ Google Reviews</p>
+              {/* Dots Indicator */}
+              <div className="flex justify-center pb-8 space-x-2">
+                {testimonials.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setActiveIndex(index)}
+                    className={`h-2 rounded-full transition-all duration-300 hover:scale-125 ${
+                      index === activeIndex ? 'w-8' : 'w-2'
+                    }`}
+                    style={{ 
+                      backgroundColor: index === activeIndex ? '#32b9e5' : '#E5E7EB' 
+                    }}
+                  />
+                ))}
               </div>
             </div>
-            <a 
-              href="https://www.google.com/search?q=NewCharm+Dental+Windhoek+reviews" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-sm text-[#00BCD4] hover:text-[#0097A7] font-medium transition-colors"
-            >
-              View all reviews →
-            </a>
           </div>
-        </motion.div>
 
-        {/* Trust Badges */}
-        <div className="mt-12 text-center">
-          <p className="text-sm text-gray-500 mb-6 font-medium">Trusted by the Windhoek Community</p>
-          <div className="flex flex-wrap justify-center items-center gap-8">
-            <motion.div 
-              className="flex items-center space-x-2"
-              whileHover={{ scale: 1.05 }}
-            >
-              <Icon icon="solar:verified-check-bold" className="w-6 h-6 text-[#00BCD4]" />
-              <span className="text-gray-700 font-semibold">Google Verified Business</span>
-            </motion.div>
-            <motion.div 
-              className="flex items-center space-x-2"
-              whileHover={{ scale: 1.05 }}
-            >
-              <Icon icon="solar:shield-check-bold" className="w-6 h-6 text-[#00BCD4]" />
-              <span className="text-gray-700 font-semibold">100% Authentic Reviews</span>
-            </motion.div>
-            <motion.div 
-              className="flex items-center space-x-2"
-              whileHover={{ scale: 1.05 }}
-            >
-              <Icon icon="solar:cup-star-bold" className="w-6 h-6 text-[#00BCD4]" />
-              <span className="text-gray-700 font-semibold">Top Rated in Namibia</span>
-            </motion.div>
+          {/* Small Testimonial Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12" style={{ opacity: 1, transform: 'none' }}>
+            {testimonials.slice(0, 3).map((testimonial, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow"
+                style={{ opacity: 1, transform: 'none' }}
+              >
+                {/* Stars and Date */}
+                <div className="flex items-center mb-4">
+                  {[...Array(5)].map((_, i) => (
+                    <svg 
+                      key={i}
+                      xmlns="http://www.w3.org/2000/svg" 
+                      width="24" 
+                      height="24" 
+                      viewBox="0 0 24 24" 
+                      fill="currentColor" 
+                      stroke="currentColor" 
+                      strokeWidth="2" 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      className="w-4 h-4" 
+                      aria-hidden="true" 
+                      style={{ color: '#fbbf24' }}
+                    >
+                      <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"></path>
+                    </svg>
+                  ))}
+                  <span className="ml-2 text-sm text-gray-600">{testimonial.date}</span>
+                </div>
+
+                {/* Quote */}
+                <p className="text-gray-700 mb-4" style={{
+                  display: '-webkit-box',
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden'
+                }}>
+                  "{testimonial.content}"
+                </p>
+
+                {/* Author */}
+                <div className="flex items-center">
+                  <img 
+                    src={testimonial.image}
+                    alt={testimonial.name}
+                    className="w-10 h-10 rounded-full object-cover mr-3"
+                  />
+                  <div>
+                    <div className="font-medium text-gray-900 text-sm">
+                      {testimonial.name}
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      {testimonial.treatment}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
           </div>
         </div>
       </div>
-
-      <style jsx>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .line-clamp-4 {
-          display: -webkit-box;
-          -webkit-line-clamp: 4;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
     </section>
   );
 };

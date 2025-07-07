@@ -109,7 +109,7 @@ const NewCharmAbout: React.FC<NewCharmAboutProps> = () => {
 
 
   return (
-    <section id="about" className="py-20 md:py-24 bg-gray-50">
+    <section id="about" className="py-20 md:py-24 bg-gray-50 border-t border-gray-100">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           {/* Left Content */}
@@ -120,13 +120,13 @@ const NewCharmAbout: React.FC<NewCharmAboutProps> = () => {
             transition={{ duration: 0.6 }}
           >
             <div className="inline-flex items-center space-x-2 bg-white px-4 py-2 rounded-full mb-6 shadow-sm">
-              <Icon icon="solar:info-circle-bold-duotone" className="w-4 h-4 text-[#00BCD4]" />
-              <span className="text-sm text-[#00BCD4] font-medium">About NewCharm</span>
+              <Icon icon="solar:info-circle-bold-duotone" className="w-4 h-4 text-[#32b9e5]" />
+              <span className="text-sm text-[#32b9e5] font-medium">About NewCharm</span>
             </div>
             
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-light text-gray-900 mb-6 leading-tight font-[Lexend]">
+            <h2 className="text-3xl md:text-4xl font-lexend font-light text-gray-900 mb-6 leading-tight">
               Where expertise meets
-              <span className="block bg-gradient-to-r from-[#00BCD4] to-[#0097A7] bg-clip-text text-transparent font-normal mt-2">compassionate care</span>
+              <span className="text-[#32b9e5] font-normal"> compassionate care</span>
             </h2>
             
             <p className="text-lg text-gray-600 mb-8 leading-relaxed">
@@ -153,7 +153,7 @@ const NewCharmAbout: React.FC<NewCharmAboutProps> = () => {
                   viewport={{ once: true }}
                   transition={{ duration: 0.6, delay: index * 0.1 }}
                 >
-                  <div className="text-3xl font-light bg-gradient-to-r from-[#00BCD4] to-[#0097A7] bg-clip-text text-transparent mb-1">{stat.number}</div>
+                  <div className="text-3xl font-light bg-gradient-to-r from-[#32b9e5] to-[#ec7ec5] bg-clip-text text-transparent mb-1">{stat.number}</div>
                   <div className="text-sm text-gray-600">{stat.label}</div>
                 </motion.div>
               ))}
@@ -161,7 +161,7 @@ const NewCharmAbout: React.FC<NewCharmAboutProps> = () => {
 
             <button 
               onClick={() => document.getElementById('team')?.scrollIntoView({ behavior: 'smooth' })}
-              className="px-8 py-4 bg-gradient-to-r from-[#00BCD4] to-[#0097A7] text-white rounded-full hover:shadow-xl transition-all duration-300 font-medium shadow-lg transform hover:-translate-y-0.5 flex items-center space-x-2"
+              className="px-8 py-4 bg-gradient-to-r from-[#32b9e5] to-[#ec7ec5] text-white rounded-full hover:shadow-xl transition-all duration-300 font-medium shadow-lg transform hover:-translate-y-0.5 flex items-center space-x-2"
             >
               <span>Meet Our Team</span>
               <Icon icon="solar:arrow-right-bold-duotone" className="w-5 h-5" />
@@ -190,8 +190,8 @@ const NewCharmAbout: React.FC<NewCharmAboutProps> = () => {
                     transition={{ duration: 0.6, delay: index * 0.1 }}
                   >
                     <div className="flex-shrink-0">
-                      <div className="w-12 h-12 bg-gradient-to-br from-[#00BCD4]/20 to-[#0097A7]/20 rounded-xl flex items-center justify-center">
-                        <Icon icon={value.icon} className="w-6 h-6 text-[#00BCD4]" />
+                      <div className="w-12 h-12 bg-gradient-to-br from-[#32b9e5]/20 to-[#ec7ec5]/20 rounded-xl flex items-center justify-center">
+                        <Icon icon={value.icon} className="w-6 h-6 text-[#32b9e5]" />
                       </div>
                     </div>
                     <div>
@@ -207,11 +207,11 @@ const NewCharmAbout: React.FC<NewCharmAboutProps> = () => {
                 <p className="text-sm text-gray-500 mb-4">Accredited by</p>
                 <div className="flex flex-wrap items-center gap-4 md:gap-6">
                   <div className="flex items-center space-x-2">
-                    <Icon icon="solar:verified-check-bold-duotone" className="w-5 h-5 text-[#00BCD4]" />
+                    <Icon icon="solar:verified-check-bold-duotone" className="w-5 h-5 text-[#32b9e5]" />
                     <span className="text-sm text-gray-700">ADA Member</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Icon icon="solar:shield-check-bold-duotone" className="w-5 h-5 text-[#00BCD4]" />
+                    <Icon icon="solar:shield-check-bold-duotone" className="w-5 h-5 text-[#32b9e5]" />
                     <span className="text-sm text-gray-700">ISO Certified</span>
                   </div>
                 </div>
@@ -223,7 +223,7 @@ const NewCharmAbout: React.FC<NewCharmAboutProps> = () => {
         {/* Team Section */}
         <div className="mt-20" id="team">
           <div className="text-center mb-12">
-            <h3 className="text-3xl md:text-4xl font-light text-gray-900 mb-4 font-[Lexend]">
+            <h3 className="text-3xl md:text-4xl font-lexend font-light text-gray-900 mb-4">
               Meet Our Expert Team
             </h3>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
@@ -270,7 +270,7 @@ const NewCharmAbout: React.FC<NewCharmAboutProps> = () => {
                     </div>
                     <div className="p-6">
                       <h4 className="text-lg font-semibold text-gray-900 mb-1">{member.full_name}</h4>
-                      <p className="text-[#00BCD4] text-sm font-medium mb-2">
+                      <p className="text-[#32b9e5] text-sm font-medium mb-2">
                         {member.job_title}
                       </p>
                       {member.staff_title && (
@@ -301,7 +301,7 @@ const NewCharmAbout: React.FC<NewCharmAboutProps> = () => {
           transition={{ duration: 0.6 }}
         >
           <div className="max-w-3xl mx-auto text-center">
-            <Icon icon="solar:cpu-bolt-bold-duotone" className="w-12 h-12 text-[#00BCD4] mx-auto mb-6" />
+            <Icon icon="solar:cpu-bolt-bold-duotone" className="w-12 h-12 text-[#32b9e5] mx-auto mb-6" />
             <h3 className="text-3xl font-light text-gray-900 mb-4">
               Advanced Technology for Better Care
             </h3>
@@ -314,7 +314,7 @@ const NewCharmAbout: React.FC<NewCharmAboutProps> = () => {
               {['Digital X-Rays', '3D Imaging', 'Laser Dentistry', 'Intraoral Cameras'].map((tech, index) => (
                 <motion.div 
                   key={index} 
-                  className="px-4 py-2 bg-gradient-to-r from-[#00BCD4]/10 to-[#0097A7]/10 rounded-full text-sm text-gray-700"
+                  className="px-4 py-2 bg-gradient-to-r from-[#32b9e5]/10 to-[#ec7ec5]/10 rounded-full text-sm text-gray-700"
                   initial={{ opacity: 0, scale: 0.8 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   viewport={{ once: true }}
