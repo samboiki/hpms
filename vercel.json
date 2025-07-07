@@ -1,3 +1,6 @@
 {
-  "rootDirectory": "hpms-landing"
+  "buildCommand": "cd hpms-landing && npm install && npm run build",
+  "outputDirectory": "hpms-landing/.next",
+  "installCommand": "cd hpms-landing && npm install",
+  "framework": "nextjs"
 }
