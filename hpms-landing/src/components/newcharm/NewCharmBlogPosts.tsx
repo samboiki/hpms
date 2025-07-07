@@ -25,7 +25,7 @@ const NewCharmBlogPosts: React.FC = () => {
       categorySecondary: 'Trends',
       date: { day: '10', month: 'Jan' },
       excerpt: 'Professional teeth whitening can transform your smile. Learn about the latest techniques and what to expect.',
-      image: '/images/newcharm/Screenshot 2025-07-07 074718.png',
+      image: 'https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/screenshot-2025-07-07-074718.png',
       author: {
         name: 'Dr. Monica Gustav',
         avatar: 'https://ui-avatars.com/api/?name=Monica+Gustav&background=32b9e5&color=fff'
@@ -40,7 +40,7 @@ const NewCharmBlogPosts: React.FC = () => {
       categorySecondary: 'Guides',
       date: { day: '5', month: 'Jan' },
       excerpt: 'Learn how to protect your gums with proper oral hygiene techniques and regular dental check-ups.',
-      image: '/images/newcharm/Screenshot 2025-07-07 074207.png',
+      image: 'https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/screenshot-2025-07-07-074207.png',
       author: {
         name: 'Dr. Grace Festus',
         avatar: 'https://ui-avatars.com/api/?name=Grace+Festus&background=32b9e5&color=fff'
@@ -54,7 +54,7 @@ const NewCharmBlogPosts: React.FC = () => {
       category: 'Pediatric',
       date: { day: '28', month: 'Dec' },
       excerpt: 'Essential tips for maintaining your child\'s oral health and making dental visits fun and stress-free.',
-      image: '/images/newcharm/Screenshot 2025-07-07 074654.png',
+      image: 'https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/screenshot-2025-07-07-074654.png',
       author: {
         name: 'Dr. Anna Timoteus',
         avatar: 'https://ui-avatars.com/api/?name=Anna+Timoteus&background=32b9e5&color=fff'

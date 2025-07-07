@@ -18,7 +18,7 @@ const NewCharmHero: React.FC<NewCharmHeroProps> = () => {
         transition={{ duration: 1.5, ease: "easeOut" }}
       >
         <img 
-          src="/images/newcharm/Screenshot 2025-07-07 072110.png"
+          src="https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/screenshot-2025-07-07-072110.png"
           alt="Professional dental care"
           className="w-full h-full object-cover"
         />

@@ -61,7 +61,7 @@ const ImprovedBookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) 
       id: 'cleaning', 
       name: 'Teeth Cleaning', 
       icon: 'solar:tooth-bold-duotone',
-      image: '/images/newcharm/Screenshot 2025-07-07 074156.png',
+      image: 'https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/screenshot-2025-07-07-074156.png',
       duration: '45 min',
       price: 'N$350'
     },
@@ -69,7 +69,7 @@ const ImprovedBookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) 
       id: 'whitening', 
       name: 'Teeth Whitening', 
       icon: 'solar:star-shine-bold-duotone',
-      image: '/images/newcharm/Screenshot 2025-07-07 074718.png',
+      image: 'https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/screenshot-2025-07-07-074718.png',
       duration: '90 min',
       price: 'N$2,800'
     },
@@ -77,7 +77,7 @@ const ImprovedBookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) 
       id: 'implants', 
       name: 'Dental Implants', 
       icon: 'solar:medical-kit-bold-duotone',
-      image: '/images/newcharm/Screenshot 2025-07-07 074514.png',
+      image: 'https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/screenshot-2025-07-07-074514.png',
       duration: '2-3 visits',
       price: 'From N$12,000'
     },
@@ -85,7 +85,7 @@ const ImprovedBookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) 
       id: 'orthodontics', 
       name: 'Orthodontics', 
       icon: 'solar:smile-circle-bold-duotone',
-      image: '/images/newcharm/Screenshot 2025-07-07 074844.png',
+      image: 'https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/screenshot-2025-07-07-074844.png',
       duration: '12-24 months',
       price: 'From N$18,000'
     },
@@ -93,7 +93,7 @@ const ImprovedBookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) 
       id: 'emergency', 
       name: 'Emergency Care', 
       icon: 'solar:shield-warning-bold-duotone',
-      image: '/images/newcharm/Screenshot 2025-07-07 074402.png',
+      image: 'https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/screenshot-2025-07-07-074402.png',
       duration: 'Immediate',
       price: 'From N$550'
     },
@@ -101,7 +101,7 @@ const ImprovedBookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose }) 
       id: 'checkup', 
       name: 'General Checkup', 
       icon: 'solar:health-bold-duotone',
-      image: '/images/newcharm/Screenshot 2025-07-07 074442.png',
+      image: 'https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/screenshot-2025-07-07-074442.png',
       duration: '60 min',
       price: 'N$450'
     }

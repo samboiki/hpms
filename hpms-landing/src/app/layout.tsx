@@ -87,7 +87,6 @@ export default function RootLayout({
             `,
           }}
         />
-        <script src="/env-init.js" />
       </head>
       <body
         className={`${montserrat.variable} ${poppins.variable} ${lexend.variable} ${rubik.variable} font-montserrat antialiased`}
