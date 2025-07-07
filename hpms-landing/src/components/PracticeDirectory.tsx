@@ -61,8 +61,7 @@ export default function PracticeDirectory() {
   const getBusinessHoursText = (businessHours: any) => {
     if (!businessHours) return 'Hours vary'
     
-    const today = new Date().toLocaleLowerCase().substring(0, 3) + 
-                  new Date().toLocaleLowerCase().substring(3)
+    const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
     const todaysHours = businessHours[today]
     
     if (todaysHours?.closed) return 'Closed today'
@@ -75,7 +74,7 @@ export default function PracticeDirectory() {
   const getAverageRating = (testimonials: any[]) => {
     if (!testimonials || testimonials.length === 0) return 0
     const sum = testimonials.reduce((acc, t) => acc + (t.rating || 0), 0)
-    return (sum / testimonials.length).toFixed(1)
+    return sum / testimonials.length
   }
 
   const getPracticeType = (practice: Practice) => {
@@ -183,8 +182,8 @@ export default function PracticeDirectory() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {practices.map((practice) => {
                 const practiceType = getPracticeType(practice)
-                const averageRating = getAverageRating(practice.testimonials)
-                const hasImages = practice.metadata?.before_after_gallery?.length > 0
+                const averageRating = getAverageRating(practice.testimonials || [])
+                const hasImages = (practice.metadata?.before_after_gallery?.length ?? 0) > 0
 
                 return (
                   <Link 
@@ -230,7 +229,7 @@ export default function PracticeDirectory() {
                             <div className="flex items-center text-yellow-500">
                               <Star className="w-4 h-4 fill-current" />
                               <span className="text-sm font-medium text-gray-700 ml-1">
-                                {averageRating}
+                                {averageRating.toFixed(1)}
                               </span>
                             </div>
                           )}

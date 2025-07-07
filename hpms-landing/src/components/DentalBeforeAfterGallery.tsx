@@ -173,7 +173,7 @@ export default function DentalBeforeAfterGallery({ cases, practiceMetadata }: De
 
           {/* Case Indicators */}
           <div className="flex justify-center gap-2 mt-6">
-            {transformations.map((_, index) => (
+            {transformations.map((_: any, index: number) => (
               <button
                 key={index}
                 onClick={() => {

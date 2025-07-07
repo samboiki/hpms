@@ -8,20 +8,7 @@ interface LocationMapProps {
   practice: Practice;
 }
 
-declare global {
-  interface Window {
-    google: {
-      maps: {
-        Map: any;
-        Marker: any;
-        InfoWindow: any;
-        LatLngBounds: any;
-        Size: any;
-      };
-    };
-    initMap: () => void;
-  }
-}
+// Google Maps types are handled by @types/google.maps
 
 export default function LocationMap({ practice }: LocationMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
