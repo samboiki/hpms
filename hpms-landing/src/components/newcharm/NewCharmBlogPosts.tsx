@@ -10,7 +10,7 @@ const NewCharmBlogPosts: React.FC = () => {
       category: 'Guides',
       date: { day: '15', month: 'Jan' },
       excerpt: 'Discover everything you need to know about dental implants, from the procedure to recovery and long-term care.',
-      image: '/images/newcharm/Screenshot 2025-07-07 074514.png',
+      image: 'https://jjxlfunlbyayxwvlpgwt.supabase.co/storage/v1/object/public/practice-images/newcharm/screenshot-2025-07-07-074514.png',
       author: {
         name: 'Dr. Anna Timoteus',
         avatar: 'https://ui-avatars.com/api/?name=Anna+Timoteus&background=32b9e5&color=fff'
