@@ -16,12 +16,12 @@ const NewCharmServices: React.FC<NewCharmServicesProps> = ({ onBookService }) =>
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   const serviceImages: Record<string, string> = {
-    'general-dentistry': '/images/newcharm/images/Screenshot 2025-07-07 074156.png',
-    'cosmetic-dentistry': '/images/newcharm/images/Screenshot 2025-07-07 075054.png',
-    'orthodontics': '/images/newcharm/images/Screenshot 2025-07-07 074844.png',
-    'oral-surgery': '/images/newcharm/images/Screenshot 2025-07-07 074333.png',
-    'emergency-care': '/images/newcharm/images/Screenshot 2025-07-07 074402.png',
-    'preventive-care': '/images/newcharm/images/Screenshot 2025-07-07 074236.png'
+    'general-dentistry': '/images/newcharm/Screenshot 2025-07-07 074156.png',
+    'cosmetic-dentistry': '/images/newcharm/Screenshot 2025-07-07 075054.png',
+    'orthodontics': '/images/newcharm/Screenshot 2025-07-07 074844.png',
+    'oral-surgery': '/images/newcharm/Screenshot 2025-07-07 074333.png',
+    'emergency-care': '/images/newcharm/Screenshot 2025-07-07 074402.png',
+    'preventive-care': '/images/newcharm/Screenshot 2025-07-07 074236.png'
   };
 
   const handleBookNow = (subService: SubService) => {
