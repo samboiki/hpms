@@ -15,6 +15,7 @@ import PracticeInventory from '../components/settings/PracticeInventory';
 import { usePractice } from '../contexts/PracticeContext';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
 import TimePickerModal from '../components/ui/TimePickerModal';
+import { platformSettings, getPlatformDefaults } from '../config/socialPlatformSettings';
 
 // Iconify is now handled by @iconify/react package
 
@@ -2557,8 +2558,10 @@ const PracticeDocumentsContent: React.FC = () => {
 // Practice Social Accounts Content Component
 const PracticeSocialAccountsContent: React.FC = () => {
   const [socialAccounts, setSocialAccounts] = useState<any[]>([]);
+  const [oauthApps, setOauthApps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<any>(null);
   const [formData, setFormData] = useState({
     platform: '',
@@ -2571,6 +2574,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
     // OAuth and API Integration
     app_id: '',
     client_id: '',
+    client_secret: '', // Added to store temporarily for OAuth setup
     access_token: '',
     refresh_token: '',
     token_expires_at: '',
@@ -2631,6 +2635,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
   const { practiceId } = usePractice();
 
   const socialPlatforms = [
+    { value: 'gmail', label: 'Gmail', icon: 'logos:google-gmail', color: 'bg-red-50 text-red-600', description: 'Send automated emails from your practice Gmail account' },
     { value: 'facebook', label: 'Facebook', icon: 'devicon:facebook', color: 'bg-blue-100 text-blue-600', description: 'Connect with patients and share practice updates' },
     { value: 'instagram', label: 'Instagram', icon: 'skill-icons:instagram', color: 'bg-pink-100 text-pink-600', description: 'Share visual content and practice highlights' },
     { value: 'twitter', label: 'Twitter/X', icon: 'garden:twitter-fill-12', color: 'bg-sky-100 text-sky-600', description: 'Share quick updates and health tips' },
@@ -2645,14 +2650,25 @@ const PracticeSocialAccountsContent: React.FC = () => {
     
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('practice_social_accounts')
-        .select('*')
-        .eq('practice_id', practiceId)
-        .order('created_at', { ascending: false });
+      
+      // Load both social accounts and OAuth apps
+      const [socialAccountsResponse, oauthAppsResponse] = await Promise.all([
+        supabase
+          .from('practice_social_accounts')
+          .select('*')
+          .eq('practice_id', practiceId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('practice_oauth_apps')
+          .select('*')
+          .eq('practice_id', practiceId)
+      ]);
 
-      if (error) throw error;
-      setSocialAccounts(data || []);
+      if (socialAccountsResponse.error) throw socialAccountsResponse.error;
+      if (oauthAppsResponse.error) throw oauthAppsResponse.error;
+      
+      setSocialAccounts(socialAccountsResponse.data || []);
+      setOauthApps(oauthAppsResponse.data || []);
     } catch (error) {
       console.error('Error loading social accounts:', error);
     } finally {
@@ -2662,23 +2678,178 @@ const PracticeSocialAccountsContent: React.FC = () => {
 
   useEffect(() => {
     loadSocialAccounts();
+    
+    // Check for Gmail OAuth callback
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    
+    if (code && (state === 'gmail_oauth_social' || state === 'gmail_oauth_connect')) {
+      handleGmailOAuthCallback(code, state);
+    }
   }, [practiceId]);
+  
+  const handleGmailOAuthCallback = async (code: string, state: string) => {
+    try {
+      // Call edge function to exchange code for tokens
+      const { data, error } = await supabase.functions.invoke('gmail-oauth-callback', {
+        body: {
+          code,
+          redirect_uri: `${window.location.origin}/settings`,
+          practice_id: practiceId
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (state === 'gmail_oauth_social') {
+        // Creating new social account - retrieve stored form data
+        const storedData = sessionStorage.getItem('gmailOAuthFormData');
+        if (!storedData) {
+          console.error('No stored form data found');
+          return;
+        }
+        
+        const savedFormData = JSON.parse(storedData);
+        sessionStorage.removeItem('gmailOAuthFormData');
+        
+        // Update form data with OAuth info
+        setFormData({
+          ...savedFormData,
+          username: data.email,
+          access_token: 'connected', // We don't expose the actual token
+          client_id: data.email, // Store email as client_id for reference
+          auth_scope: 'gmail.send gmail.compose'
+        });
+        
+        // Open the modal with updated data
+        setShowAddModal(true);
+      } else if (state === 'gmail_oauth_connect') {
+        // Updating existing social account
+        const socialAccountId = sessionStorage.getItem('gmailOAuthSocialAccountId');
+        sessionStorage.removeItem('gmailOAuthSocialAccountId');
+        
+        if (socialAccountId) {
+          // Update the social account with OAuth info
+          await supabase
+            .from('practice_social_accounts')
+            .update({
+              username: data.email,
+              access_token: 'connected',
+              client_id: data.email,
+              auth_scope: 'gmail.send gmail.compose',
+              updated_by: user?.id
+            })
+            .eq('id', socialAccountId);
+          
+          // Reload accounts to show updated status
+          await loadSocialAccounts();
+        }
+      }
+      
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, '/settings');
+    } catch (error) {
+      console.error('OAuth callback error:', error);
+      alert('Failed to connect Gmail account. Please try again.');
+    }
+  };
 
   const handleAddAccount = async (accountData: any) => {
     if (!practiceId) return;
 
     try {
+      // For Gmail, ONLY save OAuth credentials to practice_oauth_apps
+      if (accountData.platform === 'gmail' && accountData.client_id && accountData.client_secret) {
+        // Save OAuth credentials to practice_oauth_apps table
+        const { error: oauthError } = await supabase
+          .from('practice_oauth_apps')
+          .upsert({
+            practice_id: practiceId,
+            provider: 'google',
+            client_id: accountData.client_id,
+            client_secret: accountData.client_secret,
+            redirect_uri: `${window.location.origin}/settings,https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/gmail-oauth-callback`
+          });
+
+        if (oauthError) throw oauthError;
+        
+        // For Gmail, we're done - don't save to practice_social_accounts
+        setShowAddModal(false);
+        setShowSuccessModal(true);
+        return;
+      }
+
+      // For other platforms, save to practice_social_accounts
+      const { client_secret, ...socialAccountData } = accountData;
+
       const { error } = await supabase
         .from('practice_social_accounts')
         .insert({
           practice_id: practiceId,
           created_by: user?.id,
-          ...accountData
+          ...socialAccountData
         });
 
       if (error) throw error;
       await loadSocialAccounts();
       setShowAddModal(false);
+      
+      // Reset form data
+      setFormData({
+        platform: '',
+        account_name: '',
+        profile_url: '',
+        username: '',
+        description: '',
+        is_business_account: false,
+        app_id: '',
+        client_id: '',
+        client_secret: '',
+        access_token: '',
+        refresh_token: '',
+        token_expires_at: '',
+        auth_scope: '',
+        page_id: '',
+        can_post_text: true,
+        can_post_images: true,
+        can_post_videos: false,
+        can_schedule_posts: false,
+        can_delete_posts: false,
+        can_edit_posts: false,
+        can_reply_comments: false,
+        can_moderate_comments: false,
+        rate_limit_posts_per_hour: 0,
+        rate_limit_posts_per_day: 0,
+        rate_limit_requests_per_hour: 0,
+        rate_limit_window_minutes: 0,
+        max_text_length: 0,
+        max_hashtags: 0,
+        image_max_size_mb: 0,
+        video_max_size_mb: 0,
+        max_images_per_post: 0,
+        max_videos_per_post: 0,
+        video_max_duration_seconds: 0,
+        supports_stories: false,
+        supports_polls: false,
+        supports_link_preview: true,
+        supports_mentions: false,
+        supports_hashtags: true,
+        supports_analytics: false,
+        supports_scheduling: false,
+        auto_resize_images: true,
+        auto_crop_images: false,
+        auto_compress_videos: true,
+        content_template: '',
+        hashtag_strategy: 'smart',
+        mention_strategy: 'manual',
+        is_active: true,
+        last_sync_at: '',
+        sync_status: 'pending',
+        error_count: 0,
+        last_error: '',
+        health_check_interval_hours: 24
+      });
     } catch (error) {
       console.error('Error adding social account:', error);
       alert('Failed to add social account. Please try again.');
@@ -2756,20 +2927,38 @@ const PracticeSocialAccountsContent: React.FC = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {socialPlatforms.map((platform) => {
-              const connectedAccount = socialAccounts.find(acc => acc.platform === platform.value);
+              // For Gmail, check OAuth apps; for others, check social accounts
+              const connectedAccount = platform.value === 'gmail' 
+                ? oauthApps.find(app => app.provider === 'google')
+                : socialAccounts.find(acc => acc.platform === platform.value);
+              const isConnected = !!connectedAccount;
+              
               return (
-                <div key={platform.value} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div 
+                  key={platform.value} 
+                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-purple-300 transition-all cursor-pointer group"
+                  onClick={() => {
+                    setFormData({
+                      ...formData,
+                      platform: platform.value,
+                      ...getPlatformDefaults(platform.value)
+                    });
+                    setEditingAccount(null);
+                    setShowAddModal(true);
+                  }}
+                  title={`Click to ${isConnected ? 'update' : 'connect'} ${platform.label}`}
+                >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${platform.color}`}>
+                      <div className={`p-2 rounded-lg ${platform.color} group-hover:scale-110 transition-transform`}>
                         <Icon icon={platform.icon} className="w-5 h-5" />
                       </div>
                       <div>
-                        <h3 className="font-medium text-gray-900">{platform.label}</h3>
+                        <h3 className="font-medium text-gray-900 group-hover:text-purple-600 transition-colors">{platform.label}</h3>
                         <p className="text-xs text-gray-500">{platform.description}</p>
                       </div>
                     </div>
-                    {connectedAccount ? (
+                    {isConnected ? (
                       <div className="flex items-center gap-1">
                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                         <span className="text-xs text-green-600 font-medium">Connected</span>
@@ -2781,10 +2970,19 @@ const PracticeSocialAccountsContent: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  {connectedAccount && (
+                  {isConnected && (
                     <div className="text-sm text-gray-600">
-                      <p className="font-medium">{connectedAccount.account_name}</p>
-                      <p className="text-xs text-gray-500">{connectedAccount.username}</p>
+                      {platform.value === 'gmail' ? (
+                        <>
+                          <p className="font-medium">Gmail Connected</p>
+                          <p className="text-xs text-gray-500">OAuth configured</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium">{connectedAccount.account_name}</p>
+                          <p className="text-xs text-gray-500">{connectedAccount.username}</p>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2851,6 +3049,42 @@ const PracticeSocialAccountsContent: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center gap-2">
+                            {account.platform === 'gmail' && !account.access_token && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={async () => {
+                                  // Get OAuth credentials from practice_oauth_apps
+                                  const { data: oauthApp } = await supabase
+                                    .from('practice_oauth_apps')
+                                    .select('client_id')
+                                    .eq('practice_id', practiceId)
+                                    .eq('provider', 'google')
+                                    .single();
+
+                                  if (oauthApp) {
+                                    // Store the social account ID to update after OAuth
+                                    sessionStorage.setItem('gmailOAuthSocialAccountId', account.id);
+                                    
+                                    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+                                    authUrl.searchParams.append('client_id', oauthApp.client_id);
+                                    authUrl.searchParams.append('redirect_uri', `${window.location.origin}/settings`);
+                                    authUrl.searchParams.append('response_type', 'code');
+                                    authUrl.searchParams.append('scope', 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/userinfo.email');
+                                    authUrl.searchParams.append('access_type', 'offline');
+                                    authUrl.searchParams.append('prompt', 'consent');
+                                    authUrl.searchParams.append('state', 'gmail_oauth_connect');
+                                    
+                                    window.location.href = authUrl.toString();
+                                  } else {
+                                    alert('OAuth credentials not found. Please check the OAuth Apps Management section.');
+                                  }
+                                }}
+                              >
+                                <Icon icon="logos:google-icon" className="w-4 h-4 mr-1" />
+                                Connect
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -2906,8 +3140,12 @@ const PracticeSocialAccountsContent: React.FC = () => {
                     <Icon icon={SolarIcons.globe} className="w-7 h-7 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold" style={{fontFamily: 'Poppins, sans-serif'}}>Add Social Media Account</h2>
-                    <p className="text-blue-100 text-sm">Connect your practice social media account</p>
+                    <h2 className="text-xl font-bold" style={{fontFamily: 'Poppins, sans-serif'}}>
+                      {formData.platform === 'gmail' ? 'Configure Gmail OAuth' : 'Add Social Media Account'}
+                    </h2>
+                    <p className="text-blue-100 text-sm">
+                      {formData.platform === 'gmail' ? 'Set up Gmail for automated emails' : 'Connect your practice social media account'}
+                    </p>
                   </div>
                 </div>
                 <button
@@ -2915,7 +3153,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
                     setShowAddModal(false);
                     setFormData({
                       platform: '', account_name: '', profile_url: '', username: '', description: '', is_business_account: false,
-                      app_id: '', client_id: '', access_token: '', refresh_token: '', token_expires_at: '', auth_scope: '', page_id: '',
+                      app_id: '', client_id: '', client_secret: '', access_token: '', refresh_token: '', token_expires_at: '', auth_scope: '', page_id: '',
                       can_post_text: true, can_post_images: true, can_post_videos: false, can_schedule_posts: false,
                       can_delete_posts: false, can_edit_posts: false, can_reply_comments: false, can_moderate_comments: false,
                       rate_limit_posts_per_hour: 0, rate_limit_posts_per_day: 0, rate_limit_requests_per_hour: 0, rate_limit_window_minutes: 0,
@@ -2960,7 +3198,15 @@ const PracticeSocialAccountsContent: React.FC = () => {
                         <Icon icon={SolarIcons.settings} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
                         <select
                           value={formData.platform}
-                          onChange={(e) => setFormData({ ...formData, platform: e.target.value })}
+                          onChange={(e) => {
+                            const platform = e.target.value;
+                            const defaults = getPlatformDefaults(platform);
+                            setFormData({ 
+                              ...formData, 
+                              platform,
+                              ...defaults
+                            });
+                          }}
                           className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
                           required
                         >
@@ -2987,135 +3233,265 @@ const PracticeSocialAccountsContent: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="relative">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Profile URL</label>
-                      <div className="relative">
-                        <Icon icon={SolarIcons.link} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
-                        <input
-                          type="url"
-                          value={formData.profile_url}
-                          onChange={(e) => setFormData({ ...formData, profile_url: e.target.value })}
-                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
-                          placeholder="https://facebook.com/yourpractice"
-                          required
-                        />
+                    {formData.platform !== 'gmail' && (
+                      <>
+                        <div className="relative">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Profile URL</label>
+                          <div className="relative">
+                            <Icon icon={SolarIcons.link} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                            <input
+                              type="url"
+                              value={formData.profile_url}
+                              onChange={(e) => setFormData({ ...formData, profile_url: e.target.value })}
+                              className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                              placeholder="https://facebook.com/yourpractice"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="relative">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Username/Handle</label>
+                          <div className="relative">
+                            <Icon icon={SolarIcons.at} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                            <input
+                              type="text"
+                              value={formData.username}
+                              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                              className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                              placeholder="@yourpractice"
+                            />
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {formData.platform !== 'gmail' && (
+                    <>
+                      <div className="mt-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <div className="relative">
+                          <textarea
+                            value={formData.description}
+                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                            className="w-full pl-4 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                            rows={3}
+                            placeholder="Brief description of your account"
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="relative">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Username/Handle</label>
-                      <div className="relative">
-                        <Icon icon={SolarIcons.at} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                      <div className="mt-6 flex items-center">
                         <input
-                          type="text"
-                          value={formData.username}
-                          onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
-                          placeholder="@yourpractice"
+                          type="checkbox"
+                          id="business_account"
+                          checked={formData.is_business_account}
+                          onChange={(e) => setFormData({ ...formData, is_business_account: e.target.checked })}
+                          className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
                         />
+                        <label htmlFor="business_account" className="ml-2 text-sm font-medium text-gray-700">
+                          This is a business account
+                        </label>
                       </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                    <div className="relative">
-                      <textarea
-                        value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        className="w-full pl-4 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
-                        rows={3}
-                        placeholder="Brief description of your account"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-6 flex items-center">
-                    <input
-                      type="checkbox"
-                      id="business_account"
-                      checked={formData.is_business_account}
-                      onChange={(e) => setFormData({ ...formData, is_business_account: e.target.checked })}
-                      className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
-                    />
-                    <label htmlFor="business_account" className="ml-2 text-sm font-medium text-gray-700">
-                      This is a business account
-                    </label>
-                  </div>
+                    </>
+                  )}
                 </div>
 
-                {/* OAuth & API Integration Section */}
+                {/* OAuth & API Integration Section - Show for Gmail to enter credentials */}
+                {formData.platform === 'gmail' && (
                 <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
                   <div className="flex items-center gap-3 mb-6 -ml-2">
                     <div className="p-2 bg-blue-100 rounded-lg">
                       <Icon icon={SolarIcons.key} className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900">API Integration</h3>
-                      <p className="text-sm text-gray-500">Required for concurrent broadcasting functionality</p>
+                      <h3 className="text-lg font-semibold text-gray-900">Gmail OAuth Configuration</h3>
+                      <p className="text-sm text-gray-500">Enter your Google OAuth credentials</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
                     <div className="relative">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">App ID</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">OAuth Client ID</label>
                       <div className="relative">
                         <Icon icon={SolarIcons.code} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
-                        <input
-                          type="text"
-                          value={formData.app_id}
-                          onChange={(e) => setFormData({ ...formData, app_id: e.target.value })}
-                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
-                          placeholder="Platform App ID"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="relative">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Client ID</label>
-                      <div className="relative">
-                        <Icon icon={SolarIcons.id} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
                         <input
                           type="text"
                           value={formData.client_id}
                           onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
                           className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
-                          placeholder="OAuth Client ID"
+                          placeholder="xxxxx.apps.googleusercontent.com"
+                          required
                         />
                       </div>
                     </div>
 
                     <div className="relative">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Page/Account ID</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">OAuth Client Secret</label>
                       <div className="relative">
-                        <Icon icon={SolarIcons.hashtag} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                        <Icon icon={SolarIcons.key} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
                         <input
-                          type="text"
-                          value={formData.page_id}
-                          onChange={(e) => setFormData({ ...formData, page_id: e.target.value })}
+                          type="password"
+                          value={formData.client_secret || ''}
+                          onChange={(e) => setFormData({ ...formData, client_secret: e.target.value })}
                           className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
-                          placeholder="Platform Page/Account ID"
+                          placeholder="GOCSPX-xxxxxxxxxxxx"
+                          required
                         />
                       </div>
                     </div>
 
-                    <div className="relative">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Auth Scope</label>
-                      <div className="relative">
-                        <Icon icon={SolarIcons.shield} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
-                        <input
-                          type="text"
-                          value={formData.auth_scope}
-                          onChange={(e) => setFormData({ ...formData, auth_scope: e.target.value })}
-                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
-                          placeholder="e.g., pages_manage_posts,pages_read_engagement"
-                        />
+                    {/* Instructions */}
+                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <Icon icon="solar:info-circle-bold-duotone" className="w-5 h-5 text-blue-600 mt-0.5" />
+                        <div className="flex-1 text-sm text-gray-700">
+                          <p className="font-medium text-gray-900 mb-1">How to get these credentials:</p>
+                          <ol className="list-decimal list-inside space-y-1 ml-2">
+                            <li>Go to <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Google Cloud Console</a></li>
+                            <li>Create a project and enable Gmail API</li>
+                            <li>Configure OAuth consent screen (choose Internal for Google Workspace)</li>
+                            <li>Create OAuth 2.0 credentials (Web application)</li>
+                            <li>Add redirect URI: <code className="bg-blue-100 px-1 rounded">{window.location.origin}/settings</code></li>
+                            <li>Copy the Client ID and Client Secret here</li>
+                          </ol>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Save Reminder - show when credentials are entered but not saved */}
+                    {formData.client_id && formData.client_secret && (
+                      <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                        <div className="flex items-start gap-3">
+                          <Icon icon="solar:info-circle-bold-duotone" className="w-5 h-5 text-amber-600 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-700">
+                              <strong>Important:</strong> Click "Add Account" below to save your OAuth credentials. 
+                              After saving, you can connect your Gmail account for automation.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
+                )}
 
-                {/* Broadcasting Capabilities Section */}
+                  {/* Only show API fields if platform requires them */}
+                  {formData.platform && platformSettings[formData.platform]?.apiFields && (
+                    <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+                      <div className="flex items-center gap-3 mb-6 -ml-2">
+                        <div className="p-2 bg-blue-100 rounded-lg">
+                          <Icon icon={SolarIcons.key} className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">API Configuration</h3>
+                          <p className="text-sm text-gray-500">Platform-specific API credentials</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {platformSettings[formData.platform].apiFields?.includes('app_id') && (
+                        <div className="relative">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">App ID</label>
+                          <div className="relative">
+                            <Icon icon={SolarIcons.code} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                            <input
+                              type="text"
+                              value={formData.app_id}
+                              onChange={(e) => setFormData({ ...formData, app_id: e.target.value })}
+                              className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                              placeholder="Platform App ID"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {platformSettings[formData.platform].apiFields?.includes('client_id') && (
+                        <div className="relative">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Client ID</label>
+                          <div className="relative">
+                            <Icon icon={SolarIcons.id} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                            <input
+                              type="text"
+                              value={formData.client_id}
+                              onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
+                              className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                              placeholder="OAuth Client ID"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {platformSettings[formData.platform].apiFields?.includes('client_secret') && (
+                        <div className="relative">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Client Secret</label>
+                          <div className="relative">
+                            <Icon icon={SolarIcons.key} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                            <input
+                              type="password"
+                              value={formData.client_secret || ''}
+                              onChange={(e) => setFormData({ ...formData, client_secret: e.target.value })}
+                              className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                              placeholder="OAuth Client Secret"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {platformSettings[formData.platform].apiFields?.includes('page_id') && (
+                        <div className="relative">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Page ID</label>
+                          <div className="relative">
+                            <Icon icon={SolarIcons.hashtag} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                            <input
+                              type="text"
+                              value={formData.page_id}
+                              onChange={(e) => setFormData({ ...formData, page_id: e.target.value })}
+                              className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                              placeholder="Facebook Page ID"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {platformSettings[formData.platform].apiFields?.includes('account_id') && (
+                        <div className="relative">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Account ID</label>
+                          <div className="relative">
+                            <Icon icon={SolarIcons.hashtag} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                            <input
+                              type="text"
+                              value={formData.account_id || ''}
+                              onChange={(e) => setFormData({ ...formData, account_id: e.target.value })}
+                              className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                              placeholder="Instagram Account ID"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {platformSettings[formData.platform].apiFields?.includes('channel_id') && (
+                        <div className="relative">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Channel ID</label>
+                          <div className="relative">
+                            <Icon icon={SolarIcons.hashtag} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                            <input
+                              type="text"
+                              value={formData.channel_id || ''}
+                              onChange={(e) => setFormData({ ...formData, channel_id: e.target.value })}
+                              className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                              placeholder="YouTube Channel ID"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  )}
+
+                {/* Broadcasting Capabilities Section - Hide for Gmail */}
+                {formData.platform !== 'gmail' && (
                 <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
                   <div className="flex items-center gap-3 mb-6 -ml-2">
                     <div className="p-2 bg-green-100 rounded-lg">
@@ -3233,8 +3609,10 @@ const PracticeSocialAccountsContent: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                )}
 
-                {/* Rate Limiting Section */}
+                {/* Rate Limiting Section - Hide for Gmail */}
+                {formData.platform !== 'gmail' && (
                 <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
                   <div className="flex items-center gap-3 mb-6 -ml-2">
                     <div className="p-2 bg-orange-100 rounded-lg">
@@ -3308,8 +3686,10 @@ const PracticeSocialAccountsContent: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                )}
 
-                {/* Content Limits Section */}
+                {/* Content Limits Section - Hide for Gmail */}
+                {formData.platform !== 'gmail' && (
                 <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
                   <div className="flex items-center gap-3 mb-6 -ml-2">
                     <div className="p-2 bg-purple-100 rounded-lg">
@@ -3415,8 +3795,10 @@ const PracticeSocialAccountsContent: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                )}
 
-                {/* Platform Features Section */}
+                {/* Platform Features Section - Hide for Gmail */}
+                {formData.platform !== 'gmail' && (
                 <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
                   <div className="flex items-center gap-3 mb-6 -ml-2">
                     <div className="p-2 bg-indigo-100 rounded-lg">
@@ -3534,8 +3916,10 @@ const PracticeSocialAccountsContent: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                )}
 
-                {/* Content Adaptation Section */}
+                {/* Content Adaptation Section - Hide for Gmail */}
+                {formData.platform !== 'gmail' && (
                 <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
                   <div className="flex items-center gap-3 mb-6 -ml-2">
                     <div className="p-2 bg-teal-100 rounded-lg">
@@ -3613,66 +3997,102 @@ const PracticeSocialAccountsContent: React.FC = () => {
                     />
                   </div>
                 </div>
+                )}
 
-                {/* Broadcasting Notice */}
+                {/* Broadcasting Notice - Show appropriate info based on platform */}
+                {formData.platform && (
                 <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-lg p-6">
                   <div className="flex items-start gap-4">
                     <div className="p-2 bg-emerald-100 rounded-lg">
                       <Icon icon={SolarIcons.broadcast} className="w-5 h-5 text-emerald-600" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-medium text-gray-900 mb-2">🔧 What's Needed for Concurrent Broadcasting</h4>
-                      <p className="text-sm text-gray-700 mb-3">
-                        With these comprehensive settings, you'll be able to broadcast to multiple platforms simultaneously. 
-                        <strong>Next steps for full implementation:</strong>
-                      </p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                        <div>
-                          <p className="font-medium mb-2">✅ Field Alignment for Broadcasting:</p>
-                          <ul className="space-y-1">
+                      {formData.platform === 'gmail' ? (
+                        <>
+                          <h4 className="text-sm font-medium text-gray-900 mb-2">📧 Gmail Integration for Automations</h4>
+                          <p className="text-sm text-gray-700 mb-3">
+                            Once connected, your Gmail account will be used to send automated emails for:
+                          </p>
+                          <ul className="space-y-1 text-sm text-gray-600">
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                              Rate limits ensure no API violations
+                              Welcome emails to new patients
                             </li>
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                              Content limits auto-adapt posts per platform
+                              Appointment confirmations and reminders
                             </li>
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                              Feature flags enable/disable per platform
+                              Lab results and medical reports
                             </li>
                             <li className="flex items-center gap-2">
                               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                              Content templates ensure brand consistency
+                              Follow-up care instructions
+                            </li>
+                            <li className="flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                              Birthday greetings and special offers
                             </li>
                           </ul>
-                        </div>
-                        <div>
-                          <p className="font-medium mb-2">🚀 Implementation Requirements:</p>
-                          <ul className="space-y-1">
-                            <li className="flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                              OAuth flow for each platform
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                              Token refresh automation
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                              Broadcasting service/API
-                            </li>
-                            <li className="flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                              Queue management for rate limiting
-                            </li>
-                          </ul>
-                        </div>
-                      </div>
+                        </>
+                      ) : (
+                        <>
+                          <h4 className="text-sm font-medium text-gray-900 mb-2">🔧 What's Needed for Concurrent Broadcasting</h4>
+                          <p className="text-sm text-gray-700 mb-3">
+                            With these comprehensive settings, you'll be able to broadcast to multiple platforms simultaneously. 
+                            <strong>Next steps for full implementation:</strong>
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                            <div>
+                              <p className="font-medium mb-2">✅ Field Alignment for Broadcasting:</p>
+                              <ul className="space-y-1">
+                                <li className="flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                                  Rate limits ensure no API violations
+                                </li>
+                                <li className="flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                                  Content limits auto-adapt posts per platform
+                                </li>
+                                <li className="flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                                  Feature flags enable/disable per platform
+                                </li>
+                                <li className="flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                                  Content templates ensure brand consistency
+                                </li>
+                              </ul>
+                            </div>
+                            <div>
+                              <p className="font-medium mb-2">🚀 Implementation Requirements:</p>
+                              <ul className="space-y-1">
+                                <li className="flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                                  OAuth flow for each platform
+                                </li>
+                                <li className="flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                                  Token refresh automation
+                                </li>
+                                <li className="flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                                  Broadcasting service/API
+                                </li>
+                                <li className="flex items-center gap-2">
+                                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                                  Queue management for rate limiting
+                                </li>
+                              </ul>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex gap-4 pt-4">
@@ -3705,7 +4125,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
                     className="flex-1 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:from-purple-600 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-200"
                   >
                     <Icon icon={SolarIcons.add} className="w-5 h-5 mr-2" />
-                    Add Account
+                    {formData.platform === 'gmail' ? 'Save OAuth Credentials' : 'Add Account'}
                   </Button>
                 </div>
               </form>
@@ -3745,6 +4165,66 @@ const PracticeSocialAccountsContent: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Success Modal for Gmail OAuth */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+          >
+            {/* Success Header */}
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-white text-center">
+              <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Icon icon="solar:check-circle-bold-duotone" className="w-12 h-12 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold mb-2">Success!</h2>
+              <p className="text-green-100">Gmail OAuth Configured</p>
+            </div>
+            
+            {/* Success Content */}
+            <div className="p-6">
+              <div className="text-center mb-6">
+                <p className="text-gray-700 mb-4">
+                  Gmail OAuth credentials saved successfully! You can now use Gmail for automated emails.
+                </p>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-left">
+                  <h3 className="font-semibold text-green-900 mb-2">What's Next?</h3>
+                  <ul className="space-y-2 text-sm text-green-800">
+                    <li className="flex items-start gap-2">
+                      <Icon icon="solar:check-circle-bold" className="w-4 h-4 text-green-600 mt-0.5" />
+                      <span>Automated appointment reminders</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Icon icon="solar:check-circle-bold" className="w-4 h-4 text-green-600 mt-0.5" />
+                      <span>Invoice and statement emails</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Icon icon="solar:check-circle-bold" className="w-4 h-4 text-green-600 mt-0.5" />
+                      <span>Follow-up communications</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Icon icon="solar:check-circle-bold" className="w-4 h-4 text-green-600 mt-0.5" />
+                      <span>Automated welcome emails</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+              
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => setShowSuccessModal(false)}
+                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700"
+                >
+                  Got it!
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };
