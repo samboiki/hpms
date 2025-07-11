@@ -10,7 +10,6 @@ import TestSMSSend from './pages/TestSMSSend';
 import TestSMSDirectSend from './pages/TestSMSDirectSend';
 import WorkingSMSTest from './pages/WorkingSMSTest';
 import TestSMSWithAuth from './pages/TestSMSWithAuth';
-import AutomationTest from './pages/AutomationTest';
 import Encounters from './pages/Encounters';
 import Layout from './components/layout/Layout';
 import Login from './pages/auth/Login';
@@ -122,7 +121,6 @@ function App() {
               <Route path="test-sms-direct" element={<TestSMSDirectSend />} />
               <Route path="working-sms-test" element={<WorkingSMSTest />} />
               <Route path="test-sms-auth" element={<TestSMSWithAuth />} />
-              <Route path="automation-test" element={<AutomationTest />} />
               <Route path="finance" element={<Finance />} />
               <Route path="billing/workflow" element={<BillingWorkflow />} />
               <Route path="practice-profile" element={<EnhancedPracticeProfile />} />

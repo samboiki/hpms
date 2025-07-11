@@ -1,0 +1,275 @@
+{
+  "name": "daily-birthday-check",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24,
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "birthday-trigger",
+      "name": "⏰ Daily at 8 AM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        300
+      ],
+      "notesInFlow": true,
+      "notes": "Runs once daily at 8 AM to check for birthdays"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/rpc/has_birthday_check_run_today",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "check-if-run",
+      "name": "🔍 Check if Already Run Today",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -200,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json === false }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "should-run",
+      "name": "Should Run?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/rpc/check_and_queue_todays_birthdays",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "queue-birthdays",
+      "name": "🎂 Queue Birthday Automations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        200,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/rpc/mark_birthday_check_complete",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "mark-complete",
+      "name": "✅ Mark Check Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        400,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log the results\nconst birthdays = $('🎂 Queue Birthday Automations').first().json;\n\nconsole.log('Birthday check results:', birthdays);\n\nreturn [{\n  json: {\n    message: 'Birthday check completed',\n    results: birthdays,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "log-results",
+      "name": "📊 Log Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        600,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Already ran today\nreturn [{\n  json: {\n    message: 'Birthday check already ran today',\n    skipped: true,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "already-ran",
+      "name": "⏭️ Already Ran Today",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        200,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🎂 Daily Birthday Automation Checker\n\nThis workflow runs once daily at 8 AM to:\n1. Check if birthday check already ran today\n2. Find all patients with birthdays today\n3. Create automation_queue entries for practices with birthday automation enabled\n4. Mark the check as complete to prevent duplicate runs\n\nThe birthday automations will be picked up by the main automation processing workflow.",
+        "height": 250,
+        "width": 1200,
+        "color": 4
+      },
+      "id": "workflow-note",
+      "name": "Workflow Description",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -420,
+        -50
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "⏰ Daily at 8 AM": {
+      "main": [
+        [
+          {
+            "node": "🔍 Check if Already Run Today",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Check if Already Run Today": {
+      "main": [
+        [
+          {
+            "node": "Should Run?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Run?": {
+      "main": [
+        [
+          {
+            "node": "🎂 Queue Birthday Automations",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "⏭️ Already Ran Today",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🎂 Queue Birthday Automations": {
+      "main": [
+        [
+          {
+            "node": "✅ Mark Check Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Mark Check Complete": {
+      "main": [
+        [
+          {
+            "node": "📊 Log Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "birthday-check-v1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "birthday-automation-checker"
+  },
+  "id": "BirthdayCheckWorkflow",
+  "tags": [
+    {
+      "createdAt": "2025-07-10T15:30:00.000Z",
+      "updatedAt": "2025-07-10T15:30:00.000Z",
+      "id": "birthday-automation",
+      "name": "Birthday Automation"
+    },
+    {
+      "createdAt": "2025-07-10T15:30:00.000Z",
+      "updatedAt": "2025-07-10T15:30:00.000Z",
+      "id": "daily-check",
+      "name": "Daily Check"
+    }
+  ]
+}

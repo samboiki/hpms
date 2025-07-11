@@ -1,0 +1,489 @@
+import React, { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { motion } from 'framer-motion';
+import { Icon } from '@iconify/react';
+import { format, differenceInDays } from 'date-fns';
+import { supabase } from '../../lib/supabase';
+import { useAuthStore } from '../../stores/authStore';
+import toast from 'react-hot-toast';
+
+interface LeaveFormData {
+  from_date: string;
+  to_date: string;
+  diagnosis: string;
+  diagnosis_code?: string;
+  fitness_status: 'unfit' | 'light_duty' | 'fit_with_restrictions';
+  restrictions?: string;
+  follow_up_required: boolean;
+  follow_up_date?: string;
+  notes?: string;
+  patient_employer?: string;
+  patient_occupation?: string;
+}
+
+interface LeaveFormTabProps {
+  visitId: string;
+  patientId: string;
+  practiceId: string;
+  doctorId?: string;
+}
+
+const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practiceId, doctorId }) => {
+  const { user } = useAuthStore();
+  const [isLoading, setIsLoading] = useState(true);
+  interface LeaveForm {
+    id: string;
+    form_number: string;
+    status: string;
+    issue_date?: string;
+    from_date: string;
+    to_date: string;
+    diagnosis?: string;
+    diagnosis_code?: string;
+    fitness_status: 'unfit' | 'light_duty' | 'fit_with_restrictions';
+    restrictions?: string;
+    follow_up_required: boolean;
+    follow_up_date?: string;
+    notes?: string;
+    patient_employer?: string;
+    patient_occupation?: string;
+  }
+  
+  const [leaveForm, setLeaveForm] = useState<LeaveForm | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    reset,
+    formState: { errors, isDirty }
+  } = useForm<LeaveFormData>({
+    defaultValues: {
+      from_date: format(new Date(), 'yyyy-MM-dd'),
+      to_date: format(new Date(), 'yyyy-MM-dd'),
+      fitness_status: 'unfit',
+      follow_up_required: false
+    }
+  });
+
+  const fromDate = watch('from_date');
+  const toDate = watch('to_date');
+  const fitnessStatus = watch('fitness_status');
+  const followUpRequired = watch('follow_up_required');
+
+  const daysOff = fromDate && toDate 
+    ? differenceInDays(new Date(toDate), new Date(fromDate)) + 1 
+    : 0;
+
+  // Load existing leave form if any
+  useEffect(() => {
+    loadLeaveForm();
+  }, [visitId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadLeaveForm = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('leave_forms')
+        .select('*')
+        .eq('visit_id', visitId)
+        .single();
+
+      if (data) {
+        setLeaveForm(data);
+        reset({
+          from_date: format(new Date(data.from_date), 'yyyy-MM-dd'),
+          to_date: format(new Date(data.to_date), 'yyyy-MM-dd'),
+          diagnosis: data.diagnosis || '',
+          diagnosis_code: data.diagnosis_code || '',
+          fitness_status: data.fitness_status,
+          restrictions: data.restrictions || '',
+          follow_up_required: data.follow_up_required,
+          follow_up_date: data.follow_up_date ? format(new Date(data.follow_up_date), 'yyyy-MM-dd') : '',
+          notes: data.notes || '',
+          patient_employer: data.patient_employer || '',
+          patient_occupation: data.patient_occupation || ''
+        });
+      }
+    } catch (err) {
+      console.error('Error loading leave form:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onSubmit = async (data: LeaveFormData) => {
+    try {
+      setIsSaving(true);
+
+      const leaveFormData = {
+        visit_id: visitId,
+        patient_id: patientId,
+        doctor_id: doctorId || user?.id,
+        practice_id: practiceId,
+        from_date: data.from_date,
+        to_date: data.to_date,
+        diagnosis: data.diagnosis,
+        diagnosis_code: data.diagnosis_code || null,
+        fitness_status: data.fitness_status,
+        restrictions: data.restrictions || null,
+        follow_up_required: data.follow_up_required,
+        follow_up_date: data.follow_up_date || null,
+        notes: data.notes || null,
+        patient_employer: data.patient_employer || null,
+        patient_occupation: data.patient_occupation || null,
+        status: 'draft',
+        updated_by: user?.id
+      };
+
+      if (leaveForm) {
+        // Update existing
+        const { error } = await supabase
+          .from('leave_forms')
+          .update(leaveFormData)
+          .eq('id', leaveForm.id);
+
+        if (error) throw error;
+        toast.success('Leave form updated successfully');
+      } else {
+        // Create new
+        const { error } = await supabase
+          .from('leave_forms')
+          .insert([{
+            ...leaveFormData,
+            created_by: user?.id
+          }]);
+
+        if (error) throw error;
+        toast.success('Leave form created successfully');
+      }
+
+      loadLeaveForm(); // Reload to get latest data
+    } catch (error) {
+      console.error('Error saving leave form:', error);
+      toast.error('Failed to save leave form');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleIssueLeaveForm = async () => {
+    if (!leaveForm) {
+      toast.error('Please save the leave form first');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('leave_forms')
+        .update({ 
+          status: 'issued',
+          issue_date: new Date().toISOString()
+        })
+        .eq('id', leaveForm.id);
+
+      if (error) throw error;
+      toast.success('Leave form issued successfully');
+      loadLeaveForm();
+    } catch (error) {
+      console.error('Error issuing leave form:', error);
+      toast.error('Failed to issue leave form');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Icon icon="solar:spinner-bold-duotone" className="w-8 h-8 animate-spin text-[#01b9d4]" />
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-6"
+    >
+      {/* Header with Status */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-6 bg-[#01b9d4] rounded-full"></div>
+          <h3 className="text-lg font-semibold text-gray-800">Medical Leave Certificate</h3>
+          {leaveForm && (
+            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+              leaveForm.status === 'issued' 
+                ? 'bg-green-100 text-green-700'
+                : leaveForm.status === 'sent'
+                ? 'bg-blue-100 text-blue-700'
+                : 'bg-gray-100 text-gray-700'
+            }`}>
+              {leaveForm.status.charAt(0).toUpperCase() + leaveForm.status.slice(1)}
+            </span>
+          )}
+        </div>
+        {leaveForm && leaveForm.form_number && (
+          <div className="text-sm text-gray-600">
+            Form #: <span className="font-medium">{leaveForm.form_number}</span>
+          </div>
+        )}
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {/* Leave Period Section */}
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100/30 p-6 rounded-xl border border-blue-200/50">
+          <h4 className="text-sm font-semibold text-blue-700 mb-4 flex items-center gap-2">
+            <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5" />
+            Leave Period
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
+              <input
+                type="date"
+                {...register('from_date', { required: 'From date is required' })}
+                className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+              />
+              {errors.from_date && (
+                <p className="text-red-500 text-xs mt-1">{errors.from_date.message}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
+              <input
+                type="date"
+                {...register('to_date', {
+                  required: 'To date is required',
+                  validate: value => 
+                    new Date(value) >= new Date(fromDate) || 'To date must be after from date'
+                })}
+                className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+              />
+              {errors.to_date && (
+                <p className="text-red-500 text-xs mt-1">{errors.to_date.message}</p>
+              )}
+            </div>
+            <div className="flex items-end">
+              <div className="w-full p-3 bg-blue-100 rounded-lg text-center">
+                <p className="text-sm text-blue-600">Total Days</p>
+                <p className="text-2xl font-bold text-blue-700">{daysOff}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Medical Details Section */}
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100/30 p-6 rounded-xl border border-purple-200/50">
+          <h4 className="text-sm font-semibold text-purple-700 mb-4 flex items-center gap-2">
+            <Icon icon="solar:health-bold-duotone" className="w-5 h-5" />
+            Medical Details
+          </h4>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Diagnosis</label>
+                <input
+                  type="text"
+                  {...register('diagnosis', { required: 'Diagnosis is required' })}
+                  placeholder="e.g., Acute Upper Respiratory Infection"
+                  className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                />
+                {errors.diagnosis && (
+                  <p className="text-red-500 text-xs mt-1">{errors.diagnosis.message}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">ICD-10 Code</label>
+                <input
+                  type="text"
+                  {...register('diagnosis_code')}
+                  placeholder="e.g., J06.9"
+                  className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Fitness Status</label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {[
+                  { value: 'unfit', label: 'Unfit for Work', icon: 'solar:close-circle-bold-duotone', color: 'red' },
+                  { value: 'light_duty', label: 'Light Duty Only', icon: 'solar:shield-warning-bold-duotone', color: 'yellow' },
+                  { value: 'fit_with_restrictions', label: 'Fit with Restrictions', icon: 'solar:shield-check-bold-duotone', color: 'green' }
+                ].map((status) => (
+                  <label
+                    key={status.value}
+                    className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                      fitnessStatus === status.value
+                        ? `border-${status.color}-500 bg-${status.color}-50`
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      {...register('fitness_status')}
+                      value={status.value}
+                      className="sr-only"
+                    />
+                    <Icon 
+                      icon={status.icon} 
+                      className={`w-6 h-6 ${
+                        fitnessStatus === status.value 
+                          ? `text-${status.color}-600` 
+                          : 'text-gray-400'
+                      }`} 
+                    />
+                    <span className={`text-sm font-medium ${
+                      fitnessStatus === status.value ? 'text-gray-900' : 'text-gray-600'
+                    }`}>
+                      {status.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {(fitnessStatus === 'light_duty' || fitnessStatus === 'fit_with_restrictions') && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+              >
+                <label className="block text-sm font-medium text-gray-700 mb-2">Restrictions/Limitations</label>
+                <textarea
+                  {...register('restrictions')}
+                  rows={3}
+                  placeholder="Specify work restrictions or limitations..."
+                  className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                />
+              </motion.div>
+            )}
+          </div>
+        </div>
+
+        {/* Patient Information Section */}
+        <div className="bg-gradient-to-br from-green-50 to-green-100/30 p-6 rounded-xl border border-green-200/50">
+          <h4 className="text-sm font-semibold text-green-700 mb-4 flex items-center gap-2">
+            <Icon icon="solar:user-id-bold-duotone" className="w-5 h-5" />
+            Patient Employment Information
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Employer</label>
+              <input
+                type="text"
+                {...register('patient_employer')}
+                placeholder="Company/Organization name"
+                className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Occupation</label>
+              <input
+                type="text"
+                {...register('patient_occupation')}
+                placeholder="Job title/position"
+                className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Follow-up Section */}
+        <div className="bg-gradient-to-br from-orange-50 to-orange-100/30 p-6 rounded-xl border border-orange-200/50">
+          <h4 className="text-sm font-semibold text-orange-700 mb-4 flex items-center gap-2">
+            <Icon icon="solar:calendar-add-bold-duotone" className="w-5 h-5" />
+            Follow-up Information
+          </h4>
+          <div className="space-y-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                {...register('follow_up_required')}
+                className="w-5 h-5 text-[#01b9d4] rounded focus:ring-[#01b9d4]"
+              />
+              <span className="text-sm font-medium text-gray-700">Follow-up Required</span>
+            </label>
+
+            {followUpRequired && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+              >
+                <label className="block text-sm font-medium text-gray-700 mb-2">Follow-up Date</label>
+                <input
+                  type="date"
+                  {...register('follow_up_date')}
+                  className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                />
+              </motion.div>
+            )}
+          </div>
+        </div>
+
+        {/* Additional Notes */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Additional Notes</label>
+          <textarea
+            {...register('notes')}
+            rows={4}
+            placeholder="Any additional information or special instructions..."
+            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+          />
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center justify-between pt-4">
+          <div className="flex gap-3">
+            <button
+              type="submit"
+              disabled={isSaving || !isDirty}
+              className={`px-6 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                isDirty
+                  ? 'bg-[#01b9d4] text-white hover:bg-[#00a5be] shadow-lg hover:shadow-xl'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              <Icon icon="solar:diskette-bold-duotone" className="w-5 h-5" />
+              {isSaving ? 'Saving...' : 'Save Leave Form'}
+            </button>
+
+            {leaveForm && leaveForm.status === 'draft' && (
+              <button
+                type="button"
+                onClick={handleIssueLeaveForm}
+                className="px-6 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-all flex items-center gap-2 shadow-lg hover:shadow-xl"
+              >
+                <Icon icon="solar:document-add-bold-duotone" className="w-5 h-5" />
+                Issue Certificate
+              </button>
+            )}
+          </div>
+
+          {leaveForm && leaveForm.status === 'issued' && (
+            <div className="flex gap-3">
+              <button
+                type="button"
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg hover:shadow-xl"
+              >
+                <Icon icon="solar:letter-bold-duotone" className="w-5 h-5" />
+                Send via Email
+              </button>
+              <button
+                type="button"
+                className="px-6 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-all flex items-center gap-2 shadow-lg hover:shadow-xl"
+              >
+                <Icon icon="solar:printer-bold-duotone" className="w-5 h-5" />
+                Print
+              </button>
+            </div>
+          )}
+        </div>
+      </form>
+    </motion.div>
+  );
+};
+
+export default LeaveFormTab;

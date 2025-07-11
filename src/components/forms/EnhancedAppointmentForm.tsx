@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
-import { AppointmentService } from '../../services/appointmentService';
+import { useVisitsStore } from '../../stores/visitsStore';
 import { useAuthStore } from '../../stores/authStore';
 import { 
   Search, 
@@ -15,7 +15,8 @@ import {
   Bell,
   CheckSquare,
   Info,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
 import { format, addWeeks, addMonths } from 'date-fns';
 import { PremiumTimePicker } from '../ui/PremiumTimePicker';
@@ -95,6 +96,7 @@ const EnhancedAppointmentForm: React.FC<Props> = ({
   const [showRecurrencePreview, setShowRecurrencePreview] = useState(false);
   
   const { user } = useAuthStore();
+  const { addVisit } = useVisitsStore();
   const isRecurring = watch('is_recurring');
   const reminderEnabled = watch('reminder_enabled');
   const selectedPatientId = watch('patient_id');
@@ -188,50 +190,91 @@ const EnhancedAppointmentForm: React.FC<Props> = ({
       setIsLoading(true);
       setError(null);
 
-      const appointmentData = {
+      // Create the visit data for the visits table
+      const visitData = {
         patient_id: data.patient_id,
         doctor_id: data.doctor_id,
-        date: data.date,
-        time: data.time + ':00', // Ensure seconds
-        duration: data.duration,
-        type: data.type,
+        practice_id: user?.practice_id || '',
+        scheduled_date: data.date,
+        scheduled_time: data.time + ':00', // Ensure seconds
+        visit_date: data.date, // Same as scheduled_date for scheduled visits
+        visit_time: data.time + ':00',
+        visit_type: data.type,
         notes: data.notes,
-        is_recurring: data.is_recurring,
-        recurrence_rule: data.is_recurring ? {
-          frequency: data.recurrence_frequency!,
-          interval: data.recurrence_interval || 1,
-          count: data.recurrence_count,
-          endDate: data.recurrence_end_date
-        } : undefined,
-        reminder_settings: {
-          enabled: data.reminder_enabled,
-          timing: data.reminder_timing
-        }
+        status: 'scheduled' as const,
+        
+        // Scheduling flags
+        is_scheduled: true,
+        is_confirmed: false, // Will need confirmation by practice
+        is_ready: false,
+        is_checked_in: false,
+        is_cancelled: false,
+        
+        // Additional fields
+        chief_complaint: data.notes || 'Scheduled appointment',
+        follow_up_required: false,
       };
 
-      const result = await AppointmentService.createAppointment(
-        appointmentData,
-        user?.practice_id || ''
-      );
-
-      if (result.success) {
-        const count = data.is_recurring ? (data.recurrence_count || 1) : 1;
+      // Handle single appointment
+      if (!data.is_recurring) {
+        await addVisit(visitData);
+        
         toast.success(
           <div>
             <p className="font-semibold">Appointment scheduled successfully!</p>
-            {data.is_recurring && (
-              <p className="text-sm mt-1">{count} recurring appointments created</p>
-            )}
+            <p className="text-sm mt-1">The appointment has been added to the schedule</p>
             {data.reminder_enabled && (
               <p className="text-sm mt-1">Reminders will be sent automatically</p>
             )}
           </div>,
           { duration: 5000 }
         );
-        onSuccess();
       } else {
-        throw new Error('Failed to create appointment');
+        // Handle recurring appointments
+        const count = data.recurrence_count || 4;
+        const interval = data.recurrence_interval || 1;
+        const startDate = new Date(data.date);
+        
+        // Create all recurring appointments
+        for (let i = 0; i < count; i++) {
+          let appointmentDate = new Date(startDate);
+          
+          if (i > 0) {
+            switch (data.recurrence_frequency) {
+              case 'daily':
+                appointmentDate.setDate(startDate.getDate() + (i * interval));
+                break;
+              case 'weekly':
+                appointmentDate = addWeeks(startDate, i * interval);
+                break;
+              case 'monthly':
+                appointmentDate = addMonths(startDate, i * interval);
+                break;
+            }
+          }
+          
+          const recurringVisitData = {
+            ...visitData,
+            scheduled_date: format(appointmentDate, 'yyyy-MM-dd'),
+            visit_date: format(appointmentDate, 'yyyy-MM-dd'),
+          };
+          
+          await addVisit(recurringVisitData);
+        }
+        
+        toast.success(
+          <div>
+            <p className="font-semibold">Appointments scheduled successfully!</p>
+            <p className="text-sm mt-1">{count} recurring appointments created</p>
+            {data.reminder_enabled && (
+              <p className="text-sm mt-1">Reminders will be sent automatically</p>
+            )}
+          </div>,
+          { duration: 5000 }
+        );
       }
+      
+      onSuccess();
     } catch (err) {
       console.error('Error creating appointment:', err);
       setError('Failed to create appointment');

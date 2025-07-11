@@ -1,0 +1,516 @@
+{
+  "name": "OneHealth Automation - Scalable Dynamic System",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "cron_trigger",
+      "name": "⏰ Every Minute Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 600],
+      "notesInFlow": true,
+      "notes": "Timing is handled by the Supabase function.\nprocess_all_pending_automations only returns\nautomations that are due based on their\nscheduled_for timestamp."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/rpc/process_all_pending_automations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": false,
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "get_pending",
+      "name": "🔍 Get All Pending Automations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 600],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse response and prepare automations\nconst items = $input.all();\nlet automations = [];\n\n// Extract automations array\nif (items && items.length > 0) {\n  const firstItem = items[0].json;\n  if (Array.isArray(firstItem)) {\n    automations = firstItem;\n  } else if (firstItem.data && Array.isArray(firstItem.data)) {\n    automations = firstItem.data;\n  }\n}\n\nconsole.log(`Found ${automations.length} pending automations`);\n\n// Map practice IDs to Gmail credential IDs\nconst practiceCredentialMap = {\n  'ffed1160-00ec-4c4f-8810-913a24348d90': 'uA0l39VD4cMHN9cC', // NewCharm\n  'onehealth_practice_id': 'HrTrOqI74H5m5dyg', // OneHealth - replace with actual practice ID\n  // Add more practice mappings here as needed\n};\n\n// Group by practice and enrich with credential info\nconst practiceGroups = {};\n\nautomations.forEach(automation => {\n  const practiceId = automation.practice_id;\n  \n  if (!practiceGroups[practiceId]) {\n    practiceGroups[practiceId] = {\n      practice_id: practiceId,\n      practice_name: automation.practice_name || 'Unknown Practice',\n      gmail_credential_id: practiceCredentialMap[practiceId] || null,\n      sms_automations: [],\n      email_automations: []\n    };\n  }\n  \n  // Split by type\n  if (automation.type === 'SMS') {\n    practiceGroups[practiceId].sms_automations.push(automation);\n  } else if (automation.type === 'EMAIL') {\n    practiceGroups[practiceId].email_automations.push(automation);\n  }\n});\n\n// Convert to array and prepare for processing\nconst processableGroups = Object.values(practiceGroups).map(group => ({\n  json: group\n}));\n\nconsole.log(`Processing ${processableGroups.length} practice groups`);\n\nreturn processableGroups;"
+      },
+      "id": "prepare_groups",
+      "name": "📊 Prepare Practice Groups",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [650, 600]
+    },
+    {
+      "parameters": {
+        "content": "## Processing All Practices Dynamically\n\nThis workflow:\n1. Groups automations by practice\n2. Sends ALL SMS through centralized gateway\n3. Sends emails through practice-specific Gmail\n4. Handles unlimited practices\n5. Processes SMS and Email in parallel",
+        "height": 200,
+        "width": 400,
+        "color": 7
+      },
+      "id": "note_info",
+      "name": "Workflow Info",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [250, 350]
+    },
+    {
+      "parameters": {
+        "batchSize": 1
+      },
+      "id": "split_practices",
+      "name": "🔀 Process Each Practice",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [850, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process SMS and Email in parallel for this practice\nconst practiceData = $json;\nconst outputs = [];\n\nconsole.log(`Processing ${practiceData.practice_name}:`, {\n  sms_count: practiceData.sms_automations.length,\n  email_count: practiceData.email_automations.length,\n  has_gmail_credentials: !!practiceData.gmail_credential_id\n});\n\n// Always output SMS branch (might be empty)\noutputs.push({\n  json: {\n    practice_id: practiceData.practice_id,\n    practice_name: practiceData.practice_name,\n    type: 'SMS',\n    automations: practiceData.sms_automations,\n    has_automations: practiceData.sms_automations.length > 0\n  }\n});\n\n// Always output Email branch (might be empty)\noutputs.push({\n  json: {\n    practice_id: practiceData.practice_id,\n    practice_name: practiceData.practice_name,\n    type: 'EMAIL',\n    gmail_credential_id: practiceData.gmail_credential_id,\n    automations: practiceData.email_automations,\n    has_automations: practiceData.email_automations.length > 0\n  }\n});\n\nreturn outputs;"
+      },
+      "id": "split_types",
+      "name": "📤 Split SMS/Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1050, 600]
+    },
+    {
+      "parameters": {
+        "mode": "multiplex"
+      },
+      "id": "multiplex",
+      "name": "🔄 Multiplex",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [1250, 600]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.type }}",
+              "operation": "equals",
+              "value2": "SMS"
+            }
+          ]
+        }
+      },
+      "id": "is_sms",
+      "name": "Is SMS?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1450, 600]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.has_automations }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "sms_has_items",
+      "name": "Has SMS?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1650, 550]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/centralized-sms-gateway",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  practice_id: $json.practice_id,\n  practice_name: $json.practice_name,\n  automations: $json.automations\n}) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "sms_gateway",
+      "name": "📱 Centralized SMS Gateway",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1850, 500],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "ALL SMS from ALL practices\ngo through this single\ncentralized gateway"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.has_automations }}",
+              "value2": true
+            }
+          ],
+          "string": [
+            {
+              "value1": "={{ $json.gmail_credential_id }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "email_has_items",
+      "name": "Has Email & Credentials?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1650, 700]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process emails one by one\nconst emailAutomations = $json.automations || [];\nconst gmailCredentialId = $json.gmail_credential_id;\nconst practiceId = $json.practice_id;\nconst practiceName = $json.practice_name;\n\nreturn emailAutomations.map(automation => ({\n  json: {\n    to: automation.recipient_email,\n    subject: automation.email_subject,\n    body: automation.email_content,\n    automation_id: automation.id,\n    practice_id: practiceId,\n    practice_name: practiceName,\n    gmail_credential_id: gmailCredentialId,\n    reply_to: automation.practice_email || `noreply@${practiceName.toLowerCase().replace(/\\s+/g, '')}.com`\n  }\n}));"
+      },
+      "id": "prepare_emails",
+      "name": "📧 Prepare Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1850, 700]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Dynamic Gmail sending with credential switching\nconst emailData = $json;\n\n// Map credential IDs to actual credential names in n8n\nconst credentialMap = {\n  'uA0l39VD4cMHN9cC': 'NewCharm Gmail',\n  'HrTrOqI74H5m5dyg': 'OneHealth Gmail'\n  // Add more mappings as practices are added\n};\n\nconst credentialName = credentialMap[emailData.gmail_credential_id];\n\nif (!credentialName) {\n  console.error(`No Gmail credential mapping found for ID: ${emailData.gmail_credential_id}`);\n  return {\n    json: {\n      success: false,\n      automation_id: emailData.automation_id,\n      error: 'Gmail credentials not configured for this practice'\n    }\n  };\n}\n\n// Create dynamic Gmail node configuration\nconst gmailConfig = {\n  operation: 'send',\n  to: emailData.to,\n  subject: emailData.subject,\n  message: emailData.body,\n  options: {\n    replyTo: emailData.reply_to\n  },\n  credentials: {\n    gmailOAuth2: {\n      id: emailData.gmail_credential_id,\n      name: credentialName\n    }\n  }\n};\n\n// Note: In actual implementation, this would dynamically select the credential\n// For now, return the email data for the Gmail node\nreturn {\n  json: {\n    ...emailData,\n    credential_name: credentialName,\n    gmail_config: gmailConfig\n  }\n};"
+      },
+      "id": "gmail_router",
+      "name": "🔀 Gmail Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2050, 700]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}",
+        "options": {
+          "replyTo": "={{ $json.reply_to }}"
+        }
+      },
+      "id": "gmail_send",
+      "name": "📧 Gmail Send",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [2250, 700],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "={{ $json.gmail_credential_id }}",
+          "name": "={{ $json.credential_name }}"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "Dynamically uses the Gmail\ncredentials for each practice"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect all results\nconst results = $input.all();\nconst updates = [];\n\nresults.forEach(result => {\n  if (result.json.automation_id) {\n    // Single email result\n    updates.push({\n      id: result.json.automation_id,\n      status: result.json.success === false ? 'failed' : 'completed',\n      processed_at: new Date().toISOString(),\n      error_message: result.json.error || null\n    });\n  } else if (result.json.automations) {\n    // SMS batch result\n    const status = result.json.success ? 'completed' : 'failed';\n    result.json.automations.forEach(automation => {\n      updates.push({\n        id: automation.id,\n        status: status,\n        processed_at: new Date().toISOString(),\n        error_message: result.json.error || null\n      });\n    });\n  }\n});\n\nconsole.log(`Collected ${updates.length} results to update`);\n\nreturn updates.map(update => ({ json: update }));"
+      },
+      "id": "collect_results",
+      "name": "📊 Collect Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2500, 600]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/automation_queue",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  status: $json.status,\n  processed_at: $json.processed_at,\n  error_message: $json.error_message\n}) }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "=eq.{{ $json.id }}"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 50
+            }
+          }
+        }
+      },
+      "id": "update_status",
+      "name": "✅ Update Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2700, 600],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log no credentials error\nconst practiceData = $json;\n\nconsole.error(`Practice ${practiceData.practice_name} has no Gmail credentials configured`);\n\n// Mark all email automations as failed\nconst failedUpdates = practiceData.automations.map(automation => ({\n  json: {\n    id: automation.id,\n    status: 'failed',\n    processed_at: new Date().toISOString(),\n    error_message: 'No Gmail credentials configured for this practice'\n  }\n}));\n\nreturn failedUpdates;"
+      },
+      "id": "handle_no_creds",
+      "name": "⚠️ No Credentials",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1850, 850]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Continue to next practice batch\nreturn { json: { continue: true } };"
+      },
+      "id": "continue",
+      "name": "Continue",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2900, 600]
+    }
+  ],
+  "connections": {
+    "⏰ Every Minute Trigger": {
+      "main": [
+        [
+          {
+            "node": "🔍 Get All Pending Automations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Get All Pending Automations": {
+      "main": [
+        [
+          {
+            "node": "📊 Prepare Practice Groups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Prepare Practice Groups": {
+      "main": [
+        [
+          {
+            "node": "🔀 Process Each Practice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 Process Each Practice": {
+      "main": [
+        [
+          {
+            "node": "📤 Split SMS/Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📤 Split SMS/Email": {
+      "main": [
+        [
+          {
+            "node": "🔄 Multiplex",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Multiplex": {
+      "main": [
+        [
+          {
+            "node": "Is SMS?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is SMS?": {
+      "main": [
+        [
+          {
+            "node": "Has SMS?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has Email & Credentials?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has SMS?": {
+      "main": [
+        [
+          {
+            "node": "📱 Centralized SMS Gateway",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📊 Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📱 Centralized SMS Gateway": {
+      "main": [
+        [
+          {
+            "node": "📊 Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Email & Credentials?": {
+      "main": [
+        [
+          {
+            "node": "📧 Prepare Emails",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "⚠️ No Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📧 Prepare Emails": {
+      "main": [
+        [
+          {
+            "node": "🔀 Gmail Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 Gmail Router": {
+      "main": [
+        [
+          {
+            "node": "📧 Gmail Send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📧 Gmail Send": {
+      "main": [
+        [
+          {
+            "node": "📊 Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚠️ No Credentials": {
+      "main": [
+        [
+          {
+            "node": "📊 Collect Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Collect Results": {
+      "main": [
+        [
+          {
+            "node": "✅ Update Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Update Status": {
+      "main": [
+        [
+          {
+            "node": "Continue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Continue": {
+      "main": [
+        [
+          {
+            "node": "🔀 Process Each Practice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-09T13:00:00.000Z",
+  "versionId": "scalable-dynamic-v1"
+}

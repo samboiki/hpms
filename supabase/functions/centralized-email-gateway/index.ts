@@ -314,7 +314,10 @@ serve(async (req) => {
             success: true,
             logId: logEntry.id,
             messageId: emailResult.id,
-            status: 'sent'
+            status: 'sent',
+            // Return queue_id from metadata if it exists
+            queue_id: metadata?.automation_id || null,
+            practiceId: practiceId
           }),
           { 
             status: 200,

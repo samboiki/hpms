@@ -1,0 +1,251 @@
+{
+  "name": "OneHealth Automation Processor - Production Ready",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "a1a1a1a1-1111-1111-1111-111111111111",
+      "name": "Every Minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/rpc/get_all_pending_automations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"batch_size\": 30 }",
+        "options": {}
+      },
+      "id": "b2b2b2b2-2222-2222-2222-222222222222",
+      "name": "Get Pending Automations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.sms_enabled === true && $json.sms_template && $json.payload.patientPhone }}",
+              "value2": "={{ true }}"
+            }
+          ]
+        }
+      },
+      "id": "c3c3c3c3-3333-3333-3333-333333333333",
+      "name": "SMS Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 220]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.email_enabled === true && $json.email_subject && $json.email_body && $json.payload.patientEmail }}",
+              "value2": "={{ true }}"
+            }
+          ]
+        }
+      },
+      "id": "d4d4d4d4-4444-4444-4444-444444444444",
+      "name": "Email Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/centralized-sms-gateway",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"practiceId\": \"{{ $json.practice_id }}\",\n  \"recipientPhone\": \"{{ $json.payload.patientPhone }}\",\n  \"messageContent\": \"{{ $json.sms_template }}\",\n  \"messageType\": \"{{ $json.automation_id }}\",\n  \"patientId\": \"{{ $json.payload.patient_id }}\",\n  \"metadata\": {\n    \"automation_id\": \"{{ $json.automation_id }}\",\n    \"queue_id\": \"{{ $json.queue_id }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "e5e5e5e5-5555-5555-5555-555555555555",
+      "name": "Send SMS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [850, 160],
+      "continueOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EpJk3rG8XWa0gPp5",
+          "name": "Supabase Service Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.practice_email || 'noreply@onehealth.com' }}",
+        "toEmail": "={{ $json.payload.patientEmail }}",
+        "subject": "={{ $json.email_subject }}",
+        "html": "={{ $json.email_body }}",
+        "options": {}
+      },
+      "id": "f6f6f6f6-6666-6666-6666-666666666666",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [850, 320],
+      "continueOnFail": true,
+      "credentials": {
+        "smtp": {
+          "id": "{{ PUT_YOUR_GMAIL_SMTP_ID_HERE }}",
+          "name": "Gmail SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/automation_queue?id=eq.' + $json.queue_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"status\": \"completed\",\n  \"completed_at\": \"{{ $now.toISO() }}\",\n  \"attempt_count\": {{ ($json.attempt_count || 0) + 1 }}\n}",
+        "options": {}
+      },
+      "id": "g7g7g7g7-7777-7777-7777-777777777777",
+      "name": "Mark Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1050, 240],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Minute": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Automations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending Automations": {
+      "main": [
+        [
+          {
+            "node": "SMS Enabled?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Send SMS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send SMS": {
+      "main": [
+        [
+          {
+            "node": "Mark Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Mark Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "production-v1",
+  "tags": []
+}

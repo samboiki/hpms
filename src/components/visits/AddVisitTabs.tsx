@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Icon } from '@iconify/react';
 import { 
   Save,
   Loader2,
@@ -46,11 +47,13 @@ import FileDisplayComponent from '../uploads/FileDisplayComponent';
 import MediaUploadWrapper from '../uploads/MediaUploadWrapper';
 import LabResultsTable from '../requests/LabResultsTable';
 import ImagingTabContentSimple from '../requests/ImagingTabContentSimple';
+import LeaveFormTab from './LeaveFormTab';
 
 interface EditVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
   doctor_id?: string;
-  encounter_date: Date;
+  visit_date: Date;
+  visit_time: string;
   chief_complaint: string;
   diagnosis: string;
   treatment_plan: string;
@@ -180,6 +183,8 @@ const AddVisitTabs: React.FC<Props> = ({
   const [selectedTooth, setSelectedTooth] = useState('');
   const [availableTariffs, setAvailableTariffs] = useState<any[]>([]);
   const [serviceUsageStats, setServiceUsageStats] = useState<{[key: string]: number}>({});
+  const [practiceId, setPracticeId] = useState<string>('');
+  const [newVisitId, setNewVisitId] = useState<string>('');
 
   // Date picker modal states
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -222,7 +227,8 @@ const AddVisitTabs: React.FC<Props> = ({
   const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm<EditVisitFormData>({
     defaultValues: {
       visit_type: 'consultation',
-      encounter_date: new Date(),
+      visit_date: new Date(),
+      visit_time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       chief_complaint: '',
       diagnosis: '',
       treatment_plan: '',
@@ -390,11 +396,10 @@ const AddVisitTabs: React.FC<Props> = ({
       const visitData = {
         patient_id: patientId,
         doctor_id: finalDoctorId,
-        appointment_id: appointmentId || null,
+        practice_id: practiceId,
         visit_type: data.visit_type,
-        encounter_date: data.encounter_date ? data.encounter_date.toISOString() : undefined,
-        visit_date: data.encounter_date ? data.encounter_date.toISOString().split('T')[0] : undefined,
-        visit_time: data.encounter_date ? data.encounter_date.toLocaleTimeString('en-US', { hour12: false }) : undefined,
+        visit_date: data.visit_date ? data.visit_date.toISOString().split('T')[0] : undefined,
+        visit_time: data.visit_time || undefined,
         chief_complaint: data.chief_complaint || '',
         diagnosis: data.diagnosis || '',
         treatment_plan: data.treatment_plan || '',
@@ -403,6 +408,7 @@ const AddVisitTabs: React.FC<Props> = ({
         follow_up_date: data.follow_up_date && data.follow_up_date.trim() ? data.follow_up_date : undefined,
         notes: data.notes || undefined,
         status: 'in-progress',
+        is_scheduled: appointmentId ? true : false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -418,6 +424,7 @@ const AddVisitTabs: React.FC<Props> = ({
       if (visitError) throw visitError;
       
       const newVisitId = newVisit.id;
+      setNewVisitId(newVisitId);
       console.log('✅ New visit created with ID:', newVisitId);
 
       // Create vitals if provided
@@ -550,6 +557,8 @@ const AddVisitTabs: React.FC<Props> = ({
           .single();
 
         if (!userProfile?.practice_id) return;
+
+        setPracticeId(userProfile.practice_id);
 
         const { data: practiceData } = await supabase
           .from('practices')
@@ -1018,21 +1027,21 @@ const AddVisitTabs: React.FC<Props> = ({
                               <Calendar className="w-4 h-4 text-white" />
                             </div>
                             <div>
-                              {watch('encounter_date') ? (
+                              {watch('visit_date') ? (
                                 <>
                                   <p className="text-sm font-semibold text-gray-900">
-                                    {watch('encounter_date').toLocaleDateString('en-US', { 
+                                    {watch('visit_date').toLocaleDateString('en-US', { 
                                       month: 'short', 
                                       day: 'numeric', 
                                       year: 'numeric' 
                                     })}
                                   </p>
-                                  <p className="text-xs text-gray-500">Selected date</p>
+                                  <p className="text-xs text-gray-500">Visit date</p>
                                 </>
                               ) : (
                                 <>
                                   <p className="text-sm font-semibold text-gray-900">Select Date</p>
-                                  <p className="text-xs text-gray-500">Choose encounter date</p>
+                                  <p className="text-xs text-gray-500">Choose visit date</p>
                                 </>
                               )}
                             </div>
@@ -1040,8 +1049,8 @@ const AddVisitTabs: React.FC<Props> = ({
                           <ChevronDown className="w-5 h-5 transition-transform text-[#01b9d5]" />
                         </button>
                       </div>
-                      {errors.encounter_date && (
-                        <p className="text-sm text-red-600 mt-1">Encounter date is required</p>
+                      {errors.visit_date && (
+                        <p className="text-sm text-red-600 mt-1">Visit date is required</p>
                       )}
                     </div>
 
@@ -1378,14 +1387,10 @@ const AddVisitTabs: React.FC<Props> = ({
                   type="button"
                   onClick={() => {
                     const today = new Date();
-                    const currentEncounterDate = watch('encounter_date') || new Date();
-                    const newDateTime = new Date(today);
-                    // Keep the existing time, just update the date
-                    newDateTime.setHours(currentEncounterDate.getHours(), currentEncounterDate.getMinutes(), 0, 0);
                     setSelectedDate(today);
                     setCurrentMonth(today.getMonth());
                     setCurrentYear(today.getFullYear());
-                    setValue('encounter_date', newDateTime);
+                    setValue('visit_date', today);
                     setIsDatePickerOpen(false);
                   }}
                   className="flex-1 px-4 py-2 text-sm bg-gradient-to-r from-[#01b9d5] to-[#4bc0c8] text-white rounded-lg transition-all font-medium hover:shadow-md"
@@ -1395,11 +1400,7 @@ const AddVisitTabs: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    const currentEncounterDate = watch('encounter_date') || new Date();
-                    const newDateTime = new Date(selectedDate);
-                    // Keep the existing time, just update the date
-                    newDateTime.setHours(currentEncounterDate.getHours(), currentEncounterDate.getMinutes(), 0, 0);
-                    setValue('encounter_date', newDateTime);
+                    setValue('visit_date', selectedDate);
                     setIsDatePickerOpen(false);
                   }}
                   className="flex-1 px-4 py-2 text-sm bg-gradient-to-r from-[#01b9d5] to-[#4bc0c8] text-white rounded-lg transition-all font-medium hover:shadow-md"
@@ -1602,11 +1603,9 @@ const AddVisitTabs: React.FC<Props> = ({
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      // Update the encounter_date with new time
-                      const currentDate = watch('encounter_date') || new Date();
-                      const newDateTime = new Date(currentDate);
-                      newDateTime.setHours(parseInt(selectedHour), parseInt(selectedMinute), 0, 0);
-                      setValue('encounter_date', newDateTime);
+                      // Update the visit_time
+                      const timeString = `${selectedHour}:${selectedMinute}`;
+                      setValue('visit_time', timeString);
                       setIsTimePickerOpen(false);
                     }}
                     className="flex-1 px-4 py-2 bg-gradient-to-r from-[#01b9d5] to-[#0197a4] text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all"
@@ -2299,6 +2298,25 @@ const AddVisitTabs: React.FC<Props> = ({
         {/* Imaging Tab */}
         {activeTab === 'imaging' && (
           <ImagingTabContentSimple patientId={patientId} visitId="" />
+        )}
+
+        {/* Leave Form Tab */}
+        {activeTab === 'leave' && (
+          newVisitId ? (
+            <LeaveFormTab 
+              visitId={newVisitId} 
+              patientId={patientId} 
+              practiceId={practiceId}
+              doctorId={appointmentDoctor || user?.id}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-64 text-gray-500">
+              <div className="text-center">
+                <Icon icon="solar:document-add-bold-duotone" className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <p>Please save the visit first to create a leave form</p>
+              </div>
+            </div>
+          )
         )}
 
 

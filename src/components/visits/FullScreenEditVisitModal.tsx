@@ -71,6 +71,12 @@ const tabs: Tab[] = [
     tooltip: 'Prescriptions and medications'
   },
   {
+    id: 'leave',
+    label: 'Leave Form',
+    icon: FileText,
+    tooltip: 'Medical leave certificates'
+  },
+  {
     id: 'billing',
     label: 'Billing',
     icon: Wallet,

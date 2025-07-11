@@ -46,11 +46,13 @@ import FileDisplayComponent from '../uploads/FileDisplayComponent';
 import MediaUploadWrapper from '../uploads/MediaUploadWrapper';
 import LabResultsTable from '../requests/LabResultsTable';
 import ImagingTabContentSimple from '../requests/ImagingTabContentSimple';
+import LeaveFormTab from './LeaveFormTab';
 
 interface EditVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
   doctor_id?: string;
-  encounter_date: Date;
+  visit_date: Date;
+  visit_time: string;
   chief_complaint: string;
   diagnosis: string;
   treatment_plan: string;
@@ -180,6 +182,7 @@ const EditVisitTabs: React.FC<Props> = ({
   const [selectedTooth, setSelectedTooth] = useState('');
   const [availableTariffs, setAvailableTariffs] = useState<any[]>([]);
   const [serviceUsageStats, setServiceUsageStats] = useState<{[key: string]: number}>({});
+  const [practiceId, setPracticeId] = useState<string>('');
 
   // Date picker modal states
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -244,7 +247,8 @@ const EditVisitTabs: React.FC<Props> = ({
   const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm<EditVisitFormData>({
     defaultValues: {
       visit_type: 'consultation',
-      encounter_date: new Date(),
+      visit_date: new Date(),
+      visit_time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       chief_complaint: '',
       diagnosis: '',
       treatment_plan: '',
@@ -395,18 +399,25 @@ const EditVisitTabs: React.FC<Props> = ({
         }
 
         // Populate form with existing data
-        const encounterDateTime = visit.encounter_date ? new Date(visit.encounter_date) : 
-          (visit.visit_date && visit.visit_time ? 
-            new Date(`${visit.visit_date}T${visit.visit_time}`) : new Date());
-
-        // Set time states
-        setSelectedHour(encounterDateTime.getHours().toString().padStart(2, '0'));
-        setSelectedMinute(encounterDateTime.getMinutes().toString().padStart(2, '0'));
+        let visitDate = new Date();
+        let visitTime = '10:00';
+        
+        if (visit.visit_date) {
+          visitDate = new Date(visit.visit_date);
+        }
+        
+        if (visit.visit_time) {
+          visitTime = visit.visit_time.substring(0, 5); // Get HH:MM from HH:MM:SS
+          const [hours, minutes] = visitTime.split(':');
+          setSelectedHour(hours.padStart(2, '0'));
+          setSelectedMinute(minutes.padStart(2, '0'));
+        }
 
         const formData = {
           visit_type: (visit.visit_type as 'consultation' | 'follow-up' | 'procedure' | 'emergency') || 'consultation',
           doctor_id: visit.doctor_id || '',
-          encounter_date: encounterDateTime || new Date(),
+          visit_date: visitDate,
+          visit_time: visitTime,
           chief_complaint: visit.chief_complaint || '',
           diagnosis: visit.diagnosis || '',
           treatment_plan: visit.treatment_plan || '',
@@ -527,9 +538,8 @@ const EditVisitTabs: React.FC<Props> = ({
       const visitData = {
         visit_type: data.visit_type,
         doctor_id: finalDoctorId || null, // Ensure empty strings become null for UUID fields
-        encounter_date: data.encounter_date ? data.encounter_date.toISOString() : undefined,
-        visit_date: data.encounter_date ? data.encounter_date.toISOString().split('T')[0] : undefined,
-        visit_time: data.encounter_date ? data.encounter_date.toLocaleTimeString('en-US', { hour12: false }) : undefined,
+        visit_date: data.visit_date ? data.visit_date.toISOString().split('T')[0] : undefined,
+        visit_time: data.visit_time || undefined,
         chief_complaint: data.chief_complaint || '',
         diagnosis: data.diagnosis || '',
         treatment_plan: data.treatment_plan || '',
@@ -549,6 +559,26 @@ const EditVisitTabs: React.FC<Props> = ({
 
       // Update vitals if provided
       if (Object.keys(data.vitals).some(key => data.vitals[key as keyof typeof data.vitals])) {
+        // Clean vitals data - convert empty strings to null for numeric fields
+        const cleanedVitals = {
+          blood_pressure: data.vitals.blood_pressure || null,
+          temperature: data.vitals.temperature && data.vitals.temperature !== '' ? parseFloat(data.vitals.temperature) : null,
+          pulse_rate: data.vitals.pulse_rate && data.vitals.pulse_rate !== '' ? parseInt(data.vitals.pulse_rate) : null,
+          respiratory_rate: data.vitals.respiratory_rate && data.vitals.respiratory_rate !== '' ? parseInt(data.vitals.respiratory_rate) : null,
+          weight: data.vitals.weight && data.vitals.weight !== '' ? parseFloat(data.vitals.weight) : null,
+          height: data.vitals.height && data.vitals.height !== '' ? parseFloat(data.vitals.height) : null,
+          bmi: data.vitals.bmi && data.vitals.bmi !== '' ? parseFloat(data.vitals.bmi) : null,
+          oxygen_saturation: data.vitals.oxygen_saturation && data.vitals.oxygen_saturation !== '' ? parseFloat(data.vitals.oxygen_saturation) : null
+        };
+
+        // Only include non-null values
+        const vitalsToSave = Object.entries(cleanedVitals).reduce((acc, [key, value]) => {
+          if (value !== null) {
+            acc[key] = value;
+          }
+          return acc;
+        }, {} as any);
+
         // First try to update existing vitals
         const { data: existingVitals } = await supabase
           .from('vitals')
@@ -559,9 +589,7 @@ const EditVisitTabs: React.FC<Props> = ({
         if (existingVitals && existingVitals.length > 0) {
           const { error: vitalsError } = await supabase
             .from('vitals')
-            .update({
-              ...data.vitals
-            })
+            .update(vitalsToSave)
             .eq('id', existingVitals[0].id);
 
           if (vitalsError) throw vitalsError;
@@ -570,7 +598,7 @@ const EditVisitTabs: React.FC<Props> = ({
             .from('vitals')
             .insert([{
               visit_id: visitId,
-              ...data.vitals,
+              ...vitalsToSave,
               created_at: new Date().toISOString()
             }]);
 
@@ -741,6 +769,8 @@ const EditVisitTabs: React.FC<Props> = ({
           .single();
 
         if (!userProfile?.practice_id) return;
+
+        setPracticeId(userProfile.practice_id);
 
         const { data: practiceData } = await supabase
           .from('practices')
@@ -1209,21 +1239,21 @@ const EditVisitTabs: React.FC<Props> = ({
                               <Calendar className="w-4 h-4 text-white" />
                             </div>
                             <div>
-                              {watch('encounter_date') ? (
+                              {watch('visit_date') ? (
                                 <>
                                   <p className="text-sm font-semibold text-gray-900">
-                                    {watch('encounter_date').toLocaleDateString('en-US', { 
+                                    {watch('visit_date').toLocaleDateString('en-US', { 
                                       month: 'short', 
                                       day: 'numeric', 
                                       year: 'numeric' 
                                     })}
                                   </p>
-                                  <p className="text-xs text-gray-500">Selected date</p>
+                                  <p className="text-xs text-gray-500">Visit date</p>
                                 </>
                               ) : (
                                 <>
                                   <p className="text-sm font-semibold text-gray-900">Select Date</p>
-                                  <p className="text-xs text-gray-500">Choose encounter date</p>
+                                  <p className="text-xs text-gray-500">Choose visit date</p>
                                 </>
                               )}
                             </div>
@@ -1231,8 +1261,8 @@ const EditVisitTabs: React.FC<Props> = ({
                           <ChevronDown className="w-5 h-5 transition-transform text-[#01b9d5]" />
                         </button>
                       </div>
-                      {errors.encounter_date && (
-                        <p className="text-sm text-red-600 mt-1">Encounter date is required</p>
+                      {errors.visit_date && (
+                        <p className="text-sm text-red-600 mt-1">Visit date is required</p>
                       )}
                     </div>
 
@@ -1569,14 +1599,10 @@ const EditVisitTabs: React.FC<Props> = ({
                   type="button"
                   onClick={() => {
                     const today = new Date();
-                    const currentEncounterDate = watch('encounter_date') || new Date();
-                    const newDateTime = new Date(today);
-                    // Keep the existing time, just update the date
-                    newDateTime.setHours(currentEncounterDate.getHours(), currentEncounterDate.getMinutes(), 0, 0);
                     setSelectedDate(today);
                     setCurrentMonth(today.getMonth());
                     setCurrentYear(today.getFullYear());
-                    setValue('encounter_date', newDateTime);
+                    setValue('visit_date', today);
                     setIsDatePickerOpen(false);
                   }}
                   className="flex-1 px-4 py-2 text-sm bg-gradient-to-r from-[#01b9d5] to-[#4bc0c8] text-white rounded-lg transition-all font-medium hover:shadow-md"
@@ -1586,11 +1612,7 @@ const EditVisitTabs: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    const currentEncounterDate = watch('encounter_date') || new Date();
-                    const newDateTime = new Date(selectedDate);
-                    // Keep the existing time, just update the date
-                    newDateTime.setHours(currentEncounterDate.getHours(), currentEncounterDate.getMinutes(), 0, 0);
-                    setValue('encounter_date', newDateTime);
+                    setValue('visit_date', selectedDate);
                     setIsDatePickerOpen(false);
                   }}
                   className="flex-1 px-4 py-2 text-sm bg-gradient-to-r from-[#01b9d5] to-[#4bc0c8] text-white rounded-lg transition-all font-medium hover:shadow-md"
@@ -1793,11 +1815,9 @@ const EditVisitTabs: React.FC<Props> = ({
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      // Update the encounter_date with new time
-                      const currentDate = watch('encounter_date') || new Date();
-                      const newDateTime = new Date(currentDate);
-                      newDateTime.setHours(parseInt(selectedHour), parseInt(selectedMinute), 0, 0);
-                      setValue('encounter_date', newDateTime);
+                      // Update the visit_time
+                      const timeString = `${selectedHour}:${selectedMinute}`;
+                      setValue('visit_time', timeString);
                       setIsTimePickerOpen(false);
                     }}
                     className="flex-1 px-4 py-2 bg-gradient-to-r from-[#01b9d5] to-[#0197a4] text-white font-medium rounded-lg shadow-sm hover:shadow-md transition-all"
@@ -2490,6 +2510,16 @@ const EditVisitTabs: React.FC<Props> = ({
         {/* Imaging Tab */}
         {activeTab === 'imaging' && (
           <ImagingTabContentSimple patientId={patientId} visitId={visitId} />
+        )}
+
+        {/* Leave Form Tab */}
+        {activeTab === 'leave' && (
+          <LeaveFormTab 
+            visitId={visitId} 
+            patientId={patientId} 
+            practiceId={practiceId}
+            doctorId={appointmentDoctor || user?.id}
+          />
         )}
 
 

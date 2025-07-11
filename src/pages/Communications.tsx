@@ -7,17 +7,11 @@ import { useAuthStore } from '../stores/authStore';
 import { usePracticeSettings } from '../hooks/usePracticeSettings';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { 
-  Eye,
-  ChevronDown,
-  ChevronUp,
-  Copy,
   MoreVertical
 } from 'lucide-react';
 
 // Import existing components
 import SmartAutomations from '../components/messages/SmartAutomations';
-import EmailTemplatePreview from '../components/messages/EmailTemplatePreview';
-import EmailTemplatePreviews from '../components/messages/EmailTemplatePreviews';
 import { CommunicationsDashboard } from '../components/communications/CommunicationsDashboard';
 import { EnhancedMessagingV2 } from '../components/messages/InternalMessaging/EnhancedMessagingV2';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
@@ -29,9 +23,8 @@ import { communicationService } from '../services/communicationService';
 import { unreadMessagesService } from '../services/unreadMessagesService';
 import FormModal from '../components/modals/FormModal';
 import PremiumAddAppointmentForm from '../components/forms/PremiumAddAppointmentForm';
-import GoogleReviewManager from '../components/reviews/GoogleReviewManager';
 
-type TabType = 'dashboard' | 'messaging' | 'automations' | 'settings' | 'telemedicine' | 'reviews';
+type TabType = 'dashboard' | 'messaging' | 'automations' | 'telemedicine';
 
 
 
@@ -51,12 +44,6 @@ const Communications: React.FC = () => {
     domain?: string;
   } | null>(null);
   const [, setIsLoading] = useState(true);
-  const [expandedService, setExpandedService] = useState<string | null>(null);
-  const [previewTemplate, setPreviewTemplate] = useState<{
-    title: string;
-    template: string;
-  } | null>(null);
-  const [showEmailPreview, setShowEmailPreview] = useState<string | null>(null);
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   
@@ -95,118 +82,6 @@ const Communications: React.FC = () => {
   
   const [upcomingTelemedicineVisits, setUpcomingTelemedicineVisits] = useState<TelemedicineVisit[]>([]);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
-  
-  const [automationSettings, setAutomationSettings] = useState({
-    appointmentReminders: { 
-      enabled: false, 
-      timing: ['24h', '2h'], 
-      method: 'email',
-      template: `Dear {{patientName}},
-
-This is a friendly reminder about your upcoming appointment scheduled for {{appointmentDate}} at {{appointmentTime}} with Dr. {{doctorName}}.
-
-APPOINTMENT DETAILS:
-• Date: {{appointmentDate}}
-• Time: {{appointmentTime}}
-• Doctor: Dr. {{doctorName}}
-• Location: {{practiceName}}
-
-WHAT TO BRING:
-• Valid ID document
-• Medical aid card (if applicable)
-• Any previous medical records
-• List of current medications
-
-Please arrive 15 minutes early for check-in. If you need to reschedule or cancel, please contact us as soon as possible at {{practicePhone}}.
-
-We look forward to seeing you soon!
-
-Best regards,
-The {{practiceName}} Team`
-    },
-    birthdayMessages: { 
-      enabled: false, 
-      method: 'email',
-      includeOffer: true,
-      template: `Dear {{patientName}},
-
-Happy Birthday! 🎉
-
-On this special day, the entire team at {{practiceName}} wants to wish you a year filled with good health, happiness, and wonderful memories.
-
-BIRTHDAY SPECIAL OFFER:
-As our gift to you, we're offering 15% off your next preventive health screening or consultation.
-
-This offer includes:
-• 15% off comprehensive health check-up
-• Complimentary wellness consultation
-• Priority booking for the next 30 days
-
-To book your appointment, simply call us at {{practicePhone}} or visit {{practiceWebsite}}. Mention "Birthday2024" to receive your special discount.
-
-Wishing you the happiest of birthdays and a healthy year ahead!
-
-Warm regards,
-The {{practiceName}} Team`
-    },
-    followUpCare: { 
-      enabled: false, 
-      timing: ['3d', '7d'], 
-      method: 'sms',
-      template: 'Hi {{patientName}}, we hope you\'re feeling better after your recent visit. Please remember to {{followUpInstructions}}. If you have any concerns, call us at {{practicePhone}}.'
-    },
-    paymentReminders: { 
-      enabled: false, 
-      sequence: ['7d', '14d', '30d'], 
-      method: 'email',
-      template: 'Dear {{patientName}}, this is a friendly reminder that your invoice #{{invoiceNumber}} of {{amount}} is due on {{dueDate}}. You can pay online at {{paymentLink}} or call us at {{practicePhone}}.'
-    },
-    invoiceDelivery: { 
-      enabled: false, 
-      method: 'email',
-      timing: ['immediately'],
-      template: `Dear {{patientName}},
-
-Thank you for visiting {{practiceName}} on {{visitDate}}. We hope you had a positive experience with our healthcare services.
-
-INVOICE DETAILS:
-• Invoice Number: {{invoiceNumber}}
-• Amount: {{amount}}
-• Due Date: {{dueDate}}
-• Service Date: {{visitDate}}
-
-PAYMENT OPTIONS:
-1. Online Payment (Recommended): {{paymentLink}}
-2. Bank Transfer: Details provided in attached invoice
-3. In-person: Visit our reception during business hours
-4. Phone Payment: Call {{practicePhone}}
-
-Your health is our priority, and we appreciate your trust in our services. If you have any questions about this invoice, please don't hesitate to contact our billing department.
-
-Thank you for choosing {{practiceName}}.
-
-Best regards,
-{{practiceName}} Billing Department`
-    },
-    thankYouMessages: { 
-      enabled: false, 
-      timing: ['2h'], 
-      method: 'sms',
-      template: 'Thank you for visiting us today, {{patientName}}! Please follow these care instructions: {{careInstructions}}. If you have questions, call {{practicePhone}}.'
-    },
-    healthScreenings: {
-      enabled: false,
-      timing: ['annually', '6months'],
-      method: 'email',
-      template: 'Hi {{patientName}}, it\'s time for your regular health screening! Based on your age ({{patientAge}}) and medical history, we recommend scheduling: {{recommendedScreenings}}. Book online or call {{practicePhone}}.'
-    },
-    welcomeNewPatients: {
-      enabled: false,
-      timing: ['immediately'],
-      method: 'email',
-      template: 'Welcome to {{practiceName}}, {{patientName}}! We\'re excited to be part of your healthcare journey. Your patient portal is ready at {{portalLink}}. For appointments, call {{practicePhone}} or visit {{practiceWebsite}}.'
-    }
-  });
 
   // Get practice ID from logged-in user
   const practiceId = user?.practice_id;
@@ -243,12 +118,6 @@ Best regards,
     }
   }, [practiceId]);
 
-  useEffect(() => {
-    if (practiceId) {
-      loadAutomationSettings();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [practiceId]);
 
   // Load communication stats only after practice settings are available
   useEffect(() => {
@@ -258,10 +127,6 @@ Best regards,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [practiceId, practiceSettings, settingsLoading]);
 
-  // Update available services count when automation settings change
-  useEffect(() => {
-    // Stats tracking removed - can be reimplemented if needed
-  }, [automationSettings]);
 
   // Fetch telemedicine visits
   useEffect(() => {
@@ -361,7 +226,7 @@ Best regards,
       };
 
       // Calculate available communication services (total number of services)
-      const totalAvailableServices = Object.keys(automationSettings).length; // 8 services total
+      const totalAvailableServices = 8; // 8 services total
 
       console.log('📊 Final stats calculated:', {
         sms: smsStats,
@@ -378,366 +243,14 @@ Best regards,
   };
 
 
-  const loadAutomationSettings = async () => {
-    try {
-      const { data } = await supabase
-        .from('practice_automation_settings')
-        .select('*')
-        .eq('practice_id', practiceId)
-        .single();
-
-      if (data) {
-        setAutomationSettings(data.settings || automationSettings);
-      }
-    } catch (error) {
-      console.error('Error loading automation settings:', error);
-    }
-  };
-
-  const updateAutomationSetting = async (key: string, value: {
-    enabled: boolean;
-    timing?: string[];
-    sequence?: string[];
-    method?: string | string[];
-    template?: string;
-    includeOffer?: boolean;
-  }) => {
-    try {
-      const newSettings = { ...automationSettings, [key]: value };
-      setAutomationSettings(newSettings);
-
-      const { error } = await supabase
-        .from('practice_automation_settings')
-        .upsert({
-          practice_id: practiceId,
-          settings: newSettings,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error updating automation settings:', error);
-    }
-  };
 
 
-  const renderServiceCard = (serviceKey: string, config: {
-    title: string;
-    description: string;
-    icon: React.ComponentType<{ className?: string }>;
-    color: string;
-    timingOptions: { value: string; label: string }[];
-    variables: string[];
-  }) => {
-    const service = automationSettings[serviceKey as keyof typeof automationSettings];
-    const isExpanded = expandedService === serviceKey;
-    const IconComponent = config.icon;
-    
-    const colorClasses = {
-      blue: 'from-blue-500 to-blue-600 border-blue-200 bg-blue-50',
-      pink: 'from-pink-500 to-pink-600 border-pink-200 bg-pink-50',
-      green: 'from-green-500 to-green-600 border-green-200 bg-green-50',
-      indigo: 'from-indigo-500 to-indigo-600 border-indigo-200 bg-indigo-50',
-      emerald: 'from-emerald-500 to-emerald-600 border-emerald-200 bg-emerald-50',
-      purple: 'from-purple-500 to-purple-600 border-purple-200 bg-purple-50',
-      orange: 'from-orange-500 to-orange-600 border-orange-200 bg-orange-50',
-      cyan: 'from-cyan-500 to-cyan-600 border-cyan-200 bg-cyan-50'
-    };
 
-    return (
-      <motion.div
-        key={serviceKey}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-all duration-300"
-      >
-        {/* Service Header */}
-        <div className="p-6 border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-xl bg-gradient-to-r ${colorClasses[config.color as keyof typeof colorClasses].split(' ')[0]} ${colorClasses[config.color as keyof typeof colorClasses].split(' ')[1]} shadow-lg`}>
-                <IconComponent className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">{config.title}</h3>
-                <p className="text-gray-600 text-sm">{config.description}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              {service.enabled && (
-                <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
-                  Active
-                </span>
-              )}
-              
-              {/* Premium Toggle Switch */}
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={service.enabled}
-                  onChange={(e) => {
-                    updateAutomationSetting(serviceKey, {
-                      ...service,
-                      enabled: e.target.checked
-                    });
-                    if (e.target.checked && !isExpanded) {
-                      setExpandedService(serviceKey);
-                    }
-                  }}
-                  className="sr-only peer"
-                />
-                <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-blue-500 peer-checked:to-blue-600 shadow-lg"></div>
-              </label>
-              
-              {service.enabled && (
-                <button
-                  onClick={() => setExpandedService(isExpanded ? null : serviceKey)}
-                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  {isExpanded ? (
-                    <ChevronUp className="w-5 h-5 text-gray-600" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-gray-600" />
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Expanded Configuration */}
-        <AnimatePresence>
-          {service.enabled && isExpanded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="p-6 space-y-6 bg-gray-50">
-                {/* Delivery Method */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-900 mb-3">
-                    Delivery Methods
-                  </label>
-                  <div className="flex gap-3">
-                    {['sms', 'email'].map((method) => (
-                      <label key={method} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={Array.isArray(service.method) ? service.method.includes(method) : service.method === method}
-                          onChange={(e) => {
-                            let newMethods: string | string[];
-                            const currentMethods = Array.isArray(service.method) ? service.method : [service.method];
-                            
-                            if (e.target.checked) {
-                              newMethods = [...currentMethods, method];
-                            } else {
-                              newMethods = currentMethods.filter((m: string) => m !== method);
-                            }
-                            
-                            // Ensure at least one method is selected
-                            if (newMethods.length === 0) {
-                              newMethods = [method === 'sms' ? 'email' : 'sms'];
-                            }
-                            
-                            updateAutomationSetting(serviceKey, {
-                              ...service,
-                              method: newMethods.length === 1 ? newMethods[0] : newMethods
-                            });
-                          }}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
-                        <span className="flex items-center gap-2 px-3 py-2 bg-white rounded-lg border border-gray-200 text-sm font-medium">
-                          <Icon icon={method === 'sms' ? 'solar:chat-square-bold-duotone' : 'solar:letter-bold-duotone'} className="w-4 h-4" />
-                          {method.toUpperCase()}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    You can select both methods to send via SMS and Email
-                  </p>
-                </div>
-
-                {/* Timing Configuration */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-900 mb-3">
-                    Send Timing
-                  </label>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {config.timingOptions.map((option: { value: string; label: string }) => (
-                      <label key={option.value} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={service.timing?.includes(option.value) || service.sequence?.includes(option.value)}
-                          onChange={(e) => {
-                            const timingKey = 'sequence' in service ? 'sequence' : 'timing';
-                            const currentTiming = service[timingKey] || [];
-                            const newTiming = e.target.checked
-                              ? [...currentTiming, option.value]
-                              : currentTiming.filter((t: string) => t !== option.value);
-                            updateAutomationSetting(serviceKey, {
-                              ...service,
-                              [timingKey]: newTiming
-                            });
-                          }}
-                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        />
-                        <span className="text-sm text-gray-700">{option.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Message Template */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="block text-sm font-bold text-gray-900">
-                      Message Template ({Array.isArray(service.method) ? service.method.map((m: string) => m.toUpperCase()).join(' & ') : service.method?.toUpperCase()})
-                    </label>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setShowEmailPreview(serviceKey)}
-                        className="flex items-center gap-1 px-2 py-1 text-xs text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                      >
-                        <Eye className="w-3 h-3" />
-                        Preview Email
-                      </button>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(service.template || '');
-                        }}
-                        className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      >
-                        <Copy className="w-3 h-3" />
-                        Copy
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="relative">
-                    <textarea
-                      value={service.template}
-                      onChange={(e) => updateAutomationSetting(serviceKey, {
-                        ...service,
-                        template: e.target.value
-                      })}
-                      className="w-full h-32 p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm leading-relaxed"
-                      placeholder={`Enter your ${service.method} template...`}
-                    />
-                    <div className="absolute bottom-2 right-2 text-xs text-gray-500">
-                      {service.template?.length || 0} characters
-                    </div>
-                  </div>
-                </div>
-
-                {/* Available Variables */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-900 mb-3">
-                    Available Variables
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {config.variables.map((variable: string) => {
-                      // Show preview values for variables with real practice data
-                      const previewValue = {
-                        '{{patientName}}': 'John Smith',
-                        '{{practicePhone}}': currentPracticeData?.contact_phone || '+264 61 123 4567',
-                        '{{practiceName}}': currentPracticeData?.name || 'Your Practice Name',
-                        '{{practiceWebsite}}': currentPracticeData?.website_url || currentPracticeData?.domain || 'www.yourpractice.com',
-                        '{{appointmentDate}}': 'March 15, 2024',
-                        '{{appointmentTime}}': '2:30 PM',
-                        '{{doctorName}}': 'Dr. Johnson',
-                        '{{invoiceNumber}}': 'INV-2024-001',
-                        '{{amount}}': 'N$450.00',
-                        '{{dueDate}}': 'March 30, 2024',
-                        '{{visitDate}}': 'March 10, 2024',
-                        '{{paymentLink}}': `${window.location.origin}/pay/invoice`,
-                        '{{portalLink}}': `${window.location.origin}/portal`
-                      }[variable] || variable;
-
-                      return (
-                        <button
-                          key={variable}
-                          onClick={() => {
-                            const textarea = document.querySelector(`textarea`) as HTMLTextAreaElement;
-                            if (textarea) {
-                              const start = textarea.selectionStart;
-                              const end = textarea.selectionEnd;
-                              const newText = (service.template || '').substring(0, start) + variable + (service.template || '').substring(end);
-                              updateAutomationSetting(serviceKey, {
-                                ...service,
-                                template: newText
-                              });
-                              // Focus and set cursor position
-                              setTimeout(() => {
-                                textarea.focus();
-                                textarea.setSelectionRange(start + variable.length, start + variable.length);
-                              }, 0);
-                            }
-                          }}
-                          className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-mono rounded-lg hover:bg-blue-200 transition-colors border border-blue-200 group relative"
-                          title={`Preview: ${previewValue}`}
-                        >
-                          {variable}
-                          <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
-                            {previewValue}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Click variables to insert them at cursor position
-                  </p>
-                </div>
-
-                {/* Preview */}
-                <div>
-                  <label className="block text-sm font-bold text-gray-900 mb-3">
-                    Preview
-                  </label>
-                  <div className={`p-4 rounded-xl border-2 border-dashed ${colorClasses[config.color as keyof typeof colorClasses].split(' ')[2]} ${colorClasses[config.color as keyof typeof colorClasses].split(' ')[3]}`}>
-                    <div className="text-sm text-gray-700 leading-relaxed">
-                      {service.template?.replace(/\{\{(\w+)\}\}/g, (match, variable) => {
-                        const previews: { [key: string]: string } = {
-                          patientName: 'John Smith',
-                          appointmentDate: 'March 15, 2024',
-                          appointmentTime: '2:30 PM',
-                          doctorName: 'Dr. Johnson',
-                          practicePhone: currentPracticeData?.contact_phone || '+264 61 123 4567',
-                          practiceName: currentPracticeData?.name || 'Your Practice Name',
-                          practiceWebsite: currentPracticeData?.website_url || currentPracticeData?.domain || 'www.yourpractice.com',
-                          invoiceNumber: 'INV-2024-001',
-                          amount: 'N$450.00',
-                          dueDate: 'March 30, 2024',
-                          visitDate: 'March 10, 2024',
-                          careInstructions: 'Take medication twice daily',
-                          patientAge: '45',
-                          recommendedScreenings: 'Blood pressure check, cholesterol test',
-                          paymentLink: `${window.location.origin}/pay/invoice`,
-                          portalLink: `${window.location.origin}/portal`
-                        };
-                        return previews[variable] || `[${variable}]`;
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
-    );
-  };
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: 'solar:chart-bold-duotone', description: 'Overview & Stats' },
     { id: 'messaging', label: 'Messaging', icon: 'solar:chat-round-dots-bold-duotone', description: 'All Messages', badge: unreadCount > 0 ? unreadCount : undefined },
     { id: 'automations', label: 'Automations', icon: 'solar:widget-add-bold-duotone', description: 'Smart Workflows' },
-    { id: 'reviews', label: 'Reviews', icon: 'solar:star-bold-duotone', description: 'Google Reviews' },
-    { id: 'settings', label: 'Settings', icon: 'solar:settings-bold-duotone', description: 'Configuration' },
     { id: 'telemedicine', label: 'Telemedicine', icon: 'solar:videocamera-bold-duotone', description: 'Virtual Care' }
   ];
 
@@ -745,8 +258,6 @@ Best regards,
     dashboard: 'solar:chart-bold-duotone',
     messaging: 'solar:chat-round-dots-bold-duotone',
     automations: 'solar:widget-add-bold-duotone',
-    reviews: 'solar:star-bold-duotone',
-    settings: 'solar:settings-bold-duotone',
     telemedicine: 'solar:videocamera-bold-duotone'
   };
 
@@ -870,7 +381,7 @@ Best regards,
 
         {/* Premium Navigation Tabs */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-5 gap-0 w-full">
+          <div className="grid grid-cols-4 gap-0 w-full">
             {(tabs).map((tab) => {
               const iconName = tabIcons[tab.id as TabType];
               const isActive = activeTab === tab.id;
@@ -956,152 +467,6 @@ Best regards,
                 </div>
               )}
 
-
-              {/* Settings Tab */}
-              {activeTab === 'settings' && (
-                <div className="p-6">
-                  <div className="mb-8">
-                    <h2 className="text-3xl font-bold text-gray-900 mb-2">Communication Services</h2>
-                    <p className="text-gray-600">Configure automated messaging services with custom templates and timing</p>
-                  </div>
-
-                  <div className="space-y-4">
-                    {/* Service Configuration Cards */}
-                    {renderServiceCard('appointmentReminders', {
-                      title: 'Appointment Reminders',
-                      description: 'Send automated reminders before scheduled appointments',
-                      icon: (props: { className?: string }) => <Icon icon="solar:bell-bold-duotone" className={props.className} />,
-                      color: 'blue',
-                      timingOptions: [
-                        { value: '24h', label: '24 hours before' },
-                        { value: '2h', label: '2 hours before' },
-                        { value: '30m', label: '30 minutes before' }
-                      ],
-                      variables: [
-                        '{{patientName}}', '{{appointmentDate}}', '{{appointmentTime}}', 
-                        '{{doctorName}}', '{{practicePhone}}', '{{practiceName}}', '{{practiceWebsite}}'
-                      ]
-                    })}
-
-                    {renderServiceCard('birthdayMessages', {
-                      title: 'Birthday Messages',
-                      description: 'Send personalized birthday greetings with special offers',
-                      icon: (props: { className?: string }) => <Icon icon="solar:heart-bold-duotone" className={props.className} />,
-                      color: 'pink',
-                      timingOptions: [
-                        { value: 'morning', label: 'Morning of birthday' },
-                        { value: 'afternoon', label: 'Afternoon of birthday' }
-                      ],
-                      variables: [
-                        '{{patientName}}', '{{practicePhone}}', '{{practiceName}}', '{{practiceWebsite}}', '{{specialOffer}}'
-                      ]
-                    })}
-
-                    {renderServiceCard('paymentReminders', {
-                      title: 'Payment Reminders',
-                      description: 'Automated reminders for overdue payments and invoices',
-                      icon: (props: { className?: string }) => <Icon icon="solar:dollar-minimalistic-bold-duotone" className={props.className} />,
-                      color: 'green',
-                      timingOptions: [
-                        { value: '7d', label: '7 days after due date' },
-                        { value: '14d', label: '14 days after due date' },
-                        { value: '30d', label: '30 days after due date' }
-                      ],
-                      variables: [
-                        '{{patientName}}', '{{invoiceNumber}}', '{{amount}}', 
-                        '{{dueDate}}', '{{paymentLink}}', '{{practicePhone}}'
-                      ]
-                    })}
-
-                    {renderServiceCard('invoiceDelivery', {
-                      title: 'Invoice Delivery',
-                      description: 'Automatically send invoices after completed visits',
-                      icon: (props: { className?: string }) => <Icon icon="solar:document-text-bold-duotone" className={props.className} />,
-                      color: 'indigo',
-                      timingOptions: [
-                        { value: 'immediately', label: 'Immediately after visit' },
-                        { value: '1h', label: '1 hour after visit' },
-                        { value: '24h', label: '24 hours after visit' }
-                      ],
-                      variables: [
-                        '{{patientName}}', '{{visitDate}}', '{{invoiceNumber}}', 
-                        '{{amount}}', '{{dueDate}}', '{{paymentLink}}'
-                      ]
-                    })}
-
-                    {renderServiceCard('thankYouMessages', {
-                      title: 'Thank You Messages',
-                      description: 'Post-visit thank you with care instructions',
-                      icon: (props: { className?: string }) => <Icon icon="solar:check-circle-bold-duotone" className={props.className} />,
-                      color: 'emerald',
-                      timingOptions: [
-                        { value: '2h', label: '2 hours after visit' },
-                        { value: '4h', label: '4 hours after visit' },
-                        { value: '24h', label: '24 hours after visit' }
-                      ],
-                      variables: [
-                        '{{patientName}}', '{{careInstructions}}', '{{practicePhone}}', 
-                        '{{doctorName}}', '{{visitDate}}'
-                      ]
-                    })}
-
-                    {renderServiceCard('followUpCare', {
-                      title: 'Follow-up Care',
-                      description: 'Check-in messages with medication and care reminders',
-                      icon: (props: { className?: string }) => <Icon icon="solar:users-group-rounded-bold-duotone" className={props.className} />,
-                      color: 'purple',
-                      timingOptions: [
-                        { value: '3d', label: '3 days after visit' },
-                        { value: '7d', label: '1 week after visit' },
-                        { value: '14d', label: '2 weeks after visit' }
-                      ],
-                      variables: [
-                        '{{patientName}}', '{{followUpInstructions}}', '{{practicePhone}}', 
-                        '{{medicationReminders}}', '{{nextAppointment}}'
-                      ]
-                    })}
-
-                    {renderServiceCard('healthScreenings', {
-                      title: 'Health Screenings',
-                      description: 'Remind patients about due health screenings based on age and history',
-                      icon: (props: { className?: string }) => <Icon icon="solar:health-bold-duotone" className={props.className} />,
-                      color: 'orange',
-                      timingOptions: [
-                        { value: 'annually', label: 'Annually' },
-                        { value: '6months', label: 'Every 6 months' },
-                        { value: '2years', label: 'Every 2 years' }
-                      ],
-                      variables: [
-                        '{{patientName}}', '{{patientAge}}', '{{recommendedScreenings}}', 
-                        '{{practicePhone}}', '{{lastScreeningDate}}'
-                      ]
-                    })}
-
-                    {renderServiceCard('welcomeNewPatients', {
-                      title: 'Welcome New Patients',
-                      description: 'Welcome message with portal access and practice information',
-                      icon: (props: { className?: string }) => <Icon icon="solar:user-plus-rounded-bold-duotone" className={props.className} />,
-                      color: 'cyan',
-                      timingOptions: [
-                        { value: 'immediately', label: 'Immediately after registration' },
-                        { value: '1h', label: '1 hour after registration' },
-                        { value: '24h', label: '24 hours after registration' }
-                      ],
-                      variables: [
-                        '{{patientName}}', '{{practiceName}}', '{{portalLink}}', 
-                        '{{practicePhone}}', '{{practiceWebsite}}', '{{welcomeBonus}}'
-                      ]
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Reviews Tab */}
-              {activeTab === 'reviews' && (
-                <div className="p-6">
-                  <GoogleReviewManager />
-                </div>
-              )}
 
               {/* Telemedicine Tab */}
               {activeTab === 'telemedicine' && (
@@ -1323,25 +688,6 @@ Best regards,
         </div>
       </div>
 
-      {/* Email Template Preview Modal */}
-      {previewTemplate && (
-        <EmailTemplatePreview
-          template={previewTemplate}
-          onClose={() => setPreviewTemplate(null)}
-          practiceData={currentPracticeData}
-        />
-      )}
-
-      {/* Professional Email Preview Modal */}
-      {showEmailPreview && (
-        <EmailTemplatePreviews
-          isOpen={!!showEmailPreview}
-          onClose={() => setShowEmailPreview(null)}
-          serviceName={showEmailPreview}
-          practiceData={currentPracticeData}
-        />
-      )}
-
       {/* Floating Visit Tracker */}
       {practiceId && (
         <FloatingVisitTracker practiceId={practiceId} />
@@ -1448,9 +794,6 @@ Best regards,
           onCancel={() => setIsScheduleModalOpen(false)}
         />
       </FormModal>
-
-      {/* Floating Visit Tracker */}
-      <FloatingVisitTracker />
     </div>
   );
 };

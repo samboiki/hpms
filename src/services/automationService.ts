@@ -71,7 +71,7 @@ class AutomationService {
    */
   async getAutomationSettings(practiceId: string): Promise<AutomationSettings[]> {
     const { data, error } = await supabase
-      .from('automation_settings')
+      .from('practice_automation_settings')
       .select('*')
       .eq('practice_id', practiceId)
       .order('name');
@@ -85,7 +85,7 @@ class AutomationService {
    */
   async getAutomationSetting(practiceId: string, automationId: string): Promise<AutomationSettings | null> {
     const { data, error } = await supabase
-      .from('automation_settings')
+      .from('practice_automation_settings')
       .select('*')
       .eq('practice_id', practiceId)
       .eq('automation_id', automationId)
@@ -100,7 +100,7 @@ class AutomationService {
    */
   async upsertAutomationSettings(settings: AutomationSettings): Promise<AutomationSettings> {
     const { data, error } = await supabase
-      .from('automation_settings')
+      .from('practice_automation_settings')
       .upsert({
         ...settings,
         updated_at: new Date().toISOString()
@@ -117,7 +117,7 @@ class AutomationService {
    */
   async deleteAutomationSettings(practiceId: string, automationId: string): Promise<void> {
     const { error } = await supabase
-      .from('automation_settings')
+      .from('practice_automation_settings')
       .delete()
       .eq('practice_id', practiceId)
       .eq('automation_id', automationId);
@@ -130,7 +130,7 @@ class AutomationService {
    */
   async toggleAutomation(practiceId: string, automationId: string, isActive: boolean): Promise<void> {
     const { error } = await supabase
-      .from('automation_settings')
+      .from('practice_automation_settings')
       .update({ 
         is_active: isActive,
         updated_at: new Date().toISOString()

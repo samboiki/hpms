@@ -54,7 +54,14 @@ serve(async (req) => {
       templateVariables = {}
     } = await req.json();
 
-    console.log('SMS Request:', { practiceId, recipientPhone, messageType, templateId });
+    console.log('SMS Request:', { 
+      practiceId, 
+      recipientPhone, 
+      messageType, 
+      templateId,
+      metadata,
+      queue_id: metadata?.queue_id 
+    });
 
     // Process template if templateId is provided
     let finalMessageContent = messageContent;
@@ -265,7 +272,7 @@ serve(async (req) => {
       let smsResult;
       try {
         smsResult = JSON.parse(responseText);
-      } catch (_e) {
+      } catch {
         console.error('Failed to parse SMS Portal response as JSON:', responseText);
         throw new Error(`Invalid response from SMS Portal: ${responseText.substring(0, 200)}`);
       }
@@ -273,6 +280,7 @@ serve(async (req) => {
       // Check if SMS was accepted
       if (smsResponse.ok) {
         console.log('SMS sent successfully, updating log entry');
+        console.log('SMS Result:', JSON.stringify(smsResult));
         
         // Extract message ID from response - SMS Portal v3 format
         const messageId = smsResult.results?.[0]?.messageId || 
@@ -280,6 +288,7 @@ serve(async (req) => {
                          `sent-${Date.now()}`;
         
         console.log('Extracted message ID:', messageId);
+        console.log('Queue ID from metadata:', metadata.queue_id);
                          
         // Update log entry as sent
         const updateData = {
@@ -324,14 +333,21 @@ serve(async (req) => {
           console.error('Failed to update subscription usage:', subUpdateError);
         }
 
+        const responseData = {
+          success: true,
+          logId: logEntry.id,
+          messageId: messageId,
+          status: 'sent',
+          remainingCredits: remaining - 1,
+          // Return queue_id from metadata if it exists
+          queue_id: metadata.queue_id || null,
+          practiceId: practiceId
+        };
+        
+        console.log('SMS Gateway Response:', JSON.stringify(responseData));
+        
         return new Response(
-          JSON.stringify({
-            success: true,
-            logId: logEntry.id,
-            messageId: messageId,
-            status: 'sent',
-            remainingCredits: remaining - 1
-          }),
+          JSON.stringify(responseData),
           { 
             status: 200,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -364,7 +380,10 @@ serve(async (req) => {
             logId: logEntry.id,
             status: 'failed',
             error: failureReason,
-            details: smsResult
+            details: smsResult,
+            // Return queue_id from metadata if it exists
+            queue_id: metadata.queue_id || null,
+            practiceId: practiceId
           }),
           { 
             status: 400,

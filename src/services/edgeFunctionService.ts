@@ -133,12 +133,7 @@ class EdgeFunctionService {
     return this.invoke('centralized-sms-gateway', { body: params });
   }
 
-  /**
-   * Process automations
-   */
-  async processAutomations() {
-    return this.invoke('automation-engine', { body: {} });
-  }
+  // Removed processAutomations - n8n handles automation processing now
 }
 
 // Export singleton instance

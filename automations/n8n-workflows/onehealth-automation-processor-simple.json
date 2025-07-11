@@ -1,0 +1,283 @@
+{
+  "name": "OneHealth Automation Processor - Simple",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "ab5b96e7-e03f-4c3b-b5f4-b91cb2b7d432",
+      "name": "Every Minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/rpc/get_all_pending_automations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"batch_size\": 20 }",
+        "options": {}
+      },
+      "id": "5cc1c2f1-6b3e-4f93-a3f7-3e3bbf3c9f92",
+      "name": "Get Pending Automations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [600, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.sms_enabled && $json.sms_template && $json.payload.patientPhone }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "24f63d5e-2c5b-4d89-b234-e5f4c8b9d123",
+      "name": "SMS Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [800, 220]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.email_enabled && $json.email_subject && $json.email_body && $json.payload.patientEmail }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "34g74e6f-3d6c-5e90-c345-f6g5d9c0e234",
+      "name": "Email Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [800, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/centralized-sms-gateway",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  practiceId: $json.practice_id,\n  recipientPhone: $json.payload.patientPhone,\n  messageContent: $json.sms_template,\n  messageType: $json.automation_id,\n  patientId: $json.payload.patient_id,\n  metadata: {\n    automation_id: $json.automation_id,\n    queue_id: $json.queue_id\n  }\n}) }}",
+        "options": {}
+      },
+      "id": "45h85f7g-4e7d-6f01-d456-g7h6e0d1f345",
+      "name": "Send SMS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1000, 160],
+      "continueOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EpJk3rG8XWa0gPp5",
+          "name": "Supabase Service Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.payload.patientEmail }}",
+        "subject": "={{ $json.email_subject }}",
+        "messageType": "html",
+        "message": "={{ $json.email_body }}",
+        "options": {}
+      },
+      "id": "56i96g8h-5f8e-7g12-e567-h8i7f1e2g456",
+      "name": "Send Email (Gmail)",
+      "type": "n8n-nodes-gmail.gmail",
+      "typeVersion": 2.1,
+      "position": [1000, 320],
+      "continueOnFail": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "uA0l39VD4cMHN9cC",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/centralized-email-gateway",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  practiceId: $json.practice_id,\n  recipientEmail: $json.payload.patientEmail,\n  subject: $json.email_subject,\n  htmlContent: $json.email_body,\n  emailType: $json.automation_id,\n  patientId: $json.payload.patient_id,\n  metadata: {\n    automation_id: $json.automation_id,\n    queue_id: $json.queue_id,\n    fallback_reason: 'gmail_failed'\n  }\n}) }}",
+        "options": {}
+      },
+      "id": "67j07h9i-6g9f-8h23-f678-i9j8g2f3h567",
+      "name": "Email Fallback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1200, 420],
+      "continueOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "EpJk3rG8XWa0gPp5",
+          "name": "Supabase Service Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/automation_queue?id=eq.' + $json.queue_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  status: 'completed',\n  completed_at: new Date().toISOString(),\n  attempt_count: ($json.attempt_count || 0) + 1\n}) }}",
+        "options": {}
+      },
+      "id": "78k18i0j-7h0g-9i34-g789-j0k9h3g4i678",
+      "name": "Mark Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Minute": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Automations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending Automations": {
+      "main": [
+        [
+          {
+            "node": "SMS Enabled?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email Enabled?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Send SMS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Email Enabled?": {
+      "main": [
+        [
+          {
+            "node": "Send Email (Gmail)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Send SMS": {
+      "main": [
+        [
+          {
+            "node": "Mark Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email (Gmail)": {
+      "main": [
+        [
+          {
+            "node": "Mark Complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email Fallback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Fallback": {
+      "main": [
+        [
+          {
+            "node": "Mark Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "simple-v1",
+  "tags": []
+}

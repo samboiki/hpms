@@ -1,0 +1,775 @@
+{
+  "name": "OneHealth Automation - Smart Multi-Tenant Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "cron_trigger",
+      "name": "⏰ Every Minute Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/rpc/get_all_pending_automations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": false,
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "get_pending_automations",
+      "name": "🔍 Get All Pending Automations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse and prepare automations with practice grouping\nconst items = $input.all();\nlet automations = [];\n\ntry {\n  if (items && items.length > 0) {\n    const firstItem = items[0].json;\n    \n    if (Array.isArray(firstItem)) {\n      automations = firstItem;\n    } else if (firstItem.data && Array.isArray(firstItem.data)) {\n      automations = firstItem.data;\n    }\n  }\n  \n  // Group by practice for efficient routing\n  const practiceGroups = {};\n  \n  automations.forEach(automation => {\n    const practiceId = automation.practice_id;\n    const practiceName = automation.practice_name || 'Unknown Practice';\n    \n    if (!practiceGroups[practiceId]) {\n      practiceGroups[practiceId] = {\n        practice_id: practiceId,\n        practice_name: practiceName,\n        gmail_credentials: automation.gmail_credentials,\n        automations: []\n      };\n    }\n    \n    practiceGroups[practiceId].automations.push(automation);\n  });\n  \n  // Return practice groups for routing\n  return Object.values(practiceGroups).map(group => ({ json: group }));\n  \n} catch (error) {\n  console.error('Error processing automations:', error);\n  return [];\n}"
+      },
+      "id": "group_by_practice",
+      "name": "🏢 Group by Practice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "batchSize": 1
+      },
+      "id": "split_practices",
+      "name": "🔀 Split by Practice",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Route to correct practice-specific nodes based on practice_id\nconst practiceId = $json.practice_id;\nconst practiceName = $json.practice_name;\n\n// Map practice IDs to their node outputs\nconst practiceRoutes = {\n  'practice_1_id': 0,  // Dr. Smith's Clinic\n  'practice_2_id': 1,  // City Medical Center\n  'practice_3_id': 2,  // Health Plus Practice\n  'practice_4_id': 3,  // Family Care Clinic\n  'practice_5_id': 4   // Wellness Center\n};\n\n// Determine route\nconst routeIndex = practiceRoutes[practiceId] !== undefined ? practiceRoutes[practiceId] : 5; // Default route\n\n// Add routing info\n$json.route_index = routeIndex;\n$json.route_name = practiceName;\n\nreturn $json;"
+      },
+      "id": "route_to_practice",
+      "name": "🚦 Route to Practice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "operation": "equals",
+              "value1": "={{ $json.route_index }}",
+              "value2": 0,
+              "output": 0
+            },
+            {
+              "operation": "equals",
+              "value1": "={{ $json.route_index }}",
+              "value2": 1,
+              "output": 1
+            },
+            {
+              "operation": "equals",
+              "value1": "={{ $json.route_index }}",
+              "value2": 2,
+              "output": 2
+            },
+            {
+              "operation": "equals",
+              "value1": "={{ $json.route_index }}",
+              "value2": 3,
+              "output": 3
+            },
+            {
+              "operation": "equals",
+              "value1": "={{ $json.route_index }}",
+              "value2": 4,
+              "output": 4
+            }
+          ]
+        },
+        "fallbackOutput": 5
+      },
+      "id": "practice_router",
+      "name": "🔄 Practice Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {
+        "content": "## Dr. Smith's Clinic Branch",
+        "height": 600,
+        "width": 1200
+      },
+      "id": "note_practice_1",
+      "name": "Practice 1 Branch",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1500, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process automations for Dr. Smith's Clinic\nconst automations = $json.automations || [];\nconst practiceId = $json.practice_id;\nconst practiceName = $json.practice_name;\n\n// Split into SMS and Email groups\nconst smsAutomations = [];\nconst emailAutomations = [];\n\nautomations.forEach(automation => {\n  if (automation.type === 'SMS') {\n    smsAutomations.push(automation);\n  } else if (automation.type === 'EMAIL') {\n    emailAutomations.push(automation);\n  }\n});\n\n// Return both groups for parallel processing\nreturn [\n  {\n    json: {\n      practice_id: practiceId,\n      practice_name: practiceName,\n      type: 'SMS',\n      automations: smsAutomations\n    }\n  },\n  {\n    json: {\n      practice_id: practiceId,\n      practice_name: practiceName,\n      type: 'EMAIL',\n      gmail_credentials: $json.gmail_credentials,\n      automations: emailAutomations\n    }\n  }\n];"
+      },
+      "id": "practice_1_processor",
+      "name": "📊 Process Dr. Smith's Automations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1550, 200]
+    },
+    {
+      "parameters": {
+        "values": {
+          "boolean": [
+            {
+              "name": "is_sms",
+              "value": "={{ $json.type === 'SMS' }}"
+            }
+          ]
+        }
+      },
+      "id": "practice_1_splitter",
+      "name": "Split SMS/Email",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1750, 200]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "operation": "equals",
+              "value1": "={{ $json.is_sms }}",
+              "value2": true,
+              "output": 0
+            }
+          ]
+        },
+        "fallbackOutput": 1
+      },
+      "id": "practice_1_type_router",
+      "name": "SMS or Email?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [1950, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/centralized-sms-gateway",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.automations) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 10
+            }
+          }
+        }
+      },
+      "id": "practice_1_sms",
+      "name": "📱 Dr. Smith's SMS Gateway",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2150, 150],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "={{ $json.recipient_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "message": "={{ $json.email_content }}",
+        "options": {
+          "replyTo": "={{ $json.practice_email || 'noreply@onehealth.com' }}"
+        }
+      },
+      "id": "practice_1_gmail",
+      "name": "📧 Dr. Smith's Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [2150, 250],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "{{ $json.gmail_credentials }}",
+          "name": "Dr. Smith's Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## City Medical Center Branch",
+        "height": 600,
+        "width": 1200
+      },
+      "id": "note_practice_2",
+      "name": "Practice 2 Branch",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1500, 750]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process automations for City Medical Center\nconst automations = $json.automations || [];\nconst practiceId = $json.practice_id;\nconst practiceName = $json.practice_name;\n\n// Split into SMS and Email groups\nconst smsAutomations = [];\nconst emailAutomations = [];\n\nautomations.forEach(automation => {\n  if (automation.type === 'SMS') {\n    smsAutomations.push(automation);\n  } else if (automation.type === 'EMAIL') {\n    emailAutomations.push(automation);\n  }\n});\n\n// Return both groups for parallel processing\nreturn [\n  {\n    json: {\n      practice_id: practiceId,\n      practice_name: practiceName,\n      type: 'SMS',\n      automations: smsAutomations\n    }\n  },\n  {\n    json: {\n      practice_id: practiceId,\n      practice_name: practiceName,\n      type: 'EMAIL',\n      gmail_credentials: $json.gmail_credentials,\n      automations: emailAutomations\n    }\n  }\n];"
+      },
+      "id": "practice_2_processor",
+      "name": "📊 Process City Medical Automations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1550, 850]
+    },
+    {
+      "parameters": {
+        "values": {
+          "boolean": [
+            {
+              "name": "is_sms",
+              "value": "={{ $json.type === 'SMS' }}"
+            }
+          ]
+        }
+      },
+      "id": "practice_2_splitter",
+      "name": "Split SMS/Email",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1750, 850]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "operation": "equals",
+              "value1": "={{ $json.is_sms }}",
+              "value2": true,
+              "output": 0
+            }
+          ]
+        },
+        "fallbackOutput": 1
+      },
+      "id": "practice_2_type_router",
+      "name": "SMS or Email?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [1950, 850]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/centralized-sms-gateway",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.automations) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 10
+            }
+          }
+        }
+      },
+      "id": "practice_2_sms",
+      "name": "📱 City Medical SMS Gateway",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2150, 800],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "={{ $json.recipient_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "message": "={{ $json.email_content }}",
+        "options": {
+          "replyTo": "={{ $json.practice_email || 'noreply@onehealth.com' }}"
+        }
+      },
+      "id": "practice_2_gmail",
+      "name": "📧 City Medical Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [2150, 900],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "{{ $json.gmail_credentials }}",
+          "name": "City Medical Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Health Plus Practice Branch",
+        "height": 600,
+        "width": 1200
+      },
+      "id": "note_practice_3",
+      "name": "Practice 3 Branch",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1500, 1400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process automations for Health Plus Practice\nconst automations = $json.automations || [];\nconst practiceId = $json.practice_id;\nconst practiceName = $json.practice_name;\n\n// Split into SMS and Email groups\nconst smsAutomations = [];\nconst emailAutomations = [];\n\nautomations.forEach(automation => {\n  if (automation.type === 'SMS') {\n    smsAutomations.push(automation);\n  } else if (automation.type === 'EMAIL') {\n    emailAutomations.push(automation);\n  }\n});\n\n// Return both groups for parallel processing\nreturn [\n  {\n    json: {\n      practice_id: practiceId,\n      practice_name: practiceName,\n      type: 'SMS',\n      automations: smsAutomations\n    }\n  },\n  {\n    json: {\n      practice_id: practiceId,\n      practice_name: practiceName,\n      type: 'EMAIL',\n      gmail_credentials: $json.gmail_credentials,\n      automations: emailAutomations\n    }\n  }\n];"
+      },
+      "id": "practice_3_processor",
+      "name": "📊 Process Health Plus Automations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1550, 1500]
+    },
+    {
+      "parameters": {
+        "values": {
+          "boolean": [
+            {
+              "name": "is_sms",
+              "value": "={{ $json.type === 'SMS' }}"
+            }
+          ]
+        }
+      },
+      "id": "practice_3_splitter",
+      "name": "Split SMS/Email",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [1750, 1500]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "operation": "equals",
+              "value1": "={{ $json.is_sms }}",
+              "value2": true,
+              "output": 0
+            }
+          ]
+        },
+        "fallbackOutput": 1
+      },
+      "id": "practice_3_type_router",
+      "name": "SMS or Email?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 2,
+      "position": [1950, 1500]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/centralized-sms-gateway",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.automations) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 10
+            }
+          }
+        }
+      },
+      "id": "practice_3_sms",
+      "name": "📱 Health Plus SMS Gateway",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2150, 1450],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "={{ $json.recipient_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "message": "={{ $json.email_content }}",
+        "options": {
+          "replyTo": "={{ $json.practice_email || 'noreply@onehealth.com' }}"
+        }
+      },
+      "id": "practice_3_gmail",
+      "name": "📧 Health Plus Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [2150, 1550],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "{{ $json.gmail_credentials }}",
+          "name": "Health Plus Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Update automation status\nconst results = $input.all();\nconst updates = [];\n\nresults.forEach(result => {\n  const automations = result.json.automations || [];\n  \n  automations.forEach(automation => {\n    updates.push({\n      id: automation.id,\n      status: result.json.success ? 'completed' : 'failed',\n      processed_at: new Date().toISOString(),\n      error_message: result.json.error || null\n    });\n  });\n});\n\nreturn updates.map(update => ({ json: update }));"
+      },
+      "id": "prepare_status_updates",
+      "name": "📝 Prepare Status Updates",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2600, 400]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/automation_queue",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: $json.status, processed_at: $json.processed_at, error_message: $json.error_message }) }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "id": "update_status",
+      "name": "✅ Update Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2800, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Default/Unknown Practice Handler",
+        "height": 300,
+        "width": 600
+      },
+      "id": "note_default",
+      "name": "Default Handler",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1500, 2100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log unknown practice for investigation\nconsole.error('Unknown practice:', {\n  practice_id: $json.practice_id,\n  practice_name: $json.practice_name,\n  automations_count: $json.automations.length\n});\n\n// Mark all automations as failed\nconst failedAutomations = $json.automations.map(automation => ({\n  id: automation.id,\n  status: 'failed',\n  error_message: `Unknown practice: ${$json.practice_id}`,\n  processed_at: new Date().toISOString()\n}));\n\nreturn failedAutomations.map(automation => ({ json: automation }));"
+      },
+      "id": "handle_unknown_practice",
+      "name": "⚠️ Handle Unknown Practice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1700, 2200]
+    },
+    {
+      "parameters": {
+        "content": "## Monitoring & Error Handling",
+        "height": 400,
+        "width": 800
+      },
+      "id": "note_monitoring",
+      "name": "Monitoring Section",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [3000, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/automation_logs",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  workflow_id: $workflow.id,\n  workflow_name: $workflow.name,\n  execution_id: $execution.id,\n  status: $json.status,\n  practice_id: $json.practice_id,\n  automation_type: $json.type,\n  message: $json.message,\n  error: $json.error,\n  created_at: new Date().toISOString()\n}) }}"
+      },
+      "id": "log_execution",
+      "name": "📊 Log Execution",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [3200, 400],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "⏰ Every Minute Trigger": {
+      "main": [
+        [
+          {
+            "node": "🔍 Get All Pending Automations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Get All Pending Automations": {
+      "main": [
+        [
+          {
+            "node": "🏢 Group by Practice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🏢 Group by Practice": {
+      "main": [
+        [
+          {
+            "node": "🔀 Split by Practice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 Split by Practice": {
+      "main": [
+        [
+          {
+            "node": "🚦 Route to Practice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🚦 Route to Practice": {
+      "main": [
+        [
+          {
+            "node": "🔄 Practice Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔄 Practice Router": {
+      "main": [
+        [
+          {
+            "node": "📊 Process Dr. Smith's Automations",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📊 Process City Medical Automations",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📊 Process Health Plus Automations",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📊 Process Family Care Automations",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📊 Process Wellness Center Automations",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "⚠️ Handle Unknown Practice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Process Dr. Smith's Automations": {
+      "main": [
+        [
+          {
+            "node": "Split SMS/Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split SMS/Email": {
+      "main": [
+        [
+          {
+            "node": "SMS or Email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS or Email?": {
+      "main": [
+        [
+          {
+            "node": "📱 Dr. Smith's SMS Gateway",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📧 Dr. Smith's Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📱 Dr. Smith's SMS Gateway": {
+      "main": [
+        [
+          {
+            "node": "📝 Prepare Status Updates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📧 Dr. Smith's Gmail": {
+      "main": [
+        [
+          {
+            "node": "📝 Prepare Status Updates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Process City Medical Automations": {
+      "main": [
+        [
+          {
+            "node": "Split SMS/Email",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "📊 Process Health Plus Automations": {
+      "main": [
+        [
+          {
+            "node": "Split SMS/Email",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "📝 Prepare Status Updates": {
+      "main": [
+        [
+          {
+            "node": "✅ Update Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Update Status": {
+      "main": [
+        [
+          {
+            "node": "📊 Log Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚠️ Handle Unknown Practice": {
+      "main": [
+        [
+          {
+            "node": "✅ Update Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-09T12:00:00.000Z",
+  "versionId": "smart-multitenant-v1"
+}

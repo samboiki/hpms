@@ -2563,6 +2563,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<any>(null);
+  const [gmailConnected, setGmailConnected] = useState(false);
   const [formData, setFormData] = useState({
     platform: '',
     account_name: '',
@@ -2651,8 +2652,8 @@ const PracticeSocialAccountsContent: React.FC = () => {
     try {
       setLoading(true);
       
-      // Load both social accounts and OAuth apps
-      const [socialAccountsResponse, oauthAppsResponse] = await Promise.all([
+      // Load social accounts, OAuth apps, and check Gmail connection
+      const [socialAccountsResponse, oauthAppsResponse, oauthCredsResponse] = await Promise.all([
         supabase
           .from('practice_social_accounts')
           .select('*')
@@ -2661,14 +2662,22 @@ const PracticeSocialAccountsContent: React.FC = () => {
         supabase
           .from('practice_oauth_apps')
           .select('*')
+          .eq('practice_id', practiceId),
+        supabase
+          .from('practice_oauth_credentials')
+          .select('*')
           .eq('practice_id', practiceId)
+          .eq('provider', 'google')
+          .single()
       ]);
 
       if (socialAccountsResponse.error) throw socialAccountsResponse.error;
       if (oauthAppsResponse.error) throw oauthAppsResponse.error;
+      // oauthCredsResponse error is ok - it just means no credentials yet
       
       setSocialAccounts(socialAccountsResponse.data || []);
       setOauthApps(oauthAppsResponse.data || []);
+      setGmailConnected(!!oauthCredsResponse.data);
     } catch (error) {
       console.error('Error loading social accounts:', error);
     } finally {
@@ -2724,27 +2733,13 @@ const PracticeSocialAccountsContent: React.FC = () => {
         
         // Open the modal with updated data
         setShowAddModal(true);
-      } else if (state === 'gmail_oauth_connect') {
-        // Updating existing social account
-        const socialAccountId = sessionStorage.getItem('gmailOAuthSocialAccountId');
-        sessionStorage.removeItem('gmailOAuthSocialAccountId');
+      } else if (state === 'gmail_oauth_connect' || state === 'gmail_oauth_setup') {
+        // OAuth connected successfully
+        // Show success notification
+        alert(`Gmail connected successfully! Email: ${data.email}`);
         
-        if (socialAccountId) {
-          // Update the social account with OAuth info
-          await supabase
-            .from('practice_social_accounts')
-            .update({
-              username: data.email,
-              access_token: 'connected',
-              client_id: data.email,
-              auth_scope: 'gmail.send gmail.compose',
-              updated_by: user?.id
-            })
-            .eq('id', socialAccountId);
-          
-          // Reload accounts to show updated status
-          await loadSocialAccounts();
-        }
+        // Reload OAuth apps to show updated status
+        await loadSocialAccounts();
       }
       
       // Clear URL parameters
@@ -2774,9 +2769,21 @@ const PracticeSocialAccountsContent: React.FC = () => {
 
         if (oauthError) throw oauthError;
         
+        // For Gmail, store the OAuth app ID for the connect flow
+        const savedApp = await supabase
+          .from('practice_oauth_apps')
+          .select('id')
+          .eq('practice_id', practiceId)
+          .eq('provider', 'google')
+          .single();
+        
         // For Gmail, we're done - don't save to practice_social_accounts
         setShowAddModal(false);
         setShowSuccessModal(true);
+        // Store the app ID for the connect button
+        if (savedApp.data) {
+          sessionStorage.setItem('gmailOAuthAppId', savedApp.data.id);
+        }
         return;
       }
 
@@ -2936,17 +2943,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
               return (
                 <div 
                   key={platform.value} 
-                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-purple-300 transition-all cursor-pointer group"
-                  onClick={() => {
-                    setFormData({
-                      ...formData,
-                      platform: platform.value,
-                      ...getPlatformDefaults(platform.value)
-                    });
-                    setEditingAccount(null);
-                    setShowAddModal(true);
-                  }}
-                  title={`Click to ${isConnected ? 'update' : 'connect'} ${platform.label}`}
+                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all"
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
@@ -2958,16 +2955,61 @@ const PracticeSocialAccountsContent: React.FC = () => {
                         <p className="text-xs text-gray-500">{platform.description}</p>
                       </div>
                     </div>
-                    {isConnected ? (
+                    {platform.value === 'gmail' && isConnected && !gmailConnected ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          // Get OAuth credentials from practice_oauth_apps
+                          const { data: oauthApp } = await supabase
+                            .from('practice_oauth_apps')
+                            .select('client_id')
+                            .eq('practice_id', practiceId)
+                            .eq('provider', 'google')
+                            .single();
+
+                          if (oauthApp) {
+                            const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+                            authUrl.searchParams.append('client_id', oauthApp.client_id);
+                            authUrl.searchParams.append('redirect_uri', `${window.location.origin}/settings`);
+                            authUrl.searchParams.append('response_type', 'code');
+                            authUrl.searchParams.append('scope', 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/userinfo.email');
+                            authUrl.searchParams.append('access_type', 'offline');
+                            authUrl.searchParams.append('prompt', 'consent');
+                            authUrl.searchParams.append('state', 'gmail_oauth_connect');
+                            
+                            window.location.href = authUrl.toString();
+                          }
+                        }}
+                        className="bg-red-500 text-white hover:bg-red-600"
+                      >
+                        <Icon icon="logos:google-icon" className="w-3 h-3 mr-1" />
+                        Connect
+                      </Button>
+                    ) : isConnected && (platform.value === 'gmail' ? gmailConnected : true) ? (
                       <div className="flex items-center gap-1">
                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                         <span className="text-xs text-green-600 font-medium">Connected</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-                        <span className="text-xs text-gray-500">Not connected</span>
-                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFormData({
+                            ...formData,
+                            platform: platform.value,
+                            ...getPlatformDefaults(platform.value)
+                          });
+                          setEditingAccount(null);
+                          setShowAddModal(true);
+                        }}
+                      >
+                        <Icon icon={SolarIcons.add} className="w-3 h-3 mr-1" />
+                        Setup
+                      </Button>
                     )}
                   </div>
                   {isConnected && (
@@ -4216,9 +4258,38 @@ const PracticeSocialAccountsContent: React.FC = () => {
               <div className="flex gap-3">
                 <Button
                   onClick={() => setShowSuccessModal(false)}
-                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700"
+                  variant="outline"
+                  className="flex-1"
                 >
-                  Got it!
+                  Connect Later
+                </Button>
+                <Button
+                  onClick={async () => {
+                    setShowSuccessModal(false);
+                    // Get OAuth credentials from practice_oauth_apps
+                    const { data: oauthApp } = await supabase
+                      .from('practice_oauth_apps')
+                      .select('client_id')
+                      .eq('practice_id', practiceId)
+                      .eq('provider', 'google')
+                      .single();
+
+                    if (oauthApp) {
+                      const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+                      authUrl.searchParams.append('client_id', oauthApp.client_id);
+                      authUrl.searchParams.append('redirect_uri', `${window.location.origin}/settings`);
+                      authUrl.searchParams.append('response_type', 'code');
+                      authUrl.searchParams.append('scope', 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/userinfo.email');
+                      authUrl.searchParams.append('access_type', 'offline');
+                      authUrl.searchParams.append('prompt', 'consent');
+                      authUrl.searchParams.append('state', 'gmail_oauth_setup');
+                      
+                      window.location.href = authUrl.toString();
+                    }
+                  }}
+                  className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700"
+                >
+                  Connect Gmail Now
                 </Button>
               </div>
             </div>

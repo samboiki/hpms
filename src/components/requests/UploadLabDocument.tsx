@@ -44,22 +44,26 @@ export default function UploadLabDocument({
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      // Create signed URL for private bucket access
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('documents')
-        .getPublicUrl(fileName);
+        .createSignedUrl(fileName, 3600); // 1 hour expiry
+
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        throw new Error('Failed to create signed URL');
+      }
 
       // Update lab request with media URL
       await supabase
         .from('lab_requests')
         .update({
-          media_url: publicUrl,
+          media_url: signedUrlData.signedUrl,
           media_type: file.type
         })
         .eq('id', requestId);
 
       // Start extraction automatically
-      await extractResults(publicUrl, file.type);
+      await extractResults(signedUrlData.signedUrl, file.type);
 
     } catch (error) {
       console.error('Upload error:', error);

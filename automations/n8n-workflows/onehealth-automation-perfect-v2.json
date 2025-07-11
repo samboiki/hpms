@@ -1,0 +1,693 @@
+{
+  "name": "OneHealth Automation - Perfect Multi-Tenant v2",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "cron_trigger",
+      "name": "⏰ Every Minute Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 600]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/rpc/get_all_pending_automations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": false,
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "get_pending",
+      "name": "🔍 Get All Pending Automations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 600],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse response and group by practice\nconst items = $input.all();\nlet automations = [];\n\n// Extract automations array\nif (items && items.length > 0) {\n  const firstItem = items[0].json;\n  if (Array.isArray(firstItem)) {\n    automations = firstItem;\n  } else if (firstItem.data && Array.isArray(firstItem.data)) {\n    automations = firstItem.data;\n  }\n}\n\nconsole.log(`Found ${automations.length} pending automations`);\n\n// Group by practice\nconst practiceGroups = {};\nautomations.forEach(automation => {\n  const practiceId = automation.practice_id;\n  if (!practiceGroups[practiceId]) {\n    practiceGroups[practiceId] = {\n      practice_id: practiceId,\n      practice_name: automation.practice_name,\n      automations: []\n    };\n  }\n  practiceGroups[practiceId].automations.push(automation);\n});\n\n// Return groups\nreturn Object.values(practiceGroups).map(group => ({ json: group }));"
+      },
+      "id": "group_practices",
+      "name": "🏢 Group by Practice",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [650, 600]
+    },
+    {
+      "parameters": {
+        "batchSize": 1
+      },
+      "id": "split_batch",
+      "name": "🔀 Split Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [850, 600]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.practice_id }}",
+              "operation": "equals",
+              "value2": "ffed1160-00ec-4c4f-8810-913a24348d90"
+            }
+          ]
+        }
+      },
+      "id": "is_newcharm",
+      "name": "Is NewCharm?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 600]
+    },
+    {
+      "parameters": {
+        "content": "## NewCharm Processing Branch",
+        "height": 500,
+        "width": 2000,
+        "color": 2
+      },
+      "id": "note_newcharm",
+      "name": "NewCharm Branch",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1300, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split NewCharm automations by type\nconst automations = $json.automations || [];\nconst smsAutomations = automations.filter(a => a.type === 'SMS');\nconst emailAutomations = automations.filter(a => a.type === 'EMAIL');\n\nconsole.log(`NewCharm: ${smsAutomations.length} SMS, ${emailAutomations.length} Email`);\n\nreturn [\n  {\n    json: {\n      practice_id: $json.practice_id,\n      practice_name: 'NewCharm',\n      type: 'SMS',\n      automations: smsAutomations\n    }\n  },\n  {\n    json: {\n      practice_id: $json.practice_id,\n      practice_name: 'NewCharm',  \n      type: 'EMAIL',\n      automations: emailAutomations\n    }\n  }\n];"
+      },
+      "id": "newcharm_split",
+      "name": "📊 Split NewCharm by Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1350, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.type }}",
+              "operation": "equals",
+              "value2": "SMS"
+            }
+          ]
+        }
+      },
+      "id": "newcharm_is_sms",
+      "name": "NewCharm SMS?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1550, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.automations.length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "newcharm_has_sms",
+      "name": "Has SMS?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1750, 350]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/centralized-sms-gateway",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  practice_id: $json.practice_id,\n  automations: $json.automations\n}) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "newcharm_sms_send",
+      "name": "📱 NewCharm SMS Gateway",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1950, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.automations.length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "newcharm_has_email",
+      "name": "Has Email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1750, 500]
+    },
+    {
+      "parameters": {
+        "batchSize": 1
+      },
+      "id": "newcharm_email_batch",
+      "name": "Email Iterator",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [1950, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract email data from current automation\nconst automation = $json.automations[0];\n\nreturn {\n  json: {\n    to: automation.recipient_email,\n    subject: automation.email_subject,\n    body: automation.email_content,\n    automation_id: automation.id,\n    practice_id: $json.practice_id\n  }\n};"
+      },
+      "id": "newcharm_email_prep",
+      "name": "Prepare Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2150, 500]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "newcharm_gmail_send",
+      "name": "📧 NewCharm Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [2350, 500],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "ffed1160-00ec-4c4f-8810-913a24348d90",
+          "name": "NewCharm Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mark as completed\nreturn {\n  json: {\n    success: true,\n    automation_id: $json.automation_id,\n    practice_id: $json.practice_id\n  }\n};"
+      },
+      "id": "newcharm_email_success",
+      "name": "Email Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2550, 500]
+    },
+    {
+      "parameters": {
+        "content": "## OneHealth Processing Branch",
+        "height": 500,
+        "width": 2000,
+        "color": 3
+      },
+      "id": "note_onehealth",
+      "name": "OneHealth Branch",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1300, 750]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split OneHealth automations by type\nconst automations = $json.automations || [];\nconst smsAutomations = automations.filter(a => a.type === 'SMS');\nconst emailAutomations = automations.filter(a => a.type === 'EMAIL');\n\nconsole.log(`OneHealth: ${smsAutomations.length} SMS, ${emailAutomations.length} Email`);\n\nreturn [\n  {\n    json: {\n      practice_id: $json.practice_id,\n      practice_name: 'OneHealth',\n      type: 'SMS',\n      automations: smsAutomations\n    }\n  },\n  {\n    json: {\n      practice_id: $json.practice_id,\n      practice_name: 'OneHealth',  \n      type: 'EMAIL',\n      automations: emailAutomations\n    }\n  }\n];"
+      },
+      "id": "onehealth_split",
+      "name": "📊 Split OneHealth by Type",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1350, 950]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.type }}",
+              "operation": "equals",
+              "value2": "SMS"
+            }
+          ]
+        }
+      },
+      "id": "onehealth_is_sms",
+      "name": "OneHealth SMS?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1550, 950]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.automations.length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "onehealth_has_sms",
+      "name": "Has SMS?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1750, 900]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/centralized-sms-gateway",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  practice_id: $json.practice_id,\n  automations: $json.automations\n}) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "onehealth_sms_send",
+      "name": "📱 OneHealth SMS Gateway",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1950, 850],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.automations.length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "onehealth_has_email",
+      "name": "Has Email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1750, 1050]
+    },
+    {
+      "parameters": {
+        "batchSize": 1
+      },
+      "id": "onehealth_email_batch",
+      "name": "Email Iterator",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [1950, 1050]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract email data from current automation\nconst automation = $json.automations[0];\n\nreturn {\n  json: {\n    to: automation.recipient_email,\n    subject: automation.email_subject,\n    body: automation.email_content,\n    automation_id: automation.id,\n    practice_id: $json.practice_id\n  }\n};"
+      },
+      "id": "onehealth_email_prep",
+      "name": "Prepare Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2150, 1050]
+    },
+    {
+      "parameters": {
+        "operation": "send",
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "onehealth_gmail_send",
+      "name": "📧 OneHealth Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [2350, 1050],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "onehealth_gmail_id",
+          "name": "OneHealth Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mark as completed\nreturn {\n  json: {\n    success: true,\n    automation_id: $json.automation_id,\n    practice_id: $json.practice_id\n  }\n};"
+      },
+      "id": "onehealth_email_success",
+      "name": "Email Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2550, 1050]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge all results\nconst allResults = $input.all();\nconst updates = [];\n\nallResults.forEach(result => {\n  if (result.json.automation_id) {\n    updates.push({\n      id: result.json.automation_id,\n      status: 'completed',\n      processed_at: new Date().toISOString()\n    });\n  } else if (result.json.automations) {\n    // Handle SMS batch results\n    result.json.automations.forEach(automation => {\n      updates.push({\n        id: automation.id,\n        status: 'completed',\n        processed_at: new Date().toISOString()\n      });\n    });\n  }\n});\n\nconsole.log(`Updating ${updates.length} automation statuses`);\nreturn updates.map(update => ({ json: update }));"
+      },
+      "id": "merge_results",
+      "name": "🔄 Merge Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [2850, 600]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/automation_queue",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  status: $json.status,\n  processed_at: $json.processed_at\n}) }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "=eq.{{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "id": "update_status",
+      "name": "✅ Update Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [3050, 600],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Continue to next batch\nreturn { json: { done: true } };"
+      },
+      "id": "finish",
+      "name": "Finish",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [3250, 600]
+    }
+  ],
+  "connections": {
+    "⏰ Every Minute Trigger": {
+      "main": [
+        [
+          {
+            "node": "🔍 Get All Pending Automations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Get All Pending Automations": {
+      "main": [
+        [
+          {
+            "node": "🏢 Group by Practice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🏢 Group by Practice": {
+      "main": [
+        [
+          {
+            "node": "🔀 Split Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 Split Batches": {
+      "main": [
+        [
+          {
+            "node": "Is NewCharm?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is NewCharm?": {
+      "main": [
+        [
+          {
+            "node": "📊 Split NewCharm by Type",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "📊 Split OneHealth by Type",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Split NewCharm by Type": {
+      "main": [
+        [
+          {
+            "node": "NewCharm SMS?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NewCharm SMS?": {
+      "main": [
+        [
+          {
+            "node": "Has SMS?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has Email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has SMS?": {
+      "main": [
+        [
+          {
+            "node": "📱 NewCharm SMS Gateway",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🔄 Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📱 NewCharm SMS Gateway": {
+      "main": [
+        [
+          {
+            "node": "🔄 Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Email?": {
+      "main": [
+        [
+          {
+            "node": "Email Iterator",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🔄 Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Iterator": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email": {
+      "main": [
+        [
+          {
+            "node": "📧 NewCharm Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📧 NewCharm Gmail": {
+      "main": [
+        [
+          {
+            "node": "Email Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Success": {
+      "main": [
+        [
+          {
+            "node": "Email Iterator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Split OneHealth by Type": {
+      "main": [
+        [
+          {
+            "node": "OneHealth SMS?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OneHealth SMS?": {
+      "main": [
+        [
+          {
+            "node": "Has SMS?",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Has Email?",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "🔄 Merge Results": {
+      "main": [
+        [
+          {
+            "node": "✅ Update Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "✅ Update Status": {
+      "main": [
+        [
+          {
+            "node": "Finish",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finish": {
+      "main": [
+        [
+          {
+            "node": "🔀 Split Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-09T12:00:00.000Z",
+  "versionId": "perfect-v2"
+}

@@ -8,7 +8,6 @@ import { cn } from '../../utils/cn';
 import { format } from 'date-fns';
 import { Stepper } from '../ui/Stepper';
 import { TimingPicker, TimingOption } from '../ui/TimingPicker';
-import { triggerAutomationEngine } from '../../utils/automationTrigger';
 import { TemplateSelector } from '../ui/TemplateSelector';
 import { TemplateEditor } from '../ui/TemplateEditor';
 import { emailTemplateService } from '../../services/emailTemplateService';
@@ -135,27 +134,6 @@ const automationCards: AutomationCard[] = [
     ]
   },
   {
-    id: 'medication-reminder',
-    name: 'Medication Reminder',
-    category: 'health',
-    description: 'Help patients stay on track with medications',
-    icon: 'solar:pills-2-bold-duotone',
-    isActive: false,
-    defaultChannels: [
-      {
-        type: 'SMS',
-        enabled: true,
-        template: {
-          body: 'Hi {{patientName}}, time to take your {{medicationName}}. Remember: {{dosageInstructions}}. Questions? Call {{practicePhone}}'
-        }
-      }
-    ],
-    defaultTimings: [
-      { id: '1', label: 'Daily at 9am', value: 9, unit: 'hours', when: 'after', enabled: true },
-      { id: '2', label: 'Daily at 6pm', value: 18, unit: 'hours', when: 'after', enabled: true }
-    ]
-  },
-  {
     id: 'lab-results',
     name: 'Lab Results Ready',
     category: 'health',
@@ -176,43 +154,20 @@ const automationCards: AutomationCard[] = [
       { id: '1', label: 'Immediately', value: 0, unit: 'minutes', when: 'after', enabled: true }
     ]
   },
-
-  // Billing & Payment Related
   {
-    id: 'payment-reminder',
-    name: 'Payment Reminder',
-    category: 'billing',
-    description: 'Gentle reminders for outstanding payments',
-    icon: 'solar:wallet-money-bold-duotone',
-    isActive: false,
-    defaultChannels: [
-      {
-        type: 'SMS',
-        enabled: true,
-        template: {
-          body: 'Hi {{patientName}}, you have an outstanding balance of {{amount}}. Please visit {{paymentLink}} to pay securely online or call {{practicePhone}}.'
-        }
-      }
-    ],
-    defaultTimings: [
-      { id: '1', label: '7 days after due', value: 7, unit: 'days', when: 'after', enabled: true },
-      { id: '2', label: '14 days after due', value: 14, unit: 'days', when: 'after', enabled: true }
-    ]
-  },
-  {
-    id: 'payment-confirmation',
-    name: 'Payment Confirmation',
-    category: 'billing',
-    description: 'Confirm successful payments',
-    icon: 'solar:check-read-broken-bold-duotone',
+    id: 'imaging-results',
+    name: 'Imaging Results Ready',
+    category: 'health',
+    description: 'Notify when imaging results are available',
+    icon: 'solar:bone-bold-duotone',
     isActive: false,
     defaultChannels: [
       {
         type: 'EMAIL',
         enabled: true,
         template: {
-          subject: 'Payment Received - Thank You!',
-          body: 'Dear {{patientName}}, we have received your payment of {{amount}} on {{paymentDate}}. Transaction ID: {{transactionId}}. Thank you for your prompt payment!'
+          subject: 'Your Imaging Results Are Ready',
+          body: 'Dear {{patientName}}, your imaging results from {{imagingDate}} are now available. Please log in to your patient portal at {{portalLink}} or call {{practicePhone}} to discuss with your doctor.'
         }
       }
     ],
@@ -220,27 +175,8 @@ const automationCards: AutomationCard[] = [
       { id: '1', label: 'Immediately', value: 0, unit: 'minutes', when: 'after', enabled: true }
     ]
   },
-  {
-    id: 'insurance-claim-update',
-    name: 'Insurance Claim Updates',
-    category: 'billing',
-    description: 'Keep patients informed about claim status',
-    icon: 'solar:shield-check-bold-duotone',
-    isActive: false,
-    defaultChannels: [
-      {
-        type: 'EMAIL',
-        enabled: true,
-        template: {
-          subject: 'Insurance Claim Update - {{claimStatus}}',
-          body: 'Dear {{patientName}}, your insurance claim #{{claimNumber}} has been {{claimStatus}}. {{claimDetails}}. Questions? Contact us at {{practicePhone}}.'
-        }
-      }
-    ],
-    defaultTimings: [
-      { id: '1', label: 'When updated', value: 0, unit: 'minutes', when: 'after', enabled: true }
-    ]
-  },
+
+  // Billing & Payment Related
 
   // Engagement & Marketing
   {
@@ -261,7 +197,7 @@ const automationCards: AutomationCard[] = [
       }
     ],
     defaultTimings: [
-      { id: '1', label: 'Birthday morning', value: 9, unit: 'hours', when: 'after', enabled: true }
+      { id: '1', label: 'Birthday morning at 9 AM', value: 9, unit: 'hours', when: 'after', enabled: true, timeOfDay: '09:00' }
     ]
   },
   {
@@ -286,48 +222,6 @@ const automationCards: AutomationCard[] = [
     ]
   },
   {
-    id: 'health-tips',
-    name: 'Health Tips & Newsletter',
-    category: 'engagement',
-    description: 'Share health tips and practice news',
-    icon: 'solar:heart-pulse-bold-duotone',
-    isActive: false,
-    defaultChannels: [
-      {
-        type: 'EMAIL',
-        enabled: true,
-        template: {
-          subject: 'Health Tip of the Month - {{tipTitle}}',
-          body: 'Dear {{patientName}}, {{healthTipContent}}. Stay healthy and remember we are here for all your healthcare needs. Visit {{practiceWebsite}} for more tips!'
-        }
-      }
-    ],
-    defaultTimings: [
-      { id: '1', label: 'Monthly', value: 1, unit: 'months', when: 'after', enabled: true }
-    ]
-  },
-  {
-    id: 'referral-request',
-    name: 'Referral Request',
-    category: 'marketing',
-    description: 'Ask satisfied patients for referrals',
-    icon: 'solar:users-group-two-rounded-bold-duotone',
-    isActive: false,
-    defaultChannels: [
-      {
-        type: 'EMAIL',
-        enabled: true,
-        template: {
-          subject: 'Love Our Service? Share with Friends!',
-          body: 'Dear {{patientName}}, thank you for trusting {{practiceName}} with your healthcare. If you are satisfied with our service, we would appreciate you referring friends and family. They will receive {{referralBonus}} on their first visit!'
-        }
-      }
-    ],
-    defaultTimings: [
-      { id: '1', label: '2 weeks after visit', value: 14, unit: 'days', when: 'after', enabled: true }
-    ]
-  },
-  {
     id: 'review-request',
     name: 'Review Request',
     category: 'marketing',
@@ -347,51 +241,8 @@ const automationCards: AutomationCard[] = [
       { id: '1', label: '3 days after visit', value: 3, unit: 'days', when: 'after', enabled: true }
     ]
   },
-  {
-    id: 'seasonal-campaign',
-    name: 'Seasonal Health Campaigns',
-    category: 'marketing',
-    description: 'Promote seasonal health services',
-    icon: 'solar:sun-2-bold-duotone',
-    isActive: false,
-    defaultChannels: [
-      {
-        type: 'EMAIL',
-        enabled: true,
-        template: {
-          subject: '{{seasonalTitle}} - Special Offer Inside!',
-          body: 'Dear {{patientName}}, {{seasonalMessage}}. Book your {{serviceType}} today and receive {{seasonalDiscount}}! Call {{practicePhone}} or book online.'
-        }
-      }
-    ],
-    defaultTimings: [
-      { id: '1', label: 'Campaign start', value: 0, unit: 'minutes', when: 'after', enabled: true }
-    ]
-  },
   
   // Additional 10 Templates
-  {
-    id: 'vaccine-reminder',
-    name: 'Vaccine Reminder',
-    category: 'health',
-    description: 'Remind patients about due vaccinations',
-    icon: 'solar:syringe-bold-duotone',
-    isActive: false,
-    defaultChannels: [
-      {
-        type: 'BOTH',
-        enabled: true,
-        template: {
-          subject: 'Vaccine Reminder - {{vaccineName}}',
-          body: 'Hi {{patientName}}, you are due for your {{vaccineName}} vaccine. Please schedule an appointment at {{practicePhone}} to stay protected.'
-        }
-      }
-    ],
-    defaultTimings: [
-      { id: '1', label: '1 month before due', value: 1, unit: 'months', when: 'before', enabled: true },
-      { id: '2', label: '1 week before due', value: 1, unit: 'weeks', when: 'before', enabled: true }
-    ]
-  },
   {
     id: 'prescription-refill',
     name: 'Prescription Refill Reminder',
@@ -433,152 +284,173 @@ const automationCards: AutomationCard[] = [
       { id: '1', label: '11 months after last visit', value: 11, unit: 'months', when: 'after', enabled: true }
     ]
   },
+  
+  // New Templates Added
   {
-    id: 'test-results-follow-up',
-    name: 'Test Results Follow-up',
-    category: 'health',
-    description: 'Follow up on abnormal test results',
-    icon: 'solar:test-tube-minimalistic-bold-duotone',
-    isActive: false,
-    defaultChannels: [
-      {
-        type: 'BOTH',
-        enabled: true,
-        template: {
-          subject: 'Important: Follow-up Required for Your Test Results',
-          body: 'Hi {{patientName}}, your recent test results require a follow-up consultation. Please contact {{practicePhone}} to schedule an appointment with {{doctorName}}.'
-        }
-      }
-    ],
-    defaultTimings: [
-      { id: '1', label: 'Immediately', value: 0, unit: 'minutes', when: 'after', enabled: true },
-      { id: '2', label: '2 days after', value: 2, unit: 'days', when: 'after', enabled: true }
-    ]
-  },
-  {
-    id: 'surgery-pre-op',
-    name: 'Pre-Surgery Instructions',
-    category: 'appointment',
-    description: 'Pre-operative preparation reminders',
-    icon: 'solar:scissors-square-bold-duotone',
-    isActive: false,
-    defaultChannels: [
-      {
-        type: 'EMAIL',
-        enabled: true,
-        template: {
-          subject: 'Important Pre-Surgery Instructions',
-          body: 'Dear {{patientName}},\n\nYour surgery is scheduled for {{surgeryDate}}. Please follow these important instructions:\n\n- No food or drink after midnight\n- Arrange transportation home\n- Bring your medical aid card and ID\n- Wear comfortable clothing\n\nQuestions? Call {{practicePhone}}\n\n{{practiceName}}'
-        }
-      }
-    ],
-    defaultTimings: [
-      { id: '1', label: '1 week before', value: 1, unit: 'weeks', when: 'before', enabled: true },
-      { id: '2', label: '1 day before', value: 1, unit: 'days', when: 'before', enabled: true }
-    ]
-  },
-  {
-    id: 'post-procedure-care',
-    name: 'Post-Procedure Care',
-    category: 'health',
-    description: 'After-care instructions and check-ins',
-    icon: 'solar:bandage-bold-duotone',
-    isActive: false,
-    defaultChannels: [
-      {
-        type: 'SMS',
-        enabled: true,
-        template: {
-          body: 'Hi {{patientName}}, how are you feeling after your procedure? Remember: {{careInstructions}}. If you have concerns, call {{practicePhone}}'
-        }
-      }
-    ],
-    defaultTimings: [
-      { id: '1', label: '1 day after', value: 1, unit: 'days', when: 'after', enabled: true },
-      { id: '2', label: '3 days after', value: 3, unit: 'days', when: 'after', enabled: true }
-    ]
-  },
-  {
-    id: 'chronic-condition-monitoring',
-    name: 'Chronic Condition Check-in',
-    category: 'health',
-    description: 'Regular monitoring for chronic conditions',
-    icon: 'solar:pulse-2-bold-duotone',
-    isActive: false,
-    defaultChannels: [
-      {
-        type: 'BOTH',
-        enabled: true,
-        template: {
-          subject: 'Time for Your {{conditionType}} Check-up',
-          body: 'Hi {{patientName}}, it\'s time for your regular {{conditionType}} monitoring. Regular check-ups help us manage your condition effectively. Please schedule your appointment at {{practicePhone}}.'
-        }
-      }
-    ],
-    defaultTimings: [
-      { id: '1', label: '3 months interval', value: 3, unit: 'months', when: 'after', enabled: true }
-    ]
-  },
-  {
-    id: 'wellness-program',
-    name: 'Wellness Program Updates',
-    category: 'engagement',
-    description: 'Health and wellness program communications',
-    icon: 'solar:running-round-bold-duotone',
-    isActive: false,
-    defaultChannels: [
-      {
-        type: 'EMAIL',
-        enabled: true,
-        template: {
-          subject: 'New Wellness Program: {{programName}}',
-          body: 'Dear {{patientName}},\n\nJoin our new {{programName}} program starting {{programDate}}!\n\n{{programDescription}}\n\nBenefits:\n- Professional guidance\n- Group support\n- Track your progress\n\nRegister: {{practicePhone}}\n\n{{practiceName}}'
-        }
-      }
-    ],
-    defaultTimings: [
-      { id: '1', label: 'Program launch', value: 0, unit: 'minutes', when: 'after', enabled: true }
-    ]
-  },
-  {
-    id: 'insurance-verification',
-    name: 'Insurance Verification',
+    id: 'invoice-sent',
+    name: 'Invoice Sent',
     category: 'billing',
-    description: 'Verify insurance before appointments',
-    icon: 'solar:shield-check-bold-duotone',
-    isActive: false,
-    defaultChannels: [
-      {
-        type: 'SMS',
-        enabled: true,
-        template: {
-          body: 'Hi {{patientName}}, please bring your updated medical aid card to your appointment on {{appointmentDate}}. Call {{practicePhone}} if your insurance has changed.'
-        }
-      }
-    ],
-    defaultTimings: [
-      { id: '1', label: '3 days before', value: 3, unit: 'days', when: 'before', enabled: true }
-    ]
-  },
-  {
-    id: 'practice-announcements',
-    name: 'Practice Announcements',
-    category: 'engagement',
-    description: 'Important practice updates and news',
-    icon: 'solar:megaphone-bold-duotone',
+    description: 'Send invoices to patients after visits',
+    icon: 'solar:document-text-bold-duotone',
     isActive: false,
     defaultChannels: [
       {
         type: 'EMAIL',
         enabled: true,
         template: {
-          subject: 'Important Update from {{practiceName}}',
-          body: 'Dear {{patientName}},\n\n{{announcementContent}}\n\nThank you for your continued trust in our practice.\n\nBest regards,\n{{practiceName}}\n{{practicePhone}}'
+          subject: 'Invoice #{{invoiceNumber}} - {{practiceName}}',
+          body: 'Dear {{patientName}},\n\nThank you for your visit on {{visitDate}}. Please find attached your invoice for the services rendered.\n\nInvoice Number: {{invoiceNumber}}\nTotal Amount: {{invoiceAmount}}\nDue Date: {{dueDate}}\n\nYou can pay online at: {{paymentLink}}\n\nFor any questions, please contact us at {{practicePhone}}.\n\nBest regards,\n{{practiceName}}'
         }
       }
     ],
     defaultTimings: [
-      { id: '1', label: 'Send immediately', value: 0, unit: 'minutes', when: 'after', enabled: true }
+      { id: '1', label: 'Immediately after visit', value: 0, unit: 'minutes', when: 'after', enabled: true },
+      { id: '2', label: '1 day after visit', value: 1, unit: 'days', when: 'after', enabled: false }
+    ]
+  },
+  {
+    id: 'leave-form-ready',
+    name: 'Leave Form Ready',
+    category: 'health',
+    description: 'Send medical leave certificates to patients',
+    icon: 'solar:document-medicine-bold-duotone',
+    isActive: false,
+    defaultChannels: [
+      {
+        type: 'EMAIL',
+        enabled: true,
+        template: {
+          subject: 'Medical Leave Certificate - {{practiceName}}',
+          body: 'Dear {{patientName}},\n\nYour medical leave certificate is ready.\n\nLeave Period: {{leaveFromDate}} to {{leaveToDate}}\nTotal Days: {{leaveDays}}\nDiagnosis: {{diagnosis}}\nFitness Status: {{fitnessStatus}}\n\nPlease find the certificate attached. If you need any modifications, contact us at {{practicePhone}}.\n\nGet well soon!\n{{doctorName}}\n{{practiceName}}'
+        }
+      },
+      {
+        type: 'SMS',
+        enabled: true,
+        template: {
+          body: 'Hi {{patientName}}, your medical leave certificate ({{leaveDays}} days) is ready. Check your email or collect from reception. {{practiceName}}'
+        }
+      }
+    ],
+    defaultTimings: [
+      { id: '1', label: 'When leave form is issued', value: 0, unit: 'minutes', when: 'after', enabled: true }
+    ]
+  },
+  {
+    id: 'prescription-ready',
+    name: 'Prescription Ready',
+    category: 'health',
+    description: 'Send prescriptions to patients',
+    icon: 'solar:pills-bold-duotone',
+    isActive: false,
+    defaultChannels: [
+      {
+        type: 'EMAIL',
+        enabled: true,
+        template: {
+          subject: 'Your Prescription - {{practiceName}}',
+          body: 'Dear {{patientName}},\n\nYour prescription from Dr. {{doctorName}} is ready.\n\nMedications prescribed:\n{{medicationsList}}\n\nPlease take medications as directed. The prescription has been sent to your preferred pharmacy: {{pharmacyName}}.\n\nFor any questions about your medications, contact us at {{practicePhone}}.\n\nBest regards,\n{{practiceName}}'
+        }
+      },
+      {
+        type: 'SMS',
+        enabled: true,
+        template: {
+          body: 'Hi {{patientName}}, your prescription is ready at {{pharmacyName}}. {{medicationCount}} medications prescribed. Questions? Call {{practicePhone}}'
+        }
+      }
+    ],
+    defaultTimings: [
+      { id: '1', label: 'After prescription created', value: 0, unit: 'minutes', when: 'after', enabled: true }
+    ]
+  },
+  {
+    id: 'transactions-import',
+    name: 'Bank Transactions Import',
+    category: 'billing',
+    description: 'Import bank transactions from Gmail',
+    icon: 'solar:card-transfer-bold-duotone',
+    isActive: false,
+    defaultChannels: [
+      {
+        type: 'EMAIL',
+        enabled: true,
+        template: {
+          subject: 'Transaction Import Summary - {{practiceName}}',
+          body: 'Transaction import completed.\n\nImported: {{transactionCount}} transactions\nTotal Amount: {{totalAmount}}\nDate Range: {{fromDate}} to {{toDate}}\n\nKeywords matched: {{matchedKeywords}}\n\nReview imported transactions in the reconciliation module.'
+        }
+      }
+    ],
+    defaultTimings: [
+      { id: '1', label: 'Daily at 9 AM', value: 9, unit: 'hours', when: 'daily', enabled: true, timeOfDay: '09:00' },
+      { id: '2', label: 'Daily at 6 PM', value: 18, unit: 'hours', when: 'daily', enabled: false, timeOfDay: '18:00' }
+    ]
+  },
+  {
+    id: 'remittance-recon',
+    name: 'Auto Reconciliation Remittance',
+    category: 'billing',
+    description: 'Automatic payment reconciliation from medical aids',
+    icon: 'solar:safe-square-bold-duotone',
+    isActive: false,
+    defaultChannels: [
+      {
+        type: 'EMAIL',
+        enabled: true,
+        template: {
+          subject: 'Remittance Reconciliation Report - {{practiceName}}',
+          body: 'Remittance reconciliation completed.\n\nMedical Aid: {{medicalAidName}}\nRemittance Date: {{remittanceDate}}\nClaims Processed: {{claimsCount}}\n\nPaid: {{paidCount}} claims ({{paidAmount}})\nPartially Paid: {{partialCount}} claims ({{partialAmount}})\nRejected: {{rejectedCount}} claims ({{rejectedAmount}})\n\nView full report: {{reportLink}}'
+        }
+      }
+    ],
+    defaultTimings: [
+      { id: '1', label: 'When remittance received', value: 0, unit: 'minutes', when: 'after', enabled: true }
+    ]
+  },
+  {
+    id: 'batch-submission',
+    name: 'Batch Submission to Medical Aids',
+    category: 'billing',
+    description: 'Auto-submit claim batches to medical aid emails',
+    icon: 'solar:inbox-line-bold-duotone',
+    isActive: false,
+    defaultChannels: [
+      {
+        type: 'EMAIL',
+        enabled: true,
+        template: {
+          subject: 'Batch Submission Completed - {{batchNumber}}',
+          body: 'Batch submission successful.\n\nBatch Number: {{batchNumber}}\nMedical Aid: {{medicalAidName}}\nClaims: {{claimsCount}}\nTotal Amount: {{totalAmount}}\n\nSubmitted to: {{medicalAidEmail}}\nSubmission Time: {{submissionTime}}\n\nTracking Reference: {{trackingReference}}'
+        }
+      }
+    ],
+    defaultTimings: [
+      { id: '1', label: 'Weekly on Monday', value: 1, unit: 'weeks', when: 'weekly', enabled: true, timeOfDay: '08:00' },
+      { id: '2', label: 'Every 3 days', value: 3, unit: 'days', when: 'interval', enabled: false },
+      { id: '3', label: 'Monthly on 1st', value: 1, unit: 'months', when: 'monthly', enabled: false }
+    ]
+  },
+  {
+    id: 'payroll-process',
+    name: 'Process Payroll',
+    category: 'billing',
+    description: 'Automated payroll processing reminders',
+    icon: 'solar:wallet-money-bold-duotone',
+    isActive: false,
+    defaultChannels: [
+      {
+        type: 'EMAIL',
+        enabled: true,
+        template: {
+          subject: 'Payroll Processing - {{payPeriod}}',
+          body: 'Payroll processing initiated.\n\nPay Period: {{payPeriodStart}} to {{payPeriodEnd}}\nEmployees: {{employeeCount}}\nTotal Payroll: {{totalPayroll}}\n\nTimesheets Approved: {{approvedTimesheets}}\nPending Approval: {{pendingTimesheets}}\n\nDeductions Applied:\n{{deductionsList}}\n\nReview and approve payroll: {{payrollLink}}'
+        }
+      }
+    ],
+    defaultTimings: [
+      { id: '1', label: '3 days before month end', value: 3, unit: 'days', when: 'before_month_end', enabled: true },
+      { id: '2', label: 'On 25th of month', value: 25, unit: 'days', when: 'monthly_date', enabled: false },
+      { id: '3', label: 'Bi-weekly Friday', value: 2, unit: 'weeks', when: 'biweekly', enabled: false }
     ]
   }
 ];
@@ -607,7 +479,10 @@ const getVariablesForAutomationType = (automationId: string) => {
     { key: 'refillDate', description: 'Refill date' },
     { key: 'testDate', description: 'Test/lab date' },
     { key: 'testName', description: 'Test/lab name' },
-    { key: 'followUpInstructions', description: 'Follow-up care instructions' }
+    { key: 'imagingDate', description: 'Imaging/X-ray date' },
+    { key: 'imagingType', description: 'Type of imaging (X-ray, MRI, etc.)' },
+    { key: 'followUpInstructions', description: 'Follow-up care instructions' },
+    { key: 'portalLink', description: 'Patient portal link' }
   ];
 
   const billingVariables = [
@@ -635,29 +510,80 @@ const getVariablesForAutomationType = (automationId: string) => {
       return [...baseVariables, ...appointmentVariables];
     
     case 'follow-up':
-    case 'medication-reminder':
     case 'prescription-refill':
     case 'lab-results':
+    case 'imaging-results':
     case 'test-results-follow-up':
     case 'post-procedure-care':
     case 'chronic-condition-monitoring':
       return [...baseVariables, ...healthVariables];
     
-    case 'payment-reminder':
     case 'invoice-sent':
     case 'payment-received':
     case 'insurance-verification':
-      return [...baseVariables, ...billingVariables];
+    case 'transactions-import':
+    case 'remittance-recon':
+    case 'batch-submission':
+    case 'payroll-process':
+      return [...baseVariables, ...billingVariables, 
+        { key: 'visitDate', description: 'Visit date' },
+        { key: 'batchNumber', description: 'Batch reference number' },
+        { key: 'medicalAidName', description: 'Medical aid name' },
+        { key: 'medicalAidEmail', description: 'Medical aid email' },
+        { key: 'claimsCount', description: 'Number of claims' },
+        { key: 'trackingReference', description: 'Tracking reference' },
+        { key: 'transactionCount', description: 'Number of transactions' },
+        { key: 'matchedKeywords', description: 'Matched keywords' },
+        { key: 'remittanceDate', description: 'Remittance date' },
+        { key: 'paidCount', description: 'Paid claims count' },
+        { key: 'paidAmount', description: 'Paid amount' },
+        { key: 'partialCount', description: 'Partially paid count' },
+        { key: 'partialAmount', description: 'Partially paid amount' },
+        { key: 'rejectedCount', description: 'Rejected claims count' },
+        { key: 'rejectedAmount', description: 'Rejected amount' },
+        { key: 'reportLink', description: 'Report link' },
+        { key: 'payPeriod', description: 'Pay period' },
+        { key: 'payPeriodStart', description: 'Pay period start' },
+        { key: 'payPeriodEnd', description: 'Pay period end' },
+        { key: 'employeeCount', description: 'Number of employees' },
+        { key: 'totalPayroll', description: 'Total payroll amount' },
+        { key: 'approvedTimesheets', description: 'Approved timesheets' },
+        { key: 'pendingTimesheets', description: 'Pending timesheets' },
+        { key: 'deductionsList', description: 'List of deductions' },
+        { key: 'payrollLink', description: 'Payroll review link' },
+        { key: 'submissionTime', description: 'Submission timestamp' },
+        { key: 'fromDate', description: 'Date range start' },
+        { key: 'toDate', description: 'Date range end' }
+      ];
     
     case 'birthday-wishes':
     case 'patient-feedback':
     case 'referral-program':
     case 'wellness-program':
     case 'practice-announcements':
+    case 'welcome-new-patient':
+    case 'review-request':
       return [...baseVariables, ...engagementVariables];
     
     case 'annual-checkup':
       return [...baseVariables, { key: 'lastVisitDate', description: 'Last visit date' }];
+    
+    case 'leave-form-ready':
+      return [...baseVariables, 
+        { key: 'leaveFromDate', description: 'Leave start date' },
+        { key: 'leaveToDate', description: 'Leave end date' },
+        { key: 'leaveDays', description: 'Total leave days' },
+        { key: 'diagnosis', description: 'Medical diagnosis' },
+        { key: 'fitnessStatus', description: 'Fitness status' },
+        { key: 'doctorName', description: 'Doctor name' }
+      ];
+    
+    case 'prescription-ready':
+      return [...baseVariables, ...healthVariables,
+        { key: 'medicationsList', description: 'List of medications' },
+        { key: 'medicationCount', description: 'Number of medications' },
+        { key: 'pharmacyName', description: 'Pharmacy name' }
+      ];
     
     default:
       return baseVariables;
@@ -667,7 +593,7 @@ const getVariablesForAutomationType = (automationId: string) => {
 const SmartAutomations: React.FC = () => {
   const { user } = useAuthStore();
   const [cards, setCards] = useState<AutomationCard[]>(automationCards);
-  const [activeView, setActiveView] = useState<'all' | 'active' | 'inactive'>('all');
+  const [activeView, setActiveView] = useState<'all' | 'active' | 'inactive'>('active');
   const [selectedCard, setSelectedCard] = useState<AutomationCard | null>(null);
   const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -785,7 +711,7 @@ const SmartAutomations: React.FC = () => {
     
     try {
       const { data, error } = await supabase
-        .from('automation_settings')
+        .from('practice_automation_settings')
         .select('*')
         .eq('practice_id', user.practice_id);
       
@@ -798,30 +724,42 @@ const SmartAutomations: React.FC = () => {
       // Update cards with saved settings
       const updatedCards = automationCards.map(card => {
         const settings = data?.find(s => s.automation_id === card.id);
-        return {
-          ...card,
-          isActive: settings?.is_active || false,
-          defaultChannels: settings?.channels || card.defaultChannels,
-          defaultTimings: settings?.timings || card.defaultTimings
-        };
+        if (settings) {
+          // Convert from database format to card format
+          const channels: ChannelConfig[] = [];
+          
+          if (settings.sms_enabled) {
+            channels.push({
+              type: 'SMS',
+              enabled: true,
+              template: {
+                body: settings.sms_template || card.defaultChannels.find(c => c.type === 'SMS')?.template?.body || ''
+              }
+            });
+          }
+          
+          if (settings.email_enabled) {
+            channels.push({
+              type: 'EMAIL', 
+              enabled: true,
+              template: {
+                subject: settings.email_subject || card.defaultChannels.find(c => c.type === 'EMAIL')?.template?.subject || '',
+                body: settings.email_body || card.defaultChannels.find(c => c.type === 'EMAIL')?.template?.body || ''
+              }
+            });
+          }
+          
+          return {
+            ...card,
+            isActive: settings.enabled || false,
+            defaultChannels: channels.length > 0 ? channels : card.defaultChannels,
+            defaultTimings: settings.timings?.timings || card.defaultTimings
+          };
+        }
+        return card;
       });
       
-      // Load custom automations from database
-      const customCards = data
-        ?.filter(s => s.automation_id.startsWith('custom-'))
-        ?.map(s => ({
-          id: s.automation_id,
-          name: s.name,
-          category: s.category || 'custom',
-          description: s.description || '',
-          icon: s.icon || 'solar:star-bold-duotone',
-          isActive: s.is_active,
-          defaultChannels: s.channels || [],
-          defaultTimings: s.timings || []
-        })) || [];
-      
       setCards(updatedCards);
-      setCustomAutomations(customCards);
     } catch (error) {
       console.error('Error loading automations:', error);
     }
@@ -832,7 +770,7 @@ const SmartAutomations: React.FC = () => {
       const newStatus = !card.isActive;
       
       const { error } = await supabase
-        .from('automation_settings')
+        .from('practice_automation_settings')
         .upsert({
           practice_id: user?.practice_id,
           automation_id: card.id,
@@ -890,7 +828,7 @@ const SmartAutomations: React.FC = () => {
     if (user?.practice_id) {
       try {
         const { data, error } = await supabase
-          .from('automation_settings')
+          .from('practice_automation_settings')
           .select('*')
           .eq('practice_id', user.practice_id)
           .eq('automation_id', card.id)
@@ -900,17 +838,22 @@ const SmartAutomations: React.FC = () => {
           // Update setup data with saved settings
           setupDataToUse = {
             channels: {
-              sms: data.channels?.some((c: ChannelConfig) => c.type === 'SMS' || c.type === 'BOTH') || false,
-              email: data.channels?.some((c: ChannelConfig) => c.type === 'EMAIL' || c.type === 'BOTH') || false
+              sms: data.sms_enabled || false,
+              email: data.email_enabled || false
             },
-            timings: data.timings || card.defaultTimings,
-            smsTemplate: data.sms_template || setupDataToUse.smsTemplate,
-            emailTemplate: data.email_template || setupDataToUse.emailTemplate,
-            smsTemplateId: data.sms_template_id || null,
-            emailTemplateId: data.email_template_id || null,
-            smsTemplateVariables: data.variables?.filter((v: string) => v.includes('sms')) || [],
-            emailTemplateVariables: data.variables?.filter((v: string) => v.includes('email')) || [],
-            testMode: !data.is_active
+            timings: data.timings?.timings || card.defaultTimings,
+            smsTemplate: { 
+              body: data.sms_template || setupDataToUse.smsTemplate.body 
+            },
+            emailTemplate: { 
+              subject: data.email_subject || setupDataToUse.emailTemplate.subject,
+              body: data.email_body || setupDataToUse.emailTemplate.body
+            },
+            smsTemplateId: null,
+            emailTemplateId: null,
+            smsTemplateVariables: [],
+            emailTemplateVariables: [],
+            testMode: !data.enabled
           };
         }
       } catch (error) {
@@ -962,7 +905,7 @@ const SmartAutomations: React.FC = () => {
     if (window.confirm(`Are you sure you want to delete "${automation.name}"?`)) {
       try {
         const { error } = await supabase
-          .from('automation_settings')
+          .from('practice_automation_settings')
           .delete()
           .eq('practice_id', user?.practice_id)
           .eq('automation_id', automationId);
@@ -1038,7 +981,7 @@ const SmartAutomations: React.FC = () => {
     // Save to database
     try {
       const { error } = await supabase
-        .from('automation_settings')
+        .from('practice_automation_settings')
         .insert({
           practice_id: user?.practice_id,
           automation_id: customCard.id,
@@ -1083,56 +1026,29 @@ const SmartAutomations: React.FC = () => {
   };
 
   const saveAutomation = async () => {
-    if (!selectedCard) return;
+    if (!selectedCard || !user?.practice_id) return;
     
     try {
-      // Build channels array based on what's actually enabled
-      const channels = [];
-      
-      if (setupData.channels.sms) {
-        channels.push({
-          type: 'SMS',
-          enabled: true,
-          template: {
-            body: setupData.smsTemplate.body
-          }
-        });
-      }
-      
-      if (setupData.channels.email) {
-        channels.push({
-          type: 'EMAIL',
-          enabled: true,
-          template: {
-            subject: setupData.emailTemplate.subject,
-            body: setupData.emailTemplate.body
-          }
-        });
-      }
+      // Prepare the data for practice_automation_settings table
+      const settingsData = {
+        practice_id: user.practice_id,
+        automation_id: selectedCard.id,
+        enabled: true,
+        sms_enabled: setupData.channels.sms,
+        email_enabled: setupData.channels.email,
+        sms_template: setupData.channels.sms ? setupData.smsTemplate.body : null,
+        email_subject: setupData.channels.email ? setupData.emailTemplate.subject : null,
+        email_body: setupData.channels.email ? setupData.emailTemplate.body : null,
+        timings: {
+          timings: setupData.timings,
+          testMode: setupData.testMode
+        },
+        updated_at: new Date().toISOString()
+      };
       
       const { error } = await supabase
-        .from('automation_settings')
-        .upsert({
-          practice_id: user?.practice_id,
-          automation_id: selectedCard.id,
-          name: selectedCard.name,
-          description: selectedCard.description,
-          category: selectedCard.category,
-          icon: selectedCard.icon,
-          is_active: !setupData.testMode,
-          channels: channels, // Use the properly built channels array
-          timings: setupData.timings.filter(t => t.enabled), // Only save enabled timings
-          sms_template: setupData.smsTemplate,
-          email_template: setupData.emailTemplate,
-          sms_template_id: setupData.smsTemplateId,
-          email_template_id: setupData.emailTemplateId,
-          variables: [
-            ...(setupData.smsTemplateVariables || []),
-            ...(setupData.emailTemplateVariables || [])
-          ].filter((v, i, a) => a.indexOf(v) === i), // Remove duplicates
-          updated_at: new Date().toISOString(),
-          created_by: user?.id
-        }, {
+        .from('practice_automation_settings')
+        .upsert(settingsData, {
           onConflict: 'practice_id,automation_id'
         });
       
@@ -1609,33 +1525,6 @@ const SmartAutomations: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {/* Process Automations Button */}
-            <motion.button
-              onClick={async () => {
-                try {
-                  const toastId = toast.loading('Processing pending automations...');
-                  const result = await triggerAutomationEngine();
-                  
-                  if (result.success && result.pendingCount > 0) {
-                    toast.success(`Processed ${result.pendingCount} pending automation${result.pendingCount > 1 ? 's' : ''}`, { id: toastId });
-                  } else if (result.success && result.pendingCount === 0) {
-                    toast.success('No pending automations to process', { id: toastId });
-                  } else {
-                    toast.error('Failed to process automations', { id: toastId });
-                  }
-                } catch (error) {
-                  console.error('Error triggering automation engine:', error);
-                  toast.error('Failed to trigger automation processing');
-                }
-              }}
-              className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg px-4 py-2 flex items-center gap-2 hover:shadow-lg transition-all text-sm font-medium"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Icon icon="solar:play-circle-bold" className="w-4 h-4" />
-              <span>Process Automations</span>
-            </motion.button>
-            
             {/* Create Custom Automation Button - Top Right */}
             <motion.button
               onClick={() => setShowCreateAutomation(true)}

@@ -10,6 +10,7 @@ export interface TimingOption {
   when: 'before' | 'after';
   label?: string;
   enabled?: boolean;
+  timeOfDay?: string; // Time in "HH:MM" format for day/week/month units
 }
 
 interface TimingPickerProps {
@@ -31,6 +32,15 @@ const TIME_UNITS = [
   { value: 'months', label: 'Months', max: 12 }
 ];
 
+// Reasonable limits for each unit type
+const TIMING_LIMITS = {
+  minutes: { min: 1, max: 59, errorMsg: 'Minutes must be between 1 and 59' },
+  hours: { min: 1, max: 72, errorMsg: 'Hours must be between 1 and 72 (3 days)' },
+  days: { min: 1, max: 90, errorMsg: 'Days must be between 1 and 90' },
+  weeks: { min: 1, max: 12, errorMsg: 'Weeks must be between 1 and 12' },
+  months: { min: 1, max: 12, errorMsg: 'Months must be between 1 and 12' }
+};
+
 const PRESET_TIMINGS: TimingOption[] = [
   // Before presets - Short term
   { id: 'preset-1', value: 5, unit: 'minutes', when: 'before', label: '5 minutes before' },
@@ -44,13 +54,13 @@ const PRESET_TIMINGS: TimingOption[] = [
   { id: 'preset-9', value: 6, unit: 'hours', when: 'before', label: '6 hours before' },
   { id: 'preset-10', value: 12, unit: 'hours', when: 'before', label: '12 hours before' },
   
-  // Before presets - Long term
-  { id: 'preset-11', value: 1, unit: 'days', when: 'before', label: '1 day before' },
-  { id: 'preset-12', value: 2, unit: 'days', when: 'before', label: '2 days before' },
-  { id: 'preset-13', value: 3, unit: 'days', when: 'before', label: '3 days before' },
-  { id: 'preset-14', value: 5, unit: 'days', when: 'before', label: '5 days before' },
-  { id: 'preset-15', value: 1, unit: 'weeks', when: 'before', label: '1 week before' },
-  { id: 'preset-16', value: 2, unit: 'weeks', when: 'before', label: '2 weeks before' },
+  // Before presets - Long term with times
+  { id: 'preset-11', value: 1, unit: 'days', when: 'before', label: '1 day before at 10 AM', timeOfDay: '10:00' },
+  { id: 'preset-12', value: 2, unit: 'days', when: 'before', label: '2 days before at 10 AM', timeOfDay: '10:00' },
+  { id: 'preset-13', value: 3, unit: 'days', when: 'before', label: '3 days before at 9 AM', timeOfDay: '09:00' },
+  { id: 'preset-14', value: 5, unit: 'days', when: 'before', label: '5 days before at 11 AM', timeOfDay: '11:00' },
+  { id: 'preset-15', value: 1, unit: 'weeks', when: 'before', label: '1 week before at 10 AM', timeOfDay: '10:00' },
+  { id: 'preset-16', value: 2, unit: 'weeks', when: 'before', label: '2 weeks before at 10 AM', timeOfDay: '10:00' },
   
   // After presets - Short term
   { id: 'preset-17', value: 15, unit: 'minutes', when: 'after', label: '15 minutes after' },
@@ -59,14 +69,14 @@ const PRESET_TIMINGS: TimingOption[] = [
   { id: 'preset-20', value: 2, unit: 'hours', when: 'after', label: '2 hours after' },
   { id: 'preset-21', value: 4, unit: 'hours', when: 'after', label: '4 hours after' },
   
-  // After presets - Long term
-  { id: 'preset-22', value: 1, unit: 'days', when: 'after', label: '1 day after' },
-  { id: 'preset-23', value: 2, unit: 'days', when: 'after', label: '2 days after' },
-  { id: 'preset-24', value: 3, unit: 'days', when: 'after', label: '3 days after' },
-  { id: 'preset-25', value: 5, unit: 'days', when: 'after', label: '5 days after' },
-  { id: 'preset-26', value: 1, unit: 'weeks', when: 'after', label: '1 week after' },
-  { id: 'preset-27', value: 2, unit: 'weeks', when: 'after', label: '2 weeks after' },
-  { id: 'preset-28', value: 1, unit: 'months', when: 'after', label: '1 month after' }
+  // After presets - Long term with times
+  { id: 'preset-22', value: 1, unit: 'days', when: 'after', label: '1 day after at 9 AM', timeOfDay: '09:00' },
+  { id: 'preset-23', value: 2, unit: 'days', when: 'after', label: '2 days after at 10 AM', timeOfDay: '10:00' },
+  { id: 'preset-24', value: 3, unit: 'days', when: 'after', label: '3 days after at 2 PM', timeOfDay: '14:00' },
+  { id: 'preset-25', value: 5, unit: 'days', when: 'after', label: '5 days after at 11 AM', timeOfDay: '11:00' },
+  { id: 'preset-26', value: 1, unit: 'weeks', when: 'after', label: '1 week after at 10 AM', timeOfDay: '10:00' },
+  { id: 'preset-27', value: 2, unit: 'weeks', when: 'after', label: '2 weeks after at 10 AM', timeOfDay: '10:00' },
+  { id: 'preset-28', value: 1, unit: 'months', when: 'after', label: '1 month after at 10 AM', timeOfDay: '10:00' }
 ];
 
 export const TimingPicker: React.FC<TimingPickerProps> = ({
@@ -83,8 +93,10 @@ export const TimingPicker: React.FC<TimingPickerProps> = ({
   const [customValue, setCustomValue] = useState<number>(1);
   const [customUnit, setCustomUnit] = useState<TimingOption['unit']>('hours');
   const [customWhen, setCustomWhen] = useState<TimingOption['when']>('before');
+  const [customTimeOfDay, setCustomTimeOfDay] = useState<string>('10:00');
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [customTemplateName, setCustomTemplateName] = useState('');
+  const [validationError, setValidationError] = useState<string>('');
 
   const addTiming = (timing: TimingOption) => {
     if (value.length >= maxTimings) return;
@@ -108,8 +120,35 @@ export const TimingPicker: React.FC<TimingPickerProps> = ({
     ));
   };
 
+  const validateTimingValue = (value: number, unit: TimingOption['unit']): string => {
+    const limits = TIMING_LIMITS[unit];
+    if (value < limits.min || value > limits.max) {
+      return limits.errorMsg;
+    }
+    return '';
+  };
+
   const addCustomTiming = () => {
-    const label = customTemplateName || `${customValue} ${customUnit} ${customWhen}`;
+    // Validate timing value
+    const error = validateTimingValue(customValue, customUnit);
+    if (error) {
+      setValidationError(error);
+      return;
+    }
+
+    // Include time in label for day/week/month units
+    let label = customTemplateName;
+    if (!label) {
+      label = `${customValue} ${customUnit} ${customWhen}`;
+      if (['days', 'weeks', 'months'].includes(customUnit)) {
+        const [hours, minutes] = customTimeOfDay.split(':');
+        const hour = parseInt(hours);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+        label += ` at ${displayHour}:${minutes} ${ampm}`;
+      }
+    }
+    
     const newTiming: TimingOption = {
       id: `custom-${Date.now()}`,
       value: customValue,
@@ -118,6 +157,11 @@ export const TimingPicker: React.FC<TimingPickerProps> = ({
       label,
       enabled: true
     };
+    
+    // Add timeOfDay for day/week/month units
+    if (['days', 'weeks', 'months'].includes(customUnit)) {
+      newTiming.timeOfDay = customTimeOfDay;
+    }
     
     // Add to current timings
     addTiming(newTiming);
@@ -138,11 +182,24 @@ export const TimingPicker: React.FC<TimingPickerProps> = ({
     setCustomWhen('before');
     setSaveAsTemplate(false);
     setCustomTemplateName('');
+    setValidationError('');
   };
 
   const formatTimingLabel = (timing: TimingOption) => {
     if (timing.label) return timing.label;
-    return `${timing.value} ${timing.unit} ${timing.when || 'before'}`;
+    
+    let label = `${timing.value} ${timing.unit} ${timing.when || 'before'}`;
+    
+    // Add time of day if available
+    if (timing.timeOfDay && ['days', 'weeks', 'months'].includes(timing.unit)) {
+      const [hours, minutes] = timing.timeOfDay.split(':');
+      const hour = parseInt(hours);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      label += ` at ${displayHour}:${minutes} ${ampm}`;
+    }
+    
+    return label;
   };
 
   const getUnitMax = (unit: TimingOption['unit']) => {
@@ -424,14 +481,38 @@ export const TimingPicker: React.FC<TimingPickerProps> = ({
                 <div>
                   <label className="text-xs font-medium text-gray-700 mb-1 block">
                     Time Value
+                    <span className="text-gray-500 font-normal ml-1">
+                      (max: {TIMING_LIMITS[customUnit].max})
+                    </span>
                   </label>
                   <input
                     type="number"
                     value={customValue}
-                    onChange={(e) => setCustomValue(Math.max(1, parseInt(e.target.value) || 1))}
+                    onChange={(e) => {
+                      const inputValue = parseInt(e.target.value) || 1;
+                      const maxValue = TIMING_LIMITS[customUnit].max;
+                      // Enforce max value immediately
+                      const value = Math.min(Math.max(1, inputValue), maxValue);
+                      setCustomValue(value);
+                      
+                      // Validate and show error if user tried to enter invalid value
+                      const error = validateTimingValue(inputValue, customUnit);
+                      setValidationError(error);
+                    }}
+                    onBlur={(e) => {
+                      // On blur, ensure value is within limits
+                      const inputValue = parseInt(e.target.value) || 1;
+                      const maxValue = TIMING_LIMITS[customUnit].max;
+                      const value = Math.min(Math.max(1, inputValue), maxValue);
+                      setCustomValue(value);
+                      setValidationError('');
+                    }}
                     min="1"
-                    max={getUnitMax(customUnit)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                    max={TIMING_LIMITS[customUnit].max}
+                    className={cn(
+                      "w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent",
+                      validationError ? "border-red-500" : "border-gray-300"
+                    )}
                   />
                 </div>
 
@@ -441,7 +522,20 @@ export const TimingPicker: React.FC<TimingPickerProps> = ({
                   </label>
                   <select
                     value={customUnit}
-                    onChange={(e) => setCustomUnit(e.target.value as TimingOption['unit'])}
+                    onChange={(e) => {
+                      const newUnit = e.target.value as TimingOption['unit'];
+                      setCustomUnit(newUnit);
+                      // Revalidate with new unit
+                      if (validationError) {
+                        const error = validateTimingValue(customValue, newUnit);
+                        setValidationError(error);
+                      }
+                      // Adjust value if it exceeds new unit's max
+                      const maxValue = TIMING_LIMITS[newUnit].max;
+                      if (customValue > maxValue) {
+                        setCustomValue(maxValue);
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                   >
                     {TIME_UNITS.map(unit => (
@@ -466,6 +560,60 @@ export const TimingPicker: React.FC<TimingPickerProps> = ({
                   </select>
                 </div>
               </div>
+
+              {/* Validation Error Message */}
+              {validationError && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+                    <Icon icon="solar:danger-triangle-bold" className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-xs font-medium">{validationError}</span>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Time of Day input for day/week/month units */}
+              {['days', 'weeks', 'months'].includes(customUnit) && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div>
+                    <label className="text-xs font-medium text-gray-700 mb-1 block">
+                      At what time?
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="time"
+                        value={customTimeOfDay}
+                        onChange={(e) => setCustomTimeOfDay(e.target.value)}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                      />
+                      <div className="text-xs text-gray-500">
+                        {(() => {
+                          const [hours, minutes] = customTimeOfDay.split(':');
+                          const hour = parseInt(hours);
+                          const ampm = hour >= 12 ? 'PM' : 'AM';
+                          const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                          return `${displayHour}:${minutes} ${ampm}`;
+                        })()}
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {customWhen === 'before' 
+                        ? 'The message will be sent at this time on the calculated day'
+                        : 'The message will be sent at this time on the calculated day'}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
 
               {/* Save as Template Option */}
               {onCustomTemplateAdd && (
@@ -501,7 +649,13 @@ export const TimingPicker: React.FC<TimingPickerProps> = ({
               <div className="flex gap-2">
                 <button
                   onClick={addCustomTiming}
-                  className="flex-1 px-3 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition-all"
+                  disabled={!!validationError}
+                  className={cn(
+                    "flex-1 px-3 py-2 text-white text-sm font-medium rounded-lg transition-all",
+                    validationError 
+                      ? "bg-gray-400 cursor-not-allowed" 
+                      : "bg-amber-500 hover:bg-amber-600"
+                  )}
                 >
                   Add Custom Timing
                 </button>
@@ -510,6 +664,10 @@ export const TimingPicker: React.FC<TimingPickerProps> = ({
                     setShowCustom(false);
                     setSaveAsTemplate(false);
                     setCustomTemplateName('');
+                    setValidationError('');
+                    setCustomValue(1);
+                    setCustomUnit('hours');
+                    setCustomWhen('before');
                   }}
                   className="px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-all"
                 >
@@ -531,6 +689,7 @@ export const TimingPicker: React.FC<TimingPickerProps> = ({
               <li>Send appointment reminders 24 hours and 2 hours before</li>
               <li>Payment reminders work best at 7, 14, and 30 days</li>
               <li>Avoid sending messages too early in the morning or late at night</li>
+              <li>Maximum timing values: 72 hours, 90 days, 12 weeks, or 12 months</li>
             </ul>
           </div>
         </div>

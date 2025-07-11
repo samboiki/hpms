@@ -1,0 +1,365 @@
+{
+  "name": "OneHealth Enterprise Automation Engine",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "trigger",
+      "name": "Every Minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/rpc/get_all_pending_automations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"batch_size\": 100,\n  \"max_attempts\": 3\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "fetch_automations",
+      "name": "Fetch All Pending Automations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [450, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{SUPABASE_API_CRED_ID}}",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "check_results",
+      "name": "Has Automations?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      },
+      "id": "batch_processor",
+      "name": "Process in Batches of 10",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [850, 240]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Get all items in this batch\nconst items = $input.all();\n\n// Group by practice to optimize credential usage\nconst groupedByPractice = {};\n\nitems.forEach(item => {\n  const practiceId = item.json.practice_id;\n  if (!groupedByPractice[practiceId]) {\n    groupedByPractice[practiceId] = [];\n  }\n  groupedByPractice[practiceId].push(item.json);\n});\n\n// Return grouped data for parallel processing\nreturn Object.entries(groupedByPractice).map(([practiceId, automations]) => ({\n  json: {\n    practice_id: practiceId,\n    automations: automations,\n    credential_id: automations[0].n8n_credential_id || '1'\n  }\n}));"
+      },
+      "id": "group_by_practice",
+      "name": "Group by Practice",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1050, 240]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process each automation for this practice\nconst practiceData = $json;\nconst results = [];\n\n// Process each automation\nfor (const automation of practiceData.automations) {\n  const item = {\n    ...automation,\n    // SMS is ready to send as-is from database\n    sms_ready: automation.sms_enabled && automation.sms_template && automation.payload.patientPhone,\n    // Email is ready to send as-is from database\n    email_ready: automation.email_enabled && automation.email_subject && automation.email_body && automation.payload.patientEmail,\n    // Credential for Gmail\n    gmail_credential_id: practiceData.credential_id\n  };\n  \n  results.push({ json: item });\n}\n\nreturn results;"
+      },
+      "id": "prepare_items",
+      "name": "Prepare Automation Items",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [1250, 240]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.sms_ready }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check_sms",
+      "name": "SMS Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1450, 160]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.email_ready }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check_email",
+      "name": "Email Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1450, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/centralized-sms-gateway",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.serviceKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"practiceId\": $json.practice_id,\n  \"recipientPhone\": $json.payload.patientPhone,\n  \"messageContent\": $json.sms_template,\n  \"messageType\": $json.automation_id,\n  \"patientId\": $json.payload.patient_id,\n  \"metadata\": {\n    \"automation_id\": $json.automation_id,\n    \"queue_id\": $json.queue_id,\n    \"trigger_type\": $json.trigger_type\n  }\n} }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "send_sms",
+      "name": "Send SMS Gateway",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1650, 100],
+      "continueOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "{{SUPABASE_SERVICE_KEY_ID}}",
+          "name": "Supabase Service Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.payload.patientEmail }}",
+        "subject": "={{ $json.email_subject }}",
+        "messageType": "html",
+        "message": "={{ $json.email_body }}",
+        "options": {}
+      },
+      "id": "send_gmail",
+      "name": "Send via Gmail",
+      "type": "n8n-nodes-gmail.gmail",
+      "typeVersion": 2.1,
+      "position": [1650, 260],
+      "continueOnFail": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "={{ $json.gmail_credential_id }}",
+          "name": "Dynamic Gmail Credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/centralized-email-gateway",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.serviceKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"practiceId\": $json.practice_id,\n  \"recipientEmail\": $json.payload.patientEmail,\n  \"subject\": $json.email_subject,\n  \"htmlContent\": $json.email_body,\n  \"emailType\": $json.automation_id,\n  \"patientId\": $json.payload.patient_id,\n  \"metadata\": {\n    \"automation_id\": $json.automation_id,\n    \"queue_id\": $json.queue_id,\n    \"trigger_type\": $json.trigger_type,\n    \"fallback_reason\": \"Gmail failed or not configured\"\n  }\n} }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "email_fallback",
+      "name": "Email Fallback (Resend)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1850, 380],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "{{SUPABASE_SERVICE_KEY_ID}}",
+          "name": "Supabase Service Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Merge all results\nconst smsResult = $('Send SMS Gateway').first()?.json || { error: 'SMS not sent' };\nconst gmailResult = $('Send via Gmail').first()?.json || { error: 'Gmail not sent' };\nconst fallbackResult = $('Email Fallback (Resend)').first()?.json || { error: 'Fallback not sent' };\n\n// Determine overall status\nlet status = 'failed';\nlet error_message = null;\n\nif (smsResult.success || gmailResult.id || fallbackResult.success) {\n  status = 'completed';\n} else {\n  error_message = [\n    smsResult.error,\n    gmailResult.error,\n    fallbackResult.error\n  ].filter(Boolean).join('; ');\n}\n\nreturn {\n  json: {\n    queue_id: $json.queue_id,\n    status: status,\n    error_message: error_message,\n    sms_sent: !!smsResult.success,\n    email_sent: !!(gmailResult.id || fallbackResult.success),\n    completed_at: new Date().toISOString()\n  }\n};"
+      },
+      "id": "merge_results",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [2050, 240]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/automation_queue?id=eq.' + $json.queue_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"status\": $json.status,\n  \"completed_at\": $json.completed_at,\n  \"error_message\": $json.error_message,\n  \"attempt_count\": $json.attempt_count + 1,\n  \"metadata\": {\n    \"sms_sent\": $json.sms_sent,\n    \"email_sent\": $json.email_sent\n  }\n} }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "update_queue",
+      "name": "Update Queue Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2250, 240],
+      "credentials": {
+        "supabaseApi": {
+          "id": "{{SUPABASE_API_CRED_ID}}",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "no_automations",
+      "name": "No Automations",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Log batch completion\nconst batchSize = $input.all().length;\nconsole.log(`Completed batch of ${batchSize} automations`);\n\n// Continue to next batch\nreturn $input.all();"
+      },
+      "id": "batch_complete",
+      "name": "Batch Complete",
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [2450, 240]
+    }
+  ],
+  "connections": {
+    "Every Minute": {
+      "main": [[{"node": "Fetch All Pending Automations", "type": "main", "index": 0}]]
+    },
+    "Fetch All Pending Automations": {
+      "main": [[{"node": "Has Automations?", "type": "main", "index": 0}]]
+    },
+    "Has Automations?": {
+      "main": [
+        [{"node": "Process in Batches of 10", "type": "main", "index": 0}],
+        [{"node": "No Automations", "type": "main", "index": 0}]
+      ]
+    },
+    "Process in Batches of 10": {
+      "main": [[{"node": "Group by Practice", "type": "main", "index": 0}]]
+    },
+    "Group by Practice": {
+      "main": [[{"node": "Prepare Automation Items", "type": "main", "index": 0}]]
+    },
+    "Prepare Automation Items": {
+      "main": [[
+        {"node": "SMS Enabled?", "type": "main", "index": 0},
+        {"node": "Email Enabled?", "type": "main", "index": 0}
+      ]]
+    },
+    "SMS Enabled?": {
+      "main": [
+        [{"node": "Send SMS Gateway", "type": "main", "index": 0}],
+        [{"node": "Merge Results", "type": "main", "index": 0}]
+      ]
+    },
+    "Email Enabled?": {
+      "main": [
+        [{"node": "Send via Gmail", "type": "main", "index": 0}],
+        [{"node": "Merge Results", "type": "main", "index": 0}]
+      ]
+    },
+    "Send SMS Gateway": {
+      "main": [[{"node": "Merge Results", "type": "main", "index": 0}]]
+    },
+    "Send via Gmail": {
+      "main": [
+        [{"node": "Merge Results", "type": "main", "index": 0}],
+        [{"node": "Email Fallback (Resend)", "type": "main", "index": 0}]
+      ]
+    },
+    "Email Fallback (Resend)": {
+      "main": [[{"node": "Merge Results", "type": "main", "index": 0}]]
+    },
+    "Merge Results": {
+      "main": [[{"node": "Update Queue Status", "type": "main", "index": 0}]]
+    },
+    "Update Queue Status": {
+      "main": [[{"node": "Batch Complete", "type": "main", "index": 0}]]
+    },
+    "Batch Complete": {
+      "main": [[{"node": "Process in Batches of 10", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "saveExecutionProgress": true,
+    "executionTimeout": 900
+  },
+  "versionId": "enterprise-v1",
+  "tags": [
+    {"name": "OneHealth", "id": "1"},
+    {"name": "Enterprise", "id": "2"},
+    {"name": "Automation Engine", "id": "3"}
+  ]
+}

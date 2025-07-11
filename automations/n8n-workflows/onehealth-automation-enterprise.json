@@ -1,0 +1,774 @@
+{
+  "name": "OneHealth Automation Enterprise - Gmail Integration",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "cron_trigger",
+      "name": "Every Minute",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [220, 340]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/rpc/get_pending_automations_json",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": false,
+        "options": {
+          "timeout": 30000,
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "id": "get_pending_automations",
+      "name": "Get Pending Automations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [420, 340],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      },
+      "alwaysOutputData": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the response and prepare automations\nconst input = $input.first();\nlet automations = [];\n\n// Log for debugging\nconsole.log('Raw input:', JSON.stringify(input, null, 2));\n\n// Handle different response formats\nif (input && input.json) {\n  const response = input.json;\n  \n  if (Array.isArray(response)) {\n    automations = response;\n  } else if (response.data && Array.isArray(response.data)) {\n    automations = response.data;\n  } else if (typeof response === 'object') {\n    // Check if it's a single automation object\n    if (response.queue_id) {\n      automations = [response];\n    }\n  }\n}\n\n// Filter valid automations\nautomations = automations.filter(item => \n  item && \n  item.queue_id && \n  item.practice_id &&\n  item.automation_id &&\n  item.payload\n);\n\n// Log what we found\nconsole.log(`Found ${automations.length} valid automations`);\n\nif (automations.length === 0) {\n  return [{\n    json: {\n      hasData: false,\n      message: 'No pending automations found',\n      count: 0,\n      timestamp: new Date().toISOString()\n    }\n  }];\n}\n\n// Process each automation\nreturn automations.map(automation => {\n  // Format phone number\n  let formattedPhone = '';\n  if (automation.payload?.patientPhone) {\n    const phone = automation.payload.patientPhone.toString().trim();\n    if (phone.startsWith('+')) {\n      formattedPhone = phone;\n    } else if (phone.startsWith('0')) {\n      formattedPhone = '+264' + phone.substring(1);\n    } else {\n      formattedPhone = '+264' + phone;\n    }\n  }\n  \n  return {\n    json: {\n      hasData: true,\n      ...automation,\n      // Add processed fields\n      processed: {\n        phone: formattedPhone,\n        email: automation.payload?.patientEmail || '',\n        shouldSendSms: automation.sms_enabled && formattedPhone && automation.sms_template,\n        shouldSendEmail: automation.email_enabled && automation.payload?.patientEmail && automation.email_subject\n      },\n      // Process templates\n      templates: {\n        sms: processTemplate(automation.sms_template || '', automation),\n        emailSubject: processTemplate(automation.email_subject || '', automation),\n        emailBody: processTemplate(automation.email_body || '', automation)\n      }\n    }\n  };\n});\n\n// Helper function to process templates\nfunction processTemplate(template, automation) {\n  if (!template) return '';\n  \n  const vars = {\n    patientName: automation.payload?.patientName || 'Patient',\n    patientPhone: automation.payload?.patientPhone || '',\n    patientEmail: automation.payload?.patientEmail || '',\n    practiceName: automation.practice_name || automation.payload?.practiceName || '',\n    practicePhone: automation.practice_phone || automation.payload?.practicePhone || '',\n    practiceEmail: automation.practice_email || automation.payload?.practiceEmail || '',\n    appointmentDate: automation.payload?.appointmentDate || '',\n    appointmentTime: automation.payload?.appointmentTime || '',\n    doctorName: automation.payload?.doctorName || ''\n  };\n  \n  let processed = template;\n  Object.keys(vars).forEach(key => {\n    const regex = new RegExp(`{{\\\\s*${key}\\\\s*}}`, 'g');\n    processed = processed.replace(regex, vars[key]);\n  });\n  \n  return processed;\n}"
+      },
+      "id": "parse_automations",
+      "name": "Parse Automations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [620, 340]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.hasData }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check_has_data",
+      "name": "Has Automations?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [820, 340]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "No pending automations"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ],
+          "number": [
+            {
+              "name": "count",
+              "value": 0
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "no_automations",
+      "name": "No Automations",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [1020, 460]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split_batch",
+      "name": "Process One by One",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1020, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/rpc/mark_automation_processing",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_queue_id: $json.queue_id }) }}",
+        "options": {}
+      },
+      "id": "mark_processing",
+      "name": "Mark as Processing",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1220, 220],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.processed.shouldSendSms }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "should_send_sms",
+      "name": "Should Send SMS?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1420, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/centralized-sms-gateway",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.serviceKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  practiceId: $json.practice_id,\n  recipientPhone: $json.processed.phone,\n  messageContent: $json.templates.sms,\n  messageType: $json.automation_id,\n  patientId: $json.payload?.patient_id,\n  metadata: {\n    automation_queue_id: $json.queue_id,\n    test_mode: $json.test_mode || false\n  }\n}) }}",
+        "options": {}
+      },
+      "id": "send_sms",
+      "name": "Send SMS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1620, 140],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "boolean": [
+            {
+              "name": "sms_sent",
+              "value": false
+            }
+          ],
+          "string": [
+            {
+              "name": "sms_error",
+              "value": "SMS not enabled or no valid phone"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sms_skipped",
+      "name": "SMS Skipped",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [1620, 300]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "id": "merge_sms_result",
+      "name": "Merge SMS Result",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1820, 220]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.processed.shouldSendEmail }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "should_send_email",
+      "name": "Should Send Email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [2020, 220]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.payload.patientEmail }}",
+        "subject": "={{ $json.templates.emailSubject }}",
+        "message": "={{ $json.templates.emailBody }}",
+        "options": {
+          "appendAttribution": false,
+          "replyTo": "={{ $json.practice_email }}"
+        }
+      },
+      "id": "send_gmail",
+      "name": "Send Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [2220, 140],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "uA0l39VD4cMHN9cC",
+          "name": "Gmail OAuth2"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "boolean": [
+            {
+              "name": "email_sent",
+              "value": false
+            }
+          ],
+          "string": [
+            {
+              "name": "email_error",
+              "value": "Email not enabled or no valid email address"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "email_skipped",
+      "name": "Email Skipped",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [2220, 300]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "multiplex",
+        "options": {}
+      },
+      "id": "merge_email_result",
+      "name": "Merge Email Result",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [2420, 220]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Evaluate the results and determine success\nconst input = $input.first().json;\n\n// Extract results\nlet smsSuccess = false;\nlet emailSuccess = false;\nlet smsError = null;\nlet emailError = null;\nlet gmailMessageId = null;\n\n// Check SMS result\nif (input.processed?.shouldSendSms) {\n  if (input.sms_sent === false) {\n    smsError = input.sms_error || 'SMS send failed';\n  } else if (input.message_id) {\n    smsSuccess = true;\n  } else if (input.error) {\n    smsError = input.error;\n  } else {\n    // Check HTTP status\n    const statusCode = input.statusCode || input.responseCode;\n    if (statusCode && statusCode >= 200 && statusCode < 300) {\n      smsSuccess = true;\n    } else {\n      smsError = `SMS failed with status ${statusCode}`;\n    }\n  }\n}\n\n// Check email result\nif (input.processed?.shouldSendEmail) {\n  if (input.email_sent === false) {\n    emailError = input.email_error || 'Email send failed';\n  } else if (input.id && input.threadId) {\n    // Gmail response includes message ID and thread ID\n    emailSuccess = true;\n    gmailMessageId = input.id;\n  } else if (input.error) {\n    emailError = input.error;\n  }\n}\n\n// Determine overall success\nconst overallSuccess = \n  (!input.processed?.shouldSendSms || smsSuccess) && \n  (!input.processed?.shouldSendEmail || emailSuccess);\n\n// Build detailed result\nreturn [{\n  json: {\n    queue_id: input.queue_id,\n    success: overallSuccess,\n    results: {\n      sms: {\n        enabled: input.processed?.shouldSendSms || false,\n        sent: smsSuccess,\n        error: smsError\n      },\n      email: {\n        enabled: input.processed?.shouldSendEmail || false,\n        sent: emailSuccess,\n        error: emailError,\n        gmailMessageId: gmailMessageId\n      }\n    },\n    automation: {\n      id: input.automation_id,\n      type: input.trigger_type,\n      patient: input.payload?.patientName\n    }\n  }\n}];"
+      },
+      "id": "evaluate_results",
+      "name": "Evaluate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2620, 220]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.success }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check_success",
+      "name": "Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [2820, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/rpc/complete_automation",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  p_queue_id: $json.queue_id,\n  p_success_message: `Successfully processed: SMS=${$json.results.sms.sent}, Email=${$json.results.email.sent}` + \n    ($json.results.email.gmailMessageId ? `, Gmail ID: ${$json.results.email.gmailMessageId}` : '')\n}) }}",
+        "options": {}
+      },
+      "id": "mark_complete",
+      "name": "Mark Complete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [3020, 140],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/rpc/fail_automation",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  p_queue_id: $json.queue_id,\n  p_error_message: [\n    $json.results.sms.error ? `SMS: ${$json.results.sms.error}` : null,\n    $json.results.email.error ? `Email: ${$json.results.email.error}` : null\n  ].filter(e => e).join('; ') || 'Communication failed',\n  p_retry: true\n}) }}",
+        "options": {}
+      },
+      "id": "mark_failed",
+      "name": "Mark Failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [3020, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "={{ $json.success ? 'completed' : 'failed' }}"
+            },
+            {
+              "name": "automation_id",
+              "value": "={{ $json.automation.id }}"
+            },
+            {
+              "name": "patient",
+              "value": "={{ $json.automation.patient }}"
+            }
+          ],
+          "boolean": [
+            {
+              "name": "sms_sent",
+              "value": "={{ $json.results.sms.sent }}"
+            },
+            {
+              "name": "email_sent",
+              "value": "={{ $json.results.email.sent }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "log_result",
+      "name": "Log Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [3220, 220]
+    },
+    {
+      "parameters": {
+        "amount": 500,
+        "unit": "ms"
+      },
+      "id": "wait_between",
+      "name": "Wait 500ms",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [3420, 220],
+      "webhookId": "d1f2e3c4-b5a6-7890-1234-567890abcdef"
+    },
+    {
+      "parameters": {
+        "content": "## OneHealth Automation Workflow\n\n### Features:\n1. **Reads pending automations** without changing status\n2. **Processes one by one** with proper status management\n3. **Sends SMS** via centralized gateway\n4. **Sends Email** via Gmail OAuth\n5. **Tracks results** and updates status\n6. **Handles errors** gracefully with retry\n\n### Flow:\n1. Every minute, fetch pending automations\n2. Parse and validate data\n3. Process each automation:\n   - Mark as processing\n   - Send SMS if enabled\n   - Send Email if enabled\n   - Evaluate results\n   - Mark complete or failed\n4. Wait between items to prevent rate limiting\n5. Loop back for more items",
+        "height": 464.5338461341094,
+        "width": 389.0922747252735,
+        "color": 7
+      },
+      "id": "workflow_notes",
+      "name": "Workflow Notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [160, 60]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $node[\"split_batch\"].context[\"noItemsLeft\"] }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check_more_items",
+      "name": "More Items?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [3620, 220]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "Batch completed"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "batch_complete",
+      "name": "Batch Complete",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [3820, 300]
+    }
+  ],
+  "connections": {
+    "cron_trigger": {
+      "main": [
+        [
+          {
+            "node": "get_pending_automations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_pending_automations": {
+      "main": [
+        [
+          {
+            "node": "parse_automations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse_automations": {
+      "main": [
+        [
+          {
+            "node": "check_has_data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_has_data": {
+      "main": [
+        [
+          {
+            "node": "split_batch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "no_automations",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "split_batch": {
+      "main": [
+        [
+          {
+            "node": "mark_processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "mark_processing": {
+      "main": [
+        [
+          {
+            "node": "should_send_sms",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "should_send_sms": {
+      "main": [
+        [
+          {
+            "node": "send_sms",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "sms_skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "send_sms": {
+      "main": [
+        [
+          {
+            "node": "merge_sms_result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "sms_skipped": {
+      "main": [
+        [
+          {
+            "node": "merge_sms_result",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "merge_sms_result": {
+      "main": [
+        [
+          {
+            "node": "should_send_email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "should_send_email": {
+      "main": [
+        [
+          {
+            "node": "send_gmail",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "email_skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "send_gmail": {
+      "main": [
+        [
+          {
+            "node": "merge_email_result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "email_skipped": {
+      "main": [
+        [
+          {
+            "node": "merge_email_result",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "merge_email_result": {
+      "main": [
+        [
+          {
+            "node": "evaluate_results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "evaluate_results": {
+      "main": [
+        [
+          {
+            "node": "check_success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_success": {
+      "main": [
+        [
+          {
+            "node": "mark_complete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "mark_failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "mark_complete": {
+      "main": [
+        [
+          {
+            "node": "log_result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "mark_failed": {
+      "main": [
+        [
+          {
+            "node": "log_result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "log_result": {
+      "main": [
+        [
+          {
+            "node": "wait_between",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "wait_between": {
+      "main": [
+        [
+          {
+            "node": "check_more_items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_more_items": {
+      "main": [
+        [
+          {
+            "node": "split_batch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "batch_complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": {
+    "node:split_batch": {}
+  },
+  "tags": [
+    {
+      "id": "healthcare",
+      "name": "Healthcare"
+    },
+    {
+      "id": "automation",
+      "name": "Automation"
+    },
+    {
+      "id": "gmail",
+      "name": "Gmail"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-09T12:00:00.000Z",
+  "versionId": "enterprise-v1"
+}

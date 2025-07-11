@@ -1,39 +1,35 @@
 import { supabase } from '../lib/supabase';
-import { edgeFunctionService } from '../services/edgeFunctionService';
 
 /**
- * Manually trigger the automation engine to process pending automations
- * This can be called from anywhere in your app
+ * Check pending automations status (n8n handles processing)
+ * This is now just a status check - actual processing is done by n8n
  */
 export async function triggerAutomationEngine() {
   try {
-    // First check if there are pending automations
-    const { data: pendingCount, error: countError } = await supabase.rpc('trigger_automations');
+    // Check if there are pending automations in the queue
+    const { data: pendingAutomations, error } = await supabase
+      .from('automation_queue')
+      .select('id')
+      .in('status', ['queued', 'pending'])
+      .lte('scheduled_for', new Date().toISOString());
     
-    if (countError) {
-      console.error('Error checking pending automations:', countError);
-      return { success: false, error: countError };
+    if (error) {
+      console.error('Error checking pending automations:', error);
+      return { success: false, error };
     }
     
-    console.log(`Found ${pendingCount} pending automations`);
+    const pendingCount = pendingAutomations?.length || 0;
+    console.log(`Found ${pendingCount} pending automations (n8n will process these)`);
     
-    // If there are pending automations, invoke the edge function
-    if (pendingCount > 0) {
-      // Use edge function service instead of supabase.functions.invoke
-      const { data, error } = await edgeFunctionService.processAutomations();
-      
-      if (error) {
-        console.error('Error invoking automation engine:', error);
-        return { success: false, error };
-      }
-      
-      console.log('Automation engine response:', data);
-      return { success: true, data, pendingCount };
-    }
-    
-    return { success: true, pendingCount: 0, message: 'No pending automations' };
+    return { 
+      success: true, 
+      pendingCount, 
+      message: pendingCount > 0 
+        ? 'Automations queued for n8n processing' 
+        : 'No pending automations'
+    };
   } catch (error) {
-    console.error('Failed to trigger automation engine:', error);
+    console.error('Failed to check automation queue:', error);
     return { success: false, error };
   }
 }
@@ -68,17 +64,17 @@ export async function checkPendingAutomations(practiceId?: string) {
 }
 
 /**
- * Set up periodic automation processing
- * Call this once when your app starts
+ * Set up periodic automation status checking
+ * Note: Actual processing is handled by n8n workflow running every minute
  */
 export function setupAutomationProcessing(intervalMinutes: number = 5) {
-  // Trigger immediately on startup
+  // Check status immediately on startup
   triggerAutomationEngine();
   
-  // Then set up periodic triggering
+  // Then set up periodic status checking (for monitoring purposes)
   setInterval(() => {
     triggerAutomationEngine();
   }, intervalMinutes * 60 * 1000);
   
-  console.log(`Automation engine will run every ${intervalMinutes} minutes`);
+  console.log(`Automation status check will run every ${intervalMinutes} minutes (n8n handles actual processing)`);
 }
