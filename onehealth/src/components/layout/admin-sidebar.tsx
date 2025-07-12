@@ -19,10 +19,19 @@ import {
   CreditCard,
   HeadphonesIcon,
   Database,
-  Bell
+  Bell,
+  FileCode2
 } from 'lucide-react'
 
-const navigation = [
+interface NavItem {
+  name: string
+  href: string
+  icon: any
+  description: string
+  badge?: string
+}
+
+const navigation: NavItem[] = [
   {
     name: 'Dashboard',
     href: '/dashboard',
@@ -102,6 +111,13 @@ const navigation = [
     description: 'Database management'
   },
   {
+    name: 'System Blueprint',
+    href: '/dashboard/blueprint',
+    icon: FileCode2,
+    description: 'Technical documentation',
+    badge: 'NEW'
+  },
+  {
     name: 'Notifications',
     href: '/dashboard/notifications',
     icon: Bell,
@@ -163,11 +179,18 @@ export function AdminSidebar() {
                 )}
               />
               <div className="flex-1 min-w-0">
-                <div className={cn(
-                  'font-medium truncate',
-                  isActive ? 'text-onehealth-700' : 'text-gray-900'
-                )}>
-                  {item.name}
+                <div className="flex items-center gap-2">
+                  <div className={cn(
+                    'font-medium truncate',
+                    isActive ? 'text-onehealth-700' : 'text-gray-900'
+                  )}>
+                    {item.name}
+                  </div>
+                  {item.badge && (
+                    <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-gradient-to-r from-purple-500 to-blue-600 text-white">
+                      {item.badge}
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-gray-500 truncate mt-0.5">
                   {item.description}

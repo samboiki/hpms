@@ -1475,33 +1475,81 @@ interface EmailRequest {
 
 ## E24. SECURITY & COMPLIANCE
 
+### Critical Security Updates (2025-01-12):
+
+#### 🚨 FIXED: Cross-Practice Data Access Vulnerability
+- **Issue**: Hardcoded fallback practice IDs allowed users to see data from other practices
+- **Resolution**: 
+  - Removed ALL hardcoded practice ID fallbacks
+  - Added strict practice validation in all patient data access
+  - Updated RLS policies to enforce practice isolation
+  - Created `practiceValidation.ts` utility for consistent validation
+
 ### Security Measures:
 
 1. **Row Level Security (RLS)**
-   - All tables filtered by practice_id
-   - Users only see their practice data
+   - **patients** table: Strict practice-based policies (updated 2025-01-12)
+     - `Users can view patients from their practice only`
+     - `Users can insert patients to their practice only`
+     - `Users can update patients from their practice only`
+     - `Users can delete patients from their practice only`
+   - **visits** table: Practice-based access control
+   - All sensitive tables filtered by practice_id
+   - NO overly permissive policies allowed
 
-2. **Audit Trails**
+2. **Practice Validation**
+   - **NEVER** use hardcoded practice IDs as fallbacks
+   - **NEVER** use localStorage for practice ID storage
+   - **ALWAYS** validate practice context from authenticated user
+   - RPC functions validate user belongs to requested practice
+   - Frontend validates resource access before display
+
+3. **Audit Trails**
    - Critical tables have audit triggers
    - All changes logged with user/timestamp
+   - Practice access attempts logged
 
-3. **Data Encryption**
+4. **Data Encryption**
    - Passwords: Bcrypt hashed
    - Sensitive data: Encrypted at rest
+   - JWT tokens for authentication
 
-4. **API Security**
+5. **API Security**
    - Edge functions require valid JWT
    - Service role key never exposed to frontend
+   - Practice ID validation in all API calls
+   - RPC functions validate practice access
 
-5. **HIPAA Considerations**
+6. **HIPAA Considerations**
    - Patient data access logged
    - Encryption in transit (HTTPS)
    - Regular backups
-   - Access controls enforced
+   - Access controls enforced at database level
+   - Practice isolation ensures data segregation
+
+### Critical Security Functions:
+```typescript
+// Always use these validation functions:
+import { getValidatedPracticeContext, validateResourceAccess, getSafePracticeId } from '@/utils/practiceValidation';
+
+// NEVER do this:
+const practiceId = user?.practice_id || 'some-hardcoded-id'; // ❌ SECURITY BREACH
+
+// ALWAYS do this:
+const practiceId = getSafePracticeId(user); // ✅ SECURE
+```
 
 ---
 
 ## 📝 CHANGE LOG
+
+### Version 4.1 (2025-01-12)
+- **CRITICAL SECURITY FIX**: Fixed cross-practice data access vulnerability
+- Removed all hardcoded practice ID fallbacks
+- Updated RLS policies to enforce strict practice isolation
+- Added practice validation utility functions
+- Updated RPC functions with practice access validation
+- Enhanced security documentation
 
 ### Version 4.0 (2025-01-11)
 - Added complete database schema with all tables

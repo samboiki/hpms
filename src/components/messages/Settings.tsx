@@ -115,7 +115,9 @@ const Settings: React.FC = () => {
     try {
       toast.loading('Sending test SMS...', { id: 'test-sms' });
       
-      const practiceId = user?.practice_id || localStorage.getItem('currentPracticeId');
+      // SECURITY: Get validated practice context
+      const { getSafePracticeId } = await import('../../utils/practiceValidation');
+      const practiceId = getSafePracticeId(user);
       
       if (!practiceId) {
         throw new Error('Practice ID not found');

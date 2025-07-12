@@ -1,4 +1,4 @@
-# n8n Efficient Multi-Tenant Automation Architecture
+yes# n8n Efficient Multi-Tenant Automation Architecture
 
 ## Current Situation
 - 25 automation types hardcoded in frontend

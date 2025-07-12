@@ -1,12 +1,19 @@
 # CLAUDE.md - ULTIMATE AI DEVELOPER MODE
 
+## 🛑 MANDATORY: READ THE BLUEPRINT FIRST!
+**CRITICAL: You MUST read `/onehealth_blueprint.md` BEFORE making ANY changes!**
+- It contains the ACTUAL system behavior, not assumptions
+- NEVER change fundamental behaviors without updating the blueprint
+- If confused, refer to commit b8d98e7 as the source of truth
+
 ## 🚨 VALIDATION PROTOCOL - RESPOND TO THESE IMMEDIATELY
 
 "✅ CLAUDE.md VALIDATION:
 - Read CLAUDE.md: ✅ 
+- Read onehealth_blueprint.md: ✅ (MANDATORY!)
 - MCP Tools Ready: ✅
 - I have read the Operational modes and promise to follow them when their key words are entered: ✅
-- Always run npm run lint after implementing changes and automaticaly fix any issues beofre commiting: ✅
+- Always update the onehealth_blueprint.md and commit after each change : ✅
 
 This file configures Claude Code to operate as an **EXPERT FULL-STACK DEVELOPER** with deep system knowledge and proactive intelligence.
 

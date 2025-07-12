@@ -72,11 +72,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const navItems = [
     { 
-      icon: 'solar:users-group-rounded-bold-duotone', 
+      icon: 'solar:user-bold-duotone', 
       label: 'Patients', 
       path: '/patients', 
-      isRoute: false, 
-      onClick: onOpenPatients, 
+      isRoute: true, 
       bgGradient: 'bg-gradient-to-r from-purple-500 to-indigo-600',
       iconColor: 'text-white'
     },
@@ -270,6 +269,40 @@ const Sidebar: React.FC<SidebarProps> = ({
                   )}
                 </NavLink>
               ))}
+              
+              {/* System Blueprint - Premium Feature */}
+              <NavLink
+                to="/admin/blueprint"
+                className={({ isActive }) => cn(
+                  "flex items-center px-4 py-3 rounded-xl mb-2 transition-all duration-200 min-h-[48px] group relative overflow-hidden",
+                  "hover:bg-white/15 hover:shadow-lg hover:scale-[1.02]",
+                  isActive ? "text-white bg-white/25 shadow-lg border border-white/20" : "text-white/90",
+                  collapsed && !isMobile && "justify-center"
+                )}
+                onClick={isMobile ? onMobileClose : undefined}
+              >
+                {({ isActive }) => (
+                  <>
+                    {/* Animated background */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-blue-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    
+                    <div className={cn(
+                      "p-2 rounded-xl relative z-10",
+                      isActive ? "bg-gradient-to-br from-purple-500 to-blue-600" : ""
+                    )}>
+                      <Icon icon="solar:blueprint-bold-duotone" className={cn("w-6 h-6", isActive ? "text-white" : "text-white")} />
+                    </div>
+                    {(!collapsed || isMobile) && (
+                      <>
+                        <span className="ml-3 text-sm font-medium flex-1 relative z-10">System Blueprint</span>
+                        <div className="bg-gradient-to-r from-purple-500 to-blue-600 text-white text-[9px] font-bold rounded-full px-2 py-0.5 shadow-sm">
+                          NEW
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+              </NavLink>
             </>
           )}
         </div>

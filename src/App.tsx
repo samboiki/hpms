@@ -20,6 +20,7 @@ import EnhancedPracticeProfile from './pages/EnhancedPracticeProfile';
 import Inventory from './pages/Inventory';
 import PracticesManagement from './pages/admin/PracticesManagement';
 import TariffManagement from './pages/admin/TariffManagement';
+import SystemBlueprint from './pages/admin/SystemBlueprint';
 import BillingWorkflow from './pages/BillingWorkflow';
 import Finance from './pages/Finance';
 import { Toaster } from 'react-hot-toast';
@@ -126,6 +127,7 @@ function App() {
               <Route path="practice-profile" element={<EnhancedPracticeProfile />} />
               <Route path="admin/practices" element={<PracticesManagement />} />
               <Route path="admin/tariffs" element={<TariffManagement />} />
+              <Route path="admin/blueprint" element={<SystemBlueprint />} />
               <Route path="settings" element={<Settings />} />
               <Route path="emergency-export" element={<EmergencySchemaExporter />} />
               <Route path="*" element={<NotFound />} />

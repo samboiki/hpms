@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from './authStore';
 import { practiceDataService } from '../lib/practiceDataService';
 import { comprehensiveSearch } from '../utils/searchUtils';
+import { fetchPatientsDirectly } from '../utils/directPatientFetch';
 
 export interface Patient {
   id: string;
@@ -29,6 +30,8 @@ export interface Patient {
   postal_address?: string;
   created_at?: string;
   updated_at?: string;
+  practice_id?: string;
+  branch_id?: string;
   medical_aid_details?: {
     id?: string;
     provider: string;
@@ -38,7 +41,19 @@ export interface Patient {
     main_member_name?: string;
     main_member_id_number?: string;
     relationship_to_main?: string;
+    medical_aid_provider?: {
+      id: string;
+      name: string;
+      logo_url?: string;
+    };
   }[];
+  // Added fields for enhanced data
+  last_visit_date?: string;
+  total_visits?: number;
+  practice?: {
+    id: string;
+    name: string;
+  };
 }
 
 interface PatientsState {
@@ -46,6 +61,7 @@ interface PatientsState {
   isLoading: boolean;
   error: string | null;
   fetchPatients: () => Promise<void>;
+  fetchPatientsWithVisits: () => Promise<void>;
   fetchPatientById: (id: string) => Promise<Patient | null>;
   addPatient: (patient: Omit<Patient, 'id' | 'created_at' | 'updated_at'>) => Promise<Patient | null>;
   updatePatient: (id: string, updates: Partial<Patient>) => Promise<void>;
@@ -60,22 +76,24 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
   fetchPatients: async () => {
     set({ isLoading: true, error: null });
     try {
-      console.log('🔄 [PatientsStore] Starting fetchPatients');
+      console.log('🔄 [PatientsStore] Starting fetchPatients - USING DIRECT METHOD');
       
       // Get authenticated user context
       const authContext = await practiceDataService.getAuthContext();
-      if (!authContext) {
-        console.log('❌ [PatientsStore] No valid auth context, returning empty patients');
-        set({ patients: [], isLoading: false });
+      if (!authContext?.practiceId) {
+        console.error('❌ [PatientsStore] No practice ID found in auth context');
+        set({ patients: [], isLoading: false, error: 'No practice context found' });
         return;
       }
-
-      console.log('✅ [PatientsStore] Auth context established', authContext);
-
-      // Use the robust practice data service
-      const patients = await practiceDataService.getPracticePatients(authContext.practiceId);
       
-      console.log(`✅ [PatientsStore] Final result: ${patients.length} patients for practice ${authContext.practiceId}`);
+      const practiceId = authContext.practiceId;
+      console.log('🏥 Using practice ID:', practiceId);
+
+      // USE THE BULLETPROOF DIRECT FETCH
+      const patients = await fetchPatientsDirectly(practiceId);
+      
+      console.log(`✅ [PatientsStore] DIRECT FETCH result: ${patients.length} patients`);
+      console.log('📊 Sample patient with visits:', patients.find(p => p.total_visits > 0));
       
       set({ patients, isLoading: false });
     } catch (error) {
@@ -83,16 +101,134 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
       set({ error: 'Failed to fetch patients', isLoading: false });
     }
   },
+  
+  fetchPatientsWithVisits: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      console.log('🔄 [PatientsStore] Starting ENHANCED fetchPatientsWithVisits');
+      
+      // Get authenticated user context
+      const authContext = await practiceDataService.getAuthContext();
+      if (!authContext?.practiceId) {
+        console.error('❌ [PatientsStore] No practice ID found in auth context');
+        set({ patients: [], isLoading: false, error: 'No practice context found' });
+        return;
+      }
+
+      // APPROACH 1: Try the standard Supabase query first
+      let { data: patientsWithData, error } = await supabase
+        .from('patients')
+        .select(`
+          *,
+          medical_aid_details!left (
+            *,
+            medical_aid_provider:medical_aid_providers (
+              id,
+              name,
+              logo_url
+            )
+          ),
+          practice:practices (
+            id,
+            name
+          )
+        `)
+        .eq('practice_id', authContext?.practiceId)
+        .order('last_name', { ascending: true })
+        .order('first_name', { ascending: true });
+
+      if (error) {
+        console.error('❌ Initial query error:', error);
+        throw error;
+      }
+
+      console.log('📊 Fetched patients:', patientsWithData?.length);
+
+      // APPROACH 2: Fetch visits separately for each patient
+      const patientsWithVisits = await Promise.all(
+        (patientsWithData || []).map(async (patient) => {
+          try {
+            // Get visits for this specific patient
+            const { data: visits, error: visitsError } = await supabase
+              .from('visits')
+              .select('id, visit_date, status')
+              .eq('patient_id', patient.id)
+              .order('visit_date', { ascending: false });
+
+            if (visitsError) {
+              console.error(`❌ Error fetching visits for ${patient.first_name}:`, visitsError);
+              return { ...patient, visits: [], last_visit_date: null, total_visits: 0 };
+            }
+
+            // Calculate visit statistics
+            const completedVisits = (visits || []).filter(v => v.status === 'completed');
+            const lastVisit = completedVisits[0];
+
+            // Debug specific patients
+            if (patient.first_name === 'Mirjam' || patient.first_name === 'Imms') {
+              console.log(`🔍 ${patient.first_name} ${patient.last_name} visits:`, visits);
+            }
+
+            return {
+              ...patient,
+              visits: visits || [],
+              last_visit_date: lastVisit?.visit_date || null,
+              total_visits: completedVisits.length
+            };
+          } catch (err) {
+            console.error(`Error processing patient ${patient.id}:`, err);
+            return { ...patient, visits: [], last_visit_date: null, total_visits: 0 };
+          }
+        })
+      );
+      
+      console.log('✅ [PatientsStore] Successfully processed all patients with visits');
+      console.log('📊 Patients with visits:', patientsWithVisits.filter(p => p.total_visits > 0).length);
+      
+      set({ patients: patientsWithVisits, isLoading: false });
+    } catch (error) {
+      console.error('❌ [PatientsStore] Critical error:', error);
+      
+      // FALLBACK: Just get patients without visits
+      try {
+        const { data: fallbackPatients } = await supabase
+          .from('patients')
+          .select('*')
+          .order('last_name', { ascending: true });
+          
+        set({ patients: fallbackPatients || [], isLoading: false });
+      } catch (fallbackError) {
+        console.error('❌ Even fallback failed:', fallbackError);
+        set({ error: 'Failed to fetch patients', isLoading: false });
+      }
+    }
+  },
 
   fetchPatientById: async (id: string) => {
     try {
+      // Get authenticated user context to ensure we only fetch patients from the user's practice
+      const authContext = await practiceDataService.getAuthContext();
+      if (!authContext?.practiceId) {
+        console.error('❌ [PatientsStore] No practice ID found in auth context');
+        return null;
+      }
+
       const { data: patient, error } = await supabase
         .from('patients')
         .select('*')
         .eq('id', id)
+        .eq('practice_id', authContext.practiceId) // CRITICAL: Ensure patient belongs to user's practice
         .single();
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === 'PGRST116') {
+          console.error('❌ Patient not found or not in user\'s practice');
+        } else {
+          console.error('❌ Error fetching patient:', error);
+        }
+        throw error;
+      }
+      
       return patient;
     } catch (error) {
       console.error('Error fetching patient:', error);
@@ -103,10 +239,19 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
   addPatient: async (patientData) => {
     set({ isLoading: true, error: null });
     try {
+      // Get authenticated user context to ensure we add patients to the correct practice
+      const authContext = await practiceDataService.getAuthContext();
+      if (!authContext?.practiceId) {
+        console.error('❌ [PatientsStore] No practice ID found in auth context');
+        set({ error: 'No practice context found', isLoading: false });
+        return null;
+      }
+
       const { data: patient, error } = await supabase
         .from('patients')
         .insert([{
           ...patientData,
+          practice_id: authContext.practiceId, // CRITICAL: Always set the practice ID
           country: patientData.country || 'Namibia'
         }])
         .select()
@@ -128,10 +273,25 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
   updatePatient: async (id, updates) => {
     set({ isLoading: true, error: null });
     try {
+      // Get authenticated user context to ensure we only update patients in the user's practice
+      const authContext = await practiceDataService.getAuthContext();
+      if (!authContext?.practiceId) {
+        console.error('❌ [PatientsStore] No practice ID found in auth context');
+        set({ error: 'No practice context found', isLoading: false });
+        return;
+      }
+
+      // CRITICAL: Never allow updating the practice_id field
+      const { practice_id, ...safeUpdates } = updates;
+      if (practice_id) {
+        console.warn('⚠️ Attempted to update practice_id - this is not allowed');
+      }
+
       const { error } = await supabase
         .from('patients')
-        .update(updates)
-        .eq('id', id);
+        .update(safeUpdates)
+        .eq('id', id)
+        .eq('practice_id', authContext.practiceId); // CRITICAL: Ensure patient belongs to user's practice
 
       if (error) throw error;
 

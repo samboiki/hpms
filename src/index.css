@@ -338,4 +338,24 @@
       transform: scale(1);
     }
   }
+
+  /* Heartbeat animation for patient initials */
+  @keyframes heartbeat {
+    0% {
+      transform: scale(1.4);
+      opacity: 0.25;
+    }
+    50% {
+      transform: scale(1.5);
+      opacity: 0.15;
+    }
+    100% {
+      transform: scale(1.4);
+      opacity: 0.25;
+    }
+  }
+
+  .heartbeat-ring {
+    animation: heartbeat 2s ease-in-out infinite;
+  }
 }

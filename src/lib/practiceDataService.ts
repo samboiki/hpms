@@ -166,7 +166,14 @@ class PracticeDataService {
         .from('patients')
         .select(`
           *,
-          medical_aid_details!patient_id (*)
+          medical_aid_details!patient_id (
+            *,
+            medical_aid_provider:medical_aid_providers (
+              id,
+              name,
+              logo_url
+            )
+          )
         `)
         .eq('practice_id', practiceId)
         .order('last_name', { ascending: true })

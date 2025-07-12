@@ -28,7 +28,25 @@ import {
   RadialBarChart,
   RadialBar
 } from 'recharts';
-import { Patient } from '../../stores/patientsStoreNew';
+// Extended Patient interface with database fields
+interface Patient {
+  id: string;
+  patient_id: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  date_of_birth?: string;
+  gender?: string;
+  blood_type?: string;
+  medical_aid_provider?: string;
+  allergies?: string;
+  chronic_conditions?: string;
+  last_visit_date?: string;
+  created_at?: string;
+  updated_at?: string;
+  practice_id?: string;
+}
 
 interface PatientAnalyticsProps {
   patients: Patient[];
@@ -46,7 +64,7 @@ const COLORS = {
   other: '#8b5cf6'
 };
 
-const PatientAnalytics: React.FC<PatientAnalyticsProps> = ({ patients }) => {
+const PatientAnalytics: React.FC<PatientAnalyticsProps> = ({ patients = [] }) => {
   // Gender distribution data
   const genderData = useMemo(() => {
     const genderCounts = patients.reduce((acc, patient) => {

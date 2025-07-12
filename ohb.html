@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OneHealth System Blueprint v5.0</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f7fa;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 0;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .header-info {
+            text-align: center;
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .header-info p {
+            margin: 5px 0;
+        }
+        
+        .description {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        nav {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        nav h2 {
+            margin-bottom: 15px;
+            color: #4a5568;
+        }
+        
+        nav ul {
+            list-style: none;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+        }
+        
+        nav a {
+            display: block;
+            padding: 12px 20px;
+            background: #f7fafc;
+            color: #4a5568;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            border: 1px solid #e2e8f0;
+        }
+        
+        nav a:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .section {
+            background: white;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .section-header {
+            background: #f7fafc;
+            padding: 20px;
+            border-bottom: 2px solid #e2e8f0;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .section-header:hover {
+            background: #edf2f7;
+        }
+        
+        .section-header h2 {
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .section-meta {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #718096;
+        }
+        
+        .section-content {
+            padding: 20px;
+            display: none;
+        }
+        
+        .section.active .section-content {
+            display: block;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 30px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        th {
+            background: #f7fafc;
+            font-weight: 600;
+            color: #4a5568;
+            position: sticky;
+            top: 0;
+        }
+        
+        tr:hover {
+            background: #f7fafc;
+        }
+        
+        code {
+            background: #fef3c7;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+            color: #92400e;
+        }
+        
+        .required {
+            color: #ef4444;
+            font-weight: bold;
+        }
+        
+        .relation {
+            background: #dbeafe;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.85em;
+            margin-bottom: 4px;
+            display: inline-block;
+        }
+        
+        .trigger-box {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .trigger-box h4 {
+            color: #166534;
+            margin-bottom: 10px;
+        }
+        
+        .trigger-item {
+            margin: 5px 0;
+            padding-left: 20px;
+        }
+        
+        .note {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 10px 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .toggle-icon {
+            float: right;
+            font-size: 1.2em;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏥 OneHealth System Blueprint</h1>
+            <div class="header-info">
+                <p><strong>Version:</strong> 5.0</p>
+                <p><strong>Last Updated:</strong> 2025-07-11 12:00:00 UTC</p>
+                <p><strong>Description:</strong> Master blueprint for the OneHealth system - a living document for system architecture, workflows, and components</p>
+            </div>
+        </header>
+        
+        <nav>
+            <h2>📋 Table of Contents</h2>
+            <ul>
+                <li><a href="#patients">👥 Patients</a></li>
+                <li><a href="#encounters">🩺 Encounters</a></li>
+                <li><a href="#communications">📱 Communications</a></li>
+                <li><a href="#finance">💰 Finance & Operations</a></li>
+                <li><a href="#settings">⚙️ Settings</a></li>
+            </ul>
+        </nav>
+        
+        <!-- Patients Section -->
+        <div id="patients" class="section">
+            <div class="section-header" onclick="toggleSection('patients')">
+                <h2>👥 Patients <span class="toggle-icon">▼</span></h2>
+                <div class="section-meta">
+                    <strong>Section Last Updated:</strong> 2025-07-11 11:00:00 UTC<br>
+                    <strong>Description:</strong> Handles all aspects of patient management, from registration and demographic data to document and media storage. Foundation for most other system modules.
+                </div>
+            </div>
+            
+            <div class="section-content">
+                <h3>📊 Database Tables Overview</h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Table Name</th>
+                                <th>Purpose</th>
+                                <th>Key Relations</th>
+                                <th>Timestamps</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>patients</code></td>
+                                <td>Core patient records with demographics and identification</td>
+                                <td>
+                                    <span class="relation">practice_id → practices.id</span><br>
+                                    <span class="relation">branch_id → branches.id</span><br>
+                                    <span class="relation">created_by → users.id</span><br>
+                                    <span class="relation">updated_by → users.id</span>
+                                </td>
+                                <td><code>created_at</code><br><code>updated_at</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>medical_aid_details</code></td>
+                                <td>Insurance/medical aid information</td>
+                                <td>
+                                    <span class="relation">patient_id → patients.id</span><br>
+                                    <span class="relation">medical_aid_id → medical_aid_providers.id</span>
+                                </td>
+                                <td><code>created_at</code><br><code>updated_at</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>next_of_kin</code></td>
+                                <td>Emergency contacts and relationships</td>
+                                <td>
+                                    <span class="relation">patient_id → patients.id</span>
+                                </td>
+                                <td><code>created_at</code><br><code>updated_at</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>patient_documents</code></td>
+                                <td>Document metadata and storage</td>
+                                <td>
+                                    <span class="relation">patient_id → patients.id</span><br>
+                                    <span class="relation">uploaded_by → users.id</span>
+                                </td>
+                                <td><code>created_at</code><br><code>updated_at</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>patient_media</code></td>
+                                <td>Images and media files</td>
+                                <td>
+                                    <span class="relation">patient_id → patients.id</span><br>
+                                    <span class="relation">uploaded_by → users.id</span>
+                                </td>
+                                <td><code>created_at</code><br><code>uploaded_at</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <h3>📋 Table: <code>patients</code></h3>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Field Name</th>
+                                <th>Data Type</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>id</strong></td>
+                                <td><code>UUID</code></td>
+                                <td>Primary key, unique identifier for the patient</td>
+                            </tr>
+                            <tr>
+                                <td><strong>system_patient_reference_number</strong></td>
+                                <td><code>TEXT</code></td>
+                                <td>Auto-generated patient reference (e.g., P000001)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>government_id_number</strong></td>
+                                <td><code>TEXT</code></td>
+                                <td>National identification number</td>
+                            </tr>
+                            <tr>
+                                <td><strong>first_name</strong> <span class="required">*</span></td>
+                                <td><code>TEXT</code></td>
+                                <td>Patient's first name (required)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>middle_name</strong></td>
+                                <td><code>TEXT</code></td>
+                                <td>Patient's middle name (optional)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>last_name</strong> <span class="required">*</span></td>
+                                <td><code>TEXT</code></td>
+                                <td>Patient's last name (required)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>date_of_birth</strong></td>
+                                <td><code>DATE</code></td>
+                                <td>Patient's birth date</td>
+                            </tr>
+                            <tr>
+                                <td><strong>gender</strong></td>
+                                <td><code>TEXT</code></td>
+                                <td>Gender (male/female/other)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>phone</strong></td>
+                                <td><code>TEXT</code></td>
+                                <td>Primary contact number</td>
+                            </tr>
+                            <tr>
+                                <td><strong>email</strong></td>
+                                <td><code>TEXT</code></td>
+                                <td>Email address</td>
+                            </tr>
+                            <tr>
+                                <td><strong>address</strong></td>
+                                <td><code>TEXT</code></td>
+                                <td>Physical address</td>
+                            </tr>
+                            <tr>
+                                <td><strong>city</strong></td>
+                                <td><code>TEXT</code></td>
+                                <td>City of residence</td>
+                            </tr>
+                            <tr>
+                                <td><strong>country</strong></td>
+                                <td><code>TEXT</code></td>
+                                <td>Country (default: Namibia)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>occupation</strong></td>
+                                <td><code>TEXT</code></td>
+                                <td>Patient's occupation</td>
+                            </tr>
+                            <tr>
+                                <td><strong>emergency_contact_name</strong></td>
+                                <td><code>TEXT</code></td>
+                                <td>Emergency contact person</td>
+                            </tr>
+                            <tr>
+                                <td><strong>emergency_contact_phone</strong></td>
+                                <td><code>TEXT</code></td>
+                                <td>Emergency contact number</td>
+                            </tr>
+                            <tr>
+                                <td><strong>blood_type</strong></td>
+                                <td><code>TEXT</code></td>
+                                <td>Blood type (A+, B+, O+, etc.)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>allergies</strong></td>
+                                <td><code>TEXT</code></td>
+                                <td>Known allergies</td>
+                            </tr>
+                            <tr>
+                                <td><strong>chronic_conditions</strong></td>
+                                <td><code>TEXT</code></td>
+                                <td>Chronic medical conditions</td>
+                            </tr>
+                            <tr>
+                                <td><strong>practice_id</strong></td>
+                                <td><code>UUID</code></td>
+                                <td>Associated practice ID</td>
+                            </tr>
+                            <tr>
+                                <td><strong>branch_id</strong></td>
+                                <td><code>UUID</code></td>
+                                <td>Associated branch ID</td>
+                            </tr>
+                            <tr>
+                                <td><strong>created_at</strong></td>
+                                <td><code>TIMESTAMPTZ</code></td>
+                                <td>Record creation timestamp</td>
+                            </tr>
+                            <tr>
+                                <td><strong>updated_at</strong></td>
+                                <td><code>TIMESTAMPTZ</code></td>
+                                <td>Last update timestamp</td>
+                            </tr>
+                            <tr>
+                                <td><strong>created_by</strong></td>
+                                <td><code>UUID</code></td>
+                                <td>User who created the record</td>
+                            </tr>
+                            <tr>
+                                <td><strong>updated_by</strong></td>
+                                <td><code>UUID</code></td>
+                                <td>User who last updated the record</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="note">
+                    <strong>Note:</strong> Fields marked with <span class="required">*</span> are required
+                </div>
+                
+                <div class="trigger-box">
+                    <h4>🔧 Active Triggers</h4>
+                    <div class="trigger-item">✅ <code>assign_system_patient_reference_number_trigger</code> - Auto-generates patient reference numbers</div>
+                    <div class="trigger-item">✅ <code>update_patients_updated_at</code> - Updates timestamp on record modification</div>
+                    <div class="trigger-item">✅ <code>audit_patients_trigger</code> - Creates audit trail for all changes</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Encounters Section -->
+        <div id="encounters" class="section">
+            <div class="section-header" onclick="toggleSection('encounters')">
+                <h2>🩺 Encounters <span class="toggle-icon">▶</span></h2>
+                <div class="section-meta">
+                    <strong>Section Last Updated:</strong> 2025-07-11 11:00:00 UTC<br>
+                    <strong>Description:</strong> Encompasses all patient interactions including appointments, visits, clinical documentation, and medical procedures.
+                </div>
+            </div>
+            <div class="section-content">
+                <!-- Content will be added here -->
+            </div>
+        </div>
+        
+        <!-- Communications Section -->
+        <div id="communications" class="section">
+            <div class="section-header" onclick="toggleSection('communications')">
+                <h2>📱 Communications <span class="toggle-icon">▶</span></h2>
+                <div class="section-meta">
+                    <strong>Section Last Updated:</strong> 2025-07-11 11:00:00 UTC<br>
+                    <strong>Description:</strong> Centralized communication system handling all SMS, email, and automated messaging with full tracking and compliance.
+                </div>
+            </div>
+            <div class="section-content">
+                <!-- Content will be added here -->
+            </div>
+        </div>
+        
+        <!-- Finance & Operations Section -->
+        <div id="finance" class="section">
+            <div class="section-header" onclick="toggleSection('finance')">
+                <h2>💰 Finance & Operations <span class="toggle-icon">▶</span></h2>
+                <div class="section-meta">
+                    <strong>Section Last Updated:</strong> 2025-07-11 11:00:00 UTC<br>
+                    <strong>Description:</strong> Complete financial management including invoicing, payments, medical aid claims, HR/payroll, and operational reporting.
+                </div>
+            </div>
+            <div class="section-content">
+                <!-- Content will be added here -->
+            </div>
+        </div>
+        
+        <!-- Settings Section -->
+        <div id="settings" class="section">
+            <div class="section-header" onclick="toggleSection('settings')">
+                <h2>⚙️ Settings <span class="toggle-icon">▶</span></h2>
+                <div class="section-meta">
+                    <strong>Section Last Updated:</strong> 2025-07-11 11:00:00 UTC<br>
+                    <strong>Description:</strong> System configuration, practice management, user administration, and integration settings.
+                </div>
+            </div>
+            <div class="section-content">
+                <!-- Content will be added here -->
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function toggleSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            const icon = section.querySelector('.toggle-icon');
+            
+            section.classList.toggle('active');
+            
+            if (section.classList.contains('active')) {
+                icon.textContent = '▼';
+            } else {
+                icon.textContent = '▶';
+            }
+        }
+        
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('nav a').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const targetSection = document.getElementById(targetId);
+                
+                targetSection.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+                
+                // Auto-expand the section
+                if (!targetSection.classList.contains('active')) {
+                    toggleSection(targetId);
+                }
+            });
+        });
+        
+        // Auto-expand first section on load
+        toggleSection('patients');
+    </script>
+</body>
+</html>
