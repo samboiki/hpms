@@ -167,6 +167,14 @@ serve(async (req) => {
       );
     }
 
+    // Check if practice has Gmail connected first
+    const { data: gmailCredentials } = await supabase
+      .from('practice_oauth_credentials')
+      .select('*')
+      .eq('practice_id', practiceId)
+      .eq('provider', 'google')
+      .single();
+
     // Create log entry
     const { data: logEntry, error: logError } = await supabase
       .from('practice_email_logs')
@@ -213,14 +221,6 @@ serve(async (req) => {
       .eq('id', practiceId)
       .single();
 
-    // Check if practice has Gmail connected
-    const { data: gmailCredentials } = await supabase
-      .from('practice_oauth_credentials')
-      .select('*')
-      .eq('practice_id', practiceId)
-      .eq('provider', 'google')
-      .single();
-
     let emailProvider = 'resend';
     let providerMessageId = null;
 
@@ -258,15 +258,52 @@ serve(async (req) => {
           console.log('Attempting to send via Gmail...');
           emailProvider = 'gmail';
           
-          // Get OAuth app credentials
-          const { data: oauthApp } = await supabase
-            .from('practice_oauth_apps')
-            .select('client_id, client_secret')
-            .eq('practice_id', practiceId)
-            .eq('provider', 'google')
-            .single();
+          // Check if using app password or OAuth
+          const isAppPassword = gmailCredentials.metadata?.auth_type === 'app_password';
+          
+          if (isAppPassword) {
+            // Use Gmail SMTP with app password
+            console.log('Using Gmail App Password method...');
+            
+            const appPassword = atob(gmailCredentials.refresh_token); // Decode base64
+            
+            // For app passwords, we'll use nodemailer in a separate function
+            // For now, we'll fall back to OAuth method
+            const { data: sendResult, error: sendError } = await supabase.functions.invoke('send-gmail-smtp', {
+              body: {
+                from: gmailCredentials.email,
+                to: recipientEmail,
+                subject: finalSubject,
+                html: finalHtmlContent,
+                text: finalTextContent,
+                credentials: {
+                  email: gmailCredentials.email,
+                  appPassword
+                }
+              }
+            });
+            
+            if (sendError) throw sendError;
+            
+            if (sendResult.success) {
+              emailSent = true;
+              emailResult = { id: sendResult.messageId };
+              providerMessageId = sendResult.messageId;
+              console.log('Email sent successfully via Gmail SMTP');
+            } else {
+              throw new Error(sendResult.error || 'Failed to send via Gmail SMTP');
+            }
+          } else {
+            // OAuth method
+            // Get OAuth app credentials
+            const { data: oauthApp } = await supabase
+              .from('practice_oauth_apps')
+              .select('client_id, client_secret')
+              .eq('practice_id', practiceId)
+              .eq('provider', 'google')
+              .single();
 
-          if (oauthApp && oauthApp.client_id && oauthApp.client_secret) {
+            if (oauthApp && oauthApp.client_id && oauthApp.client_secret) {
             // Check if access token is expired
             const tokenExpired = gmailCredentials.token_expires_at ? 
               new Date(gmailCredentials.token_expires_at) < new Date() : true;
@@ -353,6 +390,9 @@ serve(async (req) => {
               console.error('Gmail API error:', errorText);
               throw new Error(`Gmail API error: ${errorText}`);
             }
+          } else {
+            throw new Error('OAuth app credentials not found');
+          }
           }
         } catch (gmailError) {
           console.error('Gmail sending failed, falling back to Resend:', gmailError);

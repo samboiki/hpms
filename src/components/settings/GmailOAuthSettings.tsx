@@ -6,6 +6,7 @@ import Button from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
+import { GmailDebugPanel } from './GmailDebugPanel';
 
 interface GmailConnection {
   connected: boolean;
@@ -29,8 +30,8 @@ export const GmailOAuthSettings: React.FC = () => {
     last_executed: string | null;
   }> | null>(null);
 
-  // OAuth configuration
-  const REDIRECT_URI = `${window.location.origin}/settings`;
+  // OAuth configuration - Universal callback for all practices
+  const UNIVERSAL_REDIRECT_URI = 'https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/universal-oauth-callback';
   const SCOPES = [
     'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/gmail.compose',
@@ -88,44 +89,28 @@ export const GmailOAuthSettings: React.FC = () => {
   useEffect(() => {
     checkGmailConnection();
 
-    // Check for OAuth callback
+    // Check for OAuth success/error from universal callback
     const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    if (code) {
-      handleOAuthCallback(code);
-    }
-  }, [practiceId]);
-
-  const handleOAuthCallback = async (code: string) => {
-    try {
-      setConnecting(true);
-      
-      // Call edge function to exchange code for tokens
-      const { error } = await supabase.functions.invoke('gmail-oauth-callback', {
-        body: {
-          code,
-          redirect_uri: REDIRECT_URI,
-          practice_id: practiceId
-        }
-      });
-
-      if (error) throw error;
-
-      toast.success('Gmail account connected successfully!');
-      
+    const oauthSuccess = urlParams.get('oauth_success');
+    const oauthError = urlParams.get('oauth_error');
+    const oauthEmail = urlParams.get('oauth_email');
+    
+    if (oauthSuccess === 'true') {
+      toast.success(`Gmail connected successfully${oauthEmail ? ` for ${oauthEmail}` : ''}!`);
       // Clear URL parameters
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
-      
       // Refresh connection status
-      await checkGmailConnection();
-    } catch (error) {
-      console.error('OAuth callback error:', error);
-      toast.error('Failed to connect Gmail account');
-    } finally {
-      setConnecting(false);
+      checkGmailConnection();
+    } else if (oauthError) {
+      const errorDescription = urlParams.get('oauth_error_description') || 'Unknown error';
+      toast.error(`Failed to connect Gmail: ${errorDescription}`);
+      // Clear URL parameters
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
     }
-  };
+  }, [practiceId]);
+
 
   const initiateGmailOAuth = () => {
     if (!practiceOAuthApp) {
@@ -133,23 +118,56 @@ export const GmailOAuthSettings: React.FC = () => {
       return;
     }
 
-    // Log the redirect URI for debugging
-    console.log('OAuth Redirect URI:', REDIRECT_URI);
-    console.log('Current URL:', window.location.href);
+    // Show connection in progress
+    toast.loading('Preparing Gmail connection...');
 
+    // Create state parameter with practice ID and redirect origin
+    const stateData = {
+      practice_id: practiceId,
+      redirect_origin: window.location.origin
+    };
+    const state = btoa(JSON.stringify(stateData));
+
+    // Create OAuth URL
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authUrl.searchParams.append('client_id', practiceOAuthApp.client_id);
-    authUrl.searchParams.append('redirect_uri', REDIRECT_URI);
+    authUrl.searchParams.append('redirect_uri', UNIVERSAL_REDIRECT_URI);
     authUrl.searchParams.append('response_type', 'code');
     authUrl.searchParams.append('scope', SCOPES);
     authUrl.searchParams.append('access_type', 'offline');
     authUrl.searchParams.append('prompt', 'consent');
-    authUrl.searchParams.append('state', practiceId || '');
-    
-    // For Gmail account selection, remove login_hint to allow user to choose account
+    authUrl.searchParams.append('state', state);
 
-    console.log('OAuth URL:', authUrl.toString());
-    window.location.href = authUrl.toString();
+    // Open in a popup window for better UX
+    const width = 500;
+    const height = 600;
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
+
+    const popup = window.open(
+      authUrl.toString(),
+      'gmail-oauth',
+      `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no`
+    );
+
+    // Check if popup was blocked
+    if (!popup) {
+      toast.dismiss();
+      toast.error('Popup blocked! Please allow popups for this site.');
+      // Fallback to redirect
+      window.location.href = authUrl.toString();
+      return;
+    }
+
+    // Monitor popup for completion
+    const checkInterval = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(checkInterval);
+        toast.dismiss();
+        // Refresh connection status
+        checkGmailConnection();
+      }
+    }, 1000);
   };
 
   const disconnectGmail = async () => {
@@ -393,12 +411,15 @@ export const GmailOAuthSettings: React.FC = () => {
               <div className="flex-1">
                 <p className="font-medium text-blue-900 mb-2">OAuth Setup Information</p>
                 <div className="bg-white rounded-lg p-3 border border-blue-200">
-                  <p className="text-xs font-semibold text-gray-700 mb-1">Your Redirect URI:</p>
+                  <p className="text-xs font-semibold text-gray-700 mb-1">Universal Redirect URI (for ALL practices):</p>
                   <code className="block bg-gray-100 p-2 rounded text-xs text-gray-800 break-all">
-                    {REDIRECT_URI}
+                    {UNIVERSAL_REDIRECT_URI}
                   </code>
                   <p className="text-xs text-gray-600 mt-2">
-                    ⚠️ This exact URI must be added to your Google Cloud Console OAuth settings
+                    ✅ This ONE URI works for ALL practices - no need to add individual URIs!
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Each practice uses their own Client ID and Secret, but shares this redirect URI.
                   </p>
                 </div>
                 <div className="mt-3 text-xs text-blue-800">
@@ -434,6 +455,9 @@ export const GmailOAuthSettings: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Debug Panel - Remove in production */}
+      <GmailDebugPanel />
     </motion.div>
   );
 };

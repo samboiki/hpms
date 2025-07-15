@@ -16,6 +16,7 @@ import { usePractice } from '../contexts/PracticeContext';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
 import TimePickerModal from '../components/ui/TimePickerModal';
 import { platformSettings, getPlatformDefaults } from '../config/socialPlatformSettings';
+import { DirectGmailSetup } from '../components/settings/DirectGmailSetup';
 
 // Iconify is now handled by @iconify/react package
 
@@ -2915,7 +2916,65 @@ const PracticeSocialAccountsContent: React.FC = () => {
               </div>
             </div>
             <Button
-              onClick={() => setShowAddModal(true)}
+              onClick={() => {
+                // Reset form data when clicking Add Account
+                setFormData({
+                  platform: '',
+                  account_name: '',
+                  profile_url: '',
+                  username: '',
+                  description: '',
+                  is_business_account: false,
+                  app_id: '',
+                  client_id: '',
+                  client_secret: '',
+                  access_token: '',
+                  refresh_token: '',
+                  token_expires_at: '',
+                  auth_scope: '',
+                  page_id: '',
+                  can_post_text: true,
+                  can_post_images: true,
+                  can_post_videos: false,
+                  can_schedule_posts: false,
+                  can_delete_posts: false,
+                  can_edit_posts: false,
+                  can_reply_comments: false,
+                  can_moderate_comments: false,
+                  rate_limit_posts_per_hour: 0,
+                  rate_limit_posts_per_day: 0,
+                  rate_limit_requests_per_hour: 0,
+                  rate_limit_window_minutes: 0,
+                  max_text_length: 0,
+                  max_hashtags: 0,
+                  image_max_size_mb: 0,
+                  video_max_size_mb: 0,
+                  max_images_per_post: 0,
+                  max_videos_per_post: 0,
+                  video_max_duration_seconds: 0,
+                  supports_stories: false,
+                  supports_polls: false,
+                  supports_link_preview: true,
+                  supports_mentions: false,
+                  supports_hashtags: true,
+                  supports_analytics: false,
+                  supports_scheduling: false,
+                  auto_resize_images: true,
+                  auto_crop_images: false,
+                  auto_compress_videos: true,
+                  content_template: '',
+                  hashtag_strategy: 'smart',
+                  mention_strategy: 'manual',
+                  is_active: true,
+                  last_sync_at: '',
+                  sync_status: 'pending',
+                  error_count: 0,
+                  last_error: '',
+                  health_check_interval_hours: 24
+                });
+                setEditingAccount(null);
+                setShowAddModal(true);
+              }}
               className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
             >
               <Icon icon={SolarIcons.add} className="w-4 h-4 mr-2" />
@@ -2924,6 +2983,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
           </div>
         </CardHeader>
       </Card>
+
 
       {/* Available Platforms Overview */}
       <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
@@ -2943,7 +3003,30 @@ const PracticeSocialAccountsContent: React.FC = () => {
               return (
                 <div 
                   key={platform.value} 
-                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all"
+                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer"
+                  onClick={() => {
+                    // When clicking the card, show the modal for that platform
+                    const defaults = getPlatformDefaults(platform.value) || {};
+                    setFormData({
+                      platform: platform.value,
+                      account_name: platform.value === 'gmail' ? 'Gmail Integration' : '',
+                      profile_url: '',
+                      username: '',
+                      description: '',
+                      is_business_account: false,
+                      app_id: '',
+                      client_id: '',
+                      client_secret: '',
+                      access_token: '',
+                      refresh_token: '',
+                      token_expires_at: '',
+                      auth_scope: '',
+                      page_id: '',
+                      ...defaults
+                    });
+                    setEditingAccount(null);
+                    setShowAddModal(true);
+                  }}
                 >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
@@ -2955,39 +3038,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
                         <p className="text-xs text-gray-500">{platform.description}</p>
                       </div>
                     </div>
-                    {platform.value === 'gmail' && isConnected && !gmailConnected ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          // Get OAuth credentials from practice_oauth_apps
-                          const { data: oauthApp } = await supabase
-                            .from('practice_oauth_apps')
-                            .select('client_id')
-                            .eq('practice_id', practiceId)
-                            .eq('provider', 'google')
-                            .single();
-
-                          if (oauthApp) {
-                            const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-                            authUrl.searchParams.append('client_id', oauthApp.client_id);
-                            authUrl.searchParams.append('redirect_uri', `${window.location.origin}/settings`);
-                            authUrl.searchParams.append('response_type', 'code');
-                            authUrl.searchParams.append('scope', 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/userinfo.email');
-                            authUrl.searchParams.append('access_type', 'offline');
-                            authUrl.searchParams.append('prompt', 'consent');
-                            authUrl.searchParams.append('state', 'gmail_oauth_connect');
-                            
-                            window.location.href = authUrl.toString();
-                          }
-                        }}
-                        className="bg-red-500 text-white hover:bg-red-600"
-                      >
-                        <Icon icon="logos:google-icon" className="w-3 h-3 mr-1" />
-                        Connect
-                      </Button>
-                    ) : isConnected && (platform.value === 'gmail' ? gmailConnected : true) ? (
+                    {isConnected && (platform.value === 'gmail' ? gmailConnected : true) ? (
                       <div className="flex items-center gap-1">
                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                         <span className="text-xs text-green-600 font-medium">Connected</span>
@@ -2998,10 +3049,24 @@ const PracticeSocialAccountsContent: React.FC = () => {
                         variant="outline" 
                         onClick={(e) => {
                           e.stopPropagation();
+                          // Button click also opens modal
+                          const defaults = getPlatformDefaults(platform.value) || {};
                           setFormData({
-                            ...formData,
                             platform: platform.value,
-                            ...getPlatformDefaults(platform.value)
+                            account_name: platform.value === 'gmail' ? 'Gmail Integration' : '',
+                            profile_url: '',
+                            username: '',
+                            description: '',
+                            is_business_account: false,
+                            app_id: '',
+                            client_id: '',
+                            client_secret: '',
+                            access_token: '',
+                            refresh_token: '',
+                            token_expires_at: '',
+                            auth_scope: '',
+                            page_id: '',
+                            ...defaults
                           });
                           setEditingAccount(null);
                           setShowAddModal(true);
@@ -3016,8 +3081,41 @@ const PracticeSocialAccountsContent: React.FC = () => {
                     <div className="text-sm text-gray-600">
                       {platform.value === 'gmail' ? (
                         <>
-                          <p className="font-medium">Gmail Connected</p>
-                          <p className="text-xs text-gray-500">OAuth configured</p>
+                          <p className="font-medium">OAuth Credentials Saved</p>
+                          <p className="text-xs text-gray-500">Click below to connect Gmail</p>
+                          {!gmailConnected && (
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Initiate OAuth flow
+                                const stateData = {
+                                  practice_id: practiceId,
+                                  redirect_origin: window.location.origin
+                                };
+                                const state = btoa(JSON.stringify(stateData));
+                                
+                                const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+                                authUrl.searchParams.append('client_id', connectedAccount.client_id);
+                                authUrl.searchParams.append('redirect_uri', `${window.location.origin}/settings`);
+                                authUrl.searchParams.append('response_type', 'code');
+                                authUrl.searchParams.append('scope', 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/userinfo.email');
+                                authUrl.searchParams.append('access_type', 'offline');
+                                authUrl.searchParams.append('prompt', 'consent');
+                                authUrl.searchParams.append('state', state);
+                                
+                                window.location.href = authUrl.toString();
+                              }}
+                              className="mt-2 w-full bg-gradient-to-r from-red-500 to-red-600 text-white"
+                            >
+                              <Icon icon="logos:google-icon" className="w-4 h-4 mr-1" />
+                              Connect Gmail Account
+                            </Button>
+                          )}
+                          {gmailConnected && (
+                            <p className="text-xs text-green-600 mt-1">✓ Gmail fully connected</p>
+                          )}
                         </>
                       ) : (
                         <>
@@ -3170,8 +3268,8 @@ const PracticeSocialAccountsContent: React.FC = () => {
       )}
 
       {/* Add Account Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      {showAddModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] pointer-events-auto flex flex-col overflow-hidden">
             {/* Gradient Header */}
             <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 p-6 text-white">
@@ -3217,23 +3315,41 @@ const PracticeSocialAccountsContent: React.FC = () => {
 
             {/* Content Area */}
             <div className="flex-1 overflow-auto p-6 bg-white">
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                handleAddAccount(formData);
-              }} className="space-y-6">
-                {/* Account Information Section */}
-                <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-                  <div className="flex items-center gap-3 mb-6 -ml-2">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <Icon icon={SolarIcons.globe} className="w-5 h-5 text-purple-600" />
+              {formData.platform === 'gmail' ? (
+                // For Gmail, show DirectGmailSetup component
+                <DirectGmailSetup 
+                  onSuccess={() => {
+                    setShowAddModal(false);
+                    loadSocialAccounts(); // Refresh to show connected status
+                    // Show success notification
+                    const successDiv = document.createElement('div');
+                    successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+                    successDiv.textContent = 'Gmail connected successfully!';
+                    document.body.appendChild(successDiv);
+                    setTimeout(() => {
+                      document.body.removeChild(successDiv);
+                    }, 3000);
+                  }}
+                />
+              ) : (
+                // For other platforms, show the regular form
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  handleAddAccount(formData);
+                }} className="space-y-6">
+                  {/* Account Information Section */}
+                  <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+                    <div className="flex items-center gap-3 mb-6 -ml-2">
+                      <div className="p-2 bg-purple-100 rounded-lg">
+                        <Icon icon={SolarIcons.globe} className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Account Information</h3>
+                        <p className="text-sm text-gray-500">Basic details about your social media account</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">Account Information</h3>
-                      <p className="text-sm text-gray-500">Basic details about your social media account</p>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="relative">
                       <label className="block text-sm font-medium text-gray-700 mb-2">Platform</label>
                       <div className="relative">
@@ -3401,6 +3517,62 @@ const PracticeSocialAccountsContent: React.FC = () => {
                         </div>
                       </div>
                     </div>
+
+                    {/* Test Connection Button */}
+                    {formData.client_id && formData.client_secret && (
+                      <div className="flex justify-end mt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={async () => {
+                            try {
+                              const { data, error } = await supabase.functions.invoke('test-gmail-connection', {
+                                body: {
+                                  practiceId,
+                                  clientId: formData.client_id,
+                                  clientSecret: formData.client_secret
+                                }
+                              });
+
+                              if (error) throw error;
+
+                              if (data.success) {
+                                // Show success toast
+                                const successDiv = document.createElement('div');
+                                successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2';
+                                successDiv.innerHTML = `
+                                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                  </svg>
+                                  ${data.message}
+                                `;
+                                document.body.appendChild(successDiv);
+                                setTimeout(() => document.body.removeChild(successDiv), 5000);
+                              } else {
+                                // Show error toast
+                                const errorDiv = document.createElement('div');
+                                errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+                                errorDiv.textContent = data.error || 'Connection test failed';
+                                document.body.appendChild(errorDiv);
+                                setTimeout(() => document.body.removeChild(errorDiv), 5000);
+                              }
+                            } catch (error) {
+                              console.error('Test connection error:', error);
+                              // Show error toast
+                              const errorDiv = document.createElement('div');
+                              errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+                              errorDiv.textContent = 'Failed to test connection';
+                              document.body.appendChild(errorDiv);
+                              setTimeout(() => document.body.removeChild(errorDiv), 5000);
+                            }
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <Icon icon="solar:test-tube-bold-duotone" className="w-4 h-4" />
+                          Test Connection
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Save Reminder - show when credentials are entered but not saved */}
                     {formData.client_id && formData.client_secret && (
@@ -4171,9 +4343,11 @@ const PracticeSocialAccountsContent: React.FC = () => {
                   </Button>
                 </div>
               </form>
+              )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Future Broadcasting Note */}

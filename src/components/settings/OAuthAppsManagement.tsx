@@ -274,7 +274,7 @@ export const OAuthAppsManagement: React.FC = () => {
                     <li>Enable Gmail API</li>
                     <li>Configure OAuth consent screen (choose Internal for Google Workspace)</li>
                     <li>Create OAuth 2.0 credentials (Web application)</li>
-                    <li>Add redirect URIs: <code className="bg-gray-100 px-1 rounded">{window.location.origin}/settings</code></li>
+                    <li>Add this ONE redirect URI: <code className="bg-gray-100 px-1 rounded">https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/universal-oauth-callback</code></li>
                     <li>Copy Client ID and Client Secret</li>
                   </ol>
                 </div>
@@ -352,16 +352,16 @@ export const OAuthAppsManagement: React.FC = () => {
                       </p>
                     </div>
                     
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
-                      <p className="font-medium mb-1">Required Redirect URI:</p>
-                      <code className="block bg-amber-100 p-2 rounded text-xs break-all">
-                        {window.location.origin}/settings
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+                      <p className="font-medium mb-1">✅ Universal Redirect URI (for ALL practices):</p>
+                      <code className="block bg-green-100 p-2 rounded text-xs break-all">
+                        https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/universal-oauth-callback
                       </code>
-                      <p className="text-xs mt-2">
-                        Current URL: <code className="bg-amber-100 px-1">{window.location.origin}</code>
+                      <p className="text-xs mt-2 font-semibold">
+                        🎉 ONE URI for ALL practices - no more individual setup!
                       </p>
                       <p className="text-xs mt-1">
-                        ⚠️ Make sure this exact URI is added to your Google OAuth settings
+                        Each practice uses their own Client ID/Secret, but ALL share this redirect URI.
                       </p>
                     </div>
                   </>

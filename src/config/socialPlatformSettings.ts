@@ -144,6 +144,25 @@ export const platformSettings: Record<string, PlatformSettings> = {
     },
     features: ['supports_scheduling'],
     oauth: true
+  },
+  whatsapp_business: {
+    basicFields: ['account_name', 'username'],
+    apiFields: ['app_id', 'access_token'],
+    capabilities: ['can_post_text', 'can_post_images', 'can_post_videos'],
+    rateLimits: {
+      posts_per_hour: 80,
+      posts_per_day: 1000,
+      api_requests_per_hour: 200
+    },
+    contentLimits: {
+      max_text_length: 4096,
+      max_hashtags: 0,
+      image_max_size_mb: 5,
+      video_max_size_mb: 16,
+      max_images_per_post: 1,
+      video_max_duration_seconds: 60
+    },
+    features: ['supports_link_preview', 'supports_mentions']
   }
 };
 
