@@ -20,6 +20,7 @@ export const GmailOAuthSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [gmailConnection, setGmailConnection] = useState<GmailConnection | null>(null);
+  const [practiceOAuthApp, setPracticeOAuthApp] = useState<{ client_id: string; client_secret: string } | null>(null);
   const [automationStats, setAutomationStats] = useState<Array<{
     automation_id: string;
     automation_name: string;
@@ -29,8 +30,7 @@ export const GmailOAuthSettings: React.FC = () => {
   }> | null>(null);
 
   // OAuth configuration
-  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-  const REDIRECT_URI = `${window.location.origin}/settings/gmail-callback`;
+  const REDIRECT_URI = `${window.location.origin}/settings`;
   const SCOPES = [
     'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/gmail.compose',
@@ -42,6 +42,19 @@ export const GmailOAuthSettings: React.FC = () => {
 
     try {
       setLoading(true);
+      
+      // First check if practice has OAuth app configured
+      const { data: oauthApp, error: oauthError } = await supabase
+        .from('practice_oauth_apps')
+        .select('client_id, client_secret')
+        .eq('practice_id', practiceId)
+        .eq('provider', 'google')
+        .single();
+      
+      if (oauthApp && !oauthError) {
+        setPracticeOAuthApp(oauthApp);
+      }
+      
       const { data, error } = await supabase.rpc('check_gmail_connection', {
         p_practice_id: practiceId
       });
@@ -88,7 +101,7 @@ export const GmailOAuthSettings: React.FC = () => {
       setConnecting(true);
       
       // Call edge function to exchange code for tokens
-      const { data, error } = await supabase.functions.invoke('gmail-oauth-callback', {
+      const { error } = await supabase.functions.invoke('gmail-oauth-callback', {
         body: {
           code,
           redirect_uri: REDIRECT_URI,
@@ -101,7 +114,8 @@ export const GmailOAuthSettings: React.FC = () => {
       toast.success('Gmail account connected successfully!');
       
       // Clear URL parameters
-      window.history.replaceState({}, document.title, '/settings');
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
       
       // Refresh connection status
       await checkGmailConnection();
@@ -114,20 +128,27 @@ export const GmailOAuthSettings: React.FC = () => {
   };
 
   const initiateGmailOAuth = () => {
-    if (!GOOGLE_CLIENT_ID) {
-      toast.error('Google OAuth is not configured. Please contact support.');
+    if (!practiceOAuthApp) {
+      toast.error('Please add Google OAuth credentials in the OAuth Applications section first.');
       return;
     }
 
+    // Log the redirect URI for debugging
+    console.log('OAuth Redirect URI:', REDIRECT_URI);
+    console.log('Current URL:', window.location.href);
+
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-    authUrl.searchParams.append('client_id', GOOGLE_CLIENT_ID);
+    authUrl.searchParams.append('client_id', practiceOAuthApp.client_id);
     authUrl.searchParams.append('redirect_uri', REDIRECT_URI);
     authUrl.searchParams.append('response_type', 'code');
     authUrl.searchParams.append('scope', SCOPES);
     authUrl.searchParams.append('access_type', 'offline');
     authUrl.searchParams.append('prompt', 'consent');
     authUrl.searchParams.append('state', practiceId || '');
+    
+    // For Gmail account selection, remove login_hint to allow user to choose account
 
+    console.log('OAuth URL:', authUrl.toString());
     window.location.href = authUrl.toString();
   };
 
@@ -266,25 +287,61 @@ export const GmailOAuthSettings: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex justify-center">
-                <Button
-                  onClick={initiateGmailOAuth}
-                  disabled={connecting}
-                  className="bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700"
-                >
-                  {connecting ? (
-                    <>
-                      <Icon icon="solar:refresh-circle-bold-duotone" className="w-5 h-5 mr-2 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      <Icon icon="logos:google-icon" className="w-5 h-5 mr-2" />
-                      Connect with Google
-                    </>
-                  )}
-                </Button>
-              </div>
+              {!practiceOAuthApp ? (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
+                  <Icon icon="solar:danger-triangle-bold-duotone" className="w-8 h-8 text-red-600 mx-auto mb-2" />
+                  <h4 className="font-medium text-red-900 mb-1">OAuth Credentials Required</h4>
+                  <p className="text-sm text-red-700 mb-3">
+                    Please add Google OAuth credentials first to enable Gmail integration.
+                  </p>
+                  <p className="text-xs text-red-600 mb-4">
+                    Go to the "OAuth Applications" tab and add your Google Client ID and Secret.
+                  </p>
+                  <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-left">
+                    <p className="text-xs font-semibold text-amber-900 mb-1">Important Setup Steps:</p>
+                    <ol className="text-xs text-amber-800 space-y-1 list-decimal list-inside">
+                      <li>In Google Cloud Console, add this exact redirect URI:</li>
+                      <li className="ml-4 font-mono bg-amber-100 p-1 rounded">{window.location.origin}/settings</li>
+                      <li>Make sure you're signed into the correct Google account</li>
+                      <li>If using Google Workspace, ensure OAuth is enabled for external apps</li>
+                    </ol>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="text-red-600 border-red-300 hover:bg-red-50"
+                    onClick={() => {
+                      // Navigate to OAuth Applications tab
+                      const authTab = document.querySelector('[data-tab="auth"]');
+                      if (authTab instanceof HTMLElement) {
+                        authTab.click();
+                      }
+                    }}
+                  >
+                    <Icon icon="solar:settings-bold" className="w-4 h-4 mr-2" />
+                    Go to OAuth Applications
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex justify-center">
+                  <Button
+                    onClick={initiateGmailOAuth}
+                    disabled={connecting}
+                    className="bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700"
+                  >
+                    {connecting ? (
+                      <>
+                        <Icon icon="solar:refresh-circle-bold-duotone" className="w-5 h-5 mr-2 animate-spin" />
+                        Connecting...
+                      </>
+                    ) : (
+                      <>
+                        <Icon icon="logos:google-icon" className="w-5 h-5 mr-2" />
+                        Connect with Google
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -322,6 +379,39 @@ export const GmailOAuthSettings: React.FC = () => {
                     </div>
                   </div>
                 ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Debug Information */}
+      {!gmailConnection?.connected && (
+        <Card className="bg-blue-50 rounded-lg border border-blue-200">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <Icon icon="solar:info-circle-bold-duotone" className="w-5 h-5 text-blue-600 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium text-blue-900 mb-2">OAuth Setup Information</p>
+                <div className="bg-white rounded-lg p-3 border border-blue-200">
+                  <p className="text-xs font-semibold text-gray-700 mb-1">Your Redirect URI:</p>
+                  <code className="block bg-gray-100 p-2 rounded text-xs text-gray-800 break-all">
+                    {REDIRECT_URI}
+                  </code>
+                  <p className="text-xs text-gray-600 mt-2">
+                    ⚠️ This exact URI must be added to your Google Cloud Console OAuth settings
+                  </p>
+                </div>
+                <div className="mt-3 text-xs text-blue-800">
+                  <p className="font-semibold mb-1">To fix redirect_uri_mismatch error:</p>
+                  <ol className="list-decimal list-inside space-y-1">
+                    <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Google Cloud Console → Credentials</a></li>
+                    <li>Click on your OAuth 2.0 Client ID</li>
+                    <li>In "Authorized redirect URIs", add the URI shown above</li>
+                    <li>Click "Save" and wait a few minutes for changes to propagate</li>
+                    <li>Try connecting again</li>
+                  </ol>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -29,6 +29,7 @@ import { PracticeProvider } from './contexts/PracticeContext';
 import ThemeProvider from './components/providers/ThemeProvider';
 import EmergencySchemaExporter from './emergency-schema-exporter';
 import { automationProcessingService } from './services/automationProcessingService';
+import UniversalCallback from './pages/oauth/UniversalCallback';
 
 function App() {
   const { isAuthenticated, login } = useAuthStore();
@@ -112,6 +113,8 @@ function App() {
           />
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/oauth/universal-callback" element={<UniversalCallback />} />
+            <Route path="/api/oauth/callback" element={<UniversalCallback />} />
             <Route path="/" element={<Layout />}>
               <Route index element={<Dashboard />} />
               <Route path="patients" element={<Patients />} />

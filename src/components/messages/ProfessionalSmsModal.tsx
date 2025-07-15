@@ -194,15 +194,18 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
       onClose={onClose}
       title="Send SMS Message"
       icon="solar:smartphone-2-bold-duotone"
+      className="max-w-7xl"
     >
-      <div className="space-y-6" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+      <div className="grid grid-cols-12 gap-6" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+        {/* Left Column - Form Fields */}
+        <div className="col-span-8 space-y-6">
         {/* Recipient Information */}
         <div>
           <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
             <Icon icon="solar:user-rounded-bold-duotone" className="w-5 h-5 text-purple-600" />
             Recipient Information
           </h3>
-          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+          <div className="bg-gray-200 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Sending to</p>
@@ -227,7 +230,7 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowTemplateDropdown(!showTemplateDropdown)}
-              className="w-full p-3 bg-white border border-gray-300 rounded-lg flex items-center justify-between hover:border-purple-400 transition-colors"
+              className="w-full p-3 bg-gray-200 rounded-lg flex items-center justify-between hover:bg-gray-100 transition-colors"
             >
               {selectedTemplate ? (
                 <div className="flex items-center gap-3">
@@ -277,7 +280,7 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={6}
-              className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+              className="w-full p-4 bg-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none resize-none transition-colors hover:bg-gray-100"
               placeholder="Type your message here..."
               style={{ fontFamily: 'Montserrat, sans-serif' }}
             />
@@ -313,13 +316,15 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
           </div>
         </div>
 
-        {/* Live Preview */}
-        <div>
+        </div>
+
+        {/* Right Column - Live Preview */}
+        <div className="col-span-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
             <Icon icon="solar:eye-bold-duotone" className="w-5 h-5 text-purple-600" />
             Live Preview
           </h3>
-          <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-4 border border-purple-200">
+          <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-xl p-6 border border-purple-200 sticky top-0">
             <div className="bg-white rounded-lg p-4 shadow-sm">
               <div className="flex items-start gap-3">
                 <Icon icon="solar:smartphone-bold-duotone" className="w-5 h-5 text-purple-600 mt-1" />
@@ -335,9 +340,10 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-3 pt-4 border-t">
+      {/* Action Buttons - Full Width */}
+      <div className="flex gap-3 pt-6 mt-6 border-t">
           <button
             onClick={onClose}
             className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
@@ -364,7 +370,6 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
             )}
           </motion.button>
         </div>
-      </div>
     </FormModal>
   );
 };

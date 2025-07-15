@@ -2042,17 +2042,27 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
     }
 
     try {
-      // Here you would integrate with your email service
-      // For now, we'll just show a success message
-      console.log('Sending email:', { email, subject, message, patientId: selectedPatientDetails.id });
-      
-      setIsProfessionalEmailModalOpen(false);
-      setMessageConfirmationData({
-        type: 'email',
+      const result = await communicationService.sendEmail({
+        practiceId: practiceId!,
+        recipientEmail: email,
         recipientName: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
-        recipientContact: email
+        subject: subject,
+        textContent: message,
+        emailType: 'patient_communication',
+        patientId: selectedPatientDetails.id
       });
-      setShowMessageConfirmation(true);
+      
+      if (result.success) {
+        setIsProfessionalEmailModalOpen(false);
+        setMessageConfirmationData({
+          type: 'email',
+          recipientName: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
+          recipientContact: email
+        });
+        setShowMessageConfirmation(true);
+      } else {
+        toast.error(result.error || 'Failed to send email');
+      }
     } catch (error) {
       console.error('Error sending email:', error);
       toast.error('Failed to send email. Please try again.');

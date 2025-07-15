@@ -180,7 +180,7 @@ serve(async (req) => {
         html_content: finalHtmlContent,
         text_content: finalTextContent,
         email_type: emailType,
-        provider: 'resend',
+        provider: gmailCredentials ? 'gmail' : 'resend',
         status: 'pending',
         attachments: attachments,
         patient_id: patientId,
@@ -213,7 +213,18 @@ serve(async (req) => {
       .eq('id', practiceId)
       .single();
 
-    // Send email via Resend
+    // Check if practice has Gmail connected
+    const { data: gmailCredentials } = await supabase
+      .from('practice_oauth_credentials')
+      .select('*')
+      .eq('practice_id', practiceId)
+      .eq('provider', 'google')
+      .single();
+
+    let emailProvider = 'resend';
+    let providerMessageId = null;
+
+    // Send email via Gmail or Resend
     try {
       // Generate beautiful HTML if not provided
       if (!finalHtmlContent && finalTextContent) {
@@ -238,64 +249,183 @@ serve(async (req) => {
         }
       }
 
-      const emailData: Record<string, unknown> = {
-        from: `${senderName} <${senderEmail}>`,
-        to: recipientName ? `${recipientName} <${recipientEmail}>` : recipientEmail,
-        subject: finalSubject
-      };
+      let emailSent = false;
+      let emailResult: any = {};
 
-      if (finalHtmlContent) emailData.html = finalHtmlContent;
-      if (finalTextContent) emailData.text = finalTextContent;
-      
-      if (attachments && attachments.length > 0) {
-        emailData.attachments = attachments.map((att: EmailAttachment) => ({
-          filename: att.filename,
-          content: att.content,
-          type: att.type || 'application/octet-stream'
-        }));
+      // Try Gmail first if connected
+      if (gmailCredentials && gmailCredentials.refresh_token) {
+        try {
+          console.log('Attempting to send via Gmail...');
+          emailProvider = 'gmail';
+          
+          // Get OAuth app credentials
+          const { data: oauthApp } = await supabase
+            .from('practice_oauth_apps')
+            .select('client_id, client_secret')
+            .eq('practice_id', practiceId)
+            .eq('provider', 'google')
+            .single();
+
+          if (oauthApp && oauthApp.client_id && oauthApp.client_secret) {
+            // Check if access token is expired
+            const tokenExpired = gmailCredentials.token_expires_at ? 
+              new Date(gmailCredentials.token_expires_at) < new Date() : true;
+
+            let accessToken = gmailCredentials.access_token;
+
+            if (tokenExpired) {
+              // Refresh the access token
+              const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                  client_id: oauthApp.client_id,
+                  client_secret: oauthApp.client_secret,
+                  refresh_token: gmailCredentials.refresh_token,
+                  grant_type: 'refresh_token',
+                }),
+              });
+
+              if (tokenResponse.ok) {
+                const tokens = await tokenResponse.json();
+                accessToken = tokens.access_token;
+
+                // Update stored tokens
+                await supabase
+                  .from('practice_oauth_credentials')
+                  .update({
+                    access_token: tokens.access_token,
+                    token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', gmailCredentials.id);
+              }
+            }
+
+            // Create email message in Gmail format
+            const emailLines = [
+              `From: ${senderName} <${gmailCredentials.email}>`,
+              `To: ${recipientName ? `${recipientName} <${recipientEmail}>` : recipientEmail}`,
+              `Subject: ${finalSubject}`,
+              'MIME-Version: 1.0',
+              'Content-Type: multipart/alternative; boundary="boundary"',
+              '',
+              '--boundary',
+              'Content-Type: text/plain; charset=UTF-8',
+              '',
+              finalTextContent || '',
+              '',
+              '--boundary',
+              'Content-Type: text/html; charset=UTF-8',
+              '',
+              finalHtmlContent || '',
+              '',
+              '--boundary--'
+            ];
+
+            const rawMessage = btoa(emailLines.join('\r\n'))
+              .replace(/\+/g, '-')
+              .replace(/\//g, '_')
+              .replace(/=+$/, '');
+
+            // Send email via Gmail API
+            const gmailResponse = await fetch('https://www.googleapis.com/gmail/v1/users/me/messages/send', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                raw: rawMessage
+              }),
+            });
+
+            if (gmailResponse.ok) {
+              const gmailResult = await gmailResponse.json();
+              emailSent = true;
+              emailResult = { id: gmailResult.id };
+              providerMessageId = gmailResult.id;
+              console.log('Email sent successfully via Gmail:', gmailResult);
+            } else {
+              const errorText = await gmailResponse.text();
+              console.error('Gmail API error:', errorText);
+              throw new Error(`Gmail API error: ${errorText}`);
+            }
+          }
+        } catch (gmailError) {
+          console.error('Gmail sending failed, falling back to Resend:', gmailError);
+          emailProvider = 'resend';
+        }
       }
 
-      console.log('Sending to Resend API:', {
-        url: 'https://api.resend.com/emails',
-        from: emailData.from,
-        to: emailData.to,
-        subject: emailData.subject,
-        hasHtml: !!emailData.html,
-        hasText: !!emailData.text,
-        hasAttachments: !!(emailData.attachments && emailData.attachments.length > 0)
-      });
+      // If Gmail didn't work or isn't connected, use Resend
+      if (!emailSent) {
+        const emailData: Record<string, unknown> = {
+          from: `${senderName} <${senderEmail}>`,
+          to: recipientName ? `${recipientName} <${recipientEmail}>` : recipientEmail,
+          subject: finalSubject
+        };
 
-      const emailResponse = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${resendApiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(emailData),
-      });
+        if (finalHtmlContent) emailData.html = finalHtmlContent;
+        if (finalTextContent) emailData.text = finalTextContent;
+        
+        if (attachments && attachments.length > 0) {
+          emailData.attachments = attachments.map((att: EmailAttachment) => ({
+            filename: att.filename,
+            content: att.content,
+            type: att.type || 'application/octet-stream'
+          }));
+        }
 
-      const responseText = await emailResponse.text();
-      console.log('Resend API response:', {
-        status: emailResponse.status,
-        statusText: emailResponse.statusText,
-        response: responseText
-      });
+        console.log('Sending to Resend API:', {
+          url: 'https://api.resend.com/emails',
+          from: emailData.from,
+          to: emailData.to,
+          subject: emailData.subject,
+          hasHtml: !!emailData.html,
+          hasText: !!emailData.text,
+          hasAttachments: !!(emailData.attachments && emailData.attachments.length > 0)
+        });
 
-      let emailResult;
-      try {
-        emailResult = JSON.parse(responseText);
-      } catch (e) {
-        console.error('Failed to parse Resend response:', e);
-        emailResult = { error: responseText };
+        const emailResponse = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(emailData),
+        });
+
+        const responseText = await emailResponse.text();
+        console.log('Resend API response:', {
+          status: emailResponse.status,
+          statusText: emailResponse.statusText,
+          response: responseText
+        });
+
+        try {
+          emailResult = JSON.parse(responseText);
+        } catch (e) {
+          console.error('Failed to parse Resend response:', e);
+          emailResult = { error: responseText };
+        }
+
+        if (emailResponse.ok && emailResult.id) {
+          emailSent = true;
+          providerMessageId = emailResult.id;
+        }
       }
 
-      if (emailResponse.ok && emailResult.id) {
+      if (emailSent) {
         // Update log entry as sent
         await supabase
           .from('practice_email_logs')
           .update({
             status: 'sent',
-            provider_message_id: emailResult.id,
+            provider: emailProvider,
+            provider_message_id: providerMessageId,
             sent_at: new Date().toISOString()
           })
           .eq('id', logEntry.id);
@@ -313,8 +443,9 @@ serve(async (req) => {
           JSON.stringify({
             success: true,
             logId: logEntry.id,
-            messageId: emailResult.id,
+            messageId: providerMessageId,
             status: 'sent',
+            provider: emailProvider,
             // Return queue_id from metadata if it exists
             queue_id: metadata?.automation_id || null,
             practiceId: practiceId

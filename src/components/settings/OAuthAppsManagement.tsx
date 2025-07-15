@@ -353,10 +353,16 @@ export const OAuthAppsManagement: React.FC = () => {
                     </div>
                     
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
-                      <p className="font-medium mb-1">Required Redirect URIs:</p>
+                      <p className="font-medium mb-1">Required Redirect URI:</p>
                       <code className="block bg-amber-100 p-2 rounded text-xs break-all">
                         {window.location.origin}/settings
                       </code>
+                      <p className="text-xs mt-2">
+                        Current URL: <code className="bg-amber-100 px-1">{window.location.origin}</code>
+                      </p>
+                      <p className="text-xs mt-1">
+                        ⚠️ Make sure this exact URI is added to your Google OAuth settings
+                      </p>
                     </div>
                   </>
                 )}

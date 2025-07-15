@@ -71,7 +71,7 @@ const FormModal: React.FC<FormModalProps> = ({
           {/* Modal Container */}
           <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
             <motion.div 
-              className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] pointer-events-auto flex flex-col overflow-hidden"
+              className={`relative bg-white rounded-2xl shadow-2xl w-full ${className || 'max-w-5xl'} max-h-[90vh] pointer-events-auto flex flex-col overflow-hidden`}
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}

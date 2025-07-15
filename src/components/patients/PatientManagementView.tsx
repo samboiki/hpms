@@ -532,7 +532,7 @@ export const PatientManagementView: React.FC = () => {
   };
 
   // Handle Email send for bulk
-  const handleSendEmail = async (emailData: any) => {
+  const handleSendEmail = async (recipientEmail: string, subject: string, message: string) => {
     try {
       setIsSendingEmail(true);
       const recipients = getEmailRecipients();
@@ -542,13 +542,48 @@ export const PatientManagementView: React.FC = () => {
         return;
       }
       
-      // TODO: Implement actual bulk email sending through your email service
-      console.log('Sending email to recipients:', recipients.length);
-      console.log('Email data:', emailData);
+      let successCount = 0;
+      let failureCount = 0;
       
-      // For now, just show success
-      toast.success(`Email queued for ${recipients.length} patients`);
-      setShowEmailModal(false);
+      // Send email to each recipient
+      for (const recipient of recipients) {
+        try {
+          const result = await communicationService.sendEmail({
+            practiceId: practiceId!,
+            recipientEmail: recipient.email!,
+            recipientName: `${recipient.first_name} ${recipient.last_name}`,
+            subject: subject,
+            textContent: message,
+            emailType: 'bulk_message',
+            patientId: recipient.id
+          });
+          
+          if (result.success) {
+            successCount++;
+          } else {
+            failureCount++;
+            console.error(`Failed to send email to ${recipient.first_name} ${recipient.last_name}:`, result.error);
+          }
+        } catch (error) {
+          failureCount++;
+          console.error(`Error sending email to ${recipient.first_name} ${recipient.last_name}:`, error);
+        }
+      }
+      
+      // Show results
+      console.log(`Final counts - Success: ${successCount}, Failures: ${failureCount}`);
+      
+      if (successCount > 0 && failureCount === 0) {
+        toast.success(`Email sent successfully to all ${successCount} patients`);
+      } else if (successCount > 0 && failureCount > 0) {
+        toast.warning(`Email sent to ${successCount} patients, failed for ${failureCount} patients`);
+      } else {
+        toast.error(`Failed to send email to all ${failureCount} patients`);
+      }
+      
+      if (successCount > 0) {
+        setShowEmailModal(false);
+      }
     } catch (error) {
       console.error('Error sending email:', error);
       toast.error('Failed to send email. Please try again.');
