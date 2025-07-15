@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Icon } from '@iconify/react';
 import { 
   MessageSquare, 
   Phone, 
@@ -16,16 +17,17 @@ import {
   Sparkles,
   X,
   Shield,
-  UserCheck
+  UserCheck,
+  Info
 } from 'lucide-react';
 import FullScreenModal from '../ui/FullScreenModal';
 import { Patient } from '../../stores/patientsStoreNew';
+import { usePractice } from '../../contexts/PracticeContext';
 
 interface EnhancedSmsModalProps {
   isOpen: boolean;
   onClose: () => void;
   patient?: Patient | null;
-  patientId?: string;
   patientName?: string;
   patientPhone?: string;
   onSend?: (phone: string, message: string) => void;
@@ -112,7 +114,6 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
   isOpen,
   onClose,
   patient,
-  patientId,
   patientName,
   patientPhone,
   onSend,
@@ -121,9 +122,11 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
   const [phone, setPhone] = useState('');
   const [message, setMessage] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<SmsTemplate | null>(null);
-  const [showPreview, setShowPreview] = useState(true);
+  // Preview is always visible in the right column
   const [showTemplates, setShowTemplates] = useState(false);
   const [isEditing, setIsEditing] = useState(true);
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const { practiceData } = usePractice();
 
   useEffect(() => {
     if (patient?.cell_number) {
@@ -133,16 +136,35 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
     }
   }, [patient, patientPhone]);
 
+  const availableVariables = [
+    { key: 'patientName', label: '{{patientName}}', description: 'Full patient name' },
+    { key: 'patientFirstName', label: '{{patientFirstName}}', description: 'Patient first name' },
+    { key: 'patientLastName', label: '{{patientLastName}}', description: 'Patient last name' },
+    { key: 'practiceName', label: '{{practiceName}}', description: 'Practice name' },
+    { key: 'practicePhone', label: '{{practicePhone}}', description: 'Practice phone number' },
+    { key: 'practiceEmail', label: '{{practiceEmail}}', description: 'Practice email' },
+    { key: 'currentDate', label: '{{currentDate}}', description: 'Today\'s date' },
+    { key: 'currentTime', label: '{{currentTime}}', description: 'Current time' },
+  ];
+
   const replaceVariables = (text: string): string => {
-    const name = patient ? `${patient.first_name} ${patient.last_name}` : (patientName || 'Patient');
+    const firstName = patient?.first_name || patientName?.split(' ')[0] || 'John';
+    const lastName = patient?.last_name || patientName?.split(' ')[1] || 'Smith';
+    const fullName = patient ? `${patient.first_name} ${patient.last_name}` : (patientName || 'John Smith');
     
     const variables: Record<string, string> = {
-      '{{patientName}}': name,
+      '{{patientName}}': fullName,
+      '{{patientFirstName}}': firstName,
+      '{{patientLastName}}': lastName,
+      '{{practiceName}}': practiceData?.name || 'HealthCare Clinic',
+      '{{practicePhone}}': practiceData?.contact_phone || '(555) 123-4567',
+      '{{practiceEmail}}': practiceData?.email || 'info@healthcare.com',
+      '{{currentDate}}': new Date().toLocaleDateString(),
+      '{{currentTime}}': new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      // Legacy variables for templates
       '{{date}}': new Date().toLocaleDateString(),
       '{{time}}': '2:00 PM',
-      '{{doctor}}': 'Smith',
-      '{{practicePhone}}': '+264 61 123 456',
-      '{{practiceName}}': 'OneHealth Medical',
+      '{{doctor}}': 'Dr. Smith',
       '{{amount}}': 'N$500.00',
       '{{pharmacy}}': 'OneHealth Pharmacy',
       '{{followUpInstructions}}': 'take your medication as prescribed'
@@ -150,10 +172,27 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
 
     let processedText = text;
     Object.entries(variables).forEach(([key, value]) => {
-      processedText = processedText.replace(new RegExp(key, 'g'), value);
+      processedText = processedText.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
     });
     
     return processedText;
+  };
+
+  const insertVariable = (variable: string) => {
+    const textarea = document.getElementById('sms-message-textarea') as HTMLTextAreaElement;
+    if (textarea) {
+      const start = textarea.selectionStart || cursorPosition;
+      const end = textarea.selectionEnd || cursorPosition;
+      const newMessage = message.substring(0, start) + variable + message.substring(end);
+      setMessage(newMessage);
+      
+      // Reset cursor position
+      setTimeout(() => {
+        textarea.selectionStart = start + variable.length;
+        textarea.selectionEnd = start + variable.length;
+        textarea.focus();
+      }, 0);
+    }
   };
 
   const handleTemplateSelect = (template: SmsTemplate) => {
@@ -334,9 +373,11 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
                 </div>
                 <div className="relative">
                   <textarea
+                    id="sms-message-textarea"
                     rows={6}
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
+                    onBlur={(e) => setCursorPosition(e.target.selectionStart || 0)}
                     disabled={!isEditing}
                     className={`w-full p-4 bg-white border border-gray-200 rounded-lg transition-all resize-none ${
                       isEditing 
@@ -349,6 +390,31 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
                     {message.length}/160 ({Math.ceil(message.length / 160)} SMS)
                   </div>
                 </div>
+                
+                {/* Available Variables */}
+                {isEditing && (
+                  <div className="mt-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Icon icon="solar:code-square-bold-duotone" className="w-4 h-4 text-purple-600" />
+                      <span className="text-xs font-medium text-gray-700">Available Variables</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {availableVariables.map((variable) => (
+                        <motion.button
+                          key={variable.key}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => insertVariable(variable.label)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100 border border-purple-200 rounded-lg transition-all group"
+                          title={variable.description}
+                        >
+                          <Icon icon="solar:code-bold" className="w-3.5 h-3.5 text-purple-600 group-hover:text-purple-700" />
+                          <code className="text-xs font-mono text-purple-700">{variable.label}</code>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -412,9 +478,11 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
                         {/* Message Bubble */}
                         <div className="space-y-2">
                           <div className="bg-gray-100 rounded-2xl rounded-tl-sm p-3 max-w-[80%]">
-                            <p className="text-sm text-gray-800 whitespace-pre-wrap">{message || 'Your message will appear here...'}</p>
+                            <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                              {message ? replaceVariables(message) : 'Your message will appear here...'}
+                            </p>
                           </div>
-                          <p className="text-xs text-gray-400 ml-1">From: {phone || 'Your practice number'}</p>
+                          <p className="text-xs text-gray-400 ml-1">From: {practiceData?.contact_phone || 'Your practice number'}</p>
                         </div>
                       </div>
                     </div>
@@ -433,6 +501,17 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-400">Recipient:</span>
                       <span className="text-white font-medium">{phone || 'Not specified'}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Live Preview Info */}
+                  <div className="mt-6 p-3 bg-white/10 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-4 h-4 text-blue-300 flex-shrink-0 mt-0.5" />
+                      <div className="text-xs text-gray-300">
+                        <p className="font-medium mb-1">Live Preview</p>
+                        <p>Variables are automatically replaced with actual values when sending.</p>
+                      </div>
                     </div>
                   </div>
                 </div>

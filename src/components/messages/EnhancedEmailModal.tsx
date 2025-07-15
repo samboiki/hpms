@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Icon } from '@iconify/react';
 import { 
   Mail, 
   User, 
@@ -23,6 +24,7 @@ import {
   Italic,
   List,
   Link2,
+  Info,
 } from 'lucide-react';
 import FullScreenModal from '../ui/FullScreenModal';
 import { Patient } from '../../stores/patientsStoreNew';
@@ -30,6 +32,7 @@ import { PremiumEmailTemplate } from './PremiumEmailTemplate';
 import { useCurrentUserAndPractice } from '../../hooks/useCurrentUserAndPractice';
 import { emailEdgeService } from '../../services/emailEdgeService';
 import { toast } from 'react-hot-toast';
+import { usePractice } from '../../contexts/PracticeContext';
 
 interface EnhancedEmailModalProps {
   isOpen: boolean;
@@ -197,12 +200,14 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
   const [isEditing, setIsEditing] = useState(true);
   const [isSendingLocal, setIsSending] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [cursorPosition, setCursorPosition] = useState(0);
   
   // Ref for textarea to handle text formatting
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { practiceData } = usePractice();
 
   // Get current user and practice data
-  const { currentUser, practice, loading: userLoading } = useCurrentUserAndPractice();
+  const { currentUser, practice } = useCurrentUserAndPractice();
 
   useEffect(() => {
     if (patient?.email) {
@@ -210,10 +215,11 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
     }
     
     // Check for invoice attachment
-    if ((window as any).invoiceAttachment) {
-      setAttachments([(window as any).invoiceAttachment]);
+    const windowWithAttachment = window as { invoiceAttachment?: File };
+    if (windowWithAttachment.invoiceAttachment) {
+      setAttachments([windowWithAttachment.invoiceAttachment]);
       // Clear the global attachment after picking it up
-      delete (window as any).invoiceAttachment;
+      delete windowWithAttachment.invoiceAttachment;
     }
   }, [patient]);
 
@@ -286,17 +292,43 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const availableVariables = [
+    { key: 'patientName', label: '{{patientName}}', description: 'Full patient name' },
+    { key: 'patientFirstName', label: '{{patientFirstName}}', description: 'Patient first name' },
+    { key: 'patientLastName', label: '{{patientLastName}}', description: 'Patient last name' },
+    { key: 'practiceName', label: '{{practiceName}}', description: 'Practice name' },
+    { key: 'practicePhone', label: '{{practicePhone}}', description: 'Practice phone' },
+    { key: 'practiceEmail', label: '{{practiceEmail}}', description: 'Practice email' },
+    { key: 'birthdayOffer', label: '{{birthdayOffer}}', description: 'Birthday discount offer' },
+    { key: 'referralBonus', label: '{{referralBonus}}', description: 'Referral program bonus' },
+    { key: 'reviewLink', label: '{{reviewLink}}', description: 'Google review link' },
+    { key: 'programName', label: '{{programName}}', description: 'Wellness program name' },
+    { key: 'programDate', label: '{{programDate}}', description: 'Program start date' },
+    { key: 'programDescription', label: '{{programDescription}}', description: 'Program details' },
+  ];
+
   const replaceVariables = (text: string): string => {
-    if (!patient) return text;
+    const firstName = patient?.first_name || 'John';
+    const lastName = patient?.last_name || 'Smith';
+    const fullName = patient ? `${patient.first_name} ${patient.last_name}` : 'John Smith';
     
     const variables: Record<string, string> = {
-      '{{patientName}}': `${patient.first_name} ${patient.last_name}`,
+      '{{patientName}}': fullName,
+      '{{patientFirstName}}': firstName,
+      '{{patientLastName}}': lastName,
+      '{{practiceName}}': practiceData?.name || 'HealthCare Clinic',
+      '{{practicePhone}}': practiceData?.contact_phone || '(555) 123-4567',
+      '{{practiceEmail}}': practiceData?.email || 'info@healthcare.com',
+      '{{birthdayOffer}}': '15% off your next visit',
+      '{{referralBonus}}': '$50 credit for each successful referral',
+      '{{reviewLink}}': 'https://g.page/r/healthcare-clinic/review',
+      '{{programName}}': 'Wellness Wednesday',
+      '{{programDate}}': new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+      '{{programDescription}}': 'Join us for free health screenings and wellness consultations',
+      // Legacy variables for templates
       '{{date}}': new Date().toLocaleDateString(),
       '{{time}}': '2:00 PM',
-      '{{doctor}}': 'Smith',
-      '{{practicePhone}}': '+264 61 123 456',
-      '{{practiceEmail}}': 'info@onehealth.com.na',
-      '{{practiceName}}': 'OneHealth Medical',
+      '{{doctor}}': 'Dr. Smith',
       '{{practiceAddress}}': '123 Independence Ave, Windhoek',
       '{{visitDate}}': new Date().toLocaleDateString(),
       '{{followUpInstructions}}': '- Take prescribed medications as directed\n- Rest and stay hydrated\n- Monitor your symptoms',
@@ -307,10 +339,27 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
 
     let processedText = text;
     Object.entries(variables).forEach(([key, value]) => {
-      processedText = processedText.replace(new RegExp(key, 'g'), value);
+      processedText = processedText.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
     });
     
     return processedText;
+  };
+
+  const insertVariable = (variable: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    
+    const start = textarea.selectionStart || cursorPosition;
+    const end = textarea.selectionEnd || cursorPosition;
+    const newMessage = message.substring(0, start) + variable + message.substring(end);
+    setMessage(newMessage);
+    
+    // Reset cursor position
+    setTimeout(() => {
+      textarea.selectionStart = start + variable.length;
+      textarea.selectionEnd = start + variable.length;
+      textarea.focus();
+    }, 0);
   };
 
   const handleTemplateSelect = (template: EmailTemplate) => {
@@ -686,9 +735,10 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
                 
                 <textarea
                   ref={textareaRef}
-                  rows={10}
+                  rows={8}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
+                  onBlur={(e) => setCursorPosition(e.target.selectionStart || 0)}
                   disabled={!isEditing}
                   className={`w-full p-4 bg-white border border-gray-200 rounded-lg transition-all resize-none ${
                     isEditing 
@@ -697,6 +747,31 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
                   }`}
                   placeholder="Type your email message here..."
                 />
+                
+                {/* Available Variables */}
+                {isEditing && (
+                  <div className="mt-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Icon icon="solar:code-square-bold-duotone" className="w-4 h-4 text-purple-600" />
+                      <span className="text-xs font-medium text-gray-700">Available Variables</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {availableVariables.map((variable) => (
+                        <motion.button
+                          key={variable.key}
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => insertVariable(variable.label)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100 border border-purple-200 rounded-lg transition-all group"
+                          title={variable.description}
+                        >
+                          <Icon icon="solar:code-bold" className="w-3.5 h-3.5 text-purple-600 group-hover:text-purple-700" />
+                          <code className="text-xs font-mono text-purple-700">{variable.label}</code>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -740,17 +815,17 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
                 <div className="bg-gradient-to-r from-purple-600 to-[#01b9d5] p-4 text-white">
                   <h3 className="font-semibold flex items-center gap-2">
                     <Eye className="w-5 h-5" />
-                    Premium Email Preview
+                    Live Email Preview
                   </h3>
                 </div>
                 
                 {/* Premium Email Template Preview */}
-                <div className="h-[calc(100%-60px)] overflow-hidden">
+                <div className="h-[calc(100%-120px)] overflow-hidden">
                   <PremiumEmailTemplate
                     recipientName={patient ? `${patient.first_name} ${patient.last_name}` : "Patient"}
                     recipientEmail={email}
-                    subject={subject}
-                    message={message}
+                    subject={replaceVariables(subject)}
+                    message={replaceVariables(message)}
                     doctorName={currentUser?.full_name || "Dr. Smith"}
                     doctorRole={currentUser?.role ? 
                       currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1) : 
@@ -765,6 +840,19 @@ export const EnhancedEmailModal: React.FC<EnhancedEmailModalProps> = ({
                       website: practice?.slug ? `www.${practice.slug}.com.na` : "www.onehealth.com.na"
                     }}
                   />
+                </div>
+                
+                {/* Live Preview Info */}
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-gray-100 to-transparent">
+                  <div className="bg-white/90 backdrop-blur-sm rounded-lg p-3 border border-gray-200">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-4 h-4 text-purple-600 flex-shrink-0 mt-0.5" />
+                      <div className="text-xs text-gray-600">
+                        <p className="font-medium mb-1">Live Preview</p>
+                        <p>Variables are automatically replaced with actual values when sending. The final email will look exactly like this preview.</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
           </div>
