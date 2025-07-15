@@ -1,0 +1,80 @@
+{
+  "name": "simple_webhook_test",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "onehealth-search",
+        "responseMode": "immediateResponse",
+        "responseData": "allEntries",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, X-API-Key, Authorization"
+              }
+            ]
+          }
+        }
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "success",
+              "value": "true"
+            },
+            {
+              "name": "message",
+              "value": "Webhook is working!"
+            }
+          ],
+          "number": [
+            {
+              "name": "count",
+              "value": 5
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set",
+      "name": "Set Response",
+      "type": "n8n-nodes-base.set",
+      "position": [450, 300],
+      "typeVersion": 3.3
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Set Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

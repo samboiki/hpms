@@ -1,0 +1,139 @@
+{
+  "name": "onehealth_search_working",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "onehealth-search",
+        "responseMode": "responseNode",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "AI Search Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract request data from webhook\nconst body = $input.item.json.body || $input.item.json;\nconst query = body.query || '';\nconst practiceId = body.practiceId || '';\nconst sessionId = body.sessionId || `session-${Date.now()}`;\n\n// Validate inputs\nconst uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nif (!practiceId || !uuidRegex.test(practiceId)) {\n  throw new Error('Invalid practice ID');\n}\n\nif (!query || query.length === 0) {\n  throw new Error('Query is required');\n}\n\nif (query.length > 500) {\n  throw new Error('Query too long');\n}\n\n// Clean query\nconst cleanQuery = query\n  .replace(/[;'\"\\\\]/g, '')\n  .toLowerCase()\n  .trim();\n\nreturn {\n  originalQuery: query,\n  cleanQuery: cleanQuery,\n  practiceId: practiceId,\n  sessionId: sessionId,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "validate-request",
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.code",
+      "position": [450, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "=-- Search for: {{ $json.cleanQuery }}\n-- Practice: {{ $json.practiceId }}\n\nSELECT DISTINCT\n  p.id,\n  p.first_name,\n  p.last_name,\n  p.date_of_birth,\n  p.gender,\n  EXTRACT(YEAR FROM AGE(p.date_of_birth)) as age\nFROM patients p\nWHERE p.practice_id = '{{ $json.practiceId }}'\n  AND p.gender = 'female'\n  AND EXTRACT(YEAR FROM AGE(p.date_of_birth)) > 50\n  AND p.active = true\nLIMIT 100;",
+        "options": {}
+      },
+      "id": "search-patients",
+      "name": "Search Patients",
+      "type": "n8n-nodes-base.postgres",
+      "position": [650, 300],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "czZG3bwVoyN4WU\\\\Iu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get search results and request info\nconst patients = $input.all();\nconst request = $('Validate Request').item.json;\n\n// Extract patient IDs\nconst patientIds = patients.map(p => p.json.id).filter(id => id);\n\n// Format response\nreturn {\n  success: true,\n  patientIds: patientIds,\n  count: patientIds.length,\n  description: `Found ${patientIds.length} women over 50 with potential diabetes (simplified search)`,\n  searchQuery: request.originalQuery,\n  timestamp: new Date().toISOString(),\n  executionTime: Date.now() - new Date(request.timestamp).getTime()\n};"
+      },
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "position": [850, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, X-API-Key, Authorization"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1050, 300],
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "AI Search Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Request": {
+      "main": [
+        [
+          {
+            "node": "Search Patients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Patients": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

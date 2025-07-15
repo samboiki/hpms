@@ -1,0 +1,441 @@
+{
+  "name": "AI Patient Search with Dual Verification",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "ai-patient-search",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "AI Search Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "webhookId": "ai-patient-search-webhook",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean and normalize the query\nconst query = $input.item.json.query || '';\nconst practiceId = $input.item.json.practiceId || '';\n\n// Clean query for processing\nconst cleanQuery = query\n  .toLowerCase()\n  .trim();\n\n// Extract medical context\nconst medicalContext = {\n  hasAge: /\\b(\\d+)\\s*(year|yr)s?\\s*(old)?\\b/i.test(query),\n  hasGender: /\\b(male|female|men|women)\\b/i.test(query),\n  hasMedicalAid: /\\b(medical aid|insurance|coverage)\\b/i.test(query),\n  hasCondition: /\\b(diabetes|hypertension|asthma|covid)\\b/i.test(query),\n  hasTimeframe: /\\b(last|recent|today|yesterday|month|week)\\b/i.test(query),\n  hasBranch: /\\b(branch|location|clinic)\\b/i.test(query)\n};\n\nreturn {\n  originalQuery: query,\n  cleanQuery: cleanQuery,\n  medicalContext: medicalContext,\n  practiceId: practiceId,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "query-preprocessor",
+      "name": "Clean and Prepare Query",
+      "type": "n8n-nodes-base.code",
+      "position": [450, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  table_name,\n  column_name,\n  data_type,\n  is_nullable,\n  column_default\nFROM information_schema.columns\nWHERE table_schema = 'public' \nAND table_name IN (\n  'patients', \n  'visits', \n  'medical_aid_details',\n  'vitals', \n  'medical_records', \n  'appointments',\n  'branches',\n  'practices'\n)\nORDER BY \n  CASE table_name\n    WHEN 'patients' THEN 1\n    WHEN 'visits' THEN 2\n    WHEN 'medical_aid_details' THEN 3\n    ELSE 4\n  END,\n  ordinal_position;",
+        "options": {}
+      },
+      "id": "get-schema",
+      "name": "Get Patient Schema",
+      "type": "n8n-nodes-base.postgres",
+      "position": [650, 300],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_POSTGRES_CRED_ID",
+          "name": "Supabase PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format schema for AI consumption\nconst schemaRows = $input.all();\nlet schemaText = 'DATABASE SCHEMA:\\n\\n';\nlet currentTable = '';\n\nfor (const row of schemaRows) {\n  const { table_name, column_name, data_type, is_nullable } = row.json;\n  \n  if (table_name !== currentTable) {\n    if (currentTable) schemaText += '\\n';\n    schemaText += `TABLE: ${table_name}\\n`;\n    currentTable = table_name;\n  }\n  \n  const nullable = is_nullable === 'YES' ? 'NULL' : 'NOT NULL';\n  schemaText += `  - ${column_name} (${data_type}, ${nullable})\\n`;\n}\n\n// Add relationship information\nschemaText += `\\nKEY RELATIONSHIPS:\\n`;\nschemaText += `- patients.id -> visits.patient_id\\n`;\nschemaText += `- patients.id -> medical_aid_details.patient_id\\n`;\nschemaText += `- patients.id -> appointments.patient_id\\n`;\nschemaText += `- patients.branch_id -> branches.id\\n`;\nschemaText += `- visits.id -> medical_records.visit_id\\n`;\n\nreturn {\n  schema: schemaText,\n  query: $('Clean and Prepare Query').item.json\n};"
+      },
+      "id": "format-schema",
+      "name": "Format Schema for AI",
+      "type": "n8n-nodes-base.code",
+      "position": [850, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "options": {
+          "temperature": 0.1,
+          "responseFormat": "json_object"
+        }
+      },
+      "id": "sql-generator-model",
+      "name": "SQL Generator Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [1050, 400],
+      "typeVersion": 1,
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CRED_ID",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.query.cleanQuery }}",
+        "agent": "conversationalAgent",
+        "promptType": "define",
+        "options": {
+          "systemMessage": "You are a PostgreSQL expert for a healthcare system. Generate SQL queries to find patients based on natural language requests.\n\n{{ $json.schema }}\n\nCRITICAL RULES:\n1. ONLY generate SELECT queries that return patient IDs\n2. ALWAYS use: SELECT DISTINCT patients.id FROM patients\n3. Use proper JOINs only when necessary\n4. For age calculations: EXTRACT(YEAR FROM AGE(patients.date_of_birth))\n5. Use ILIKE for case-insensitive text searches\n6. Always include practice_id filter: patients.practice_id = '{{ $json.query.practiceId }}'\n\nReturn ONLY valid JSON in this format:\n{\n  \"sql\": \"SELECT DISTINCT patients.id FROM patients WHERE ...\",\n  \"description\": \"Human readable description of what was searched\",\n  \"confidence\": 0.95,\n  \"tables_used\": [\"patients\", \"visits\"]\n}\n\nEXAMPLES:\nQuery: \"women over 50\"\nResponse: {\n  \"sql\": \"SELECT DISTINCT patients.id FROM patients WHERE gender = 'female' AND EXTRACT(YEAR FROM AGE(date_of_birth)) > 50 AND practice_id = 'PRACTICE_ID'\",\n  \"description\": \"Female patients over 50 years old\",\n  \"confidence\": 0.95,\n  \"tables_used\": [\"patients\"]\n}\n\nQuery: \"patients with diabetes who visited last month\"\nResponse: {\n  \"sql\": \"SELECT DISTINCT patients.id FROM patients INNER JOIN visits ON visits.patient_id = patients.id WHERE (visits.diagnosis ILIKE '%diabetes%' OR visits.chief_complaint ILIKE '%diabetes%') AND visits.created_at >= CURRENT_DATE - INTERVAL '30 days' AND patients.practice_id = 'PRACTICE_ID'\",\n  \"description\": \"Patients with diabetes who visited in the last 30 days\",\n  \"confidence\": 0.90,\n  \"tables_used\": [\"patients\", \"visits\"]\n}"
+        }
+      },
+      "id": "sql-generator-agent",
+      "name": "SQL Generator Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [1250, 300],
+      "typeVersion": 1.6
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the AI response\ntry {\n  const aiResponse = $input.item.json.output;\n  \n  // Try to extract JSON from the response\n  let jsonMatch = aiResponse.match(/\\{[\\s\\S]*\\}/);\n  if (!jsonMatch) {\n    throw new Error('No JSON found in AI response');\n  }\n  \n  const parsed = JSON.parse(jsonMatch[0]);\n  \n  // Replace PRACTICE_ID placeholder\n  const practiceId = $('Clean and Prepare Query').item.json.practiceId;\n  parsed.sql = parsed.sql.replace(/PRACTICE_ID/g, practiceId);\n  \n  return parsed;\n} catch (error) {\n  return {\n    error: true,\n    message: 'Failed to parse AI response: ' + error.message,\n    rawResponse: $input.item.json.output\n  };\n}"
+      },
+      "id": "parse-sql-response",
+      "name": "Parse SQL Response",
+      "type": "n8n-nodes-base.code",
+      "position": [1450, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.error }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-parse-error",
+      "name": "Check Parse Error",
+      "type": "n8n-nodes-base.if",
+      "position": [1650, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "options": {
+          "temperature": 0,
+          "responseFormat": "json_object"
+        }
+      },
+      "id": "sql-verifier-model",
+      "name": "SQL Verifier Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [1850, 400],
+      "typeVersion": 1,
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CRED_ID",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "={{ JSON.stringify($json) }}",
+        "agent": "conversationalAgent",
+        "promptType": "define",
+        "options": {
+          "systemMessage": "You are a SQL security and optimization expert. Verify that SQL queries are safe, correct, and efficient.\n\nVERIFY:\n1. SAFETY - No DROP, DELETE, UPDATE, INSERT, ALTER, CREATE, GRANT, REVOKE\n2. CORRECTNESS - Returns only patient IDs (patients.id)\n3. EFFICIENCY - Proper use of indexes and joins\n4. PRACTICE ISOLATION - Must filter by practice_id\n\nReturn JSON:\n{\n  \"verified\": true/false,\n  \"sql\": \"corrected SQL if needed or original if OK\",\n  \"description\": \"improved description if needed\",\n  \"issues\": [\"list of any issues found\"],\n  \"risk_level\": \"low/medium/high\"\n}\n\nREJECT queries that:\n- Modify data in any way\n- Access unauthorized tables\n- Have SQL injection patterns\n- Missing practice_id filter\n- Select more than just patient IDs"
+        }
+      },
+      "id": "sql-verifier-agent",
+      "name": "SQL Verifier Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [2050, 300],
+      "typeVersion": 1.6
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse verifier response\ntry {\n  const verifierResponse = $input.item.json.output;\n  let jsonMatch = verifierResponse.match(/\\{[\\s\\S]*\\}/);\n  \n  if (!jsonMatch) {\n    throw new Error('No JSON found in verifier response');\n  }\n  \n  const verified = JSON.parse(jsonMatch[0]);\n  \n  // Combine with original data\n  const original = $('Parse SQL Response').item.json;\n  \n  return {\n    sql: verified.sql || original.sql,\n    description: verified.description || original.description,\n    verified: verified.verified,\n    issues: verified.issues || [],\n    risk_level: verified.risk_level || 'unknown',\n    confidence: original.confidence\n  };\n} catch (error) {\n  return {\n    error: true,\n    message: 'Failed to parse verifier response',\n    verified: false\n  };\n}"
+      },
+      "id": "parse-verification",
+      "name": "Parse Verification",
+      "type": "n8n-nodes-base.code",
+      "position": [2250, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.verified }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-verification",
+      "name": "Check Verification",
+      "type": "n8n-nodes-base.if",
+      "position": [2450, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql }}",
+        "options": {
+          "queryTimeout": 5000
+        }
+      },
+      "id": "execute-query",
+      "name": "Execute Patient Search",
+      "type": "n8n-nodes-base.postgres",
+      "position": [2650, 200],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "YOUR_POSTGRES_CRED_ID",
+          "name": "Supabase PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format final response\nconst queryResults = $input.all();\nconst patientIds = queryResults.map(row => row.json.id).filter(id => id);\nconst verification = $('Parse Verification').item.json;\nconst originalQuery = $('Clean and Prepare Query').item.json;\n\nreturn {\n  success: true,\n  patientIds: patientIds,\n  count: patientIds.length,\n  description: verification.description,\n  searchQuery: originalQuery.originalQuery,\n  confidence: verification.confidence,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "format-response",
+      "name": "Format Final Response",
+      "type": "n8n-nodes-base.code",
+      "position": [2850, 200],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [3050, 200],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format error response\nconst error = $input.item.json;\n\nreturn {\n  success: false,\n  error: error.message || 'An error occurred during AI search',\n  details: error,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "format-error",
+      "name": "Format Error",
+      "type": "n8n-nodes-base.code",
+      "position": [2450, 500],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "responseCode": 400,
+        "options": {}
+      },
+      "id": "respond-error",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [2650, 500],
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "AI Search Webhook": {
+      "main": [
+        [
+          {
+            "node": "Clean and Prepare Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean and Prepare Query": {
+      "main": [
+        [
+          {
+            "node": "Get Patient Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Patient Schema": {
+      "main": [
+        [
+          {
+            "node": "Format Schema for AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Schema for AI": {
+      "main": [
+        [
+          {
+            "node": "SQL Generator Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL Generator Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "SQL Generator Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL Generator Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse SQL Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse SQL Response": {
+      "main": [
+        [
+          {
+            "node": "Check Parse Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Parse Error": {
+      "main": [
+        [
+          {
+            "node": "SQL Verifier Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL Verifier Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "SQL Verifier Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SQL Verifier Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse Verification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Verification": {
+      "main": [
+        [
+          {
+            "node": "Check Verification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Verification": {
+      "main": [
+        [
+          {
+            "node": "Execute Patient Search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Patient Search": {
+      "main": [
+        [
+          {
+            "node": "Format Final Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Final Response": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error": {
+      "main": [
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [],
+  "pinData": {},
+  "versionId": "1.0.0",
+  "meta": {
+    "instanceId": "hpms-ai-search"
+  }
+}

@@ -1,0 +1,159 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { usePractice } from '../contexts/PracticeContext';
+
+export interface PatientSettings {
+  defaultCountry: string;
+  defaultLanguage: string;
+  requireDataConsent: boolean;
+  enableDataExport: boolean;
+  autoAnonymizeAfterYears: number | null;
+  idPrefix: string;
+  idFormat: 'sequential' | 'year_number' | 'random_alphanumeric';
+  inactiveThresholdDays: number;
+  sendSmsReminders: boolean;
+  sendEmailReminders: boolean;
+  allowPromotionalOptIn: boolean;
+}
+
+const DEFAULT_SETTINGS: PatientSettings = {
+  defaultCountry: 'Namibia',
+  defaultLanguage: 'English',
+  requireDataConsent: true,
+  enableDataExport: true,
+  autoAnonymizeAfterYears: null,
+  idPrefix: 'PAT',
+  idFormat: 'sequential',
+  inactiveThresholdDays: 180, // 6 months
+  sendSmsReminders: true,
+  sendEmailReminders: true,
+  allowPromotionalOptIn: false,
+};
+
+export const usePatientSettings = () => {
+  const { practiceId } = usePractice();
+  const [settings, setSettings] = useState<PatientSettings>(DEFAULT_SETTINGS);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load settings from database
+  const loadSettings = async () => {
+    if (!practiceId) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error: dbError } = await supabase
+        .from('practice_settings')
+        .select('*')
+        .eq('practice_id', practiceId)
+        .eq('setting_key', 'patient_settings')
+        .single();
+
+      if (dbError && dbError.code !== 'PGRST116') {
+        throw dbError;
+      }
+
+      if (data?.setting_value) {
+        setSettings({ ...DEFAULT_SETTINGS, ...data.setting_value });
+      } else {
+        setSettings(DEFAULT_SETTINGS);
+      }
+    } catch (err) {
+      console.error('Error loading patient settings:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Save settings to database
+  const saveSettings = async (newSettings: PatientSettings) => {
+    if (!practiceId) {
+      setError('No practice ID available');
+      return false;
+    }
+
+    try {
+      setSaving(true);
+      setError(null);
+
+      // Check if settings already exist
+      const { data: existingData, error: checkError } = await supabase
+        .from('practice_settings')
+        .select('id')
+        .eq('practice_id', practiceId)
+        .eq('setting_key', 'patient_settings')
+        .single();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+
+      if (existingData) {
+        // Update existing settings
+        const { error: updateError } = await supabase
+          .from('practice_settings')
+          .update({
+            setting_value: newSettings,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingData.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Insert new settings
+        const { error: insertError } = await supabase
+          .from('practice_settings')
+          .insert({
+            practice_id: practiceId,
+            setting_key: 'patient_settings',
+            setting_value: newSettings,
+            setting_type: 'json',
+            description: 'Patient management settings',
+            is_public: false,
+          });
+
+        if (insertError) throw insertError;
+      }
+
+      setSettings(newSettings);
+      return true;
+    } catch (err) {
+      console.error('Error saving patient settings:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save settings');
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Update a single setting
+  const updateSetting = async <K extends keyof PatientSettings>(
+    key: K,
+    value: PatientSettings[K]
+  ) => {
+    const newSettings = { ...settings, [key]: value };
+    return saveSettings(newSettings);
+  };
+
+  useEffect(() => {
+    loadSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [practiceId]);
+
+  return {
+    settings,
+    loading,
+    saving,
+    error,
+    saveSettings,
+    updateSetting,
+    reloadSettings: loadSettings,
+  };
+};

@@ -34,14 +34,22 @@ export async function fetchPatientsDirectly(practiceId: string): Promise<Enhance
     if (patientsError) {
       console.error('RPC error:', patientsError);
       
-      // FALLBACK: Use direct queries
+      // FALLBACK: Use direct queries with explicit foreign key
       const { data: patients, error } = await supabase
         .from('patients')
         .select(`
           *,
-          practices!practice_id (
+          practice:practices!fk_patients_practice_id (
             id,
             name
+          ),
+          medical_aid_details!left (
+            *,
+            medical_aid_provider:medical_aid_providers (
+              id,
+              name,
+              logo_url
+            )
           )
         `)
         .eq('practice_id', practiceId);
@@ -65,7 +73,8 @@ export async function fetchPatientsDirectly(practiceId: string): Promise<Enhance
 
         return {
           ...patient,
-          practice: patient.practices,
+          practice: patient.practice,
+          medical_aid_details: patient.medical_aid_details || [], // Preserve medical aid data
           visits: patientVisits,
           last_visit_date: lastCompletedVisit?.visit_date || null,
           total_visits: completedVisits.length
@@ -78,32 +87,58 @@ export async function fetchPatientsDirectly(practiceId: string): Promise<Enhance
 
     // Transform RPC data to match our interface
     if (rawPatients) {
-      const transformedPatients = rawPatients.map(patient => ({
-        id: patient.id,
-        first_name: patient.first_name,
-        last_name: patient.last_name,
-        email: patient.email,
-        cell_number: patient.cell_number,
-        date_of_birth: patient.date_of_birth,
-        gender: patient.gender,
-        created_at: patient.created_at,
-        practice_id: patient.practice_id,
-        patient_id: patient.patient_id,
-        blood_type: patient.blood_type,
-        allergies: patient.allergies,
-        chronic_conditions: patient.chronic_conditions,
-        practice: patient.practice_name ? {
-          id: patient.practice_id,
-          name: patient.practice_name
-        } : undefined,
-        medical_aid_details: patient.medical_aid_data || [],
-        last_visit_date: patient.last_visit_date,
-        total_visits: Number(patient.total_visits) || 0
-      }));
+      const transformedPatients = rawPatients.map(patient => {
+        // Parse medical aid data if it's a JSON string
+        let medicalAidDetails = [];
+        if (patient.medical_aid_data) {
+          try {
+            medicalAidDetails = typeof patient.medical_aid_data === 'string' 
+              ? JSON.parse(patient.medical_aid_data) 
+              : patient.medical_aid_data;
+            // Ensure it's an array
+            if (!Array.isArray(medicalAidDetails)) {
+              medicalAidDetails = [medicalAidDetails];
+            }
+          } catch (e) {
+            console.error('Failed to parse medical aid data:', e);
+            medicalAidDetails = [];
+          }
+        }
+
+        return {
+          id: patient.id,
+          first_name: patient.first_name,
+          last_name: patient.last_name,
+          email: patient.email,
+          cell_number: patient.cell_number,
+          date_of_birth: patient.date_of_birth,
+          gender: patient.gender,
+          created_at: patient.created_at,
+          practice_id: patient.practice_id,
+          patient_id: patient.patient_id,
+          id_number: patient.id_number,
+          blood_type: patient.blood_type,
+          allergies: patient.allergies,
+          chronic_conditions: patient.chronic_conditions,
+          practice: patient.practice_name ? {
+            id: patient.practice_id,
+            name: patient.practice_name
+          } : undefined,
+          medical_aid_details: medicalAidDetails,
+          last_visit_date: patient.last_visit_date,
+          total_visits: Number(patient.total_visits) || 0
+        };
+      });
       
       console.log('✅ RPC fetch successful:', transformedPatients.length, 'patients');
-      console.log('📊 Patients with visits:', transformedPatients.filter(p => p.total_visits > 0));
-      console.log('🏥 Sample patient:', transformedPatients[0]);
+      console.log('📊 Patients with visits:', transformedPatients.filter(p => p.total_visits > 0).length);
+      console.log('💊 Patients with medical aid:', transformedPatients.filter(p => p.medical_aid_details && p.medical_aid_details.length > 0).length);
+      if (transformedPatients[0]) {
+        console.log('🏥 Sample patient:', {
+          name: `${transformedPatients[0].first_name} ${transformedPatients[0].last_name}`,
+          medical_aid: transformedPatients[0].medical_aid_details
+        });
+      }
       
       return transformedPatients;
     }

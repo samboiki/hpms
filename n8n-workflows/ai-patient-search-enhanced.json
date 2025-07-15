@@ -1,0 +1,464 @@
+{
+  "name": "AI Patient Search - Enhanced with xAI Verification",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "ai-patient-search",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              }
+            ]
+          }
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "AI Search Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "webhookId": "ai-patient-search-enhanced",
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "jsCode": "// REQUEST VALIDATION & SANITIZATION\nconst query = $input.item.json.query || '';\nconst practiceId = $input.item.json.practiceId || '';\n\n// Security: Validate practice ID format\nconst uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nif (!practiceId || !uuidRegex.test(practiceId)) {\n  throw new Error('Invalid or missing practice ID - potential security breach');\n}\n\n// Security: Query length limit\nif (query.length > 500) {\n  throw new Error('Query too long - maximum 500 characters');\n}\n\n// Security: Remove dangerous characters\nconst cleanQuery = query\n  .replace(/[;'\"\\\\]/g, '') // Remove SQL injection characters\n  .replace(/\\b(DROP|DELETE|UPDATE|INSERT|CREATE|ALTER|GRANT|REVOKE)\\b/gi, '') // Remove DDL/DML\n  .toLowerCase()\n  .trim();\n\n// Extract medical context for better SQL generation\nconst medicalContext = {\n  hasAge: /\\b(\\d+)\\s*(year|yr)s?\\s*(old)?\\b/i.test(query),\n  hasGender: /\\b(male|female|men|women)\\b/i.test(query),\n  hasMedicalAid: /\\b(medical aid|insurance|coverage)\\b/i.test(query),\n  hasCondition: /\\b(diabetes|hypertension|asthma|covid|cancer|heart)\\b/i.test(query),\n  hasTimeframe: /\\b(last|recent|today|yesterday|month|week|year)\\b/i.test(query),\n  hasBranch: /\\b(branch|location|clinic|site)\\b/i.test(query)\n};\n\n// Log for audit\nconsole.log('Query received:', {\n  originalLength: query.length,\n  cleanedLength: cleanQuery.length,\n  practiceId: practiceId,\n  medicalContext: medicalContext\n});\n\nreturn {\n  originalQuery: query,\n  cleanQuery: cleanQuery,\n  medicalContext: medicalContext,\n  practiceId: practiceId,\n  timestamp: new Date().toISOString(),\n  requestId: crypto.randomUUID()\n};"
+      },
+      "id": "query-validator",
+      "name": "Validate & Clean Query",
+      "type": "n8n-nodes-base.code",
+      "position": [450, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Get minimal schema for AI context\nWITH healthcare_tables AS (\n  SELECT unnest(ARRAY[\n    'patients', \n    'visits', \n    'medical_aid_details',\n    'medical_records', \n    'appointments', \n    'branches',\n    'practices'\n  ]) as table_name\n),\nschema_info AS (\n  SELECT \n    c.table_name,\n    c.column_name,\n    c.data_type,\n    c.is_nullable,\n    CASE \n      WHEN tc.constraint_type = 'PRIMARY KEY' THEN 'PK'\n      WHEN tc.constraint_type = 'FOREIGN KEY' THEN 'FK'\n      ELSE NULL\n    END as constraint_type\n  FROM information_schema.columns c\n  INNER JOIN healthcare_tables ht ON c.table_name = ht.table_name\n  LEFT JOIN information_schema.key_column_usage kcu \n    ON c.table_name = kcu.table_name AND c.column_name = kcu.column_name\n  LEFT JOIN information_schema.table_constraints tc \n    ON kcu.constraint_name = tc.constraint_name\n  WHERE c.table_schema = 'public'\n)\nSELECT \n  table_name,\n  column_name,\n  data_type,\n  is_nullable,\n  constraint_type\nFROM schema_info\nORDER BY \n  CASE table_name\n    WHEN 'patients' THEN 1\n    WHEN 'visits' THEN 2\n    WHEN 'medical_aid_details' THEN 3\n    ELSE 4\n  END,\n  CASE \n    WHEN constraint_type = 'PK' THEN 1\n    WHEN constraint_type = 'FK' THEN 2\n    ELSE 3\n  END,\n  column_name;",
+        "options": {
+          "queryTimeout": 3000
+        }
+      },
+      "id": "get-schema",
+      "name": "Get Healthcare Schema",
+      "type": "n8n-nodes-base.postgres",
+      "position": [650, 300],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format schema for AI consumption\nconst schemaRows = $input.all();\nlet schemaText = 'HEALTHCARE DATABASE SCHEMA:\\n\\n';\nlet currentTable = '';\nlet relationships = [];\n\nfor (const row of schemaRows) {\n  const { table_name, column_name, data_type, is_nullable, constraint_type } = row.json;\n  \n  if (table_name !== currentTable) {\n    if (currentTable) schemaText += '\\n';\n    schemaText += `TABLE: ${table_name}\\n`;\n    currentTable = table_name;\n  }\n  \n  const nullable = is_nullable === 'YES' ? 'NULL' : 'NOT NULL';\n  const constraint = constraint_type ? ` [${constraint_type}]` : '';\n  schemaText += `  - ${column_name} (${data_type}, ${nullable})${constraint}\\n`;\n  \n  // Track foreign keys for relationships\n  if (constraint_type === 'FK' && column_name.endsWith('_id')) {\n    const referencedTable = column_name.replace('_id', 's');\n    relationships.push(`${table_name}.${column_name} -> ${referencedTable}.id`);\n  }\n}\n\n// Add relationship information\nschemaText += `\\nKEY RELATIONSHIPS:\\n`;\nschemaText += `- patients.id -> visits.patient_id (one-to-many)\\n`;\nschemaText += `- patients.id -> medical_aid_details.patient_id (one-to-many)\\n`;\nschemaText += `- patients.id -> appointments.patient_id (one-to-many)\\n`;\nschemaText += `- patients.branch_id -> branches.id (many-to-one)\\n`;\nschemaText += `- visits.id -> medical_records.visit_id (one-to-one)\\n`;\nschemaText += `- branches.practice_id -> practices.id (many-to-one)\\n`;\n\n// Add important notes\nschemaText += `\\nIMPORTANT QUERY RULES:\\n`;\nschemaText += `- Age calculation: EXTRACT(YEAR FROM AGE(patients.date_of_birth))\\n`;\nschemaText += `- Always filter by practice_id for multi-tenant isolation\\n`;\nschemaText += `- Use ILIKE for case-insensitive text search\\n`;\nschemaText += `- Date ranges: created_at >= CURRENT_DATE - INTERVAL '30 days'\\n`;\n\nconst queryContext = $('Validate & Clean Query').item.json;\n\nreturn {\n  schema: schemaText,\n  query: queryContext.cleanQuery,\n  originalQuery: queryContext.originalQuery,\n  practiceId: queryContext.practiceId,\n  medicalContext: queryContext.medicalContext,\n  requestId: queryContext.requestId\n};"
+      },
+      "id": "format-schema",
+      "name": "Format Schema for AI",
+      "type": "n8n-nodes-base.code",
+      "position": [850, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "options": {
+          "temperature": 0.1,
+          "responseFormat": "json_object",
+          "maxTokens": 1000
+        }
+      },
+      "id": "openai-model",
+      "name": "OpenAI GPT-4 Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [1050, 400],
+      "typeVersion": 1,
+      "credentials": {
+        "openAiApi": {
+          "id": "2z0Eb5MOJcGiYyQm",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.query }}",
+        "agent": "conversationalAgent",
+        "promptType": "define",
+        "options": {
+          "systemMessage": "You are a PostgreSQL expert specializing in healthcare database queries. Generate SECURE, OPTIMIZED SQL.\n\n{{ $json.schema }}\n\nSECURITY REQUIREMENTS:\n1. ONLY generate SELECT queries\n2. MUST return: SELECT DISTINCT patients.id FROM patients\n3. MUST include: WHERE patients.practice_id = '{{ $json.practiceId }}'\n4. NO subqueries in SELECT clause\n5. NO UNION, EXCEPT, or INTERSECT\n6. NO system tables or functions except approved ones\n\nQUERY PATTERNS:\n- Age: EXTRACT(YEAR FROM AGE(patients.date_of_birth)) > 50\n- Gender: patients.gender = 'female' (always lowercase)\n- Medical Aid: JOIN medical_aid_details OR check EXISTS\n- Recent visits: visits.created_at >= CURRENT_DATE - INTERVAL '30 days'\n- Conditions: visits.diagnosis ILIKE '%diabetes%'\n\nOPTIMIZATION RULES:\n- Use appropriate indexes (practice_id is always indexed)\n- Minimize JOINs - only join necessary tables\n- Use EXISTS instead of JOIN when checking presence\n- DISTINCT is required to avoid duplicate patient IDs\n\nReturn ONLY valid JSON:\n{\n  \"sql\": \"SELECT DISTINCT patients.id FROM patients WHERE ...\",\n  \"description\": \"Human readable description of filtered patients\",\n  \"confidence\": 0.95,\n  \"tables_used\": [\"patients\", \"visits\"],\n  \"optimization_notes\": \"Using index on practice_id and gender\"\n}\n\nEXAMPLE:\nQuery: \"elderly women with diabetes\"\nResponse: {\n  \"sql\": \"SELECT DISTINCT patients.id FROM patients INNER JOIN visits ON visits.patient_id = patients.id WHERE patients.gender = 'female' AND EXTRACT(YEAR FROM AGE(patients.date_of_birth)) > 65 AND visits.diagnosis ILIKE '%diabetes%' AND patients.practice_id = 'PRACTICE_ID'\",\n  \"description\": \"Female patients over 65 years old with diabetes diagnosis\",\n  \"confidence\": 0.92,\n  \"tables_used\": [\"patients\", \"visits\"],\n  \"optimization_notes\": \"Using composite index on patients(practice_id, gender)\"\n}"
+        }
+      },
+      "id": "sql-generator",
+      "name": "Generate SQL (OpenAI)",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [1250, 300],
+      "typeVersion": 1.6
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse OpenAI response and validate\ntry {\n  const aiResponse = $input.item.json.output;\n  \n  // Extract JSON from response\n  let jsonMatch = aiResponse.match(/\\{[\\s\\S]*\\}/);\n  if (!jsonMatch) {\n    throw new Error('No valid JSON found in OpenAI response');\n  }\n  \n  const parsed = JSON.parse(jsonMatch[0]);\n  \n  // Validate required fields\n  if (!parsed.sql || !parsed.description) {\n    throw new Error('Missing required fields in AI response');\n  }\n  \n  // Replace PRACTICE_ID placeholder\n  const practiceId = $('Validate & Clean Query').item.json.practiceId;\n  parsed.sql = parsed.sql.replace(/PRACTICE_ID/g, practiceId);\n  \n  // Basic SQL validation\n  const sqlUpper = parsed.sql.toUpperCase();\n  if (!sqlUpper.includes('SELECT DISTINCT PATIENTS.ID')) {\n    throw new Error('SQL must select DISTINCT patients.id');\n  }\n  \n  if (!sqlUpper.includes('WHERE')) {\n    throw new Error('SQL must have WHERE clause');\n  }\n  \n  if (!parsed.sql.includes(practiceId)) {\n    throw new Error('SQL must filter by practice_id');\n  }\n  \n  // Add metadata\n  parsed.generatedAt = new Date().toISOString();\n  parsed.requestId = $('Validate & Clean Query').item.json.requestId;\n  parsed.originalQuery = $('Validate & Clean Query').item.json.originalQuery;\n  \n  return parsed;\n  \n} catch (error) {\n  return {\n    error: true,\n    message: 'Failed to generate valid SQL: ' + error.message,\n    rawResponse: $input.item.json.output,\n    requestId: $('Validate & Clean Query').item.json.requestId\n  };\n}"
+      },
+      "id": "parse-openai",
+      "name": "Parse & Validate OpenAI Response",
+      "type": "n8n-nodes-base.code",
+      "position": [1450, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.error }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-generation-error",
+      "name": "Check Generation Error",
+      "type": "n8n-nodes-base.if",
+      "position": [1650, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.x.ai/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpRequestApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"grok-beta\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a SQL security expert. Your job is to verify SQL queries for safety and correctness.\\n\\nVERIFY THESE SECURITY RULES:\\n1. Query is SELECT only (no INSERT, UPDATE, DELETE, DROP, CREATE, ALTER)\\n2. Returns ONLY patient IDs (SELECT DISTINCT patients.id)\\n3. Includes practice_id filter to prevent data leaks\\n4. No SQL injection patterns\\n5. No access to system tables or sensitive data\\n6. No UNION, EXCEPT, or INTERSECT operations\\n7. Proper JOIN usage (no cartesian products)\\n\\nALSO CHECK:\\n- Query will execute without syntax errors\\n- Practice isolation is maintained\\n- No infinite loops or excessive resource usage\\n\\nReturn JSON with your analysis.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ 'Verify this SQL query:\\n\\n' + JSON.stringify($json) }}\"\n    }\n  ],\n  \"temperature\": 0,\n  \"max_tokens\": 500,\n  \"response_format\": { \"type\": \"json_object\" }\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "xai-verifier",
+      "name": "Verify SQL Security (xAI)",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1850, 200],
+      "typeVersion": 4.1,
+      "credentials": {
+        "httpRequestApi": {
+          "id": "ugcOBcrDwGMdyQqa",
+          "name": "xAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse xAI verification response\ntry {\n  const xaiResponse = $input.item.json;\n  const sqlData = $('Parse & Validate OpenAI Response').item.json;\n  \n  // Extract verification result\n  let verificationResult;\n  if (xaiResponse.choices && xaiResponse.choices[0]) {\n    const content = xaiResponse.choices[0].message.content;\n    verificationResult = JSON.parse(content);\n  } else {\n    throw new Error('Invalid xAI response format');\n  }\n  \n  // Default structure if xAI doesn't return expected format\n  const verification = {\n    verified: verificationResult.verified !== false,\n    risk_level: verificationResult.risk_level || 'medium',\n    issues: verificationResult.issues || [],\n    security_score: verificationResult.security_score || 0.5,\n    recommendations: verificationResult.recommendations || []\n  };\n  \n  // Additional security checks\n  const sql = sqlData.sql.toUpperCase();\n  \n  // Check for dangerous operations\n  const dangerousPatterns = [\n    /\\bDROP\\b/, /\\bDELETE\\b/, /\\bUPDATE\\b/, /\\bINSERT\\b/,\n    /\\bCREATE\\b/, /\\bALTER\\b/, /\\bGRANT\\b/, /\\bREVOKE\\b/,\n    /\\bEXEC\\b/, /\\bEXECUTE\\b/, /;/, /--/, /\\/\\*/\n  ];\n  \n  for (const pattern of dangerousPatterns) {\n    if (pattern.test(sql)) {\n      verification.verified = false;\n      verification.risk_level = 'critical';\n      verification.issues.push(`Dangerous pattern detected: ${pattern}`);\n    }\n  }\n  \n  // Check for practice_id\n  if (!sqlData.sql.includes(sqlData.practiceId)) {\n    verification.verified = false;\n    verification.risk_level = 'high';\n    verification.issues.push('Missing practice_id filter - data leak risk');\n  }\n  \n  // Combine results\n  return {\n    sql: verification.verified ? sqlData.sql : null,\n    description: sqlData.description,\n    verified: verification.verified,\n    risk_level: verification.risk_level,\n    issues: verification.issues,\n    confidence: sqlData.confidence,\n    security_score: verification.security_score,\n    requestId: sqlData.requestId,\n    verifiedAt: new Date().toISOString()\n  };\n  \n} catch (error) {\n  return {\n    error: true,\n    message: 'Security verification failed: ' + error.message,\n    verified: false,\n    risk_level: 'critical'\n  };\n}"
+      },
+      "id": "parse-verification",
+      "name": "Parse Security Verification",
+      "type": "n8n-nodes-base.code",
+      "position": [2050, 200],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.verified }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-verification",
+      "name": "Check Security Verification",
+      "type": "n8n-nodes-base.if",
+      "position": [2250, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql }}",
+        "options": {
+          "queryTimeout": 5000
+        }
+      },
+      "id": "execute-query",
+      "name": "Execute Verified Query",
+      "type": "n8n-nodes-base.postgres",
+      "position": [2450, 200],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format successful response\nconst queryResults = $input.all();\nconst patientIds = queryResults.map(row => row.json.id).filter(id => id);\nconst verification = $('Parse Security Verification').item.json;\nconst originalRequest = $('Validate & Clean Query').item.json;\n\n// Log successful query for analytics\nconst auditLog = {\n  requestId: originalRequest.requestId,\n  practiceId: originalRequest.practiceId,\n  query: originalRequest.originalQuery,\n  resultCount: patientIds.length,\n  executionTime: Date.now() - new Date(originalRequest.timestamp).getTime(),\n  success: true\n};\n\nconsole.log('Query executed successfully:', auditLog);\n\nreturn {\n  success: true,\n  patientIds: patientIds,\n  count: patientIds.length,\n  description: verification.description,\n  searchQuery: originalRequest.originalQuery,\n  confidence: verification.confidence,\n  securityScore: verification.security_score,\n  timestamp: new Date().toISOString(),\n  requestId: originalRequest.requestId\n};"
+      },
+      "id": "format-success",
+      "name": "Format Success Response",
+      "type": "n8n-nodes-base.code",
+      "position": [2650, 200],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Send Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [2850, 200],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format error response with details\nconst error = $input.item.json;\nconst originalRequest = $('Validate & Clean Query').first().json;\n\n// Determine error type and user message\nlet userMessage = 'Unable to process your search. Please try a simpler query.';\nlet errorType = 'unknown';\n\nif (error.risk_level === 'critical') {\n  userMessage = 'Security check failed. Please contact support.';\n  errorType = 'security';\n} else if (error.message?.includes('practice_id')) {\n  userMessage = 'Authentication error. Please log in again.';\n  errorType = 'auth';\n} else if (error.message?.includes('SQL')) {\n  userMessage = 'Could not understand your search. Try: \"women over 50\" or \"patients with diabetes\"';\n  errorType = 'parsing';\n}\n\n// Log error for monitoring\nconst errorLog = {\n  requestId: originalRequest?.requestId || 'unknown',\n  practiceId: originalRequest?.practiceId || 'unknown',\n  query: originalRequest?.originalQuery || 'unknown',\n  errorType: errorType,\n  errorDetails: error,\n  timestamp: new Date().toISOString()\n};\n\nconsole.error('Query failed:', errorLog);\n\nreturn {\n  success: false,\n  error: userMessage,\n  errorType: errorType,\n  details: process.env.NODE_ENV === 'development' ? error : undefined,\n  requestId: originalRequest?.requestId,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "format-error",
+      "name": "Format Error Response",
+      "type": "n8n-nodes-base.code",
+      "position": [2250, 500],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "responseCode": 400,
+        "options": {}
+      },
+      "id": "respond-error",
+      "name": "Send Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [2450, 500],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Audit Log Node\nAdd database logging here:\n- Success queries\n- Failed queries\n- Security events\n- Performance metrics",
+        "height": 150,
+        "width": 250
+      },
+      "id": "note-audit",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [2650, 350],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "content": "## Rate Limiting\nAdd rate limiting per practice:\n- 100 queries per hour\n- 1000 queries per day\n- Alert on suspicious patterns",
+        "height": 150,
+        "width": 250
+      },
+      "id": "note-ratelimit",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [250, 500],
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "AI Search Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate & Clean Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate & Clean Query": {
+      "main": [
+        [
+          {
+            "node": "Get Healthcare Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Healthcare Schema": {
+      "main": [
+        [
+          {
+            "node": "Format Schema for AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Schema for AI": {
+      "main": [
+        [
+          {
+            "node": "Generate SQL (OpenAI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI GPT-4 Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Generate SQL (OpenAI)",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate SQL (OpenAI)": {
+      "main": [
+        [
+          {
+            "node": "Parse & Validate OpenAI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Validate OpenAI Response": {
+      "main": [
+        [
+          {
+            "node": "Check Generation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Generation Error": {
+      "main": [
+        [
+          {
+            "node": "Verify SQL Security (xAI)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify SQL Security (xAI)": {
+      "main": [
+        [
+          {
+            "node": "Parse Security Verification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Security Verification": {
+      "main": [
+        [
+          {
+            "node": "Check Security Verification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Security Verification": {
+      "main": [
+        [
+          {
+            "node": "Execute Verified Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Verified Query": {
+      "main": [
+        [
+          {
+            "node": "Format Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Success Response": {
+      "main": [
+        [
+          {
+            "node": "Send Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error Response": {
+      "main": [
+        [
+          {
+            "node": "Send Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "error-handler-workflow-id"
+  },
+  "tags": [
+    {
+      "name": "healthcare",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "ai-powered",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "pinData": {},
+  "versionId": "2.0.0",
+  "meta": {
+    "instanceId": "hpms-ai-search-enhanced",
+    "templateId": "ai-patient-search-template"
+  }
+}

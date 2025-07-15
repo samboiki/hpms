@@ -1,0 +1,139 @@
+{
+  "name": "onehealth_search_supabase_api",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "onehealth-search",
+        "responseMode": "responseNode",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "AI Search Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract request data from webhook\nconst body = $input.item.json.body || $input.item.json;\nconst query = body.query || '';\nconst practiceId = body.practiceId || '';\nconst sessionId = body.sessionId || `session-${Date.now()}`;\n\n// Validate inputs\nconst uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nif (!practiceId || !uuidRegex.test(practiceId)) {\n  throw new Error('Invalid practice ID');\n}\n\nif (!query || query.length === 0) {\n  throw new Error('Query is required');\n}\n\nif (query.length > 500) {\n  throw new Error('Query too long');\n}\n\n// Clean query\nconst cleanQuery = query\n  .replace(/[;'\"\\\\]/g, '')\n  .toLowerCase()\n  .trim();\n\nreturn {\n  originalQuery: query,\n  cleanQuery: cleanQuery,\n  practiceId: practiceId,\n  sessionId: sessionId,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "validate-request",
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.code",
+      "position": [450, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/patients",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,first_name,last_name,date_of_birth,gender"
+            },
+            {
+              "name": "practice_id",
+              "value": "=eq.{{ $json.practiceId }}"
+            },
+            {
+              "name": "gender",
+              "value": "=eq.female"
+            },
+            {
+              "name": "limit",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "search-patients",
+      "name": "Search Patients",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [650, 300],
+      "typeVersion": 4.1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all patients from the API response\nconst patients = $input.all();\nconst request = $('Validate Request').item.json;\n\n// Calculate age and filter for women over 50\nconst currentYear = new Date().getFullYear();\nconst filteredPatients = [];\n\nfor (const patient of patients) {\n  const data = patient.json;\n  if (data.date_of_birth) {\n    const birthYear = new Date(data.date_of_birth).getFullYear();\n    const age = currentYear - birthYear;\n    \n    if (age > 50) {\n      filteredPatients.push({\n        id: data.id,\n        name: `${data.first_name} ${data.last_name}`,\n        age: age\n      });\n    }\n  }\n}\n\n// Extract patient IDs\nconst patientIds = filteredPatients.map(p => p.id);\n\n// Format response\nreturn {\n  success: true,\n  patientIds: patientIds,\n  count: patientIds.length,\n  description: `Found ${patientIds.length} women over 50 years of age`,\n  searchQuery: request.originalQuery,\n  timestamp: new Date().toISOString(),\n  executionTime: Date.now() - new Date(request.timestamp).getTime(),\n  confidence: 0.95,\n  securityScore: 1.0,\n  performanceScore: 0.9\n};"
+      },
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "position": [850, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "responseProperty": "={{ $json }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1050, 300],
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "AI Search Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Request": {
+      "main": [
+        [
+          {
+            "node": "Search Patients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Patients": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

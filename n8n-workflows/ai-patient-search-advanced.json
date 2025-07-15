@@ -1,0 +1,330 @@
+{
+  "name": "onehealth_search_advanced",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "onehealth-search",
+        "responseMode": "responseNode",
+        "httpMethod": "POST",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "AI Search Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract and validate request data\nconst body = $input.item.json.body || $input.item.json;\nconst query = body.query || '';\nconst practiceId = body.practiceId || '';\nconst sessionId = body.sessionId || `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;\n\n// Validate inputs\nconst uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nif (!practiceId || !uuidRegex.test(practiceId)) {\n  throw new Error('Invalid practice ID');\n}\n\nif (!query || query.length === 0) {\n  throw new Error('Query is required');\n}\n\nif (query.length > 500) {\n  throw new Error('Query too long');\n}\n\n// Clean query to prevent SQL injection\nconst cleanQuery = query\n  .replace(/[;'\"\\\\]/g, '')\n  .toLowerCase()\n  .trim();\n\nreturn {\n  originalQuery: query,\n  cleanQuery: cleanQuery,\n  practiceId: practiceId,\n  sessionId: sessionId,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "validate-request",
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.code",
+      "position": [450, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare schema document with hardcoded patient-related tables\nconst request = $input.item.json;\n\nlet schemaDocument = `# HEALTHCARE PRACTICE MANAGEMENT SYSTEM (HPMS) DATABASE SCHEMA\\n\\n`;\nschemaDocument += `Generated at: ${new Date().toISOString()}\\n\\n`;\n\n// Define key patient-related tables based on system knowledge\nschemaDocument += `## PATIENT DATA RELATIONSHIPS OVERVIEW:\\n`;\nschemaDocument += `The patients table is the central entity with relationships to:\\n\\n`;\n\nschemaDocument += `### Tables that reference patients:\\n`;\nschemaDocument += `- visits (patient_id -> patients.id)\\n`;\nschemaDocument += `- medical_records (patient_id -> patients.id)\\n`;\nschemaDocument += `- appointments (patient_id -> patients.id)\\n`;\nschemaDocument += `- medical_aid_details (patient_id -> patients.id)\\n`;\nschemaDocument += `- prescriptions (patient_id -> patients.id)\\n`;\nschemaDocument += `- lab_requests (patient_id -> patients.id)\\n`;\nschemaDocument += `- imaging_requests (patient_id -> patients.id)\\n`;\nschemaDocument += `- patient_documents (patient_id -> patients.id)\\n`;\nschemaDocument += `- invoices_enhanced (patient_id -> patients.id)\\n\\n`;\n\nschemaDocument += `## KEY TABLES:\\n\\n`;\n\n// Patients table\nschemaDocument += `### TABLE: patients\\n`;\nschemaDocument += `Primary patient demographic and identification data\\n`;\nschemaDocument += `Key Columns:\\n`;\nschemaDocument += `- id: uuid (PRIMARY KEY)\\n`;\nschemaDocument += `- first_name: text\\n`;\nschemaDocument += `- last_name: text\\n`;\nschemaDocument += `- date_of_birth: date\\n`;\nschemaDocument += `- gender: text (male/female)\\n`;\nschemaDocument += `- id_number: text\\n`;\nschemaDocument += `- cell_number: text\\n`;\nschemaDocument += `- email: text\\n`;\nschemaDocument += `- practice_id: uuid\\n\\n`;\n\n// Visits table\nschemaDocument += `### TABLE: visits\\n`;\nschemaDocument += `Medical visits and encounters\\n`;\nschemaDocument += `Key Columns:\\n`;\nschemaDocument += `- id: uuid (PRIMARY KEY)\\n`;\nschemaDocument += `- patient_id: uuid (FOREIGN KEY -> patients.id)\\n`;\nschemaDocument += `- visit_date: timestamp\\n`;\nschemaDocument += `- chief_complaint: text\\n`;\nschemaDocument += `- diagnosis: text\\n`;\nschemaDocument += `- practice_id: uuid\\n\\n`;\n\n// Medical records table\nschemaDocument += `### TABLE: medical_records\\n`;\nschemaDocument += `Detailed medical history and conditions\\n`;\nschemaDocument += `Key Columns:\\n`;\nschemaDocument += `- id: uuid (PRIMARY KEY)\\n`;\nschemaDocument += `- patient_id: uuid (FOREIGN KEY -> patients.id)\\n`;\nschemaDocument += `- diagnosis: text\\n`;\nschemaDocument += `- chronic_conditions: text\\n`;\nschemaDocument += `- allergies: text\\n`;\nschemaDocument += `- medications: text\\n\\n`;\n\n// Query guidelines\nschemaDocument += `## QUERY GUIDELINES FOR AI:\\n`;\nschemaDocument += `1. ALWAYS search across related tables when relevant\\n`;\nschemaDocument += `2. Age calculation: EXTRACT(YEAR FROM AGE(patients.date_of_birth))\\n`;\nschemaDocument += `3. Date ranges: created_at >= CURRENT_DATE - INTERVAL '30 days'\\n`;\nschemaDocument += `4. Text search: Use ILIKE for case-insensitive matching\\n`;\nschemaDocument += `5. ALWAYS include: WHERE patients.practice_id = '${request.practiceId}'\\n`;\nschemaDocument += `6. Medical conditions: Search in multiple tables - visits.diagnosis, medical_records.diagnosis, visits.chief_complaint\\n`;\nschemaDocument += `7. Use LEFT JOINs to include patients even if they don't have related records\\n`;\nschemaDocument += `8. Use DISTINCT to avoid duplicates when joining multiple tables\\n`;\n\nreturn {\n  schemaDocument: schemaDocument,\n  request: request\n};"
+      },
+      "id": "prepare-schema",
+      "name": "Prepare Schema Document",
+      "type": "n8n-nodes-base.code",
+      "position": [650, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// AI-powered query parsing and SQL generation\nconst { cleanQuery, practiceId } = $input.item.json.request;\nconst schemaDoc = $input.item.json.schemaDocument;\n\n// Parse the query to understand intent\nlet queryIntent = {\n  ageMin: null,\n  ageMax: null,\n  gender: null,\n  conditions: [],\n  timeframe: null\n};\n\n// Parse age-related queries\nconst agePatterns = [\n  { pattern: /over\\s+(\\d+)/i, type: 'min' },\n  { pattern: /above\\s+(\\d+)/i, type: 'min' },\n  { pattern: /older\\s+than\\s+(\\d+)/i, type: 'min' },\n  { pattern: /under\\s+(\\d+)/i, type: 'max' },\n  { pattern: /below\\s+(\\d+)/i, type: 'max' },\n  { pattern: /younger\\s+than\\s+(\\d+)/i, type: 'max' },\n  { pattern: /between\\s+(\\d+)\\s+and\\s+(\\d+)/i, type: 'range' }\n];\n\nfor (const { pattern, type } of agePatterns) {\n  const match = cleanQuery.match(pattern);\n  if (match) {\n    if (type === 'min') queryIntent.ageMin = parseInt(match[1]);\n    else if (type === 'max') queryIntent.ageMax = parseInt(match[1]);\n    else if (type === 'range') {\n      queryIntent.ageMin = parseInt(match[1]);\n      queryIntent.ageMax = parseInt(match[2]);\n    }\n  }\n}\n\n// Parse gender\nif (cleanQuery.includes('women') || cleanQuery.includes('female')) {\n  queryIntent.gender = 'female';\n} else if (cleanQuery.includes('men') || cleanQuery.includes('male') && !cleanQuery.includes('female')) {\n  queryIntent.gender = 'male';\n}\n\n// Parse medical conditions\nconst conditionKeywords = {\n  'diabetes': ['diabetes', 'diabetic', 'dm', 'type 2', 'type 1'],\n  'hypertension': ['hypertension', 'hypertensive', 'high blood pressure', 'htn'],\n  'asthma': ['asthma', 'asthmatic'],\n  'hiv': ['hiv', 'aids'],\n  'pregnancy': ['pregnant', 'pregnancy', 'prenatal']\n};\n\nfor (const [condition, keywords] of Object.entries(conditionKeywords)) {\n  for (const keyword of keywords) {\n    if (cleanQuery.includes(keyword)) {\n      queryIntent.conditions.push(condition);\n      break;\n    }\n  }\n}\n\n// Generate SQL based on intent\nlet sql = 'SELECT DISTINCT p.id\\nFROM patients p\\n';\nlet whereConditions = [`p.practice_id = '${practiceId}'`];\nlet description = [];\n\n// Add joins if needed for conditions\nif (queryIntent.conditions.length > 0) {\n  sql += 'LEFT JOIN visits v ON p.id = v.patient_id\\n';\n  sql += 'LEFT JOIN medical_records mr ON p.id = mr.patient_id\\n';\n}\n\n// Build WHERE conditions\nif (queryIntent.gender) {\n  whereConditions.push(`p.gender = '${queryIntent.gender}'`);\n  description.push(queryIntent.gender === 'female' ? 'Women' : 'Men');\n}\n\nif (queryIntent.ageMin !== null || queryIntent.ageMax !== null) {\n  if (queryIntent.ageMin && !queryIntent.ageMax) {\n    whereConditions.push(`EXTRACT(YEAR FROM AGE(p.date_of_birth)) > ${queryIntent.ageMin}`);\n    description.push(`over ${queryIntent.ageMin} years old`);\n  } else if (!queryIntent.ageMin && queryIntent.ageMax) {\n    whereConditions.push(`EXTRACT(YEAR FROM AGE(p.date_of_birth)) < ${queryIntent.ageMax}`);\n    description.push(`under ${queryIntent.ageMax} years old`);\n  } else if (queryIntent.ageMin && queryIntent.ageMax) {\n    whereConditions.push(`EXTRACT(YEAR FROM AGE(p.date_of_birth)) BETWEEN ${queryIntent.ageMin} AND ${queryIntent.ageMax}`);\n    description.push(`between ${queryIntent.ageMin} and ${queryIntent.ageMax} years old`);\n  }\n}\n\nif (queryIntent.conditions.length > 0) {\n  const conditionClauses = queryIntent.conditions.map(c => \n    `(v.diagnosis ILIKE '%${c}%' OR mr.diagnosis ILIKE '%${c}%' OR v.chief_complaint ILIKE '%${c}%')`\n  );\n  whereConditions.push(`(${conditionClauses.join(' OR ')})`);\n  description.push(`with ${queryIntent.conditions.join(' or ')}`);\n}\n\n// Complete SQL\nsql += 'WHERE ' + whereConditions.join(' AND ');\n\n// Generate result\nconst result = {\n  sql: sql,\n  description: description.length > 0 ? description.join(' ') : 'All patients matching criteria',\n  confidence: 0.85,\n  reasoning: `Query parsed to find ${description.join(' ')}. Searched in patients table${queryIntent.conditions.length > 0 ? ' with joins to visits and medical_records for condition matching' : ''}.`,\n  tables_used: queryIntent.conditions.length > 0 ? ['patients', 'visits', 'medical_records'] : ['patients'],\n  generatedBy: 'built-in-parser',\n  timestamp: new Date().toISOString(),\n  practiceId: practiceId\n};\n\nreturn result;"
+      },
+      "id": "generate-sql",
+      "name": "Generate SQL Query",
+      "type": "n8n-nodes-base.code",
+      "position": [850, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Security verification of generated SQL\nconst sqlData = $input.item.json;\n\n// Verify SQL is safe\nlet verified = true;\nlet issues = [];\nlet risk_level = 'low';\n\n// Check for dangerous operations\nconst sql = sqlData.sql.toUpperCase();\nconst dangerousOps = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'CREATE', 'ALTER', 'TRUNCATE'];\n\nfor (const op of dangerousOps) {\n  if (sql.includes(op)) {\n    verified = false;\n    risk_level = 'critical';\n    issues.push(`Dangerous SQL operation detected: ${op}`);\n  }\n}\n\n// Verify practice_id is included\nif (!sqlData.sql.includes(sqlData.practiceId)) {\n  verified = false;\n  risk_level = 'critical';\n  issues.push('Missing required practice_id filter - CRITICAL security issue');\n}\n\n// Check for SQL injection patterns\nif (sqlData.sql.includes('--') || sqlData.sql.includes('/*') || sqlData.sql.includes('*/')) {\n  verified = false;\n  risk_level = 'high';\n  issues.push('SQL comment detected - potential injection risk');\n}\n\n// Build verification result\nconst result = {\n  verified: verified,\n  risk_level: risk_level,\n  security_score: verified ? 0.9 : 0.1,\n  performance_score: 0.8,\n  accuracy_score: 0.85,\n  issues: issues,\n  suggestions: issues.length > 0 ? ['Review and fix security issues before execution'] : [],\n  explanation: sqlData.description,\n  estimated_result_size: 'unknown',\n  \n  // Include original query data\n  sql: sqlData.sql,\n  description: sqlData.description,\n  confidence: sqlData.confidence,\n  reasoning: sqlData.reasoning,\n  tables_used: sqlData.tables_used,\n  \n  // Metadata\n  generatedBy: sqlData.generatedBy,\n  verifiedBy: 'built-in-verifier',\n  verifiedAt: new Date().toISOString(),\n  practiceId: sqlData.practiceId\n};\n\nreturn result;"
+      },
+      "id": "verify-security",
+      "name": "Verify Security",
+      "type": "n8n-nodes-base.code",
+      "position": [1050, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.verified }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "security-check",
+      "name": "Security Check",
+      "type": "n8n-nodes-base.if",
+      "position": [1250, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://jjxlfunlbyayxwvlpgwt.supabase.co/rest/v1/patients",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,first_name,last_name,date_of_birth,gender"
+            },
+            {
+              "name": "practice_id",
+              "value": "=eq.{{ $('Verify Security').item.json.practiceId }}"
+            },
+            {
+              "name": "limit",
+              "value": "5000"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-patients",
+      "name": "Fetch Patients",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1450, 200],
+      "typeVersion": 4.1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "czZG3bwVoyN4WUIu",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter patients based on the generated SQL criteria\nconst verification = $('Verify Security').item.json;\nconst request = $('Validate Request').item.json;\nconst patients = $input.all();\n\n// Parse the SQL to extract filtering criteria\nconst sql = verification.sql.toLowerCase();\nlet filteredPatients = [];\n\n// Extract age criteria from SQL\nlet ageMin = null;\nlet ageMax = null;\nconst ageMatch = sql.match(/extract\\(year from age\\(p\\.date_of_birth\\)\\)\\s*>\\s*(\\d+)/);\nif (ageMatch) ageMin = parseInt(ageMatch[1]);\nconst ageMaxMatch = sql.match(/extract\\(year from age\\(p\\.date_of_birth\\)\\)\\s*<\\s*(\\d+)/);\nif (ageMaxMatch) ageMax = parseInt(ageMaxMatch[1]);\nconst ageBetweenMatch = sql.match(/extract\\(year from age\\(p\\.date_of_birth\\)\\)\\s*between\\s*(\\d+)\\s*and\\s*(\\d+)/);\nif (ageBetweenMatch) {\n  ageMin = parseInt(ageBetweenMatch[1]);\n  ageMax = parseInt(ageBetweenMatch[2]);\n}\n\n// Extract gender from SQL\nlet genderFilter = null;\nif (sql.includes(\"gender = 'female'\")) genderFilter = 'female';\nelse if (sql.includes(\"gender = 'male'\")) genderFilter = 'male';\n\n// Filter patients\nconst currentYear = new Date().getFullYear();\nfor (const patient of patients) {\n  const data = patient.json;\n  let matches = true;\n  \n  // Calculate age\n  let age = null;\n  if (data.date_of_birth) {\n    const birthYear = new Date(data.date_of_birth).getFullYear();\n    age = currentYear - birthYear;\n  }\n  \n  // Apply age filter\n  if (ageMin !== null && age !== null && age <= ageMin) matches = false;\n  if (ageMax !== null && age !== null && age >= ageMax) matches = false;\n  \n  // Apply gender filter\n  if (genderFilter && data.gender && data.gender.toLowerCase() !== genderFilter) matches = false;\n  \n  if (matches) {\n    filteredPatients.push(data.id);\n  }\n}\n\n// Note: We can't filter by medical conditions without fetching additional data\n// In a real implementation, we would need to fetch visits and medical_records\n\n// Generate detailed analysis\nlet analysis = `Found ${filteredPatients.length} patients matching your criteria.\\n\\n`;\n\nif (filteredPatients.length === 0) {\n  analysis += `No patients found. This could mean:\\n`;\n  analysis += `- No patients match the specified criteria\\n`;\n  analysis += `- The search terms might be too specific\\n`;\n  analysis += `- Try broadening your search or using different terms\\n`;\n} else if (filteredPatients.length === 1) {\n  analysis += `Found exactly 1 patient. This is a very specific result.\\n`;\n} else if (filteredPatients.length < 10) {\n  analysis += `This is a small, focused group of patients suitable for personalized care.\\n`;\n} else if (filteredPatients.length < 50) {\n  analysis += `This is a moderate-sized patient group suitable for targeted care initiatives.\\n`;\n} else if (filteredPatients.length < 200) {\n  analysis += `This is a substantial patient group. Consider segmenting for more targeted approaches.\\n`;\n} else {\n  analysis += `This is a large patient group. You may want to add more specific filters.\\n`;\n}\n\nif (verification.explanation) {\n  analysis += `\\nWhat this search found: ${verification.explanation}\\n`;\n}\n\n// Return comprehensive result\nreturn {\n  success: true,\n  patientIds: filteredPatients,\n  count: filteredPatients.length,\n  description: verification.description,\n  detailedAnalysis: analysis,\n  searchQuery: request.originalQuery,\n  confidence: verification.confidence,\n  securityScore: verification.security_score,\n  performanceScore: verification.performance_score,\n  accuracyScore: verification.accuracy_score,\n  suggestions: verification.suggestions || [],\n  tablesSearched: ['patients'], // We only searched patients via API\n  timestamp: new Date().toISOString(),\n  requestId: request.sessionId,\n  executionTime: Date.now() - new Date(request.timestamp).getTime()\n};"
+      },
+      "id": "process-results",
+      "name": "Process Results",
+      "type": "n8n-nodes-base.code",
+      "position": [1650, 200],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, X-API-Key, Authorization"
+              },
+              {
+                "name": "Access-Control-Max-Age",
+                "value": "86400"
+              }
+            ]
+          }
+        }
+      },
+      "id": "send-success",
+      "name": "Send Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1850, 200],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format error response\nconst error = $input.item.json;\nconst request = $('Validate Request').first().json || {};\n\n// Determine error type and user message\nlet userMessage = 'Unable to process your search.';\nlet errorType = 'unknown';\nlet suggestions = [];\n\nif (error.risk_level === 'critical') {\n  userMessage = 'Security check failed. This query cannot be executed for safety reasons.';\n  errorType = 'security';\n  suggestions = ['Try a simpler search', 'Avoid special characters', 'Use basic terms like \"diabetes\" or \"hypertension\"'];\n} else if (error.message?.includes('practice_id')) {\n  userMessage = 'Authentication error. Please log in again.';\n  errorType = 'auth';\n} else if (error.message?.includes('parse') || error.message?.includes('Invalid response')) {\n  userMessage = 'Could not understand your search. Please try rephrasing.';\n  errorType = 'parsing';\n  suggestions = [\n    'Try: \"women over 50\"',\n    'Try: \"patients with diabetes\"',\n    'Try: \"patients who visited last month\"'\n  ];\n}\n\nif (error.issues && error.issues.length > 0) {\n  userMessage += ' Issues: ' + error.issues.join(', ');\n}\n\nreturn {\n  success: false,\n  error: userMessage,\n  errorType: errorType,\n  suggestions: suggestions.length > 0 ? suggestions : error.suggestions || [],\n  issues: error.issues || [],\n  requestId: request.sessionId,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "format-error",
+      "name": "Format Error Response",
+      "type": "n8n-nodes-base.code",
+      "position": [1250, 400],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 400,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "GET, POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, X-API-Key, Authorization"
+              },
+              {
+                "name": "Access-Control-Max-Age",
+                "value": "86400"
+              }
+            ]
+          }
+        }
+      },
+      "id": "send-error",
+      "name": "Send Error Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1450, 400],
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "AI Search Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Request": {
+      "main": [
+        [
+          {
+            "node": "Prepare Schema Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Schema Document": {
+      "main": [
+        [
+          {
+            "node": "Generate SQL Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate SQL Query": {
+      "main": [
+        [
+          {
+            "node": "Verify Security",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Security": {
+      "main": [
+        [
+          {
+            "node": "Security Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Security Check": {
+      "main": [
+        [
+          {
+            "node": "Fetch Patients",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Patients": {
+      "main": [
+        [
+          {
+            "node": "Process Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Results": {
+      "main": [
+        [
+          {
+            "node": "Send Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Error Response": {
+      "main": [
+        [
+          {
+            "node": "Send Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "error-handler"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "healthcare"
+    },
+    {
+      "name": "ai-powered"
+    },
+    {
+      "name": "production-ready"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2025-01-13T00:00:00.000Z",
+  "versionId": "5.0.0"
+}

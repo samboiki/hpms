@@ -19,7 +19,7 @@ export interface SendSMSRequest {
   patientId?: string;
   appointmentId?: string;
   visitId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   tags?: string[];
   notificationId?: string; // Link to system notification for delivery tracking
 }
@@ -69,7 +69,7 @@ export interface SendEmailRequest {
   appointmentId?: string;
   visitId?: string;
   invoiceId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   tags?: string[];
   notificationId?: string; // Link to system notification for delivery tracking
   templateId?: string; // Email template ID
@@ -106,7 +106,7 @@ export interface SMSLog {
   appointment_id?: string;
   visit_id?: string;
   user_id?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   tags?: string[];
   created_at: string;
   updated_at: string;
@@ -135,13 +135,13 @@ export interface EmailLog {
   failure_reason?: string;
   open_count?: number;
   click_count?: number;
-  attachments?: any[];
+  attachments?: EmailAttachment[];
   patient_id?: string;
   appointment_id?: string;
   visit_id?: string;
   invoice_id?: string;
   user_id?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   tags?: string[];
   created_at: string;
   updated_at: string;
@@ -173,8 +173,6 @@ class CommunicationService {
       const { data, error } = await edgeFunctionService.sendSMS(request);
 
       if (error) {
-        console.error('SMS sending error:', error);
-        
         // Update delivery tracking if available
         if (deliveryId) {
           notificationDeliveryService.updateDeliveryStatus({
@@ -356,7 +354,7 @@ class CommunicationService {
     patientId?: string;
     limit?: number;
     offset?: number;
-  }): Promise<{ data: SMSLog[]; error: any }> {
+  }): Promise<{ data: SMSLog[]; error: unknown }> {
     let query = supabase
       .from('practice_sms_logs')
       .select('*')
@@ -399,7 +397,7 @@ class CommunicationService {
     patientId?: string;
     limit?: number;
     offset?: number;
-  }): Promise<{ data: EmailLog[]; error: any }> {
+  }): Promise<{ data: EmailLog[]; error: unknown }> {
     let query = supabase
       .from('practice_email_logs')
       .select('*')

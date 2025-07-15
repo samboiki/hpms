@@ -5,11 +5,11 @@
  * instead of the Supabase client's .functions.invoke() method, which has issues.
  */
 
-interface EdgeFunctionResponse<T = any> {
+interface EdgeFunctionResponse<T = unknown> {
   data?: T;
   error?: {
     message: string;
-    details?: any;
+    details?: unknown;
   };
 }
 
@@ -42,10 +42,10 @@ class EdgeFunctionService {
   /**
    * Invoke an edge function
    */
-  async invoke<T = any>(
+  async invoke<T = unknown>(
     functionName: string, 
     options?: {
-      body?: any;
+      body?: unknown;
       headers?: Record<string, string>;
     }
   ): Promise<EdgeFunctionResponse<T>> {
@@ -61,7 +61,10 @@ class EdgeFunctionService {
 
       const url = `${this.supabaseUrl}/functions/v1/${functionName}`;
       
-      console.log(`🚀 Calling edge function: ${functionName}`);
+      // Only log non-SMS calls to reduce noise
+      if (functionName !== 'centralized-sms-gateway') {
+        console.log(`🚀 Calling edge function: ${functionName}`);
+      }
       
       const response = await fetch(url, {
         method: 'POST',
@@ -76,7 +79,10 @@ class EdgeFunctionService {
       const data = await response.json();
 
       if (!response.ok) {
-        console.error(`❌ Edge function error:`, data);
+        // Only log errors for non-SMS functions or if SMS actually failed
+        if (functionName !== 'centralized-sms-gateway' || !data.success) {
+          console.error(`❌ Edge function error:`, data);
+        }
         return {
           error: {
             message: data.error || data.message || `HTTP ${response.status}: ${response.statusText}`,
@@ -85,14 +91,17 @@ class EdgeFunctionService {
         };
       }
 
-      console.log(`✅ Edge function success:`, functionName);
+      // Only log success for non-SMS calls
+      if (functionName !== 'centralized-sms-gateway') {
+        console.log(`✅ Edge function success:`, functionName);
+      }
       return { data };
 
-    } catch (error: any) {
+    } catch (error) {
       console.error(`❌ Edge function exception:`, error);
       return {
         error: {
-          message: error.message || 'Failed to call edge function',
+          message: error instanceof Error ? error.message : 'Failed to call edge function',
           details: error
         }
       };

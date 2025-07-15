@@ -8,6 +8,7 @@ import PatientManagementView from '../components/patients/PatientManagementView'
 import PatientAnalytics from '../components/patients/PatientAnalytics';
 import { usePatientsStoreNew } from '../stores/patientsStoreNew';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePatientSettings } from '../hooks/usePatientSettings';
 
 // Main Patients Page Component
 const Patients: React.FC = () => {
@@ -17,6 +18,14 @@ const Patients: React.FC = () => {
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   const [activeTab, setActiveTab] = useState<'patients' | 'analytics' | 'settings'>('patients');
+  const { settings, loading: settingsLoading, saving, saveSettings } = usePatientSettings();
+  const [localSettings, setLocalSettings] = useState(settings);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Update local settings when loaded from database
+  React.useEffect(() => {
+    setLocalSettings(settings);
+  }, [settings]);
 
   const handleLogout = async () => {
     try {
@@ -145,7 +154,7 @@ const Patients: React.FC = () => {
         {/* Main Tab Navigation - Professional Style */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
           <div className="grid grid-cols-3 gap-0 w-full">
-            {(['patients', 'analytics', 'settings'] as const).map((tab) => {
+            {(['patients', 'analytics', 'settings'] as const).map((tab, index) => {
               const tabConfig = {
                 patients: { icon: 'solar:users-group-two-rounded-bold-duotone', label: 'Patients' },
                 analytics: { icon: 'solar:chart-square-bold-duotone', label: 'Analytics' },
@@ -153,18 +162,27 @@ const Patients: React.FC = () => {
               };
               const { icon, label } = tabConfig[tab];
               const isActive = activeTab === tab;
+              const isFirst = index === 0;
+              const isLast = index === 2;
+              
               return (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`relative flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-all duration-200 capitalize min-h-[60px] ${
+                  className={`relative flex items-center justify-center gap-2 px-6 py-4 text-sm font-medium transition-all duration-200 capitalize ${
+                    isFirst ? 'rounded-l-xl' : ''
+                  } ${
+                    isLast ? 'rounded-r-xl' : ''
+                  } ${
+                    !isFirst ? '-ml-px' : ''
+                  } ${
                     isActive
-                      ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg'
+                      ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg z-10'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
                   <Icon icon={icon} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
-                  <span className="truncate text-center sm:text-left">{label}</span>
+                  <span>{label}</span>
                 </button>
               );
             })}
@@ -209,124 +227,206 @@ const Patients: React.FC = () => {
                 transition={{ duration: 0.3 }}
               >
           <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Patient Settings</h2>
-            <div className="space-y-6">
-              {/* Default Values Section */}
-              <div className="border-b border-gray-200 pb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Default Values</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Default Country</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500">
-                      <option>Namibia</option>
-                      <option>South Africa</option>
-                      <option>Botswana</option>
-                      <option>Zimbabwe</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Default Language</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500">
-                      <option>English</option>
-                      <option>Afrikaans</option>
-                      <option>Oshiwambo</option>
-                      <option>German</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Data Privacy Section */}
-              <div className="border-b border-gray-200 pb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Data Privacy</h3>
-                <div className="space-y-4">
-                  <label className="flex items-center">
-                    <input type="checkbox" className="h-4 w-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500" defaultChecked />
-                    <span className="ml-2 text-sm text-gray-700">Require consent for data processing</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input type="checkbox" className="h-4 w-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500" defaultChecked />
-                    <span className="ml-2 text-sm text-gray-700">Enable patient data export requests</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input type="checkbox" className="h-4 w-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500" />
-                    <span className="ml-2 text-sm text-gray-700">Auto-anonymize inactive patient records after 7 years</span>
-                  </label>
-                </div>
-              </div>
-              
-              {/* Patient ID Format */}
-              <div className="border-b border-gray-200 pb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Patient ID Format</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">ID Prefix</label>
-                    <input type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500" placeholder="e.g., PAT" defaultValue="PAT" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">ID Format</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500">
-                      <option>Sequential Numbers (PAT001, PAT002...)</option>
-                      <option>Year + Number (PAT2024001, PAT2024002...)</option>
-                      <option>Random Alphanumeric (PATX7K9M2...)</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Activity Threshold Settings */}
-              <div className="border-b border-gray-200 pb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Patient Activity Settings</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Inactive Patient Threshold</label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500">
-                      <option value="90">3 Months</option>
-                      <option value="180" selected>6 Months</option>
-                      <option value="365">1 Year</option>
-                      <option value="730">2 Years</option>
-                    </select>
-                    <p className="mt-1 text-xs text-gray-500">Patients who haven't visited within this period are marked as inactive</p>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <span className="text-sm text-gray-700">Active Patient</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
-                      <span className="text-sm text-gray-700">Inactive Patient</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Communication Preferences */}
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Communication Preferences</h3>
-                <div className="space-y-4">
-                  <label className="flex items-center">
-                    <input type="checkbox" className="h-4 w-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500" defaultChecked />
-                    <span className="ml-2 text-sm text-gray-700">Send appointment reminders via SMS</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input type="checkbox" className="h-4 w-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500" defaultChecked />
-                    <span className="ml-2 text-sm text-gray-700">Send appointment reminders via Email</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input type="checkbox" className="h-4 w-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500" />
-                    <span className="ml-2 text-sm text-gray-700">Allow patients to opt-in for promotional messages</span>
-                  </label>
-                </div>
-              </div>
-              
-              {/* Save Button */}
-              <div className="flex justify-end pt-6">
-                <button className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg font-medium hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300">
-                  Save Settings
-                </button>
-              </div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Patient Settings</h2>
+              {hasChanges && (
+                <span className="text-sm text-amber-600 flex items-center gap-1">
+                  <Icon icon="solar:info-circle-bold-duotone" className="w-4 h-4" />
+                  Unsaved changes
+                </span>
+              )}
             </div>
+            
+            {settingsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Icon icon="solar:hourglass-line-duotone" className="w-8 h-8 text-purple-500 animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Default Values Section */}
+                <div className="border-b border-gray-200 pb-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Default Values</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Default Country</label>
+                      <select 
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                        value={localSettings.defaultCountry}
+                        onChange={(e) => {
+                          setLocalSettings({ ...localSettings, defaultCountry: e.target.value });
+                          setHasChanges(true);
+                        }}
+                      >
+                        <option value="Namibia">Namibia</option>
+                        <option value="South Africa">South Africa</option>
+                        <option value="Botswana">Botswana</option>
+                        <option value="Zimbabwe">Zimbabwe</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Default Language</label>
+                      <select 
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                        value={localSettings.defaultLanguage}
+                        onChange={(e) => {
+                          setLocalSettings({ ...localSettings, defaultLanguage: e.target.value });
+                          setHasChanges(true);
+                        }}
+                      >
+                        <option value="English">English</option>
+                        <option value="Afrikaans">Afrikaans</option>
+                        <option value="Oshiwambo">Oshiwambo</option>
+                        <option value="German">German</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Data Privacy Section */}
+                <div className="border-b border-gray-200 pb-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Data Privacy</h3>
+                  <div className="space-y-4">
+                    <label className="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        className="h-4 w-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500" 
+                        checked={localSettings.requireDataConsent}
+                        onChange={(e) => {
+                          setLocalSettings({ ...localSettings, requireDataConsent: e.target.checked });
+                          setHasChanges(true);
+                        }}
+                      />
+                      <span className="ml-2 text-sm text-gray-700">Require consent for data processing</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        className="h-4 w-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500" 
+                        checked={localSettings.enableDataExport}
+                        onChange={(e) => {
+                          setLocalSettings({ ...localSettings, enableDataExport: e.target.checked });
+                          setHasChanges(true);
+                        }}
+                      />
+                      <span className="ml-2 text-sm text-gray-700">Enable patient data export requests</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input 
+                        type="checkbox" 
+                        className="h-4 w-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500" 
+                        checked={localSettings.autoAnonymizeAfterYears === 7}
+                        onChange={(e) => {
+                          setLocalSettings({ ...localSettings, autoAnonymizeAfterYears: e.target.checked ? 7 : null });
+                          setHasChanges(true);
+                        }}
+                      />
+                      <span className="ml-2 text-sm text-gray-700">Auto-anonymize inactive patient records after 7 years</span>
+                    </label>
+                  </div>
+                </div>
+                
+                {/* Patient ID Format */}
+                <div className="border-b border-gray-200 pb-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Patient ID Format</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">ID Prefix</label>
+                      <input 
+                        type="text" 
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500" 
+                        placeholder="e.g., PAT" 
+                        value={localSettings.idPrefix}
+                        onChange={(e) => {
+                          setLocalSettings({ ...localSettings, idPrefix: e.target.value });
+                          setHasChanges(true);
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">ID Format</label>
+                      <select 
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                        value={localSettings.idFormat}
+                        onChange={(e) => {
+                          setLocalSettings({ ...localSettings, idFormat: e.target.value as 'sequential' | 'year_number' | 'random_alphanumeric' });
+                          setHasChanges(true);
+                        }}
+                      >
+                        <option value="sequential">Sequential Numbers (PAT001, PAT002...)</option>
+                        <option value="year_number">Year + Number (PAT2024001, PAT2024002...)</option>
+                        <option value="random_alphanumeric">Random Alphanumeric (PATX7K9M2...)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Activity Threshold Settings */}
+                <div className="border-b border-gray-200 pb-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Patient Activity Settings</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Inactive Patient Threshold</label>
+                      <select 
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                        value={localSettings.inactiveThresholdDays}
+                        onChange={(e) => {
+                          setLocalSettings({ ...localSettings, inactiveThresholdDays: Number(e.target.value) });
+                          setHasChanges(true);
+                        }}
+                      >
+                        <option value="90">3 Months</option>
+                        <option value="180">6 Months</option>
+                        <option value="365">1 Year</option>
+                        <option value="730">2 Years</option>
+                      </select>
+                      <p className="mt-1 text-xs text-gray-500">Patients who haven't visited within this period are marked as inactive</p>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span className="text-sm text-gray-700">Active Patient</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                        <span className="text-sm text-gray-700">Inactive Patient</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Save Button */}
+                <div className="flex justify-end pt-6 gap-3">
+                  {hasChanges && (
+                    <button 
+                      onClick={() => {
+                        setLocalSettings(settings);
+                        setHasChanges(false);
+                      }}
+                      className="px-4 py-2.5 text-gray-700 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button 
+                    onClick={async () => {
+                      const success = await saveSettings(localSettings);
+                      if (success) {
+                        setHasChanges(false);
+                      }
+                    }}
+                    disabled={!hasChanges || saving}
+                    className={`px-6 py-2.5 rounded-lg font-medium transition-all duration-300 flex items-center gap-2 ${
+                      hasChanges && !saving
+                        ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:shadow-lg hover:shadow-purple-500/30'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    {saving && <Icon icon="solar:hourglass-line-duotone" className="w-4 h-4 animate-spin" />}
+                    {saving ? 'Saving...' : 'Save Settings'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </motion.div>
             )}

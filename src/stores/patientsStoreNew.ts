@@ -116,7 +116,7 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
       }
 
       // APPROACH 1: Try the standard Supabase query first
-      let { data: patientsWithData, error } = await supabase
+      const { data: patientsWithData, error } = await supabase
         .from('patients')
         .select(`
           *,
@@ -128,7 +128,7 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
               logo_url
             )
           ),
-          practice:practices (
+          practice:practices!fk_patients_practice_id (
             id,
             name
           )
