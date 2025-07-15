@@ -17,6 +17,7 @@ import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
 import TimePickerModal from '../components/ui/TimePickerModal';
 import { platformSettings, getPlatformDefaults } from '../config/socialPlatformSettings';
 import { DirectGmailSetup } from '../components/settings/DirectGmailSetup';
+import { OAuthDebugger } from '../components/oauth/OAuthDebugger';
 
 // Iconify is now handled by @iconify/react package
 
@@ -771,7 +772,15 @@ const Settings: React.FC = () => {
           )}
           
           {activeTab === 'social' && (
-            <PracticeSocialAccountsContent />
+            <>
+              <PracticeSocialAccountsContent />
+              {/* OAuth Debugger - only show if we have OAuth params */}
+              {(window.location.search.includes('oauth_') || window.location.search.includes('code=')) && (
+                <div className="mt-6">
+                  <OAuthDebugger />
+                </div>
+              )}
+            </>
           )}
             </div>
           </div>

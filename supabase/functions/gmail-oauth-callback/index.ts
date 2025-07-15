@@ -6,12 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface OAuthRequest {
-  code: string
-  redirect_uri: string
-  practice_id: string
-}
-
 serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
@@ -19,18 +13,57 @@ serve(async (req) => {
   }
 
   try {
-    const { code, redirect_uri, practice_id } = await req.json() as OAuthRequest
+    // Handle GET request from Google OAuth redirect
+    const url = new URL(req.url)
+    const code = url.searchParams.get('code')
+    const state = url.searchParams.get('state')
+    const error = url.searchParams.get('error')
 
-    if (!code || !redirect_uri || !practice_id) {
-      throw new Error('Missing required parameters')
+    // Handle OAuth errors
+    if (error) {
+      console.error('OAuth error:', error)
+      const errorDescription = url.searchParams.get('error_description') || 'Unknown error'
+      
+      // Redirect back with error
+      const redirectUrl = new URL(`${url.origin}/settings`)
+      redirectUrl.searchParams.set('oauth_error', error)
+      redirectUrl.searchParams.set('oauth_error_description', errorDescription)
+      
+      return Response.redirect(redirectUrl.toString(), 302)
     }
+
+    if (!code || !state) {
+      throw new Error('Missing required parameters: code or state')
+    }
+
+    // Decode state to get practice_id and redirect_origin
+    let stateData: { practice_id: string; redirect_origin: string }
+    try {
+      stateData = JSON.parse(atob(state))
+    } catch {
+      throw new Error('Invalid state parameter')
+    }
+
+    const { practice_id, redirect_origin } = stateData
+
+    if (!practice_id || !redirect_origin) {
+      throw new Error('Invalid state data')
+    }
+
+    // The redirect_uri must match exactly what was sent in the authorization request
+    const redirect_uri = `${url.origin}/functions/v1/gmail-oauth-callback`
 
     // Get environment variables
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-    // Create Supabase client with service role
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    // Create Supabase client with service role to bypass RLS
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
 
     // Fetch practice-specific OAuth credentials
     const { data: oauthApp, error: oauthError } = await supabase
@@ -101,6 +134,9 @@ serve(async (req) => {
         },
         connected_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'practice_id,provider,email',
+        ignoreDuplicates: false
       })
 
     if (dbError) {
@@ -130,28 +166,21 @@ serve(async (req) => {
       await Promise.all(updatePromises)
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        email: userInfo.email,
-        name: userInfo.name,
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    )
+    // Redirect back to the practice's settings page with success
+    const successUrl = new URL(`${redirect_origin}/settings`)
+    successUrl.searchParams.set('oauth_success', 'true')
+    successUrl.searchParams.set('oauth_email', userInfo.email)
+
+    return Response.redirect(successUrl.toString(), 302)
   } catch (error) {
     console.error('OAuth callback error:', error)
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: error.message,
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      }
-    )
+    
+    // Redirect back with error
+    const url = new URL(req.url)
+    const errorUrl = new URL(`${url.origin}/settings`)
+    errorUrl.searchParams.set('oauth_error', 'callback_failed')
+    errorUrl.searchParams.set('oauth_error_description', error.message)
+    
+    return Response.redirect(errorUrl.toString(), 302)
   }
 })

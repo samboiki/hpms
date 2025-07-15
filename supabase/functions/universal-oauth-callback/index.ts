@@ -6,11 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface OAuthCallbackRequest {
-  code: string
-  state: string
-  error?: string
-}
+// OAuth callback request interface (unused in GET request)
 
 serve(async (req) => {
   // Handle CORS
@@ -45,7 +41,7 @@ serve(async (req) => {
     let stateData: { practice_id: string; redirect_origin: string }
     try {
       stateData = JSON.parse(atob(state))
-    } catch (e) {
+    } catch {
       throw new Error('Invalid state parameter')
     }
 
@@ -59,8 +55,13 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-    // Create Supabase client with service role
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    // Create Supabase client with service role to bypass RLS
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
 
     // Fetch practice-specific OAuth credentials
     const { data: oauthApp, error: oauthError } = await supabase

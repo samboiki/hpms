@@ -30,8 +30,8 @@ export const GmailOAuthSettings: React.FC = () => {
     last_executed: string | null;
   }> | null>(null);
 
-  // OAuth configuration - Universal callback for all practices
-  const UNIVERSAL_REDIRECT_URI = 'https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/universal-oauth-callback';
+  // OAuth configuration - Client-side callback
+  const GMAIL_REDIRECT_URI = window.location.origin + '/api/oauth-callback';
   const SCOPES = [
     'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/gmail.compose',
@@ -131,7 +131,7 @@ export const GmailOAuthSettings: React.FC = () => {
     // Create OAuth URL
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authUrl.searchParams.append('client_id', practiceOAuthApp.client_id);
-    authUrl.searchParams.append('redirect_uri', UNIVERSAL_REDIRECT_URI);
+    authUrl.searchParams.append('redirect_uri', GMAIL_REDIRECT_URI);
     authUrl.searchParams.append('response_type', 'code');
     authUrl.searchParams.append('scope', SCOPES);
     authUrl.searchParams.append('access_type', 'offline');
@@ -413,7 +413,7 @@ export const GmailOAuthSettings: React.FC = () => {
                 <div className="bg-white rounded-lg p-3 border border-blue-200">
                   <p className="text-xs font-semibold text-gray-700 mb-1">Universal Redirect URI (for ALL practices):</p>
                   <code className="block bg-gray-100 p-2 rounded text-xs text-gray-800 break-all">
-                    {UNIVERSAL_REDIRECT_URI}
+                    {GMAIL_REDIRECT_URI}
                   </code>
                   <p className="text-xs text-gray-600 mt-2">
                     ✅ This ONE URI works for ALL practices - no need to add individual URIs!
