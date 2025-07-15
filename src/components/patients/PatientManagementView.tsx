@@ -58,8 +58,8 @@ import { usePractice } from '../../contexts/PracticeContext';
 import { getMedicalAidLogo } from '../../utils/medicalAidLogos';
 import { supabase } from '../../lib/supabase';
 import { usePatientSettings } from '../../hooks/usePatientSettings';
-import { EnhancedSmsModal } from '../messages/EnhancedSmsModal';
-import { EnhancedEmailModal } from '../messages/EnhancedEmailModal';
+import { ProfessionalSmsModal } from '../messages/ProfessionalSmsModal';
+import { ProfessionalEmailModal } from '../messages/ProfessionalEmailModal';
 import { communicationService } from '../../services/communicationService';
 
 // Export the PatientManagementView component
@@ -2086,30 +2086,23 @@ export const PatientManagementView: React.FC = () => {
         </div>
       </FormModal>
 
-      {/* Enhanced SMS Modal - For bulk sending */}
+      {/* Professional SMS Modal - For bulk sending */}
       {showSmsModal && getSmsRecipients().length > 0 && (
-        <EnhancedSmsModal
+        <ProfessionalSmsModal
           isOpen={showSmsModal}
           onClose={() => setShowSmsModal(false)}
-          patientName={`${getSmsRecipients().length} patients`}
-          patientPhone={`Sending to ${getSmsRecipients().length} recipients`}
+          recipients={getSmsRecipients()}
           onSend={handleSendSms}
           isSending={isSendingSms}
         />
       )}
 
-      {/* Enhanced Email Modal - For bulk sending */}
+      {/* Professional Email Modal - For bulk sending */}
       {showEmailModal && getEmailRecipients().length > 0 && (
-        <EnhancedEmailModal
+        <ProfessionalEmailModal
           isOpen={showEmailModal}
           onClose={() => setShowEmailModal(false)}
-          patient={{
-            id: 'bulk',
-            first_name: `${getEmailRecipients().length} patients`,
-            last_name: '',
-            email: `Sending to ${getEmailRecipients().length} recipients`,
-            cell_number: ''
-          }}
+          recipients={getEmailRecipients()}
           onSend={handleSendEmail}
           isSending={isSendingEmail}
         />

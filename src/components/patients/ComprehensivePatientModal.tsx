@@ -84,8 +84,8 @@ import PatientModalTabs from './PatientModalTabs';
 import PatientAnalytics from './PatientAnalytics';
 import { PatientSearchFilters } from './PatientSearchFilters';
 import { PremiumSmsModal } from '../messages/PremiumSmsModal';
-import { EnhancedSmsModal } from '../messages/EnhancedSmsModal';
-import { EnhancedEmailModal } from '../messages/EnhancedEmailModal';
+import { ProfessionalSmsModal } from '../messages/ProfessionalSmsModal';
+import { ProfessionalEmailModal } from '../messages/ProfessionalEmailModal';
 import MessageConfirmationModal from '../modals/MessageConfirmationModal';
 import { usePatientModalState } from '../../hooks/usePatientModalState';
 import { useAiSearch } from '../../hooks/useAiSearch';
@@ -364,8 +364,8 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   const [smsContent, setSmsContent] = useState('');
   const [smsPhone, setSmsPhone] = useState('');
   const [isSendingSms, setIsSendingSms] = useState(false);
-  const [isEnhancedSmsModalOpen, setIsEnhancedSmsModalOpen] = useState(false);
-  const [isEnhancedEmailModalOpen, setIsEnhancedEmailModalOpen] = useState(false);
+  const [isProfessionalSmsModalOpen, setIsProfessionalSmsModalOpen] = useState(false);
+  const [isProfessionalEmailModalOpen, setIsProfessionalEmailModalOpen] = useState(false);
   const [isManageBeneficiariesModalOpen, setIsManageBeneficiariesModalOpen] = useState(false);
   const [smsTarget, setSmsTarget] = useState<'patient' | 'nextOfKin'>('patient');
   const [showMessageConfirmation, setShowMessageConfirmation] = useState(false);
@@ -2018,7 +2018,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       });
 
       if (result.success) {
-        setIsEnhancedSmsModalOpen(false);
+        setIsProfessionalSmsModalOpen(false);
         setMessageConfirmationData({
           type: 'sms',
           recipientName: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
@@ -2046,7 +2046,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       // For now, we'll just show a success message
       console.log('Sending email:', { email, subject, message, patientId: selectedPatientDetails.id });
       
-      setIsEnhancedEmailModalOpen(false);
+      setIsProfessionalEmailModalOpen(false);
       setMessageConfirmationData({
         type: 'email',
         recipientName: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
@@ -2324,12 +2324,12 @@ OneHealth Medical Team`;
                 onSendMessage={() => {
                   if (selectedPatientDetails) {
                     setSmsTarget('patient');
-                    setIsEnhancedSmsModalOpen(true);
+                    setIsProfessionalSmsModalOpen(true);
                   }
                 }}
                 onSendEmail={() => {
                   if (selectedPatientDetails) {
-                    setIsEnhancedEmailModalOpen(true);
+                    setIsProfessionalEmailModalOpen(true);
                   }
                 }}
                 onEditProfile={() => {
@@ -2341,7 +2341,7 @@ OneHealth Medical Team`;
                 onSmsNextOfKin={(phone: string) => {
                   if (nextOfKin || selectedPatientDetails) {
                     setSmsTarget('nextOfKin');
-                    setIsEnhancedSmsModalOpen(true);
+                    setIsProfessionalSmsModalOpen(true);
                   }
                 }}
                 onManageBeneficiaries={() => {
@@ -3571,11 +3571,11 @@ OneHealth Medical Team`;
                                         });
                                         
                                         // Store invoice attachment for email modal
-                                        // Note: You'll need to modify EnhancedEmailModal to accept attachments
+                                        // Note: You'll need to modify ProfessionalEmailModal to accept attachments
                                         window.invoiceAttachment = file;
                                         
                                         // Open email modal
-                                        setIsEnhancedEmailModalOpen(true);
+                                        setIsProfessionalEmailModalOpen(true);
                                         
                                         console.log('📧 Email invoice prepared:', {
                                           invoice: invoice.invoice_number,
@@ -3965,10 +3965,10 @@ OneHealth Medical Team`;
       </FormModal>
 
       {/* Enhanced SMS Modal */}
-      <EnhancedSmsModal
-        isOpen={isEnhancedSmsModalOpen}
+      <ProfessionalSmsModal
+        isOpen={isProfessionalSmsModalOpen}
         onClose={() => {
-          setIsEnhancedSmsModalOpen(false);
+          setIsProfessionalSmsModalOpen(false);
           setSmsTarget('patient');
         }}
         patient={selectedPatientDetails ? {
@@ -3983,9 +3983,9 @@ OneHealth Medical Team`;
       />
 
       {/* Enhanced Email Modal */}
-      <EnhancedEmailModal
-        isOpen={isEnhancedEmailModalOpen}
-        onClose={() => setIsEnhancedEmailModalOpen(false)}
+      <ProfessionalEmailModal
+        isOpen={isProfessionalEmailModalOpen}
+        onClose={() => setIsProfessionalEmailModalOpen(false)}
         patient={selectedPatientDetails ? {
           id: selectedPatientDetails.id,
           first_name: selectedPatientDetails.first_name,
