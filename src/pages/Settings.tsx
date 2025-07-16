@@ -18,6 +18,10 @@ import TimePickerModal from '../components/ui/TimePickerModal';
 import { platformSettings, getPlatformDefaults } from '../config/socialPlatformSettings';
 import { DirectGmailSetup } from '../components/settings/DirectGmailSetup';
 import { OAuthDebugger } from '../components/oauth/OAuthDebugger';
+import { ManualOAuthProcessor } from '../components/settings/ManualOAuthProcessor';
+import { OAuthCredentialsTest } from '../components/settings/OAuthCredentialsTest';
+import { OAuthRedirectTest } from '../components/settings/OAuthRedirectTest';
+import { GmailSettingsModal } from '../components/settings/GmailSettingsModal';
 
 // Iconify is now handled by @iconify/react package
 
@@ -32,7 +36,21 @@ interface BusinessHours {
 const Settings: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { currentTheme, themes, setTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<'account' | 'users' | 'practice' | 'documents' | 'social' | 'system'>('account');
+  // Check URL params to determine initial tab
+  const getInitialTab = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam && ['account', 'users', 'practice', 'documents', 'social', 'system'].includes(tabParam)) {
+      return tabParam as any;
+    }
+    // If we have OAuth code, default to social tab
+    if (urlParams.get('code')) {
+      return 'social';
+    }
+    return 'account';
+  };
+  
+  const [activeTab, setActiveTab] = useState<'account' | 'users' | 'practice' | 'documents' | 'social' | 'system'>(getInitialTab());
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   const { practiceId } = usePractice();
@@ -774,10 +792,13 @@ const Settings: React.FC = () => {
           {activeTab === 'social' && (
             <>
               <PracticeSocialAccountsContent />
-              {/* OAuth Debugger - only show if we have OAuth params */}
+              {/* OAuth Debug Components - only show if we have OAuth params */}
               {(window.location.search.includes('oauth_') || window.location.search.includes('code=')) && (
-                <div className="mt-6">
+                <div className="mt-6 space-y-6">
+                  <OAuthRedirectTest />
+                  <ManualOAuthProcessor />
                   <OAuthDebugger />
+                  <OAuthCredentialsTest />
                 </div>
               )}
             </>
@@ -2574,6 +2595,23 @@ const PracticeSocialAccountsContent: React.FC = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<any>(null);
   const [gmailConnected, setGmailConnected] = useState(false);
+  const [showGmailModal, setShowGmailModal] = useState(false);
+  
+  // Listen for navigate-to-oauth event
+  useEffect(() => {
+    const handleNavigateToOAuth = () => {
+      setShowGmailModal(false);
+      // Navigate to OAuth Applications tab
+      const oauthTab = document.querySelector('[data-tab="system"]');
+      if (oauthTab instanceof HTMLElement) {
+        oauthTab.click();
+      }
+    };
+
+    window.addEventListener('navigate-to-oauth', handleNavigateToOAuth);
+    return () => window.removeEventListener('navigate-to-oauth', handleNavigateToOAuth);
+  }, []);
+  
   const [formData, setFormData] = useState({
     platform: '',
     account_name: '',
@@ -3014,27 +3052,32 @@ const PracticeSocialAccountsContent: React.FC = () => {
                   key={platform.value} 
                   className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer"
                   onClick={() => {
-                    // When clicking the card, show the modal for that platform
-                    const defaults = getPlatformDefaults(platform.value) || {};
-                    setFormData({
-                      platform: platform.value,
-                      account_name: platform.value === 'gmail' ? 'Gmail Integration' : '',
-                      profile_url: '',
-                      username: '',
-                      description: '',
-                      is_business_account: false,
-                      app_id: '',
-                      client_id: '',
-                      client_secret: '',
-                      access_token: '',
-                      refresh_token: '',
-                      token_expires_at: '',
-                      auth_scope: '',
-                      page_id: '',
-                      ...defaults
-                    });
-                    setEditingAccount(null);
-                    setShowAddModal(true);
+                    if (platform.value === 'gmail') {
+                      // Show Gmail-specific modal
+                      setShowGmailModal(true);
+                    } else {
+                      // When clicking the card, show the modal for that platform
+                      const defaults = getPlatformDefaults(platform.value) || {};
+                      setFormData({
+                        platform: platform.value,
+                        account_name: '',
+                        profile_url: '',
+                        username: '',
+                        description: '',
+                        is_business_account: false,
+                        app_id: '',
+                        client_id: '',
+                        client_secret: '',
+                        access_token: '',
+                        refresh_token: '',
+                        token_expires_at: '',
+                        auth_scope: '',
+                        page_id: '',
+                        ...defaults
+                      });
+                      setEditingAccount(null);
+                      setShowAddModal(true);
+                    }
                   }}
                 >
                   <div className="flex items-center justify-between mb-3">
@@ -3058,27 +3101,31 @@ const PracticeSocialAccountsContent: React.FC = () => {
                         variant="outline" 
                         onClick={(e) => {
                           e.stopPropagation();
-                          // Button click also opens modal
-                          const defaults = getPlatformDefaults(platform.value) || {};
-                          setFormData({
-                            platform: platform.value,
-                            account_name: platform.value === 'gmail' ? 'Gmail Integration' : '',
-                            profile_url: '',
-                            username: '',
-                            description: '',
-                            is_business_account: false,
-                            app_id: '',
-                            client_id: '',
-                            client_secret: '',
-                            access_token: '',
-                            refresh_token: '',
-                            token_expires_at: '',
-                            auth_scope: '',
-                            page_id: '',
-                            ...defaults
-                          });
-                          setEditingAccount(null);
-                          setShowAddModal(true);
+                          if (platform.value === 'gmail') {
+                            setShowGmailModal(true);
+                          } else {
+                            // Button click also opens modal
+                            const defaults = getPlatformDefaults(platform.value) || {};
+                            setFormData({
+                              platform: platform.value,
+                              account_name: '',
+                              profile_url: '',
+                              username: '',
+                              description: '',
+                              is_business_account: false,
+                              app_id: '',
+                              client_id: '',
+                              client_secret: '',
+                              access_token: '',
+                              refresh_token: '',
+                              token_expires_at: '',
+                              auth_scope: '',
+                              page_id: '',
+                              ...defaults
+                            });
+                            setEditingAccount(null);
+                            setShowAddModal(true);
+                          }
                         }}
                       >
                         <Icon icon={SolarIcons.add} className="w-3 h-3 mr-1" />
@@ -3090,40 +3137,10 @@ const PracticeSocialAccountsContent: React.FC = () => {
                     <div className="text-sm text-gray-600">
                       {platform.value === 'gmail' ? (
                         <>
-                          <p className="font-medium">OAuth Credentials Saved</p>
-                          <p className="text-xs text-gray-500">Click below to connect Gmail</p>
-                          {!gmailConnected && (
-                            <Button
-                              size="sm"
-                              variant="primary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // Initiate OAuth flow
-                                const stateData = {
-                                  practice_id: practiceId,
-                                  redirect_origin: window.location.origin
-                                };
-                                const state = btoa(JSON.stringify(stateData));
-                                
-                                const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-                                authUrl.searchParams.append('client_id', connectedAccount.client_id);
-                                authUrl.searchParams.append('redirect_uri', `${window.location.origin}/settings`);
-                                authUrl.searchParams.append('response_type', 'code');
-                                authUrl.searchParams.append('scope', 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/userinfo.email');
-                                authUrl.searchParams.append('access_type', 'offline');
-                                authUrl.searchParams.append('prompt', 'consent');
-                                authUrl.searchParams.append('state', state);
-                                
-                                window.location.href = authUrl.toString();
-                              }}
-                              className="mt-2 w-full bg-gradient-to-r from-red-500 to-red-600 text-white"
-                            >
-                              <Icon icon="logos:google-icon" className="w-4 h-4 mr-1" />
-                              Connect Gmail Account
-                            </Button>
-                          )}
-                          {gmailConnected && (
+                          {gmailConnected ? (
                             <p className="text-xs text-green-600 mt-1">✓ Gmail fully connected</p>
+                          ) : (
+                            <p className="text-xs text-gray-500">Click to configure</p>
                           )}
                         </>
                       ) : (
@@ -3324,23 +3341,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
 
             {/* Content Area */}
             <div className="flex-1 overflow-auto p-6 bg-white">
-              {formData.platform === 'gmail' ? (
-                // For Gmail, show DirectGmailSetup component
-                <DirectGmailSetup 
-                  onSuccess={() => {
-                    setShowAddModal(false);
-                    loadSocialAccounts(); // Refresh to show connected status
-                    // Show success notification
-                    const successDiv = document.createElement('div');
-                    successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-                    successDiv.textContent = 'Gmail connected successfully!';
-                    document.body.appendChild(successDiv);
-                    setTimeout(() => {
-                      document.body.removeChild(successDiv);
-                    }, 3000);
-                  }}
-                />
-              ) : (
+              {(
                 // For other platforms, show the regular form
                 <form onSubmit={(e) => {
                   e.preventDefault();
@@ -4479,6 +4480,16 @@ const PracticeSocialAccountsContent: React.FC = () => {
           </motion.div>
         </div>
       )}
+
+      {/* Gmail Settings Modal */}
+      <GmailSettingsModal
+        isOpen={showGmailModal}
+        onClose={() => setShowGmailModal(false)}
+        onConnectionChange={() => {
+          loadSocialAccounts();
+          checkGmailConnection();
+        }}
+      />
     </div>
   );
 };
