@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { communicationService } from './communicationService';
+import { communicationService, EmailAttachment } from './communicationService';
 import { useAuthStore } from '../stores/authStore';
 
 interface EmailData {
@@ -41,6 +41,7 @@ interface PracticeEmailData {
   appointmentId?: string;
   visitId?: string;
   invoiceId?: string;
+  attachments?: File[];
 }
 
 class EmailEdgeService {
@@ -669,10 +670,39 @@ class EmailEdgeService {
   }
 
   /**
+   * Convert File to base64 string
+   */
+  private async fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        // Extract base64 part from data URL
+        const result = reader.result as string;
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = error => reject(error);
+    });
+  }
+
+  /**
    * Send a practice email with premium template
    */
   async sendPracticeEmail(data: PracticeEmailData): Promise<EmailResponse> {
     const htmlContent = this.generatePracticeEmailHTML(data);
+    
+    // Convert File attachments to EmailAttachment format
+    let emailAttachments: EmailAttachment[] | undefined;
+    if (data.attachments && data.attachments.length > 0) {
+      emailAttachments = await Promise.all(
+        data.attachments.map(async (file) => ({
+          filename: file.name,
+          content: await this.fileToBase64(file),
+          type: file.type
+        }))
+      );
+    }
     
     return this.sendEmail({
       to: data.recipientEmail,
@@ -683,7 +713,8 @@ class EmailEdgeService {
       patientId: data.patientId,
       appointmentId: data.appointmentId,
       visitId: data.visitId,
-      invoiceId: data.invoiceId
+      invoiceId: data.invoiceId,
+      attachments: emailAttachments
     });
   }
 }

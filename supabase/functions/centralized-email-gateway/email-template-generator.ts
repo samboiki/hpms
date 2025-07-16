@@ -125,10 +125,21 @@ export function generateEmailHTML(data: EmailTemplateData): string {
                                             ${htmlContent}
                                         </div>
                                         ${practiceWebsite ? `
-                                        <div style="text-align: right; margin-top: 24px;">
-                                            <a href="${practiceWebsite}" style="display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 500; border-radius: 6px;">
-                                                Visit us →
-                                            </a>
+                                        <div style="text-align: center; margin-top: 32px;">
+                                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center">
+                                                <tr>
+                                                    <td style="border-radius: 8px; background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%);">
+                                                        <a href="${practiceWebsite}" target="_blank" style="background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%); border: none; border-radius: 8px; padding: 14px 32px; font-family: -apple-system, system-ui, BlinkMacSystemFont; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none; text-align: center; display: inline-block; mso-padding-alt: 0; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); transition: all 0.3s ease;">
+                                                            <!--[if mso]><i style="letter-spacing: 32px; mso-font-width: -100%; mso-text-raise: 30pt;">&nbsp;</i><![endif]-->
+                                                            <span style="mso-text-raise: 15pt;">Visit Our Website</span>
+                                                            <!--[if mso]><i style="letter-spacing: 32px; mso-font-width: -100%;">&nbsp;</i><![endif]-->
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                            <p style="margin-top: 16px; font-size: 13px; color: #6b7280; font-style: italic;">
+                                                Book appointments, view your medical records, and more
+                                            </p>
                                         </div>
                                         ` : ''}
                                     </td>
