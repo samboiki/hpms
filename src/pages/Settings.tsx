@@ -16,12 +16,8 @@ import { usePractice } from '../contexts/PracticeContext';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
 import TimePickerModal from '../components/ui/TimePickerModal';
 import { platformSettings, getPlatformDefaults } from '../config/socialPlatformSettings';
-import { DirectGmailSetup } from '../components/settings/DirectGmailSetup';
-import { OAuthDebugger } from '../components/oauth/OAuthDebugger';
-import { ManualOAuthProcessor } from '../components/settings/ManualOAuthProcessor';
-import { OAuthCredentialsTest } from '../components/settings/OAuthCredentialsTest';
-import { OAuthRedirectTest } from '../components/settings/OAuthRedirectTest';
 import { GmailSettingsModal } from '../components/settings/GmailSettingsModal';
+import { GmailOAuthSettings } from '../components/settings/GmailOAuthSettings';
 
 // Iconify is now handled by @iconify/react package
 
@@ -790,18 +786,7 @@ const Settings: React.FC = () => {
           )}
           
           {activeTab === 'social' && (
-            <>
-              <PracticeSocialAccountsContent />
-              {/* OAuth Debug Components - only show if we have OAuth params */}
-              {(window.location.search.includes('oauth_') || window.location.search.includes('code=')) && (
-                <div className="mt-6 space-y-6">
-                  <OAuthRedirectTest />
-                  <ManualOAuthProcessor />
-                  <OAuthDebugger />
-                  <OAuthCredentialsTest />
-                </div>
-              )}
-            </>
+            <PracticeSocialAccountsContent />
           )}
             </div>
           </div>
@@ -2726,6 +2711,28 @@ const PracticeSocialAccountsContent: React.FC = () => {
       setSocialAccounts(socialAccountsResponse.data || []);
       setOauthApps(oauthAppsResponse.data || []);
       setGmailConnected(!!oauthCredsResponse.data);
+      
+      // If Gmail is connected, add it to social accounts with email
+      if (oauthCredsResponse.data) {
+        setSocialAccounts(prev => {
+          const hasGmail = prev.some(acc => acc.platform === 'gmail');
+          if (!hasGmail) {
+            return [...prev, {
+              id: `gmail-oauth-${practiceId}`, // Use consistent ID based on practice
+              platform: 'gmail',
+              account_name: oauthCredsResponse.data.email,
+              username: oauthCredsResponse.data.email,
+              profile_url: '',
+              is_connected: true
+            }];
+          }
+          return prev.map(acc => 
+            acc.platform === 'gmail' 
+              ? { ...acc, account_name: oauthCredsResponse.data.email, username: oauthCredsResponse.data.email }
+              : acc
+          );
+        });
+      }
     } catch (error) {
       console.error('Error loading social accounts:', error);
     } finally {
@@ -2744,6 +2751,67 @@ const PracticeSocialAccountsContent: React.FC = () => {
     if (code && (state === 'gmail_oauth_social' || state === 'gmail_oauth_connect')) {
       handleGmailOAuthCallback(code, state);
     }
+    
+    // Listen for Gmail connection success
+    const handleGmailConnected = (event: CustomEvent) => {
+      setGmailConnected(true);
+      // Optionally update the social accounts list with Gmail info
+      setSocialAccounts(prev => {
+        const gmailAccount = prev.find(acc => acc.platform === 'gmail');
+        if (gmailAccount) {
+          return prev.map(acc => 
+            acc.platform === 'gmail' 
+              ? { ...acc, account_name: event.detail.email, username: event.detail.email }
+              : acc
+          );
+        } else {
+          // Add Gmail to social accounts if not already there
+          return [...prev, {
+            id: `gmail-oauth-${practiceId}`, // Use consistent ID based on practice
+            platform: 'gmail',
+            account_name: event.detail.email,
+            username: event.detail.email,
+            profile_url: '',
+            is_connected: true
+          }];
+        }
+      });
+      
+      // Show success animation
+      const gmailCard = document.querySelector('[data-platform="gmail"]');
+      if (gmailCard) {
+        // Add success styles
+        gmailCard.classList.add('ring-2', 'ring-green-500', 'ring-offset-2', 'bg-green-50', 'transition-all');
+        
+        // Remove animation after delay
+        setTimeout(() => {
+          gmailCard.classList.add('transition-all', 'duration-1000');
+          gmailCard.classList.remove('ring-2', 'ring-green-500', 'ring-offset-2', 'bg-green-50');
+        }, 3000);
+      }
+      
+      // Close the modal if it's open
+      setShowGmailModal(false);
+    };
+    
+    window.addEventListener('gmail-connected', handleGmailConnected as EventListener);
+    
+    // Listen for Gmail disconnection
+    const handleGmailDisconnected = () => {
+      setGmailConnected(false);
+      // Remove Gmail from social accounts or update its status
+      setSocialAccounts(prev => prev.filter(acc => acc.platform !== 'gmail'));
+      
+      // Close the modal if it's open
+      setShowGmailModal(false);
+    };
+    
+    window.addEventListener('gmail-disconnected', handleGmailDisconnected);
+    
+    return () => {
+      window.removeEventListener('gmail-connected', handleGmailConnected as EventListener);
+      window.removeEventListener('gmail-disconnected', handleGmailDisconnected);
+    };
   }, [practiceId]);
   
   const handleGmailOAuthCallback = async (code: string, state: string) => {
@@ -3050,6 +3118,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
               return (
                 <div 
                   key={platform.value} 
+                  data-platform={platform.value}
                   className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all cursor-pointer"
                   onClick={() => {
                     if (platform.value === 'gmail') {
@@ -3092,7 +3161,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
                     </div>
                     {isConnected && (platform.value === 'gmail' ? gmailConnected : true) ? (
                       <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                         <span className="text-xs text-green-600 font-medium">Connected</span>
                       </div>
                     ) : (
@@ -3134,18 +3203,35 @@ const PracticeSocialAccountsContent: React.FC = () => {
                     )}
                   </div>
                   {isConnected && (
-                    <div className="text-sm text-gray-600">
+                    <div className="mt-3 pt-3 border-t border-gray-100">
                       {platform.value === 'gmail' ? (
                         <>
                           {gmailConnected ? (
-                            <p className="text-xs text-green-600 mt-1">✓ Gmail fully connected</p>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-gray-600 flex items-center gap-1">
+                                  <Icon icon="solar:mail-bold" className="w-3 h-3 text-green-500" />
+                                  {connectedAccount?.account_name || connectedAccount?.username || 'Gmail account'}
+                                </p>
+                                <div className="flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded-full">
+                                  <Icon icon="solar:check-circle-bold" className="w-3 h-3 text-green-600" />
+                                  <span className="text-xs font-medium text-green-700">Active</span>
+                                </div>
+                              </div>
+                              <div className="bg-green-50 rounded-md p-2">
+                                <p className="text-xs text-green-700 flex items-center gap-1">
+                                  <Icon icon="solar:shield-check-bold" className="w-3 h-3" />
+                                  Ready to send automated emails
+                                </p>
+                              </div>
+                            </div>
                           ) : (
                             <p className="text-xs text-gray-500">Click to configure</p>
                           )}
                         </>
                       ) : (
                         <>
-                          <p className="font-medium">{connectedAccount.account_name}</p>
+                          <p className="font-medium text-sm">{connectedAccount.account_name}</p>
                           <p className="text-xs text-gray-500">{connectedAccount.username}</p>
                         </>
                       )}
@@ -4487,9 +4573,14 @@ const PracticeSocialAccountsContent: React.FC = () => {
         onClose={() => setShowGmailModal(false)}
         onConnectionChange={() => {
           loadSocialAccounts();
-          checkGmailConnection();
         }}
       />
+      
+      {/* Gmail OAuth Settings - handles OAuth callbacks automatically */}
+      {/* This component is hidden but processes OAuth codes when present */}
+      <div style={{ display: 'none' }}>
+        <GmailOAuthSettings />
+      </div>
     </div>
   );
 };

@@ -115,16 +115,30 @@ class EdgeFunctionService {
     practiceId: string;
     recipientEmail: string;
     recipientName?: string;
-    subject: string;
-    textContent: string;
+    senderEmail?: string;
+    senderName?: string;
+    subject?: string;
+    textContent?: string;
     htmlContent?: string;
     emailType?: string;
+    attachments?: Array<{
+      filename: string;
+      content: string;
+      type?: string;
+    }>;
     patientId?: string;
     appointmentId?: string;
     visitId?: string;
     invoiceId?: string;
+    metadata?: Record<string, unknown>;
+    tags?: string[];
+    templateId?: string;
+    templateVariables?: Array<{
+      key: string;
+      value: string;
+    }>;
   }) {
-    return this.invoke('email-gateway-v2', { body: params });
+    return this.invoke('centralized-email-gateway', { body: params });
   }
 
   /**

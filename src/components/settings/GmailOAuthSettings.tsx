@@ -252,8 +252,18 @@ export const GmailOAuthSettings: React.FC = () => {
         if (!saveError) {
           toast.success('Gmail connected successfully!');
           // Clear URL and refresh
-          window.history.replaceState({}, document.title, window.location.pathname);
+          window.history.replaceState({}, document.title, window.location.pathname + '?tab=social');
           await checkGmailConnection();
+          
+          // Emit custom event to notify other components
+          const event = new CustomEvent('gmail-connected', { 
+            detail: { 
+              email: userInfo.email,
+              name: userInfo.name,
+              picture: userInfo.picture 
+            } 
+          });
+          window.dispatchEvent(event);
         } else {
           console.error('Save error:', saveError);
           toast.error('Failed to save credentials');
@@ -301,7 +311,12 @@ export const GmailOAuthSettings: React.FC = () => {
 
       if (error) throw error;
 
-      toast.success('Gmail account disconnected');
+      // Don't show toast here - let the component that initiated disconnect handle it
+      
+      // Emit disconnect event
+      const event = new CustomEvent('gmail-disconnected');
+      window.dispatchEvent(event);
+      
       await checkGmailConnection();
     } catch (error) {
       console.error('Error disconnecting Gmail:', error);
