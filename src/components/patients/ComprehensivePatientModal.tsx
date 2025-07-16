@@ -71,8 +71,7 @@ import NextOfKinForm from '../forms/NextOfKinForm';
 import FullScreenEditVisitModal from '../visits/FullScreenEditVisitModal';
 import FullScreenAddVisitModal from '../visits/FullScreenAddVisitModal';
 import MedicalAidForm from '../forms/MedicalAidForm';
-import SendMessageModal from '../modals/SendMessageModal';
-import SendEmailModal from '../modals/SendEmailModal';
+import UnifiedCommunicationModal from '../modals/UnifiedCommunicationModal';
 import PremiumConfirmationModal from '../modals/PremiumConfirmationModal';
 import PremiumFolderTabs from './PremiumFolderTabs';
 import VitalsForm from '../forms/VitalsForm';
@@ -3802,30 +3801,18 @@ OneHealth Medical Team`;
         </FormModal>
       )}
 
-      <SendMessageModal
+      <UnifiedCommunicationModal
         isOpen={modalState.modalState.isMessageModalOpen}
         onClose={() => modalState.closeMessageModal()}
         patient={selectedPatientDetails ? {
           id: selectedPatientDetails.id,
           first_name: selectedPatientDetails.first_name,
           last_name: selectedPatientDetails.last_name,
-          cell_number: selectedPatientDetails.cell_number || ''
+          cell_number: selectedPatientDetails.cell_number || '',
+          email: selectedPatientDetails.email || ''
         } : null}
       />
 
-      <SendEmailModal
-        isOpen={modalState.modalState.isEmailModalOpen}
-        onClose={() => modalState.closeEmailModal()}
-        patients={(selectedPatientIds.size > 0 
-          ? patients.filter(p => selectedPatientIds.has(p.id))
-          : filteredPatients
-        ).filter(p => p.email && p.email.trim() !== '').map(p => ({
-          id: p.id,
-          first_name: p.first_name,
-          last_name: p.last_name,
-          email: p.email
-        }))}
-      />
       
       <FormModal
         isOpen={modalState.modalState.isVitalsModalOpen}

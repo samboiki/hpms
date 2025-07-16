@@ -26,8 +26,32 @@ export function generateEmailHTML(data: EmailTemplateData): string {
     secondaryColor = '#6366f1'
   } = data;
 
-  // Convert line breaks to HTML
-  const htmlContent = content.replace(/\n/g, '<br>');
+  // Convert line breaks to HTML paragraphs with proper spacing
+  // Also handle bullet points and bold labels
+  const htmlContent = content
+    .split('\n\n')
+    .map(paragraph => {
+      // Check if paragraph contains bullet points
+      if (paragraph.includes('•')) {
+        const lines = paragraph.split('\n');
+        const items = lines.map(line => {
+          if (line.trim().startsWith('•')) {
+            // Handle bold labels (e.g., "Time: value" becomes "<b>Time:</b> value")
+            const bulletContent = line.substring(1).trim();
+            const formattedContent = bulletContent.replace(/^(\w+):\s*(.+)$/, '<strong>$1:</strong> $2');
+            return `<li style="margin-bottom: 8px;">${formattedContent}</li>`;
+          }
+          return line;
+        }).filter(line => line.includes('<li>'));
+        
+        return `<ul style="margin: 0 0 16px 0; padding-left: 20px;">${items.join('')}</ul>`;
+      }
+      
+      // Handle bold labels in regular paragraphs too
+      const formattedParagraph = paragraph.replace(/^(\w+):\s*(.+)$/gm, '<strong>$1:</strong> $2');
+      return `<p style="margin: 0 0 16px 0;">${formattedParagraph.replace(/\n/g, '<br>')}</p>`;
+    })
+    .join('');
 
   return `
 <!DOCTYPE html>
@@ -36,7 +60,6 @@ export function generateEmailHTML(data: EmailTemplateData): string {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${data.subject}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
     <!--[if mso]>
     <noscript>
         <xml>
@@ -69,97 +92,44 @@ export function generateEmailHTML(data: EmailTemplateData): string {
             .mobile-center { text-align: center !important; }
             .container { width: 100% !important; max-width: 100% !important; }
             .mobile-padding { padding: 20px !important; }
+            .logo { max-width: 150px !important; max-height: 50px !important; }
         }
     </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: 'Montserrat', Arial, sans-serif;">
-    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f3f4f6;">
+<body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f5f5f5;">
         <tr>
-            <td align="center" style="padding: 40px 0;">
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" class="container" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07); overflow: hidden;">
+            <td align="center" style="padding: 20px 0;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="700" class="container" style="max-width: 700px; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                     
-                    <!-- Header -->
+                    <!-- Header with Logo -->
                     <tr>
-                        <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%); padding: 40px 40px 30px 40px;" class="mobile-padding">
-                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                                <tr>
-                                    <td align="center">
-                                        ${practiceLogo ? `
-                                        <img src="${practiceLogo}" alt="${practiceName}" style="max-height: 60px; max-width: 200px; height: auto; display: block; margin: 0 auto 20px;">
-                                        ` : ''}
-                                        <h1 style="margin: 0; font-family: 'Rubik', Arial, sans-serif; font-size: 32px; font-weight: 700; color: #ffffff; text-align: center; line-height: 1.2;">
-                                            ${practiceName}
-                                        </h1>
-                                        ${practiceAddress ? `
-                                        <p style="margin: 10px 0 0 0; font-family: 'Montserrat', Arial, sans-serif; font-size: 14px; color: rgba(255, 255, 255, 0.9); text-align: center;">
-                                            Excellence in Healthcare
-                                        </p>
-                                        ` : ''}
-                                    </td>
-                                </tr>
-                            </table>
+                        <td style="padding: 24px 24px 20px 24px; border-bottom: 1px dashed #e5e7eb;">
+                            ${practiceLogo ? `
+                            <img src="${practiceLogo}" alt="${practiceName}" class="logo" style="max-height: 60px; max-width: 200px; height: auto; display: block; margin: 0; padding: 0;">
+                            ` : `
+                            <h1 style="margin: 0; font-family: -apple-system, system-ui, BlinkMacSystemFont; font-size: 24px; font-weight: 600; color: #111827; line-height: 1.2;">
+                                ${practiceName}
+                            </h1>
+                            `}
                         </td>
                     </tr>
                     
                     <!-- Content -->
                     <tr>
-                        <td style="padding: 40px 40px 30px 40px;" class="mobile-padding">
+                        <td style="padding: 32px 24px;" class="mobile-padding">
                             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                                 <tr>
-                                    <td style="font-family: 'Montserrat', Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #333333;">
-                                        ${recipientName ? `<p style="margin: 0 0 20px 0; font-size: 18px;">Dear ${recipientName},</p>` : ''}
-                                        ${htmlContent}
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    
-                    <!-- Call to Action (if needed) -->
-                    <tr>
-                        <td style="padding: 0 40px 40px 40px;" class="mobile-padding">
-                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                                <tr>
-                                    <td align="center">
-                                        ${practicePhone ? `
-                                        <a href="tel:${practicePhone.replace(/\s/g, '')}" style="display: inline-block; padding: 14px 30px; background-color: ${primaryColor}; color: #ffffff; text-decoration: none; font-family: 'Rubik', Arial, sans-serif; font-size: 16px; font-weight: 600; border-radius: 8px; transition: background-color 0.3s ease;">
-                                            Call Us: ${practicePhone}
-                                        </a>
-                                        ` : ''}
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    
-                    <!-- Footer -->
-                    <tr>
-                        <td style="background-color: #f8f9fa; padding: 30px 40px;" class="mobile-padding">
-                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                                <tr>
-                                    <td align="center">
-                                        <p style="margin: 0 0 10px 0; font-family: 'Rubik', Arial, sans-serif; font-size: 18px; font-weight: 600; color: ${primaryColor};">
-                                            ${practiceName}
-                                        </p>
-                                        ${practicePhone ? `
-                                        <p style="margin: 0 0 5px 0; font-family: 'Montserrat', Arial, sans-serif; font-size: 14px; color: #666666;">
-                                            📞 ${practicePhone}
-                                        </p>
-                                        ` : ''}
-                                        ${practiceEmail ? `
-                                        <p style="margin: 0 0 5px 0; font-family: 'Montserrat', Arial, sans-serif; font-size: 14px; color: #666666;">
-                                            ✉️ <a href="mailto:${practiceEmail}" style="color: ${primaryColor}; text-decoration: none;">${practiceEmail}</a>
-                                        </p>
-                                        ` : ''}
+                                    <td style="font-family: -apple-system, system-ui, BlinkMacSystemFont; font-size: 14px; line-height: 1.625; color: #525252;">
+                                        <div style="margin: 0.4em 0 1.1875em;">
+                                            ${htmlContent}
+                                        </div>
                                         ${practiceWebsite ? `
-                                        <p style="margin: 0 0 5px 0; font-family: 'Montserrat', Arial, sans-serif; font-size: 14px; color: #666666;">
-                                            🌐 <a href="${practiceWebsite}" style="color: ${primaryColor}; text-decoration: none;">${practiceWebsite}</a>
-                                        </p>
-                                        ` : ''}
-                                        ${practiceAddress ? `
-                                        <p style="margin: 15px 0 0 0; font-family: 'Montserrat', Arial, sans-serif; font-size: 13px; color: #999999; line-height: 1.5;">
-                                            ${practiceAddress}
-                                        </p>
+                                        <div style="text-align: right; margin-top: 24px;">
+                                            <a href="${practiceWebsite}" style="display: inline-block; padding: 10px 20px; background-color: #4f46e5; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 500; border-radius: 6px;">
+                                                Visit us →
+                                            </a>
+                                        </div>
                                         ` : ''}
                                     </td>
                                 </tr>
@@ -167,14 +137,55 @@ export function generateEmailHTML(data: EmailTemplateData): string {
                         </td>
                     </tr>
                     
-                    <!-- Legal Footer -->
+                    
+                    <!-- Compact Footer -->
                     <tr>
-                        <td style="padding: 20px 40px; background-color: #f3f4f6;" class="mobile-padding">
-                            <p style="margin: 0; font-family: 'Montserrat', Arial, sans-serif; font-size: 12px; color: #999999; text-align: center; line-height: 1.5;">
-                                This email was sent by ${practiceName}. If you have any questions or concerns, please contact us.
-                                <br>
-                                © ${new Date().getFullYear()} ${practiceName}. All rights reserved.
-                            </p>
+                        <td style="background-color: #f9fafb; padding: 24px;" class="mobile-padding">
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <!-- Logo -->
+                                        ${practiceLogo ? `
+                                        <img src="${practiceLogo}" alt="${practiceName}" style="max-height: 40px; max-width: 120px; height: auto; display: block; margin: 0 auto 12px;">
+                                        ` : ''}
+                                        
+                                        <!-- Practice Info Compact -->
+                                        <p style="margin: 0 0 8px 0; font-family: -apple-system, system-ui, BlinkMacSystemFont; font-size: 13px; line-height: 18px; color: #4b5563;">
+                                            <strong>${practiceName}</strong>${practiceAddress ? ` • ${practiceAddress}` : ''}
+                                        </p>
+                                        
+                                        <!-- Contact Info Single Line -->
+                                        <p style="margin: 0 0 12px 0; font-family: -apple-system, system-ui, BlinkMacSystemFont; font-size: 12px; line-height: 18px; color: #6b7280;">
+                                            ${practicePhone ? `Tel: <a href="tel:${practicePhone.replace(/\s/g, '')}" style="color: #6b7280; text-decoration: none;">${practicePhone}</a>` : ''}
+                                            ${practicePhone && practiceEmail ? ' • ' : ''}
+                                            ${practiceEmail ? `Email: <a href="mailto:${practiceEmail}" style="color: #6b7280; text-decoration: none;">${practiceEmail}</a>` : ''}
+                                        </p>
+                                        
+                                        <!-- Social Media Icons -->
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center">
+                                            <tr>
+                                                <td style="padding: 0 6px;">
+                                                    <a href="#" style="text-decoration: none;">
+                                                        <img src="https://img.icons8.com/ios-glyphs/30/9ca3af/facebook-new.png" alt="Facebook" style="width: 20px; height: 20px; opacity: 0.6;">
+                                                    </a>
+                                                </td>
+                                                <td style="padding: 0 6px;">
+                                                    <a href="#" style="text-decoration: none;">
+                                                        <img src="https://img.icons8.com/ios-glyphs/30/9ca3af/instagram-new.png" alt="Instagram" style="width: 20px; height: 20px; opacity: 0.6;">
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        
+                                        <!-- Legal text -->
+                                        <p style="margin: 16px 0 0 0; font-family: -apple-system, system-ui, BlinkMacSystemFont; font-size: 10px; color: #9ca3af; text-align: center; line-height: 14px;">
+                                            © ${new Date().getFullYear()} ${practiceName}. All rights reserved. Powered by OneHealth.<br>
+                                            You are receiving this email because you are a patient at ${practiceName}. To update preferences, contact our office.<br>
+                                            This email contains confidential information. If received in error, please delete immediately.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
                         </td>
                     </tr>
                 </table>

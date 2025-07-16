@@ -59,9 +59,13 @@ serve(async (req) => {
 
     const requestData = await req.json();
     console.log('Request data received:', {
-      ...requestData,
-      htmlContent: requestData.htmlContent ? '[HTML CONTENT EXISTS]' : null,
-      textContent: requestData.textContent ? '[TEXT CONTENT EXISTS]' : null
+      practiceId: requestData.practiceId,
+      recipientEmail: requestData.recipientEmail,
+      emailType: requestData.emailType,
+      hasHtmlContent: !!requestData.htmlContent,
+      hasTextContent: !!requestData.textContent,
+      hasSenderName: !!requestData.senderName,
+      senderName: requestData.senderName
     });
 
     const {
@@ -69,7 +73,7 @@ serve(async (req) => {
       recipientEmail,
       recipientName,
       senderEmail = defaultSenderEmail,
-      senderName = 'HPMS',
+      senderName,  // Don't set default here - we'll fetch from practice data
       subject,
       htmlContent,
       textContent,
@@ -167,7 +171,17 @@ serve(async (req) => {
       );
     }
 
-    // Check if practice has Gmail connected first
+    // Get practice details for beautiful template and sender name FIRST
+    const { data: practice } = await supabase
+      .from('practices')
+      .select('name, contact_phone, contact_email, logo_url, primary_color, secondary_color, address, domain')
+      .eq('id', practiceId)
+      .single();
+    
+    // Use practice name as sender name if not provided
+    const finalSenderName = senderName || practice?.name || 'Healthcare Practice';
+
+    // Check if practice has Gmail connected
     const { data: gmailCredentials } = await supabase
       .from('practice_oauth_credentials')
       .select('*')
@@ -183,7 +197,7 @@ serve(async (req) => {
         recipient_email: recipientEmail,
         recipient_name: recipientName,
         sender_email: senderEmail,
-        sender_name: senderName,
+        sender_name: finalSenderName,
         subject: finalSubject,
         html_content: finalHtmlContent,
         text_content: finalTextContent,
@@ -214,13 +228,6 @@ serve(async (req) => {
       );
     }
 
-    // Get practice details for beautiful template
-    const { data: practice } = await supabase
-      .from('practices')
-      .select('name, contact_phone, contact_email, website_url, physical_address, logo_url, primary_color, secondary_color')
-      .eq('id', practiceId)
-      .single();
-
     let emailProvider = 'resend';
     let providerMessageId = null;
 
@@ -232,11 +239,11 @@ serve(async (req) => {
           subject: finalSubject,
           content: finalTextContent,
           recipientName: recipientName,
-          practiceName: practice?.name || 'Healthcare Practice',
+          practiceName: finalSenderName,  // Use the final sender name which includes fallback logic
           practicePhone: practice?.contact_phone,
           practiceEmail: practice?.contact_email,
-          practiceWebsite: practice?.website_url,
-          practiceAddress: practice?.physical_address,
+          practiceWebsite: practice?.domain ? `https://${practice.domain}` : undefined,
+          practiceAddress: practice?.address,
           practiceLogo: practice?.logo_url,
           primaryColor: practice?.primary_color || '#4f46e5',
           secondaryColor: practice?.secondary_color || '#6366f1'
@@ -251,6 +258,13 @@ serve(async (req) => {
 
       let emailSent = false;
       let emailResult: any = {};
+
+      console.log('Gmail check:', {
+        hasGmailCredentials: !!gmailCredentials,
+        hasRefreshToken: !!(gmailCredentials && gmailCredentials.refresh_token),
+        gmailEmail: gmailCredentials?.email,
+        emailType: emailType
+      });
 
       // Try Gmail first if connected
       if (gmailCredentials && gmailCredentials.refresh_token) {
@@ -304,13 +318,14 @@ serve(async (req) => {
               .single();
 
             if (oauthApp && oauthApp.client_id && oauthApp.client_secret) {
-            // Check if access token is expired
-            const tokenExpired = gmailCredentials.token_expires_at ? 
-              new Date(gmailCredentials.token_expires_at) < new Date() : true;
+              
+              // Check if access token is expired
+              const tokenExpired = gmailCredentials.token_expires_at ? 
+                new Date(gmailCredentials.token_expires_at) < new Date() : true;
 
-            let accessToken = gmailCredentials.access_token;
+              let accessToken = gmailCredentials.access_token;
 
-            if (tokenExpired) {
+              if (tokenExpired) {
               // Refresh the access token
               const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
                 method: 'POST',
@@ -339,11 +354,11 @@ serve(async (req) => {
                   })
                   .eq('id', gmailCredentials.id);
               }
-            }
+              }
 
-            // Create email message in Gmail format
+              // Create email message in Gmail format
             const emailLines = [
-              `From: ${senderName} <${gmailCredentials.email}>`,
+              `From: ${finalSenderName} <${gmailCredentials.email}>`,
               `To: ${recipientName ? `${recipientName} <${recipientEmail}>` : recipientEmail}`,
               `Subject: ${finalSubject}`,
               'MIME-Version: 1.0',
@@ -362,7 +377,10 @@ serve(async (req) => {
               '--boundary--'
             ];
 
-            const rawMessage = btoa(emailLines.join('\r\n'))
+            // Encode to base64 with proper UTF-8 handling
+            // First encode the string to UTF-8, then to base64
+            const messageString = emailLines.join('\r\n');
+            const rawMessage = btoa(unescape(encodeURIComponent(messageString)))
               .replace(/\+/g, '-')
               .replace(/\//g, '_')
               .replace(/=+$/, '');
@@ -403,7 +421,7 @@ serve(async (req) => {
       // If Gmail didn't work or isn't connected, use Resend
       if (!emailSent) {
         const emailData: Record<string, unknown> = {
-          from: `${senderName} <${senderEmail}>`,
+          from: `${finalSenderName} <${senderEmail}>`,
           to: recipientName ? `${recipientName} <${recipientEmail}>` : recipientEmail,
           subject: finalSubject
         };

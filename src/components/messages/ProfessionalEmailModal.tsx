@@ -5,6 +5,7 @@ import FormModal from '../modals/FormModal';
 import { Patient } from '../../stores/patientsStoreNew';
 import { usePractice } from '../../contexts/PracticeContext';
 import { toast } from 'react-hot-toast';
+import { supabase } from '../../lib/supabase';
 
 interface ProfessionalEmailModalProps {
   isOpen: boolean;
@@ -131,7 +132,15 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { practiceData } = usePractice();
+  const { practiceId } = usePractice();
+  const [practiceData, setPracticeData] = useState<{
+    name: string;
+    contact_phone?: string;
+    contact_email?: string;
+    email?: string;
+    domain?: string;
+    address?: string;
+  } | null>(null);
 
   // Initialize email
   useEffect(() => {
@@ -141,6 +150,29 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
       setEmail(recipients[0].email);
     }
   }, [patient, recipients]);
+
+  // Fetch practice data
+  useEffect(() => {
+    const fetchPracticeData = async () => {
+      if (!practiceId) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('practices')
+          .select('name, contact_phone, contact_email, domain, address')
+          .eq('id', practiceId)
+          .single();
+          
+        if (data && !error) {
+          setPracticeData(data);
+        }
+      } catch (error) {
+        console.error('Error fetching practice data:', error);
+      }
+    };
+    
+    fetchPracticeData();
+  }, [practiceId]);
 
   const getRecipientDisplay = () => {
     if (recipients.length > 1) {
@@ -162,9 +194,9 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
       '{{patientName}}': fullName,
       '{{patientFirstName}}': firstName,
       '{{patientLastName}}': lastName,
-      '{{practiceName}}': practiceData?.name || 'HealthCare Clinic',
-      '{{practicePhone}}': practiceData?.contact_phone || '(555) 123-4567',
-      '{{practiceEmail}}': practiceData?.email || 'noreply@healthcare.com',
+      '{{practiceName}}': practiceData?.name || '',
+      '{{practicePhone}}': practiceData?.contact_phone || '',
+      '{{practiceEmail}}': practiceData?.contact_email || practiceData?.email || '',
       '{{currentDate}}': new Date().toLocaleDateString(),
       '{{currentTime}}': new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       '{{birthdayOffer}}': '15% off your next visit',
@@ -387,8 +419,8 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-600">From:</span>
-                    <span className="text-sm font-medium">{practiceData?.name || 'HealthCare Clinic'}</span>
-                    <span className="text-sm text-gray-500">&lt;{practiceData?.email || 'noreply@healthcare.com'}&gt;</span>
+                    <span className="text-sm font-medium">{practiceData?.name || 'Your Practice'}</span>
+                    <span className="text-sm text-gray-500">&lt;{practiceData?.contact_email || practiceData?.email || 'contact@practice.com'}&gt;</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-600">To:</span>
