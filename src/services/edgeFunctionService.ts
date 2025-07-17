@@ -66,6 +66,28 @@ class EdgeFunctionService {
         console.log(`🚀 Calling edge function: ${functionName}`);
       }
       
+      const requestBody = options?.body ? JSON.stringify(options.body) : undefined;
+      
+      // Log the actual request body for email functions
+      if (functionName === 'centralized-email-gateway') {
+        console.log('🌐 EDGE FUNCTION REQUEST BODY SIZE:', requestBody?.length || 0);
+        if (options?.body && typeof options.body === 'object') {
+          const bodyObj = options.body as any;
+          console.log('🌐 EDGE FUNCTION REQUEST DETAILS:', {
+            practiceId: bodyObj.practiceId,
+            recipientEmail: bodyObj.recipientEmail,
+            subject: bodyObj.subject,
+            hasAttachments: !!(bodyObj.attachments && bodyObj.attachments.length > 0),
+            attachmentCount: bodyObj.attachments?.length || 0,
+            attachments: bodyObj.attachments?.map((att: any) => ({
+              filename: att.filename,
+              contentLength: att.content?.length || 0,
+              type: att.type
+            })) || []
+          });
+        }
+      }
+      
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -73,10 +95,22 @@ class EdgeFunctionService {
           'Content-Type': 'application/json',
           ...options?.headers
         },
-        body: options?.body ? JSON.stringify(options.body) : undefined
+        body: requestBody
       });
 
       const data = await response.json();
+
+      if (functionName === 'centralized-email-gateway') {
+        console.log('🌐 EDGE FUNCTION RESPONSE:', {
+          status: response.status,
+          ok: response.ok,
+          success: data.success,
+          error: data.error,
+          logId: data.logId,
+          messageId: data.messageId,
+          provider: data.provider
+        });
+      }
 
       if (!response.ok) {
         // Only log errors for non-SMS functions or if SMS actually failed
@@ -138,6 +172,15 @@ class EdgeFunctionService {
       value: string;
     }>;
   }) {
+    console.log('🚀 EdgeFunctionService.sendEmail called:', {
+      practiceId: params.practiceId,
+      recipientEmail: params.recipientEmail,
+      subject: params.subject,
+      hasAttachments: !!(params.attachments && params.attachments.length > 0),
+      attachmentCount: params.attachments?.length || 0,
+      attachments: params.attachments?.map(att => ({ filename: att.filename, contentLength: att.content.length, type: att.type }))
+    });
+    
     return this.invoke('centralized-email-gateway', { body: params });
   }
 

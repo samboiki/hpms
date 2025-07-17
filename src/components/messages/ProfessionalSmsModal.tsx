@@ -12,7 +12,7 @@ interface ProfessionalSmsModalProps {
   patient?: Patient | null;
   patientName?: string;
   patientPhone?: string;
-  onSend?: (phone: string, message: string) => void;
+  onSend?: (recipients: any[], message: string) => Promise<{ success: boolean; successCount: number; failureCount: number }>;
   isSending?: boolean;
   recipients?: Array<{ id: string; first_name: string; last_name: string; cell_number?: string }>;
 }
@@ -166,23 +166,69 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
     setShowTemplateDropdown(false);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
+    console.log('📱 PROFESSIONAL SMS MODAL - SEND BUTTON CLICKED');
+    console.log('📱 Current message:', message);
+    
     if (!message.trim()) {
       toast.error('Please enter a message');
       return;
     }
 
-    if (recipients.length > 1) {
-      // Multiple recipients
-      recipients.forEach(recipient => {
-        if (recipient.cell_number && onSend) {
-          onSend(recipient.cell_number, message);
+    // Pass raw templates to be processed individually for each patient
+    console.log('📱 Templates ready for individual processing:');
+    console.log('📱 Raw message preview:', message.substring(0, 100) + '...');
+    console.log('📱 Recipients length:', recipients.length);
+    console.log('📱 Single phone:', phone);
+
+    try {
+      // Determine recipients list
+      let recipientsList: any[] = [];
+      
+      if (recipients.length > 0) {
+        // Multiple recipients or bulk sending
+        recipientsList = recipients.filter(r => r.cell_number && r.cell_number.trim() !== '');
+        console.log('📱 BULK SENDING TO RECIPIENTS:', recipientsList.length);
+      } else if (patient && phone) {
+        // Single patient - process template for this specific patient
+        const processedMessage = replaceVariables(message);
+        
+        recipientsList = [{ 
+          id: patient.id, 
+          first_name: patient.first_name, 
+          last_name: patient.last_name, 
+          cell_number: phone 
+        }];
+        console.log('📱 SINGLE PATIENT SENDING TO:', phone);
+        
+        // For single patient, process templates here and pass processed version
+        const result = await onSend!(recipientsList, processedMessage);
+        if (result.success) {
+          onClose();
         }
-      });
-    } else if (phone && onSend) {
-      // Single recipient
-      onSend(phone, message);
+        return;
+      }
+      
+      if (recipientsList.length === 0) {
+        toast.error('No valid recipients found');
+        return;
+      }
+      
+      // Call the bulk handler with all recipients at once (templates will be processed individually)
+      console.log('📱 CALLING BULK SMS HANDLER');
+      const result = await onSend!(recipientsList, message);
+      
+      // Modal is closed by the parent component based on success
+      if (result.success) {
+        onClose();
+      }
+      
+    } catch (error) {
+      console.error('Error in SMS send:', error);
+      toast.error('Failed to send SMS. Please try again.');
     }
+    
+    console.log('📱 PROFESSIONAL SMS MODAL - SEND COMPLETE');
   };
 
   const characterCount = message.length;

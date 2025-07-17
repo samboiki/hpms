@@ -58,6 +58,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const requestData = await req.json();
+    console.log('=== EMAIL GATEWAY REQUEST DEBUG ===');
     console.log('Request data received:', {
       practiceId: requestData.practiceId,
       recipientEmail: requestData.recipientEmail,
@@ -65,7 +66,14 @@ serve(async (req) => {
       hasHtmlContent: !!requestData.htmlContent,
       hasTextContent: !!requestData.textContent,
       hasSenderName: !!requestData.senderName,
-      senderName: requestData.senderName
+      senderName: requestData.senderName,
+      hasAttachments: !!(requestData.attachments && requestData.attachments.length > 0),
+      attachmentCount: requestData.attachments?.length || 0,
+      attachments: requestData.attachments?.map(att => ({
+        filename: att.filename,
+        contentLength: att.content?.length || 0,
+        type: att.type
+      })) || []
     });
 
     const {
@@ -356,26 +364,73 @@ serve(async (req) => {
               }
               }
 
-              // Create email message in Gmail format
+              // Create email message in Gmail format with attachment support
+            const boundary = 'boundary_' + Math.random().toString(36).substr(2, 9);
+            const attachmentBoundary = 'attachment_' + Math.random().toString(36).substr(2, 9);
+            
             const emailLines = [
               `From: ${finalSenderName} <${gmailCredentials.email}>`,
               `To: ${recipientName ? `${recipientName} <${recipientEmail}>` : recipientEmail}`,
               `Subject: ${finalSubject}`,
-              'MIME-Version: 1.0',
-              'Content-Type: multipart/alternative; boundary="boundary"',
-              '',
-              '--boundary',
-              'Content-Type: text/plain; charset=UTF-8',
-              '',
-              finalTextContent || '',
-              '',
-              '--boundary',
-              'Content-Type: text/html; charset=UTF-8',
-              '',
-              finalHtmlContent || '',
-              '',
-              '--boundary--'
+              'MIME-Version: 1.0'
             ];
+
+            // Handle mixed content with attachments
+            if (attachments && attachments.length > 0) {
+              emailLines.push(`Content-Type: multipart/mixed; boundary="${attachmentBoundary}"`);
+              emailLines.push('');
+              emailLines.push(`--${attachmentBoundary}`);
+              emailLines.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
+              emailLines.push('');
+              
+              // Text content
+              emailLines.push(`--${boundary}`);
+              emailLines.push('Content-Type: text/plain; charset=UTF-8');
+              emailLines.push('');
+              emailLines.push(finalTextContent || '');
+              emailLines.push('');
+              
+              // HTML content
+              emailLines.push(`--${boundary}`);
+              emailLines.push('Content-Type: text/html; charset=UTF-8');
+              emailLines.push('');
+              emailLines.push(finalHtmlContent || '');
+              emailLines.push('');
+              emailLines.push(`--${boundary}--`);
+              
+              // Add attachments
+              for (const attachment of attachments) {
+                emailLines.push('');
+                emailLines.push(`--${attachmentBoundary}`);
+                emailLines.push(`Content-Type: ${attachment.type || 'application/octet-stream'}`);
+                emailLines.push('Content-Transfer-Encoding: base64');
+                emailLines.push(`Content-Disposition: attachment; filename="${attachment.filename}"`);
+                emailLines.push('');
+                emailLines.push(attachment.content);
+              }
+              
+              emailLines.push('');
+              emailLines.push(`--${attachmentBoundary}--`);
+            } else {
+              // No attachments, use alternative boundary
+              emailLines.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
+              emailLines.push('');
+              
+              // Text content
+              emailLines.push(`--${boundary}`);
+              emailLines.push('Content-Type: text/plain; charset=UTF-8');
+              emailLines.push('');
+              emailLines.push(finalTextContent || '');
+              emailLines.push('');
+              
+              // HTML content
+              emailLines.push(`--${boundary}`);
+              emailLines.push('Content-Type: text/html; charset=UTF-8');
+              emailLines.push('');
+              emailLines.push(finalHtmlContent || '');
+              emailLines.push('');
+              emailLines.push(`--${boundary}--`);
+            }
 
             // Encode to base64 with proper UTF-8 handling
             // First encode the string to UTF-8, then to base64
@@ -386,6 +441,11 @@ serve(async (req) => {
               .replace(/=+$/, '');
 
             // Send email via Gmail API
+            console.log('=== SENDING VIA GMAIL API ===');
+            console.log('Access token length:', accessToken?.length || 0);
+            console.log('Message length:', rawMessage.length);
+            console.log('Has attachments:', !!(attachments && attachments.length > 0));
+            
             const gmailResponse = await fetch('https://www.googleapis.com/gmail/v1/users/me/messages/send', {
               method: 'POST',
               headers: {
@@ -397,15 +457,21 @@ serve(async (req) => {
               }),
             });
 
+            console.log('Gmail API response status:', gmailResponse.status);
+            
             if (gmailResponse.ok) {
               const gmailResult = await gmailResponse.json();
               emailSent = true;
               emailResult = { id: gmailResult.id };
               providerMessageId = gmailResult.id;
-              console.log('Email sent successfully via Gmail:', gmailResult);
+              console.log('✅ Email sent successfully via Gmail:', gmailResult);
             } else {
               const errorText = await gmailResponse.text();
-              console.error('Gmail API error:', errorText);
+              console.error('❌ Gmail API error:', {
+                status: gmailResponse.status,
+                statusText: gmailResponse.statusText,
+                error: errorText
+              });
               throw new Error(`Gmail API error: ${errorText}`);
             }
           } else {
@@ -413,13 +479,18 @@ serve(async (req) => {
           }
           }
         } catch (gmailError) {
-          console.error('Gmail sending failed, falling back to Resend:', gmailError);
+          console.error('❌ Gmail sending failed, falling back to Resend:', gmailError);
           emailProvider = 'resend';
+          emailSent = false; // Ensure we try Resend
         }
       }
 
       // If Gmail didn't work or isn't connected, use Resend
       if (!emailSent) {
+        console.log('=== SENDING VIA RESEND ===');
+        console.log('Email provider:', emailProvider);
+        console.log('Attachments to send:', attachments?.length || 0);
+        
         const emailData: Record<string, unknown> = {
           from: `${finalSenderName} <${senderEmail}>`,
           to: recipientName ? `${recipientName} <${recipientEmail}>` : recipientEmail,
@@ -435,6 +506,9 @@ serve(async (req) => {
             content: att.content,
             type: att.type || 'application/octet-stream'
           }));
+          console.log('✅ Attachments added to Resend payload:', emailData.attachments.length);
+        } else {
+          console.log('⚠️ No attachments to add to Resend payload');
         }
 
         console.log('Sending to Resend API:', {
@@ -473,6 +547,13 @@ serve(async (req) => {
         if (emailResponse.ok && emailResult.id) {
           emailSent = true;
           providerMessageId = emailResult.id;
+          console.log('✅ Email sent successfully via Resend:', emailResult.id);
+        } else {
+          console.error('❌ Resend API failed:', {
+            status: emailResponse.status,
+            statusText: emailResponse.statusText,
+            emailResult: emailResult
+          });
         }
       }
 

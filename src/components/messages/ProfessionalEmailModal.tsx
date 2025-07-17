@@ -11,7 +11,7 @@ interface ProfessionalEmailModalProps {
   isOpen: boolean;
   onClose: () => void;
   patient?: Patient | null;
-  onSend: (email: string, subject: string, message: string) => void;
+  onSend: (recipients: any[], subject: string, message: string, attachments?: File[]) => Promise<{ success: boolean; successCount: number; failureCount: number }>;
   isSending?: boolean;
   recipients?: Array<{ id: string; first_name: string; last_name: string; email?: string }>;
 }
@@ -131,7 +131,9 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
   const [message, setMessage] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
+  const [attachments, setAttachments] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { practiceId } = usePractice();
   const [practiceData, setPracticeData] = useState<{
     name: string;
@@ -185,9 +187,10 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
     return 'Unknown';
   };
 
-  const replaceVariables = (text: string): string => {
-    const firstName = patient?.first_name || recipients[0]?.first_name || 'John';
-    const lastName = patient?.last_name || recipients[0]?.last_name || 'Smith';
+  const replaceVariables = (text: string, specificPatient?: any): string => {
+    const targetPatient = specificPatient || patient || recipients[0];
+    const firstName = targetPatient?.first_name || 'John';
+    const lastName = targetPatient?.last_name || 'Smith';
     const fullName = `${firstName} ${lastName}`;
     
     const variables: Record<string, string> = {
@@ -231,6 +234,9 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
   };
 
   const handleTemplateSelect = (template: EmailTemplate) => {
+    console.log('📋 TEMPLATE SELECTED:', template.name);
+    console.log('📋 Current attachments before template selection:', attachments.length);
+    
     setSelectedTemplate(template);
     if (template.subject) {
       setSubject(template.subject);
@@ -239,9 +245,17 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
       setMessage(template.content);
     }
     setShowTemplateDropdown(false);
+    
+    console.log('📋 Attachments after template selection:', attachments.length);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
+    console.log('🚀 PROFESSIONAL EMAIL MODAL - SEND BUTTON CLICKED');
+    console.log('🚀 Current attachments state:', attachments.length);
+    attachments.forEach((file, index) => {
+      console.log(`🚀 Attachment ${index + 1}:`, { name: file.name, size: file.size, type: file.type });
+    });
+    
     if (!subject.trim()) {
       toast.error('Please enter a subject');
       return;
@@ -251,21 +265,62 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
       return;
     }
 
-    // Process template variables to get final content
-    const processedSubject = replaceVariables(subject);
-    const processedMessage = replaceVariables(message);
+    // Pass raw templates to be processed individually for each patient
+    console.log('🚀 Templates ready for individual processing:');
+    console.log('🚀 Raw subject:', subject);
+    console.log('🚀 Raw message preview:', message.substring(0, 100) + '...');
+    console.log('🚀 Recipients length:', recipients.length);
+    console.log('🚀 Single email:', email);
 
-    if (recipients.length > 1) {
-      // Multiple recipients
-      recipients.forEach(recipient => {
-        if (recipient.email && onSend) {
-          onSend(recipient.email, processedSubject, processedMessage);
+    try {
+      // Determine recipients list
+      let recipientsList: any[] = [];
+      
+      if (recipients.length > 0) {
+        // Multiple recipients or bulk sending
+        recipientsList = recipients.filter(r => r.email && r.email.trim() !== '');
+        console.log('🚀 BULK SENDING TO RECIPIENTS:', recipientsList.length);
+      } else if (patient && email) {
+        // Single patient - process template for this specific patient
+        const processedSubject = replaceVariables(subject, patient);
+        const processedMessage = replaceVariables(message, patient);
+        
+        recipientsList = [{ 
+          id: patient.id, 
+          first_name: patient.first_name, 
+          last_name: patient.last_name, 
+          email: email 
+        }];
+        console.log('🚀 SINGLE PATIENT SENDING TO:', email);
+        
+        // For single patient, process templates here and pass processed versions
+        const result = await onSend(recipientsList, processedSubject, processedMessage, attachments);
+        if (result.success) {
+          onClose();
         }
-      });
-    } else if (email && onSend) {
-      // Single recipient
-      onSend(email, processedSubject, processedMessage);
+        return;
+      }
+      
+      if (recipientsList.length === 0) {
+        toast.error('No valid recipients found');
+        return;
+      }
+      
+      // Call the bulk handler with all recipients at once (templates will be processed individually)
+      console.log('🚀 CALLING BULK EMAIL HANDLER');
+      const result = await onSend(recipientsList, subject, message, attachments);
+      
+      // Modal is closed by the parent component based on success
+      if (result.success) {
+        onClose();
+      }
+      
+    } catch (error) {
+      console.error('Error in email send:', error);
+      toast.error('Failed to send emails. Please try again.');
     }
+    
+    console.log('🚀 PROFESSIONAL EMAIL MODAL - SEND COMPLETE');
   };
 
   return (
@@ -380,6 +435,87 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
                 placeholder="Type your email message here..."
                 style={{ fontFamily: 'Montserrat, sans-serif' }}
               />
+            </div>
+
+            {/* Attachments */}
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-2">Attachments</label>
+              <div className="space-y-3">
+                {/* File Upload Area */}
+                <div 
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-purple-400 transition-colors cursor-pointer"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Icon icon="solar:cloud-upload-bold-duotone" className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600 mb-1">Click to upload files</p>
+                  <p className="text-xs text-gray-500">Support for PDF, DOC, DOCX, JPG, PNG (max 10MB per file)</p>
+                </div>
+                
+                {/* Hidden File Input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                  onChange={(e) => {
+                    console.log('📎 FILE INPUT CHANGE EVENT TRIGGERED');
+                    const files = Array.from(e.target.files || []);
+                    console.log('📎 Files selected:', files.length);
+                    files.forEach((file, index) => {
+                      console.log(`📎 File ${index + 1}:`, { name: file.name, size: file.size, type: file.type });
+                    });
+                    
+                    const validFiles = files.filter(file => file.size <= 10 * 1024 * 1024); // 10MB limit
+                    console.log('📎 Valid files after size check:', validFiles.length);
+                    
+                    if (validFiles.length !== files.length) {
+                      toast.error('Some files exceed the 10MB limit and were not added');
+                      console.log('📎 Some files rejected due to size limit');
+                    }
+                    
+                    setAttachments(prev => {
+                      const newAttachments = [...prev, ...validFiles];
+                      console.log('📎 Setting attachments state:', newAttachments.length, 'total files');
+                      return newAttachments;
+                    });
+                  }}
+                  className="hidden"
+                />
+                
+                {/* Attachment List */}
+                {attachments.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-gray-700">Attached Files:</h4>
+                    {attachments.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Icon 
+                            icon={file.type.includes('pdf') ? 'solar:file-text-bold-duotone' : 
+                                  file.type.includes('image') ? 'solar:gallery-bold-duotone' : 
+                                  'solar:document-bold-duotone'} 
+                            className="w-4 h-4 text-gray-600" 
+                          />
+                          <span className="text-sm text-gray-700">{file.name}</span>
+                          <span className="text-xs text-gray-500">({(file.size / 1024 / 1024).toFixed(1)}MB)</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            console.log('📎 REMOVING ATTACHMENT:', index);
+                            setAttachments(prev => {
+                              const newAttachments = prev.filter((_, i) => i !== index);
+                              console.log('📎 Attachments after removal:', newAttachments.length);
+                              return newAttachments;
+                            });
+                          }}
+                          className="text-red-500 hover:text-red-700 transition-colors"
+                        >
+                          <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

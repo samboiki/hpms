@@ -267,6 +267,16 @@ class CommunicationService {
     let deliveryId: string | undefined;
     
     try {
+      // Debug logging for attachments
+      console.log('📧 CommunicationService.sendEmail called:', {
+        practiceId: request.practiceId,
+        recipientEmail: request.recipientEmail,
+        subject: request.subject,
+        hasAttachments: !!(request.attachments && request.attachments.length > 0),
+        attachmentCount: request.attachments?.length || 0,
+        attachments: request.attachments?.map(att => ({ filename: att.filename, contentLength: att.content.length, type: att.type }))
+      });
+      
       // Create delivery tracking record if notification ID provided
       if (request.notificationId) {
         try {

@@ -439,34 +439,61 @@ export const PatientManagementView: React.FC = () => {
 
   // Get recipients for SMS/Email
   const getSmsRecipients = () => {
-    return filteredPatients.filter(p => p.cell_number && p.cell_number.trim() !== '');
+    // If patients are selected, only send to selected patients
+    const targetPatients = selectedPatients.length > 0 
+      ? filteredPatients.filter(p => selectedPatients.includes(p.id))
+      : filteredPatients;
+    
+    return targetPatients.filter(p => p.cell_number && p.cell_number.trim() !== '');
   };
 
   const getEmailRecipients = () => {
-    return filteredPatients.filter(p => p.email && p.email.trim() !== '');
+    // If patients are selected, only send to selected patients
+    const targetPatients = selectedPatients.length > 0 
+      ? filteredPatients.filter(p => selectedPatients.includes(p.id))
+      : filteredPatients;
+    
+    return targetPatients.filter(p => p.email && p.email.trim() !== '');
   };
 
-  // Handle SMS send for bulk
-  const handleSendSms = async (phone: string, message: string) => {
+  // Handle SMS send for bulk (called by SMS modal)
+  const handleSendSms = async (allRecipients: any[], message: string) => {
+    console.log('📱 BULK SMS SEND STARTED');
+    console.log('- Recipients count:', allRecipients.length);
+    console.log('- Message:', message);
+    
+    // Allow multiple SMS to same number (different patients, same phone)
+    const uniqueRecipients = allRecipients;
+    
     try {
       setIsSendingSms(true);
-      const recipients = getSmsRecipients();
-      
-      if (recipients.length === 0) {
-        toast.error('No patients with valid phone numbers found');
-        return;
-      }
       
       let successCount = 0;
       let failureCount = 0;
+      const processedPatients = new Set<string>(); // Track processed patient IDs
       
-      // Send SMS to each recipient
-      for (const recipient of recipients) {
+      // Send to each recipient individually (allowing multiple SMS to same number)
+      for (const recipient of uniqueRecipients) {
         try {
+          // Additional safeguard - check if this specific patient already processed
+          if (processedPatients.has(recipient.id)) {
+            console.warn(`⚠️ SKIPPING DUPLICATE PATIENT: ${recipient.id}`);
+            continue;
+          }
+          
+          processedPatients.add(recipient.id);
+          console.log('📱 SENDING SMS TO:', recipient.cell_number, 'for patient:', `${recipient.first_name} ${recipient.last_name}`);
+          
+          // Personalize SMS content for this specific patient
+          const personalizedMessage = processTemplateVariables(message, recipient);
+          
+          console.log('📱 PERSONALIZED FOR:', recipient.first_name, recipient.last_name);
+          console.log('📱 Message preview:', personalizedMessage.substring(0, 100) + '...');
+          
           const result = await communicationService.sendSMS({
             practiceId: practiceId!,
             recipientPhone: recipient.cell_number!,
-            messageContent: message,
+            messageContent: personalizedMessage,
             messageType: 'bulk_message',
             patientId: recipient.id
           });
@@ -479,8 +506,10 @@ export const PatientManagementView: React.FC = () => {
           
           if (isActuallySuccessful) {
             successCount++;
+            console.log('✅ SMS sent successfully to:', recipient.cell_number);
           } else {
             failureCount++;
+            console.error(`Failed to send SMS to ${recipient.first_name} ${recipient.last_name}:`, result.error);
           }
         } catch (error) {
           // Check if error indicates success
@@ -496,70 +525,170 @@ export const PatientManagementView: React.FC = () => {
       }
       
       // Show results
-      console.log(`Final counts - Success: ${successCount}, Failures: ${failureCount}`);
+      console.log(`📱 BULK SMS RESULTS - Success: ${successCount}, Failures: ${failureCount}`);
+      console.log(`📱 PROCESSED PATIENTS: ${Array.from(processedPatients).join(', ')}`);
       
-      // Clear any existing toasts to prevent confusion
-      toast.dismiss();
+      if (successCount > 0 && failureCount === 0) {
+        toast.success(`SMS sent successfully to all ${successCount} patients`, {
+          duration: 5000,
+          icon: '✅'
+        });
+      } else if (successCount > 0 && failureCount > 0) {
+        toast(`SMS sent to ${successCount} patients, failed for ${failureCount} patients`, {
+          icon: '⚠️',
+          style: {
+            background: '#f59e0b',
+            color: 'white',
+          },
+        });
+      } else {
+        toast.error(`Failed to send SMS to all ${failureCount} patients`);
+      }
       
-      // Small delay to ensure toast is shown after modal closes
-      setTimeout(() => {
-        // Temporary workaround: If we have recipients and no successes counted, 
-        // but we know SMS was sent (based on console logs), show success
-        if (successCount === 0 && failureCount > 0 && recipients.length > 0) {
-          // Check if the last error actually indicates success
-          console.warn('⚠️ Applying workaround for SMS success detection issue');
-          toast.success(`SMS sent to ${recipients.length} patient${recipients.length > 1 ? 's' : ''}`);
-        } else if (successCount > 0 && failureCount === 0) {
-          console.log('✅ Showing success toast for all patients');
-          toast.success(`SMS sent successfully to all ${successCount} patients`, {
-            duration: 5000,
-            icon: '✅'
-          });
-        } else if (successCount > 0 && failureCount > 0) {
-          toast.warning(`SMS sent to ${successCount} patients, failed for ${failureCount} patients`);
-        } else if (failureCount > 0) {
-          toast.error(`Failed to send SMS to all ${failureCount} patients`);
-        }
-      }, 100);
+      // Clear state on success
+      if (successCount > 0) {
+        setSelectedPatients([]);
+        setShowSmsModal(false);
+      }
       
-      setShowSmsModal(false);
+      return { success: successCount > 0, successCount, failureCount };
+      
     } catch (error) {
-      console.error('Error sending SMS:', error);
+      console.error('Error in bulk SMS send:', error);
       toast.error('Failed to send SMS. Please try again.');
+      return { success: false, successCount: 0, failureCount: allRecipients.length };
     } finally {
       setIsSendingSms(false);
     }
   };
 
-  // Handle Email send for bulk
-  const handleSendEmail = async (recipientEmail: string, subject: string, message: string) => {
+  // Convert File to base64 for email attachments
+  const fileToBase64 = (file: File): Promise<string> => {
+    console.log('🔄 STARTING BASE64 CONVERSION for:', file.name);
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        console.log('🔄 FileReader onload triggered');
+        const result = reader.result as string;
+        console.log('🔄 FileReader result length:', result.length);
+        const base64 = result.split(',')[1]; // Extract base64 part from data URL
+        console.log('🔄 Base64 conversion complete for:', file.name, 'length:', base64.length);
+        resolve(base64);
+      };
+      reader.onerror = error => {
+        console.error('🔄 FileReader error:', error);
+        reject(error);
+      };
+    });
+  };
+
+  // Process template variables for a specific patient
+  const processTemplateVariables = (text: string, targetPatient: any): string => {
+    const firstName = targetPatient?.first_name || 'John';
+    const lastName = targetPatient?.last_name || 'Smith';
+    const fullName = `${firstName} ${lastName}`;
+    
+    const variables: Record<string, string> = {
+      '{{patientName}}': fullName,
+      '{{patientFirstName}}': firstName,
+      '{{patientLastName}}': lastName,
+      '{{practiceName}}': practiceName || 'Your Practice',
+      '{{practicePhone}}': '',
+      '{{practiceEmail}}': '',
+      '{{currentDate}}': new Date().toLocaleDateString(),
+      '{{currentTime}}': new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      '{{birthdayOffer}}': '15% off your next visit',
+      '{{referralBonus}}': '$50 credit',
+      '{{reviewLink}}': 'https://g.page/r/healthcare/review',
+      '{{programName}}': 'Wellness Wednesday',
+    };
+
+    let processedText = text;
+    Object.entries(variables).forEach(([key, value]) => {
+      processedText = processedText.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+    });
+    
+    return processedText;
+  };
+
+  // Handle bulk email sending (called by ProfessionalEmailModal)
+  const handleSendEmail = async (allRecipients: any[], subject: string, message: string, attachments?: File[]) => {
+    console.log('🔥 BULK EMAIL SEND STARTED');
+    console.log('- Recipients count:', allRecipients.length);
+    console.log('- Subject:', subject);
+    console.log('- Attachments:', attachments?.length || 0);
+    
+    // Allow multiple emails to same address (different patients, same email)
+    // This is valid for families/couples sharing an email address
+    const uniqueRecipients = allRecipients;
+    
     try {
       setIsSendingEmail(true);
-      const recipients = getEmailRecipients();
       
-      if (recipients.length === 0) {
-        toast.error('No patients with valid email addresses found');
-        return;
+      // Convert File objects to base64 attachments once
+      let emailAttachments: { filename: string; content: string; type?: string; }[] = [];
+      
+      if (attachments && attachments.length > 0) {
+        console.log('🔄 PROCESSING ATTACHMENTS:', attachments.length);
+        emailAttachments = await Promise.all(
+          attachments.map(async (file, index) => {
+            console.log(`🔄 Processing attachment ${index + 1}:`, file.name);
+            const base64Content = await fileToBase64(file);
+            const attachment = {
+              filename: file.name,
+              content: base64Content,
+              type: file.type || 'application/octet-stream'
+            };
+            console.log(`🔄 Attachment ${index + 1} processed:`, { 
+              filename: attachment.filename, 
+              contentLength: attachment.content.length,
+              type: attachment.type 
+            });
+            return attachment;
+          })
+        );
+        console.log('🔄 ALL ATTACHMENTS PROCESSED:', emailAttachments.length);
       }
       
       let successCount = 0;
       let failureCount = 0;
+      const processedPatients = new Set<string>(); // Track processed patient IDs
       
-      // Send email to each recipient
-      for (const recipient of recipients) {
+      // Send to each recipient individually (allowing multiple emails to same address)
+      for (const recipient of uniqueRecipients) {
         try {
+          // Additional safeguard - check if this specific patient already processed
+          if (processedPatients.has(recipient.id)) {
+            console.warn(`⚠️ SKIPPING DUPLICATE PATIENT: ${recipient.id}`);
+            continue;
+          }
+          
+          processedPatients.add(recipient.id);
+          console.log('🔥 SENDING EMAIL TO:', recipient.email, 'for patient:', `${recipient.first_name} ${recipient.last_name}`);
+          
+          // Personalize email content for this specific patient
+          const personalizedSubject = processTemplateVariables(subject, recipient);
+          const personalizedMessage = processTemplateVariables(message, recipient);
+          
+          console.log('🔥 PERSONALIZED FOR:', recipient.first_name, recipient.last_name);
+          console.log('🔥 Subject:', personalizedSubject);
+          console.log('🔥 Message preview:', personalizedMessage.substring(0, 100) + '...');
+          
           const result = await communicationService.sendEmail({
             practiceId: practiceId!,
             recipientEmail: recipient.email!,
             recipientName: `${recipient.first_name} ${recipient.last_name}`,
-            subject: subject,
-            textContent: message,
+            subject: personalizedSubject,
+            textContent: personalizedMessage,
             emailType: 'bulk_message',
-            patientId: recipient.id
+            patientId: recipient.id,
+            attachments: emailAttachments
           });
           
           if (result.success) {
             successCount++;
+            console.log('✅ Email sent successfully to:', recipient.email);
           } else {
             failureCount++;
             console.error(`Failed to send email to ${recipient.first_name} ${recipient.last_name}:`, result.error);
@@ -571,22 +700,35 @@ export const PatientManagementView: React.FC = () => {
       }
       
       // Show results
-      console.log(`Final counts - Success: ${successCount}, Failures: ${failureCount}`);
+      console.log(`📊 BULK EMAIL RESULTS - Success: ${successCount}, Failures: ${failureCount}`);
+      console.log(`📊 PROCESSED PATIENTS: ${Array.from(processedPatients).join(', ')}`);
       
       if (successCount > 0 && failureCount === 0) {
         toast.success(`Email sent successfully to all ${successCount} patients`);
       } else if (successCount > 0 && failureCount > 0) {
-        toast.warning(`Email sent to ${successCount} patients, failed for ${failureCount} patients`);
+        toast(`Email sent to ${successCount} patients, failed for ${failureCount} patients`, {
+          icon: '⚠️',
+          style: {
+            background: '#f59e0b',
+            color: 'white',
+          },
+        });
       } else {
         toast.error(`Failed to send email to all ${failureCount} patients`);
       }
       
+      // Clear state on success
       if (successCount > 0) {
+        setSelectedPatients([]);
         setShowEmailModal(false);
       }
+      
+      return { success: successCount > 0, successCount, failureCount };
+      
     } catch (error) {
-      console.error('Error sending email:', error);
-      toast.error('Failed to send email. Please try again.');
+      console.error('Error in bulk email send:', error);
+      toast.error('Failed to send emails. Please try again.');
+      return { success: false, successCount: 0, failureCount: allRecipients.length };
     } finally {
       setIsSendingEmail(false);
     }
@@ -596,7 +738,11 @@ export const PatientManagementView: React.FC = () => {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const exportData = filteredPatients.map(patient => ({
+      const targetPatients = selectedPatients.length > 0 
+        ? filteredPatients.filter(p => selectedPatients.includes(p.id))
+        : filteredPatients;
+      
+      const exportData = targetPatients.map(patient => ({
         'Patient ID': patient.patient_id || patient.id,
         'Name': `${patient.first_name} ${patient.last_name}`,
         'Date of Birth': patient.date_of_birth ? format(new Date(patient.date_of_birth), 'dd/MM/yyyy') : '',
@@ -965,15 +1111,23 @@ export const PatientManagementView: React.FC = () => {
         onClick={() => handlePatientClick(patient)}
       >
         <td className="px-6 py-4 whitespace-nowrap">
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={(e) => {
+          <div 
+            className="flex items-center justify-center w-8 h-8 hover:bg-gray-100 rounded-lg cursor-pointer"
+            onClick={(e) => {
               e.stopPropagation();
               handleSelectPatient(patient.id);
             }}
-            className="w-4 h-4 text-cyan-600 bg-white border-gray-300 rounded focus:ring-cyan-500"
-          />
+          >
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={(e) => {
+                e.stopPropagation();
+                handleSelectPatient(patient.id);
+              }}
+              className="w-5 h-5 text-cyan-600 bg-white border-gray-300 rounded focus:ring-cyan-500 cursor-pointer"
+            />
+          </div>
         </td>
         <td className="px-6 py-4 whitespace-nowrap">
           <div className="flex items-center gap-3">
@@ -1228,11 +1382,11 @@ export const PatientManagementView: React.FC = () => {
                   }
                 }}
                 className={`p-3 rounded-xl transition-all ${
-                  (searchQuery || genderFilter || statusFilter || medicalAidFilter || branchFilter || (showAiSearch && searchDescription)) && filteredPatients.length > 0
+                  (searchQuery || genderFilter || statusFilter || medicalAidFilter || branchFilter || (showAiSearch && searchDescription) || selectedPatients.length > 0) && filteredPatients.length > 0
                     ? 'text-purple-600 bg-purple-50 hover:bg-purple-100 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 }`}
-                title={`Send Message to ${filteredPatients.length} Patient${filteredPatients.length !== 1 ? 's' : ''}`}
+                title={`Send Message to ${selectedPatients.length > 0 ? selectedPatients.length + ' Selected' : filteredPatients.length} Patient${(selectedPatients.length > 0 ? selectedPatients.length : filteredPatients.length) !== 1 ? 's' : ''}`}
               >
                 <Icon icon="solar:letter-bold-duotone" className="w-5 h-5" />
               </button>
@@ -1242,11 +1396,11 @@ export const PatientManagementView: React.FC = () => {
                 onClick={handleExport}
                 disabled={isExporting || filteredPatients.length === 0}
                 className={`p-3 rounded-xl transition-all ${
-                  (searchQuery || genderFilter || statusFilter || medicalAidFilter || branchFilter || (showAiSearch && searchDescription)) && filteredPatients.length > 0
+                  (searchQuery || genderFilter || statusFilter || medicalAidFilter || branchFilter || (showAiSearch && searchDescription) || selectedPatients.length > 0) && filteredPatients.length > 0
                     ? 'text-purple-600 bg-purple-50 hover:bg-purple-100 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 } ${isExporting || filteredPatients.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                title={`Export ${filteredPatients.length} Patient${filteredPatients.length !== 1 ? 's' : ''} to CSV`}
+                title={`Export ${selectedPatients.length > 0 ? selectedPatients.length + ' Selected' : filteredPatients.length} Patient${(selectedPatients.length > 0 ? selectedPatients.length : filteredPatients.length) !== 1 ? 's' : ''} to CSV`}
               >
                 <Icon icon="solar:document-text-bold-duotone" className="w-5 h-5" />
               </button>
@@ -1255,7 +1409,11 @@ export const PatientManagementView: React.FC = () => {
                   setIsExporting(true);
                   try {
                     // Export to Excel logic here
-                    const exportData = filteredPatients.map(patient => ({
+                    const targetPatients = selectedPatients.length > 0 
+                      ? filteredPatients.filter(p => selectedPatients.includes(p.id))
+                      : filteredPatients;
+                    
+                    const exportData = targetPatients.map(patient => ({
                       'Patient ID': patient.patient_id || patient.id,
                       'Name': `${patient.first_name} ${patient.last_name}`,
                       'Date of Birth': patient.date_of_birth ? format(new Date(patient.date_of_birth), 'dd/MM/yyyy') : '',
@@ -1294,11 +1452,11 @@ export const PatientManagementView: React.FC = () => {
                 }}
                 disabled={isExporting || filteredPatients.length === 0}
                 className={`p-3 rounded-xl transition-all ${
-                  (searchQuery || genderFilter || statusFilter || medicalAidFilter || branchFilter || (showAiSearch && searchDescription)) && filteredPatients.length > 0
+                  (searchQuery || genderFilter || statusFilter || medicalAidFilter || branchFilter || (showAiSearch && searchDescription) || selectedPatients.length > 0) && filteredPatients.length > 0
                     ? 'text-purple-600 bg-purple-50 hover:bg-purple-100 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 } ${isExporting || filteredPatients.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                title={`Export ${filteredPatients.length} Patient${filteredPatients.length !== 1 ? 's' : ''} to Excel`}
+                title={`Export ${selectedPatients.length > 0 ? selectedPatients.length + ' Selected' : filteredPatients.length} Patient${(selectedPatients.length > 0 ? selectedPatients.length : filteredPatients.length) !== 1 ? 's' : ''} to Excel`}
               >
                 <Icon icon="solar:file-bold-duotone" className="w-5 h-5" />
               </button>
@@ -1457,7 +1615,14 @@ export const PatientManagementView: React.FC = () => {
               {/* Results Count */}
               <div className="ml-auto flex items-center gap-4 text-sm">
                 <div className="text-gray-500">
-                  <span className="font-semibold text-gray-900">{filteredPatients.length}</span> results
+                  <span className="font-semibold text-gray-900">
+                    {selectedPatients.length > 0 ? selectedPatients.length : filteredPatients.length}
+                  </span> {selectedPatients.length > 0 ? 'selected' : 'results'}
+                  {selectedPatients.length > 0 && (
+                    <span className="text-xs text-purple-600 ml-1">
+                      (from {filteredPatients.length} total)
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -1726,7 +1891,7 @@ export const PatientManagementView: React.FC = () => {
                             type="checkbox"
                             checked={isAllSelected}
                             onChange={selectAllPatients}
-                            className="w-4 h-4 text-purple-600 bg-white border-gray-300 rounded focus:ring-purple-500"
+                            className="w-5 h-5 text-purple-600 bg-white border-gray-300 rounded focus:ring-purple-500"
                           />
                         </th>
                         <th 
@@ -1956,7 +2121,14 @@ export const PatientManagementView: React.FC = () => {
             <h3 className="text-sm font-medium text-gray-700 mb-2">Recipients</h3>
             <div className="p-4 bg-gray-50 rounded-lg space-y-2">
               <p className="text-sm text-gray-600">
-                <span className="font-semibold text-gray-900">{filteredPatients.length}</span> patients selected
+                <span className="font-semibold text-gray-900">
+                  {selectedPatients.length > 0 ? selectedPatients.length : filteredPatients.length}
+                </span> patients selected
+                {selectedPatients.length > 0 && (
+                  <span className="text-xs text-purple-600 ml-2">
+                    (from {filteredPatients.length} total)
+                  </span>
+                )}
               </p>
               
               {messageType === 'sms' && (
