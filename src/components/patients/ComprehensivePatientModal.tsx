@@ -64,8 +64,9 @@ import { usePatientsStoreNew, Patient } from '../../stores/patientsStoreNew';
 import { useTheme } from '../../stores/themeStore';
 import FormModal from '../modals/FormModal';
 import AddPatientForm from '../forms/AddPatientForm';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { createPortal } from 'react-dom';
 import EditPatientForm from '../forms/EditPatientForm';
 import NextOfKinForm from '../forms/NextOfKinForm';
 import FullScreenEditVisitModal from '../visits/FullScreenEditVisitModal';
@@ -98,6 +99,7 @@ import InvoiceGenerationModal from '../modals/InvoiceGenerationModal';
 import InvoicePreviewModal from '../modals/InvoicePreviewModal';
 import ManageBeneficiariesModal from '../modals/ManageBeneficiariesModal';
 import UnifiedPDFGenerator from '../billing/UnifiedPDFGenerator';
+import FloatingVisitTracker from '../dashboard/FloatingVisitTracker';
 import { fetchPatientDetailsOptimized } from './OptimizedPatientQueries';
 import { usePatientPrefetch } from '../../hooks/usePatientPrefetch';
 import { useQuery } from '@tanstack/react-query';
@@ -220,6 +222,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   
   // Appointments state
   const navigate = useNavigate();
+  const location = useLocation();
   const [doctorAppointments, setDoctorAppointments] = useState<any[]>([]);
   const [currentDoctorId, setCurrentDoctorId] = useState<string | null>(null);
   
@@ -2033,14 +2036,66 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
     }
   };
 
+  // Convert File to base64 for email attachments
+  const fileToBase64 = (file: File): Promise<string> => {
+    console.log('🔄 INDIVIDUAL: STARTING BASE64 CONVERSION for:', file.name);
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        console.log('🔄 INDIVIDUAL: FileReader onload triggered');
+        const result = reader.result as string;
+        console.log('🔄 INDIVIDUAL: FileReader result length:', result.length);
+        const base64 = result.split(',')[1]; // Extract base64 part from data URL
+        console.log('🔄 INDIVIDUAL: Base64 conversion complete for:', file.name, 'length:', base64.length);
+        resolve(base64);
+      };
+      reader.onerror = error => {
+        console.error('🔄 INDIVIDUAL: FileReader error:', error);
+        reject(error);
+      };
+    });
+  };
+
   // Enhanced Email handler
-  const handleEnhancedSendEmail = async (email: string, subject: string, message: string) => {
+  const handleEnhancedSendEmail = async (email: string, subject: string, message: string, attachments?: File[]) => {
+    console.log('🔥 INDIVIDUAL: HANDLE ENHANCED SEND EMAIL CALLED WITH:');
+    console.log('- email:', email);
+    console.log('- subject:', subject);
+    console.log('- message length:', message.length);
+    console.log('- attachments received:', attachments?.length || 0);
+    console.log('- attachments:', attachments?.map(f => ({ name: f.name, size: f.size, type: f.type })));
+    
     if (!selectedPatientDetails || !email || !subject || !message) {
       toast.error('Missing required information');
       return;
     }
 
     try {
+      // Convert File objects to base64 attachments
+      let emailAttachments: { filename: string; content: string; type?: string; }[] = [];
+      
+      if (attachments && attachments.length > 0) {
+        console.log('🔗 Processing attachments:', attachments.length, attachments.map(f => ({ name: f.name, size: f.size, type: f.type })));
+        
+        emailAttachments = await Promise.all(
+          attachments.map(async (file) => {
+            const base64Content = await fileToBase64(file);
+            const attachment = {
+              filename: file.name,
+              content: base64Content,
+              type: file.type || 'application/octet-stream'
+            };
+            console.log('🔗 Processed attachment:', { filename: attachment.filename, contentLength: attachment.content.length, type: attachment.type });
+            return attachment;
+          })
+        );
+        
+        console.log('🔗 Final emailAttachments:', emailAttachments.length, 'attachments processed');
+      } else {
+        console.log('🔗 No attachments provided');
+      }
+
       const result = await communicationService.sendEmail({
         practiceId: practiceId!,
         recipientEmail: email,
@@ -2048,7 +2103,8 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         subject: subject,
         textContent: message,
         emailType: 'patient_communication',
-        patientId: selectedPatientDetails.id
+        patientId: selectedPatientDetails.id,
+        attachments: emailAttachments
       });
       
       if (result.success) {
@@ -2257,10 +2313,19 @@ OneHealth Medical Team`;
     }
   ];
 
-  if (!isOpen) return null;
-
   return (
     <>
+      {/* Floating Visit Tracker - Only render when modal is open */}
+      {isOpen && createPortal(
+        <FloatingVisitTracker 
+          practiceId={practiceId || 'default-practice'} 
+          selectedDate={new Date()} 
+          zIndex={2147483648} 
+        />,
+        document.body
+      )}
+      
+      {!isOpen ? null : (
       <div 
         className={`fixed inset-0 z-[9999] ${
           modalState.modalState.isFullScreen 
@@ -3699,7 +3764,9 @@ OneHealth Medical Team`;
             </div>
           </div>
         </motion.div>
+
       </div>
+      )}
 
       {/* Sub-modals */}
       <FormModal

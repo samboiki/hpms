@@ -37,9 +37,11 @@ interface Visit {
 interface FloatingVisitTrackerProps {
   practiceId: string;
   selectedDate?: Date;
+  disablePatientModal?: boolean;
+  zIndex?: number;
 }
 
-const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId, selectedDate }) => {
+const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId, selectedDate, disablePatientModal = false, zIndex = 50 }) => {
   const { currentTheme } = useTheme();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -94,10 +96,8 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
     }
   };
   
-  // Ensure currentTheme is available
-  if (!currentTheme || !currentTheme.gradients || !currentTheme.gradients.sidebar) {
-    return null; // Return early if theme is not loaded
-  }
+  // Remove the early return that was preventing rendering when theme wasn't fully loaded
+  // The component uses mostly hardcoded gradients anyway
   
   // Calculate visit statistics using the enhanced visits structure
   const safeVisits = visits || [];
@@ -164,6 +164,10 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
   };
 
   const handlePatientClick = (patientId: string) => {
+    if (disablePatientModal) {
+      // Just prevent the click action when disabled
+      return;
+    }
     setSelectedPatientId(patientId);
     setIsPatientModalOpen(true);
   };
@@ -184,7 +188,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
   return (
     <>
       {/* Floating Button */}
-      <div className="fixed bottom-6 right-6 z-40 float-animation">
+      <div className="fixed bottom-6 right-6 float-animation" style={{ zIndex }}>
         <button
           onClick={() => setIsOpen(true)}
           className="relative w-20 h-20 bg-white rounded-full shadow-2xl backdrop-blur-xl group hover:shadow-3xl"
@@ -260,12 +264,14 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
             {/* Backdrop */}
             <div
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 transition-opacity duration-200"
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-200"
+              style={{ zIndex: zIndex + 10 }}
             />
 
             {/* Modal Content */}
             <div
-              className="fixed inset-x-4 bottom-20 md:right-6 md:left-auto md:w-[580px] bg-white rounded-2xl shadow-2xl z-50 max-h-[85vh] h-[85vh] overflow-hidden flex flex-col"
+              className="fixed inset-x-4 bottom-20 md:right-6 md:left-auto md:w-[580px] bg-white rounded-2xl shadow-2xl max-h-[85vh] h-[85vh] overflow-hidden flex flex-col"
+              style={{ zIndex: zIndex + 20 }}
             >
               {/* Fixed Header */}
               <div className="flex-shrink-0 border-b border-gray-100 bg-white">
@@ -388,8 +394,10 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           {safeVisits.filter(v => v?.is_ready && !v?.is_cancelled && v?.status !== 'in-progress').map((visit, index) => (
                             <div
                               key={visit.id}
-                              className="relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-emerald-200 cursor-pointer hover:bg-white"
-                              onClick={() => handlePatientClick(visit.patient_id)}
+                              className={`relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-emerald-200 ${
+                                disablePatientModal ? '' : 'cursor-pointer hover:bg-white'
+                              }`}
+                              onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id)}
                             >
                               {/* Ready Number Badge */}
                               <div className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
@@ -431,8 +439,10 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           {safeVisits.filter(v => v?.status === 'in-progress' && !v?.is_cancelled && !v?.is_handoff).map((visit, index) => (
                             <div
                               key={visit.id}
-                              className="relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-orange-100 cursor-pointer hover:bg-white"
-                              onClick={() => handlePatientClick(visit.patient_id)}
+                              className={`relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-orange-100 ${
+                                disablePatientModal ? '' : 'cursor-pointer hover:bg-white'
+                              }`}
+                              onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id)}
                             >
                               {/* Progress Number Badge */}
                               <div className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
@@ -592,8 +602,10 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                   return (
                                   <div
                                     key={visit.id}
-                                    className="relative flex items-center gap-3 p-3 pl-12 bg-white rounded-lg border border-gray-100 hover:border-gray-200 hover:shadow-sm cursor-pointer group"
-                                    onClick={() => handlePatientClick(visit.patient_id)}
+                                    className={`relative flex items-center gap-3 p-3 pl-12 bg-white rounded-lg border border-gray-100 group ${
+                                      disablePatientModal ? '' : 'hover:border-gray-200 hover:shadow-sm cursor-pointer'
+                                    }`}
+                                    onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id)}
                                   >
                                     {/* Card Number Badge - Colored based on status */}
                                     <div className={`absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-md ${
@@ -713,7 +725,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
     )}
 
       {/* Patient Modal */}
-      {selectedPatientId && (
+      {!disablePatientModal && selectedPatientId && (
         <ComprehensivePatientModal
           isOpen={isPatientModalOpen}
           onClose={() => {

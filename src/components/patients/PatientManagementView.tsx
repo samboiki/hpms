@@ -599,11 +599,6 @@ export const PatientManagementView: React.FC = () => {
               content: base64Content,
               type: file.type || 'application/octet-stream'
             };
- 
-              filename: attachment.filename, 
-              contentLength: attachment.content.length,
-              type: attachment.type 
-            });
             return attachment;
           })
         );

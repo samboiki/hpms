@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Attachment Debug Test</title>
+</head>
+<body>
+    <h1>Attachment Debug Test</h1>
+    <p>This will test the exact same flow as the ProfessionalEmailModal</p>
+    
+    <div>
+        <h3>Step 1: Select Files</h3>
+        <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt">
+        <button onclick="selectFiles()">Select Files</button>
+        <div id="fileList"></div>
+    </div>
+    
+    <div>
+        <h3>Step 2: Test onSend Function</h3>
+        <button onclick="testOnSend()">Test onSend with Attachments</button>
+    </div>
+    
+    <div>
+        <h3>Step 3: Results</h3>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let selectedFiles = [];
+        
+        function selectFiles() {
+            const fileInput = document.getElementById('fileInput');
+            const files = Array.from(fileInput.files || []);
+            
+            console.log('📎 FILE INPUT CHANGE EVENT TRIGGERED');
+            console.log('📎 Files selected:', files.length);
+            files.forEach((file, index) => {
+                console.log(`📎 File ${index + 1}:`, { name: file.name, size: file.size, type: file.type });
+            });
+            
+            const validFiles = files.filter(file => file.size <= 10 * 1024 * 1024); // 10MB limit
+            console.log('📎 Valid files after size check:', validFiles.length);
+            
+            selectedFiles = validFiles;
+            console.log('📎 Setting attachments state:', selectedFiles.length, 'total files');
+            
+            // Display file list
+            const fileListDiv = document.getElementById('fileList');
+            fileListDiv.innerHTML = selectedFiles.map(file => 
+                `<div>${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)</div>`
+            ).join('');
+        }
+        
+        function testOnSend() {
+            console.log('🚀 HANDLE SEND BUTTON CLICKED');
+            console.log('🚀 Current attachments state:', selectedFiles.length);
+            selectedFiles.forEach((file, index) => {
+                console.log(`🚀 Attachment ${index + 1}:`, { name: file.name, size: file.size, type: file.type });
+            });
+            
+            // Simulate the onSend call
+            const email = "test@example.com";
+            const subject = "Test Subject";
+            const message = "Test message";
+            const attachments = selectedFiles;
+            
+            console.log('🚀 Calling onSend with:');
+            console.log('- email:', email);
+            console.log('- subject:', subject);
+            console.log('- message:', message);
+            console.log('- attachments:', attachments);
+            console.log('- attachments length:', attachments.length);
+            
+            // Call the simulated handler
+            handleSendEmail(email, subject, message, attachments);
+        }
+        
+        // Simulate the PatientManagementView handleSendEmail function
+        async function handleSendEmail(recipientEmail, subject, message, attachments) {
+            console.log('🔥 HANDLE SEND EMAIL CALLED WITH:');
+            console.log('- recipientEmail:', recipientEmail);
+            console.log('- subject:', subject);
+            console.log('- message length:', message.length);
+            console.log('- attachments received:', attachments?.length || 0);
+            console.log('- attachments:', attachments?.map(f => ({ name: f.name, size: f.size, type: f.type })));
+            
+            // Simulate the base64 conversion
+            let emailAttachments = [];
+            
+            if (attachments && attachments.length > 0) {
+                console.log('🔄 PROCESSING ATTACHMENTS:', attachments.length);
+                
+                for (let i = 0; i < attachments.length; i++) {
+                    const file = attachments[i];
+                    console.log(`🔄 Processing attachment ${i + 1}:`, file.name);
+                    
+                    try {
+                        const base64Content = await fileToBase64(file);
+                        const attachment = {
+                            filename: file.name,
+                            content: base64Content,
+                            type: file.type || 'application/octet-stream'
+                        };
+                        console.log(`🔄 Attachment ${i + 1} processed:`, { 
+                            filename: attachment.filename, 
+                            contentLength: attachment.content.length,
+                            type: attachment.type 
+                        });
+                        emailAttachments.push(attachment);
+                    } catch (error) {
+                        console.error(`🔄 Error processing attachment ${i + 1}:`, error);
+                    }
+                }
+                
+                console.log('🔄 ALL ATTACHMENTS PROCESSED:', emailAttachments.length);
+            } else {
+                console.log('🔄 NO ATTACHMENTS TO PROCESS');
+            }
+            
+            // Display results
+            document.getElementById('results').innerHTML = `
+                <h4>Processing Results:</h4>
+                <p>Original files: ${attachments?.length || 0}</p>
+                <p>Processed attachments: ${emailAttachments.length}</p>
+                <pre>${JSON.stringify(emailAttachments.map(att => ({ 
+                    filename: att.filename, 
+                    contentLength: att.content.length, 
+                    type: att.type 
+                })), null, 2)}</pre>
+            `;
+        }
+        
+        // Convert File to base64 - same as in the app
+        function fileToBase64(file) {
+            console.log('🔄 STARTING BASE64 CONVERSION for:', file.name);
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => {
+                    console.log('🔄 FileReader onload triggered');
+                    const result = reader.result;
+                    console.log('🔄 FileReader result length:', result.length);
+                    const base64 = result.split(',')[1]; // Extract base64 part from data URL
+                    console.log('🔄 Base64 conversion complete for:', file.name, 'length:', base64.length);
+                    resolve(base64);
+                };
+                reader.onerror = error => {
+                    console.error('🔄 FileReader error:', error);
+                    reject(error);
+                };
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import {
   X,
   FileText,
@@ -17,10 +18,12 @@ import {
 import FullScreenModal from '../ui/FullScreenModal';
 import AddVisitTabs from './AddVisitTabs';
 import FormModal from '../modals/FormModal';
+import FloatingVisitTracker from '../dashboard/FloatingVisitTracker';
 import PremiumAddAppointmentForm from '../forms/PremiumAddAppointmentForm';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { ServiceSelection } from '../../types/billing';
+import { useLocation } from 'react-router-dom';
 
 interface FullScreenAddVisitModalProps {
   isOpen: boolean;
@@ -116,6 +119,7 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [selectedServices, setSelectedServices] = useState<ServiceSelection[]>([]);
   const { user } = useAuthStore();
+  const location = useLocation();
   
   // Ref to trigger service modal from AddVisitTabs
   const triggerServiceModal = () => {
@@ -505,6 +509,16 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
           {renderContent()}
         </div>
       </FullScreenModal>
+
+      {/* Floating Visit Tracker */}
+      {user?.practice_id && isOpen && createPortal(
+        <FloatingVisitTracker 
+          practiceId={user.practice_id} 
+          selectedDate={new Date()} 
+          zIndex={2147483648}
+        />,
+        document.body
+      )}
 
       {/* Schedule Follow-up Appointment Modal */}
       <FormModal
