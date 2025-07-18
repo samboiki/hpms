@@ -72,14 +72,6 @@ export const PatientManagementView: React.FC = () => {
     fetchPatientsWithVisits
   } = usePatientsStoreNew();
   
-  // Debug logging
-  useEffect(() => {
-    console.log('PatientManagementView - Practice ID:', practiceId);
-    console.log('Patients from store:', patients);
-    console.log('Number of patients:', patients.length);
-    console.log('Is Loading:', loadingStore);
-    console.log('First patient:', patients[0]);
-  }, [patients, practiceId, loadingStore]);
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -226,29 +218,22 @@ export const PatientManagementView: React.FC = () => {
 
   // Fetch data on mount when practice context is available
   useEffect(() => {
-    console.log('🚀 PatientManagementView - Checking practice context');
-    console.log('Practice ID:', practiceId);
-    
     // CRITICAL: Only fetch if we have a valid practice ID
     if (!practiceId) {
-      console.error('⛔ NO PRACTICE ID - Not fetching patients for security');
       return;
     }
     
     // Validate practice ID format (should be a UUID)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(practiceId)) {
-      console.error('⛔ INVALID PRACTICE ID FORMAT - Not fetching patients');
       return;
     }
     
-    console.log('✅ Valid practice ID, fetching patients...');
     fetchPatients();
     
     // Also try the enhanced method
     if (fetchPatientsWithVisits) {
       setTimeout(() => {
-        console.log('🔄 Trying enhanced fetch as backup...');
         fetchPatientsWithVisits();
       }, 1000);
     }
@@ -370,7 +355,6 @@ export const PatientManagementView: React.FC = () => {
   // Delete patient function
   const deletePatient = async (patientId: string) => {
     // This would need to be implemented with the actual delete API
-    console.log('Delete patient:', patientId);
     // After deletion, refresh the patients list
     await fetchPatients();
   };
@@ -458,9 +442,6 @@ export const PatientManagementView: React.FC = () => {
 
   // Handle SMS send for bulk (called by SMS modal)
   const handleSendSms = async (allRecipients: any[], message: string) => {
-    console.log('📱 BULK SMS SEND STARTED');
-    console.log('- Recipients count:', allRecipients.length);
-    console.log('- Message:', message);
     
     // Allow multiple SMS to same number (different patients, same phone)
     const uniqueRecipients = allRecipients;
@@ -477,18 +458,14 @@ export const PatientManagementView: React.FC = () => {
         try {
           // Additional safeguard - check if this specific patient already processed
           if (processedPatients.has(recipient.id)) {
-            console.warn(`⚠️ SKIPPING DUPLICATE PATIENT: ${recipient.id}`);
             continue;
           }
           
           processedPatients.add(recipient.id);
-          console.log('📱 SENDING SMS TO:', recipient.cell_number, 'for patient:', `${recipient.first_name} ${recipient.last_name}`);
           
           // Personalize SMS content for this specific patient
           const personalizedMessage = processTemplateVariables(message, recipient);
           
-          console.log('📱 PERSONALIZED FOR:', recipient.first_name, recipient.last_name);
-          console.log('📱 Message preview:', personalizedMessage.substring(0, 100) + '...');
           
           const result = await communicationService.sendSMS({
             practiceId: practiceId!,
@@ -506,27 +483,21 @@ export const PatientManagementView: React.FC = () => {
           
           if (isActuallySuccessful) {
             successCount++;
-            console.log('✅ SMS sent successfully to:', recipient.cell_number);
           } else {
             failureCount++;
-            console.error(`Failed to send SMS to ${recipient.first_name} ${recipient.last_name}:`, result.error);
           }
         } catch (error) {
           // Check if error indicates success
           const errorStr = JSON.stringify(error);
           if (errorStr.includes('"statusCode":200') && errorStr.includes('"cost":')) {
             successCount++;
-            console.log(`✅ Success count (from catch): ${successCount}`);
           } else {
             failureCount++;
-            console.error(`Error sending SMS to ${recipient.first_name} ${recipient.last_name}:`, error);
           }
         }
       }
       
       // Show results
-      console.log(`📱 BULK SMS RESULTS - Success: ${successCount}, Failures: ${failureCount}`);
-      console.log(`📱 PROCESSED PATIENTS: ${Array.from(processedPatients).join(', ')}`);
       
       if (successCount > 0 && failureCount === 0) {
         toast.success(`SMS sent successfully to all ${successCount} patients`, {
@@ -554,7 +525,6 @@ export const PatientManagementView: React.FC = () => {
       return { success: successCount > 0, successCount, failureCount };
       
     } catch (error) {
-      console.error('Error in bulk SMS send:', error);
       toast.error('Failed to send SMS. Please try again.');
       return { success: false, successCount: 0, failureCount: allRecipients.length };
     } finally {
@@ -564,20 +534,15 @@ export const PatientManagementView: React.FC = () => {
 
   // Convert File to base64 for email attachments
   const fileToBase64 = (file: File): Promise<string> => {
-    console.log('🔄 STARTING BASE64 CONVERSION for:', file.name);
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = () => {
-        console.log('🔄 FileReader onload triggered');
         const result = reader.result as string;
-        console.log('🔄 FileReader result length:', result.length);
         const base64 = result.split(',')[1]; // Extract base64 part from data URL
-        console.log('🔄 Base64 conversion complete for:', file.name, 'length:', base64.length);
         resolve(base64);
       };
       reader.onerror = error => {
-        console.error('🔄 FileReader error:', error);
         reject(error);
       };
     });
@@ -614,10 +579,6 @@ export const PatientManagementView: React.FC = () => {
 
   // Handle bulk email sending (called by ProfessionalEmailModal)
   const handleSendEmail = async (allRecipients: any[], subject: string, message: string, attachments?: File[]) => {
-    console.log('🔥 BULK EMAIL SEND STARTED');
-    console.log('- Recipients count:', allRecipients.length);
-    console.log('- Subject:', subject);
-    console.log('- Attachments:', attachments?.length || 0);
     
     // Allow multiple emails to same address (different patients, same email)
     // This is valid for families/couples sharing an email address
@@ -630,17 +591,15 @@ export const PatientManagementView: React.FC = () => {
       let emailAttachments: { filename: string; content: string; type?: string; }[] = [];
       
       if (attachments && attachments.length > 0) {
-        console.log('🔄 PROCESSING ATTACHMENTS:', attachments.length);
         emailAttachments = await Promise.all(
           attachments.map(async (file, index) => {
-            console.log(`🔄 Processing attachment ${index + 1}:`, file.name);
             const base64Content = await fileToBase64(file);
             const attachment = {
               filename: file.name,
               content: base64Content,
               type: file.type || 'application/octet-stream'
             };
-            console.log(`🔄 Attachment ${index + 1} processed:`, { 
+ 
               filename: attachment.filename, 
               contentLength: attachment.content.length,
               type: attachment.type 
@@ -648,7 +607,6 @@ export const PatientManagementView: React.FC = () => {
             return attachment;
           })
         );
-        console.log('🔄 ALL ATTACHMENTS PROCESSED:', emailAttachments.length);
       }
       
       let successCount = 0;
@@ -660,20 +618,15 @@ export const PatientManagementView: React.FC = () => {
         try {
           // Additional safeguard - check if this specific patient already processed
           if (processedPatients.has(recipient.id)) {
-            console.warn(`⚠️ SKIPPING DUPLICATE PATIENT: ${recipient.id}`);
             continue;
           }
           
           processedPatients.add(recipient.id);
-          console.log('🔥 SENDING EMAIL TO:', recipient.email, 'for patient:', `${recipient.first_name} ${recipient.last_name}`);
           
           // Personalize email content for this specific patient
           const personalizedSubject = processTemplateVariables(subject, recipient);
           const personalizedMessage = processTemplateVariables(message, recipient);
           
-          console.log('🔥 PERSONALIZED FOR:', recipient.first_name, recipient.last_name);
-          console.log('🔥 Subject:', personalizedSubject);
-          console.log('🔥 Message preview:', personalizedMessage.substring(0, 100) + '...');
           
           const result = await communicationService.sendEmail({
             practiceId: practiceId!,
@@ -688,20 +641,15 @@ export const PatientManagementView: React.FC = () => {
           
           if (result.success) {
             successCount++;
-            console.log('✅ Email sent successfully to:', recipient.email);
           } else {
             failureCount++;
-            console.error(`Failed to send email to ${recipient.first_name} ${recipient.last_name}:`, result.error);
           }
         } catch (error) {
           failureCount++;
-          console.error(`Error sending email to ${recipient.first_name} ${recipient.last_name}:`, error);
         }
       }
       
       // Show results
-      console.log(`📊 BULK EMAIL RESULTS - Success: ${successCount}, Failures: ${failureCount}`);
-      console.log(`📊 PROCESSED PATIENTS: ${Array.from(processedPatients).join(', ')}`);
       
       if (successCount > 0 && failureCount === 0) {
         toast.success(`Email sent successfully to all ${successCount} patients`);
@@ -726,7 +674,6 @@ export const PatientManagementView: React.FC = () => {
       return { success: successCount > 0, successCount, failureCount };
       
     } catch (error) {
-      console.error('Error in bulk email send:', error);
       toast.error('Failed to send emails. Please try again.');
       return { success: false, successCount: 0, failureCount: allRecipients.length };
     } finally {
@@ -1708,7 +1655,6 @@ export const PatientManagementView: React.FC = () => {
               {showAiSearch && (
                 <div className="mt-3 space-y-3">
                   {/* Progress Bar */}
-                  {/* Progress tracking now in console logs */}
 
                   {/* Search Results Summary */}
                   {searchDescription && !isAiSearching ? (
@@ -1815,9 +1761,6 @@ export const PatientManagementView: React.FC = () => {
                         Clear
                       </button>
 
-                      {/* Search logs available in console for debugging */}
-
-                      {/* Logs available in console for debugging */}
                     </div>
                   ) : !isAiSearching && (
                     <div className="text-sm text-gray-500">

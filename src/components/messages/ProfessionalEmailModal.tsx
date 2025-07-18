@@ -234,8 +234,6 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
   };
 
   const handleTemplateSelect = (template: EmailTemplate) => {
-    console.log('📋 TEMPLATE SELECTED:', template.name);
-    console.log('📋 Current attachments before template selection:', attachments.length);
     
     setSelectedTemplate(template);
     if (template.subject) {
@@ -246,14 +244,10 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
     }
     setShowTemplateDropdown(false);
     
-    console.log('📋 Attachments after template selection:', attachments.length);
   };
 
   const handleSend = async () => {
-    console.log('🚀 PROFESSIONAL EMAIL MODAL - SEND BUTTON CLICKED');
-    console.log('🚀 Current attachments state:', attachments.length);
     attachments.forEach((file, index) => {
-      console.log(`🚀 Attachment ${index + 1}:`, { name: file.name, size: file.size, type: file.type });
     });
     
     if (!subject.trim()) {
@@ -266,11 +260,6 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
     }
 
     // Pass raw templates to be processed individually for each patient
-    console.log('🚀 Templates ready for individual processing:');
-    console.log('🚀 Raw subject:', subject);
-    console.log('🚀 Raw message preview:', message.substring(0, 100) + '...');
-    console.log('🚀 Recipients length:', recipients.length);
-    console.log('🚀 Single email:', email);
 
     try {
       // Determine recipients list
@@ -279,7 +268,6 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
       if (recipients.length > 0) {
         // Multiple recipients or bulk sending
         recipientsList = recipients.filter(r => r.email && r.email.trim() !== '');
-        console.log('🚀 BULK SENDING TO RECIPIENTS:', recipientsList.length);
       } else if (patient && email) {
         // Single patient - process template for this specific patient
         const processedSubject = replaceVariables(subject, patient);
@@ -291,7 +279,6 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
           last_name: patient.last_name, 
           email: email 
         }];
-        console.log('🚀 SINGLE PATIENT SENDING TO:', email);
         
         // For single patient, process templates here and pass processed versions
         const result = await onSend(recipientsList, processedSubject, processedMessage, attachments);
@@ -307,7 +294,6 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
       }
       
       // Call the bulk handler with all recipients at once (templates will be processed individually)
-      console.log('🚀 CALLING BULK EMAIL HANDLER');
       const result = await onSend(recipientsList, subject, message, attachments);
       
       // Modal is closed by the parent component based on success
@@ -316,11 +302,9 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
       }
       
     } catch (error) {
-      console.error('Error in email send:', error);
       toast.error('Failed to send emails. Please try again.');
     }
     
-    console.log('🚀 PROFESSIONAL EMAIL MODAL - SEND COMPLETE');
   };
 
   return (
@@ -458,24 +442,18 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
                   multiple
                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
                   onChange={(e) => {
-                    console.log('📎 FILE INPUT CHANGE EVENT TRIGGERED');
                     const files = Array.from(e.target.files || []);
-                    console.log('📎 Files selected:', files.length);
                     files.forEach((file, index) => {
-                      console.log(`📎 File ${index + 1}:`, { name: file.name, size: file.size, type: file.type });
                     });
                     
                     const validFiles = files.filter(file => file.size <= 10 * 1024 * 1024); // 10MB limit
-                    console.log('📎 Valid files after size check:', validFiles.length);
                     
                     if (validFiles.length !== files.length) {
                       toast.error('Some files exceed the 10MB limit and were not added');
-                      console.log('📎 Some files rejected due to size limit');
                     }
                     
                     setAttachments(prev => {
                       const newAttachments = [...prev, ...validFiles];
-                      console.log('📎 Setting attachments state:', newAttachments.length, 'total files');
                       return newAttachments;
                     });
                   }}
@@ -500,10 +478,8 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
                         </div>
                         <button
                           onClick={() => {
-                            console.log('📎 REMOVING ATTACHMENT:', index);
                             setAttachments(prev => {
                               const newAttachments = prev.filter((_, i) => i !== index);
-                              console.log('📎 Attachments after removal:', newAttachments.length);
                               return newAttachments;
                             });
                           }}
