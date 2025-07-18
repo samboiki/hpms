@@ -192,8 +192,9 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
 
   const renderTabs = () => (
     <div className="bg-white border-b border-gray-200/50 relative">
-      <div className="px-6">
-        <div className="flex w-full" role="tablist">
+      {/* Mobile: Horizontal scroll tabs | Desktop: Full width tabs */}
+      <div className="px-4 sm:px-6">
+        <div className="flex overflow-x-auto scrollbar-none sm:overflow-x-visible" role="tablist">
           {tabs.map((tab, index) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -224,34 +225,45 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
                 }}
                 onMouseEnter={() => setHoveredTab(tab.id)}
                 onMouseLeave={() => setHoveredTab(null)}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-200 relative group ${
-                  isActive
+                className={`
+                  flex-shrink-0 sm:flex-1 
+                  flex items-center justify-center gap-2 
+                  px-3 sm:px-4 py-4 
+                  min-w-[120px] sm:min-w-0
+                  min-h-[48px]
+                  text-xs sm:text-sm font-medium 
+                  border-b-2 transition-all duration-200 
+                  relative group cursor-pointer
+                  touch-manipulation
+                  ${isActive
                     ? 'text-purple-600 border-purple-600 bg-gradient-to-t from-purple-50/50 to-transparent'
                     : 'text-gray-500 border-transparent hover:text-purple-600 hover:bg-purple-50/30'
-                } cursor-pointer`}
+                  }
+                `}
                 aria-label={tab.label}
                 role="tab"
                 aria-selected={isActive}
                 tabIndex={isActive ? 0 : -1}
               >
-                {/* Tooltip */}
+                {/* Tooltip - Hidden on mobile for better UX */}
                 {tab.tooltip && isHovered && !isActive && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
-                    className="absolute -top-10 left-1/2 transform -translate-x-1/2 px-3 py-1 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap z-50 pointer-events-none"
+                    className="absolute -top-10 left-1/2 transform -translate-x-1/2 px-3 py-1 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap z-50 pointer-events-none hidden sm:block"
                   >
                     {tab.tooltip}
                     <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45" />
                   </motion.div>
                 )}
                 
-                <Icon className={`w-4 h-4 transition-all duration-200 ${
+                <Icon className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200 flex-shrink-0 ${
                   isActive ? 'text-purple-600' : ''
                 }`} />
                 
-                <span className="hidden sm:inline font-medium">{tab.label}</span>
+                {/* Always show text on mobile, but make it smaller */}
+                <span className="font-medium whitespace-nowrap text-xs sm:text-sm">{tab.label}</span>
                 
                 {/* Active indicator */}
                 {isActive && (

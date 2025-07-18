@@ -265,7 +265,10 @@ const TimelineNode: React.FC<{
   onStartAppointment?: (visit: Visit) => void;
   // Add optional counts prop for MASSIVE performance optimization
   visitCounts?: { [visitId: string]: { media: number; lab: number; imaging: number } };
-}> = ({ visit, index, totalVisits, isLast, isExpanded, onToggle, onEditVisit, onCreateFollowUp, onVisitStatusChange, onStartAppointment, visitCounts }) => {
+  // Date/time info for mobile integration
+  displayDate?: string;
+  displayTime?: string;
+}> = ({ visit, index, totalVisits, isLast, isExpanded, onToggle, onEditVisit, onCreateFollowUp, onVisitStatusChange, onStartAppointment, visitCounts, displayDate, displayTime }) => {
   const [isHovered, setIsHovered] = useState(false);
   
   // ⚡ PERFORMANCE OPTIMIZATION: Use pre-calculated counts instead of individual queries
@@ -366,9 +369,9 @@ const TimelineNode: React.FC<{
   };
   
   return (
-    <div className="relative flex items-start gap-6">
-      {/* Timeline node */}
-      <div className="relative flex-shrink-0">
+    <div className="relative flex items-start gap-0 sm:gap-6">
+      {/* Timeline node - Hidden on mobile */}
+      <div className="relative flex-shrink-0 hidden sm:block">
         {/* Animated connection line to next visit */}
         {!isLast && (
           <motion.div
@@ -482,8 +485,8 @@ const TimelineNode: React.FC<{
         </motion.div>
       </div>
       
-      {/* Content card */}
-      <div className="flex-1 min-w-0">
+      {/* Content card - Full width on mobile */}
+      <div className="w-full sm:flex-1 sm:min-w-0">
         <motion.div
           animate={{ 
             x: isHovered ? 8 : 0,
@@ -506,10 +509,12 @@ const TimelineNode: React.FC<{
           >
             {/* Creative Demarcation System */}
             
-            {/* Method 1: Corner Accent with Icon */}
+            {/* Method 1: Corner Accent with Visit Number */}
             <div className="absolute top-0 right-0 z-20">
               <div className={`w-12 h-12 bg-gradient-to-br ${theme.accent} opacity-90 rounded-bl-3xl rounded-tr-xl flex items-center justify-center shadow-lg`}>
-                <theme.icon className={`w-5 h-5 text-white drop-shadow-sm`} />
+                <span className="text-sm font-bold text-white drop-shadow-sm">
+                  #{visitNumber}
+                </span>
               </div>
             </div>
             
@@ -563,6 +568,31 @@ const TimelineNode: React.FC<{
               
               {/* Main content area */}
               <div className="pt-4 px-4">
+                {/* Mobile: Date and Time Header - Only visible on mobile */}
+                {(displayDate || displayTime) && (
+                  <div className="block sm:hidden mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      {displayDate && (
+                        <p className={`font-bold text-sm leading-tight ${
+                          visit.status === 'completed' ? 'text-indigo-600' : 
+                          isToday(parseISO(displayDate)) ? 'text-emerald-600' :
+                          'text-gray-900'
+                        }`}>
+                          {formatVisitDate(displayDate)}
+                        </p>
+                      )}
+                      {displayTime && (
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-gray-400" />
+                          <p className="text-xs text-gray-500 font-medium">
+                            {displayTime}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 {/* Row 1: Visit type and chief complaint */}
                 <div className="flex items-center gap-2 mb-3">
                   <motion.h3 
@@ -609,7 +639,7 @@ const TimelineNode: React.FC<{
                           onStartAppointment(visit); // This will update status and open edit form
                         }
                       }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full shadow-sm hover:shadow-lg transition-all text-white font-semibold text-xs"
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 sm:px-3 sm:py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full shadow-sm hover:shadow-lg transition-all text-white font-semibold text-xs min-h-[40px] sm:min-h-0 touch-manipulation"
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                     >
@@ -661,11 +691,11 @@ const TimelineNode: React.FC<{
               </div>
               
               {/* Bottom row: Media/Lab/Imaging badges and Action buttons */}
-              <div className="flex items-center justify-between px-4 pb-3 border-t border-gray-100 pt-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 pb-3 border-t border-gray-100 pt-3 gap-3 sm:gap-0">
                 {/* Media, Lab, Imaging badges as light grey buttons */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <motion.button 
-                    className={`group flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md transition-all duration-200 ${
+                    className={`group flex items-center gap-1 sm:gap-1.5 text-xs px-2 sm:px-2.5 py-1.5 rounded-md transition-all duration-200 min-h-[32px] touch-manipulation ${
                       counts.media > 0 
                         ? 'bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border border-blue-200/50' 
                         : 'bg-gray-100 hover:bg-gray-200'
@@ -680,7 +710,7 @@ const TimelineNode: React.FC<{
                           : 'text-gray-500 group-hover:text-gray-700'
                       }`} />
                     </motion.div>
-                    <span className={`transition-colors ${
+                    <span className={`transition-colors hidden xs:inline sm:inline ${
                       counts.media > 0 
                         ? 'text-blue-700 group-hover:text-blue-800' 
                         : 'text-gray-600 group-hover:text-gray-800'
@@ -693,7 +723,7 @@ const TimelineNode: React.FC<{
                   </motion.button>
                   
                   <motion.button 
-                    className={`group flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md transition-all duration-200 ${
+                    className={`group flex items-center gap-1 sm:gap-1.5 text-xs px-2 sm:px-2.5 py-1.5 rounded-md transition-all duration-200 min-h-[32px] touch-manipulation ${
                       counts.lab > 0 
                         ? 'bg-gradient-to-r from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100 border border-emerald-200/50' 
                         : 'bg-gray-100 hover:bg-gray-200'
@@ -708,7 +738,7 @@ const TimelineNode: React.FC<{
                           : 'text-gray-500 group-hover:text-gray-700'
                       }`} />
                     </motion.div>
-                    <span className={`transition-colors ${
+                    <span className={`transition-colors hidden xs:inline sm:inline ${
                       counts.lab > 0 
                         ? 'text-emerald-700 group-hover:text-emerald-800' 
                         : 'text-gray-600 group-hover:text-gray-800'
@@ -721,7 +751,7 @@ const TimelineNode: React.FC<{
                   </motion.button>
                   
                   <motion.button 
-                    className={`group flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md transition-all duration-200 ${
+                    className={`group flex items-center gap-1 sm:gap-1.5 text-xs px-2 sm:px-2.5 py-1.5 rounded-md transition-all duration-200 min-h-[32px] touch-manipulation ${
                       counts.imaging > 0 
                         ? 'bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 border border-purple-200/50' 
                         : 'bg-gray-100 hover:bg-gray-200'
@@ -736,7 +766,7 @@ const TimelineNode: React.FC<{
                           : 'text-gray-500 group-hover:text-gray-700'
                       }`} />
                     </motion.div>
-                    <span className={`transition-colors ${
+                    <span className={`transition-colors hidden xs:inline sm:inline ${
                       counts.imaging > 0 
                         ? 'text-purple-700 group-hover:text-purple-800' 
                         : 'text-gray-600 group-hover:text-gray-800'
@@ -750,7 +780,7 @@ const TimelineNode: React.FC<{
                 </div>
                 
                 {/* Action buttons */}
-                <div className="flex items-center gap-2 relative z-20">
+                <div className="flex items-center gap-2 relative z-20 justify-end sm:justify-start">
                   {onEditVisit && (
                     <motion.button
                       whileHover={{ scale: 1.02 }}
@@ -759,7 +789,7 @@ const TimelineNode: React.FC<{
                         e.stopPropagation();
                         onEditVisit(visit);
                       }}
-                      className="group flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-all duration-200"
+                      className="group flex items-center gap-1.5 px-3 py-2.5 sm:px-2.5 sm:py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-all duration-200 min-h-[40px] sm:min-h-0 touch-manipulation"
                       title="Edit encounter"
                     >
                       <motion.div whileHover={{ rotate: -15 }} transition={{ duration: 0.2 }}>
@@ -776,7 +806,7 @@ const TimelineNode: React.FC<{
                         e.stopPropagation();
                         onCreateFollowUp(visit);
                       }}
-                      className="group flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-all duration-200"
+                      className="group flex items-center gap-1.5 px-3 py-2.5 sm:px-2.5 sm:py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-all duration-200 min-h-[40px] sm:min-h-0 touch-manipulation"
                       title="Create follow-up"
                     >
                       <motion.div whileHover={{ scale: 1.2 }} transition={{ duration: 0.2 }}>
@@ -992,41 +1022,34 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
         animate={{ opacity: 1, y: 0 }}
         className="mb-10"
       >
-        <div className="flex items-center justify-between">
-          {/* Left: Title */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          {/* Title */}
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
               Patient Journey
             </h2>
           </div>
           
-          {/* Center: Empty space */}
-          <div className="text-center">
-            {/* Removed patient info as requested */}
-          </div>
-          
-          {/* Right: Add Visit Buttons */}
-          <div className="flex items-center gap-3">
-            {onAddVisit && (
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={onAddVisit}
-                className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-xl hover:shadow-lg transition-all flex items-center gap-2 font-medium"
-              >
-                <Plus className="w-5 h-5" />
-                Add New Visit
-              </motion.button>
-            )}
-          </div>
+          {/* Add Visit Button */}
+          {onAddVisit && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onAddVisit}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-3 sm:py-2 rounded-xl hover:shadow-lg transition-all flex items-center gap-2 font-medium min-h-[44px] sm:min-h-0 touch-manipulation w-full sm:w-auto justify-center sm:justify-start"
+            >
+              <Plus className="w-5 h-5" />
+              <span className="text-sm sm:text-base">Add New Visit</span>
+            </motion.button>
+          )}
         </div>
         
       </motion.div>
       
-      {/* Two Column Layout: Timeline (10/12) + Journey Progress (2/12) */}
-      <div className="grid grid-cols-12 gap-6">
-        {/* Timeline Column - 10/12 width */}
-        <div className="col-span-10">
+      {/* Mobile: Single Column | Desktop: Timeline (10/12) + Journey Progress (2/12) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Timeline Column - Full width on mobile for larger cards */}
+        <div className="lg:col-span-10">
           {console.log('🎬 RENDERING TIMELINE ITEMS:', {
             totalItems: timelineItems.length,
             itemBreakdown: timelineItems.map(item => ({ type: item.type, id: item.id, date: item.displayDate }))
@@ -1034,15 +1057,15 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
           {timelineItems.map((item, index) => {
             console.log(`🔄 RENDERING ITEM ${index}:`, { type: item.type, id: item.id, data: item });
             return (
-            <div key={`${item.type}-${item.id}`} className="flex items-start gap-6 mb-8 last:mb-0 relative">
-              {/* Date column */}
-              <div className="w-32 text-right flex-shrink-0 pt-5">
+            <div key={`${item.type}-${item.id}`} className="flex flex-col sm:flex-row items-start gap-3 sm:gap-6 mb-8 last:mb-0 relative">
+              {/* Date column - Hidden on mobile, integrated into card */}
+              <div className="hidden sm:block w-24 lg:w-32 text-right flex-shrink-0 pt-2 sm:pt-5">
                 <motion.div
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.04 + 0.1, duration: 0.3 }}
                 >
-                  <p className={`font-bold text-base leading-tight ${
+                  <p className={`font-bold text-sm sm:text-base leading-tight ${
                     item.type === 'visit' && item.status === 'completed' ? 'text-indigo-600' : 
                     item.type === 'appointment' && isToday(parseISO(item.displayDate)) ? 'text-emerald-600' :
                     'text-gray-900'
@@ -1050,7 +1073,7 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
                     {formatVisitDate(item.displayDate)}
                   </p>
                   {item.displayTime && (
-                    <div className="flex items-center justify-end gap-1 mt-2">
+                    <div className="flex items-center justify-end gap-1 mt-1 sm:mt-2">
                       <Clock className="w-3 h-3 text-gray-400" />
                       <p className="text-xs text-gray-500 font-medium">
                         {item.displayTime}
@@ -1060,8 +1083,8 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
                 </motion.div>
               </div>
               
-              {/* Timeline content - All items are visits now */}
-              <div className="flex-1 min-w-0">
+              {/* Timeline content - Full width on mobile */}
+              <div className="w-full sm:flex-1 sm:min-w-0">
                 <TimelineNode
                   visit={item}
                   index={index}
@@ -1074,6 +1097,9 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
                   onVisitStatusChange={onVisitStatusChange}
                   onStartAppointment={onStartAppointment}
                   visitCounts={visitCounts}
+                  // Pass date/time info for mobile integration
+                  displayDate={item.displayDate}
+                  displayTime={item.displayTime}
                 />
               </div>
             </div>
@@ -1081,8 +1107,8 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
           })}
         </div>
         
-        {/* Journey Progress Column - 2/12 width */}
-        <div className="col-span-2">
+        {/* Journey Progress Column - Mobile: Full width | Desktop: 2/12 width */}
+        <div className="lg:col-span-2 order-first lg:order-last">
           <div className="sticky top-8">
             <motion.div
               initial={{ opacity: 0, x: 20 }}

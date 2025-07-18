@@ -13,8 +13,15 @@ import {
   History,
   Sparkles,
   Loader2,
-  Bell
+  Bell,
+  Menu,
+  ChevronDown,
+  X,
+  MessageCircle,
+  Mail,
+  Edit
 } from 'lucide-react';
+import { Icon } from '@iconify/react';
 
 interface Tab {
   id: string;
@@ -194,6 +201,12 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
     }
   };
 
+  // Find active tab for mobile menu display
+  const activeTabData = tabs.find(tab => tab.id === activeTab);
+  const ActiveIcon = activeTabData?.icon || User;
+
+
+
   return (
     <div 
       className={`${mode === 'list' ? 'bg-gradient-to-r from-purple-500 to-indigo-600' : 'bg-white border-b border-gray-200/50'} relative`}
@@ -201,8 +214,10 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <div className="px-6">
-        <div className="flex w-full" role="tablist">
+      {/* Horizontal Tabs for All Screen Sizes */}
+      <div>
+        <div className="px-4 sm:px-6">
+          <div className="flex overflow-x-auto scrollbar-none sm:overflow-x-visible" role="tablist">
           {tabs.map((tab, index) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -232,7 +247,17 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
                 onClick={() => !isLoading && onTabChange(tab.id)}
                 onMouseEnter={() => setHoveredTab(tab.id)}
                 onMouseLeave={() => setHoveredTab(null)}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-200 relative group ${
+                className={`
+                  flex-shrink-0 sm:flex-1 
+                  flex items-center justify-center gap-2 
+                  px-3 sm:px-4 py-4 
+                  min-w-[100px] sm:min-w-0
+                  min-h-[48px]
+                  text-xs sm:text-sm font-medium 
+                  border-b-2 transition-all duration-200 
+                  relative group
+                  touch-manipulation
+                  ${
                   isActive
                     ? mode === 'list' 
                       ? 'text-white border-white bg-gradient-to-t from-white/20 to-white/5'
@@ -268,7 +293,7 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
                   }`} />
                 )}
                 
-                <span className="hidden sm:inline font-medium">{tab.label}</span>
+                <span className="font-medium whitespace-nowrap text-xs sm:text-sm">{tab.label}</span>
                 
                 {/* New data indicator */}
                 {hasNewData && !isActive && (
@@ -329,9 +354,151 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
               </motion.button>
             );
           })}
+          </div>
         </div>
       </div>
     </div>
+  );
+};
+
+// Hamburger Menu Component for Header Integration
+interface HamburgerMenuProps {
+  onSendMessage?: () => void;
+  onSendEmail?: () => void;
+  onEditProfile?: () => void;
+}
+
+export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
+  onSendMessage,
+  onSendEmail,
+  onEditProfile
+}) => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  if (!onSendMessage && !onSendEmail && !onEditProfile) {
+    return null;
+  }
+
+  return (
+    <>
+      {/* Hamburger Menu Button */}
+      <motion.button
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        className="p-3 rounded-lg transition-all bg-white/20 text-white hover:bg-white/30"
+        whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: 1.05 }}
+        title="Menu"
+      >
+        <Icon 
+          icon="solar:hamburger-menu-bold-duotone" 
+          className="w-6 h-6"
+        />
+      </motion.button>
+
+      {/* Slide-out Menu Panel */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            {/* Background Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/50 z-40"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+            
+            {/* Slide-out Panel */}
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ duration: 0.3, type: 'spring', damping: 25 }}
+              className="fixed top-0 right-0 h-full w-80 bg-white shadow-2xl z-50 overflow-y-auto"
+            >
+              {/* Panel Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-purple-500 to-indigo-600">
+                <h3 className="text-lg font-semibold text-white">Actions</h3>
+                <motion.button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <X className="w-5 h-5" />
+                </motion.button>
+              </div>
+
+              {/* Action Buttons Section */}
+              <div className="py-4">
+                {onSendMessage && (
+                  <motion.button
+                    initial={{ opacity: 0, x: 50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 }}
+                    onClick={() => {
+                      onSendMessage();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-4 hover:bg-purple-50 transition-colors text-gray-700 border-b border-gray-100"
+                    whileHover={{ x: 4 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <MessageCircle className="w-6 h-6 text-purple-500" />
+                    <div className="text-left">
+                      <span className="font-medium text-lg">Message</span>
+                      <p className="text-sm text-gray-500 mt-0.5">Send SMS to patient</p>
+                    </div>
+                  </motion.button>
+                )}
+                
+                {onSendEmail && (
+                  <motion.button
+                    initial={{ opacity: 0, x: 50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.15 }}
+                    onClick={() => {
+                      onSendEmail();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-4 hover:bg-blue-50 transition-colors text-gray-700 border-b border-gray-100"
+                    whileHover={{ x: 4 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Mail className="w-6 h-6 text-blue-500" />
+                    <div className="text-left">
+                      <span className="font-medium text-lg">Email</span>
+                      <p className="text-sm text-gray-500 mt-0.5">Send email to patient</p>
+                    </div>
+                  </motion.button>
+                )}
+                
+                {onEditProfile && (
+                  <motion.button
+                    initial={{ opacity: 0, x: 50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 }}
+                    onClick={() => {
+                      onEditProfile();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-4 hover:bg-green-50 transition-colors text-gray-700"
+                    whileHover={{ x: 4 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Edit className="w-6 h-6 text-green-500" />
+                    <div className="text-left">
+                      <span className="font-medium text-lg">Edit</span>
+                      <p className="text-sm text-gray-500 mt-0.5">Edit patient profile</p>
+                    </div>
+                  </motion.button>
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 

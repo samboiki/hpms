@@ -2513,7 +2513,7 @@ OneHealth Medical Team`;
                           <div className="flex flex-wrap gap-1">
                             <button
                               onClick={() => setIsAddPatientModalOpen(true)}
-                              className="px-2 py-1 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-1 text-xs font-medium"
+                              className="px-4 py-3 sm:px-2 sm:py-1 bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 sm:gap-1 text-sm sm:text-xs font-medium min-h-[44px] sm:min-h-0 touch-manipulation"
                             >
                               <Plus className="w-3 h-3" />
                               <span className="text-xs">Add Patient</span>
@@ -2528,7 +2528,7 @@ OneHealth Medical Team`;
                                 modalState.openMessageModal();
                               }}
                               disabled={isSendingBulkSms || (selectedPatientIds.size === 0 && filteredPatients.length === 0)}
-                              className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 text-xs font-medium ${
+                              className={`px-4 py-3 sm:px-2 sm:py-1 rounded-lg transition-all flex items-center gap-2 sm:gap-1 text-sm sm:text-xs font-medium min-h-[44px] sm:min-h-0 touch-manipulation ${
                                 (selectedPatientIds.size > 0 || ((searchTerm || selectedFilter !== 'all' || aiFilters) && filteredPatients.length > 0))
                                   ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md hover:shadow-lg'
                                   : 'bg-gray-100 text-gray-400 opacity-50'
@@ -2592,7 +2592,7 @@ OneHealth Medical Team`;
                             
                             <button
                               onClick={() => setView(view === 'grid' ? 'list' : 'grid')}
-                              className="px-2 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1"
+                              className="px-4 py-3 sm:px-2 sm:py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 sm:gap-1 min-h-[44px] sm:min-h-0 touch-manipulation"
                             >
                               {view === 'grid' ? <List className="w-3 h-3" /> : <LayoutGrid className="w-3 h-3" />}
                             </button>
@@ -2626,7 +2626,7 @@ OneHealth Medical Team`;
                               whileHover={{ y: -2 }}
                               whileTap={{ scale: 0.95 }}
                               onClick={() => setSelectedFilter(filter.id)}
-                              className={`px-3 py-2 rounded-full flex items-center gap-2 transition-all text-sm font-medium border ${
+                              className={`px-4 py-3 sm:px-3 sm:py-2 rounded-full flex items-center gap-2 transition-all text-sm font-medium border min-h-[44px] sm:min-h-0 ${
                                 selectedFilter === filter.id
                                   ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white border-transparent shadow-sm'
                                   : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
@@ -2672,7 +2672,7 @@ OneHealth Medical Team`;
                             <p className="text-gray-600 text-sm mb-4">{error}</p>
                             <button
                               onClick={() => fetchPatientsFromStore()}
-                              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium"
+                              className="px-4 py-3 sm:py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium min-h-[44px] sm:min-h-0"
                             >
                               Try Again
                             </button>
@@ -2681,7 +2681,7 @@ OneHealth Medical Team`;
                       ) : (
                         <>
                           {view === 'grid' ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                               {paginatedPatients.map((patient: Patient, index: number) => (
                                 <motion.div
                                   key={patient.id}
@@ -3182,7 +3182,7 @@ OneHealth Medical Team`;
                                   </div>
                                   
                                   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                                    <div className="overflow-x-auto">
+                                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 overscroll-x-contain">
                                       <table className="w-full">
                                         <thead className="bg-gray-50 border-b border-gray-200">
                                           <tr>
@@ -3267,7 +3267,7 @@ OneHealth Medical Team`;
                                   </div>
                                   
                                   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                                    <div className="overflow-x-auto">
+                                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 overscroll-x-contain">
                                       <table className="w-full">
                                         <thead className="bg-gray-50 border-b border-gray-200">
                                           <tr>
@@ -3371,7 +3371,7 @@ OneHealth Medical Team`;
                                   </div>
                                   
                                   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                                    <div className="overflow-x-auto">
+                                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 overscroll-x-contain">
                                       <table className="w-full">
                                         <thead className="bg-gray-50 border-b border-gray-200">
                                           <tr>
@@ -3477,7 +3477,7 @@ OneHealth Medical Team`;
                                   </div>
                                   
                                   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-                                    <div className="overflow-x-auto">
+                                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 overscroll-x-contain">
                                       <table className="w-full">
                                         <thead className="bg-gray-50 border-b border-gray-200">
                                           <tr>

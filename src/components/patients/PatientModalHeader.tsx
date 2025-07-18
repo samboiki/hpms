@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, useSpring, useTransform, animate } from 'framer-motion';
+import { HamburgerMenu } from './PatientModalTabs';
 import {
   Users,
   User,
@@ -139,14 +140,11 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
                 <Users className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold flex items-center gap-2">
+                <h2 className="text-2xl font-bold">
                   Patient Management
-                  {isFullScreen && (
-                    <span className="text-sm bg-white/20 px-2 py-1 rounded-full">Full Screen</span>
-                  )}
                 </h2>
                 <p className="text-white/90">
-                  Comprehensive patient database and management {isFullScreen ? '• Full Screen Mode' : ''}
+                  Comprehensive patient database and management
                 </p>
               </div>
             </div>
@@ -155,14 +153,14 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={onToggleFullScreen}
-                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                className="p-3 sm:p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 touch-manipulation flex items-center justify-center"
                 title={isFullScreen ? 'Exit Full Screen (Esc or F11)' : 'Full Screen (F11)'}
               >
                 {isFullScreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
               </motion.button>
               <button
                 onClick={onClose}
-                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                className="p-3 sm:p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 touch-manipulation flex items-center justify-center"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -283,71 +281,82 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
                   <h2 className="text-3xl font-bold">
                     {selectedPatientDetails?.first_name} {selectedPatientDetails?.last_name}
                   </h2>
-                  {isFullScreen && (
-                    <span className="text-sm bg-white/20 px-2 py-1 rounded-full">Full Screen</span>
-                  )}
                 </div>
               </div>
             </div>
             
             <div className="flex items-center gap-3">
-              {/* Action Buttons */}
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={onSendMessage}
-                className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors flex items-center gap-2"
-                title="Send SMS"
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span className="hidden sm:inline">Message</span>
-              </motion.button>
+              {/* Action Buttons - Hidden on mobile/tablet, moved to hamburger menu */}
+              <div className="hidden lg:flex items-center gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onSendMessage}
+                  className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors flex items-center gap-2"
+                  title="Send SMS"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Message</span>
+                </motion.button>
+                
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onSendEmail}
+                  className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors flex items-center gap-2"
+                  title="Send Email"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span>Email</span>
+                </motion.button>
+                
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onEditProfile}
+                  className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors flex items-center gap-2"
+                  title="Edit Profile"
+                >
+                  <Edit className="w-4 h-4" />
+                  <span>Edit</span>
+                </motion.button>
+                
+                <div className="h-8 w-px bg-white/20 mx-1" />
+              </div>
               
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={onSendEmail}
-                className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors flex items-center gap-2"
-                title="Send Email"
-              >
-                <Mail className="w-4 h-4" />
-                <span className="hidden sm:inline">Email</span>
-              </motion.button>
+              {/* Hamburger Menu for Mobile/Tablet - Only show for patient details */}
+              <div className="block lg:hidden">
+                <HamburgerMenu
+                  onSendMessage={onSendMessage}
+                  onSendEmail={onSendEmail}
+                  onEditProfile={onEditProfile}
+                />
+              </div>
               
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={onEditProfile}
-                className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors flex items-center gap-2"
-                title="Edit Profile"
-              >
-                <Edit className="w-4 h-4" />
-                <span className="hidden sm:inline">Edit</span>
-              </motion.button>
-              
-              <div className="h-8 w-px bg-white/20 mx-1" />
-              
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={onToggleFullScreen}
-                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-                title={isFullScreen ? 'Exit Full Screen (Esc or F11)' : 'Full Screen (F11)'}
-              >
-                {isFullScreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
-              </motion.button>
-              
-              <button
-                onClick={onClose}
-                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              {/* Desktop Only Controls */}
+              <div className="hidden lg:flex items-center gap-3">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onToggleFullScreen}
+                  className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                  title={isFullScreen ? 'Exit Full Screen (Esc or F11)' : 'Full Screen (F11)'}
+                >
+                  {isFullScreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+                </motion.button>
+                
+                <button
+                  onClick={onClose}
+                  className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </div>
           
-          {/* Patient Info Stat Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-4">
+          {/* Patient Info Stat Cards - Hidden on mobile for space optimization */}
+          <div className="hidden sm:grid grid-cols-1 md:grid-cols-4 gap-4 pb-4">
             {/* Demographics Card */}
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
