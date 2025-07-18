@@ -1,0 +1,99 @@
+/* Mobile Performance Optimizations */
+
+/* GPU Acceleration for smooth scrolling */
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+  transform: translateZ(0);
+  will-change: scroll-position;
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Optimize timeline cards for mobile */
+.timeline-card {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  contain: layout style paint;
+}
+
+/* Reduce motion for better performance */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Touch-friendly mobile optimizations */
+@media (max-width: 768px) {
+  /* Remove heavy animations on mobile */
+  .framer-motion-disable * {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  /* Optimize scrolling performance */
+  .mobile-scroll-optimize {
+    -webkit-overflow-scrolling: touch;
+    transform: translateZ(0);
+    will-change: scroll-position;
+    contain: layout style paint;
+  }
+  
+  /* Reduce blur effects that cause performance issues */
+  .backdrop-blur-xl,
+  .backdrop-blur-lg,
+  .backdrop-blur-md {
+    backdrop-filter: blur(4px) !important;
+  }
+  
+  /* Optimize timeline containers */
+  .timeline-container {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-left: -1rem !important;
+    margin-right: -1rem !important;
+  }
+  
+  /* Maximize card width on mobile */
+  .patient-journey-mobile {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  
+  /* Optimize button interactions */
+  .touch-button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    touch-action: manipulation;
+  }
+}
+
+/* Hardware acceleration for timeline elements */
+.timeline-node {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* Optimize visit cards for smooth scrolling */
+.visit-card {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  contain: layout style paint;
+}
+
+/* Remove expensive box-shadows on mobile */
+@media (max-width: 768px) {
+  .shadow-xl,
+  .shadow-2xl {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+  }
+  
+  .shadow-lg {
+    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1) !important;
+  }
+}

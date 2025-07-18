@@ -9,6 +9,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import mobile performance optimizations */
+@import './styles/mobile-performance.css';
+
 /* Simple no-shake solution - only prevent scale transforms */
 .hover\:scale-105:hover,
 .hover\:scale-110:hover,

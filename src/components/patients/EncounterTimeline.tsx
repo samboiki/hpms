@@ -371,142 +371,56 @@ const TimelineNode: React.FC<{
   return (
     <div className="relative flex items-start gap-0 sm:gap-6">
       {/* Timeline node - Hidden on mobile */}
-      <div className="relative flex-shrink-0 hidden sm:block">
-        {/* Animated connection line to next visit */}
+      <div className="relative flex-shrink-0 hidden sm:block timeline-node">
+        {/* Simplified connection line - No heavy animations */}
         {!isLast && (
-          <motion.div
+          <div
             className={`absolute top-16 left-8 w-0.5 -z-10 ${
               isCompleted 
-                ? 'bg-gradient-to-b from-indigo-500 via-purple-500 to-indigo-400' 
+                ? 'bg-indigo-500' 
                 : isTodayVisit
-                ? 'bg-gradient-to-b from-purple-500 via-pink-500 to-purple-400'
+                ? 'bg-purple-500'
                 : isFutureVisit
-                ? 'bg-gradient-to-b from-blue-500 via-cyan-500 to-blue-400'
-                : 'bg-gradient-to-b from-gray-300 to-gray-200'
+                ? 'bg-blue-500'
+                : 'bg-gray-300'
             }`}
-            initial={{ scaleY: 0, opacity: 0 }}
-            animate={{ 
-              scaleY: 1, 
-              opacity: 1,
-              backgroundPosition: isCompleted ? ['0% 0%', '100% 100%'] : ['0% 0%']
-            }}
-            transition={{ 
-              delay: index * 0.05 + 0.2, 
-              duration: 0.6,
-              backgroundPosition: {
-                duration: isCompleted ? 2 : 0,
-                repeat: isCompleted ? Infinity : 0,
-                ease: "linear"
-              }
-            }}
             style={{
-              height: 'calc(100% + 2rem + var(--card-height, 200px))',
+              height: 'calc(100% + 2rem + 200px)',
               transformOrigin: 'top'
             }}
-          >
-            {/* Animated pulse for completed visits */}
-            {isCompleted && (
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-b from-indigo-400 to-purple-400 rounded-full"
-                animate={{
-                  opacity: [0.8, 0.3, 0.8],
-                  scale: [1, 1.2, 1]
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              />
-            )}
-            
-            {/* Moving dot for today's visits */}
-            {isTodayVisit && (
-              <motion.div
-                className="absolute w-2 h-2 bg-white rounded-full shadow-lg"
-                style={{ left: '-3px' }}
-                animate={{
-                  y: [0, 60, 0],
-                }}
-                transition={{
-                  duration: 3,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              />
-            )}
-          </motion.div>
+          />
         )}
         
-        <motion.div
-          className="relative z-10"
-          whileHover={{ scale: 1.08 }}
-          onHoverStart={() => setIsHovered(true)}
-          onHoverEnd={() => setIsHovered(false)}
-        >
-          {/* Subtle glow */}
-          {isHovered && (
-            <motion.div
-              className={`absolute inset-0 ${theme.glow} rounded-full blur-xl`}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 0.4, scale: 1.6 }}
-              transition={{ duration: 0.3 }}
-            />
-          )}
-          
-          {/* Circle with visit number and white space */}
-          <motion.div
-            className={`relative z-10 w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-xl border-4 ${theme.border}`}
+        <div className="relative z-10">
+          {/* Simplified circle - No animations */}
+          <div
+            className={`relative z-10 w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg border-4 ${theme.border}`}
           >
             {/* Inner colored circle with visit number */}
-            <div className={`w-12 h-12 ${theme.bg} rounded-full flex items-center justify-center shadow-md`}>
+            <div className={`w-12 h-12 ${theme.bg} rounded-full flex items-center justify-center shadow-sm`}>
               <span className="text-xl font-bold text-white">
                 {visitNumber}
               </span>
             </div>
-            
-            
-            {/* Pulse effect for today */}
-            {isTodayVisit && (
-              <motion.div
-                className="absolute inset-2 bg-white rounded-full"
-                animate={{
-                  scale: [1, 1.3, 1],
-                  opacity: [0.2, 0, 0.2],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-              />
-            )}
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       </div>
       
       {/* Content card - Full width on mobile */}
       <div className="w-full sm:flex-1 sm:min-w-0">
-        <motion.div
-          animate={{ 
-            x: isHovered ? 8 : 0,
-            y: isHovered ? -2 : 0 
-          }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
+        <div
+          className={`${theme.cardBg} rounded-xl overflow-hidden transition-all duration-200 cursor-pointer relative group border visit-card timeline-card ${
+            isCompleted 
+              ? 'border-indigo-500' 
+              : isTodayVisit
+              ? 'border-purple-500'
+              : isFutureVisit
+              ? 'border-blue-500'
+              : 'border-gray-300'
+          }`}
+          onClick={onToggle}
+          style={{ willChange: 'transform' }}
         >
-          <motion.div
-            className={`${theme.cardBg} rounded-xl overflow-hidden transition-all duration-200 cursor-pointer relative group border ${
-              isCompleted 
-                ? 'border-indigo-500' 
-                : isTodayVisit
-                ? 'border-purple-500'
-                : isFutureVisit
-                ? 'border-blue-500'
-                : 'border-gray-300'
-            }`}
-            onClick={onToggle}
-            whileHover={{ scale: 1.005 }}
-          >
             {/* Creative Demarcation System */}
             
             {/* Method 1: Corner Accent with Visit Number */}
@@ -543,29 +457,6 @@ const TimelineNode: React.FC<{
             
             {/* Card content */}
             <div className="relative z-10">
-              {/* Floating particles effect */}
-              {isHovered && (
-                <>
-                  {[...Array(3)].map((_, i) => (
-                    <motion.div
-                      key={i}
-                      className="absolute w-1 h-1 bg-purple-400 rounded-full"
-                      initial={{ x: 20, y: 20, opacity: 0 }}
-                      animate={{
-                        x: [20, 40 + i * 20, 60 + i * 15],
-                        y: [20, 10 - i * 5, 0],
-                        opacity: [0, 0.8, 0],
-                      }}
-                      transition={{
-                        duration: 1.5,
-                        delay: i * 0.2,
-                        repeat: Infinity,
-                      }}
-                    />
-                  ))}
-                </>
-              )}
-              
               {/* Main content area */}
               <div className="pt-4 px-4">
                 {/* Mobile: Date and Time Header - Only visible on mobile */}
@@ -595,23 +486,19 @@ const TimelineNode: React.FC<{
                 
                 {/* Row 1: Visit type and chief complaint */}
                 <div className="flex items-center gap-2 mb-3">
-                  <motion.h3 
+                  <h3 
                     className={`font-semibold text-base ${theme.textPrimary} relative z-10 flex-shrink-0`}
-                    animate={{ scale: isHovered ? 1.02 : 1 }}
-                    transition={{ duration: 0.2 }}
                   >
                     {getVisitTypeDisplay()}:
-                  </motion.h3>
+                  </h3>
                   {visit.chief_complaint && (
                     <>
                       <Stethoscope className={`w-4 h-4 ${theme.iconColor} flex-shrink-0`} />
-                      <motion.p 
+                      <p 
                         className={`text-sm ${theme.textSecondary} font-medium relative z-10 truncate`}
-                        animate={{ opacity: isHovered ? 1 : 0.8 }}
-                        transition={{ duration: 0.2 }}
                       >
                         {visit.chief_complaint}
-                      </motion.p>
+                      </p>
                     </>
                   )}
                 </div>
@@ -632,7 +519,7 @@ const TimelineNode: React.FC<{
                 <div className="mb-3">
                   {isScheduled ? (
                     // For scheduled visits (appointments), show "Start Visit" button
-                    <motion.button
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         if (onStartAppointment) {
@@ -640,12 +527,10 @@ const TimelineNode: React.FC<{
                         }
                       }}
                       className="inline-flex items-center gap-1.5 px-4 py-2.5 sm:px-3 sm:py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full shadow-sm hover:shadow-lg transition-all text-white font-semibold text-xs min-h-[40px] sm:min-h-0 touch-manipulation"
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
                     >
                       <Play className="w-3 h-3" />
                       Start Visit
-                    </motion.button>
+                    </button>
                   ) : (
                     // For in-progress or completed visits, show status toggle
                     <StatusToggle
@@ -660,31 +545,28 @@ const TimelineNode: React.FC<{
                 {(visit.vitals?.blood_pressure || (visit.medications && visit.medications.length > 0) || (visit.lab_results && visit.lab_results.length > 0)) && (
                   <div className="flex items-center gap-2 mb-3">
                     {visit.vitals?.blood_pressure && (
-                      <motion.div 
+                      <div 
                         className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-red-50 to-pink-50 rounded-lg px-2.5 py-1.5 border border-red-100"
-                        whileHover={{ scale: 1.05, y: -1 }}
                       >
                         <Heart className="w-3.5 h-3.5 text-red-500" />
                         <span className="font-semibold text-red-700">{visit.vitals.blood_pressure}</span>
-                      </motion.div>
+                      </div>
                     )}
                     {visit.medications && visit.medications.length > 0 && (
-                      <motion.div 
+                      <div 
                         className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg px-2.5 py-1.5 border border-blue-100"
-                        whileHover={{ scale: 1.05, y: -1 }}
                       >
                         <Pill className="w-3.5 h-3.5 text-blue-500" />
                         <span className="font-semibold text-blue-700">{visit.medications.length} meds</span>
-                      </motion.div>
+                      </div>
                     )}
                     {visit.lab_results && visit.lab_results.length > 0 && (
-                      <motion.div 
+                      <div 
                         className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg px-2.5 py-1.5 border border-emerald-100"
-                        whileHover={{ scale: 1.05, y: -1 }}
                       >
                         <FlaskConical className="w-3.5 h-3.5 text-emerald-500" />
                         <span className="font-semibold text-emerald-700">{visit.lab_results.length} tests</span>
-                      </motion.div>
+                      </div>
                     )}
                   </div>
                 )}
@@ -694,22 +576,18 @@ const TimelineNode: React.FC<{
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 pb-3 border-t border-gray-100 pt-3 gap-3 sm:gap-0">
                 {/* Media, Lab, Imaging badges as light grey buttons */}
                 <div className="flex items-center gap-2 flex-wrap">
-                  <motion.button 
+                  <button 
                     className={`group flex items-center gap-1 sm:gap-1.5 text-xs px-2 sm:px-2.5 py-1.5 rounded-md transition-all duration-200 min-h-[32px] touch-manipulation ${
                       counts.media > 0 
                         ? 'bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border border-blue-200/50' 
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
                   >
-                    <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.5 }}>
-                      <FileText className={`w-3.5 h-3.5 transition-colors ${
-                        counts.media > 0 
-                          ? 'text-blue-600 group-hover:text-blue-700' 
-                          : 'text-gray-500 group-hover:text-gray-700'
-                      }`} />
-                    </motion.div>
+                    <FileText className={`w-3.5 h-3.5 transition-colors ${
+                      counts.media > 0 
+                        ? 'text-blue-600 group-hover:text-blue-700' 
+                        : 'text-gray-500 group-hover:text-gray-700'
+                    }`} />
                     <span className={`transition-colors hidden xs:inline sm:inline ${
                       counts.media > 0 
                         ? 'text-blue-700 group-hover:text-blue-800' 
@@ -720,24 +598,20 @@ const TimelineNode: React.FC<{
                         ? 'text-blue-800 group-hover:text-blue-900' 
                         : 'text-gray-700 group-hover:text-gray-900'
                     }`}>{counts.media}</span>
-                  </motion.button>
+                  </button>
                   
-                  <motion.button 
+                  <button 
                     className={`group flex items-center gap-1 sm:gap-1.5 text-xs px-2 sm:px-2.5 py-1.5 rounded-md transition-all duration-200 min-h-[32px] touch-manipulation ${
                       counts.lab > 0 
                         ? 'bg-gradient-to-r from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100 border border-emerald-200/50' 
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
                   >
-                    <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.5 }}>
-                      <FlaskConical className={`w-3.5 h-3.5 transition-colors ${
-                        counts.lab > 0 
-                          ? 'text-emerald-600 group-hover:text-emerald-700' 
-                          : 'text-gray-500 group-hover:text-gray-700'
-                      }`} />
-                    </motion.div>
+                    <FlaskConical className={`w-3.5 h-3.5 transition-colors ${
+                      counts.lab > 0 
+                        ? 'text-emerald-600 group-hover:text-emerald-700' 
+                        : 'text-gray-500 group-hover:text-gray-700'
+                    }`} />
                     <span className={`transition-colors hidden xs:inline sm:inline ${
                       counts.lab > 0 
                         ? 'text-emerald-700 group-hover:text-emerald-800' 
@@ -748,24 +622,20 @@ const TimelineNode: React.FC<{
                         ? 'text-emerald-800 group-hover:text-emerald-900' 
                         : 'text-gray-700 group-hover:text-gray-900'
                     }`}>{counts.lab}</span>
-                  </motion.button>
+                  </button>
                   
-                  <motion.button 
+                  <button 
                     className={`group flex items-center gap-1 sm:gap-1.5 text-xs px-2 sm:px-2.5 py-1.5 rounded-md transition-all duration-200 min-h-[32px] touch-manipulation ${
                       counts.imaging > 0 
                         ? 'bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 border border-purple-200/50' 
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
                   >
-                    <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 0.5 }}>
-                      <Hexagon className={`w-3.5 h-3.5 transition-colors ${
-                        counts.imaging > 0 
-                          ? 'text-purple-600 group-hover:text-purple-700' 
-                          : 'text-gray-500 group-hover:text-gray-700'
-                      }`} />
-                    </motion.div>
+                    <Hexagon className={`w-3.5 h-3.5 transition-colors ${
+                      counts.imaging > 0 
+                        ? 'text-purple-600 group-hover:text-purple-700' 
+                        : 'text-gray-500 group-hover:text-gray-700'
+                    }`} />
                     <span className={`transition-colors hidden xs:inline sm:inline ${
                       counts.imaging > 0 
                         ? 'text-purple-700 group-hover:text-purple-800' 
@@ -776,15 +646,13 @@ const TimelineNode: React.FC<{
                         ? 'text-purple-800 group-hover:text-purple-900' 
                         : 'text-gray-700 group-hover:text-gray-900'
                     }`}>{counts.imaging}</span>
-                  </motion.button>
+                  </button>
                 </div>
                 
                 {/* Action buttons */}
                 <div className="flex items-center gap-2 relative z-20 justify-end sm:justify-start">
                   {onEditVisit && (
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onEditVisit(visit);
@@ -792,16 +660,12 @@ const TimelineNode: React.FC<{
                       className="group flex items-center gap-1.5 px-3 py-2.5 sm:px-2.5 sm:py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-all duration-200 min-h-[40px] sm:min-h-0 touch-manipulation"
                       title="Edit encounter"
                     >
-                      <motion.div whileHover={{ rotate: -15 }} transition={{ duration: 0.2 }}>
-                        <Edit3 className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-700" />
-                      </motion.div>
+                      <Edit3 className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-700" />
                       <span className="font-medium text-gray-600 group-hover:text-gray-800">Edit</span>
-                    </motion.button>
+                    </button>
                   )}
                   {onCreateFollowUp && isCompleted && (
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         onCreateFollowUp(visit);
@@ -809,24 +673,20 @@ const TimelineNode: React.FC<{
                       className="group flex items-center gap-1.5 px-3 py-2.5 sm:px-2.5 sm:py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-all duration-200 min-h-[40px] sm:min-h-0 touch-manipulation"
                       title="Create follow-up"
                     >
-                      <motion.div whileHover={{ scale: 1.2 }} transition={{ duration: 0.2 }}>
-                        <Copy className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-700" />
-                      </motion.div>
+                      <Copy className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-700" />
                       <span className="font-medium text-gray-600 group-hover:text-gray-800">Follow-up</span>
-                    </motion.button>
+                    </button>
                   )}
-                  <motion.button
+                  <button
                     className="group p-1.5 bg-gray-100 hover:bg-gray-200 rounded-md transition-all duration-200"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
                   >
-                    <motion.div
-                      animate={{ rotate: isExpanded ? 90 : 0 }}
-                      transition={{ duration: 0.3, ease: "easeOut" }}
+                    <div
+                      className="transition-transform duration-300"
+                      style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
                     >
                       <ChevronRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-700 transition-colors" />
-                    </motion.div>
-                  </motion.button>
+                    </div>
+                  </button>
                 </div>
               </div>
             </div>
@@ -837,20 +697,8 @@ const TimelineNode: React.FC<{
             )}
             
             {/* Expanded content - Clinical Details */}
-            <AnimatePresence mode="wait">
-              {isExpanded && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0, y: -10 }}
-                  animate={{ height: 'auto', opacity: 1, y: 0 }}
-                  exit={{ height: 0, opacity: 0, y: -10 }}
-                  transition={{ 
-                    duration: 0.3, 
-                    ease: [0.4, 0.0, 0.2, 1],
-                    height: { duration: 0.3 },
-                    opacity: { duration: 0.2, delay: 0.1 }
-                  }}
-                  className="bg-white relative z-10"
-                >
+            {isExpanded && (
+              <div className="bg-white relative z-10">
                   {/* Section Header */}
                   <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
                     <div className="flex items-center gap-3">
@@ -927,11 +775,9 @@ const TimelineNode: React.FC<{
                       )}
                     </div>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        </motion.div>
+              </div>
+            )}
+          </div>
       </div>
     </div>
   );
@@ -1015,13 +861,9 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
   };
   
   return (
-    <div className="relative">
+    <div className="relative timeline-container mobile-scroll-optimize">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-10"
-      >
+      <div className="mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           {/* Title */}
           <div>
@@ -1032,24 +874,21 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
           
           {/* Add Visit Button */}
           {onAddVisit && (
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+            <button
               onClick={onAddVisit}
               className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-3 sm:py-2 rounded-xl hover:shadow-lg transition-all flex items-center gap-2 font-medium min-h-[44px] sm:min-h-0 touch-manipulation w-full sm:w-auto justify-center sm:justify-start"
             >
               <Plus className="w-5 h-5" />
               <span className="text-sm sm:text-base">Add New Visit</span>
-            </motion.button>
+            </button>
           )}
         </div>
-        
-      </motion.div>
+      </div>
       
       {/* Mobile: Single Column | Desktop: Timeline (10/12) + Journey Progress (2/12) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Timeline Column - Full width on mobile for larger cards */}
-        <div className="lg:col-span-10">
+        <div className="lg:col-span-10 -mx-4 px-4 sm:mx-0 sm:px-0">
           {console.log('🎬 RENDERING TIMELINE ITEMS:', {
             totalItems: timelineItems.length,
             itemBreakdown: timelineItems.map(item => ({ type: item.type, id: item.id, date: item.displayDate }))
