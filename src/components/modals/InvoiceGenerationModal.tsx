@@ -45,18 +45,9 @@ const InvoiceGenerationModal: React.FC<InvoiceGenerationModalProps> = ({
 }) => {
   const [selectedOption, setSelectedOption] = useState<'invoice' | 'receipt' | 'preview' | null>(null);
 
-  console.log('🔍 InvoiceGenerationModal render check:', { isOpen, invoice: !!invoice });
-  
   if (!isOpen || !invoice) {
-    console.log('❌ Modal not rendering because:', { isOpen, hasInvoice: !!invoice });
     return null;
   }
-
-  console.log('✅ InvoiceGenerationModal rendering with:', { 
-    isOpen, 
-    invoiceNumber: invoice.invoice_number,
-    patientName 
-  });
 
   const handleGenerate = async () => {
     if (selectedOption === 'invoice') {

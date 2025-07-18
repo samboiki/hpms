@@ -91,7 +91,6 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
   fetchVisits: async (filters?: VisitFilters) => {
     set({ loading: true, error: null });
     const startTime = performance.now();
-    console.log('⏱️ visitsStore: Starting fetchVisits with filters:', filters);
     
     try {
       let query = supabase
@@ -155,9 +154,6 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
       }
 
       const { data, error } = await query;
-      
-      const queryTime = performance.now() - startTime;
-      console.log(`⏱️ visitsStore: Query completed in ${queryTime.toFixed(2)}ms, returned ${data?.length || 0} visits`);
 
       if (error) throw error;
 
@@ -182,9 +178,6 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
     
     const state = get();
     const currentPracticeId = practiceId || state.practiceId;
-    
-    console.log('⏱️ visitsStore: Fetching today\'s visits for dates:', todayISO, 'or', todayUS, 'practice:', currentPracticeId);
-    const startTime = performance.now();
     
     if (!currentPracticeId) {
       console.warn('⚠️ visitsStore: No practice ID provided for fetchTodayVisits');
@@ -211,9 +204,6 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
       
       set({ visits: data || [], loading: false });
       get().updateCounts();
-      
-      const totalTime = performance.now() - startTime;
-      console.log(`⏱️ visitsStore: Today's visits fetched in ${totalTime.toFixed(2)}ms, found ${data?.length || 0} visits`);
     } catch (error) {
       console.error('Error fetching today\'s visits:', error);
       set({ error: (error as Error).message, loading: false });

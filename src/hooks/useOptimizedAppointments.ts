@@ -47,9 +47,6 @@ export function useOptimizedAppointments(options: UseOptimizedAppointmentsOption
     queryFn: async () => {
       if (!practiceId) throw new Error('No practice ID available');
 
-      const startTime = performance.now();
-      console.log('⏱️ useOptimizedAppointments: Starting query with options:', options);
-
       // Use the optimized database function
       const { data, error } = await supabase.rpc('get_appointments_optimized', {
         p_practice_id: practiceId,
@@ -59,9 +56,6 @@ export function useOptimizedAppointments(options: UseOptimizedAppointmentsOption
         p_limit: options.limit || 50,
         p_offset: options.offset || 0
       });
-
-      const queryTime = performance.now() - startTime;
-      console.log(`⏱️ useOptimizedAppointments: Query completed in ${queryTime.toFixed(2)}ms, returned ${data?.length || 0} records`);
 
       if (error) throw error;
       return data as OptimizedAppointment[];
@@ -84,18 +78,12 @@ export function useTodayAppointments() {
     queryFn: async () => {
       if (!practiceId) throw new Error('No practice ID available');
 
-      const startTime = performance.now();
-      console.log('⏱️ useTodayAppointments: Fetching from materialized view');
-
       // Query the materialized view directly for better performance
       const { data, error } = await supabase
         .from('today_visits_view')
         .select('*')
         .eq('practice_id', practiceId)
         .order('scheduled_time', { ascending: true });
-
-      const queryTime = performance.now() - startTime;
-      console.log(`⏱️ useTodayAppointments: Query completed in ${queryTime.toFixed(2)}ms, returned ${data?.length || 0} records`);
 
       if (error) throw error;
       return data;
@@ -117,16 +105,10 @@ export function useAppointmentStats(date?: string) {
     queryFn: async () => {
       if (!practiceId) throw new Error('No practice ID available');
 
-      const startTime = performance.now();
-      console.log('⏱️ useAppointmentStats: Fetching stats for date:', date || 'today');
-
       const { data, error } = await supabase.rpc('get_appointment_stats', {
         p_practice_id: practiceId,
         p_date: date || new Date().toISOString().split('T')[0]
       });
-
-      const queryTime = performance.now() - startTime;
-      console.log(`⏱️ useAppointmentStats: Query completed in ${queryTime.toFixed(2)}ms`);
 
       if (error) throw error;
       return data[0] as AppointmentStats;

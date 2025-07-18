@@ -286,7 +286,6 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   // Sync React Query data with component state for instant loading
   useEffect(() => {
     if (patientDetailsData) {
-      console.log('📊 Using cached/fetched patient data for instant loading');
       setSelectedPatientDetails(patientDetailsData.patient);
       setNextOfKin(patientDetailsData.nextOfKin);
       setVisits(patientDetailsData.visits);
@@ -383,14 +382,6 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   const [isInvoiceGenerationModalOpen, setIsInvoiceGenerationModalOpen] = useState(false);
   const [generationType, setGenerationType] = useState<'invoice' | 'receipt' | null>(null);
 
-  // Debug modal state changes
-  React.useEffect(() => {
-    console.log('🔄 Modal state changed:', { 
-      isInvoiceGenerationModalOpen, 
-      hasSelectedInvoice: !!selectedInvoice,
-      selectedInvoiceNumber: selectedInvoice?.invoice_number
-    });
-  }, [isInvoiceGenerationModalOpen, selectedInvoice]);
   const { user } = useAuthStore();
 
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
