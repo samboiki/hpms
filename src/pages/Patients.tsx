@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { useAuthStore } from '../stores/authStore';
@@ -9,23 +9,48 @@ import PatientAnalytics from '../components/patients/PatientAnalytics';
 import { usePatientsStoreNew } from '../stores/patientsStoreNew';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePatientSettings } from '../hooks/usePatientSettings';
+import { useOutletContext } from 'react-router-dom';
+import { useTheme } from '../stores/themeStore';
+import { usePracticeData } from '../hooks/usePracticeData';
+
+interface LayoutContext {
+  toggleMobileSidebar: () => void;
+  isMobileSidebarOpen: boolean;
+}
 
 // Main Patients Page Component
 const Patients: React.FC = () => {
   const { practiceId } = usePractice();
   const { user, logout } = useAuthStore();
   const { patients } = usePatientsStoreNew();
+  const { toggleMobileSidebar } = useOutletContext<LayoutContext>();
+  const { currentTheme } = useTheme();
+  const { practiceData, colors } = usePracticeData();
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   const [activeTab, setActiveTab] = useState<'patients' | 'analytics' | 'settings'>('patients');
   const { settings, loading: settingsLoading, saving, saveSettings } = usePatientSettings();
   const [localSettings, setLocalSettings] = useState(settings);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
 
   // Update local settings when loaded from database
   React.useEffect(() => {
     setLocalSettings(settings);
   }, [settings]);
+
+  // Detect screen size
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 640);
+      setIsTablet(window.innerWidth >= 640 && window.innerWidth < 1024);
+    };
+    
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   const handleLogout = async () => {
     try {
