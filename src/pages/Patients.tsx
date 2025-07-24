@@ -228,8 +228,8 @@ const Patients: React.FC = () => {
 
         {/* Main Tab Navigation - Professional Style */}
         <div className="bg-white rounded-none sm:rounded-2xl shadow-lg border border-gray-200 border-x-0 sm:border-x overflow-hidden mx-0 sm:mx-0">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-0 w-full">
-            {(isMobile ? ['patients', 'analytics'] : ['patients', 'analytics', 'settings'] as const).map((tab, index) => {
+          <div className="grid grid-cols-3 gap-0 w-full">
+            {(['patients', 'analytics', 'settings'] as const).map((tab, index) => {
               const tabConfig = {
                 patients: { icon: 'solar:users-group-two-rounded-bold-duotone', label: 'Patients' },
                 analytics: { icon: 'solar:chart-square-bold-duotone', label: 'Analytics' },
@@ -238,13 +238,13 @@ const Patients: React.FC = () => {
               const { icon, label } = tabConfig[tab];
               const isActive = activeTab === tab;
               const isFirst = index === 0;
-              const isLast = isMobile ? index === 1 : index === 2;
+              const isLast = index === 2;
               
               return (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`relative flex items-center justify-center gap-2 px-6 py-4 text-sm font-medium transition-all duration-200 capitalize ${
+                  className={`relative flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-all duration-200 capitalize ${
                     isFirst ? 'rounded-l-xl' : ''
                   } ${
                     isLast ? 'rounded-r-xl' : ''
@@ -257,7 +257,7 @@ const Patients: React.FC = () => {
                   }`}
                 >
                   <Icon icon={icon} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
-                  <span className="hidden sm:inline">{label}</span>
+                  <span className="text-[10px] sm:text-sm">{label}</span>
                 </button>
               );
             })}
