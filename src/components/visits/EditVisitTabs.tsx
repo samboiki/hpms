@@ -1221,10 +1221,10 @@ const EditVisitTabs: React.FC<Props> = ({
                 <h3 className="text-lg font-semibold text-gray-800 ml-2">Encounter Details</h3>
               </div>
               <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
-                <div className="flex flex-col md:flex-row gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Date and Time Container */}
-                  <div className="flex flex-col sm:flex-row gap-4 md:w-1/2">
-                    <div className="flex-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="col-span-1">
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         Encounter Date
                       </label>
@@ -1232,16 +1232,16 @@ const EditVisitTabs: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={() => setIsDatePickerOpen(true)}
-                          className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[45px]"
+                          className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg min-h-[45px]"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-blue-400 to-cyan-500">
+                            <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-blue-400 to-cyan-500 flex-shrink-0">
                               <Calendar className="w-4 h-4 text-white" />
                             </div>
-                            <div>
+                            <div className="min-w-0 flex-1">
                               {watch('visit_date') ? (
                                 <>
-                                  <p className="text-sm font-semibold text-gray-900">
+                                  <p className="text-sm font-semibold text-gray-900 truncate">
                                     {watch('visit_date').toLocaleDateString('en-US', { 
                                       month: 'short', 
                                       day: 'numeric', 
@@ -1258,7 +1258,7 @@ const EditVisitTabs: React.FC<Props> = ({
                               )}
                             </div>
                           </div>
-                          <ChevronDown className="w-5 h-5 transition-transform text-[#01b9d5]" />
+                          <ChevronDown className="w-5 h-5 transition-transform text-[#01b9d5] flex-shrink-0" />
                         </button>
                       </div>
                       {errors.visit_date && (
@@ -1266,7 +1266,7 @@ const EditVisitTabs: React.FC<Props> = ({
                       )}
                     </div>
 
-                    <div className="flex-1">
+                    <div className="col-span-1">
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         Encounter Time
                       </label>
@@ -1274,13 +1274,13 @@ const EditVisitTabs: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={() => setIsTimePickerOpen(true)}
-                          className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[45px]"
+                          className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg min-h-[45px]"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-purple-400 to-pink-500">
+                            <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-purple-400 to-pink-500 flex-shrink-0">
                               <Sunset className="w-4 h-4 text-white" />
                             </div>
-                            <div>
+                            <div className="min-w-0 flex-1">
                               <p className="text-sm font-semibold text-gray-900">
                                 {selectedHour}:{selectedMinute}
                               </p>
@@ -1289,94 +1289,97 @@ const EditVisitTabs: React.FC<Props> = ({
                               </p>
                             </div>
                           </div>
-                          <Clock className="w-5 h-5 transition-transform text-[#01b9d5]" />
+                          <Clock className="w-5 h-5 transition-transform text-[#01b9d5] flex-shrink-0" />
                         </button>
                       </div>
                     </div>
                   </div>
 
-                  {/* Visit Type Container */}
-                  <div className="flex-1">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Visit Type
-                    </label>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setIsVisitTypeModalOpen(true)}
-                        className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[45px]"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-amber-400 to-orange-500">
-                            <Stethoscope className="w-4 h-4 text-white" />
+                  {/* Visit Type and Doctor Container */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Visit Type */}
+                    <div className="col-span-1">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Visit Type
+                      </label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setIsVisitTypeModalOpen(true)}
+                          className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg min-h-[45px]"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-amber-400 to-orange-500 flex-shrink-0">
+                              <Stethoscope className="w-4 h-4 text-white" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              {(() => {
+                                const selectedType = visitTypeOptions.find(opt => opt.value === watch('visit_type'));
+                                return (
+                                  <>
+                                    <p className="text-sm font-semibold text-gray-900 truncate">
+                                      {selectedType ? selectedType.label : 'Select Visit Type'}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {selectedType ? 'Visit category' : 'Choose type'}
+                                    </p>
+                                  </>
+                                );
+                              })()}
+                            </div>
                           </div>
-                          <div>
-                            {(() => {
-                              const selectedType = visitTypeOptions.find(opt => opt.value === watch('visit_type'));
-                              return (
-                                <>
-                                  <p className="text-sm font-semibold text-gray-900">
-                                    {selectedType ? selectedType.label : 'Select Visit Type'}
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    {selectedType ? 'Visit category' : 'Choose type'}
-                                  </p>
-                                </>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                        <ChevronDown className="w-5 h-5 transition-transform text-[#01b9d5]" />
-                      </button>
-                    </div>
-                    {errors.visit_type && (
-                      <p className="text-sm text-red-600 mt-1">{errors.visit_type.message}</p>
-                    )}
-                  </div>
-
-                  {/* Doctor Selection Container */}
-                  <div className="flex-1">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Treating Doctor
-                      {appointmentDoctor && (
-                        <span className="text-sm text-blue-600 ml-1">(From Appointment)</span>
+                          <ChevronDown className="w-5 h-5 transition-transform text-[#01b9d5] flex-shrink-0" />
+                        </button>
+                      </div>
+                      {errors.visit_type && (
+                        <p className="text-sm text-red-600 mt-1">{errors.visit_type.message}</p>
                       )}
-                    </label>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => !appointmentDoctor && !loadingDoctors && setIsDoctorModalOpen(true)}
-                        disabled={!!appointmentDoctor || loadingDoctors}
-                        className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[45px] disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-green-400 to-emerald-500">
-                            <Stethoscope className="w-4 h-4 text-white" />
-                          </div>
-                          <div>
-                            {(() => {
-                              const selectedDoctor = doctors.find(d => d.id === (appointmentDoctor || watch('doctor_id')));
-                              return (
-                                <>
-                                  <p className="text-sm font-semibold text-gray-900">
-                                    {selectedDoctor ? selectedDoctor.full_name : (loadingDoctors ? 'Loading...' : 'Select Doctor')}
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    {selectedDoctor ? 'Treating physician' : (appointmentDoctor ? 'From appointment' : 'Choose doctor')}
-                                  </p>
-                                </>
-                              );
-                            })()}
-                          </div>
-                        </div>
-                        <ChevronDown className="w-5 h-5 transition-transform text-[#01b9d5]" />
-                      </button>
                     </div>
-                    {appointmentDoctor && (
-                      <p className="text-sm text-blue-600 mt-1">
-                        Doctor automatically selected from appointment
-                      </p>
-                    )}
+
+                    {/* Doctor Selection */}
+                    <div className="col-span-1">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Treating Doctor
+                        {appointmentDoctor && (
+                          <span className="text-sm text-blue-600 ml-1">(From Appointment)</span>
+                        )}
+                      </label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => !appointmentDoctor && !loadingDoctors && setIsDoctorModalOpen(true)}
+                          disabled={!!appointmentDoctor || loadingDoctors}
+                          className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg min-h-[45px] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-green-400 to-emerald-500 flex-shrink-0">
+                              <Stethoscope className="w-4 h-4 text-white" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              {(() => {
+                                const selectedDoctor = doctors.find(d => d.id === (appointmentDoctor || watch('doctor_id')));
+                                return (
+                                  <>
+                                    <p className="text-sm font-semibold text-gray-900 truncate">
+                                      {selectedDoctor ? selectedDoctor.full_name : (loadingDoctors ? 'Loading...' : 'Select Doctor')}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {selectedDoctor ? 'Treating physician' : (appointmentDoctor ? 'From appointment' : 'Choose doctor')}
+                                    </p>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                          <ChevronDown className="w-5 h-5 transition-transform text-[#01b9d5] flex-shrink-0" />
+                        </button>
+                      </div>
+                      {appointmentDoctor && (
+                        <p className="text-sm text-blue-600 mt-1">
+                          Doctor automatically selected from appointment
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1411,7 +1414,7 @@ const EditVisitTabs: React.FC<Props> = ({
                 Clinical Assessment
               </h3>
               <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Diagnosis
@@ -2147,7 +2150,7 @@ const EditVisitTabs: React.FC<Props> = ({
                 <div className="w-1 h-5 bg-[#01b9d4] rounded-full"></div>
                 Primary Vitals
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="bg-gradient-to-br from-red-50 to-red-100/50 p-4 rounded-xl border border-red-200/50">
                   <label className="block text-sm font-semibold text-red-700 mb-2">Blood Pressure</label>
                   <input
@@ -2204,7 +2207,7 @@ const EditVisitTabs: React.FC<Props> = ({
                 Body Measurements
               </h3>
               <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Weight (kg)</label>
                     <div className="relative">
@@ -2315,7 +2318,7 @@ const EditVisitTabs: React.FC<Props> = ({
               {/* Add New Medication Form */}
               <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50 mb-6">
                 <h4 className="text-md font-semibold text-gray-700 mb-4">Add New Medication</h4>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Medication Name</label>
                     <input

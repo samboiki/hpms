@@ -197,7 +197,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
     <div className="bg-white border-b border-gray-200/50 relative">
       {/* Mobile: Horizontal scroll tabs | Desktop: Full width tabs */}
       <div className="px-4 sm:px-6">
-        <div className="flex overflow-x-auto scrollbar-none sm:overflow-x-visible" role="tablist">
+        <div className="flex overflow-x-auto scrollbar-none md:overflow-x-visible" role="tablist">
           {tabs.map((tab, index) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -229,10 +229,10 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                 onMouseEnter={() => setHoveredTab(tab.id)}
                 onMouseLeave={() => setHoveredTab(null)}
                 className={`
-                  flex-shrink-0 sm:flex-1 
+                  flex-shrink-0 md:flex-1 
                   flex items-center justify-center gap-2 
                   px-3 sm:px-4 py-4 
-                  min-w-[120px] sm:min-w-0
+                  min-w-[120px] md:min-w-0
                   min-h-[48px]
                   text-xs sm:text-sm font-medium 
                   border-b-2 transition-all duration-200 
@@ -318,9 +318,10 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
 
     return (
       <div className="flex-1 overflow-hidden bg-gray-50">
-        <div className="h-full max-w-full mx-auto p-6">
+        <div className="h-full max-w-full mx-auto p-3 sm:p-6">
           <div className="bg-white rounded-lg shadow-sm h-full flex flex-col">
-            <div className="p-6 border-b border-gray-200 flex-shrink-0">
+            {/* Tab header - Fixed on desktop, scrollable on mobile/tablet */}
+            <div className="hidden lg:block p-6 border-b border-gray-200 flex-shrink-0">
               {/* General Tab Header with Follow-up Button */}
               {activeTab === 'general' && (
                 <div className="flex items-center justify-between">
@@ -497,8 +498,139 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                 </div>
               )}
             </div>
+            
+            {/* Scrollable content area - includes tab header on mobile/tablet */}
             <div className="flex-1 overflow-auto">
-              <div className="p-6">
+              {/* Tab header for mobile/tablet - inside scrollable area */}
+              <div className="block lg:hidden p-4 sm:p-6 border-b border-gray-200">
+                {activeTab === 'general' && (
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 rounded-lg">
+                        <FileText className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          General Information
+                        </h3>
+                        <p className="text-xs sm:text-sm text-gray-600">Visit details, clinical notes, and encounter information</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsScheduleModalOpen(true)}
+                      className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all flex items-center justify-center sm:justify-start gap-2 bg-blue-100 text-blue-600 hover:bg-blue-200 w-full sm:w-auto"
+                    >
+                      <CalendarCheck className="w-4 h-4" />
+                      Schedule Follow-up
+                    </button>
+                  </div>
+                )}
+
+                {activeTab === 'vitals' && (
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-100 rounded-lg">
+                      <Activity className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        Vitals
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-600">Record patient vital signs and physical measurements</p>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'medications' && (
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <Pill className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        Medications
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-600">Manage patient medications, prescriptions, and dosage instructions</p>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'laboratory' && (
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <Microscope className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        Laboratory
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-600">Upload and manage patient lab results, test reports, and clinical files</p>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'imaging' && (
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Film className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        Imaging
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-600">Upload and manage patient imaging studies, X-rays, and radiology reports</p>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'media' && (
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <ImageIcon className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        Media
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-600">Upload and manage patient photos, videos, and multimedia clinical files</p>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'billing' && (
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
+                        <Wallet className="w-5 h-5" style={{ color: '#30b4be' }} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg sm:text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                          Billing
+                        </h3>
+                        <p className="text-xs sm:text-sm text-gray-600">Manage services, procedures, and billing information for this visit</p>
+                      </div>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (activeTab !== 'billing') {
+                          setActiveTab('billing');
+                        }
+                        setTimeout(() => triggerServiceModal(), 100);
+                      }}
+                      className="px-3 sm:px-4 py-2 rounded-lg font-medium text-white transition-all duration-200 hover:shadow-md hover:scale-105 flex items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm w-full sm:w-auto"
+                      style={{ background: 'linear-gradient(135deg, #30b4be, #2a9da6)' }}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Services
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* Main content */}
+              <div className="p-4 sm:p-6">
                 <EditVisitTabs
                   visitId={visitId}
                   patientId={patientId}
