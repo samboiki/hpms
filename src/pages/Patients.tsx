@@ -175,7 +175,7 @@ const Patients: React.FC = () => {
                     isLast ? 'rounded-r-xl' : ''
                   } ${
                     !isFirst ? '-ml-px' : ''
-                  } ${
+                  } flex-1 ${
                     isActive
                       ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg z-10'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
