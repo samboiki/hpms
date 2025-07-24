@@ -18,7 +18,7 @@ import PracticeOverviewTile from '../components/dashboard/PracticeOverviewTile';
 import { dashboardStatsService, DashboardStats } from '../services/dashboardStatsService';
 import { useAuthStore } from '../stores/authStore';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
-import ComprehensivePatientModal from '../components/patients/ComprehensivePatientModal';
+// import ComprehensivePatientModal from '../components/patients/ComprehensivePatientModal'; // Commented out - now navigating to patients page
 import { useOptimizedDashboardStats, useCommunicationStats } from '../hooks/useOptimizedDashboardStats';
 import { useTodayAppointments, useRealtimeAppointments } from '../hooks/useAppointments';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
@@ -159,9 +159,9 @@ function Dashboard() {
   };
   
   const navigate = useNavigate();
-  const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
-  const [defaultDetailTab, setDefaultDetailTab] = useState<'overview' | 'encounters'>('overview');
+  // const [isPatientModalOpen, setIsPatientModalOpen] = useState(false); // Commented out - now navigating to patients page
+  // const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null); // Commented out - now navigating to patients page
+  // const [defaultDetailTab, setDefaultDetailTab] = useState<'overview' | 'encounters'>('overview'); // Commented out - now navigating to patients page
 
   const handleLogout = async () => {
     // Clear any pending navigation
@@ -795,7 +795,7 @@ function Dashboard() {
                     isPositive: realPatientStats.newThisMonth > 0
                   }}
                   onClick={() => {
-                    setIsPatientModalOpen(true);
+                    navigate('/patients');
                   }}
                   patientStats={realPatientStats}
                 />,
@@ -1246,11 +1246,9 @@ function Dashboard() {
                           selectedDate={selectedDate}
                           onDateChange={setSelectedDate}
                           onAppointmentClick={(apt) => {
-                            // Open patient modal on encounters tab
+                            // Navigate to patient page on encounters tab
                             if (apt.patient_id) {
-                              setSelectedPatientId(apt.patient_id);
-                              setDefaultDetailTab('encounters');
-                              setIsPatientModalOpen(true);
+                              navigate(`/patients/${apt.patient_id}?tab=encounters`);
                             }
                           }}
                           onEditAppointment={async (appointment) => {
@@ -1888,8 +1886,8 @@ function Dashboard() {
         document.body
       )}
 
-      {/* Enhanced Patient Modal */}
-      <ComprehensivePatientModal
+      {/* Enhanced Patient Modal - Commented out as we now navigate to patients page */}
+      {/* <ComprehensivePatientModal
         isOpen={isPatientModalOpen}
         onClose={() => {
           setIsPatientModalOpen(false);
@@ -1898,7 +1896,7 @@ function Dashboard() {
         }}
         patientId={selectedPatientId}
         defaultDetailTab={defaultDetailTab}
-      />
+      /> */}
 
       {/* Floating Visit Tracker */}
       {currentPracticeId && (
@@ -1907,9 +1905,8 @@ function Dashboard() {
           selectedDate={selectedDate} 
           disablePatientModal={true}
           onOpenPatientModal={(patientId, defaultTab) => {
-            setSelectedPatientId(patientId);
-            setDefaultDetailTab(defaultTab || 'overview');
-            setIsPatientModalOpen(true);
+            // Navigate to patient page with optional tab parameter
+            navigate(`/patients/${patientId}?tab=${defaultTab || 'overview'}`);
           }}
         />
       )}
