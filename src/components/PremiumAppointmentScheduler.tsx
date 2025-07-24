@@ -2126,45 +2126,56 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   return (
     <div className="flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Premium Header Section */}
-      <div className="p-4 bg-gradient-to-r from-white to-gray-50 border-b border-gray-300">
-        {/* Filters and Actions */}
-        <div className="flex items-center justify-between gap-4 mb-4">
-          {/* Doctor Filter Button on Far Left */}
+      <div className="p-3 md:p-4 bg-gradient-to-r from-white to-gray-50 border-b border-gray-300">
+        {/* Filters and Actions - Stack on mobile */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3 md:mb-4">
+          {/* Doctor Filter Button - Full width on mobile */}
           <button
             onClick={() => setShowDoctorModal(true)}
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg 
-              font-medium flex items-center gap-2 text-sm
-              border border-gray-200 shadow-sm"
+            className="w-full sm:w-auto px-3 md:px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg 
+              font-medium flex items-center justify-center sm:justify-start gap-2 text-sm
+              border border-gray-200 shadow-sm transition-colors"
           >
-            <User className="w-4 h-4" />
-            <span>Doctor: {selectedDoctorId ? 
-              doctors.find(d => d.id === selectedDoctorId)?.user_metadata?.full_name || 
-              doctors.find(d => d.id === selectedDoctorId)?.email || 
-              'Unknown' : 'All Doctors'
-            }</span>
+            <User className="w-4 h-4 flex-shrink-0" />
+            <span className="truncate max-w-[200px] sm:max-w-none">
+              {selectedDoctorId ? (
+                <>
+                  <span className="hidden sm:inline">Doctor: </span>
+                  <span className="sm:hidden">Dr. </span>
+                  {doctors.find(d => d.id === selectedDoctorId)?.user_metadata?.full_name || 
+                   doctors.find(d => d.id === selectedDoctorId)?.email?.split('@')[0] || 
+                   'Unknown'}
+                </>
+              ) : (
+                <>
+                  <span className="hidden sm:inline">Doctor: </span>
+                  <span>All Doctors</span>
+                </>
+              )}
+            </span>
           </button>
 
-          {/* Right Side Actions */}
-          <div className="flex items-center gap-3">
+          {/* Right Side Actions - Row on mobile */}
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
             {onRefresh && (
               <button
                 onClick={onRefresh}
-                className="p-2 hover:bg-gray-100 rounded-lg "
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <RefreshCw className="h-4 w-4 text-gray-600" />
               </button>
             )}
 
-            {/* Schedule Appointment Button on Far Right */}
+            {/* Schedule Appointment Button - Flex grow on mobile */}
             <button
               onClick={() => {
                 setSelectedTimeSlot(null);
                 setIsAddModalOpen(true);
               }}
-              className="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg 
+              className="flex-1 sm:flex-initial px-4 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg 
                 hover:from-purple-600 hover:to-indigo-700 font-medium 
-                flex items-center gap-2 disabled:opacity-50 
-                disabled:cursor-not-allowed shadow-lg text-sm"
+                flex items-center justify-center gap-2 disabled:opacity-50 
+                disabled:cursor-not-allowed shadow-lg text-sm transition-all"
             >
               <Plus className="w-4 h-4" />
               <span>Schedule</span>
@@ -2172,21 +2183,21 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
           </div>
         </div>
 
-        {/* Appointment Status Filters - Full Width */}
-        <div>
-          <div className="flex items-center gap-1 md:gap-2 p-1 bg-gradient-to-r from-gray-100 to-gray-200 rounded-lg w-full shadow-sm overflow-x-auto">
+        {/* Appointment Status Filters - Improved mobile scrolling */}
+        <div className="relative -mx-3 px-3 md:mx-0 md:px-0">
+          <div className="flex items-center gap-1.5 sm:gap-1 p-1.5 bg-gradient-to-r from-gray-100 to-gray-200 rounded-lg w-full shadow-sm overflow-x-auto scrollbar-hide">
             {[
-              { status: 'scheduled', label: 'Scheduled', count: filteredAppointments.filter(a => a.status === 'scheduled' && a.is_confirmed && !a.is_checked_in).length, gradient: 'from-blue-500 to-blue-600', bg: 'bg-gray-100', text: 'text-gray-800' },
-              { status: 'checked-in', label: 'Checked In', count: filteredAppointments.filter(a => a.is_checked_in && a.status !== 'completed' && a.status !== 'in-progress').length, gradient: 'from-purple-500 to-purple-600', bg: 'bg-gray-100', text: 'text-gray-800' },
-              { status: 'completed', label: 'Completed', count: filteredAppointments.filter(a => a.status === 'completed').length, gradient: 'from-emerald-500 to-emerald-600', bg: 'bg-gray-100', text: 'text-gray-800' },
-              { status: 'cancelled', label: 'Cancelled', count: filteredAppointments.filter(a => a.status === 'cancelled' || a.is_cancelled).length, gradient: 'from-red-500 to-red-600', bg: 'bg-gray-100', text: 'text-gray-800' }
+              { status: 'scheduled', label: 'Scheduled', count: filteredAppointments.filter(a => a.status === 'scheduled' && a.is_confirmed && !a.is_checked_in).length, gradient: 'from-blue-500 to-blue-600', bg: 'bg-white', text: 'text-gray-700' },
+              { status: 'checked-in', label: 'Checked In', count: filteredAppointments.filter(a => a.is_checked_in && a.status !== 'completed' && a.status !== 'in-progress').length, gradient: 'from-purple-500 to-purple-600', bg: 'bg-white', text: 'text-gray-700' },
+              { status: 'completed', label: 'Completed', count: filteredAppointments.filter(a => a.status === 'completed').length, gradient: 'from-emerald-500 to-emerald-600', bg: 'bg-white', text: 'text-gray-700' },
+              { status: 'cancelled', label: 'Cancelled', count: filteredAppointments.filter(a => a.status === 'cancelled' || a.is_cancelled).length, gradient: 'from-red-500 to-red-600', bg: 'bg-white', text: 'text-gray-700' }
             ].map((filter) => (
               <button
                 key={filter.status}
-                className={`flex-1 flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 px-2 md:px-3 py-2 text-xs md:text-sm font-medium rounded-md capitalize ${filter.bg} ${filter.text} hover:shadow-md border border-transparent hover:border-gray-300 min-w-[70px] md:min-w-[100px]`}
+                className={`flex-shrink-0 flex flex-col sm:flex-row items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-md ${filter.bg} ${filter.text} hover:shadow-md border border-gray-200 hover:border-gray-300 min-w-[80px] sm:min-w-[100px] md:min-w-[120px] transition-all`}
               >
-                <span className="whitespace-nowrap">{filter.label}</span>
-                <span className={`inline-flex items-center justify-center px-1.5 md:px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold bg-gradient-to-r ${filter.gradient} text-white shadow-sm min-w-[20px]`}>
+                <span className="whitespace-nowrap text-[11px] sm:text-xs">{filter.label}</span>
+                <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r ${filter.gradient} text-white shadow-sm min-w-[24px]`}>
                   {filter.count}
                 </span>
               </button>
