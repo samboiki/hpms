@@ -107,12 +107,12 @@ const ProfessionalDropdown: React.FC<{
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full p-3 bg-white border border-amber-200 rounded-lg focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all text-left flex items-center justify-between h-[60px] ${hasIcon ? 'pl-10' : ''}`}
+        className={`w-full px-4 py-3 bg-gray-100 border-0 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-left flex items-center justify-between h-[60px] ${hasIcon ? 'pl-10' : ''}`}
       >
         <span className={selectedOption ? 'text-gray-900' : 'text-gray-500'}>
           {selectedOption ? selectedOption.label : placeholder}
         </span>
-        <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <Icon icon="solar:alt-arrow-down-bold-duotone" className={`w-5 h-5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
@@ -1005,8 +1005,10 @@ const AddVisitTabs: React.FC<Props> = ({
             {/* Encounter Information Section */}
             <div>
               <div className="flex items-center mb-4">
-                <div className="w-1 h-5 bg-[#01b9d4] rounded-full"></div>
-                <h3 className="text-lg font-semibold text-gray-800 ml-2">Encounter Details</h3>
+                <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 shadow-md">
+                  <Icon icon="solar:calendar-mark-bold-duotone" className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800 ml-3">Encounter Details</h3>
               </div>
               <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
                 <div className="flex flex-col md:flex-row gap-6">
@@ -1020,11 +1022,11 @@ const AddVisitTabs: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={() => setIsDatePickerOpen(true)}
-                          className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[45px]"
+                          className="w-full px-4 py-3 rounded-lg border-0 transition-all duration-200 bg-gray-100 hover:bg-gray-200 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-purple-500 h-[45px]"
                         >
                           <div className="flex items-center gap-3">
                             <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-blue-400 to-cyan-500">
-                              <Calendar className="w-4 h-4 text-white" />
+                              <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5 text-white" />
                             </div>
                             <div>
                               {watch('visit_date') ? (
@@ -1046,7 +1048,7 @@ const AddVisitTabs: React.FC<Props> = ({
                               )}
                             </div>
                           </div>
-                          <ChevronDown className="w-5 h-5 transition-transform text-[#01b9d5]" />
+                          <Icon icon="solar:alt-arrow-down-bold-duotone" className="w-5 h-5 transition-transform text-gray-400" />
                         </button>
                       </div>
                       {errors.visit_date && (
@@ -1062,11 +1064,11 @@ const AddVisitTabs: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={() => setIsTimePickerOpen(true)}
-                          className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[45px]"
+                          className="w-full px-4 py-3 rounded-lg border-0 transition-all duration-200 bg-gray-100 hover:bg-gray-200 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-purple-500 h-[45px]"
                         >
                           <div className="flex items-center gap-3">
                             <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-purple-400 to-pink-500">
-                              <Sunset className="w-4 h-4 text-white" />
+                              <Icon icon="solar:clock-circle-bold-duotone" className="w-5 h-5 text-white" />
                             </div>
                             <div>
                               <p className="text-sm font-semibold text-gray-900">
@@ -1077,7 +1079,7 @@ const AddVisitTabs: React.FC<Props> = ({
                               </p>
                             </div>
                           </div>
-                          <Clock className="w-5 h-5 transition-transform text-[#01b9d5]" />
+                          <Icon icon="solar:clock-circle-bold-duotone" className="w-5 h-5 transition-transform text-gray-400" />
                         </button>
                       </div>
                     </div>
@@ -1092,11 +1094,11 @@ const AddVisitTabs: React.FC<Props> = ({
                       <button
                         type="button"
                         onClick={() => setIsVisitTypeModalOpen(true)}
-                        className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[45px]"
+                        className="w-full px-4 py-3 rounded-lg border-0 transition-all duration-200 bg-gray-100 hover:bg-gray-200 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-purple-500 h-[45px]"
                       >
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-amber-400 to-orange-500">
-                            <Stethoscope className="w-4 h-4 text-white" />
+                            <Icon icon="solar:stethoscope-bold-duotone" className="w-5 h-5 text-white" />
                           </div>
                           <div>
                             {(() => {
@@ -1114,7 +1116,7 @@ const AddVisitTabs: React.FC<Props> = ({
                             })()}
                           </div>
                         </div>
-                        <ChevronDown className="w-5 h-5 transition-transform text-[#01b9d5]" />
+                        <Icon icon="solar:alt-arrow-down-bold-duotone" className="w-5 h-5 transition-transform text-gray-400" />
                       </button>
                     </div>
                     {errors.visit_type && (
@@ -1135,11 +1137,11 @@ const AddVisitTabs: React.FC<Props> = ({
                         type="button"
                         onClick={() => !appointmentDoctor && !loadingDoctors && setIsDoctorModalOpen(true)}
                         disabled={!!appointmentDoctor || loadingDoctors}
-                        className="w-full px-4 py-3 rounded-xl border-2 transition-all duration-200 bg-white hover:bg-gray-50 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5] focus:border-transparent hover:border-gray-300 border-gray-300 shadow-lg h-[45px] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-3 rounded-lg border-0 transition-all duration-200 bg-gray-100 hover:bg-gray-200 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-purple-500 h-[45px] disabled:bg-gray-200 disabled:cursor-not-allowed"
                       >
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-green-400 to-emerald-500">
-                            <Stethoscope className="w-4 h-4 text-white" />
+                            <Icon icon="solar:user-check-bold-duotone" className="w-5 h-5 text-white" />
                           </div>
                           <div>
                             {(() => {
@@ -1157,7 +1159,7 @@ const AddVisitTabs: React.FC<Props> = ({
                             })()}
                           </div>
                         </div>
-                        <ChevronDown className="w-5 h-5 transition-transform text-[#01b9d5]" />
+                        <Icon icon="solar:alt-arrow-down-bold-duotone" className="w-5 h-5 transition-transform text-gray-400" />
                       </button>
                     </div>
                     {appointmentDoctor && (
@@ -1172,19 +1174,21 @@ const AddVisitTabs: React.FC<Props> = ({
 
             {/* Chief Complaint Section */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <div className="w-1 h-5 bg-red-500 rounded-full"></div>
-                Chief Complaint
-              </h3>
+              <div className="flex items-center mb-4">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-red-500 to-pink-600 shadow-md">
+                  <Icon icon="solar:clipboard-text-bold-duotone" className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800 ml-3">Chief Complaint</h3>
+              </div>
               <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
                 <div className="relative">
                   <input
                     type="text"
                     {...register('chief_complaint', { required: 'Chief complaint is required' })}
-                    className="w-full p-3 bg-white border-2 border-red-200 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all pl-10"
+                    className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all pl-10 hover:bg-gray-200"
                     placeholder="Primary reason for visit"
                   />
-                  <AlertCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-red-500" />
+                  <Icon icon="solar:danger-circle-bold-duotone" className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-red-500" />
                 </div>
                 {errors.chief_complaint && (
                   <p className="text-sm text-red-600 mt-1">{errors.chief_complaint.message}</p>
@@ -1241,10 +1245,12 @@ const AddVisitTabs: React.FC<Props> = ({
 
             {/* Additional Information Section */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <div className="w-1 h-5 bg-purple-600 rounded-full"></div>
-                Additional Information
-              </h3>
+              <div className="flex items-center mb-4">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 shadow-md">
+                  <Icon icon="solar:notes-bold-duotone" className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800 ml-3">Additional Information</h3>
+              </div>
               <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1254,10 +1260,10 @@ const AddVisitTabs: React.FC<Props> = ({
                     <textarea
                       {...register('notes')}
                       rows={3}
-                      className="w-full p-3 bg-white border-2 border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all pl-10 resize-none"
+                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all pl-10 resize-none hover:bg-gray-200"
                       placeholder="Additional notes and observations (optional)"
                     />
-                    <MessageSquare className="absolute left-3 top-3 w-4 h-4 text-purple-500" />
+                    <Icon icon="solar:chat-square-text-bold-duotone" className="absolute left-3 top-3 w-5 h-5 text-purple-500" />
                   </div>
                 </div>
               </div>
@@ -2060,24 +2066,26 @@ const AddVisitTabs: React.FC<Props> = ({
             {/* Prescription Section */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                  <div className="w-1 h-5 bg-green-600 rounded-full"></div>
-                  Prescription Notes
-                </h3>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 shadow-md">
+                    <Icon icon="solar:pill-bold-duotone" className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800">Prescription Notes</h3>
+                </div>
                 <button
                   type="button"
                   className="p-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
                   title="AI-Powered Prescription Assistant"
                 >
-                  <Bot className="w-4 h-4" />
-                  <Camera className="w-4 h-4" />
+                  <Icon icon="solar:robot-bold-duotone" className="w-5 h-5" />
+                  <Icon icon="solar:camera-bold-duotone" className="w-5 h-5" />
                 </button>
               </div>
               <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
                 <textarea
                   {...register('prescription')}
                   rows={6}
-                  className="w-full p-3 bg-white border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all shadow-sm hover:shadow-md resize-none"
+                  className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all resize-none hover:bg-gray-200"
                   placeholder="General prescription notes and instructions..."
                 />
               </div>
@@ -2086,16 +2094,18 @@ const AddVisitTabs: React.FC<Props> = ({
             {/* Prescribed Medications Table */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                  <div className="w-1 h-5 bg-blue-600 rounded-full"></div>
-                  Prescribed Medications
-                </h3>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md">
+                    <Icon icon="solar:pills-bold-duotone" className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800">Prescribed Medications</h3>
+                </div>
                 <button
                   type="button"
                   onClick={refreshMedications}
                   className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-1"
                 >
-                  <Activity className="w-3 h-3" />
+                  <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4" />
                   Refresh
                 </button>
               </div>
@@ -2110,7 +2120,7 @@ const AddVisitTabs: React.FC<Props> = ({
                       type="text"
                       value={newMedication.medication_name}
                       onChange={(e) => setNewMedication({...newMedication, medication_name: e.target.value})}
-                      className="w-full p-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
+                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-sm hover:bg-gray-200"
                       placeholder="e.g., Amoxicillin"
                     />
                   </div>
@@ -2123,12 +2133,12 @@ const AddVisitTabs: React.FC<Props> = ({
                         e.stopPropagation();
                         setIsDosageModalOpen(true);
                       }}
-                      className="w-full p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-left flex items-center justify-between"
+                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-sm text-left flex items-center justify-between"
                     >
                       <span className={newMedication.dosage ? 'text-gray-900' : 'text-gray-500'}>
                         {newMedication.dosage || 'Select dosage'}
                       </span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                      <Icon icon="solar:alt-arrow-down-bold-duotone" className="w-5 h-5 text-gray-400" />
                     </button>
                   </div>
                   <div>
@@ -2140,12 +2150,12 @@ const AddVisitTabs: React.FC<Props> = ({
                         e.stopPropagation();
                         setIsFrequencyModalOpen(true);
                       }}
-                      className="w-full p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-left flex items-center justify-between"
+                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-sm text-left flex items-center justify-between"
                     >
                       <span className={newMedication.frequency ? 'text-gray-900' : 'text-gray-500'}>
                         {newMedication.frequency || 'Select frequency'}
                       </span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                      <Icon icon="solar:alt-arrow-down-bold-duotone" className="w-5 h-5 text-gray-400" />
                     </button>
                   </div>
                   <div>
@@ -2157,12 +2167,12 @@ const AddVisitTabs: React.FC<Props> = ({
                         e.stopPropagation();
                         setIsDurationModalOpen(true);
                       }}
-                      className="w-full p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-left flex items-center justify-between"
+                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-sm text-left flex items-center justify-between"
                     >
                       <span className={newMedication.duration ? 'text-gray-900' : 'text-gray-500'}>
                         {newMedication.duration || 'Select duration'}
                       </span>
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                      <Icon icon="solar:alt-arrow-down-bold-duotone" className="w-5 h-5 text-gray-400" />
                     </button>
                   </div>
                   <div className="flex items-end">
@@ -3110,7 +3120,7 @@ const AddVisitTabs: React.FC<Props> = ({
             >
               <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-white">
                 <h3 className="text-xl font-bold flex items-center gap-2">
-                  <Stethoscope className="w-6 h-6" />
+                  <Icon icon="solar:user-check-bold-duotone" className="w-6 h-6" />
                   Select Treating Doctor
                 </h3>
                 <p className="text-green-100 mt-2">Choose the physician for this visit</p>
@@ -3140,14 +3150,14 @@ const AddVisitTabs: React.FC<Props> = ({
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">
-                            <Stethoscope className="w-5 h-5 text-white" />
+                            <Icon icon="solar:user-check-bold-duotone" className="w-5 h-5 text-white" />
                           </div>
                           <div>
                             <p className="font-semibold text-gray-900">{doctor.full_name}</p>
                             <p className="text-sm text-gray-500">Doctor</p>
                           </div>
                           {watch('doctor_id') === doctor.id && (
-                            <CheckCircle2 className="w-5 h-5 text-green-500 ml-auto" />
+                            <Icon icon="solar:check-circle-bold-duotone" className="w-5 h-5 text-green-500 ml-auto" />
                           )}
                         </div>
                       </button>
@@ -3189,7 +3199,7 @@ const AddVisitTabs: React.FC<Props> = ({
             >
               <div className="bg-gradient-to-r from-amber-500 to-orange-600 p-6 text-white">
                 <h3 className="text-xl font-bold flex items-center gap-2">
-                  <Stethoscope className="w-6 h-6" />
+                  <Icon icon="solar:stethoscope-bold-duotone" className="w-6 h-6" />
                   Select Visit Type
                 </h3>
                 <p className="text-orange-100 mt-2">Choose the type of medical visit</p>
@@ -3213,14 +3223,14 @@ const AddVisitTabs: React.FC<Props> = ({
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
-                          <Stethoscope className="w-5 h-5 text-white" />
+                          <Icon icon="solar:stethoscope-bold-duotone" className="w-5 h-5 text-white" />
                         </div>
                         <div>
                           <p className="font-semibold text-gray-900">{option.label}</p>
                           <p className="text-sm text-gray-500">Medical visit</p>
                         </div>
                         {watch('visit_type') === option.value && (
-                          <CheckCircle2 className="w-5 h-5 text-amber-500 ml-auto" />
+                          <Icon icon="solar:check-circle-bold-duotone" className="w-5 h-5 text-amber-500 ml-auto" />
                         )}
                       </div>
                     </button>
