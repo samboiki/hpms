@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Icon } from '@iconify/react';
 import {
   Plus,
   RefreshCw,
@@ -16,7 +15,16 @@ import {
   Stethoscope,
   Activity,
   Settings,
-  MessageCircle
+  MessageCircle,
+  User,
+  Calendar,
+  Timer,
+  Clipboard,
+  HandshakeIcon,
+  CheckCircle2,
+  PhoneIcon,
+  TestTube,
+  RefreshCcw
 } from 'lucide-react';
 import {
   format,
@@ -599,17 +607,6 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
       };
 
       filteredAppointments.forEach(apt => {
-        // Debug logging for booking requests
-        if (apt.is_from_website) {
-          console.log('Website booking found:', {
-            id: apt.id,
-            status: apt.status,
-            is_confirmed: apt.is_confirmed,
-            is_from_website: apt.is_from_website,
-            notes: apt.notes?.substring(0, 50)
-          });
-        }
-        
         if (apt.status === 'cancelled' || apt.is_cancelled) {
           sections.cancelled.push(apt);
         } else if (apt.status === 'completed') {
@@ -618,7 +615,6 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
           sections.handedOff.push(apt);
         } else if (apt.status === 'scheduled' && !apt.is_confirmed && apt.is_from_website) {
           // Booking requests from website (scheduled but not confirmed)
-          console.log('Adding to booking requests:', apt.id);
           sections.bookingRequests.push(apt);
         } else {
           // scheduled, ready, in-progress, checked-in all go to schedule section
@@ -693,7 +689,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                 {/* Section header */}
                 <div className="flex items-center mb-4">
                   <div className="bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-lg px-5 py-2.5 shadow-lg flex items-center gap-2">
-                    <Icon icon="solar:calendar-add-bold-duotone" className="h-5 w-5" />
+                    <Plus className="h-5 w-5" />
                     <span className="font-bold text-base">Booking Requests</span>
                     <span className="text-sm bg-white/20 px-2 py-0.5 rounded-full">
                       {appointmentSections.bookingRequests.length}
@@ -759,7 +755,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                 {/* Patient name with icon */}
                                 <div className="flex items-center gap-2">
                                   <div className="p-1.5 rounded-lg">
-                                    <Icon icon="duo-icons:user" className="h-4 w-4 text-orange-600" />
+                                    <User className="h-4 w-4 text-orange-600" />
                                   </div>
                                   <h3 className="font-bold text-[#4f575e] text-base tracking-tight truncate flex-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
                                     {appointment.patient.first_name} {appointment.patient.last_name}
@@ -770,7 +766,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                 {appointment.patient.cell_number && (
                                   <div className="flex items-center gap-2">
                                     <div className="p-1.5 rounded-lg bg-orange-50/70">
-                                      <Icon icon="solar:phone-bold-duotone" className="h-3.5 w-3.5 text-orange-600" />
+                                      <Phone className="h-3.5 w-3.5 text-orange-600" />
                                     </div>
                                     <span className="text-sm text-gray-600">{appointment.patient.cell_number}</span>
                                   </div>
@@ -780,7 +776,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                 {appointment.notes && appointment.notes.includes('Service:') && (
                                   <div className="flex items-center gap-2">
                                     <div className="p-1.5 rounded-lg">
-                                      <Icon icon="solar:clipboard-text-bold-duotone" className="h-3.5 w-3.5 text-orange-600" />
+                                      <Clipboard className="h-3.5 w-3.5 text-orange-600" />
                                     </div>
                                     <span className="text-sm text-gray-600">
                                       {appointment.notes.match(/Service: ([^\n]*)/)?.[1] || 'Consultation'}
@@ -800,30 +796,28 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                 <div className="flex items-center gap-2 flex-wrap">
                                   {/* Date section */}
                                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg backdrop-blur-sm bg-orange-50 text-orange-700">
-                                    <Icon icon="duo-icons:calendar" className="h-3.5 w-3.5" />
+                                    <Calendar className="h-3.5 w-3.5" />
                                     <span className="text-xs font-semibold">{format(aptDate, 'MMM d, yyyy')}</span>
                                   </div>
 
                                   {/* Time section */}
                                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg backdrop-blur-sm bg-orange-50 text-orange-700">
-                                    <Icon icon="duo-icons:clock" className="h-3.5 w-3.5" />
+                                    <Clock className="h-3.5 w-3.5" />
                                     <span className="text-xs font-semibold">{appointment.time ? format(parseISO(`2000-01-01T${appointment.time}`), 'h:mm a') : 'No time'}</span>
                                   </div>
 
                                   {/* Type section */}
                                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
-                                    <Icon icon={
-                                      appointment.type === 'consultation' ? 'duo-icons:stethoscope' :
-                                      appointment.type === 'follow-up' ? 'duo-icons:refresh' :
-                                      appointment.type === 'procedure' ? 'duo-icons:syringe' :
-                                      'duo-icons:calendar'
-                                    } className="h-3.5 w-3.5" />
+                                    {appointment.type === 'consultation' ? <Stethoscope className="h-3.5 w-3.5" /> :
+                                      appointment.type === 'follow-up' ? <RefreshCcw className="h-3.5 w-3.5" /> :
+                                      appointment.type === 'procedure' ? <TestTube className="h-3.5 w-3.5" /> :
+                                      <Calendar className="h-3.5 w-3.5" />}
                                     <span className="text-xs font-semibold capitalize">{appointment.type}</span>
                                   </div>
 
                                   {/* Duration */}
                                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
-                                    <Icon icon="duo-icons:timer" className="h-3.5 w-3.5" />
+                                    <Timer className="h-3.5 w-3.5" />
                                     <span className="text-xs font-semibold">{appointment.duration}m</span>
                                   </div>
                                 </div>
@@ -870,7 +864,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                 {/* Section header */}
                 <div className="flex items-center mb-4">
                   <div className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg px-5 py-2.5 shadow-lg flex items-center gap-2">
-                    <Icon icon="solar:hand-shake-bold-duotone" className="h-5 w-5" />
+                    <HandshakeIcon className="h-5 w-5" />
                     <span className="font-bold text-base">Handed Off</span>
                     <span className="text-sm bg-white/20 px-2 py-0.5 rounded-full">
                       {appointmentSections.handedOff.length}
@@ -933,7 +927,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                 {/* Patient name with icon */}
                                 <div className="flex items-center gap-2">
                                   <div className="p-1.5 rounded-lg">
-                                    <Icon icon="duo-icons:user" className="h-4 w-4 text-purple-600" />
+                                    <User className="h-4 w-4 text-purple-600" />
                                   </div>
                                   <h3 className="font-bold text-[#4f575e] text-base tracking-tight truncate flex-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
                                     {appointment.patient.first_name} {appointment.patient.last_name}
@@ -944,7 +938,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                 {appointment.patient.cell_number && (
                                   <div className="flex items-center gap-2">
                                     <div className="p-1.5 rounded-lg bg-purple-50/70">
-                                      <Icon icon="solar:phone-bold-duotone" className="h-3.5 w-3.5 text-purple-600" />
+                                      <Phone className="h-3.5 w-3.5 text-purple-600" />
                                     </div>
                                     <span className="text-sm text-gray-600">{appointment.patient.cell_number}</span>
                                   </div>
@@ -953,7 +947,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                 {/* Designated doctor with badge */}
                                 <div className="flex items-center gap-2">
                                   <div className="p-1.5 rounded-lg">
-                                    <Icon icon="solar:stethoscope-bold-duotone" className="h-3.5 w-3.5 text-purple-600" />
+                                    <Stethoscope className="h-3.5 w-3.5 text-purple-600" />
                                   </div>
                                   <span className="text-sm text-gray-600">Dr. {(() => {
                                     const doctor = doctors.find(d => d.id === appointment.doctor_id);
@@ -973,30 +967,28 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                 <div className="flex items-center gap-2 flex-wrap">
                                   {/* Time section */}
                                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg backdrop-blur-sm bg-purple-50 text-purple-700">
-                                    <Icon icon="duo-icons:clock" className="h-3.5 w-3.5" />
+                                    <Clock className="h-3.5 w-3.5" />
                                     <span className="text-xs font-semibold">{appointment.time ? format(parseISO(`2000-01-01T${appointment.time}`), 'h:mm a') : 'No time'}</span>
                                   </div>
 
                                   {/* Type section */}
                                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
-                                    <Icon icon={
-                                      appointment.type === 'consultation' ? 'duo-icons:stethoscope' :
-                                      appointment.type === 'follow-up' ? 'duo-icons:refresh' :
-                                      appointment.type === 'procedure' ? 'duo-icons:syringe' :
-                                      'duo-icons:calendar'
-                                    } className="h-3.5 w-3.5" />
+                                    {appointment.type === 'consultation' ? <Stethoscope className="h-3.5 w-3.5" /> :
+                                      appointment.type === 'follow-up' ? <RefreshCcw className="h-3.5 w-3.5" /> :
+                                      appointment.type === 'procedure' ? <TestTube className="h-3.5 w-3.5" /> :
+                                      <Calendar className="h-3.5 w-3.5" />}
                                     <span className="text-xs font-semibold capitalize">{appointment.type}</span>
                                   </div>
 
                                   {/* Duration */}
                                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
-                                    <Icon icon="duo-icons:timer" className="h-3.5 w-3.5" />
+                                    <Timer className="h-3.5 w-3.5" />
                                     <span className="text-xs font-semibold">{appointment.duration}m</span>
                                   </div>
 
                                   {/* Handoff indicator */}
                                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-100 text-purple-700">
-                                    <Icon icon="solar:clipboard-check-bold-duotone" className="h-3.5 w-3.5" />
+                                    <Clipboard className="h-3.5 w-3.5" />
                                     <span className="text-xs font-semibold">Ready for checkout</span>
                                   </div>
                                 </div>
@@ -1010,7 +1002,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                     }}
                                     className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg font-medium flex items-center gap-2 shadow-lg text-sm"
                                   >
-                                    <Icon icon="solar:check-circle-bold-duotone" className="h-4 w-4" />
+                                    <CheckCircle2 className="h-4 w-4" />
                                     <span>Complete</span>
                                   </button>
                                 </div>
@@ -1031,7 +1023,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                 {/* Section header */}
                 <div className="flex items-center mb-4">
                   <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg px-5 py-2.5 shadow-lg flex items-center gap-2">
-                    <Icon icon="solar:calendar-bold-duotone" className="h-5 w-5" />
+                    <Calendar className="h-5 w-5" />
                     <span className="font-bold text-base">Schedule</span>
                     <span className="text-sm bg-white/20 px-2 py-0.5 rounded-full">
                       {appointmentSections.schedule.length}
@@ -1168,7 +1160,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                   <div className={`p-1.5 rounded-lg ${
                                     ''
                                   }`}>
-                                    <Icon icon="duo-icons:user" className={`h-4 w-4 ${
+                                    <User className={`h-4 w-4 ${
                                       appointment.status === 'scheduled' ? 'text-blue-600' :
                                       appointment.status === 'ready' ? 'text-[#01b8d8]' :
                                       appointment.status === 'in-progress' ? 'text-amber-600' :
@@ -1193,7 +1185,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                       appointment.status === 'cancelled' ? 'bg-red-50/70' :
                                       'bg-purple-50/70'
                                     }`}>
-                                      <Icon icon="solar:phone-bold-duotone" className={`h-3.5 w-3.5 ${
+                                      <Phone className={`h-3.5 w-3.5 ${
                                         appointment.status === 'scheduled' ? 'text-blue-600' :
                                         appointment.status === 'ready' ? 'text-[#01b8d8]' :
                                         appointment.status === 'in-progress' ? 'text-amber-600' :
@@ -1211,7 +1203,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                   <div className={`p-1.5 rounded-lg ${
                                     ''
                                   }`}>
-                                    <Icon icon="solar:stethoscope-bold-duotone" className={`h-3.5 w-3.5 ${
+                                    <Stethoscope className={`h-3.5 w-3.5 ${
                                       appointment.status === 'scheduled' ? 'text-blue-600' :
                                       appointment.status === 'ready' ? 'text-[#01b8d8]' :
                                       appointment.status === 'in-progress' ? 'text-amber-600' :
@@ -1245,24 +1237,22 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                     appointment.status === 'cancelled' ? 'bg-red-50 text-red-700' :
                                     'bg-purple-50 text-purple-700'
                                   }`}>
-                                    <Icon icon="duo-icons:clock" className="h-3.5 w-3.5" />
+                                    <Clock className="h-3.5 w-3.5" />
                                     <span className="text-xs font-semibold">{appointment.time ? format(parseISO(`2000-01-01T${appointment.time}`), 'h:mm a') : 'No time'}</span>
                                   </div>
 
                                   {/* Type section */}
                                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
-                                    <Icon icon={
-                                      appointment.type === 'consultation' ? 'duo-icons:stethoscope' :
-                                      appointment.type === 'follow-up' ? 'duo-icons:refresh' :
-                                      appointment.type === 'procedure' ? 'duo-icons:syringe' :
-                                      'duo-icons:calendar'
-                                    } className="h-3.5 w-3.5" />
+                                    {appointment.type === 'consultation' ? <Stethoscope className="h-3.5 w-3.5" /> :
+                                      appointment.type === 'follow-up' ? <RefreshCcw className="h-3.5 w-3.5" /> :
+                                      appointment.type === 'procedure' ? <TestTube className="h-3.5 w-3.5" /> :
+                                      <Calendar className="h-3.5 w-3.5" />}
                                     <span className="text-xs font-semibold capitalize">{appointment.type}</span>
                                   </div>
 
                                   {/* Duration */}
                                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
-                                    <Icon icon="duo-icons:timer" className="h-3.5 w-3.5" />
+                                    <Timer className="h-3.5 w-3.5" />
                                     <span className="text-xs font-semibold">{appointment.duration}m</span>
                                   </div>
                                 </div>
@@ -1300,7 +1290,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                 {/* Section header */}
                 <div className="flex items-center mb-4">
                   <div className="bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-lg px-5 py-2.5 shadow-lg flex items-center gap-2">
-                    <Icon icon="solar:check-circle-bold-duotone" className="h-5 w-5" />
+                    <CheckCircle className="h-5 w-5" />
                     <span className="font-bold text-base">Completed</span>
                     <span className="text-sm bg-white/20 px-2 py-0.5 rounded-full">
                       {appointmentSections.completed.length}
@@ -1397,7 +1387,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                   <div className={`p-1.5 rounded-lg ${
                                     ''
                                   }`}>
-                                    <Icon icon="duo-icons:user" className={`h-4 w-4 ${
+                                    <User className={`h-4 w-4 ${
                                       appointment.status === 'scheduled' ? 'text-blue-600' :
                                       appointment.status === 'ready' ? 'text-[#01b8d8]' :
                                       appointment.status === 'in-progress' ? 'text-amber-600' :
@@ -1422,7 +1412,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                       appointment.status === 'cancelled' ? 'bg-red-50/70' :
                                       'bg-purple-50/70'
                                     }`}>
-                                      <Icon icon="solar:phone-bold-duotone" className={`h-3.5 w-3.5 ${
+                                      <Phone className={`h-3.5 w-3.5 ${
                                         appointment.status === 'scheduled' ? 'text-blue-600' :
                                         appointment.status === 'ready' ? 'text-[#01b8d8]' :
                                         appointment.status === 'in-progress' ? 'text-amber-600' :
@@ -1440,7 +1430,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                   <div className={`p-1.5 rounded-lg ${
                                     ''
                                   }`}>
-                                    <Icon icon="solar:stethoscope-bold-duotone" className={`h-3.5 w-3.5 ${
+                                    <Stethoscope className={`h-3.5 w-3.5 ${
                                       appointment.status === 'scheduled' ? 'text-blue-600' :
                                       appointment.status === 'ready' ? 'text-[#01b8d8]' :
                                       appointment.status === 'in-progress' ? 'text-amber-600' :
@@ -1474,24 +1464,22 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                     appointment.status === 'cancelled' ? 'bg-red-50 text-red-700' :
                                     'bg-purple-50 text-purple-700'
                                   }`}>
-                                    <Icon icon="duo-icons:clock" className="h-3.5 w-3.5" />
+                                    <Clock className="h-3.5 w-3.5" />
                                     <span className="text-xs font-semibold">{appointment.time ? format(parseISO(`2000-01-01T${appointment.time}`), 'h:mm a') : 'No time'}</span>
                                   </div>
 
                                   {/* Type section */}
                                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
-                                    <Icon icon={
-                                      appointment.type === 'consultation' ? 'duo-icons:stethoscope' :
-                                      appointment.type === 'follow-up' ? 'duo-icons:refresh' :
-                                      appointment.type === 'procedure' ? 'duo-icons:syringe' :
-                                      'duo-icons:calendar'
-                                    } className="h-3.5 w-3.5" />
+                                    {appointment.type === 'consultation' ? <Stethoscope className="h-3.5 w-3.5" /> :
+                                      appointment.type === 'follow-up' ? <RefreshCcw className="h-3.5 w-3.5" /> :
+                                      appointment.type === 'procedure' ? <TestTube className="h-3.5 w-3.5" /> :
+                                      <Calendar className="h-3.5 w-3.5" />}
                                     <span className="text-xs font-semibold capitalize">{appointment.type}</span>
                                   </div>
 
                                   {/* Duration */}
                                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
-                                    <Icon icon="duo-icons:timer" className="h-3.5 w-3.5" />
+                                    <Timer className="h-3.5 w-3.5" />
                                     <span className="text-xs font-semibold">{appointment.duration}m</span>
                                   </div>
                                 </div>
@@ -1529,7 +1517,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                 {/* Section header */}
                 <div className="flex items-center mb-4">
                   <div className="bg-gradient-to-r from-red-500 to-rose-500 text-white rounded-lg px-5 py-2.5 shadow-lg flex items-center gap-2">
-                    <Icon icon="solar:close-circle-bold-duotone" className="h-5 w-5" />
+                    <XCircle className="h-5 w-5" />
                     <span className="font-bold text-base">Cancelled</span>
                     <span className="text-sm bg-white/20 px-2 py-0.5 rounded-full">
                       {appointmentSections.cancelled.length}
@@ -1626,7 +1614,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                   <div className={`p-1.5 rounded-lg ${
                                     ''
                                   }`}>
-                                    <Icon icon="duo-icons:user" className={`h-4 w-4 ${
+                                    <User className={`h-4 w-4 ${
                                       appointment.status === 'scheduled' ? 'text-blue-600' :
                                       appointment.status === 'ready' ? 'text-[#01b8d8]' :
                                       appointment.status === 'in-progress' ? 'text-amber-600' :
@@ -1651,7 +1639,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                       appointment.status === 'cancelled' ? 'bg-red-50/70' :
                                       'bg-purple-50/70'
                                     }`}>
-                                      <Icon icon="solar:phone-bold-duotone" className={`h-3.5 w-3.5 ${
+                                      <Phone className={`h-3.5 w-3.5 ${
                                         appointment.status === 'scheduled' ? 'text-blue-600' :
                                         appointment.status === 'ready' ? 'text-[#01b8d8]' :
                                         appointment.status === 'in-progress' ? 'text-amber-600' :
@@ -1669,7 +1657,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                   <div className={`p-1.5 rounded-lg ${
                                     ''
                                   }`}>
-                                    <Icon icon="solar:stethoscope-bold-duotone" className={`h-3.5 w-3.5 ${
+                                    <Stethoscope className={`h-3.5 w-3.5 ${
                                       appointment.status === 'scheduled' ? 'text-blue-600' :
                                       appointment.status === 'ready' ? 'text-[#01b8d8]' :
                                       appointment.status === 'in-progress' ? 'text-amber-600' :
@@ -1703,24 +1691,22 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                     appointment.status === 'cancelled' ? 'bg-red-50 text-red-700' :
                                     'bg-purple-50 text-purple-700'
                                   }`}>
-                                    <Icon icon="duo-icons:clock" className="h-3.5 w-3.5" />
+                                    <Clock className="h-3.5 w-3.5" />
                                     <span className="text-xs font-semibold">{appointment.time ? format(parseISO(`2000-01-01T${appointment.time}`), 'h:mm a') : 'No time'}</span>
                                   </div>
 
                                   {/* Type section */}
                                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
-                                    <Icon icon={
-                                      appointment.type === 'consultation' ? 'duo-icons:stethoscope' :
-                                      appointment.type === 'follow-up' ? 'duo-icons:refresh' :
-                                      appointment.type === 'procedure' ? 'duo-icons:syringe' :
-                                      'duo-icons:calendar'
-                                    } className="h-3.5 w-3.5" />
+                                    {appointment.type === 'consultation' ? <Stethoscope className="h-3.5 w-3.5" /> :
+                                      appointment.type === 'follow-up' ? <RefreshCcw className="h-3.5 w-3.5" /> :
+                                      appointment.type === 'procedure' ? <TestTube className="h-3.5 w-3.5" /> :
+                                      <Calendar className="h-3.5 w-3.5" />}
                                     <span className="text-xs font-semibold capitalize">{appointment.type}</span>
                                   </div>
 
                                   {/* Duration */}
                                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 text-gray-700">
-                                    <Icon icon="duo-icons:timer" className="h-3.5 w-3.5" />
+                                    <Timer className="h-3.5 w-3.5" />
                                     <span className="text-xs font-semibold">{appointment.duration}m</span>
                                   </div>
                                 </div>
@@ -2150,7 +2136,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               font-medium flex items-center gap-2 text-sm
               border border-gray-200 shadow-sm"
           >
-            <Icon icon="solar:user-bold-duotone" className="w-4 h-4" />
+            <User className="w-4 h-4" />
             <span>Doctor: {selectedDoctorId ? 
               doctors.find(d => d.id === selectedDoctorId)?.user_metadata?.full_name || 
               doctors.find(d => d.id === selectedDoctorId)?.email || 
@@ -2180,7 +2166,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                 flex items-center gap-2 disabled:opacity-50 
                 disabled:cursor-not-allowed shadow-lg text-sm"
             >
-              <Icon icon="solar:calendar-add-bold-duotone" className="w-4 h-4" />
+              <Plus className="w-4 h-4" />
               <span>Schedule</span>
             </button>
           </div>
@@ -2188,7 +2174,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
 
         {/* Appointment Status Filters - Full Width */}
         <div>
-          <div className="flex items-center gap-2 p-1 bg-gradient-to-r from-gray-100 to-gray-200 rounded-lg w-full shadow-sm">
+          <div className="flex items-center gap-1 md:gap-2 p-1 bg-gradient-to-r from-gray-100 to-gray-200 rounded-lg w-full shadow-sm overflow-x-auto">
             {[
               { status: 'scheduled', label: 'Scheduled', count: filteredAppointments.filter(a => a.status === 'scheduled' && a.is_confirmed && !a.is_checked_in).length, gradient: 'from-blue-500 to-blue-600', bg: 'bg-gray-100', text: 'text-gray-800' },
               { status: 'checked-in', label: 'Checked In', count: filteredAppointments.filter(a => a.is_checked_in && a.status !== 'completed' && a.status !== 'in-progress').length, gradient: 'from-purple-500 to-purple-600', bg: 'bg-gray-100', text: 'text-gray-800' },
@@ -2197,10 +2183,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             ].map((filter) => (
               <button
                 key={filter.status}
-                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md capitalize ${filter.bg} ${filter.text} hover:shadow-md border border-transparent hover:border-gray-300`}
+                className={`flex-1 flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 px-2 md:px-3 py-2 text-xs md:text-sm font-medium rounded-md capitalize ${filter.bg} ${filter.text} hover:shadow-md border border-transparent hover:border-gray-300 min-w-[70px] md:min-w-[100px]`}
               >
-                <span>{filter.label}</span>
-                <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r ${filter.gradient} text-white shadow-sm`}>
+                <span className="whitespace-nowrap">{filter.label}</span>
+                <span className={`inline-flex items-center justify-center px-1.5 md:px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold bg-gradient-to-r ${filter.gradient} text-white shadow-sm min-w-[20px]`}>
                   {filter.count}
                 </span>
               </button>
@@ -2311,7 +2297,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                     onClick={() => setShowDoctorModal(false)}
                     className="p-2 hover:bg-gray-100 rounded-xl "
                   >
-                    <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-400" />
+                    <XCircle className="w-6 h-6 text-gray-400" />
                   </button>
                 </div>
               </div>
@@ -2345,7 +2331,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                     <p className="text-xs text-gray-500">View appointments for all doctors</p>
                   </div>
                   {!selectedDoctorId && (
-                    <Icon icon="solar:check-circle-bold" className="w-5 h-5 text-blue-600 ml-auto" />
+                    <CheckCircle className="w-5 h-5 text-blue-600 ml-auto" />
                   )}
                 </button>
 
@@ -2387,7 +2373,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                           </p>
                         </div>
                         {isSelected && (
-                          <Icon icon="solar:check-circle-bold" className="w-5 h-5 text-blue-600" />
+                          <CheckCircle className="w-5 h-5 text-blue-600" />
                         )}
                       </button>
                     );

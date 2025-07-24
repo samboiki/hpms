@@ -7,14 +7,18 @@ import PracticeSwitcher from './PracticeSwitcher';
 import { usePracticeData } from '../../hooks/usePracticeData';
 import { motion } from 'framer-motion';
 
-const Header: React.FC = () => {
-  const { user, logout, isSuperAdmin, canManagePractices } = useAuthStore();
+interface HeaderProps {
+  onMobileMenuToggle?: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onMobileMenuToggle }) => {
+  const { user, logout, isSuperAdmin } = useAuthStore();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { practiceData, colors } = usePracticeData();
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -31,47 +35,61 @@ const Header: React.FC = () => {
     navigate('/login');
   };
 
+
   return (
-    <header className="h-16 bg-white border-b border-gray-100 px-6 flex items-center justify-between relative z-[100]">
+    <header className="h-16 bg-white border-b border-gray-100 px-4 md:px-6 flex items-center justify-between fixed top-0 left-0 right-0 z-[100]">
       {/* Practice Branding - Left Side */}
       <motion.div 
-        className="flex items-center gap-4"
+        className="flex items-center gap-2 md:gap-4"
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.5 }}
       >
         {practiceData && (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             {practiceData.logo_url ? (
               <img 
                 src={practiceData.logo_url} 
                 alt={practiceData.name}
-                className="h-10 w-auto object-contain"
+                className="h-8 md:h-10 w-auto object-contain"
               />
             ) : (
               <div 
-                className="w-10 h-10 rounded-lg flex items-center justify-center"
+                className="w-8 h-8 md:w-10 md:h-10 rounded-lg flex items-center justify-center"
                 style={{ 
                   background: colors?.gradient || 'linear-gradient(135deg, #6366f1 0%, #818cf8 100%)',
                   boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                 }}
               >
-                <Icon icon="solar:health-bold-duotone" className="w-6 h-6 text-white" />
+                <Icon icon="solar:health-bold-duotone" className="w-4 h-4 md:w-6 md:h-6 text-white" />
               </div>
             )}
-            <div className="hidden md:block">
-              <h3 className="font-semibold text-gray-900">{practiceData.name}</h3>
-              <p className="text-xs text-gray-500">Healthcare Management System</p>
+            <div className="hidden sm:block">
+              <h3 className="font-semibold text-gray-900 text-sm md:text-base truncate max-w-[200px]">{practiceData.name}</h3>
+              <p className="text-xs text-gray-500 hidden md:block">Healthcare Management System</p>
             </div>
           </div>
         )}
       </motion.div>
 
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-3">
         {/* Practice Switcher - only show for super admins or multi-practice users */}
-        <PracticeSwitcher />
+        <div className="hidden md:block">
+          <PracticeSwitcher />
+        </div>
         
-        <button className="relative p-2 text-transparent bg-gradient-to-r from-purple-500 to-indigo-600 bg-clip-text hover:bg-gray-50 rounded-lg group">
+        {/* Mobile Menu Button - positioned at the end */}
+        <div className="lg:hidden relative order-last">
+          <Button
+            variant="ghost"
+            className="p-2"
+            onClick={onMobileMenuToggle}
+          >
+            <Icon icon="solar:hamburger-menu-bold-duotone" className="w-6 h-6 text-gray-600" />
+          </Button>
+        </div>
+        
+        <button className="hidden md:block relative p-2 text-transparent bg-gradient-to-r from-purple-500 to-indigo-600 bg-clip-text hover:bg-gray-50 rounded-lg group">
           <Icon icon="solar:bell-bold-duotone" width={20} height={20} className="text-transparent bg-gradient-to-r from-purple-500 to-indigo-600 bg-clip-text" />
           <span className="absolute top-2 right-2 w-2 h-2 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full" />
         </button>

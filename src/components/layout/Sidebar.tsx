@@ -115,7 +115,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     <div 
       className={cn(
         isMobile 
-          ? `fixed left-0 top-0 h-full bg-gradient-to-b ${currentTheme.gradients.sidebar} backdrop-blur-md transition-all duration-300 z-50 w-[280px]`
+          ? `fixed right-0 top-0 h-full bg-gradient-to-b ${currentTheme.gradients.sidebar} backdrop-blur-md transition-all duration-300 z-50 w-[280px]`
           : `fixed left-4 top-4 h-[calc(100vh-32px)] bg-gradient-to-b ${currentTheme.gradients.sidebar} backdrop-blur-md rounded-2xl transition-all duration-300 z-30`,
         "shadow-[0_20px_60px_rgb(0,0,0,0.15)] border border-white/10 flex flex-col",
         !isMobile && collapsed ? "w-[72px]" : !isMobile && "w-[240px]"

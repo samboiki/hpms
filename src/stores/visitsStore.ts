@@ -90,7 +90,6 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
   // Fetch visits with filters
   fetchVisits: async (filters?: VisitFilters) => {
     set({ loading: true, error: null });
-    const startTime = performance.now();
     
     try {
       let query = supabase

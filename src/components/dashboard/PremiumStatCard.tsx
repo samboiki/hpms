@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
-import { Icon } from '@iconify/react';
 import { CommunicationStats } from '../../services/communicationStatsService';
 import { PatientStats } from '../../services/patientStatsService';
 import { InvoiceStats } from '../../services/invoiceStatsService';
@@ -118,7 +117,6 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
     switch (cardType) {
       case 'patients':
         if (patientStats) {
-          console.log('🎯 PremiumStatCard: Using real patient stats:', patientStats);
           const total = patientStats.total;
           const malePercentage = total > 0 ? Math.round((patientStats.male / total) * 100) : 0;
           const femalePercentage = total > 0 ? Math.round((patientStats.female / total) * 100) : 0;
@@ -133,7 +131,6 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
             totalLabel: 'Total Patients'
           };
         } else {
-          console.log('⚠️ PremiumStatCard: No patient stats provided, using fallback');
         }
         // Fallback to default values if no real data
         return {
@@ -179,7 +176,6 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         };
       case 'encounters':
         if (encounterStats) {
-          console.log('🎯 PremiumStatCard: Using real encounter stats:', encounterStats);
           return {
             subtitle: 'Visit Analytics',
             mainValue: encounterStats.total.toString(),
@@ -200,7 +196,6 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
             totalLabel: 'Total Encounters'
           };
         } else {
-          console.log('⚠️ PremiumStatCard: No encounter stats provided, using fallback');
         }
         // Fallback to default values if no real data
         return {
@@ -214,7 +209,6 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         };
       case 'finance':
         if (invoiceStats) {
-          console.log('🎯 PremiumStatCard: Using real quarterly invoice stats:', invoiceStats);
           return {
             subtitle: `Q${invoiceStats.currentQuarter} ${new Date().getFullYear()} Breakdown`,
             mainValue: `N$${(invoiceStats.quarterlyRevenue || 0).toLocaleString()}`,
@@ -235,7 +229,6 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
             totalLabel: `Q${invoiceStats.currentQuarter} Revenue`
           };
         } else {
-          console.log('⚠️ PremiumStatCard: No invoice stats provided, using fallback');
         }
         // Fallback to default values if no real data
         return {
@@ -311,11 +304,9 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className={`p-3 bg-gradient-to-br ${settings.gradientFrom} ${settings.gradientTo} rounded-xl shadow-md group-hover:shadow-lg transition-all duration-300`}>
-                {IconComponent ? (
+                {IconComponent && (
                   <IconComponent className="w-6 h-6 text-white" />
-                ) : iconName ? (
-                  <Icon icon={iconName} className="w-6 h-6 text-white" />
-                ) : null}
+                )}
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>

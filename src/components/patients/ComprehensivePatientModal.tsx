@@ -196,6 +196,13 @@ const MaleIcon = ({ className }: { className?: string }) => (
 );
 
 const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ isOpen, onClose, patientId, onAppointmentCreated, defaultDetailTab, visitIdToEdit }) => {
+  console.log('🎯 [ComprehensivePatientModal] Component rendered with props:', {
+    isOpen,
+    patientId,
+    defaultDetailTab,
+    visitIdToEdit
+  });
+  
   const { currentTheme } = useTheme();
   const { patients, isLoading, error, fetchPatients: fetchPatientsFromStore, searchPatients } = usePatientsStoreNew();
   
@@ -285,24 +292,31 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   
   // Sync React Query data with component state for instant loading
   useEffect(() => {
-    if (patientDetailsData) {
-      setSelectedPatientDetails(patientDetailsData.patient);
-      setNextOfKin(patientDetailsData.nextOfKin);
-      setVisits(patientDetailsData.visits);
-      setVisitCounts(patientDetailsData.visitCounts);
-      setAppointments(patientDetailsData.appointments);
-      setVitals(patientDetailsData.vitals);
-      setLabRequests(patientDetailsData.labRequests);
-      setLabResults(patientDetailsData.labResults);
-      setMedications(patientDetailsData.medications);
-      setMediaRequests(patientDetailsData.mediaRequests);
-      setImagingRequests(patientDetailsData.imagingRequests);
-      setBillingData(patientDetailsData.billingData);
-      setMedicalAid(patientDetailsData.medicalAid);
-      setDocuments(patientDetailsData.documents);
-      setPracticeData(patientDetailsData.practiceData);
+    if (patientDetailsData && isOpen && patientId) {
+      // Use a single state update to prevent multiple re-renders
+      const updateStates = () => {
+        setSelectedPatientDetails(patientDetailsData.patient);
+        setNextOfKin(patientDetailsData.nextOfKin);
+        setVisits(patientDetailsData.visits);
+        setVisitCounts(patientDetailsData.visitCounts);
+        setAppointments(patientDetailsData.appointments);
+        setVitals(patientDetailsData.vitals);
+        setLabRequests(patientDetailsData.labRequests);
+        setLabResults(patientDetailsData.labResults);
+        setMedications(patientDetailsData.medications);
+        setMediaRequests(patientDetailsData.mediaRequests);
+        setImagingRequests(patientDetailsData.imagingRequests);
+        setBillingData(patientDetailsData.billingData);
+        setMedicalAid(patientDetailsData.medicalAid);
+        setDocuments(patientDetailsData.documents);
+        setPracticeData(patientDetailsData.practiceData);
+      };
+
+      // Use setTimeout to batch the updates
+      const timeoutId = setTimeout(updateStates, 0);
+      return () => clearTimeout(timeoutId);
     }
-  }, [patientDetailsData]);
+  }, [patientDetailsData, isOpen, patientId]);
   
   // Function to handle new appointments created for this patient
   const handleNewAppointmentForPatient = useCallback((newAppointment: any) => {
@@ -350,7 +364,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         delete window.addAppointmentToPatientTimeline;
       }
     };
-  }, [handleNewAppointmentForPatient, onAppointmentCreated, patientId]);
+  }, [onAppointmentCreated, patientId]); // Removed handleNewAppointmentForPatient from dependencies
   
   // Additional state
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
@@ -1179,7 +1193,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
     if (practiceId) {
       fetchPracticeData();
     }
-  }, [practiceId, fetchPracticeData]);
+  }, [practiceId]); // Removed fetchPracticeData from dependencies
 
   // Fetch beneficiaries count for medical aid
   const fetchBeneficiariesCount = useCallback(async (membershipNumber: string) => {
@@ -1625,19 +1639,40 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   }, [handleAiSearch, searchTerm]);
 
   useEffect(() => {
+    console.log('🔄 [ComprehensivePatientModal] Main useEffect triggered:', {
+      isOpen,
+      patientId,
+      hasPatientId: !!patientId
+    });
+    
     if (isOpen) {
       if (patientId) {
+        console.log('📋 [ComprehensivePatientModal] Opening in details mode for patient:', patientId);
         setActiveTab('details');
-        if (defaultDetailTab) {
-          setActiveDetailTab(defaultDetailTab);
-        }
         fetchPatientDetails(patientId);
       } else {
+        console.log('📋 [ComprehensivePatientModal] Opening in patients list mode');
         setActiveTab('patients');
-        fetchPatientsFromStore();
+        // Call fetchPatientsFromStore without including it in dependencies
+        // to prevent infinite re-renders
+        const store = usePatientsStoreNew.getState();
+        store.fetchPatients();
       }
     }
-  }, [isOpen, patientId, defaultDetailTab, fetchPatientDetails, fetchPatientsFromStore]);
+    // Remove fetchPatientsFromStore and fetchPatientDetails from dependencies to prevent infinite loop
+  }, [isOpen, patientId]);
+
+  // Separate effect for defaultDetailTab to prevent re-fetching
+  useEffect(() => {
+    if (isOpen && patientId && defaultDetailTab && activeDetailTab !== defaultDetailTab) {
+      console.log('🔄 [ComprehensivePatientModal] Setting activeDetailTab:', {
+        from: activeDetailTab,
+        to: defaultDetailTab
+      });
+      setActiveDetailTab(defaultDetailTab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, patientId, defaultDetailTab]); // activeDetailTab intentionally excluded to prevent loops
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1696,7 +1731,9 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   useEffect(() => {
     if (searchTerm) {
       const timeoutId = setTimeout(() => {
-        searchPatients(searchTerm);
+        // Use store directly to avoid dependency issues
+        const store = usePatientsStoreNew.getState();
+        store.searchPatients(searchTerm);
       }, 300);
       return () => clearTimeout(timeoutId);
     }
@@ -1713,7 +1750,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         setActiveDetailTab('encounters');
       }
     }
-  }, [visitIdToEdit, visits, modalState.openEditVisitModal]);
+  }, [visitIdToEdit, visits]); // Removed modalState.openEditVisitModal from dependencies
 
   // Filter options
   const filterOptions = [
@@ -1775,13 +1812,17 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   // Patient list handlers
   const handlePatientAdded = () => {
     setIsAddPatientModalOpen(false);
-    fetchPatientsFromStore();
+    // Use store directly to prevent re-render issues
+    const store = usePatientsStoreNew.getState();
+    store.fetchPatients();
   };
 
   const handlePatientUpdated = () => {
     setIsEditPatientModalOpen(false);
     setSelectedPatient(null);
-    fetchPatientsFromStore();
+    // Use store directly to prevent re-render issues
+    const store = usePatientsStoreNew.getState();
+    store.fetchPatients();
   };
 
   const toggleSort = (field: 'name' | 'date' | 'age') => {
@@ -1812,7 +1853,9 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         if (error) throw error;
         
         setShowDeleteConfirm(null);
-        fetchPatientsFromStore();
+        // Use store directly to prevent re-render issues
+        const store = usePatientsStoreNew.getState();
+        store.fetchPatients();
         toast.success('Patient deleted successfully');
       } catch (error) {
         console.error('Error deleting patient:', error);
@@ -2304,6 +2347,14 @@ OneHealth Medical Team`;
     }
   ];
 
+  console.log('🎨 [ComprehensivePatientModal] About to render modal with state:', {
+    isOpen,
+    activeTab,
+    activeDetailTab,
+    patientId,
+    selectedPatientDetails: !!selectedPatientDetails
+  });
+
   return (
     <>
       {/* Floating Visit Tracker - Only render when modal is open */}
@@ -2316,13 +2367,16 @@ OneHealth Medical Team`;
         document.body
       )}
       
-      {!isOpen ? null : (
+      {!isOpen ? (
+        console.log('🚫 [ComprehensivePatientModal] Modal backdrop not rendered - isOpen is false') || null
+      ) : (
       <div 
         className={`fixed inset-0 z-[9999] ${
           modalState.modalState.isFullScreen 
             ? 'bg-black/20 p-0' 
             : 'bg-black/50 backdrop-blur-sm flex items-center justify-center p-4'
-        }`} 
+        }`}
+        // Removed invalid onMount prop 
         onClick={(e) => {
           // Prevent closing parent modal when child modals are open
           if (modalState.modalState.isMessageModalOpen || modalState.modalState.isEmailModalOpen) {
@@ -2662,7 +2716,10 @@ OneHealth Medical Team`;
                             <p className="text-gray-900 font-medium mb-2">Unable to load patients</p>
                             <p className="text-gray-600 text-sm mb-4">{error}</p>
                             <button
-                              onClick={() => fetchPatientsFromStore()}
+                              onClick={() => {
+                                const store = usePatientsStoreNew.getState();
+                                store.fetchPatients();
+                              }}
                               className="px-4 py-3 sm:py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium min-h-[44px] sm:min-h-0"
                             >
                               Try Again

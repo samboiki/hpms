@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
+import PatientDetail from './pages/PatientDetail';
 import Settings from './pages/Settings';
 import Communications from './pages/Communications';
 import TestCommunication from './pages/TestCommunication';
@@ -118,6 +119,7 @@ function App() {
             <Route path="/" element={<Layout />}>
               <Route index element={<Dashboard />} />
               <Route path="patients" element={<Patients />} />
+              <Route path="patients/:patientId/visit/:visitId" element={<PatientDetail />} />
               <Route path="encounters" element={<Encounters />} />
               <Route path="communications" element={<Communications />} />
               <Route path="test-communication" element={<TestCommunication />} />

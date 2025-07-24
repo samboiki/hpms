@@ -152,42 +152,6 @@ export async function fetchPatientsDirectly(practiceId: string): Promise<Enhance
 
 // Create the RPC function if it doesn't exist
 export const createPatientsFetchRPC = `
-CREATE OR REPLACE FUNCTION get_patients_with_full_data(p_practice_id uuid)
-RETURNS TABLE (
-  id uuid,
-  first_name text,
-  last_name text,
-  email text,
-  cell_number text,
-  date_of_birth date,
-  gender text,
-  created_at timestamptz,
-  practice_id uuid,
-  practice_name text,
-  last_visit_date date,
-  total_visits bigint
-) AS $$
-BEGIN
-  RETURN QUERY
-  SELECT 
-    p.id,
-    p.first_name,
-    p.last_name,
-    p.email,
-    p.cell_number,
-    p.date_of_birth,
-    p.gender,
-    p.created_at,
-    p.practice_id,
-    pr.name as practice_name,
-    MAX(v.visit_date) as last_visit_date,
-    COUNT(CASE WHEN v.status = 'completed' THEN 1 END) as total_visits
-  FROM patients p
-  LEFT JOIN practices pr ON pr.id = p.practice_id
-  LEFT JOIN visits v ON v.patient_id = p.id
-  WHERE p.practice_id = p_practice_id
-  GROUP BY p.id, pr.name
-  ORDER BY p.last_name, p.first_name;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- This function is already created in the database
+-- Keeping this here for reference only
 `;
