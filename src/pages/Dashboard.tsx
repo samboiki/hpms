@@ -107,6 +107,7 @@ function Dashboard() {
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   const [isEditVisitModalOpen, setIsEditVisitModalOpen] = useState(false);
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
+  const [editingVisitData, setEditingVisitData] = useState<{ id: string; patient_id: string } | null>(null);
   const [editingAppointment, setEditingAppointment] = useState<any>(null);
   const [isEditAppointmentModalOpen, setIsEditAppointmentModalOpen] = useState(false);
   const calendarScrollRef = useRef<HTMLDivElement>(null);
@@ -1198,16 +1199,15 @@ function Dashboard() {
                               fullVisit: visit
                             });
                             
-                            // Double-check the visits array to see if we can find it
-                            const foundVisit = visits.find(v => v.id === visit.id);
-                            console.log('[Dashboard] Found visit in visits array:', foundVisit);
-                            
                             if (!visit.patient_id || visit.patient_id === '') {
                               console.error('[Dashboard] Invalid patient_id in visit:', visit);
                               toast.error('Cannot open visit - patient information missing');
                               return;
                             }
+                            
+                            // Store both the ID and the complete visit data
                             setEditingVisitId(visit.id);
+                            setEditingVisitData({ id: visit.id, patient_id: visit.patient_id });
                             setIsEditVisitModalOpen(true);
                           }}
                           appointments={visits.map(v => {
@@ -1932,50 +1932,27 @@ function Dashboard() {
       )}
 
       {/* Full Screen Edit Visit Modal */}
-      {editingVisitId && (() => {
-        const visit = visits.find(v => v.id === editingVisitId);
-        const patientId = visit?.patient_id;
-        
-        console.log('[Dashboard] Rendering FullScreenEditVisitModal:', {
-          editingVisitId,
-          visit,
-          patientId,
-          visitsLength: visits.length
-        });
-        
-        if (!patientId || patientId === '' || patientId === 'undefined') {
-          console.error('[Dashboard] Invalid patient_id for visit:', {
-            editingVisitId,
-            visit,
-            patientId,
-            allVisits: visits
-          });
-          toast.error('Cannot open visit - patient information not found. Please refresh and try again.');
-          setIsEditVisitModalOpen(false);
-          setEditingVisitId(null);
-          return null;
-        }
-        
-        return (
-          <FullScreenEditVisitModal
-            isOpen={isEditVisitModalOpen}
-            onClose={() => {
-              setIsEditVisitModalOpen(false);
-              setEditingVisitId(null);
-            }}
-            visitId={editingVisitId}
-            patientId={patientId}
-            onSuccess={() => {
-              setIsEditVisitModalOpen(false);
-              setEditingVisitId(null);
-              // Refresh visits
-              if (currentPracticeId) {
-                fetchTodayVisits(currentPracticeId);
-              }
-            }}
-          />
-        );
-      })()}
+      {editingVisitData && (
+        <FullScreenEditVisitModal
+          isOpen={isEditVisitModalOpen}
+          onClose={() => {
+            setIsEditVisitModalOpen(false);
+            setEditingVisitId(null);
+            setEditingVisitData(null);
+          }}
+          visitId={editingVisitData.id}
+          patientId={editingVisitData.patient_id}
+          onSuccess={() => {
+            setIsEditVisitModalOpen(false);
+            setEditingVisitId(null);
+            setEditingVisitData(null);
+            // Refresh visits
+            if (currentPracticeId) {
+              fetchTodayVisits(currentPracticeId);
+            }
+          }}
+        />
+      )}
 
       {/* Edit Appointment Modal */}
       <FormModal
