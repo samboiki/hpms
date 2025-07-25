@@ -542,7 +542,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                     const { completeVisit } = useVisitsStore.getState();
                                     completeVisit(visit.id);
                                   }}
-                                  className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md"
+                                  className="px-3 py-1.5 bg-[#00a7ad] hover:bg-[#00959a] text-white text-sm font-medium rounded-md"
                                 >
                                   Complete
                                 </button>
@@ -689,24 +689,27 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                       {cardNumber}
                                     </div>
                                     
-                                    {/* Main content wrapper */}
-                                    <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-3">
-                                      {/* Time */}
-                                      <div className="sm:text-center sm:min-w-[50px]">
-                                        <p className="text-sm font-semibold text-gray-800">
-                                          {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : 
-                                           visit.visit_time ? format(new Date(`2000-01-01T${visit.visit_time}`), 'HH:mm') : '--:--'}
-                                        </p>
-                                      </div>
+                                    {/* Main content wrapper - better spacing */}
+                                    <div className="flex-1">
+                                      {/* First row: Time and Patient Name */}
+                                      <div className="flex items-center gap-3 mb-2">
+                                        {/* Time */}
+                                        <div className="min-w-[50px]">
+                                          <p className="text-sm font-bold text-gray-800">
+                                            {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : 
+                                             visit.visit_time ? format(new Date(`2000-01-01T${visit.visit_time}`), 'HH:mm') : '--:--'}
+                                          </p>
+                                        </div>
 
-                                      {/* Patient Info */}
-                                      <div className="flex-1">
-                                        <p className="font-medium text-gray-800 group-hover:text-brand-primary">
+                                        {/* Patient Name */}
+                                        <p className="font-medium text-gray-800 group-hover:text-brand-primary flex-1">
                                           {visit.patient?.first_name} {visit.patient?.last_name}
                                         </p>
-                                        <p className="text-xs text-gray-500">
-                                          {visit.visit_type || 'Consultation'} • Dr. {visit.doctor?.full_name || 'Unassigned'}
-                                        </p>
+                                      </div>
+                                      
+                                      {/* Second row: Visit type and Doctor */}
+                                      <div className="text-xs text-gray-500 ml-[62px]">
+                                        {visit.visit_type || 'Consultation'} • Dr. {visit.doctor?.full_name || 'Unassigned'}
                                       </div>
                                     </div>
 
@@ -784,7 +787,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                             const { completeVisit } = useVisitsStore.getState();
                                             completeVisit(visit.id);
                                           }}
-                                          className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md"
+                                          className="px-4 py-2 bg-[#00a7ad] hover:bg-[#00959a] text-white text-sm font-medium rounded-md"
                                         >
                                           Complete
                                         </button>

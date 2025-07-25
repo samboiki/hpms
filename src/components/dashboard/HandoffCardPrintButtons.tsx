@@ -21,10 +21,16 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
 }) => {
   const [generatingDocs, setGeneratingDocs] = useState<Record<string, boolean>>({});
   const [existingDocs, setExistingDocs] = useState<Record<string, string>>({});
+  const [availableData, setAvailableData] = useState<Record<string, boolean>>({
+    prescription: false,
+    leave_form: false,
+    invoice: false
+  });
 
-  // Check if documents already exist
+  // Check if documents already exist and data is available
   React.useEffect(() => {
     checkExistingDocuments();
+    checkAvailableData();
   }, [visitId]);
 
   const checkExistingDocuments = async () => {
@@ -41,6 +47,42 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
       setExistingDocs(docMap);
     } catch (error) {
       console.error('Error checking existing documents:', error);
+    }
+  };
+
+  const checkAvailableData = async () => {
+    try {
+      // Check prescription data
+      const { data: medications } = await supabase
+        .from('medications')
+        .select('*')
+        .eq('visit_id', visitId)
+        .limit(1);
+      
+      // Check leave form data
+      const { data: leaveForm } = await (supabase as any)
+        .from('leave_forms')
+        .select('*')
+        .eq('visit_id', visitId)
+        .maybeSingle();
+      
+      // Check invoice data
+      const { data: invoice } = await supabase
+        .from('invoices_enhanced')
+        .select(`
+          *,
+          invoice_services (*)
+        `)
+        .eq('visit_id', visitId)
+        .maybeSingle();
+      
+      setAvailableData({
+        prescription: medications && medications.length > 0,
+        leave_form: !!leaveForm,
+        invoice: invoice && invoice.invoice_services && invoice.invoice_services.length > 0
+      });
+    } catch (error) {
+      console.error('Error checking available data:', error);
     }
   };
 
@@ -141,18 +183,20 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
       <button
         onClick={(e) => {
           e.preventDefault();
-          handleGenerateDocument('prescription');
+          if (availableData.prescription || existingDocs.prescription) {
+            handleGenerateDocument('prescription');
+          }
         }}
-        disabled={generatingDocs.prescription}
-        className={`${showLabels ? 'px-3 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg flex items-center gap-2 transition-all hover:scale-105 hover:shadow-md animate-pulse' : 'p-1.5 hover:bg-blue-50 rounded-md transition-colors'} group relative`}
+        disabled={generatingDocs.prescription || (!availableData.prescription && !existingDocs.prescription)}
+        className={`${showLabels ? `px-3 py-2 ${availableData.prescription || existingDocs.prescription ? 'bg-blue-50 hover:bg-blue-100 border border-blue-200 hover:scale-105 hover:shadow-md' : 'bg-gray-50 border border-gray-200 opacity-60 cursor-not-allowed'} rounded-lg flex items-center gap-2 transition-all ${availableData.prescription && !existingDocs.prescription ? 'animate-pulse' : ''}` : 'p-1.5 hover:bg-blue-50 rounded-md transition-colors'} group relative`}
         title="Print Prescription"
       >
         {generatingDocs.prescription ? (
           <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
         ) : (
           <>
-            <Icon icon="solar:medical-kit-bold-duotone" className="w-5 h-5 text-blue-600 group-hover:text-blue-700" />
-            {showLabels && <span className="text-sm font-medium text-blue-700">Prescription</span>}
+            <Icon icon="solar:medical-kit-bold-duotone" className={`w-5 h-5 ${availableData.prescription || existingDocs.prescription ? 'text-blue-600 group-hover:text-blue-700' : 'text-gray-400'}`} />
+            {showLabels && <span className={`text-sm font-medium ${availableData.prescription || existingDocs.prescription ? 'text-blue-700' : 'text-gray-500'}`}>Prescription</span>}
             {existingDocs.prescription && !showLabels && (
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
             )}
@@ -164,18 +208,20 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
       <button
         onClick={(e) => {
           e.preventDefault();
-          handleGenerateDocument('leave_form');
+          if (availableData.leave_form || existingDocs.leave_form) {
+            handleGenerateDocument('leave_form');
+          }
         }}
-        disabled={generatingDocs.leave_form}
-        className={`${showLabels ? 'px-3 py-2 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg flex items-center gap-2 transition-all hover:scale-105 hover:shadow-md animate-pulse' : 'p-1.5 hover:bg-orange-50 rounded-md transition-colors'} group relative`}
+        disabled={generatingDocs.leave_form || (!availableData.leave_form && !existingDocs.leave_form)}
+        className={`${showLabels ? `px-3 py-2 ${availableData.leave_form || existingDocs.leave_form ? 'bg-orange-50 hover:bg-orange-100 border border-orange-200 hover:scale-105 hover:shadow-md' : 'bg-gray-50 border border-gray-200 opacity-60 cursor-not-allowed'} rounded-lg flex items-center gap-2 transition-all ${availableData.leave_form && !existingDocs.leave_form ? 'animate-pulse' : ''}` : 'p-1.5 hover:bg-orange-50 rounded-md transition-colors'} group relative`}
         title="Print Leave Form"
       >
         {generatingDocs.leave_form ? (
           <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
         ) : (
           <>
-            <Icon icon="solar:document-text-bold-duotone" className="w-5 h-5 text-orange-600 group-hover:text-orange-700" />
-            {showLabels && <span className="text-sm font-medium text-orange-700">Leave Form</span>}
+            <Icon icon="solar:document-text-bold-duotone" className={`w-5 h-5 ${availableData.leave_form || existingDocs.leave_form ? 'text-orange-600 group-hover:text-orange-700' : 'text-gray-400'}`} />
+            {showLabels && <span className={`text-sm font-medium ${availableData.leave_form || existingDocs.leave_form ? 'text-orange-700' : 'text-gray-500'}`}>Leave Form</span>}
             {existingDocs.leave_form && !showLabels && (
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
             )}
@@ -187,18 +233,20 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
       <button
         onClick={(e) => {
           e.preventDefault();
-          handleGenerateDocument('invoice');
+          if (availableData.invoice || existingDocs.invoice) {
+            handleGenerateDocument('invoice');
+          }
         }}
-        disabled={generatingDocs.invoice}
-        className={`${showLabels ? 'px-3 py-2 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg flex items-center gap-2 transition-all hover:scale-105 hover:shadow-md animate-pulse' : 'p-1.5 hover:bg-green-50 rounded-md transition-colors'} group relative`}
+        disabled={generatingDocs.invoice || (!availableData.invoice && !existingDocs.invoice)}
+        className={`${showLabels ? `px-3 py-2 ${availableData.invoice || existingDocs.invoice ? 'bg-[#00a7ad]/10 hover:bg-[#00a7ad]/20 border border-[#00a7ad]/30 hover:scale-105 hover:shadow-md' : 'bg-gray-50 border border-gray-200 opacity-60 cursor-not-allowed'} rounded-lg flex items-center gap-2 transition-all ${availableData.invoice && !existingDocs.invoice ? 'animate-pulse' : ''}` : 'p-1.5 hover:bg-[#00a7ad]/10 rounded-md transition-colors'} group relative`}
         title="Print Invoice"
       >
         {generatingDocs.invoice ? (
           <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
         ) : (
           <>
-            <Icon icon="solar:wallet-bold-duotone" className="w-5 h-5 text-green-600 group-hover:text-green-700" />
-            {showLabels && <span className="text-sm font-medium text-green-700">Invoice</span>}
+            <Icon icon="solar:wallet-bold-duotone" className={`w-5 h-5 ${availableData.invoice || existingDocs.invoice ? 'text-[#00a7ad] group-hover:text-[#00959a]' : 'text-gray-400'}`} />
+            {showLabels && <span className={`text-sm font-medium ${availableData.invoice || existingDocs.invoice ? 'text-[#00a7ad]' : 'text-gray-500'}`}>Invoice</span>}
             {existingDocs.invoice && !showLabels && (
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
             )}

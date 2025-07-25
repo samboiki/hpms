@@ -837,7 +837,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                       // Confirm the booking
                                       handleConfirmBooking(appointment.id);
                                     }}
-                                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg font-medium flex items-center gap-2 shadow-lg text-sm"
+                                    className="px-4 py-2 bg-[#00a7ad] hover:bg-[#00959a] text-white rounded-lg font-medium flex items-center gap-2 shadow-lg text-sm"
                                   >
                                     <CheckCircle className="w-4 h-4" />
                                     Confirm
@@ -1024,7 +1024,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                     e.stopPropagation();
                                     handleCompleteVisit(appointment.id);
                                   }}
-                                  className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg font-medium flex items-center gap-2 shadow-lg text-sm"
+                                  className="px-4 py-2 bg-[#00a7ad] hover:bg-[#00959a] text-white rounded-lg font-medium flex items-center gap-2 shadow-lg text-sm"
                                 >
                                   <CheckCircle2 className="h-4 w-4" />
                                   <span>Complete</span>
