@@ -780,7 +780,6 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                         )}
                                       </div>
                                     </div>
-
                                     
                                     {/* Handoff cards special section */}
                                     {category.key === 'handedoff' && (
