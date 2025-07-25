@@ -118,7 +118,8 @@ export class DocumentGenerationService {
               )
             `)
             .eq('patient_id', visit.patients.id)
-            .eq('is_primary', true)
+            .order('created_at', { ascending: false })
+            .limit(1)
             .maybeSingle();
           
           if (primaryMedicalAid && !primaryError) {
@@ -322,7 +323,7 @@ export class DocumentGenerationService {
    */
   private async generateInvoice(visit: any, practice: any, invoice: any, medicalAid: any): Promise<GeneratedDocument | null> {
     try {
-      if (!invoice || !invoice.invoice_services || invoice.invoice_services.length === 0) {
+      if (!invoice || !invoice?.invoice_services || invoice.invoice_services.length === 0) {
         console.log('ℹ️ No invoice data provided');
         return null;
       }
@@ -359,7 +360,7 @@ export class DocumentGenerationService {
       const pdfBlob = await this.htmlToPDF(html, 'a4');
       
       // Upload to storage
-      const fileName = `invoice_${invoice.invoice_number}_${Date.now()}.pdf`;
+      const fileName = `invoice_${invoice.invoice_number || 'unknown'}_${Date.now()}.pdf`;
       const filePath = await this.uploadToStorage(pdfBlob, fileName, 'invoices');
       
       // Get public URL
@@ -369,7 +370,7 @@ export class DocumentGenerationService {
       
       return {
         type: 'invoice',
-        documentName: `Invoice - ${invoice.invoice_number}`,
+        documentName: `Invoice - ${invoice.invoice_number || 'N/A'}`,
         filePath,
         fileSize: pdfBlob.size,
         publicUrl
@@ -1458,7 +1459,8 @@ export class DocumentGenerationService {
    * Create invoice HTML using the beautiful styling from ComprehensivePatientModal
    */
   private async createInvoiceHTMLWithBeautifulStyling(visit: any, practice: any, invoice: any, patientInfo: any, medicalAid: any, medicalAidProviderName: string): Promise<string> {
-    const services = invoice.invoice_services || [];
+    // Ensure services is always an array
+    const services = Array.isArray(invoice?.invoice_services) ? invoice.invoice_services : [];
     const primaryColor = practice.primary_color || '#01b9d4';
     
     // Helper functions for color manipulation
@@ -1480,8 +1482,21 @@ export class DocumentGenerationService {
     const lightColor = adjustBrightness(primaryColor, 20);
     const darkColor = adjustBrightness(primaryColor, -15);
     
+    // Calculate totals for the invoice
+    const calculateSubtotal = (services: any[]) => {
+      if (!Array.isArray(services) || services.length === 0) return 0;
+      return services.reduce((sum: number, s: any) => sum + (parseFloat(s?.total_price) || 0), 0);
+    };
+    
+    const subtotal = calculateSubtotal(services);
+    const patientPortion = (invoice.total || 0) - (invoice.medical_aid_covered || 0);
+    
     // Create function to generate page HTML with beautiful styling
     const createPageHTML = (pageServices: any[], pageNumber: number, totalPages: number, isLastPage: boolean) => {
+      // Recalculate subtotal for safety
+      const pageSubtotal = isLastPage ? subtotal : calculateSubtotal(pageServices);
+      const safePatientPortion = patientPortion || 0;
+      const safeInvoice = invoice || {};
       return `
         <div style="width: 794px; height: 1123px; font-family: 'Montserrat', sans-serif; font-size: 11px; line-height: 1.5; color: #2c2c2c; background-color: #ffffff; padding: 25px; margin: 0; box-sizing: border-box; position: relative;">
           
@@ -1521,12 +1536,12 @@ export class DocumentGenerationService {
               <div style="font-family: 'Rubik', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.5px;">
                 <span style="color: #5f6578;">MEDICAL</span> <span style="color: #888;">INVOICE</span>
               </div>
-              <span style="font-size: 14px; font-weight: 600; color: #666; letter-spacing: 0.3px; align-self: flex-end;">#${invoice.invoice_number}</span>
+              <span style="font-size: 14px; font-weight: 600; color: #666; letter-spacing: 0.3px; align-self: flex-end;">#${invoice.invoice_number || 'N/A'}</span>
             </div>
             <div style="display: flex; align-items: center; gap: 15px; font-size: 9px; color: #666;">
               <div style="text-align: center;">
                 <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">DATE PREPARED</div>
-                <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${format(new Date(invoice.created_at), 'dd MMM yyyy')}</div>
+                <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${invoice.created_at ? format(new Date(invoice.created_at), 'dd MMM yyyy') : 'N/A'}</div>
               </div>
               <div style="border-left: 1px solid #d1d5db; height: 30px; margin: 0 5px;"></div>
               <div style="text-align: center;">
@@ -1585,36 +1600,38 @@ export class DocumentGenerationService {
                 </tr>
               </thead>
               <tbody>
-                ${pageServices.map((service: any, index: number) => `
+                ${(Array.isArray(pageServices) ? pageServices : []).map((service: any, index: number) => {
+                  if (!service) return '';
+                  return `
                   <tr style="border-bottom: 1px solid #f3f4f6; ${index % 2 === 1 ? 'background: #f9fafb;' : ''}">
-                    <td style="padding: 12px 10px; border-right: 1px solid #e5e7eb; font-weight: 600; color: #1f2937; font-size: 11px;">${service.code || 'N/A'}</td>
+                    <td style="padding: 12px 10px; border-right: 1px solid #e5e7eb; font-weight: 600; color: #1f2937; font-size: 11px;">${service?.code || 'N/A'}</td>
                     <td style="padding: 12px 10px; border-right: 1px solid #e5e7eb; font-size: 11px;">
-                      <div style="color: #4b5563;">${service.description}</div>
+                      <div style="color: #4b5563;">${service?.description || 'Service'}</div>
                     </td>
-                    <td style="padding: 12px 10px; text-align: center; border-right: 1px solid #e5e7eb; font-size: 11px;">${service.quantity}</td>
-                    <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; font-size: 11px;">N$ ${service.unit_price.toFixed(2)}</td>
-                    <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; color: #374151; font-size: 11px;">N$ ${(service.medical_aid_covered || 0).toFixed(2)}</td>
-                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #1f2937; font-size: 11px;">N$ ${service.total_price.toFixed(2)}</td>
+                    <td style="padding: 12px 10px; text-align: center; border-right: 1px solid #e5e7eb; font-size: 11px;">${service?.quantity || 1}</td>
+                    <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; font-size: 11px;">N$ ${(parseFloat(service?.unit_price) || 0).toFixed(2)}</td>
+                    <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; color: #374151; font-size: 11px;">N$ ${(parseFloat(service?.medical_aid_covered) || 0).toFixed(2)}</td>
+                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #1f2937; font-size: 11px;">N$ ${(parseFloat(service?.total_price) || 0).toFixed(2)}</td>
                   </tr>
-                `).join('')}
+                `}).join('')}
                 
                 ${isLastPage ? `
                 <!-- Summary Rows -->
                 <tr>
                   <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; border-right: 1px solid #e5e7eb; font-size: 11px;">Subtotal:</td>
-                  <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; font-size: 11px;">N$ ${invoice.services.reduce((sum: number, s: any) => sum + s.total_price, 0).toFixed(2)}</td>
+                  <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; font-size: 11px;">N$ ${(pageSubtotal || 0).toFixed(2)}</td>
                 </tr>
                 
                 <!-- Patient Portion Row -->
                 <tr>
                   <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; border-right: 1px solid #fed7aa; font-size: 11px; color: #ea580c;">Patient Portion:</td>
-                  <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; font-size: 11px; color: #ea580c;">N$ ${(invoice.total - (invoice.medical_aid_covered || 0)).toFixed(2)}</td>
+                  <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; font-size: 11px; color: #ea580c;">N$ ${(safePatientPortion || 0).toFixed(2)}</td>
                 </tr>
                 
                 <!-- Total Row -->
                 <tr>
                   <td colspan="5" style="padding: 10px; text-align: right; font-weight: 700; font-size: 12px; background: #5f6578; color: white; border-right: 1px solid #5f6578; text-transform: uppercase;">Total Amount Due:</td>
-                  <td style="padding: 10px; text-align: right; font-weight: 700; font-size: 14px; background: #5f6578; color: white;">N$ ${invoice.total.toFixed(2)}</td>
+                  <td style="padding: 10px; text-align: right; font-weight: 700; font-size: 14px; background: #5f6578; color: white;">N$ ${(safeInvoice.total || 0).toFixed(2)}</td>
                 </tr>
                 ` : ''}
               </tbody>

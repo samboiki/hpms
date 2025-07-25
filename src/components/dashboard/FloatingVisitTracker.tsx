@@ -29,10 +29,12 @@ import { useAuthStore } from '../../stores/authStore';
 import { cn } from '../../utils/cn';
 import { unreadMessagesService } from '../../services/unreadMessagesService';
 import { NotificationBadge } from '../ui/NotificationBadge';
+import { HandoffCardPrintButtons } from './HandoffCardPrintButtons';
 
 interface Visit {
   id: string;
   patient_id: string;
+  practice_id?: string;
   date: string;
   time: string;
   status: string;
@@ -764,6 +766,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                       )}
                                       {category.key === 'handedoff' && (
                                         <>
+                                          <HandoffCardPrintButtons
+                                            visitId={visit.id}
+                                            patientId={visit.patient_id}
+                                            practiceId={visit.practice_id || practiceId}
+                                          />
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
@@ -776,7 +783,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                           </button>
                                           <div className="flex items-center gap-1">
                                             <div className="w-2 h-2 bg-purple-500 rounded-full" />
-                                            <span className="text-xs font-medium text-purple-600">Handed Off</span>
+                                            <span className="text-xs font-medium text-purple-600">Ready for checkout</span>
                                           </div>
                                         </>
                                       )}

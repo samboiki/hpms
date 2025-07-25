@@ -184,7 +184,7 @@ const HandoffCard: React.FC<HandoffCardProps> = ({
                 <div>
                   <p className="font-medium text-gray-900">{doc.document_name}</p>
                   <p className="text-sm text-gray-500">
-                    Generated {new Date(doc.created_at || doc.generated_at).toLocaleDateString()} at {new Date(doc.created_at || doc.generated_at).toLocaleTimeString()}
+                    Generated {new Date(doc.generated_at || doc.created_at).toLocaleDateString()} at {new Date(doc.generated_at || doc.created_at).toLocaleTimeString()}
                   </p>
                 </div>
               </div>
