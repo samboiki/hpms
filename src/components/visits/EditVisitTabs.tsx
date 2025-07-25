@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import { Weight, Thermometer, Activity, Trash2, ChevronDown, Pill, X } from 'lucide-react';
+import { Trash2, ChevronDown, Pill } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ServiceSelection } from '../../types/billing';
 import { invoiceService } from '../../services/invoiceService';
-import FileUploadComponent from '../uploads/FileUploadComponent';
 import FileDisplayComponent from '../uploads/FileDisplayComponent';
 import MediaUploadWrapper from '../uploads/MediaUploadWrapper';
 import LabResultsTable from '../requests/LabResultsTable';
@@ -15,6 +14,7 @@ import LeaveFormTab from './LeaveFormTab';
 import HandoffCard from './HandoffCard';
 import { PremiumInput, PremiumTextarea, PremiumSelect } from '../ui/PremiumInput';
 import { documentGenerationService } from '../../services/documentGenerationService';
+import toast from 'react-hot-toast';
 
 interface EditVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
@@ -211,6 +211,10 @@ const EditVisitTabs: React.FC<Props> = ({
   const [isFrequencyModalOpen, setIsFrequencyModalOpen] = useState(false);
   const [isDurationModalOpen, setIsDurationModalOpen] = useState(false);
   const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
+  
+  // Document printing states
+  const [isPrintingDocument, setIsPrintingDocument] = useState<'prescription' | 'leave_form' | 'invoice' | null>(null);
+  const [leaveFormExists, setLeaveFormExists] = useState(false);
 
   const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm<EditVisitFormData>({
     defaultValues: {
@@ -301,6 +305,89 @@ const EditVisitTabs: React.FC<Props> = ({
     if (type === 'media') setMediaDragging(false);
   };
 
+  // Print handler functions
+  const handlePrintPrescription = async () => {
+    try {
+      setIsPrintingDocument('prescription');
+      
+      // Check if prescription document already exists
+      const { data: existingDocs } = await supabase
+        .from('visit_documents')
+        .select('*')
+        .eq('visit_id', visitId)
+        .eq('document_type', 'prescription')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (existingDocs) {
+        // Open existing document
+        const url = documentGenerationService.getDocumentUrl(existingDocs.file_path);
+        window.open(url, '_blank');
+      } else {
+        // Generate new document
+        const generatedDocs = await documentGenerationService.generateVisitDocuments({
+          visitId,
+          patientId,
+          practiceId,
+          documents: ['prescription']
+        });
+        
+        if (generatedDocs.length > 0) {
+          const url = generatedDocs[0].publicUrl;
+          window.open(url, '_blank');
+        }
+      }
+    } catch (error) {
+      console.error('Error printing prescription:', error);
+      toast.error('Failed to print prescription');
+    } finally {
+      setIsPrintingDocument(null);
+    }
+  };
+
+  const handlePrintLeaveForm = async () => {
+    try {
+      setIsPrintingDocument('leave_form');
+      
+      // Check if leave form document already exists
+      const { data: existingDocs } = await supabase
+        .from('visit_documents')
+        .select('*')
+        .eq('visit_id', visitId)
+        .eq('document_type', 'leave_form')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (existingDocs) {
+        // Open existing document
+        const url = documentGenerationService.getDocumentUrl(existingDocs.file_path);
+        window.open(url, '_blank');
+      } else {
+        // Generate new document
+        const generatedDocs = await documentGenerationService.generateVisitDocuments({
+          visitId,
+          patientId,
+          practiceId,
+          documents: ['leave_form']
+        });
+        
+        if (generatedDocs.length > 0) {
+          const url = generatedDocs[0].publicUrl;
+          window.open(url, '_blank');
+        }
+      }
+    } catch (error) {
+      console.error('Error printing leave form:', error);
+      toast.error('Failed to print leave form');
+    } finally {
+      setIsPrintingDocument(null);
+    }
+  };
+
   // Load existing visit data
   useEffect(() => {
     const fetchVisitData = async () => {
@@ -365,6 +452,15 @@ const EditVisitTabs: React.FC<Props> = ({
         } catch (medicationError) {
           console.log('Error fetching medications:', medicationError);
         }
+
+        // Check if leave form exists
+        const { data: leaveFormData } = await supabase
+          .from('leave_forms')
+          .select('id')
+          .eq('visit_id', visitId)
+          .single();
+        
+        setLeaveFormExists(!!leaveFormData);
 
         // Populate form with existing data
         let visitDate = new Date();
@@ -649,6 +745,37 @@ const EditVisitTabs: React.FC<Props> = ({
       // Save medications to database
       if (medications.length > 0) {
         try {
+          // Validate medications before saving
+          const validMedications = medications.filter(med => {
+            // Check if medication name is valid
+            if (!med.medication_name || med.medication_name.trim().length < 3) {
+              console.error(`❌ Invalid medication name: "${med.medication_name}" - must be at least 3 characters`);
+              alert(`Medication name "${med.medication_name || '(empty)'}" must be at least 3 characters. Please use the full medication name.`);
+              return false;
+            }
+            
+            // Check if required fields are present
+            if (!med.dosage || med.dosage.trim() === '') {
+              console.error(`❌ Missing dosage for medication: ${med.medication_name}`);
+              alert(`Dosage is required for ${med.medication_name}. Please specify the dosage.`);
+              return false;
+            }
+            
+            if (!med.frequency || med.frequency.trim() === '') {
+              console.error(`❌ Missing frequency for medication: ${med.medication_name}`);
+              alert(`Frequency is required for ${med.medication_name}. Please specify how often the medication should be taken.`);
+              return false;
+            }
+            
+            return true;
+          });
+
+          // Only proceed if we have valid medications
+          if (validMedications.length === 0) {
+            console.warn('⚠️ No valid medications to save after validation');
+            return;
+          }
+
           // First, delete all existing medications for this visit
           await (supabase as any)
             .from('medications')
@@ -659,15 +786,15 @@ const EditVisitTabs: React.FC<Props> = ({
           const { data: { user } } = await supabase.auth.getUser();
           
           // Use a batch approach - insert new medications
-          const medicationPromises = medications.map(async (med) => {
+          const medicationPromises = validMedications.map(async (med) => {
             // Create individual medication record
             const medicationData = {
               visit_id: visitId,
               patient_id: patientId,
-              medication_name: med.medication_name,
-              dosage: med.dosage,
-              frequency: med.frequency,
-              duration: med.duration,
+              medication_name: med.medication_name.trim(),
+              dosage: med.dosage.trim(),
+              frequency: med.frequency.trim(),
+              duration: med.duration || '',
               instructions: med.instructions || '',
               prescribed_by: user?.id,
               prescribed_date: new Date().toISOString(),
@@ -692,7 +819,7 @@ const EditVisitTabs: React.FC<Props> = ({
           });
 
           await Promise.all(medicationPromises);
-          console.log('Medications saved successfully:', medications.length, 'medications');
+          console.log('✅ Medications saved successfully:', validMedications.length, 'medications');
           
           // Refresh the medications list after saving
           setTimeout(() => {
@@ -3311,32 +3438,92 @@ const EditVisitTabs: React.FC<Props> = ({
       </AnimatePresence>
 
       {/* Form Actions */}
-      <div className="border-t border-gray-200 pt-6 mt-8 flex justify-end space-x-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-all hover:shadow-md"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          form="edit-visit-form"
-          disabled={isSubmitting}
-          className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-xl hover:shadow-lg transition-all flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isSubmitting ? (
-            <>
-              <Icon icon="solar:refresh-bold-duotone" className="w-5 h-5 animate-spin" />
-              Updating Visit...
-            </>
-          ) : (
-            <>
-              <Icon icon="solar:diskette-bold-duotone" className="w-5 h-5" />
-              Update Visit
-            </>
+      <div className="border-t border-gray-200 pt-6 mt-8 flex justify-between items-center">
+        {/* Print Actions */}
+        <div className="flex gap-2">
+          {medications.length > 0 && (
+            <button
+              type="button"
+              onClick={() => handlePrintPrescription()}
+              disabled={isPrintingDocument}
+              className="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-medium transition-all hover:shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isPrintingDocument === 'prescription' ? (
+                <>
+                  <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Icon icon="solar:printer-bold-duotone" className="w-4 h-4" />
+                  Print Prescription
+                </>
+              )}
+            </button>
           )}
-        </button>
+          
+          {leaveFormExists && (
+            <button
+              type="button"
+              onClick={() => handlePrintLeaveForm()}
+              disabled={isPrintingDocument}
+              className="px-4 py-2.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg font-medium transition-all hover:shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isPrintingDocument === 'leave_form' ? (
+                <>
+                  <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Icon icon="solar:printer-bold-duotone" className="w-4 h-4" />
+                  Print Leave Form
+                </>
+              )}
+            </button>
+          )}
+          
+          {selectedServices.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setIsInvoiceGenerationModalOpen(true)}
+              disabled={isPrintingDocument}
+              className="px-4 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg font-medium transition-all hover:shadow-md flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Icon icon="solar:printer-bold-duotone" className="w-4 h-4" />
+              Print Invoice
+            </button>
+          )}
+        </div>
+
+        {/* Save/Cancel Actions */}
+        <div className="flex space-x-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-all hover:shadow-md"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="edit-visit-form"
+            disabled={isSubmitting}
+            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-xl hover:shadow-lg transition-all flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? (
+              <>
+                <Icon icon="solar:refresh-bold-duotone" className="w-5 h-5 animate-spin" />
+                Updating Visit...
+              </>
+            ) : (
+              <>
+                <Icon icon="solar:diskette-bold-duotone" className="w-5 h-5" />
+                Update Visit
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Premium Doctor Selection Modal */}

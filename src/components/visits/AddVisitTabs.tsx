@@ -486,19 +486,50 @@ const AddVisitTabs: React.FC<Props> = ({
         try {
           console.log('💊 Creating medications for new visit:', medications.length);
           
+          // Validate medications before saving
+          const validMedications = medications.filter(med => {
+            // Check if medication name is valid
+            if (!med.medication_name || med.medication_name.trim().length < 3) {
+              console.error(`❌ Invalid medication name: "${med.medication_name}" - must be at least 3 characters`);
+              alert(`Medication name "${med.medication_name || '(empty)'}" must be at least 3 characters. Please use the full medication name.`);
+              return false;
+            }
+            
+            // Check if required fields are present
+            if (!med.dosage || med.dosage.trim() === '') {
+              console.error(`❌ Missing dosage for medication: ${med.medication_name}`);
+              alert(`Dosage is required for ${med.medication_name}. Please specify the dosage.`);
+              return false;
+            }
+            
+            if (!med.frequency || med.frequency.trim() === '') {
+              console.error(`❌ Missing frequency for medication: ${med.medication_name}`);
+              alert(`Frequency is required for ${med.medication_name}. Please specify how often the medication should be taken.`);
+              return false;
+            }
+            
+            return true;
+          });
+
+          // Only proceed if we have valid medications
+          if (validMedications.length === 0) {
+            console.warn('⚠️ No valid medications to save after validation');
+            return;
+          }
+          
           // Get current user for prescribed_by
           const { data: { user } } = await supabase.auth.getUser();
           
           // Insert new medications
-          const medicationPromises = medications.map(async (med) => {
+          const medicationPromises = validMedications.map(async (med) => {
             // Create individual medication record
             const medicationData = {
               visit_id: newVisitId,
               patient_id: patientId,
-              medication_name: med.medication_name,
-              dosage: med.dosage,
-              frequency: med.frequency,
-              duration: med.duration,
+              medication_name: med.medication_name.trim(),
+              dosage: med.dosage.trim(),
+              frequency: med.frequency.trim(),
+              duration: med.duration || '',
               instructions: med.instructions || '',
               prescribed_by: user?.id,
               prescribed_date: new Date().toISOString(),
@@ -520,7 +551,7 @@ const AddVisitTabs: React.FC<Props> = ({
           });
 
           await Promise.all(medicationPromises);
-          console.log('✅ Medications saved successfully:', medications.length, 'medications');
+          console.log('✅ Medications saved successfully:', validMedications.length, 'medications');
           
         } catch (medicationError) {
           console.error('Error saving medications:', medicationError);

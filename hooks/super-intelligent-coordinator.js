@@ -62,6 +62,11 @@ class SuperIntelligentCoordinator {
       const totalTime = Date.now() - startTime;
       console.log(`✅ Coordination completed in ${totalTime}ms`);
       
+      // Display agent execution summary (especially on Stop events)
+      if (eventType === 'Stop' || executionResult.agentResults) {
+        this.displayExecutionSummary(selectedAgents, executionResult, coordinationResult, totalTime);
+      }
+      
       return coordinationResult;
 
     } catch (error) {
@@ -448,6 +453,50 @@ class SuperIntelligentCoordinator {
       routingStats: this.router.getPerformanceStats(),
       executionStats: this.executor.getPerformanceStats()
     };
+  }
+
+  /**
+   * Display execution summary for user visibility
+   */
+  displayExecutionSummary(agents, executionResult, coordinationResult, totalTime) {
+    console.log('\n' + '='.repeat(60));
+    console.log('🤖 AGENT EXECUTION SUMMARY');
+    console.log('='.repeat(60));
+    
+    console.log(`📊 Agents Executed: ${agents.length}`);
+    console.log(`⏱️  Total Time: ${totalTime}ms`);
+    console.log(`🎯 Status: ${coordinationResult.status || 'completed'}`);
+    
+    if (agents.length > 0) {
+      console.log('\n🔍 Agents Used:');
+      agents.forEach((agent, index) => {
+        console.log(`  ${index + 1}. ${agent}`);
+      });
+    }
+    
+    // Display key findings
+    if (executionResult.criticalIssues && executionResult.criticalIssues.length > 0) {
+      console.log('\n❌ Critical Issues Found:');
+      executionResult.criticalIssues.forEach(issue => {
+        console.log(`  - ${issue.type}: ${issue.message}`);
+      });
+    }
+    
+    if (executionResult.autoFixes && executionResult.autoFixes.length > 0) {
+      console.log('\n✅ Auto-Fixes Applied:');
+      executionResult.autoFixes.forEach(fix => {
+        console.log(`  - ${fix.description}`);
+      });
+    }
+    
+    if (executionResult.suggestions && executionResult.suggestions.length > 0) {
+      console.log('\n💡 Suggestions:');
+      executionResult.suggestions.slice(0, 3).forEach(suggestion => {
+        console.log(`  - ${suggestion}`);
+      });
+    }
+    
+    console.log('='.repeat(60) + '\n');
   }
 }
 
