@@ -25,6 +25,22 @@ export class DocumentGenerationService {
     console.log('📄 Starting document generation for visit:', options.visitId);
     const generatedDocuments: GeneratedDocument[] = [];
 
+    // Validate required parameters (as detected by Document Generation Agent)
+    if (!options.visitId || !options.patientId || !options.practiceId) {
+      console.error('❌ Document generation validation failed:', {
+        visitId: !!options.visitId,
+        patientId: !!options.patientId,
+        practiceId: !!options.practiceId
+      });
+      throw new Error('Missing required parameters for document generation');
+    }
+
+    // Additional validation for patientId (agent-detected pattern)
+    if (options.patientId === 'false' || options.patientId === false as any) {
+      console.error('❌ Invalid patientId detected:', options.patientId);
+      throw new Error('Patient ID cannot be false');
+    }
+
     try {
       // Fetch visit data with related information
       const { data: visit, error: visitError } = await supabase

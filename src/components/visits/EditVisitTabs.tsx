@@ -621,9 +621,15 @@ const EditVisitTabs: React.FC<Props> = ({
               practiceId = userProfile?.practice_id;
             }
             
+            // Validate patientId before invoice generation
+            if (!patientId || patientId === false) {
+              console.error('Cannot generate invoice: Invalid patient ID');
+              throw new Error('Patient ID is required for invoice generation');
+            }
+            
             const invoiceRequest = {
               visitId: visitId,
-              patientId,
+              patientId: patientId,
               practiceId: practiceId || '',
               services: selectedServices,
               medicalAidId: undefined,

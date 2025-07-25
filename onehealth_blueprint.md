@@ -1649,4 +1649,120 @@ text-red-600, text-yellow-600, text-green-600 (for status indicators)
 
 ---
 
-**END OF BLUEPRINT v4.0**
+### Automatic Document Generation System (Added 2025-07-26)
+
+#### Overview
+The system now automatically generates printable PDF documents when visits are created or updated. This includes prescriptions, leave forms, and invoices in A5 and A4 formats.
+
+#### Components
+
+##### 1. Document Generation Service
+**Location**: `src/services/documentGenerationService.ts`
+**Features**:
+- Generates prescriptions from visit prescription data
+- Creates medical leave certificates from leave_forms table
+- Produces professional invoices from invoice data
+- Uses html2canvas and jsPDF for client-side PDF generation
+- Stores PDFs in Supabase storage buckets
+- Tracks documents in visit_documents table
+
+##### 2. HandoffCard Component
+**Location**: `src/components/visits/HandoffCard.tsx`
+**Features**:
+- Displays all generated documents for a visit
+- Print button to open PDF in new tab
+- Download button for offline access
+- Manual "Generate Documents" button
+- Shows document type with appropriate icons
+- Real-time status updates
+
+##### 3. Visit Forms Integration
+**Modified Files**:
+- `src/components/visits/EditVisitTabs.tsx`
+- `src/components/visits/AddVisitTabs.tsx`
+
+**Automatic Generation Triggers**:
+- On visit creation (AddVisitTabs)
+- On visit update (EditVisitTabs)
+- Checks for presence of:
+  - Medications → Generates prescription
+  - Leave form data → Generates leave certificate
+  - Invoice services → Generates invoice
+
+#### Database Structure
+
+##### visit_documents Table
+```sql
+CREATE TABLE visit_documents (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    visit_id uuid NOT NULL REFERENCES visits(id) ON DELETE CASCADE,
+    patient_id uuid NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    practice_id uuid NOT NULL REFERENCES practices(id) ON DELETE CASCADE,
+    document_type varchar CHECK (document_type IN ('prescription', 'leave_form', 'invoice', 'receipt', 'other')),
+    document_name varchar NOT NULL,
+    file_path text NOT NULL,
+    storage_bucket varchar DEFAULT 'documents',
+    file_size integer,
+    file_type varchar,
+    generated_at timestamp with time zone DEFAULT now(),
+    generated_by uuid REFERENCES users(id),
+    status varchar DEFAULT 'active',
+    metadata jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+```
+
+#### Storage Structure
+- Bucket: `documents`
+- Folders:
+  - `/prescriptions/` - Prescription PDFs
+  - `/leave_forms/` - Leave certificate PDFs
+  - `/invoices/` - Invoice PDFs
+
+#### PDF Templates
+
+##### Prescription (A5)
+- Practice header with logo
+- ℞ symbol
+- Patient information
+- Medication list with dosage
+- Doctor signature line
+- Professional gray color scheme
+
+##### Leave Form (A5)
+- Medical certificate header
+- Patient employment details
+- Diagnosis and ICD-10 code
+- Leave period dates
+- Fitness status
+- Doctor signature
+- Form number tracking
+
+##### Invoice (A4)
+- Full practice branding
+- Patient billing information
+- Service line items
+- Medical aid coverage breakdown
+- Tax calculations
+- Payment terms
+- Banking details
+
+#### Usage Flow
+1. User creates/updates visit with relevant data
+2. System automatically generates applicable PDFs
+3. PDFs stored in Supabase storage
+4. References saved to visit_documents table
+5. HandoffCard displays available documents
+6. User can print or download as needed
+
+#### Tab Integration
+New "Documents" tab added to visit forms:
+- Icon: `solar:hand-shake-bold-duotone`
+- Color: Green (#4caf50)
+- Shows HandoffCard component
+- Available in both Add and Edit visit modals
+
+---
+
+**END OF BLUEPRINT v4.1**
