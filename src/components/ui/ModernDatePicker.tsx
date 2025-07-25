@@ -114,7 +114,7 @@ const ModernDatePicker: React.FC<ModernDatePickerProps> = ({
             {getDaysInMonth().map((date, idx) => {
               const isSelected = value && isSameDay(date, new Date(value));
               const isCurrentDay = isToday(date);
-              const isDisabled = (minDate && date < minDate) || (maxDate && date > maxDate);
+              const isDisabled = false; // Allow all dates
 
               return (
                 <button

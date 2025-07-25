@@ -49,11 +49,14 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
     handleSubmit,
     watch,
     reset,
+    setValue,
     formState: { errors }
   } = useForm<LeaveFormData>({
     defaultValues: {
       from_date: format(new Date(), 'yyyy-MM-dd'),
-      to_date: format(new Date(), 'yyyy-MM-dd')
+      to_date: format(new Date(), 'yyyy-MM-dd'),
+      diagnosis: '',
+      diagnosis_code: ''
     }
   });
 
@@ -72,14 +75,18 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
   const loadLeaveForms = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('leave_forms')
         .select('*')
         .eq('visit_id', visitId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setLeaveForms(data || []);
+      if (error) {
+        console.error('Error loading leave forms:', error);
+        toast.error('Failed to load leave forms');
+      } else {
+        setLeaveForms(data || []);
+      }
     } catch (err) {
       console.error('Error loading leave forms:', err);
       toast.error('Failed to load leave forms');
@@ -92,22 +99,26 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
     try {
       setIsSaving(true);
 
+      // Ensure UUIDs are valid (not empty strings)
+      const validDoctorId = doctorId || user?.id || null;
+      const validPracticeId = practiceId || null;
+
       const leaveFormData = {
         visit_id: visitId,
         patient_id: patientId,
-        doctor_id: doctorId || user?.id,
-        practice_id: practiceId,
+        doctor_id: validDoctorId,
+        practice_id: validPracticeId,
         from_date: data.from_date,
         to_date: data.to_date,
-        diagnosis: data.diagnosis,
+        diagnosis: data.diagnosis || null,
         diagnosis_code: data.diagnosis_code || null,
         status: 'draft',
-        updated_by: user?.id
+        updated_by: user?.id || null
       };
 
       if (editingForm) {
         // Update existing
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('leave_forms')
           .update(leaveFormData)
           .eq('id', editingForm.id);
@@ -116,11 +127,11 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
         toast.success('Leave form updated successfully');
       } else {
         // Create new
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('leave_forms')
           .insert([{
             ...leaveFormData,
-            created_by: user?.id
+            created_by: user?.id || null
           }]);
 
         if (error) throw error;
@@ -160,7 +171,7 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
     if (!confirm('Are you sure you want to delete this leave form?')) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('leave_forms')
         .delete()
         .eq('id', id);
@@ -176,7 +187,7 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
 
   const handleIssueLeaveForm = async (id: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('leave_forms')
         .update({ 
           status: 'issued',
@@ -250,9 +261,7 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
                 <div>
                   <ModernDatePicker
                     value={fromDate}
-                    onChange={(date) => {
-                      register('from_date').onChange({ target: { value: date } });
-                    }}
+                    onChange={(date) => setValue('from_date', date)}
                     label="From Date"
                     error={errors.from_date?.message}
                   />
@@ -260,11 +269,8 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
                 <div>
                   <ModernDatePicker
                     value={toDate}
-                    onChange={(date) => {
-                      register('to_date').onChange({ target: { value: date } });
-                    }}
+                    onChange={(date) => setValue('to_date', date)}
                     label="To Date"
-                    minDate={fromDate ? new Date(fromDate) : undefined}
                     error={errors.to_date?.message}
                   />
                 </div>
@@ -307,16 +313,8 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center gap-3">
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="px-6 py-2.5 bg-[#01b9d4] text-white rounded-lg font-medium hover:bg-[#00a5be] transition-all flex items-center gap-2"
-              >
-                <Icon icon="solar:diskette-bold-duotone" className="w-5 h-5" />
-                {isSaving ? 'Saving...' : editingForm ? 'Update Leave Form' : 'Save Leave Form'}
-              </button>
+            {/* Action Buttons - Right Aligned */}
+            <div className="flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => {
@@ -326,6 +324,14 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
                 className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-all"
               >
                 Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="px-6 py-2.5 bg-[#01b9d4] text-white rounded-lg font-medium hover:bg-[#00a5be] transition-all flex items-center gap-2"
+              >
+                <Icon icon="solar:diskette-bold-duotone" className="w-5 h-5" />
+                {isSaving ? 'Saving...' : editingForm ? 'Update Leave Form' : 'Save Leave Form'}
               </button>
             </div>
           </form>
@@ -363,7 +369,7 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900">{form.days_off || daysOff}</td>
                   <td className="px-4 py-3 text-sm text-gray-900">
-                    {form.diagnosis}
+                    {form.diagnosis || '-'}
                     {form.diagnosis_code && (
                       <span className="ml-2 text-gray-500">({form.diagnosis_code})</span>
                     )}
