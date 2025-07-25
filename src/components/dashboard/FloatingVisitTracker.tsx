@@ -521,11 +521,6 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                               
                               {/* Action buttons - separate row on mobile */}
                               <div className="flex items-center gap-2 sm:ml-auto">
-                                <HandoffCardPrintButtons
-                                  visitId={visit.id}
-                                  patientId={visit.patient_id}
-                                  practiceId={visit.practice_id || practiceId}
-                                />
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -667,57 +662,113 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                   return (
                                   <div
                                     key={visit.id}
-                                    className={`relative flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:pl-12 bg-white rounded-lg border border-gray-100 group ${
+                                    className={`bg-white rounded-lg border border-gray-100 group overflow-hidden ${
                                       disablePatientModal ? '' : 'hover:border-gray-200 hover:shadow-sm cursor-pointer'
                                     }`}
                                     onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id, true)}
                                   >
-                                    {/* Card Number Badge - Inline on mobile, absolute on desktop */}
-                                    <div className={`sm:absolute sm:left-2 sm:top-1/2 sm:-translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-md ${
-                                      category.key === 'scheduled' && visit.is_checked_in
-                                        ? 'bg-[#01b8d8] text-white'
-                                        : category.key === 'scheduled'
-                                        ? 'bg-[#489bfd] text-white'
-                                        : category.key === 'completed'
-                                        ? 'bg-green-500 text-white'
-                                        : category.key === 'handedoff'
-                                        ? 'bg-purple-500 text-white'
-                                        : category.key === 'cancelled'
-                                        ? 'bg-red-500 text-white'
-                                        : 'bg-white text-gray-700 border border-gray-200'
-                                    }`}>
-                                      {cardNumber}
-                                    </div>
-                                    
-                                    {/* Main content wrapper - professional layout */}
-                                    <div className="flex-1 space-y-2">
-                                      {/* First row: Time only */}
-                                      <div className="text-sm font-bold text-gray-800">
-                                        {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : 
-                                         visit.visit_time ? format(new Date(`2000-01-01T${visit.visit_time}`), 'HH:mm') : '--:--'}
-                                      </div>
-
-                                      {/* Second row: Patient Name */}
-                                      <div className="font-medium text-gray-800 group-hover:text-brand-primary">
-                                        {visit.patient?.first_name} {visit.patient?.last_name}
+                                    {/* Main card content */}
+                                    <div className="flex">
+                                      {/* Card Number Badge */}
+                                      <div className="flex-shrink-0 p-4">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-sm ${
+                                          category.key === 'scheduled' && visit.is_checked_in
+                                            ? 'bg-[#01b8d8] text-white'
+                                            : category.key === 'scheduled'
+                                            ? 'bg-[#489bfd] text-white'
+                                            : category.key === 'completed'
+                                            ? 'bg-green-500 text-white'
+                                            : category.key === 'handedoff'
+                                            ? 'bg-purple-500 text-white'
+                                            : category.key === 'cancelled'
+                                            ? 'bg-red-500 text-white'
+                                            : 'bg-white text-gray-700 border border-gray-200'
+                                        }`}>
+                                          {cardNumber}
+                                        </div>
                                       </div>
                                       
-                                      {/* Third row: Visit type and Doctor */}
-                                      <div className="text-xs text-gray-500">
-                                        {visit.visit_type || 'Consultation'} • Dr. {visit.doctor?.full_name || 'Unassigned'}
+                                      {/* Main content area */}
+                                      <div className="flex-1 py-4 pr-4">
+                                        {/* Time */}
+                                        <div className="text-sm font-bold text-gray-900 mb-2">
+                                          {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : 
+                                           visit.visit_time ? format(new Date(`2000-01-01T${visit.visit_time}`), 'HH:mm') : '--:--'}
+                                        </div>
+
+                                        {/* Patient Name */}
+                                        <div className="font-medium text-gray-800 group-hover:text-brand-primary mb-1">
+                                          {visit.patient?.first_name} {visit.patient?.last_name}
+                                        </div>
+                                        
+                                        {/* Visit type and Doctor */}
+                                        <div className="text-xs text-gray-500 mb-3">
+                                          {visit.visit_type || 'Consultation'} • Dr. {visit.doctor?.full_name || 'Unassigned'}
+                                        </div>
+                                        
+                                        {/* Status and actions for non-handoff cards */}
+                                        {category.key !== 'handedoff' && (
+                                          <div className="flex items-center gap-2">
+                                            {category.key === 'scheduled' && visit.is_checked_in && (
+                                              <>
+                                                <div className="flex items-center gap-1">
+                                                  <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                                                  <span className="text-xs font-medium text-emerald-600">Checked In</span>
+                                                </div>
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    setIsOpen(false);
+                                                    requestAnimationFrame(() => {
+                                                      handleStartVisit(visit);
+                                                    });
+                                                  }}
+                                                  className="ml-auto px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-md"
+                                                >
+                                                  Start Visit
+                                                </button>
+                                              </>
+                                            )}
+                                            {category.key === 'scheduled' && !visit.is_checked_in && (
+                                              <>
+                                                <div className="flex items-center gap-1">
+                                                  <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                                                  <span className="text-xs font-medium text-blue-600">Scheduled</span>
+                                                </div>
+                                                <button
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    try {
+                                                      await checkInPatient(visit.id);
+                                                    } catch (error) {
+                                                      console.error('Error checking in patient:', error);
+                                                    }
+                                                  }}
+                                                  className="ml-auto px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md"
+                                                >
+                                                  Check In
+                                                </button>
+                                              </>
+                                            )}
+                                            {category.key === 'completed' && (
+                                              <div className="flex items-center gap-1">
+                                                <div className="w-2 h-2 bg-green-500 rounded-full" />
+                                                <span className="text-xs font-medium text-green-600">Completed</span>
+                                              </div>
+                                            )}
+                                            {category.key === 'cancelled' && (
+                                              <div className="flex items-center gap-1">
+                                                <div className="w-2 h-2 bg-red-500 rounded-full" />
+                                                <span className="text-xs font-medium text-red-600">Cancelled</span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
 
-                                    {/* Status Indicator and Actions - Separate row on mobile */}
-                                    <div className="flex items-center gap-2 sm:ml-auto">
-                                      {/* Add print buttons for all visit types except handoff (handoff will have them in a new row) */}
-                                      {category.key !== 'handedoff' && (
-                                        <HandoffCardPrintButtons
-                                          visitId={visit.id}
-                                          patientId={visit.patient_id}
-                                          practiceId={visit.practice_id || practiceId}
-                                        />
-                                      )}
                                       {category.key === 'scheduled' && visit.is_checked_in && (
                                         <>
                                           <button
@@ -778,16 +829,26 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                       {/* Handoff cards don't show status here - moved to new row */}
                                     </div>
                                     
-                                    {/* New row for handoff cards with print buttons and ready for checkout badge */}
+                                    {/* Handoff cards special section */}
                                     {category.key === 'handedoff' && (
-                                      <div className="w-full mt-2 pt-2 border-t border-gray-100 space-y-2">
-                                        {/* First row: Ready for checkout badge and Complete button */}
-                                        <div className="flex items-center justify-between gap-2">
-                                          {/* Ready for checkout badge */}
-                                          <div className="flex items-center gap-1">
+                                      <div className="border-t border-gray-100 bg-purple-50/20">
+                                        {/* Ready for checkout badge */}
+                                        <div className="px-4 pt-3 pb-2">
+                                          <div className="flex items-center gap-1.5">
                                             <div className="w-2 h-2 bg-purple-500 rounded-full" />
-                                            <span className="text-xs font-medium text-purple-600">Ready for checkout</span>
+                                            <span className="text-xs font-medium text-purple-700">Ready for checkout</span>
                                           </div>
+                                        </div>
+                                        
+                                        {/* Actions row */}
+                                        <div className="px-4 pb-3 flex items-center justify-between gap-3">
+                                          {/* Print buttons */}
+                                          <HandoffCardPrintButtons
+                                            visitId={visit.id}
+                                            patientId={visit.patient_id}
+                                            practiceId={visit.practice_id || practiceId}
+                                            showLabels={false}
+                                          />
                                           
                                           {/* Complete button */}
                                           <button
@@ -796,20 +857,10 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                               const { completeVisit } = useVisitsStore.getState();
                                               completeVisit(visit.id);
                                             }}
-                                            className="px-4 py-2 bg-[#00a7ad] hover:bg-[#00959a] text-white text-sm font-medium rounded-md"
+                                            className="px-4 py-1.5 bg-[#00a7ad] hover:bg-[#00959a] text-white text-sm font-medium rounded-md"
                                           >
                                             Complete
                                           </button>
-                                        </div>
-                                        
-                                        {/* Second row: Print buttons */}
-                                        <div className="flex justify-end">
-                                          <HandoffCardPrintButtons
-                                            visitId={visit.id}
-                                            patientId={visit.patient_id}
-                                            practiceId={visit.practice_id || practiceId}
-                                            showLabels={false}
-                                          />
                                         </div>
                                       </div>
                                     )}
