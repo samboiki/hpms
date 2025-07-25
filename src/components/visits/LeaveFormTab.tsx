@@ -113,21 +113,44 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
       const validPatientId = validateUUID(patientId);
       const validVisitId = validateUUID(visitId);
 
-      // Check required fields
-      if (!validVisitId) {
-        toast.error('Invalid visit ID');
-        return;
-      }
-      if (!validPatientId) {
-        toast.error('Invalid patient ID');
-        return;
-      }
-      if (!validDoctorId) {
-        toast.error('Invalid doctor ID');
-        return;
-      }
-      if (!validPracticeId) {
-        toast.error('Invalid practice ID');
+      // Check required fields and show errors in modal
+      const errors: string[] = [];
+      if (!validVisitId) errors.push('Invalid visit ID');
+      if (!validPatientId) errors.push('Invalid patient ID - please check patient data');
+      if (!validDoctorId) errors.push('Invalid doctor ID');
+      if (!validPracticeId) errors.push('Invalid practice ID');
+      
+      if (errors.length > 0) {
+        // Show error in a more prominent way
+        const errorMessage = errors.join('\n');
+        console.error('[LeaveFormTab] Validation errors:', errors);
+        
+        // Create a custom error display
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-red-50 border border-red-200 rounded-lg p-6 shadow-lg z-50 max-w-md';
+        errorDiv.innerHTML = `
+          <div class="flex items-start gap-3">
+            <div class="flex-shrink-0">
+              <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-red-800 mb-2">Cannot Save Leave Form</h3>
+              <div class="text-sm text-red-700 space-y-1">
+                ${errors.map(err => `<p>• ${err}</p>`).join('')}
+              </div>
+              <button onclick="this.parentElement.parentElement.parentElement.remove()" class="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm font-medium">
+                Close
+              </button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(errorDiv);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => errorDiv.remove(), 5000);
+        
         return;
       }
 

@@ -116,6 +116,14 @@ const EditVisitTabs: React.FC<Props> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [internalSelectedServices, setInternalSelectedServices] = useState<ServiceSelection[]>([]);
   
+  // Validate required props
+  useEffect(() => {
+    if (!patientId) {
+      console.error('[EditVisitTabs] Missing patient_id:', { visitId, patientId });
+      toast.error('Invalid patient ID. Please try again.');
+    }
+  }, [patientId, visitId]);
+  
   // Doctor selection state
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [appointmentDoctor, setAppointmentDoctor] = useState<string | null>(null);

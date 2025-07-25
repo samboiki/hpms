@@ -1191,6 +1191,12 @@ function Dashboard() {
                       <div>
                         <PremiumAppointmentScheduler
                           onEditVisit={(visit) => {
+                            console.log('[Dashboard] onEditVisit called with visit:', visit);
+                            if (!visit.patient_id) {
+                              console.error('[Dashboard] No patient_id in visit:', visit);
+                              toast.error('Cannot open visit - patient information missing');
+                              return;
+                            }
                             setEditingVisitId(visit.id);
                             setIsEditVisitModalOpen(true);
                           }}

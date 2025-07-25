@@ -893,6 +893,12 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                         key={appointment.id}
                         className="relative bg-white rounded-xl border border-gray-200 shadow-sm cursor-pointer overflow-hidden group"
                         onClick={() => {
+                          // Validate appointment data before opening modal
+                          if (!appointment.patient_id) {
+                            console.error('[PremiumAppointmentScheduler] Missing patient_id in appointment:', appointment);
+                            toast.error('Cannot open visit details - patient information missing');
+                            return;
+                          }
                           setSelectedVisitForAction(appointment);
                           setIsActionModalOpen(true);
                         }}
@@ -1069,6 +1075,12 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                         key={appointment.id}
                         className="relative bg-white rounded-xl border border-gray-200 shadow-sm cursor-pointer overflow-hidden group"
                         onClick={() => {
+                          // Validate appointment data before opening modal
+                          if (!appointment.patient_id) {
+                            console.error('[PremiumAppointmentScheduler] Missing patient_id in appointment:', appointment);
+                            toast.error('Cannot open visit details - patient information missing');
+                            return;
+                          }
                           setSelectedVisitForAction(appointment);
                           setIsActionModalOpen(true);
                         }}
@@ -1288,6 +1300,12 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        // Validate appointment data before opening modal
+                                        if (!appointment.patient_id) {
+                                          console.error('[PremiumAppointmentScheduler] Missing patient_id in appointment:', appointment);
+                                          toast.error('Cannot open visit details - patient information missing');
+                                          return;
+                                        }
                                         setSelectedVisitForAction(appointment);
                                         setIsActionModalOpen(true);
                                       }}
@@ -1336,6 +1354,12 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                         key={appointment.id}
                         className="relative bg-white rounded-xl border border-gray-200 shadow-sm cursor-pointer overflow-hidden group"
                         onClick={() => {
+                          // Validate appointment data before opening modal
+                          if (!appointment.patient_id) {
+                            console.error('[PremiumAppointmentScheduler] Missing patient_id in appointment:', appointment);
+                            toast.error('Cannot open visit details - patient information missing');
+                            return;
+                          }
                           setSelectedVisitForAction(appointment);
                           setIsActionModalOpen(true);
                         }}
@@ -1515,6 +1539,12 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        // Validate appointment data before opening modal
+                                        if (!appointment.patient_id) {
+                                          console.error('[PremiumAppointmentScheduler] Missing patient_id in appointment:', appointment);
+                                          toast.error('Cannot open visit details - patient information missing');
+                                          return;
+                                        }
                                         setSelectedVisitForAction(appointment);
                                         setIsActionModalOpen(true);
                                       }}
@@ -1563,6 +1593,12 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                         key={appointment.id}
                         className="relative bg-white rounded-xl border border-gray-200 shadow-sm cursor-pointer overflow-hidden group"
                         onClick={() => {
+                          // Validate appointment data before opening modal
+                          if (!appointment.patient_id) {
+                            console.error('[PremiumAppointmentScheduler] Missing patient_id in appointment:', appointment);
+                            toast.error('Cannot open visit details - patient information missing');
+                            return;
+                          }
                           setSelectedVisitForAction(appointment);
                           setIsActionModalOpen(true);
                         }}
@@ -1742,6 +1778,12 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        // Validate appointment data before opening modal
+                                        if (!appointment.patient_id) {
+                                          console.error('[PremiumAppointmentScheduler] Missing patient_id in appointment:', appointment);
+                                          toast.error('Cannot open visit details - patient information missing');
+                                          return;
+                                        }
                                         setSelectedVisitForAction(appointment);
                                         setIsActionModalOpen(true);
                                       }}
@@ -1899,6 +1941,12 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                 ${getTypeAccent(appointment.type)}`}
                               style={{ top: `${top}px`, height: `${height}px` }}
                               onClick={() => {
+                          // Validate appointment data before opening modal
+                          if (!appointment.patient_id) {
+                            console.error('[PremiumAppointmentScheduler] Missing patient_id in appointment:', appointment);
+                            toast.error('Cannot open visit details - patient information missing');
+                            return;
+                          }
                           setSelectedVisitForAction(appointment);
                           setIsActionModalOpen(true);
                         }}
@@ -2025,6 +2073,12 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                 ${getTypeAccent(appointment.type)}`}
                               style={{ top: `${top}px`, height: `${height}px` }}
                               onClick={() => {
+                          // Validate appointment data before opening modal
+                          if (!appointment.patient_id) {
+                            console.error('[PremiumAppointmentScheduler] Missing patient_id in appointment:', appointment);
+                            toast.error('Cannot open visit details - patient information missing');
+                            return;
+                          }
                           setSelectedVisitForAction(appointment);
                           setIsActionModalOpen(true);
                         }}
