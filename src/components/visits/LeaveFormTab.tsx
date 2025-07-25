@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
 import { PremiumInput, PremiumTextarea } from '../ui/PremiumInput';
+import ModernDatePicker from '../ui/ModernDatePicker';
 
 interface LeaveFormData {
   from_date: string;
@@ -98,7 +99,6 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
         practice_id: practiceId,
         from_date: data.from_date,
         to_date: data.to_date,
-        days_off: daysOff,
         diagnosis: data.diagnosis,
         diagnosis_code: data.diagnosis_code || null,
         status: 'draft',
@@ -248,32 +248,25 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
-                  <PremiumInput
-                    type="date"
-                    {...register('from_date', { required: 'From date is required' })}
-                    icon="solar:calendar-bold-duotone"
-                    iconColor="text-blue-500"
+                  <ModernDatePicker
+                    value={fromDate}
+                    onChange={(date) => {
+                      register('from_date').onChange({ target: { value: date } });
+                    }}
+                    label="From Date"
+                    error={errors.from_date?.message}
                   />
-                  {errors.from_date && (
-                    <p className="text-red-500 text-xs mt-1">{errors.from_date.message}</p>
-                  )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
-                  <PremiumInput
-                    type="date"
-                    {...register('to_date', {
-                      required: 'To date is required',
-                      validate: value => 
-                        new Date(value) >= new Date(fromDate) || 'To date must be after from date'
-                    })}
-                    icon="solar:calendar-bold-duotone"
-                    iconColor="text-blue-500"
+                  <ModernDatePicker
+                    value={toDate}
+                    onChange={(date) => {
+                      register('to_date').onChange({ target: { value: date } });
+                    }}
+                    label="To Date"
+                    minDate={fromDate ? new Date(fromDate) : undefined}
+                    error={errors.to_date?.message}
                   />
-                  {errors.to_date && (
-                    <p className="text-red-500 text-xs mt-1">{errors.to_date.message}</p>
-                  )}
                 </div>
                 <div className="flex items-end">
                   <div className="w-full p-3 bg-gray-100 rounded-lg text-center">

@@ -537,7 +537,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                     const { completeVisit } = useVisitsStore.getState();
                                     completeVisit(visit.id);
                                   }}
-                                  className="px-3 py-1.5 bg-[#00a7ad] hover:bg-[#00959a] text-white text-sm font-medium rounded-md"
+                                  className="px-3 py-1.5 bg-[#01b9d4] hover:bg-[#00a5be] text-white text-sm font-medium rounded-md"
                                 >
                                   Complete
                                 </button>
@@ -809,7 +809,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                               const { completeVisit } = useVisitsStore.getState();
                                               completeVisit(visit.id);
                                             }}
-                                            className="px-3 py-1 bg-gradient-to-r from-[#00a7ad] to-[#00959a] hover:from-[#00959a] hover:to-[#008589] text-white text-xs font-medium rounded-md shadow-sm"
+                                            className="px-3 py-1 bg-gradient-to-r from-[#01b9d4] to-[#00a5be] hover:from-[#00a5be] hover:to-[#0096b7] text-white text-xs font-medium rounded-md shadow-sm"
                                           >
                                             Complete
                                           </button>
