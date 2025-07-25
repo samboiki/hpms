@@ -839,50 +839,62 @@ const EditVisitTabs: React.FC<Props> = ({
         }
       }
 
-      // Automatically generate documents after successful update
-      try {
-        console.log('🚀 Automatically generating visit documents...');
-        const documentsToGenerate: ('prescription' | 'leave_form' | 'invoice')[] = [];
-        
-        // Check if prescription should be generated
-        if (medications.length > 0) {
-          documentsToGenerate.push('prescription');
-        }
-        
-        // Check if leave form should be generated
-        const { data: leaveFormExists } = await supabase
-          .from('leave_forms')
-          .select('id')
-          .eq('visit_id', visitId)
-          .single();
-        
-        if (leaveFormExists) {
-          documentsToGenerate.push('leave_form');
-        }
-        
-        // Check if invoice should be generated
-        if (selectedServices.length > 0) {
-          documentsToGenerate.push('invoice');
-        }
-        
-        if (documentsToGenerate.length > 0) {
-          const generatedDocs = await documentGenerationService.generateVisitDocuments({
-            visitId,
-            patientId,
-            practiceId,
-            documents: documentsToGenerate
-          });
-          
-          if (generatedDocs.length > 0) {
-            console.log('✅ Documents generated successfully:', generatedDocs);
-          }
-        }
-      } catch (docError) {
-        console.error('Error generating documents:', docError);
-        // Don't fail the whole update if document generation fails
-      }
-
+      // Call onSuccess immediately to close modal and refresh UI
       onSuccess();
+      
+      // Generate documents in the background - non-blocking
+      setTimeout(() => {
+        const generateDocumentsAsync = async () => {
+          try {
+            console.log('🚀 Generating visit documents in background...');
+            const documentsToGenerate: ('prescription' | 'leave_form' | 'invoice')[] = [];
+            
+            // Check what documents need to be generated
+            if (medications.length > 0) {
+              documentsToGenerate.push('prescription');
+            }
+            
+            // Check if leave form exists
+            const { data: leaveFormExists } = await supabase
+              .from('leave_forms')
+              .select('id')
+              .eq('visit_id', visitId)
+              .single();
+            
+            if (leaveFormExists) {
+              documentsToGenerate.push('leave_form');
+            }
+            
+            // Check if invoice should be generated
+            if (selectedServices.length > 0) {
+              documentsToGenerate.push('invoice');
+            }
+            
+            if (documentsToGenerate.length > 0) {
+              const generatedDocs = await documentGenerationService.generateVisitDocuments({
+                visitId,
+                patientId,
+                practiceId,
+                documents: documentsToGenerate
+              });
+              
+              if (generatedDocs.length > 0) {
+                console.log('✅ Documents generated successfully:', generatedDocs);
+                // Show subtle notification
+                toast.success(`${generatedDocs.length} document${generatedDocs.length > 1 ? 's' : ''} ready`, {
+                  icon: '📄',
+                  duration: 3000
+                });
+              }
+            }
+          } catch (docError) {
+            console.error('Background document generation failed:', docError);
+            // Silent failure - user can still generate manually
+          }
+        };
+        
+        generateDocumentsAsync();
+      }, 100); // Small delay to ensure modal closes first
     } catch (error) {
       console.error('Error updating visit:', error);
     } finally {

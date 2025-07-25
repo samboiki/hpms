@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Icon } from '@iconify/react';
 import { documentGenerationService } from '../../services/documentGenerationService';
+import { documentStatusService } from '../../services/documentStatusService';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore';
@@ -36,13 +37,24 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
     checkAvailableData();
     fetchVisitPracticeId();
     
-    // Poll for document generation status and available data every 5 seconds
+    // Subscribe to real-time document updates
+    const unsubscribe = documentStatusService.subscribeToVisit(visitId, (status) => {
+      console.log('📄 Document status update:', status);
+      // When documents are updated, refresh our local state
+      checkExistingDocuments();
+      checkAvailableData();
+    });
+    
+    // Also keep a fallback poll every 10 seconds (less frequent)
     const interval = setInterval(() => {
       checkExistingDocuments();
       checkAvailableData();
-    }, 5000);
+    }, 10000);
     
-    return () => clearInterval(interval);
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, [visitId]);
 
   const checkExistingDocuments = async () => {

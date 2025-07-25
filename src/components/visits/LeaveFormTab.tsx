@@ -190,29 +190,34 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
         toast.success('Leave form created successfully');
       }
 
-      // Automatically generate PDF in the background
-      try {
-        console.log('🚀 Generating leave form PDF automatically...');
-        const generatedDocs = await documentGenerationService.generateVisitDocuments({
-          visitId: validVisitId,
-          patientId: validPatientId,
-          practiceId: validPracticeId,
-          documents: ['leave_form']
-        });
+      // Generate PDF in background - non-blocking
+      setTimeout(() => {
+        const generatePDFAsync = async () => {
+          try {
+            console.log('🚀 Generating leave form PDF in background...');
+            const generatedDocs = await documentGenerationService.generateVisitDocuments({
+              visitId: validVisitId,
+              patientId: validPatientId,
+              practiceId: validPracticeId,
+              documents: ['leave_form']
+            });
+            
+            if (generatedDocs.length > 0) {
+              console.log('✅ Leave form PDF generated successfully');
+              // Show subtle notification that PDF is ready
+              toast.success('Leave certificate ready', {
+                icon: '📄',
+                duration: 3000
+              });
+            }
+          } catch (pdfError) {
+            console.error('Background PDF generation failed:', pdfError);
+            // Silent failure - user can still generate manually
+          }
+        };
         
-        if (generatedDocs.length > 0) {
-          console.log('✅ Leave form PDF generated successfully');
-          // Show subtle notification that PDF is ready
-          toast.success('Leave certificate PDF ready', {
-            icon: '📄',
-            duration: 3000
-          });
-        }
-      } catch (pdfError) {
-        console.error('Failed to generate leave form PDF:', pdfError);
-        // Don't show error to user - PDF generation is non-critical
-        // They can still generate it manually from the handoff card
-      }
+        generatePDFAsync();
+      }, 100); // Small delay to ensure save completes first
 
       // Reset form and reload
       setEditingForm(null);
@@ -274,26 +279,32 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
       if (error) throw error;
       toast.success('Leave form issued successfully');
       
-      // Generate PDF for issued leave form
-      try {
-        console.log('🚀 Generating PDF for issued leave form...');
-        const generatedDocs = await documentGenerationService.generateVisitDocuments({
-          visitId: visitId,
-          patientId: patientId,
-          practiceId: practiceId,
-          documents: ['leave_form']
-        });
+      // Generate PDF in background for issued leave form
+      setTimeout(() => {
+        const generateIssuedPDFAsync = async () => {
+          try {
+            console.log('🚀 Generating PDF for issued leave form in background...');
+            const generatedDocs = await documentGenerationService.generateVisitDocuments({
+              visitId: visitId,
+              patientId: patientId,
+              practiceId: practiceId,
+              documents: ['leave_form']
+            });
+            
+            if (generatedDocs.length > 0) {
+              console.log('✅ Issued leave form PDF generated successfully');
+              toast.success('Leave certificate ready', {
+                icon: '📄',
+                duration: 3000
+              });
+            }
+          } catch (pdfError) {
+            console.error('Background PDF generation failed:', pdfError);
+          }
+        };
         
-        if (generatedDocs.length > 0) {
-          console.log('✅ Issued leave form PDF generated successfully');
-          toast.success('Leave certificate PDF ready', {
-            icon: '📄',
-            duration: 3000
-          });
-        }
-      } catch (pdfError) {
-        console.error('Failed to generate leave form PDF:', pdfError);
-      }
+        generateIssuedPDFAsync();
+      }, 100);
       
       loadLeaveForms();
     } catch (error) {
