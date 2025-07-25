@@ -20,7 +20,7 @@
   - Error handling with user-friendly toast messages
   - Only shows buttons for documents with available data
 
-### Enhanced Print Buttons UI (Latest) - 2025-01-25
+### Enhanced Print Buttons UI - 2025-01-25
 - **Dashboard Handoff Cards (`PremiumAppointmentScheduler.tsx`)**:
   - Print buttons moved to new row below grey divider
   - Added text labels: "Prescription", "Leave Form", "Invoice"
@@ -54,6 +54,23 @@
   - Disabled buttons don't animate (no pulsing)
   - Enhanced button styling with hover effects
   - Uses @iconify/react for Solar icon integration
+
+### Leave Form & PDF Generation Updates (commit: fd0b3a7) - 2025-01-25
+- **Leave Form UI (`LeaveFormTab.tsx`)**:
+  - Removed Special Instructions/Restrictions field
+  - Removed Additional Notes field
+  - Added CRUD table similar to medications table
+  - Users can now add, edit, and delete multiple leave forms per visit
+  - Table shows: Form #, Period, Days, Diagnosis, Status, Actions
+  - Collapsible form for adding/editing leave forms
+
+- **PDF Generation Improvements**:
+  - **Banking Details**: Now matches invoice format exactly - plain text, no backgrounds
+  - **Signature Section**: Copied from prescription format with "Prescribing Physician" label
+  - **Automatic Generation**: PDFs generate automatically on visit save (no manual generation needed)
+  - **Dashboard Buttons**: Only show colored/enabled when PDFs are ready (grey/disabled otherwise)
+  - **Polling Mechanism**: Checks for generated documents every 5 seconds
+  - **Single Click**: Click once to view PDF (removed two-step generate then view process)
 
 ---
 
