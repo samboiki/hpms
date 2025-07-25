@@ -38,7 +38,7 @@ serve(async (req) => {
     const tokenExpired = gmailCredentials?.token_expires_at ? 
       new Date(gmailCredentials.token_expires_at) < new Date() : true;
 
-    let testResult = {
+    const testResult = {
       hasCredentials: !!gmailCredentials,
       hasOAuthApp: !!oauthApp,
       email: gmailCredentials?.email,

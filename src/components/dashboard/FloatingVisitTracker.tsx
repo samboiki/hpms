@@ -225,11 +225,12 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
   }, [disablePatientModal, onOpenPatientModal]);
 
   const handleStartVisit = useCallback((visit: any) => {
-    // Open patient modal on encounters tab instead of navigating
-    if (visit && visit.patient_id) {
-      handlePatientClick(visit.patient_id, true); // true = open on encounters tab
+    // Open edit visit modal instead of patient modal
+    if (visit) {
+      setSelectedVisitForEdit(visit);
+      setIsEditVisitModalOpen(true);
     }
-  }, [handlePatientClick]);
+  }, []);
 
   return (
     <>

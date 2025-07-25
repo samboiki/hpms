@@ -19,7 +19,7 @@ export const fetchPatientDetailsOptimized = async (patientId: string) => {
       // Next of kin
       supabase
         .from('next_of_kin')
-        .select('id, first_name, last_name, relationship, phone_number, email')
+        .select('id, name, relationship, phone, address')
         .eq('patient_id', patientId)
         .limit(1)
         .maybeSingle(),

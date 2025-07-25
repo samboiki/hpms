@@ -89,7 +89,7 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
         .from('leave_forms')
         .select('*')
         .eq('visit_id', visitId)
-        .single();
+        .maybeSingle();
 
       if (data) {
         setLeaveForm(data);

@@ -39,7 +39,7 @@ export async function fetchPatientsDirectly(practiceId: string): Promise<Enhance
         .from('patients')
         .select(`
           *,
-          practice:practices!fk_patients_practice_id (
+          practice:practices (
             id,
             name
           ),
