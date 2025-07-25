@@ -95,17 +95,45 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
     }
   };
 
+  // Helper function to validate UUID - returns null for empty strings or invalid values
+  const validateUUID = (value: string | undefined | null): string | null => {
+    if (!value || value.trim() === '') return null;
+    // Basic UUID format check
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(value) ? value : null;
+  };
+
   const onSubmit = async (data: LeaveFormData) => {
     try {
       setIsSaving(true);
 
-      // Ensure UUIDs are valid (not empty strings)
-      const validDoctorId = doctorId || user?.id || null;
-      const validPracticeId = practiceId || null;
+      // Validate and clean UUID fields
+      const validDoctorId = validateUUID(doctorId) || validateUUID(user?.id);
+      const validPracticeId = validateUUID(practiceId);
+      const validPatientId = validateUUID(patientId);
+      const validVisitId = validateUUID(visitId);
+
+      // Check required fields
+      if (!validVisitId) {
+        toast.error('Invalid visit ID');
+        return;
+      }
+      if (!validPatientId) {
+        toast.error('Invalid patient ID');
+        return;
+      }
+      if (!validDoctorId) {
+        toast.error('Invalid doctor ID');
+        return;
+      }
+      if (!validPracticeId) {
+        toast.error('Invalid practice ID');
+        return;
+      }
 
       const leaveFormData = {
-        visit_id: visitId,
-        patient_id: patientId,
+        visit_id: validVisitId,
+        patient_id: validPatientId,
         doctor_id: validDoctorId,
         practice_id: validPracticeId,
         from_date: data.from_date,
@@ -113,7 +141,7 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
         diagnosis: data.diagnosis || null,
         diagnosis_code: data.diagnosis_code || null,
         status: 'draft',
-        updated_by: user?.id || null
+        updated_by: validateUUID(user?.id)
       };
 
       if (editingForm) {
