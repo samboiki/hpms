@@ -13,13 +13,8 @@ interface LeaveFormData {
   to_date: string;
   diagnosis: string;
   diagnosis_code?: string;
-  fitness_status: 'unfit' | 'light_duty' | 'fit_with_restrictions';
   restrictions?: string;
-  follow_up_required: boolean;
-  follow_up_date?: string;
   notes?: string;
-  patient_employer?: string;
-  patient_occupation?: string;
 }
 
 interface LeaveFormTabProps {
@@ -41,13 +36,8 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
     to_date: string;
     diagnosis?: string;
     diagnosis_code?: string;
-    fitness_status: 'unfit' | 'light_duty' | 'fit_with_restrictions';
     restrictions?: string;
-    follow_up_required: boolean;
-    follow_up_date?: string;
     notes?: string;
-    patient_employer?: string;
-    patient_occupation?: string;
   }
   
   const [leaveForm, setLeaveForm] = useState<LeaveForm | null>(null);
@@ -62,16 +52,12 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
   } = useForm<LeaveFormData>({
     defaultValues: {
       from_date: format(new Date(), 'yyyy-MM-dd'),
-      to_date: format(new Date(), 'yyyy-MM-dd'),
-      fitness_status: 'unfit',
-      follow_up_required: false
+      to_date: format(new Date(), 'yyyy-MM-dd')
     }
   });
 
   const fromDate = watch('from_date');
   const toDate = watch('to_date');
-  const fitnessStatus = watch('fitness_status');
-  const followUpRequired = watch('follow_up_required');
 
   const daysOff = fromDate && toDate 
     ? differenceInDays(new Date(toDate), new Date(fromDate)) + 1 
@@ -98,13 +84,8 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
           to_date: format(new Date(data.to_date), 'yyyy-MM-dd'),
           diagnosis: data.diagnosis || '',
           diagnosis_code: data.diagnosis_code || '',
-          fitness_status: data.fitness_status,
           restrictions: data.restrictions || '',
-          follow_up_required: data.follow_up_required,
-          follow_up_date: data.follow_up_date ? format(new Date(data.follow_up_date), 'yyyy-MM-dd') : '',
-          notes: data.notes || '',
-          patient_employer: data.patient_employer || '',
-          patient_occupation: data.patient_occupation || ''
+          notes: data.notes || ''
         });
       }
     } catch (err) {
@@ -127,13 +108,8 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
         to_date: data.to_date,
         diagnosis: data.diagnosis,
         diagnosis_code: data.diagnosis_code || null,
-        fitness_status: data.fitness_status,
         restrictions: data.restrictions || null,
-        follow_up_required: data.follow_up_required,
-        follow_up_date: data.follow_up_date || null,
         notes: data.notes || null,
-        patient_employer: data.patient_employer || null,
-        patient_occupation: data.patient_occupation || null,
         status: 'draft',
         updated_by: user?.id
       };
@@ -310,127 +286,18 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Fitness Status</label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {[
-                  { value: 'unfit', label: 'Unfit for Work', icon: 'solar:close-circle-bold-duotone', color: 'red' },
-                  { value: 'light_duty', label: 'Light Duty Only', icon: 'solar:shield-warning-bold-duotone', color: 'yellow' },
-                  { value: 'fit_with_restrictions', label: 'Fit with Restrictions', icon: 'solar:shield-check-bold-duotone', color: 'green' }
-                ].map((status) => (
-                  <label
-                    key={status.value}
-                    className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                      fitnessStatus === status.value
-                        ? 'border-gray-300 bg-gray-50'
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      {...register('fitness_status')}
-                      value={status.value}
-                      className="sr-only"
-                    />
-                    <Icon 
-                      icon={status.icon} 
-                      className={`w-6 h-6 ${
-                        fitnessStatus === status.value 
-                          ? status.color === 'red' ? 'text-red-600' : status.color === 'yellow' ? 'text-yellow-600' : 'text-green-600'
-                          : 'text-gray-400'
-                      }`} 
-                    />
-                    <span className={`text-sm font-medium ${
-                      fitnessStatus === status.value ? 'text-gray-900' : 'text-gray-600'
-                    }`}>
-                      {status.label}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {(fitnessStatus === 'light_duty' || fitnessStatus === 'fit_with_restrictions') && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-              >
-                <label className="block text-sm font-medium text-gray-700 mb-2">Restrictions/Limitations</label>
-                <PremiumTextarea
-                  {...register('restrictions')}
-                  rows={3}
-                  placeholder="Specify work restrictions or limitations..."
-                  icon="solar:shield-warning-bold-duotone"
-                  iconColor="text-yellow-500"
-                />
-              </motion.div>
-            )}
-          </div>
-        </div>
-
-        {/* Patient Information Section */}
-        <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
-          <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-            <Icon icon="solar:user-id-bold-duotone" className="w-5 h-5 text-green-500" />
-            Patient Employment Information
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Employer</label>
-              <PremiumInput
-                type="text"
-                {...register('patient_employer')}
-                placeholder="Company/Organization name"
-                icon="solar:buildings-bold-duotone"
-                iconColor="text-green-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Occupation</label>
-              <PremiumInput
-                type="text"
-                {...register('patient_occupation')}
-                placeholder="Job title/position"
-                icon="solar:briefcase-bold-duotone"
-                iconColor="text-green-500"
+              <label className="block text-sm font-medium text-gray-700 mb-2">Special Instructions/Restrictions</label>
+              <PremiumTextarea
+                {...register('restrictions')}
+                rows={3}
+                placeholder="Specify any special instructions or notes for the certificate..."
+                icon="solar:shield-warning-bold-duotone"
+                iconColor="text-yellow-500"
               />
             </div>
           </div>
         </div>
 
-        {/* Follow-up Section */}
-        <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
-          <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-            <Icon icon="solar:calendar-add-bold-duotone" className="w-5 h-5 text-orange-500" />
-            Follow-up Information
-          </h4>
-          <div className="space-y-4">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                {...register('follow_up_required')}
-                className="w-5 h-5 text-[#01b9d4] rounded focus:ring-[#01b9d4]"
-              />
-              <span className="text-sm font-medium text-gray-700">Follow-up Required</span>
-            </label>
-
-            {followUpRequired && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-              >
-                <label className="block text-sm font-medium text-gray-700 mb-2">Follow-up Date</label>
-                <PremiumInput
-                  type="date"
-                  {...register('follow_up_date')}
-                  icon="solar:calendar-add-bold-duotone"
-                  iconColor="text-orange-500"
-                />
-              </motion.div>
-            )}
-          </div>
-        </div>
 
         {/* Additional Notes */}
         <div>

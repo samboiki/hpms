@@ -868,6 +868,17 @@ export class DocumentGenerationService {
   }
 
   /**
+   * Calculate days between two dates
+   */
+  private calculateDays(fromDate: string, toDate: string): number {
+    const from = new Date(fromDate);
+    const to = new Date(toDate);
+    const diffTime = Math.abs(to.getTime() - from.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return diffDays;
+  }
+
+  /**
    * Create leave form HTML with beautiful styling
    */
   private createLeaveFormHTML(visit: any, practice: any, leaveForm: any): string {
@@ -1046,28 +1057,28 @@ export class DocumentGenerationService {
             font-size: 10px;
           }
           
-          /* Patient Info Section */
+          /* PREPARED FOR Section - Matching Invoice Style */
           .patient-section {
             margin-bottom: 20px;
           }
           
           .section-title {
-            font-size: 12px;
+            font-size: 14px;
             font-weight: 700;
-            color: ${primaryColor};
-            margin: 0 0 10px 0;
+            color: #5f6578;
+            margin: 0 0 12px 0;
             text-transform: uppercase;
             letter-spacing: 0.3px;
           }
           
           .patient-info {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(2, 1fr);
             gap: 15px;
             background: #f8f9fa;
             padding: 15px;
             border-radius: 8px;
-            border-left: 3px solid ${primaryColor};
+            border: 1px solid #e9ecef;
           }
           
           .info-item {
@@ -1075,17 +1086,17 @@ export class DocumentGenerationService {
           }
           
           .info-label {
-            font-size: 9px;
-            color: #999;
+            font-size: 12px;
+            color: #6c757d;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
-            margin-bottom: 2px;
+            letter-spacing: 0.5px;
+            margin-bottom: 3px;
           }
           
           .info-value {
-            font-weight: 600;
-            font-size: 11px;
-            color: #2c2c2c;
+            font-size: 16px;
+            color: #333;
+            font-weight: 500;
           }
           
           /* Certification Section */
@@ -1163,36 +1174,7 @@ export class DocumentGenerationService {
             margin-top: 2px;
           }
           
-          /* Fitness Status Section */
-          .fitness-status-section {
-            margin-bottom: 20px;
-            text-align: center;
-          }
-          
-          .fitness-status {
-            display: inline-block;
-            padding: 12px 30px;
-            background: ${primaryColor};
-            color: white;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-          }
-          
-          .fitness-unfit {
-            background: #dc2626;
-          }
-          
-          .fitness-light-duty {
-            background: #f59e0b;
-          }
-          
-          .fitness-restricted {
-            background: #3b82f6;
-          }
+          /* Removed fitness status styles */
           
           /* Restrictions Section */
           .restrictions-section {
@@ -1269,24 +1251,11 @@ export class DocumentGenerationService {
             padding-top: 6px;
           }
           
-          .watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 50px;
-            color: rgba(95, 101, 120, 0.06);
-            font-weight: 700;
-            z-index: 0;
-            font-family: 'Rubik', sans-serif;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-          }
+          /* Removed watermark styles */
         </style>
       </head>
       <body>
         <div class="leave-container">
-          <div class="watermark">MEDICAL CERTIFICATE</div>
           
           <!-- Premium Header Section -->
           <div class="header">
@@ -1319,37 +1288,25 @@ export class DocumentGenerationService {
             </div>
           </div>
           
-          <!-- Patient Information -->
+          <!-- PREPARED FOR Section - Matching Invoice Style -->
           <div class="patient-section">
-            <h3 class="section-title">PATIENT DETAILS</h3>
+            <h3 class="section-title">PREPARED FOR</h3>
             <div class="patient-info">
               <div class="info-item">
-                <div class="info-label">Full Name</div>
+                <div class="info-label">Name</div>
                 <div class="info-value">${patient.first_name} ${patient.last_name}</div>
               </div>
               <div class="info-item">
+                <div class="info-label">ID/Passport</div>
+                <div class="info-value">${patient.id_number || patient.passport_number || 'N/A'}</div>
+              </div>
+              <div class="info-item">
                 <div class="info-label">Date of Birth</div>
-                <div class="info-value">${patient.date_of_birth ? format(new Date(patient.date_of_birth), 'dd/MM/yyyy') : 'N/A'}</div>
-              </div>
-              ${leaveForm.patient_employer ? `
-                <div class="info-item">
-                  <div class="info-label">Employer</div>
-                  <div class="info-value">${leaveForm.patient_employer}</div>
-                </div>
-              ` : ''}
-              ${leaveForm.patient_occupation ? `
-                <div class="info-item">
-                  <div class="info-label">Occupation</div>
-                  <div class="info-value">${leaveForm.patient_occupation}</div>
-                </div>
-              ` : ''}
-              <div class="info-item">
-                <div class="info-label">Consultation Date</div>
-                <div class="info-value">${format(new Date(visit.visit_date || visit.created_at), 'dd/MM/yyyy')}</div>
+                <div class="info-value">${patient.date_of_birth ? format(new Date(patient.date_of_birth), 'dd MMM yyyy') : 'N/A'}</div>
               </div>
               <div class="info-item">
-                <div class="info-label">Visit Type</div>
-                <div class="info-value">${visit.visit_type || 'Consultation'}</div>
+                <div class="info-label">Age</div>
+                <div class="info-value">${patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : 'N/A'} years</div>
               </div>
             </div>
           </div>
@@ -1357,12 +1314,13 @@ export class DocumentGenerationService {
           <!-- Certification Text -->
           <div class="certification-section">
             <div class="certification-text">
-              This is to certify that I have examined the above-named patient on ${format(new Date(visit.visit_date || visit.created_at), 'dd MMMM yyyy')} 
-              and found the following:
+              This is to certify that the individual known as <strong>${patient.first_name} ${patient.last_name}</strong>, 
+              was seen for a medical consultation on <strong>${format(new Date(visit.visit_date || visit.created_at), 'dd MMMM yyyy')}</strong>, 
+              and requires <strong>${this.calculateDays(leaveForm.from_date, leaveForm.to_date)} days</strong> sick leave.
             </div>
             ${leaveForm.diagnosis ? `
               <div class="diagnosis-highlight">
-                <div class="diagnosis-label">Diagnosis</div>
+                <div class="diagnosis-label">Medical Findings</div>
                 <div class="diagnosis-value">
                   ${leaveForm.diagnosis}
                   ${leaveForm.diagnosis_code ? ` (ICD-10: ${leaveForm.diagnosis_code})` : ''}
@@ -1393,18 +1351,6 @@ export class DocumentGenerationService {
             </div>
           </div>
           
-          <!-- Fitness Status -->
-          <div class="fitness-status-section">
-            <span class="fitness-status ${
-              leaveForm.fitness_status === 'unfit' ? 'fitness-unfit' : 
-              leaveForm.fitness_status === 'light_duty' ? 'fitness-light-duty' : 
-              'fitness-restricted'
-            }">
-              ${leaveForm.fitness_status === 'unfit' ? 'UNFIT FOR WORK' : 
-                leaveForm.fitness_status === 'light_duty' ? 'FIT FOR LIGHT DUTY ONLY' :
-                'FIT FOR WORK WITH RESTRICTIONS'}
-            </span>
-          </div>
           
           ${leaveForm.restrictions ? `
             <div class="restrictions-section">
@@ -1432,9 +1378,7 @@ export class DocumentGenerationService {
               <div class="signature-box">
                 <div class="signature-line"></div>
                 <div class="signature-label">
-                  ${doctor?.full_name || 'Doctor'}<br>
-                  Medical Practitioner<br>
-                  ${practice.practice_number ? `Practice No: ${practice.practice_number}` : ''}
+                  Medical Practitioner
                 </div>
               </div>
             </div>
