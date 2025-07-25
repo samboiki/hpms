@@ -25,16 +25,22 @@
   - Print buttons moved to new row below grey divider
   - Added text labels: "Prescription", "Leave Form", "Invoice"
   - Solar Bold Duotone icons: medical-kit, document-text, wallet
-  - Buttons have colored backgrounds and animate with pulse effect
-  - "Ready for checkout" badge on same row as print buttons
+  - Buttons have colored backgrounds and animate with pulse effect only when data available
+  - "Ready for checkout" badge on same row as print buttons (no animation)
   - Purple background row for better visual separation
+  - Complete button uses #00a7ad color
 - **Floating Visit Tracker**:
-  - Handoff cards: Print buttons on separate row (icons only)
-  - "Ready for checkout" badge with purple dot animation
-  - Other visit types: Print buttons remain inline
+  - Handoff cards: Two separate rows below main content
+    - First row: "Ready for checkout" badge and Complete button
+    - Second row: Print buttons (icons only)
+  - Print buttons ONLY show for handoff cards, removed from all other sections
+  - Improved card layout with better spacing
+  - Complete button uses #00a7ad color
 - **`HandoffCardPrintButtons` Component**:
   - Added `showLabels` prop for conditional text display
-  - Enhanced button styling with hover effects and animations
+  - Smart data checking: buttons grey out when no data available
+  - Disabled buttons don't animate (no pulsing)
+  - Enhanced button styling with hover effects
   - Uses @iconify/react for Solar icon integration
 
 ---

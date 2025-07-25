@@ -780,35 +780,40 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                           <span className="text-xs font-medium text-red-600">Cancelled</span>
                                         </>
                                       )}
-                                      {category.key === 'handedoff' && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            const { completeVisit } = useVisitsStore.getState();
-                                            completeVisit(visit.id);
-                                          }}
-                                          className="px-4 py-2 bg-[#00a7ad] hover:bg-[#00959a] text-white text-sm font-medium rounded-md"
-                                        >
-                                          Complete
-                                        </button>
-                                      )}
+                                      {/* Handoff cards don't show status here - moved to new row */}
                                     </div>
                                     
                                     {/* New row for handoff cards with print buttons and ready for checkout badge */}
                                     {category.key === 'handedoff' && (
-                                      <div className="w-full mt-2 pt-2 border-t border-gray-100">
+                                      <div className="w-full mt-2 pt-2 border-t border-gray-100 space-y-2">
+                                        {/* First row: Ready for checkout badge and Complete button */}
                                         <div className="flex items-center justify-between gap-2">
                                           {/* Ready for checkout badge */}
                                           <div className="flex items-center gap-1">
-                                            <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
+                                            <div className="w-2 h-2 bg-purple-500 rounded-full" />
                                             <span className="text-xs font-medium text-purple-600">Ready for checkout</span>
                                           </div>
                                           
-                                          {/* Print buttons */}
+                                          {/* Complete button */}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              const { completeVisit } = useVisitsStore.getState();
+                                              completeVisit(visit.id);
+                                            }}
+                                            className="px-4 py-2 bg-[#00a7ad] hover:bg-[#00959a] text-white text-sm font-medium rounded-md"
+                                          >
+                                            Complete
+                                          </button>
+                                        </div>
+                                        
+                                        {/* Second row: Print buttons */}
+                                        <div className="flex justify-end">
                                           <HandoffCardPrintButtons
                                             visitId={visit.id}
                                             patientId={visit.patient_id}
                                             practiceId={visit.practice_id || practiceId}
+                                            showLabels={false}
                                           />
                                         </div>
                                       </div>
