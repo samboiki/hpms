@@ -87,9 +87,17 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
   };
 
   const handleGenerateDocument = async (docType: 'prescription' | 'leave_form' | 'invoice') => {
-    // If document already exists, just open it
-    if (existingDocs[docType]) {
-      window.open(existingDocs[docType], '_blank');
+    // Always regenerate documents to ensure they have the latest template changes
+    // Comment out the caching logic for now
+    // if (existingDocs[docType]) {
+    //   window.open(existingDocs[docType], '_blank');
+    //   return;
+    // }
+
+    // Validate required props
+    if (!visitId || !patientId || !practiceId) {
+      console.error('Missing required props:', { visitId, patientId, practiceId });
+      toast.error('Unable to generate document: Missing required information');
       return;
     }
 

@@ -254,8 +254,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
 
   const { currentTheme } = useTheme();
   
-  // Get practice_id from localStorage
-  const practiceId = localStorage.getItem('selectedPracticeId') || '';
+  // Get practice_id from localStorage or from the first appointment
+  const storedPracticeId = localStorage.getItem('selectedPracticeId');
+  const firstAppointmentPracticeId = appointments.length > 0 ? appointments[0].practice_id : '';
+  const practiceId = storedPracticeId || firstAppointmentPracticeId || '';
   
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(
     currentUserRole === 'doctor' ? currentUserId : doctors.length > 0 ? doctors[0].id : null
@@ -983,7 +985,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                   <HandoffCardPrintButtons
                                     visitId={appointment.id}
                                     patientId={appointment.patient_id}
-                                    practiceId={practiceId}
+                                    practiceId={appointment.practice_id || practiceId}
                                     showLabels={true}
                                   />
                                 </div>
