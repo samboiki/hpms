@@ -662,47 +662,59 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                   return (
                                   <div
                                     key={visit.id}
-                                    className={`bg-white rounded-lg border border-gray-100 group overflow-hidden ${
-                                      disablePatientModal ? '' : 'hover:border-gray-200 hover:shadow-sm cursor-pointer'
+                                    className={`relative bg-white/80 backdrop-blur-xl rounded-xl border border-white/50 shadow-lg group overflow-hidden ${
+                                      disablePatientModal ? '' : 'hover:shadow-xl hover:bg-white/90 hover:scale-[1.02] cursor-pointer transition-all duration-200'
                                     }`}
                                     onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id, true)}
                                   >
                                     {/* Main card content */}
                                     <div className="flex">
-                                      {/* Card Number Badge */}
-                                      <div className="flex-shrink-0 p-4">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-sm ${
+                                      {/* Card Number Badge with glassmorphism */}
+                                      <div className="flex-shrink-0 p-3">
+                                        <div className={`w-9 h-9 rounded-lg backdrop-blur-md flex items-center justify-center text-sm font-bold shadow-lg ${
                                           category.key === 'scheduled' && visit.is_checked_in
-                                            ? 'bg-[#01b8d8] text-white'
+                                            ? 'bg-gradient-to-br from-[#01b8d8]/90 to-[#00a0c1]/90 text-white'
                                             : category.key === 'scheduled'
-                                            ? 'bg-[#489bfd] text-white'
+                                            ? 'bg-gradient-to-br from-[#489bfd]/90 to-[#3a7fe5]/90 text-white'
                                             : category.key === 'completed'
-                                            ? 'bg-green-500 text-white'
+                                            ? 'bg-gradient-to-br from-green-500/90 to-green-600/90 text-white'
                                             : category.key === 'handedoff'
-                                            ? 'bg-purple-500 text-white'
+                                            ? 'bg-gradient-to-br from-purple-500/90 to-purple-600/90 text-white'
                                             : category.key === 'cancelled'
-                                            ? 'bg-red-500 text-white'
-                                            : 'bg-white text-gray-700 border border-gray-200'
+                                            ? 'bg-gradient-to-br from-red-500/90 to-red-600/90 text-white'
+                                            : 'bg-white/70 text-gray-700 border border-gray-200/50 backdrop-blur-sm'
                                         }`}>
                                           {cardNumber}
                                         </div>
                                       </div>
                                       
-                                      {/* Main content area */}
-                                      <div className="flex-1 py-4 pr-4">
-                                        {/* Time */}
-                                        <div className="text-sm font-bold text-gray-900 mb-2">
+                                      {/* Main content area - compact spacing */}
+                                      <div className="flex-1 py-3 pr-3">
+                                        {/* Time with subtle background */}
+                                        <div className={`text-sm font-bold mb-1 inline-block px-2 py-0.5 rounded-md ${
+                                          category.key === 'scheduled' && visit.is_checked_in
+                                            ? 'bg-[#01b8d8]/10 text-[#01b8d8]'
+                                            : category.key === 'scheduled'
+                                            ? 'bg-[#489bfd]/10 text-[#489bfd]'
+                                            : category.key === 'completed'
+                                            ? 'bg-green-500/10 text-green-700'
+                                            : category.key === 'handedoff'
+                                            ? 'bg-purple-500/10 text-purple-700'
+                                            : category.key === 'cancelled'
+                                            ? 'bg-red-500/10 text-red-700'
+                                            : 'bg-gray-100 text-gray-900'
+                                        }`}>
                                           {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : 
                                            visit.visit_time ? format(new Date(`2000-01-01T${visit.visit_time}`), 'HH:mm') : '--:--'}
                                         </div>
 
                                         {/* Patient Name */}
-                                        <div className="font-medium text-gray-800 group-hover:text-brand-primary mb-1">
+                                        <div className="font-medium text-gray-800 group-hover:text-brand-primary mb-0.5">
                                           {visit.patient?.first_name} {visit.patient?.last_name}
                                         </div>
                                         
                                         {/* Visit type and Doctor */}
-                                        <div className="text-xs text-gray-500 mb-3">
+                                        <div className="text-xs text-gray-500 mb-2">
                                           {visit.visit_type || 'Consultation'} • Dr. {visit.doctor?.full_name || 'Unassigned'}
                                         </div>
                                         
@@ -724,7 +736,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                                       handleStartVisit(visit);
                                                     });
                                                   }}
-                                                  className="ml-auto px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-md"
+                                                  className="ml-auto px-3 py-1 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white text-xs font-medium rounded-md shadow-sm"
                                                 >
                                                   Start Visit
                                                 </button>
@@ -746,7 +758,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                                       console.error('Error checking in patient:', error);
                                                     }
                                                   }}
-                                                  className="ml-auto px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md"
+                                                  className="ml-auto px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-xs font-medium rounded-md shadow-sm"
                                                 >
                                                   Check In
                                                 </button>
@@ -769,71 +781,12 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                       </div>
                                     </div>
 
-                                      {category.key === 'scheduled' && visit.is_checked_in && (
-                                        <>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              e.preventDefault();
-                                              // Close modal and navigate after a brief delay
-                                              setIsOpen(false);
-                                              // Use requestAnimationFrame to ensure navigation happens after render
-                                              requestAnimationFrame(() => {
-                                                handleStartVisit(visit);
-                                              });
-                                            }}
-                                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-md"
-                                          >
-                                            Start Visit
-                                          </button>
-                                          <div className="flex items-center gap-1">
-                                            <div className="w-2 h-2 bg-emerald-500 rounded-full" />
-                                            <span className="text-xs font-medium text-emerald-600">Checked In</span>
-                                          </div>
-                                        </>
-                                      )}
-                                      {category.key === 'scheduled' && !visit.is_checked_in && (
-                                        <>
-                                          <button
-                                            onClick={async (e) => {
-                                              e.stopPropagation();
-                                              e.preventDefault();
-                                              try {
-                                                await checkInPatient(visit.id);
-                                              } catch (error) {
-                                                console.error('Error checking in patient:', error);
-                                              }
-                                            }}
-                                            className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md"
-                                          >
-                                            Check In
-                                          </button>
-                                          <div className="flex items-center gap-1">
-                                            <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                                            <span className="text-xs font-medium text-blue-600">Scheduled</span>
-                                          </div>
-                                        </>
-                                      )}
-                                      {category.key === 'completed' && (
-                                        <>
-                                          <div className="w-2 h-2 bg-green-500 rounded-full" />
-                                          <span className="text-xs font-medium text-green-600">Completed</span>
-                                        </>
-                                      )}
-                                      {category.key === 'cancelled' && (
-                                        <>
-                                          <div className="w-2 h-2 bg-red-500 rounded-full" />
-                                          <span className="text-xs font-medium text-red-600">Cancelled</span>
-                                        </>
-                                      )}
-                                      {/* Handoff cards don't show status here - moved to new row */}
-                                    </div>
                                     
                                     {/* Handoff cards special section */}
                                     {category.key === 'handedoff' && (
-                                      <div className="border-t border-gray-100 bg-purple-50/20">
+                                      <div className="border-t border-purple-100/30 bg-gradient-to-r from-purple-50/50 to-purple-100/30 backdrop-blur-sm">
                                         {/* Ready for checkout badge */}
-                                        <div className="px-4 pt-3 pb-2">
+                                        <div className="px-3 pt-2 pb-1">
                                           <div className="flex items-center gap-1.5">
                                             <div className="w-2 h-2 bg-purple-500 rounded-full" />
                                             <span className="text-xs font-medium text-purple-700">Ready for checkout</span>
@@ -841,7 +794,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                         </div>
                                         
                                         {/* Actions row */}
-                                        <div className="px-4 pb-3 flex items-center justify-between gap-3">
+                                        <div className="px-3 pb-2 flex items-center justify-between gap-2">
                                           {/* Print buttons */}
                                           <HandoffCardPrintButtons
                                             visitId={visit.id}
@@ -857,7 +810,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                               const { completeVisit } = useVisitsStore.getState();
                                               completeVisit(visit.id);
                                             }}
-                                            className="px-4 py-1.5 bg-[#00a7ad] hover:bg-[#00959a] text-white text-sm font-medium rounded-md"
+                                            className="px-3 py-1 bg-gradient-to-r from-[#00a7ad] to-[#00959a] hover:from-[#00959a] hover:to-[#008589] text-white text-xs font-medium rounded-md shadow-sm"
                                           >
                                             Complete
                                           </button>

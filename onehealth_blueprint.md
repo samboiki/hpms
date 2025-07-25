@@ -29,13 +29,25 @@
   - "Ready for checkout" badge on same row as print buttons (no animation)
   - Purple background row for better visual separation
   - Complete button uses #00a7ad color
-- **Floating Visit Tracker**:
-  - Handoff cards: Two separate rows below main content
-    - First row: "Ready for checkout" badge and Complete button
-    - Second row: Print buttons (icons only)
-  - Print buttons ONLY show for handoff cards, removed from all other sections
-  - Improved card layout with better spacing
-  - Complete button uses #00a7ad color
+  
+- **Floating Visit Tracker - Professional Redesign**:
+  - **Card Layout**:
+    - Card number badge (40x40) on left with proper padding
+    - Time on first row (bold, standalone)
+    - Patient name on second row
+    - Visit details on third row
+    - Status/actions integrated within card content area
+    - Professional spacing throughout (no cramping)
+  - **Print Buttons**:
+    - ONLY appear on handoff cards (removed from ALL other sections)
+    - Completely removed from in-progress, scheduled, completed, cancelled cards
+    - Handoff cards have special purple background section
+  - **Handoff Cards Special Section**:
+    - Purple tinted background (purple-50/20)
+    - "Ready for checkout" badge on its own row
+    - Print buttons (icons only) and Complete button on action row
+    - Complete button uses #00a7ad color
+    
 - **`HandoffCardPrintButtons` Component**:
   - Added `showLabels` prop for conditional text display
   - Smart data checking: buttons grey out when no data available
