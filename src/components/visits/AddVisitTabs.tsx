@@ -48,7 +48,9 @@ import MediaUploadWrapper from '../uploads/MediaUploadWrapper';
 import LabResultsTable from '../requests/LabResultsTable';
 import ImagingTabContentSimple from '../requests/ImagingTabContentSimple';
 import LeaveFormTab from './LeaveFormTab';
+import HandoffCard from './HandoffCard';
 import { PremiumInput, PremiumTextarea, PremiumSelect } from '../ui/PremiumInput';
+import { documentGenerationService } from '../../services/documentGenerationService';
 
 interface EditVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
@@ -527,6 +529,52 @@ const AddVisitTabs: React.FC<Props> = ({
       }
 
       console.log('🎉 Visit creation completed successfully!');
+      
+      // Automatically generate documents after successful creation
+      if (newVisitId) {
+        try {
+          console.log('🚀 Automatically generating visit documents...');
+          const documentsToGenerate: ('prescription' | 'leave_form' | 'invoice')[] = [];
+          
+          // Check if prescription should be generated
+          if (medications.length > 0) {
+            documentsToGenerate.push('prescription');
+          }
+          
+          // Check if leave form should be generated (we just created the visit, so check if leave form tab was used)
+          const { data: leaveFormExists } = await supabase
+            .from('leave_forms')
+            .select('id')
+            .eq('visit_id', newVisitId)
+            .single();
+          
+          if (leaveFormExists) {
+            documentsToGenerate.push('leave_form');
+          }
+          
+          // Check if invoice should be generated
+          if (selectedServices.length > 0 && data.generateInvoice) {
+            documentsToGenerate.push('invoice');
+          }
+          
+          if (documentsToGenerate.length > 0) {
+            const generatedDocs = await documentGenerationService.generateVisitDocuments({
+              visitId: newVisitId,
+              patientId,
+              practiceId: user?.practice_id || '',
+              documents: documentsToGenerate
+            });
+            
+            if (generatedDocs.length > 0) {
+              console.log('✅ Documents generated successfully:', generatedDocs);
+            }
+          }
+        } catch (docError) {
+          console.error('Error generating documents:', docError);
+          // Don't fail the whole creation if document generation fails
+        }
+      }
+      
       onSuccess();
     } catch (error) {
       console.error('❌ Error creating visit:', error);
@@ -2348,6 +2396,32 @@ const AddVisitTabs: React.FC<Props> = ({
           )
         )}
 
+        {/* Handoff/Documents Tab */}
+        {activeTab === 'handoff' && (
+          newVisitId ? (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <HandoffCard 
+                visitId={newVisitId}
+                patientId={patientId}
+                practiceId={practiceId}
+                onDocumentsGenerated={() => {
+                  console.log('Documents generated successfully');
+                }}
+              />
+            </motion.div>
+          ) : (
+            <div className="flex items-center justify-center h-64 text-gray-500">
+              <div className="text-center">
+                <Icon icon="solar:hand-shake-bold-duotone" className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <p>Please save the visit first to generate documents</p>
+              </div>
+            </div>
+          )
+        )}
 
         {/* Media Tab */}
         {activeTab === 'media' && (

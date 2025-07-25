@@ -12,7 +12,9 @@ import MediaUploadWrapper from '../uploads/MediaUploadWrapper';
 import LabResultsTable from '../requests/LabResultsTable';
 import ImagingTabContentSimple from '../requests/ImagingTabContentSimple';
 import LeaveFormTab from './LeaveFormTab';
+import HandoffCard from './HandoffCard';
 import { PremiumInput, PremiumTextarea, PremiumSelect } from '../ui/PremiumInput';
+import { documentGenerationService } from '../../services/documentGenerationService';
 
 interface EditVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
@@ -694,6 +696,49 @@ const EditVisitTabs: React.FC<Props> = ({
           console.error('Error saving medications:', medicationError);
           alert(`Medications save failed: ${medicationError instanceof Error ? medicationError.message : 'Unknown error'}. The visit was updated but medications were not saved.`);
         }
+      }
+
+      // Automatically generate documents after successful update
+      try {
+        console.log('🚀 Automatically generating visit documents...');
+        const documentsToGenerate: ('prescription' | 'leave_form' | 'invoice')[] = [];
+        
+        // Check if prescription should be generated
+        if (medications.length > 0) {
+          documentsToGenerate.push('prescription');
+        }
+        
+        // Check if leave form should be generated
+        const { data: leaveFormExists } = await supabase
+          .from('leave_forms')
+          .select('id')
+          .eq('visit_id', visitId)
+          .single();
+        
+        if (leaveFormExists) {
+          documentsToGenerate.push('leave_form');
+        }
+        
+        // Check if invoice should be generated
+        if (selectedServices.length > 0) {
+          documentsToGenerate.push('invoice');
+        }
+        
+        if (documentsToGenerate.length > 0) {
+          const generatedDocs = await documentGenerationService.generateVisitDocuments({
+            visitId,
+            patientId,
+            practiceId,
+            documents: documentsToGenerate
+          });
+          
+          if (generatedDocs.length > 0) {
+            console.log('✅ Documents generated successfully:', generatedDocs);
+          }
+        }
+      } catch (docError) {
+        console.error('Error generating documents:', docError);
+        // Don't fail the whole update if document generation fails
       }
 
       onSuccess();
@@ -2499,6 +2544,23 @@ const EditVisitTabs: React.FC<Props> = ({
           />
         )}
 
+        {/* Handoff/Documents Tab */}
+        {activeTab === 'handoff' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <HandoffCard 
+              visitId={visitId}
+              patientId={patientId}
+              practiceId={practiceId}
+              onDocumentsGenerated={() => {
+                console.log('Documents generated successfully');
+              }}
+            />
+          </motion.div>
+        )}
 
         {/* Media Tab */}
         {activeTab === 'media' && (

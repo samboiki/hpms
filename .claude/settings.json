@@ -1,23 +1,49 @@
 {
   "hooks": {
-    "Stop": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/happy/projects/hpms/hooks/play-completion-chime.sh"
-          }
-        ]
-      }
-    ],
     "UserPromptSubmit": [
       {
         "matcher": ".*",
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'User submitted a prompt' >> /home/happy/hook-test.log"
+            "command": "node /home/happy/projects/hpms/hooks/super-intelligent-coordinator.js UserPromptSubmit"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /home/happy/projects/hpms/hooks/super-intelligent-coordinator.js PreToolUse"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /home/happy/projects/hpms/hooks/super-intelligent-coordinator.js PostToolUse"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /home/happy/projects/hpms/hooks/super-intelligent-coordinator.js Stop"
+          },
+          {
+            "type": "command",
+            "command": "/home/happy/projects/hpms/hooks/play-completion-chime.sh"
           }
         ]
       }
