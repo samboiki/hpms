@@ -3,6 +3,7 @@ import { Icon } from '@iconify/react';
 import { documentGenerationService } from '../../services/documentGenerationService';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
+import { useAuthStore } from '../../stores/authStore';
 
 interface HandoffCardPrintButtonsProps {
   visitId: string;
@@ -19,6 +20,7 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
   onDocumentGenerated,
   showLabels = false 
 }) => {
+  const { user } = useAuthStore();
   const [generatingDocs, setGeneratingDocs] = useState<Record<string, boolean>>({});
   const [existingDocs, setExistingDocs] = useState<Record<string, string>>({});
   const [availableData, setAvailableData] = useState<Record<string, boolean>>({
@@ -26,11 +28,13 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
     leave_form: false,
     invoice: false
   });
+  const [visitPracticeId, setVisitPracticeId] = useState<string>('');
 
   // Check if documents already exist and data is available
   React.useEffect(() => {
     checkExistingDocuments();
     checkAvailableData();
+    fetchVisitPracticeId();
   }, [visitId]);
 
   const checkExistingDocuments = async () => {
@@ -86,6 +90,22 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
     }
   };
 
+  const fetchVisitPracticeId = async () => {
+    try {
+      const { data: visit } = await supabase
+        .from('visits')
+        .select('practice_id')
+        .eq('id', visitId)
+        .single();
+      
+      if (visit?.practice_id) {
+        setVisitPracticeId(visit.practice_id);
+      }
+    } catch (error) {
+      console.error('Error fetching visit practice ID:', error);
+    }
+  };
+
   const handleGenerateDocument = async (docType: 'prescription' | 'leave_form' | 'invoice') => {
     // Always regenerate documents to ensure they have the latest template changes
     // Comment out the caching logic for now
@@ -94,10 +114,13 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
     //   return;
     // }
 
+    // Determine the correct practiceId to use
+    const effectivePracticeId = practiceId || visitPracticeId || user?.practice_id || '';
+    
     // Validate required props
-    if (!visitId || !patientId || !practiceId) {
-      console.error('Missing required props:', { visitId, patientId, practiceId });
-      toast.error('Unable to generate document: Missing required information');
+    if (!visitId || !patientId || !effectivePracticeId) {
+      console.error('Missing required props:', { visitId, patientId, practiceId: effectivePracticeId });
+      toast.error('Unable to generate document: Missing practice information');
       return;
     }
 
@@ -154,7 +177,7 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
       const documents = await documentGenerationService.generateVisitDocuments({
         visitId,
         patientId,
-        practiceId,
+        practiceId: effectivePracticeId,
         documents: [docType]
       });
 
