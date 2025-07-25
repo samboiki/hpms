@@ -1191,9 +1191,19 @@ function Dashboard() {
                       <div>
                         <PremiumAppointmentScheduler
                           onEditVisit={(visit) => {
-                            console.log('[Dashboard] onEditVisit called with visit:', visit);
-                            if (!visit.patient_id) {
-                              console.error('[Dashboard] No patient_id in visit:', visit);
+                            console.log('[Dashboard] onEditVisit called with visit:', {
+                              id: visit.id,
+                              patient_id: visit.patient_id,
+                              patient: visit.patient,
+                              fullVisit: visit
+                            });
+                            
+                            // Double-check the visits array to see if we can find it
+                            const foundVisit = visits.find(v => v.id === visit.id);
+                            console.log('[Dashboard] Found visit in visits array:', foundVisit);
+                            
+                            if (!visit.patient_id || visit.patient_id === '') {
+                              console.error('[Dashboard] Invalid patient_id in visit:', visit);
                               toast.error('Cannot open visit - patient information missing');
                               return;
                             }
@@ -1922,25 +1932,50 @@ function Dashboard() {
       )}
 
       {/* Full Screen Edit Visit Modal */}
-      {editingVisitId && (
-        <FullScreenEditVisitModal
-          isOpen={isEditVisitModalOpen}
-          onClose={() => {
-            setIsEditVisitModalOpen(false);
-            setEditingVisitId(null);
-          }}
-          visitId={editingVisitId}
-          patientId={visits.find(v => v.id === editingVisitId)?.patient_id || ''}
-          onSuccess={() => {
-            setIsEditVisitModalOpen(false);
-            setEditingVisitId(null);
-            // Refresh visits
-            if (currentPracticeId) {
-              fetchTodayVisits(currentPracticeId);
-            }
-          }}
-        />
-      )}
+      {editingVisitId && (() => {
+        const visit = visits.find(v => v.id === editingVisitId);
+        const patientId = visit?.patient_id;
+        
+        console.log('[Dashboard] Rendering FullScreenEditVisitModal:', {
+          editingVisitId,
+          visit,
+          patientId,
+          visitsLength: visits.length
+        });
+        
+        if (!patientId || patientId === '' || patientId === 'undefined') {
+          console.error('[Dashboard] Invalid patient_id for visit:', {
+            editingVisitId,
+            visit,
+            patientId,
+            allVisits: visits
+          });
+          toast.error('Cannot open visit - patient information not found. Please refresh and try again.');
+          setIsEditVisitModalOpen(false);
+          setEditingVisitId(null);
+          return null;
+        }
+        
+        return (
+          <FullScreenEditVisitModal
+            isOpen={isEditVisitModalOpen}
+            onClose={() => {
+              setIsEditVisitModalOpen(false);
+              setEditingVisitId(null);
+            }}
+            visitId={editingVisitId}
+            patientId={patientId}
+            onSuccess={() => {
+              setIsEditVisitModalOpen(false);
+              setEditingVisitId(null);
+              // Refresh visits
+              if (currentPracticeId) {
+                fetchTodayVisits(currentPracticeId);
+              }
+            }}
+          />
+        );
+      })()}
 
       {/* Edit Appointment Modal */}
       <FormModal

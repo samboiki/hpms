@@ -118,9 +118,9 @@ const EditVisitTabs: React.FC<Props> = ({
   
   // Validate required props
   useEffect(() => {
-    if (!patientId) {
-      console.error('[EditVisitTabs] Missing patient_id:', { visitId, patientId });
-      toast.error('Invalid patient ID. Please try again.');
+    if (!patientId || patientId === '' || patientId === 'undefined') {
+      console.error('[EditVisitTabs] Invalid patient_id:', { visitId, patientId, type: typeof patientId });
+      toast.error('Invalid patient ID. Please close this modal and try again.');
     }
   }, [patientId, visitId]);
   
