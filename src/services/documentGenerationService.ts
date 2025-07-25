@@ -1378,7 +1378,8 @@ export class DocumentGenerationService {
               <div class="signature-box">
                 <div class="signature-line"></div>
                 <div class="signature-label">
-                  Medical Practitioner
+                  ${doctor?.full_name || 'Doctor'}<br>
+                  Prescribing Physician
                 </div>
               </div>
             </div>
@@ -1583,13 +1584,11 @@ export class DocumentGenerationService {
           </div>
 
           ${isLastPage ? `
-          <!-- Compact Banking Details Section -->
-          <div style="margin-bottom: 20px; padding: 10px 15px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e5e7eb;">
-            <h3 style="font-size: 10px; font-weight: 600; color: #5f6578; margin: 0 0 6px 0; text-transform: uppercase;">Banking Details</h3>
-            <div style="display: flex; gap: 20px; font-size: 10px; line-height: 1.3;">
-              <span style="color: #6b7280;">Bank: <strong style="color: #1f2937;">${practice.bank_name || ''}</strong></span>
-              <span style="color: #6b7280;">Account: <strong style="color: #1f2937;">${practice.account_number || ''}</strong></span>
-              <span style="color: #6b7280;">Branch: <strong style="color: #1f2937;">${practice.branch_code || ''}</strong></span>
+          <!-- Banking Details Section - Clean Format from Invoice -->
+          <div style="margin-bottom: 20px;">
+            <h3 style="font-size: 10px; font-weight: 600; color: #5f6578; margin: 0 0 6px 0; text-transform: uppercase;">BANKING DETAILS</h3>
+            <div style="font-size: 10px; line-height: 1.5; color: #4b5563;">
+              Bank: ${practice.bank_name || 'FNB Namibia'} Account: ${practice.account_number || '11223344556'} Branch: ${practice.branch_code || '282273'}
             </div>
           </div>
 

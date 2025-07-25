@@ -13,8 +13,6 @@ interface LeaveFormData {
   to_date: string;
   diagnosis: string;
   diagnosis_code?: string;
-  restrictions?: string;
-  notes?: string;
 }
 
 interface LeaveFormTabProps {
@@ -24,23 +22,25 @@ interface LeaveFormTabProps {
   doctorId?: string;
 }
 
+interface LeaveForm {
+  id: string;
+  form_number: string;
+  status: string;
+  issue_date?: string;
+  from_date: string;
+  to_date: string;
+  diagnosis?: string;
+  diagnosis_code?: string;
+  days_off?: number;
+  created_at: string;
+}
+
 const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practiceId, doctorId }) => {
   const { user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
-  interface LeaveForm {
-    id: string;
-    form_number: string;
-    status: string;
-    issue_date?: string;
-    from_date: string;
-    to_date: string;
-    diagnosis?: string;
-    diagnosis_code?: string;
-    restrictions?: string;
-    notes?: string;
-  }
-  
-  const [leaveForm, setLeaveForm] = useState<LeaveForm | null>(null);
+  const [leaveForms, setLeaveForms] = useState<LeaveForm[]>([]);
+  const [editingForm, setEditingForm] = useState<LeaveForm | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const {
@@ -48,7 +48,7 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
     handleSubmit,
     watch,
     reset,
-    formState: { errors, isDirty }
+    formState: { errors }
   } = useForm<LeaveFormData>({
     defaultValues: {
       from_date: format(new Date(), 'yyyy-MM-dd'),
@@ -63,33 +63,25 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
     ? differenceInDays(new Date(toDate), new Date(fromDate)) + 1 
     : 0;
 
-  // Load existing leave form if any
+  // Load all leave forms for this visit
   useEffect(() => {
-    loadLeaveForm();
+    loadLeaveForms();
   }, [visitId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadLeaveForm = async () => {
+  const loadLeaveForms = async () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
         .from('leave_forms')
         .select('*')
         .eq('visit_id', visitId)
-        .maybeSingle();
+        .order('created_at', { ascending: false });
 
-      if (data) {
-        setLeaveForm(data);
-        reset({
-          from_date: format(new Date(data.from_date), 'yyyy-MM-dd'),
-          to_date: format(new Date(data.to_date), 'yyyy-MM-dd'),
-          diagnosis: data.diagnosis || '',
-          diagnosis_code: data.diagnosis_code || '',
-          restrictions: data.restrictions || '',
-          notes: data.notes || ''
-        });
-      }
+      if (error) throw error;
+      setLeaveForms(data || []);
     } catch (err) {
-      console.error('Error loading leave form:', err);
+      console.error('Error loading leave forms:', err);
+      toast.error('Failed to load leave forms');
     } finally {
       setIsLoading(false);
     }
@@ -106,20 +98,19 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
         practice_id: practiceId,
         from_date: data.from_date,
         to_date: data.to_date,
+        days_off: daysOff,
         diagnosis: data.diagnosis,
         diagnosis_code: data.diagnosis_code || null,
-        restrictions: data.restrictions || null,
-        notes: data.notes || null,
         status: 'draft',
         updated_by: user?.id
       };
 
-      if (leaveForm) {
+      if (editingForm) {
         // Update existing
         const { error } = await supabase
           .from('leave_forms')
           .update(leaveFormData)
-          .eq('id', leaveForm.id);
+          .eq('id', editingForm.id);
 
         if (error) throw error;
         toast.success('Leave form updated successfully');
@@ -136,7 +127,16 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
         toast.success('Leave form created successfully');
       }
 
-      loadLeaveForm(); // Reload to get latest data
+      // Reset form and reload
+      setEditingForm(null);
+      setIsFormOpen(false);
+      reset({
+        from_date: format(new Date(), 'yyyy-MM-dd'),
+        to_date: format(new Date(), 'yyyy-MM-dd'),
+        diagnosis: '',
+        diagnosis_code: ''
+      });
+      loadLeaveForms();
     } catch (error) {
       console.error('Error saving leave form:', error);
       toast.error('Failed to save leave form');
@@ -145,12 +145,36 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
     }
   };
 
-  const handleIssueLeaveForm = async () => {
-    if (!leaveForm) {
-      toast.error('Please save the leave form first');
-      return;
-    }
+  const handleEdit = (form: LeaveForm) => {
+    setEditingForm(form);
+    reset({
+      from_date: format(new Date(form.from_date), 'yyyy-MM-dd'),
+      to_date: format(new Date(form.to_date), 'yyyy-MM-dd'),
+      diagnosis: form.diagnosis || '',
+      diagnosis_code: form.diagnosis_code || ''
+    });
+    setIsFormOpen(true);
+  };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this leave form?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('leave_forms')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Leave form deleted successfully');
+      loadLeaveForms();
+    } catch (error) {
+      console.error('Error deleting leave form:', error);
+      toast.error('Failed to delete leave form');
+    }
+  };
+
+  const handleIssueLeaveForm = async (id: string) => {
     try {
       const { error } = await supabase
         .from('leave_forms')
@@ -158,11 +182,11 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
           status: 'issued',
           issue_date: new Date().toISOString()
         })
-        .eq('id', leaveForm.id);
+        .eq('id', id);
 
       if (error) throw error;
       toast.success('Leave form issued successfully');
-      loadLeaveForm();
+      loadLeaveForms();
     } catch (error) {
       console.error('Error issuing leave form:', error);
       toast.error('Failed to issue leave form');
@@ -183,182 +207,223 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      {/* Header with Status */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-1 h-6 bg-[#01b9d4] rounded-full"></div>
-          <h3 className="text-lg font-semibold text-gray-800">Medical Leave Certificate</h3>
-          {leaveForm && (
-            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-              leaveForm.status === 'issued' 
-                ? 'bg-green-100 text-green-700'
-                : leaveForm.status === 'sent'
-                ? 'bg-blue-100 text-blue-700'
-                : 'bg-gray-100 text-gray-700'
-            }`}>
-              {leaveForm.status.charAt(0).toUpperCase() + leaveForm.status.slice(1)}
-            </span>
-          )}
+          <h3 className="text-lg font-semibold text-gray-800">Medical Leave Certificates</h3>
         </div>
-        {leaveForm && leaveForm.form_number && (
-          <div className="text-sm text-gray-600">
-            Form #: <span className="font-medium">{leaveForm.form_number}</span>
-          </div>
-        )}
+        <button
+          onClick={() => {
+            setEditingForm(null);
+            reset({
+              from_date: format(new Date(), 'yyyy-MM-dd'),
+              to_date: format(new Date(), 'yyyy-MM-dd'),
+              diagnosis: '',
+              diagnosis_code: ''
+            });
+            setIsFormOpen(!isFormOpen);
+          }}
+          className="px-4 py-2 bg-[#01b9d4] text-white rounded-lg font-medium hover:bg-[#00a5be] transition-all flex items-center gap-2"
+        >
+          <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />
+          Add Leave Form
+        </button>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Leave Period Section */}
-        <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
-          <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-            <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5 text-blue-500" />
-            Leave Period
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Form */}
+      {isFormOpen && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50"
+        >
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/* Leave Period Section */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
-              <PremiumInput
-                type="date"
-                {...register('from_date', { required: 'From date is required' })}
-                icon="solar:calendar-bold-duotone"
-                iconColor="text-blue-500"
-              />
-              {errors.from_date && (
-                <p className="text-red-500 text-xs mt-1">{errors.from_date.message}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
-              <PremiumInput
-                type="date"
-                {...register('to_date', {
-                  required: 'To date is required',
-                  validate: value => 
-                    new Date(value) >= new Date(fromDate) || 'To date must be after from date'
-                })}
-                icon="solar:calendar-bold-duotone"
-                iconColor="text-blue-500"
-              />
-              {errors.to_date && (
-                <p className="text-red-500 text-xs mt-1">{errors.to_date.message}</p>
-              )}
-            </div>
-            <div className="flex items-end">
-              <div className="w-full p-3 bg-gray-100 rounded-lg text-center">
-                <p className="text-sm text-gray-600">Total Days</p>
-                <p className="text-2xl font-bold text-gray-700">{daysOff}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Medical Details Section */}
-        <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
-          <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-            <Icon icon="solar:health-bold-duotone" className="w-5 h-5 text-purple-500" />
-            Medical Details
-          </h4>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Diagnosis</label>
-                <PremiumInput
-                  type="text"
-                  {...register('diagnosis', { required: 'Diagnosis is required' })}
-                  placeholder="e.g., Acute Upper Respiratory Infection"
-                  icon="solar:health-bold-duotone"
-                  iconColor="text-purple-500"
-                />
-                {errors.diagnosis && (
-                  <p className="text-red-500 text-xs mt-1">{errors.diagnosis.message}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">ICD-10 Code</label>
-                <PremiumInput
-                  type="text"
-                  {...register('diagnosis_code')}
-                  placeholder="e.g., J06.9"
-                  icon="solar:code-bold-duotone"
-                  iconColor="text-indigo-500"
-                />
+              <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5 text-blue-500" />
+                Leave Period
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
+                  <PremiumInput
+                    type="date"
+                    {...register('from_date', { required: 'From date is required' })}
+                    icon="solar:calendar-bold-duotone"
+                    iconColor="text-blue-500"
+                  />
+                  {errors.from_date && (
+                    <p className="text-red-500 text-xs mt-1">{errors.from_date.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
+                  <PremiumInput
+                    type="date"
+                    {...register('to_date', {
+                      required: 'To date is required',
+                      validate: value => 
+                        new Date(value) >= new Date(fromDate) || 'To date must be after from date'
+                    })}
+                    icon="solar:calendar-bold-duotone"
+                    iconColor="text-blue-500"
+                  />
+                  {errors.to_date && (
+                    <p className="text-red-500 text-xs mt-1">{errors.to_date.message}</p>
+                  )}
+                </div>
+                <div className="flex items-end">
+                  <div className="w-full p-3 bg-gray-100 rounded-lg text-center">
+                    <p className="text-sm text-gray-600">Total Days</p>
+                    <p className="text-2xl font-bold text-gray-700">{daysOff}</p>
+                  </div>
+                </div>
               </div>
             </div>
 
+            {/* Medical Details Section */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Special Instructions/Restrictions</label>
-              <PremiumTextarea
-                {...register('restrictions')}
-                rows={3}
-                placeholder="Specify any special instructions or notes for the certificate..."
-                icon="solar:shield-warning-bold-duotone"
-                iconColor="text-yellow-500"
-              />
+              <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <Icon icon="solar:health-bold-duotone" className="w-5 h-5 text-purple-500" />
+                Medical Details
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Diagnosis</label>
+                  <PremiumInput
+                    type="text"
+                    {...register('diagnosis', { required: 'Diagnosis is required' })}
+                    placeholder="e.g., Acute Upper Respiratory Infection"
+                    icon="solar:health-bold-duotone"
+                    iconColor="text-purple-500"
+                  />
+                  {errors.diagnosis && (
+                    <p className="text-red-500 text-xs mt-1">{errors.diagnosis.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">ICD-10 Code</label>
+                  <PremiumInput
+                    type="text"
+                    {...register('diagnosis_code')}
+                    placeholder="e.g., J06.9"
+                    icon="solar:code-bold-duotone"
+                    iconColor="text-indigo-500"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
-
-        {/* Additional Notes */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Additional Notes</label>
-          <PremiumTextarea
-            {...register('notes')}
-            rows={4}
-            placeholder="Any additional information or special instructions..."
-            icon="solar:notes-bold-duotone"
-            iconColor="text-gray-500"
-          />
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between pt-4">
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={isSaving || !isDirty}
-              className={`px-6 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                isDirty
-                  ? 'bg-[#01b9d4] text-white hover:bg-[#00a5be] shadow-lg hover:shadow-xl'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              <Icon icon="solar:diskette-bold-duotone" className="w-5 h-5" />
-              {isSaving ? 'Saving...' : 'Save Leave Form'}
-            </button>
-
-            {leaveForm && leaveForm.status === 'draft' && (
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="px-6 py-2.5 bg-[#01b9d4] text-white rounded-lg font-medium hover:bg-[#00a5be] transition-all flex items-center gap-2"
+              >
+                <Icon icon="solar:diskette-bold-duotone" className="w-5 h-5" />
+                {isSaving ? 'Saving...' : editingForm ? 'Update Leave Form' : 'Save Leave Form'}
+              </button>
               <button
                 type="button"
-                onClick={handleIssueLeaveForm}
-                className="px-6 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-all flex items-center gap-2 shadow-lg hover:shadow-xl"
+                onClick={() => {
+                  setIsFormOpen(false);
+                  setEditingForm(null);
+                }}
+                className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-all"
               >
-                <Icon icon="solar:document-add-bold-duotone" className="w-5 h-5" />
-                Issue Certificate
+                Cancel
               </button>
+            </div>
+          </form>
+        </motion.div>
+      )}
+
+      {/* Leave Forms Table */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Form #</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Period</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Days</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Diagnosis</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {leaveForms.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  No leave forms created yet
+                </td>
+              </tr>
+            ) : (
+              leaveForms.map((form) => (
+                <tr key={form.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {form.form_number || `LF-${form.id.substring(0, 8).toUpperCase()}`}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {format(new Date(form.from_date), 'dd/MM/yyyy')} - {format(new Date(form.to_date), 'dd/MM/yyyy')}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{form.days_off || daysOff}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {form.diagnosis}
+                    {form.diagnosis_code && (
+                      <span className="ml-2 text-gray-500">({form.diagnosis_code})</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      form.status === 'issued' 
+                        ? 'bg-green-100 text-green-700'
+                        : form.status === 'sent'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {form.status.charAt(0).toUpperCase() + form.status.slice(1)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {form.status === 'draft' && (
+                        <>
+                          <button
+                            onClick={() => handleEdit(form)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Edit"
+                          >
+                            <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleIssueLeaveForm(form.id)}
+                            className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                            title="Issue Certificate"
+                          >
+                            <Icon icon="solar:check-circle-bold-duotone" className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={() => handleDelete(form.id)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                        title="Delete"
+                      >
+                        <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
-          </div>
-
-          {leaveForm && leaveForm.status === 'issued' && (
-            <div className="flex gap-3">
-              <button
-                type="button"
-                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg hover:shadow-xl"
-              >
-                <Icon icon="solar:letter-bold-duotone" className="w-5 h-5" />
-                Send via Email
-              </button>
-              <button
-                type="button"
-                className="px-6 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-all flex items-center gap-2 shadow-lg hover:shadow-xl"
-              >
-                <Icon icon="solar:printer-bold-duotone" className="w-5 h-5" />
-                Print
-              </button>
-            </div>
-          )}
-        </div>
-      </form>
+          </tbody>
+        </table>
+      </div>
     </motion.div>
   );
 };
