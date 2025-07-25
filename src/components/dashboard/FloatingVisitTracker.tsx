@@ -521,6 +521,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                               
                               {/* Action buttons - separate row on mobile */}
                               <div className="flex items-center gap-2 sm:ml-auto">
+                                <HandoffCardPrintButtons
+                                  visitId={visit.id}
+                                  patientId={visit.patient_id}
+                                  practiceId={visit.practice_id || practiceId}
+                                />
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -707,6 +712,14 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
 
                                     {/* Status Indicator and Actions - Separate row on mobile */}
                                     <div className="flex items-center gap-2 sm:ml-auto">
+                                      {/* Add print buttons for all visit types except handoff (handoff will have them in a new row) */}
+                                      {category.key !== 'handedoff' && (
+                                        <HandoffCardPrintButtons
+                                          visitId={visit.id}
+                                          patientId={visit.patient_id}
+                                          practiceId={visit.practice_id || practiceId}
+                                        />
+                                      )}
                                       {category.key === 'scheduled' && visit.is_checked_in && (
                                         <>
                                           <button
@@ -765,29 +778,38 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                         </>
                                       )}
                                       {category.key === 'handedoff' && (
-                                        <>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const { completeVisit } = useVisitsStore.getState();
+                                            completeVisit(visit.id);
+                                          }}
+                                          className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md"
+                                        >
+                                          Complete
+                                        </button>
+                                      )}
+                                    </div>
+                                    
+                                    {/* New row for handoff cards with print buttons and ready for checkout badge */}
+                                    {category.key === 'handedoff' && (
+                                      <div className="w-full mt-2 pt-2 border-t border-gray-100">
+                                        <div className="flex items-center justify-between gap-2">
+                                          {/* Ready for checkout badge */}
+                                          <div className="flex items-center gap-1">
+                                            <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
+                                            <span className="text-xs font-medium text-purple-600">Ready for checkout</span>
+                                          </div>
+                                          
+                                          {/* Print buttons */}
                                           <HandoffCardPrintButtons
                                             visitId={visit.id}
                                             patientId={visit.patient_id}
                                             practiceId={visit.practice_id || practiceId}
                                           />
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              const { completeVisit } = useVisitsStore.getState();
-                                              completeVisit(visit.id);
-                                            }}
-                                            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md"
-                                          >
-                                            Complete
-                                          </button>
-                                          <div className="flex items-center gap-1">
-                                            <div className="w-2 h-2 bg-purple-500 rounded-full" />
-                                            <span className="text-xs font-medium text-purple-600">Ready for checkout</span>
-                                          </div>
-                                        </>
-                                      )}
-                                    </div>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                   );
                                 })}

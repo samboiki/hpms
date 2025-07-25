@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Printer, FileText, Receipt, Stethoscope } from 'lucide-react';
+import { Icon } from '@iconify/react';
 import { documentGenerationService } from '../../services/documentGenerationService';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
@@ -9,13 +9,15 @@ interface HandoffCardPrintButtonsProps {
   patientId: string;
   practiceId: string;
   onDocumentGenerated?: () => void;
+  showLabels?: boolean;
 }
 
 export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = ({ 
   visitId, 
   patientId, 
   practiceId,
-  onDocumentGenerated 
+  onDocumentGenerated,
+  showLabels = false 
 }) => {
   const [generatingDocs, setGeneratingDocs] = useState<Record<string, boolean>>({});
   const [existingDocs, setExistingDocs] = useState<Record<string, string>>({});
@@ -134,7 +136,7 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
   };
 
   return (
-    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+    <div className={`flex items-center ${showLabels ? 'gap-2' : 'gap-1'}`} onClick={(e) => e.stopPropagation()}>
       {/* Prescription Button */}
       <button
         onClick={(e) => {
@@ -142,15 +144,16 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
           handleGenerateDocument('prescription');
         }}
         disabled={generatingDocs.prescription}
-        className="p-1.5 hover:bg-blue-50 rounded-md transition-colors group relative"
+        className={`${showLabels ? 'px-3 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg flex items-center gap-2 transition-all hover:scale-105 hover:shadow-md animate-pulse' : 'p-1.5 hover:bg-blue-50 rounded-md transition-colors'} group relative`}
         title="Print Prescription"
       >
         {generatingDocs.prescription ? (
           <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
         ) : (
           <>
-            <Stethoscope className="w-4 h-4 text-blue-600 group-hover:text-blue-700" />
-            {existingDocs.prescription && (
+            <Icon icon="solar:medical-kit-bold-duotone" className="w-5 h-5 text-blue-600 group-hover:text-blue-700" />
+            {showLabels && <span className="text-sm font-medium text-blue-700">Prescription</span>}
+            {existingDocs.prescription && !showLabels && (
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
             )}
           </>
@@ -164,15 +167,16 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
           handleGenerateDocument('leave_form');
         }}
         disabled={generatingDocs.leave_form}
-        className="p-1.5 hover:bg-orange-50 rounded-md transition-colors group relative"
+        className={`${showLabels ? 'px-3 py-2 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg flex items-center gap-2 transition-all hover:scale-105 hover:shadow-md animate-pulse' : 'p-1.5 hover:bg-orange-50 rounded-md transition-colors'} group relative`}
         title="Print Leave Form"
       >
         {generatingDocs.leave_form ? (
           <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
         ) : (
           <>
-            <FileText className="w-4 h-4 text-orange-600 group-hover:text-orange-700" />
-            {existingDocs.leave_form && (
+            <Icon icon="solar:document-text-bold-duotone" className="w-5 h-5 text-orange-600 group-hover:text-orange-700" />
+            {showLabels && <span className="text-sm font-medium text-orange-700">Leave Form</span>}
+            {existingDocs.leave_form && !showLabels && (
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
             )}
           </>
@@ -186,15 +190,16 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
           handleGenerateDocument('invoice');
         }}
         disabled={generatingDocs.invoice}
-        className="p-1.5 hover:bg-green-50 rounded-md transition-colors group relative"
+        className={`${showLabels ? 'px-3 py-2 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg flex items-center gap-2 transition-all hover:scale-105 hover:shadow-md animate-pulse' : 'p-1.5 hover:bg-green-50 rounded-md transition-colors'} group relative`}
         title="Print Invoice"
       >
         {generatingDocs.invoice ? (
           <div className="w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full animate-spin" />
         ) : (
           <>
-            <Receipt className="w-4 h-4 text-green-600 group-hover:text-green-700" />
-            {existingDocs.invoice && (
+            <Icon icon="solar:wallet-bold-duotone" className="w-5 h-5 text-green-600 group-hover:text-green-700" />
+            {showLabels && <span className="text-sm font-medium text-green-700">Invoice</span>}
+            {existingDocs.invoice && !showLabels && (
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
             )}
           </>

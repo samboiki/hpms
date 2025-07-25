@@ -56,10 +56,12 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { useTheme } from '../stores/themeStore';
 import DuotoneIcon from './icons/DuotoneIcon';
+import { Icon } from '@iconify/react';
 import VisitActionModal from './modals/VisitActionModal';
 import BookingRequestModal from './modals/BookingRequestModal';
 import EnhancedSmsModal from './messages/EnhancedSmsModal';
 import { useVisitsStore } from '../stores/visitsStore';
+import { HandoffCardPrintButtons } from './dashboard/HandoffCardPrintButtons';
 
 interface AppointmentPatient {
   id: string;
@@ -251,6 +253,10 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   } = props;
 
   const { currentTheme } = useTheme();
+  
+  // Get practice_id from localStorage
+  const practiceId = localStorage.getItem('selectedPracticeId') || '';
+  
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(
     currentUserRole === 'doctor' ? currentUserId : doctors.length > 0 ? doctors[0].id : null
   );
@@ -961,6 +967,29 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                             {/* Full width grey line */}
                             <div className="h-px bg-gray-200" />
 
+                            {/* Handoff indicator and print actions row */}
+                            <div className="px-4 py-3 bg-purple-50/30 border-b border-purple-100/50">
+                              <div className="flex items-center justify-between gap-3">
+                                {/* Ready for checkout badge */}
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-100 text-purple-700 animate-pulse">
+                                    <Clipboard className="h-4 w-4" />
+                                    <span className="text-sm font-semibold">Ready for checkout</span>
+                                  </div>
+                                </div>
+
+                                {/* Print buttons with labels */}
+                                <div className="flex items-center gap-2">
+                                  <HandoffCardPrintButtons
+                                    visitId={appointment.id}
+                                    patientId={appointment.patient_id}
+                                    practiceId={practiceId}
+                                    showLabels={true}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
                             {/* Bottom section with info and button */}
                             <div className="px-4 py-3">
                               <div className="flex items-center justify-between">
@@ -987,26 +1016,19 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                     <span className="text-xs font-semibold">{appointment.duration}m</span>
                                   </div>
 
-                                  {/* Handoff indicator */}
-                                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-100 text-purple-700">
-                                    <Clipboard className="h-3.5 w-3.5" />
-                                    <span className="text-xs font-semibold">Ready for checkout</span>
-                                  </div>
                                 </div>
 
-                                {/* Action buttons - bottom right */}
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleCompleteVisit(appointment.id);
-                                    }}
-                                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg font-medium flex items-center gap-2 shadow-lg text-sm"
-                                  >
-                                    <CheckCircle2 className="h-4 w-4" />
-                                    <span>Complete</span>
-                                  </button>
-                                </div>
+                                {/* Complete button - bottom right */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCompleteVisit(appointment.id);
+                                  }}
+                                  className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-lg font-medium flex items-center gap-2 shadow-lg text-sm"
+                                >
+                                  <CheckCircle2 className="h-4 w-4" />
+                                  <span>Complete</span>
+                                </button>
                               </div>
                             </div>
                           </div>

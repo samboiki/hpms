@@ -20,6 +20,23 @@
   - Error handling with user-friendly toast messages
   - Only shows buttons for documents with available data
 
+### Enhanced Print Buttons UI (Latest) - 2025-01-25
+- **Dashboard Handoff Cards (`PremiumAppointmentScheduler.tsx`)**:
+  - Print buttons moved to new row below grey divider
+  - Added text labels: "Prescription", "Leave Form", "Invoice"
+  - Solar Bold Duotone icons: medical-kit, document-text, wallet
+  - Buttons have colored backgrounds and animate with pulse effect
+  - "Ready for checkout" badge on same row as print buttons
+  - Purple background row for better visual separation
+- **Floating Visit Tracker**:
+  - Handoff cards: Print buttons on separate row (icons only)
+  - "Ready for checkout" badge with purple dot animation
+  - Other visit types: Print buttons remain inline
+- **`HandoffCardPrintButtons` Component**:
+  - Added `showLabels` prop for conditional text display
+  - Enhanced button styling with hover effects and animations
+  - Uses @iconify/react for Solar icon integration
+
 ---
 
 ## 🚨 QUICK REFERENCE GUIDE
