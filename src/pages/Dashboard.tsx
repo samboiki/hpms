@@ -1190,6 +1190,10 @@ function Dashboard() {
                       {/* Appointment Scheduler */}
                       <div>
                         <PremiumAppointmentScheduler
+                          onEditVisit={(visit) => {
+                            setEditingVisitId(visit.id);
+                            setIsEditVisitModalOpen(true);
+                          }}
                           appointments={visits.map(v => {
                             // Debug logging for website bookings
                             if (v.is_from_website) {

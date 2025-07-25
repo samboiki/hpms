@@ -726,8 +726,10 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
           }}
           onCancel={() => handleRejectVisit(selectedVisitForAction.id, 'Cancelled by practice')}
           onViewDetails={() => {
-            // Navigate to patient details or open patient modal
-            window.location.href = `/patients/${selectedVisitForAction.patient_id}`;
+            // Open edit visit modal instead of navigating
+            handleEditVisit(selectedVisitForAction);
+            setIsActionModalOpen(false);
+            setSelectedVisitForAction(null);
           }}
           onSendSMS={() => {
             setSelectedVisitForSMS(selectedVisitForAction);

@@ -83,7 +83,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
   const { unreadNotificationCount } = useMessagingStore();
   
   // Use visits store instead of appointments
-  const { visits, loading, startVisit } = useVisitsStore();
+  const { visits, loading, startVisit, checkInPatient } = useVisitsStore();
   
   // Get stable references to avoid re-renders
   const fetchTodayVisits = useVisitsStore(state => state.fetchTodayVisits);
@@ -224,13 +224,19 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
     }
   }, [disablePatientModal, onOpenPatientModal]);
 
-  const handleStartVisit = useCallback((visit: any) => {
-    // Open edit visit modal instead of patient modal
-    if (visit) {
-      setSelectedVisitForEdit(visit);
-      setIsEditVisitModalOpen(true);
+  const handleStartVisit = useCallback(async (visit: any) => {
+    // Update visit status to in-progress first
+    if (visit && visit.id) {
+      try {
+        await startVisit(visit.id);
+        // Then open edit visit modal
+        setSelectedVisitForEdit(visit);
+        setIsEditVisitModalOpen(true);
+      } catch (error) {
+        console.error('Error starting visit:', error);
+      }
     }
-  }, []);
+  }, [startVisit]);
 
   return (
     <>
@@ -724,8 +730,24 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                       )}
                                       {category.key === 'scheduled' && !visit.is_checked_in && (
                                         <>
-                                          <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                                          <span className="text-xs font-medium text-blue-600">Scheduled</span>
+                                          <button
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              e.preventDefault();
+                                              try {
+                                                await checkInPatient(visit.id);
+                                              } catch (error) {
+                                                console.error('Error checking in patient:', error);
+                                              }
+                                            }}
+                                            className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-md"
+                                          >
+                                            Check In
+                                          </button>
+                                          <div className="flex items-center gap-1">
+                                            <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                                            <span className="text-xs font-medium text-blue-600">Scheduled</span>
+                                          </div>
                                         </>
                                       )}
                                       {category.key === 'completed' && (

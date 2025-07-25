@@ -128,6 +128,7 @@ interface PremiumAppointmentSchedulerProps {
   onDateChange: (date: Date) => void;
   onAppointmentClick: (appointment: Appointment) => void;
   onEditAppointment?: (appointment: Appointment) => void;
+  onEditVisit?: (visit: any) => void;
   onCreateAppointment: (doctorId: string, date: string, time: string) => void;
   onBlockTime: (doctorId: string, startTime: string, endTime: string, reason: string) => void;
   onDeleteAppointment?: (appointmentId: string) => void;
@@ -2424,7 +2425,13 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
           }}
           onCancel={() => handleCancelVisit(selectedVisitForAction.id)}
           onNoShow={() => handleNoShow(selectedVisitForAction.id)}
-          onViewDetails={() => onAppointmentClick(selectedVisitForAction)}
+          onViewDetails={() => {
+            if (props.onEditVisit) {
+              props.onEditVisit(selectedVisitForAction);
+            } else {
+              onAppointmentClick(selectedVisitForAction);
+            }
+          }}
           onSendSMS={() => {
             setSelectedVisitForSMS(selectedVisitForAction);
             setIsSMSModalOpen(true);
