@@ -48,6 +48,7 @@ import MediaUploadWrapper from '../uploads/MediaUploadWrapper';
 import LabResultsTable from '../requests/LabResultsTable';
 import ImagingTabContentSimple from '../requests/ImagingTabContentSimple';
 import LeaveFormTab from './LeaveFormTab';
+import { PremiumInput, PremiumTextarea, PremiumSelect } from '../ui/PremiumInput';
 
 interface EditVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
@@ -1022,33 +1023,26 @@ const AddVisitTabs: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={() => setIsDatePickerOpen(true)}
-                          className="w-full px-4 py-3 rounded-lg border-0 transition-all duration-200 bg-gray-100 hover:bg-gray-200 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-purple-500 h-[45px]"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white hover:bg-gray-50 hover:border-[#01b9d5]/30 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5]/20 focus:border-[#01b9d5] transition-all duration-200 shadow-sm hover:shadow-md"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-blue-400 to-cyan-500">
-                              <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5 text-white" />
+                            <div className="p-2 rounded-lg bg-gradient-to-br from-[#01b9d5]/10 to-[#4bc0c8]/10">
+                              <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5 text-[#01b9d5]" />
                             </div>
                             <div>
-                              {watch('visit_date') ? (
-                                <>
-                                  <p className="text-sm font-semibold text-gray-900">
-                                    {watch('visit_date').toLocaleDateString('en-US', { 
-                                      month: 'short', 
-                                      day: 'numeric', 
-                                      year: 'numeric' 
-                                    })}
-                                  </p>
-                                  <p className="text-xs text-gray-500">Visit date</p>
-                                </>
-                              ) : (
-                                <>
-                                  <p className="text-sm font-semibold text-gray-900">Select Date</p>
-                                  <p className="text-xs text-gray-500">Choose visit date</p>
-                                </>
-                              )}
+                              <p className="text-xs text-gray-500 font-medium">Encounter Date</p>
+                              <p className="text-sm font-semibold text-gray-900">
+                                {watch('visit_date') ? 
+                                  watch('visit_date').toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric', 
+                                    year: 'numeric' 
+                                  }) : 'Select date'
+                                }
+                              </p>
                             </div>
                           </div>
-                          <Icon icon="solar:alt-arrow-down-bold-duotone" className="w-5 h-5 transition-transform text-gray-400" />
+                          <Icon icon="solar:alt-arrow-down-bold-duotone" className="w-5 h-5 text-[#01b9d5]/60" />
                         </button>
                       </div>
                       {errors.visit_date && (
@@ -1064,22 +1058,25 @@ const AddVisitTabs: React.FC<Props> = ({
                         <button
                           type="button"
                           onClick={() => setIsTimePickerOpen(true)}
-                          className="w-full px-4 py-3 rounded-lg border-0 transition-all duration-200 bg-gray-100 hover:bg-gray-200 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-purple-500 h-[45px]"
+                          className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white hover:bg-gray-50 hover:border-[#01b9d5]/30 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-[#01b9d5]/20 focus:border-[#01b9d5] transition-all duration-200 shadow-sm hover:shadow-md"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-purple-400 to-pink-500">
-                              <Icon icon="solar:clock-circle-bold-duotone" className="w-5 h-5 text-white" />
+                            <div className="p-2 rounded-lg bg-gradient-to-br from-[#4bc0c8]/10 to-[#01b9d5]/10">
+                              <Icon icon="solar:clock-circle-bold-duotone" className="w-5 h-5 text-[#4bc0c8]" />
                             </div>
                             <div>
+                              <p className="text-xs text-gray-500 font-medium">Encounter Time</p>
                               <p className="text-sm font-semibold text-gray-900">
-                                {selectedHour}:{selectedMinute}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {parseInt(selectedHour) >= 12 ? 'PM' : 'AM'}
+                                {(() => {
+                                  const hour = parseInt(selectedHour);
+                                  const period = hour >= 12 ? 'PM' : 'AM';
+                                  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+                                  return `${displayHour}:${selectedMinute} ${period}`;
+                                })()}
                               </p>
                             </div>
                           </div>
-                          <Icon icon="solar:clock-circle-bold-duotone" className="w-5 h-5 transition-transform text-gray-400" />
+                          <Icon icon="solar:alt-arrow-down-bold-duotone" className="w-5 h-5 text-[#4bc0c8]/60" />
                         </button>
                       </div>
                     </div>
@@ -1094,7 +1091,7 @@ const AddVisitTabs: React.FC<Props> = ({
                       <button
                         type="button"
                         onClick={() => setIsVisitTypeModalOpen(true)}
-                        className="w-full px-4 py-3 rounded-lg border-0 transition-all duration-200 bg-gray-100 hover:bg-gray-200 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-purple-500 h-[45px]"
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white hover:bg-gray-50 hover:border-amber-500/30 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all duration-200 shadow-sm hover:shadow-md"
                       >
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-amber-400 to-orange-500">
@@ -1137,7 +1134,7 @@ const AddVisitTabs: React.FC<Props> = ({
                         type="button"
                         onClick={() => !appointmentDoctor && !loadingDoctors && setIsDoctorModalOpen(true)}
                         disabled={!!appointmentDoctor || loadingDoctors}
-                        className="w-full px-4 py-3 rounded-lg border-0 transition-all duration-200 bg-gray-100 hover:bg-gray-200 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-purple-500 h-[45px] disabled:bg-gray-200 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white hover:bg-gray-50 hover:border-emerald-500/30 text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <div className="flex items-center gap-3">
                           <div className="p-2 rounded-lg bg-gradient-to-br shadow-sm from-green-400 to-emerald-500">
@@ -1173,23 +1170,24 @@ const AddVisitTabs: React.FC<Props> = ({
             </div>
 
             {/* Chief Complaint Section */}
-            <div>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
               <div className="flex items-center mb-4">
                 <div className="p-2 rounded-lg bg-gradient-to-br from-red-500 to-pink-600 shadow-md">
                   <Icon icon="solar:clipboard-text-bold-duotone" className="w-5 h-5 text-white" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-800 ml-3">Chief Complaint</h3>
-              </div>
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
-                <div className="relative">
-                  <input
-                    type="text"
-                    {...register('chief_complaint', { required: 'Chief complaint is required' })}
-                    className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all pl-10 hover:bg-gray-200"
-                    placeholder="Primary reason for visit"
-                  />
-                  <Icon icon="solar:danger-circle-bold-duotone" className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-red-500" />
+                <div className="ml-3">
+                  <h3 className="text-lg font-semibold text-gray-800">Chief Complaint</h3>
+                  <p className="text-sm text-gray-600">Primary reason for today's visit</p>
                 </div>
+              </div>
+              <div>
+                <PremiumInput
+                  type="text"
+                  {...register('chief_complaint', { required: 'Chief complaint is required' })}
+                  icon="solar:danger-circle-bold-duotone"
+                  iconColor="text-red-500"
+                  placeholder="Primary reason for visit"
+                />
                 {errors.chief_complaint && (
                   <p className="text-sm text-red-600 mt-1">{errors.chief_complaint.message}</p>
                 )}
@@ -1197,75 +1195,73 @@ const AddVisitTabs: React.FC<Props> = ({
             </div>
 
             {/* Clinical Assessment Section */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <div className="w-1 h-5 bg-green-600 rounded-full"></div>
-                Clinical Assessment
-              </h3>
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Diagnosis
-                    </label>
-                    <div className="relative">
-                      <textarea
-                        {...register('diagnosis', { required: 'Diagnosis is required' })}
-                        rows={4}
-                        className="w-full p-3 bg-white border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all pl-10 resize-none"
-                        placeholder="Clinical diagnosis and findings"
-                      />
-                      <ClipboardList className="absolute left-3 top-3 w-4 h-4 text-green-500" />
-                    </div>
-                    {errors.diagnosis && (
-                      <p className="text-sm text-red-600 mt-1">{errors.diagnosis.message}</p>
-                    )}
-                  </div>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <div className="flex items-center mb-4">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 shadow-md">
+                  <Icon icon="solar:health-bold-duotone" className="w-5 h-5 text-white" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-lg font-semibold text-gray-800">Clinical Assessment</h3>
+                  <p className="text-sm text-gray-600">Diagnosis and treatment planning</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Diagnosis
+                  </label>
+                  <PremiumTextarea
+                    {...register('diagnosis', { required: 'Diagnosis is required' })}
+                    rows={4}
+                    icon="solar:clipboard-text-bold-duotone"
+                    iconColor="text-green-500"
+                    placeholder="Clinical diagnosis and findings"
+                  />
+                  {errors.diagnosis && (
+                    <p className="text-sm text-red-600 mt-1">{errors.diagnosis.message}</p>
+                  )}
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Treatment Plan
-                    </label>
-                    <div className="relative">
-                      <textarea
-                        {...register('treatment_plan', { required: 'Treatment plan is required' })}
-                        rows={4}
-                        className="w-full p-3 bg-white border-2 border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all pl-10 resize-none"
-                        placeholder="Recommended treatment and procedures"
-                      />
-                      <Stethoscope className="absolute left-3 top-3 w-4 h-4 text-blue-500" />
-                    </div>
-                    {errors.treatment_plan && (
-                      <p className="text-sm text-red-600 mt-1">{errors.treatment_plan.message}</p>
-                    )}
-                  </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Treatment Plan
+                  </label>
+                  <PremiumTextarea
+                    {...register('treatment_plan', { required: 'Treatment plan is required' })}
+                    rows={4}
+                    icon="solar:stethoscope-bold-duotone"
+                    iconColor="text-blue-500"
+                    placeholder="Recommended treatment and procedures"
+                  />
+                  {errors.treatment_plan && (
+                    <p className="text-sm text-red-600 mt-1">{errors.treatment_plan.message}</p>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Additional Information Section */}
-            <div>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
               <div className="flex items-center mb-4">
                 <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 shadow-md">
                   <Icon icon="solar:notes-bold-duotone" className="w-5 h-5 text-white" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-800 ml-3">Additional Information</h3>
-              </div>
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Clinical Notes
-                  </label>
-                  <div className="relative">
-                    <textarea
-                      {...register('notes')}
-                      rows={3}
-                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all pl-10 resize-none hover:bg-gray-200"
-                      placeholder="Additional notes and observations (optional)"
-                    />
-                    <Icon icon="solar:chat-square-text-bold-duotone" className="absolute left-3 top-3 w-5 h-5 text-purple-500" />
-                  </div>
+                <div className="ml-3">
+                  <h3 className="text-lg font-semibold text-gray-800">Additional Information</h3>
+                  <p className="text-sm text-gray-600">Notes and observations</p>
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Clinical Notes
+                </label>
+                <PremiumTextarea
+                  {...register('notes')}
+                  rows={3}
+                  icon="solar:chat-square-text-bold-duotone"
+                  iconColor="text-purple-500"
+                  placeholder="Additional notes and observations (optional)"
+                />
               </div>
             </div>
           </motion.div>
@@ -1302,22 +1298,26 @@ const AddVisitTabs: React.FC<Props> = ({
                 </button>
                 <div className="flex items-center gap-2">
                   {/* Month Dropdown */}
-                  <select
+                  <PremiumSelect
                     value={currentMonth}
                     onChange={(e) => setCurrentMonth(parseInt(e.target.value))}
-                    className="text-lg font-bold text-gray-800 bg-transparent border border-gray-300 rounded-lg px-3 py-1 focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                    icon="solar:calendar-bold-duotone"
+                    iconColor="text-cyan-500"
+                    className="text-lg font-bold"
                   >
                     {Array.from({ length: 12 }, (_, i) => (
                       <option key={i} value={i}>
                         {new Date(currentYear, i).toLocaleDateString('en-US', { month: 'long' })}
                       </option>
                     ))}
-                  </select>
+                  </PremiumSelect>
                   {/* Year Dropdown */}
-                  <select
+                  <PremiumSelect
                     value={currentYear}
                     onChange={(e) => setCurrentYear(parseInt(e.target.value))}
-                    className="text-lg font-bold text-gray-800 bg-transparent border border-gray-300 rounded-lg px-3 py-1 focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                    icon="solar:calendar-date-bold-duotone"
+                    iconColor="text-cyan-500"
+                    className="text-lg font-bold"
                   >
                     {Array.from({ length: 50 }, (_, i) => {
                       const year = new Date().getFullYear() - 25 + i;
@@ -1327,7 +1327,7 @@ const AddVisitTabs: React.FC<Props> = ({
                         </option>
                       );
                     })}
-                  </select>
+                  </PremiumSelect>
                 </div>
                 <button 
                   onClick={() => {
@@ -1490,7 +1490,7 @@ const AddVisitTabs: React.FC<Props> = ({
                       <ChevronUp className="w-5 h-5 text-gray-400" />
                     </button>
                     <div className="my-2">
-                      <input 
+                      <PremiumInput
                         type="text" 
                         value={selectedHour}
                         onChange={(e) => {
@@ -1499,7 +1499,9 @@ const AddVisitTabs: React.FC<Props> = ({
                             setSelectedHour(value.padStart(2, '0'));
                           }
                         }}
-                        className="w-16 h-16 text-2xl font-bold text-center rounded-lg border-2 border-gray-200 focus:border-[#01b9d5] focus:outline-none"
+                        className="w-16 h-16 text-2xl font-bold text-center"
+                        icon="solar:clock-circle-bold-duotone"
+                        iconColor="text-cyan-500"
                       />
                     </div>
                     <button 
@@ -1529,7 +1531,7 @@ const AddVisitTabs: React.FC<Props> = ({
                       <ChevronUp className="w-5 h-5 text-gray-400" />
                     </button>
                     <div className="my-2">
-                      <input 
+                      <PremiumInput
                         type="text" 
                         value={selectedMinute}
                         onChange={(e) => {
@@ -1538,7 +1540,9 @@ const AddVisitTabs: React.FC<Props> = ({
                             setSelectedMinute(value.padStart(2, '0'));
                           }
                         }}
-                        className="w-16 h-16 text-2xl font-bold text-center rounded-lg border-2 border-gray-200 focus:border-[#01b9d5] focus:outline-none"
+                        className="w-16 h-16 text-2xl font-bold text-center"
+                        icon="solar:clock-circle-bold-duotone"
+                        iconColor="text-cyan-500"
                       />
                     </div>
                     <button 
@@ -1936,67 +1940,81 @@ const AddVisitTabs: React.FC<Props> = ({
             className="space-y-8"
           >
             {/* Primary Vitals Section */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <div className="w-1 h-5 bg-[#01b9d4] rounded-full"></div>
-                Primary Vitals
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-gradient-to-br from-red-50 to-red-100/50 p-4 rounded-xl border border-red-200/50">
-                  <label className="block text-sm font-semibold text-red-700 mb-2">Blood Pressure</label>
-                  <input
-                    type="text"
-                    {...register('vitals.blood_pressure')}
-                    placeholder="120/80"
-                    className="w-full p-3 bg-white border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
-                  />
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+              <div className="flex items-center mb-4">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-red-500 to-orange-600 shadow-md">
+                  <Icon icon="solar:heart-pulse-bold-duotone" className="w-5 h-5 text-white" />
                 </div>
-                <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 p-4 rounded-xl border border-orange-200/50">
-                  <label className="block text-sm font-semibold text-orange-700 mb-2">Temperature (°C)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    {...register('vitals.temperature')}
-                    placeholder="36.5"
-                    className="w-full p-3 bg-white border border-orange-200 rounded-lg focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
-                  />
+                <div className="ml-3">
+                  <h3 className="text-lg font-semibold text-gray-800">Primary Vitals</h3>
+                  <p className="text-sm text-gray-600">Record patient vital signs</p>
                 </div>
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 p-4 rounded-xl border border-purple-200/50">
-                  <label className="block text-sm font-semibold text-purple-700 mb-2">Pulse (bpm)</label>
-                  <input
-                    type="number"
-                    {...register('vitals.pulse_rate')}
-                    placeholder="72"
-                    className="w-full p-3 bg-white border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all"
-                  />
-                </div>
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 p-4 rounded-xl border border-blue-200/50">
-                  <label className="block text-sm font-semibold text-blue-700 mb-2">Respiratory Rate</label>
-                  <input
-                    type="number"
-                    {...register('vitals.respiratory_rate')}
-                    placeholder="16"
-                    className="w-full p-3 bg-white border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                  />
-                </div>
-                <div className="bg-gradient-to-br from-cyan-50 to-cyan-100/50 p-4 rounded-xl border border-cyan-200/50">
-                  <label className="block text-sm font-semibold text-cyan-700 mb-2">Oxygen Saturation (%)</label>
-                  <input
-                    type="number"
-                    {...register('vitals.oxygen_saturation')}
-                    placeholder="98"
-                    className="w-full p-3 bg-white border border-cyan-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500 transition-all"
-                  />
+              </div>
+              <div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Blood Pressure</label>
+                    <PremiumInput
+                      type="text"
+                      {...register('vitals.blood_pressure')}
+                      placeholder="120/80"
+                      icon="solar:heart-bold-duotone"
+                      iconColor="text-red-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Temperature (°C)</label>
+                    <PremiumInput
+                      type="number"
+                      step="0.1"
+                      {...register('vitals.temperature')}
+                      placeholder="36.5"
+                      icon="solar:temperature-bold-duotone"
+                      iconColor="text-orange-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Pulse (bpm)</label>
+                    <PremiumInput
+                      type="number"
+                      {...register('vitals.pulse_rate')}
+                      placeholder="72"
+                      icon="solar:pulse-bold-duotone"
+                      iconColor="text-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Respiratory Rate</label>
+                    <PremiumInput
+                      type="number"
+                      {...register('vitals.respiratory_rate')}
+                      placeholder="16"
+                      icon="solar:wind-bold-duotone"
+                      iconColor="text-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Oxygen Saturation (%)</label>
+                    <PremiumInput
+                      type="number"
+                      {...register('vitals.oxygen_saturation')}
+                      placeholder="98"
+                      icon="solar:cloud-bold-duotone"
+                      iconColor="text-cyan-500"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Body Measurements Section */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                <div className="w-1 h-5 bg-purple-600 rounded-full"></div>
-                Body Measurements
-              </h3>
+              <div className="flex items-center mb-4">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 shadow-md">
+                  <Icon icon="solar:ruler-bold-duotone" className="w-5 h-5 text-white" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800 ml-3">Body Measurements</h3>
+              </div>
               <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
@@ -2007,9 +2025,9 @@ const AddVisitTabs: React.FC<Props> = ({
                         step="0.1"
                         {...register('vitals.weight')}
                         placeholder="70.0"
-                        className="w-full p-3 bg-white border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition-all pl-10"
+                        className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all pl-10 hover:bg-gray-200"
                       />
-                      <Weight className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-green-500" />
+                      <Icon icon="solar:scale-bold-duotone" className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-green-500" />
                     </div>
                   </div>
                   <div>
@@ -2020,9 +2038,9 @@ const AddVisitTabs: React.FC<Props> = ({
                         step="0.1"
                         {...register('vitals.height')}
                         placeholder="175.0"
-                        className="w-full p-3 bg-white border-2 border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all pl-10"
+                        className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all pl-10 hover:bg-gray-200"
                       />
-                      <Thermometer className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-500 rotate-90" />
+                      <Icon icon="solar:ruler-pen-bold-duotone" className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-blue-500" />
                     </div>
                   </div>
                   <div>
@@ -2037,9 +2055,9 @@ const AddVisitTabs: React.FC<Props> = ({
                         {...register('vitals.bmi')}
                         value={watch('vitals.bmi') || ''}
                         readOnly
-                        className="w-full p-3 bg-gray-100 border-2 border-gray-300 rounded-lg text-gray-600 cursor-not-allowed pl-10"
+                        className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg text-gray-600 cursor-not-allowed pl-10"
                       />
-                      <Activity className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Icon icon="solar:chart-bold-duotone" className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     </div>
                     {watch('vitals.bmi') && (
                       <p className="text-xs mt-1 text-gray-500">
@@ -2103,7 +2121,7 @@ const AddVisitTabs: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={refreshMedications}
-                  className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-1"
+                  className="px-4 py-2 text-sm bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-blue-50 hover:border-blue-500/30 hover:text-blue-700 transition-all duration-200 flex items-center gap-2 shadow-sm hover:shadow-md"
                 >
                   <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4" />
                   Refresh
@@ -2115,17 +2133,18 @@ const AddVisitTabs: React.FC<Props> = ({
                 <h4 className="text-md font-semibold text-gray-700 mb-4">Add New Medication</h4>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Medication Name</label>
-                    <input
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Medication Name</label>
+                    <PremiumInput
                       type="text"
                       value={newMedication.medication_name}
                       onChange={(e) => setNewMedication({...newMedication, medication_name: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-sm hover:bg-gray-200"
                       placeholder="e.g., Amoxicillin"
+                      icon="solar:pills-bold-duotone"
+                      iconColor="text-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Dosage</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Dosage</label>
                     <button
                       type="button"
                       onClick={(e) => {
@@ -2133,7 +2152,7 @@ const AddVisitTabs: React.FC<Props> = ({
                         e.stopPropagation();
                         setIsDosageModalOpen(true);
                       }}
-                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-sm text-left flex items-center justify-between"
+                      className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 hover:border-blue-500/30 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-sm text-left flex items-center justify-between shadow-sm hover:shadow-md"
                     >
                       <span className={newMedication.dosage ? 'text-gray-900' : 'text-gray-500'}>
                         {newMedication.dosage || 'Select dosage'}
@@ -2142,7 +2161,7 @@ const AddVisitTabs: React.FC<Props> = ({
                     </button>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Frequency</label>
                     <button
                       type="button"
                       onClick={(e) => {
@@ -2150,7 +2169,7 @@ const AddVisitTabs: React.FC<Props> = ({
                         e.stopPropagation();
                         setIsFrequencyModalOpen(true);
                       }}
-                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-sm text-left flex items-center justify-between"
+                      className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 hover:border-blue-500/30 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-sm text-left flex items-center justify-between shadow-sm hover:shadow-md"
                     >
                       <span className={newMedication.frequency ? 'text-gray-900' : 'text-gray-500'}>
                         {newMedication.frequency || 'Select frequency'}
@@ -2159,7 +2178,7 @@ const AddVisitTabs: React.FC<Props> = ({
                     </button>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Duration</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Duration</label>
                     <button
                       type="button"
                       onClick={(e) => {
@@ -2167,7 +2186,7 @@ const AddVisitTabs: React.FC<Props> = ({
                         e.stopPropagation();
                         setIsDurationModalOpen(true);
                       }}
-                      className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all text-sm text-left flex items-center justify-between"
+                      className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 hover:border-blue-500/30 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 text-sm text-left flex items-center justify-between shadow-sm hover:shadow-md"
                     >
                       <span className={newMedication.duration ? 'text-gray-900' : 'text-gray-500'}>
                         {newMedication.duration || 'Select duration'}
@@ -2192,14 +2211,14 @@ const AddVisitTabs: React.FC<Props> = ({
                           });
                         }
                       }}
-                      className="w-full p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all text-sm font-medium"
+                      className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-xl hover:from-blue-600 hover:to-cyan-700 transition-all duration-200 text-sm font-semibold shadow-md hover:shadow-lg transform hover:scale-[1.02]"
                     >
                       Add
                     </button>
                   </div>
                 </div>
                 <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Special Instructions</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Special Instructions</label>
                   <button
                     type="button"
                     onClick={(e) => {
@@ -2207,7 +2226,7 @@ const AddVisitTabs: React.FC<Props> = ({
                       e.stopPropagation();
                       setIsInstructionsModalOpen(true);
                     }}
-                    className="w-full p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-left flex items-center justify-between"
+                    className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl hover:bg-gray-50 hover:border-purple-500/30 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-200 text-sm text-left flex items-center justify-between shadow-sm hover:shadow-md"
                   >
                     <span className={newMedication.instructions ? 'text-gray-900' : 'text-gray-500'}>
                       {newMedication.instructions || 'Select special instructions'}

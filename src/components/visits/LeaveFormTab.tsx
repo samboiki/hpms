@@ -6,6 +6,7 @@ import { format, differenceInDays } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
+import { PremiumInput, PremiumTextarea } from '../ui/PremiumInput';
 
 interface LeaveFormData {
   from_date: string;
@@ -232,18 +233,19 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Leave Period Section */}
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100/30 p-6 rounded-xl border border-blue-200/50">
-          <h4 className="text-sm font-semibold text-blue-700 mb-4 flex items-center gap-2">
-            <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5" />
+        <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
+          <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+            <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5 text-blue-500" />
             Leave Period
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
-              <input
+              <PremiumInput
                 type="date"
                 {...register('from_date', { required: 'From date is required' })}
-                className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                icon="solar:calendar-bold-duotone"
+                iconColor="text-blue-500"
               />
               {errors.from_date && (
                 <p className="text-red-500 text-xs mt-1">{errors.from_date.message}</p>
@@ -251,43 +253,45 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
-              <input
+              <PremiumInput
                 type="date"
                 {...register('to_date', {
                   required: 'To date is required',
                   validate: value => 
                     new Date(value) >= new Date(fromDate) || 'To date must be after from date'
                 })}
-                className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                icon="solar:calendar-bold-duotone"
+                iconColor="text-blue-500"
               />
               {errors.to_date && (
                 <p className="text-red-500 text-xs mt-1">{errors.to_date.message}</p>
               )}
             </div>
             <div className="flex items-end">
-              <div className="w-full p-3 bg-blue-100 rounded-lg text-center">
-                <p className="text-sm text-blue-600">Total Days</p>
-                <p className="text-2xl font-bold text-blue-700">{daysOff}</p>
+              <div className="w-full p-3 bg-gray-100 rounded-lg text-center">
+                <p className="text-sm text-gray-600">Total Days</p>
+                <p className="text-2xl font-bold text-gray-700">{daysOff}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Medical Details Section */}
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100/30 p-6 rounded-xl border border-purple-200/50">
-          <h4 className="text-sm font-semibold text-purple-700 mb-4 flex items-center gap-2">
-            <Icon icon="solar:health-bold-duotone" className="w-5 h-5" />
+        <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
+          <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+            <Icon icon="solar:health-bold-duotone" className="w-5 h-5 text-purple-500" />
             Medical Details
           </h4>
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Diagnosis</label>
-                <input
+                <PremiumInput
                   type="text"
                   {...register('diagnosis', { required: 'Diagnosis is required' })}
                   placeholder="e.g., Acute Upper Respiratory Infection"
-                  className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                  icon="solar:health-bold-duotone"
+                  iconColor="text-purple-500"
                 />
                 {errors.diagnosis && (
                   <p className="text-red-500 text-xs mt-1">{errors.diagnosis.message}</p>
@@ -295,11 +299,12 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">ICD-10 Code</label>
-                <input
+                <PremiumInput
                   type="text"
                   {...register('diagnosis_code')}
                   placeholder="e.g., J06.9"
-                  className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                  icon="solar:code-bold-duotone"
+                  iconColor="text-indigo-500"
                 />
               </div>
             </div>
@@ -316,7 +321,7 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
                     key={status.value}
                     className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
                       fitnessStatus === status.value
-                        ? `border-${status.color}-500 bg-${status.color}-50`
+                        ? 'border-gray-300 bg-gray-50'
                         : 'border-gray-200 bg-white hover:border-gray-300'
                     }`}
                   >
@@ -330,7 +335,7 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
                       icon={status.icon} 
                       className={`w-6 h-6 ${
                         fitnessStatus === status.value 
-                          ? `text-${status.color}-600` 
+                          ? status.color === 'red' ? 'text-red-600' : status.color === 'yellow' ? 'text-yellow-600' : 'text-green-600'
                           : 'text-gray-400'
                       }`} 
                     />
@@ -351,11 +356,12 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
                 exit={{ opacity: 0, height: 0 }}
               >
                 <label className="block text-sm font-medium text-gray-700 mb-2">Restrictions/Limitations</label>
-                <textarea
+                <PremiumTextarea
                   {...register('restrictions')}
                   rows={3}
                   placeholder="Specify work restrictions or limitations..."
-                  className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                  icon="solar:shield-warning-bold-duotone"
+                  iconColor="text-yellow-500"
                 />
               </motion.div>
             )}
@@ -363,37 +369,39 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
         </div>
 
         {/* Patient Information Section */}
-        <div className="bg-gradient-to-br from-green-50 to-green-100/30 p-6 rounded-xl border border-green-200/50">
-          <h4 className="text-sm font-semibold text-green-700 mb-4 flex items-center gap-2">
-            <Icon icon="solar:user-id-bold-duotone" className="w-5 h-5" />
+        <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
+          <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+            <Icon icon="solar:user-id-bold-duotone" className="w-5 h-5 text-green-500" />
             Patient Employment Information
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Employer</label>
-              <input
+              <PremiumInput
                 type="text"
                 {...register('patient_employer')}
                 placeholder="Company/Organization name"
-                className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                icon="solar:buildings-bold-duotone"
+                iconColor="text-green-500"
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Occupation</label>
-              <input
+              <PremiumInput
                 type="text"
                 {...register('patient_occupation')}
                 placeholder="Job title/position"
-                className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                icon="solar:briefcase-bold-duotone"
+                iconColor="text-green-500"
               />
             </div>
           </div>
         </div>
 
         {/* Follow-up Section */}
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100/30 p-6 rounded-xl border border-orange-200/50">
-          <h4 className="text-sm font-semibold text-orange-700 mb-4 flex items-center gap-2">
-            <Icon icon="solar:calendar-add-bold-duotone" className="w-5 h-5" />
+        <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
+          <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+            <Icon icon="solar:calendar-add-bold-duotone" className="w-5 h-5 text-orange-500" />
             Follow-up Information
           </h4>
           <div className="space-y-4">
@@ -413,10 +421,11 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
                 exit={{ opacity: 0, height: 0 }}
               >
                 <label className="block text-sm font-medium text-gray-700 mb-2">Follow-up Date</label>
-                <input
+                <PremiumInput
                   type="date"
                   {...register('follow_up_date')}
-                  className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+                  icon="solar:calendar-add-bold-duotone"
+                  iconColor="text-orange-500"
                 />
               </motion.div>
             )}
@@ -426,11 +435,12 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
         {/* Additional Notes */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Additional Notes</label>
-          <textarea
+          <PremiumTextarea
             {...register('notes')}
             rows={4}
             placeholder="Any additional information or special instructions..."
-            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
+            icon="solar:notes-bold-duotone"
+            iconColor="text-gray-500"
           />
         </div>
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
+import { Icon } from '@iconify/react';
 import {
   X,
   FileText,
@@ -196,7 +197,6 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
       <div className="px-4 sm:px-6">
         <div className="flex overflow-x-auto scrollbar-none sm:overflow-x-visible" role="tablist">
           {tabs.map((tab, index) => {
-            const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             const isHovered = hoveredTab === tab.id;
             

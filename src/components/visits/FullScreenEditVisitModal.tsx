@@ -1,20 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
-import {
-  X,
-  FileText,
-  Activity,
-  Pill,
-  Microscope,
-  ImageIcon,
-  Film,
-  Wallet,
-  Loader2,
-  Stethoscope,
-  CalendarCheck,
-  Plus
-} from 'lucide-react';
+import { Icon } from '@iconify/react';
+import { Pill, Activity, ImageIcon, Wallet, Microscope, Film } from 'lucide-react';
 import FullScreenModal from '../ui/FullScreenModal';
 import EditVisitTabs from './EditVisitTabs';
 import FormModal from '../modals/FormModal';
@@ -50,7 +38,7 @@ interface Visit {
 interface Tab {
   id: string;
   label: string;
-  icon: React.ElementType;
+  icon: string;
   tooltip?: string;
 }
 
@@ -58,49 +46,49 @@ const tabs: Tab[] = [
   {
     id: 'general',
     label: 'General',
-    icon: FileText,
+    icon: 'solar:document-bold-duotone',
     tooltip: 'Visit details and clinical notes'
   },
   {
     id: 'vitals',
     label: 'Vitals',
-    icon: Activity,
+    icon: 'solar:heart-pulse-bold-duotone',
     tooltip: 'Vital signs and measurements'
   },
   {
     id: 'medications',
     label: 'Medications',
-    icon: Pill,
+    icon: 'solar:pill-bold-duotone',
     tooltip: 'Prescriptions and medications'
   },
   {
     id: 'leave',
     label: 'Leave Form',
-    icon: FileText,
+    icon: 'solar:document-text-bold-duotone',
     tooltip: 'Medical leave certificates'
   },
   {
     id: 'billing',
     label: 'Billing',
-    icon: Wallet,
+    icon: 'solar:wallet-bold-duotone',
     tooltip: 'Services and billing information'
   },
   {
     id: 'media',
     label: 'Media',
-    icon: ImageIcon,
+    icon: 'solar:gallery-bold-duotone',
     tooltip: 'Photos and media files'
   },
   {
     id: 'laboratory',
     label: 'Laboratory',
-    icon: Microscope,
+    icon: 'solar:test-tube-bold-duotone',
     tooltip: 'Laboratory tests and results'
   },
   {
     id: 'imaging',
     label: 'Imaging',
-    icon: Film,
+    icon: 'solar:camera-bold-duotone',
     tooltip: 'Medical imaging and scans'
   }
 ];
@@ -167,7 +155,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
       <div className="relative flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-            <Stethoscope className="w-6 h-6" />
+            <Icon icon="solar:stethoscope-bold-duotone" className="w-6 h-6" />
           </div>
           <div>
             <h2 className="text-2xl font-bold">Edit Visit</h2>
@@ -187,7 +175,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
           }}
           className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
         >
-          <X className="w-5 h-5" />
+          <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
         </button>
       </div>
     </div>
@@ -309,7 +297,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
       return (
         <div className="flex items-center justify-center h-96">
           <div className="flex items-center gap-3">
-            <Loader2 className="w-5 h-5 animate-spin text-purple-600" />
+            <Icon icon="solar:refresh-bold-duotone" className="w-5 h-5 animate-spin text-purple-600" />
             <span className="text-gray-600">Loading visit details...</span>
           </div>
         </div>
@@ -327,7 +315,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-100 rounded-lg">
-                      <FileText className="w-5 h-5 text-blue-600" />
+                      <Icon icon="solar:document-bold-duotone" className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -343,7 +331,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                     }}
                     className="px-4 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2 bg-blue-100 text-blue-600 hover:bg-blue-200"
                   >
-                    <CalendarCheck className="w-4 h-4" />
+                    <Icon icon="solar:calendar-check-bold-duotone" className="w-4 h-4" />
                     Schedule Follow-up
                   </button>
                 </div>
@@ -353,7 +341,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
               {activeTab === 'vitals' && (
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-red-100 rounded-lg">
-                    <Activity className="w-5 h-5 text-red-600" />
+                    <Icon icon="solar:heart-pulse-bold-duotone" className="w-5 h-5 text-red-600" />
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -367,7 +355,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
               {activeTab === 'medications' && (
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-orange-100 rounded-lg">
-                    <Pill className="w-5 h-5 text-orange-600" />
+                    <Icon icon="solar:pill-bold-duotone" className="w-5 h-5 text-orange-600" />
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -381,7 +369,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
               {activeTab === 'laboratory' && (
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-green-100 rounded-lg">
-                    <Microscope className="w-5 h-5 text-green-600" />
+                    <Icon icon="solar:test-tube-bold-duotone" className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -395,7 +383,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
               {activeTab === 'imaging' && (
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-100 rounded-lg">
-                    <Film className="w-5 h-5 text-blue-600" />
+                    <Icon icon="solar:camera-bold-duotone" className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -409,7 +397,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
               {activeTab === 'media' && (
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-purple-100 rounded-lg">
-                    <ImageIcon className="w-5 h-5 text-purple-600" />
+                    <Icon icon="solar:gallery-bold-duotone" className="w-5 h-5 text-purple-600" />
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -424,7 +412,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                 <div className="flex items-center justify-between w-full">
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
-                      <Wallet className="w-5 h-5" style={{ color: '#30b4be' }} />
+                      <Icon icon="solar:wallet-bold-duotone" className="w-5 h-5" style={{ color: '#30b4be' }} />
                     </div>
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -447,7 +435,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                       className="px-4 py-2 rounded-lg font-medium text-white transition-all duration-200 hover:shadow-md hover:scale-105 flex items-center gap-2 text-sm"
                       style={{ background: 'linear-gradient(135deg, #30b4be, #2a9da6)' }}
                     >
-                      <Plus className="w-4 h-4" />
+                      <Icon icon="solar:add-circle-bold-duotone" className="w-4 h-4" />
                       Add Services
                     </button>
                   
@@ -507,7 +495,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-blue-100 rounded-lg">
-                        <FileText className="w-5 h-5 text-blue-600" />
+                        <Icon icon="solar:document-bold-duotone" className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
                         <h3 className="text-lg sm:text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
@@ -521,7 +509,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                       onClick={() => setIsScheduleModalOpen(true)}
                       className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all flex items-center justify-center sm:justify-start gap-2 bg-blue-100 text-blue-600 hover:bg-blue-200 w-full sm:w-auto"
                     >
-                      <CalendarCheck className="w-4 h-4" />
+                      <Icon icon="solar:calendar-check-bold-duotone" className="w-4 h-4" />
                       Schedule Follow-up
                     </button>
                   </div>
@@ -622,7 +610,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                       className="px-3 sm:px-4 py-2 rounded-lg font-medium text-white transition-all duration-200 hover:shadow-md hover:scale-105 flex items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm w-full sm:w-auto"
                       style={{ background: 'linear-gradient(135deg, #30b4be, #2a9da6)' }}
                     >
-                      <Plus className="w-4 h-4" />
+                      <Icon icon="solar:add-circle-bold-duotone" className="w-4 h-4" />
                       Add Services
                     </button>
                   </div>
