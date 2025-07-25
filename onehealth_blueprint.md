@@ -1,7 +1,24 @@
 # 🏥 ONEHEALTH SYSTEM BLUEPRINT - COMPLETE TECHNICAL REFERENCE
-**Version**: 4.0  
-**Last Updated**: 2025-01-11 19:00:00 UTC  
-**Based on**: Commit b8d98e7 (Last Known Good State)
+**Version**: 4.1  
+**Last Updated**: 2025-01-25  
+**Based on**: Commit b8d98e7 (Last Known Good State) + Recent Updates
+
+---
+
+## 📋 RECENT UPDATES
+
+### Print Buttons on Handoff Cards (commit: a886471) - 2025-01-25
+- **Issue**: Users needed quick access to print documents from dashboard handoff cards
+- **Solution**:
+  - Created `HandoffCardPrintButtons` component with prescription, leave form, and invoice buttons
+  - Integrated into FloatingVisitTracker handoff card section
+  - Documents are generated on-demand or opened if already exists
+  - Added database indexes to optimize query performance
+- **Features**:
+  - Smart button states (loading spinner during generation)
+  - Green dot indicator for existing documents
+  - Error handling with user-friendly toast messages
+  - Only shows buttons for documents with available data
 
 ---
 
