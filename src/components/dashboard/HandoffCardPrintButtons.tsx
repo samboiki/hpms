@@ -36,9 +36,10 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
     checkAvailableData();
     fetchVisitPracticeId();
     
-    // Poll for document generation status every 5 seconds
+    // Poll for document generation status and available data every 5 seconds
     const interval = setInterval(() => {
       checkExistingDocuments();
+      checkAvailableData();
     }, 5000);
     
     return () => clearInterval(interval);
