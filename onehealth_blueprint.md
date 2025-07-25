@@ -1596,4 +1596,57 @@ const practiceId = getSafePracticeId(user); // ✅ SECURE
 
 ---
 
+## 🎨 UI DESIGN PATTERNS & STYLING GUIDELINES
+
+### Component Styling Standards (Updated 2025-01-25)
+
+#### Section Backgrounds
+**Standard**: Use consistent gray gradient backgrounds for all form sections
+```css
+/* Primary section background */
+bg-gradient-to-br from-gray-50 to-gray-100/30
+
+/* Section borders */
+border border-gray-200/50
+
+/* Section padding */
+p-6 rounded-xl
+```
+
+#### Form Section Headers
+**Standard**: Gray text with colored icons
+```tsx
+// Example header structure
+<h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+  <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5 text-blue-500" />
+  Section Title
+</h4>
+```
+
+#### Clean Professional Styling
+- **Avoid**: Colorful gradient backgrounds (blue-50, purple-50, green-50, etc.)
+- **Use**: Gray tones with accent colors only in icons and buttons
+- **Reference**: General tab in AddVisitTabs.tsx and EditVisitTabs.tsx
+
+#### Radio/Toggle Options
+```css
+/* Selected state */
+border-gray-300 bg-gray-50
+
+/* Unselected state */
+border-gray-200 bg-white hover:border-gray-300
+
+/* Icons retain their semantic colors */
+text-red-600, text-yellow-600, text-green-600 (for status indicators)
+```
+
+#### Consistency Rules
+1. All form sections use gray-based backgrounds
+2. Section headers use gray-700 text with colored icons
+3. Interactive elements use subtle gray hovers
+4. Semantic colors only in icons and status indicators
+5. Professional, healthcare-appropriate appearance
+
+---
+
 **END OF BLUEPRINT v4.0**
