@@ -259,7 +259,7 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
         className={`${showLabels ? `px-3 py-2 ${existingDocs.leave_form ? 'bg-orange-50 hover:bg-orange-100 border border-orange-200 hover:scale-105 hover:shadow-md' : 'bg-gray-100 border border-gray-200 opacity-50 cursor-not-allowed'} rounded-lg flex items-center gap-2 transition-all` : 'p-1.5 hover:bg-orange-50 rounded-md transition-colors'} group relative`}
         title="Print Leave Form"
       >
-        <Icon icon="solar:document-text-bold-duotone" className={`w-5 h-5 ${existingDocs.leave_form ? 'text-orange-600 group-hover:text-orange-700' : 'text-gray-400'}`} />
+        <Icon icon="solar:document-medicine-bold-duotone" className={`w-5 h-5 ${existingDocs.leave_form ? 'text-orange-600 group-hover:text-orange-700' : 'text-gray-400'}`} />
         {showLabels && <span className={`text-sm font-medium ${existingDocs.leave_form ? 'text-orange-700' : 'text-gray-500'}`}>Leave Form</span>}
         {existingDocs.leave_form && !showLabels && (
           <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />

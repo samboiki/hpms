@@ -210,7 +210,7 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-1 h-6 bg-[#01b9d4] rounded-full"></div>
+          <Icon icon="solar:document-medicine-bold-duotone" className="w-6 h-6 text-[#01b9d4]" />
           <h3 className="text-lg font-semibold text-gray-800">Medical Leave Certificates</h3>
         </div>
         <button
@@ -288,14 +288,11 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
                   <label className="block text-sm font-medium text-gray-700 mb-2">Diagnosis</label>
                   <PremiumInput
                     type="text"
-                    {...register('diagnosis', { required: 'Diagnosis is required' })}
+                    {...register('diagnosis')}
                     placeholder="e.g., Acute Upper Respiratory Infection"
                     icon="solar:health-bold-duotone"
                     iconColor="text-purple-500"
                   />
-                  {errors.diagnosis && (
-                    <p className="text-red-500 text-xs mt-1">{errors.diagnosis.message}</p>
-                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">ICD-10 Code</label>
