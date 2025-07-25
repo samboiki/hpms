@@ -107,12 +107,11 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
   };
 
   const handleGenerateDocument = async (docType: 'prescription' | 'leave_form' | 'invoice') => {
-    // Always regenerate documents to ensure they have the latest template changes
-    // Comment out the caching logic for now
-    // if (existingDocs[docType]) {
-    //   window.open(existingDocs[docType], '_blank');
-    //   return;
-    // }
+    // If document already exists, just open it (unless shift key is pressed to force regeneration)
+    if (existingDocs[docType] && !window.event?.shiftKey) {
+      window.open(existingDocs[docType], '_blank');
+      return;
+    }
 
     // Determine the correct practiceId to use
     const effectivePracticeId = practiceId || visitPracticeId || user?.practice_id || '';
@@ -188,7 +187,19 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
           setExistingDocs(prev => ({ ...prev, [docType]: generatedDoc.publicUrl! }));
           
           // Open the document
-          window.open(generatedDoc.publicUrl, '_blank');
+          console.log('Opening document:', generatedDoc.publicUrl);
+          const newWindow = window.open(generatedDoc.publicUrl, '_blank');
+          
+          // If popup was blocked, create a link and click it
+          if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
+            const link = document.createElement('a');
+            link.href = generatedDoc.publicUrl;
+            link.target = '_blank';
+            link.download = `${docType}_${new Date().getTime()}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          }
           
           // Notify parent component
           onDocumentGenerated?.();
