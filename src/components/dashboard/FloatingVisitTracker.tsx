@@ -689,26 +689,21 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                       {cardNumber}
                                     </div>
                                     
-                                    {/* Main content wrapper - better spacing */}
-                                    <div className="flex-1">
-                                      {/* First row: Time and Patient Name */}
-                                      <div className="flex items-center gap-3 mb-2">
-                                        {/* Time */}
-                                        <div className="min-w-[50px]">
-                                          <p className="text-sm font-bold text-gray-800">
-                                            {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : 
-                                             visit.visit_time ? format(new Date(`2000-01-01T${visit.visit_time}`), 'HH:mm') : '--:--'}
-                                          </p>
-                                        </div>
+                                    {/* Main content wrapper - professional layout */}
+                                    <div className="flex-1 space-y-2">
+                                      {/* First row: Time only */}
+                                      <div className="text-sm font-bold text-gray-800">
+                                        {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : 
+                                         visit.visit_time ? format(new Date(`2000-01-01T${visit.visit_time}`), 'HH:mm') : '--:--'}
+                                      </div>
 
-                                        {/* Patient Name */}
-                                        <p className="font-medium text-gray-800 group-hover:text-brand-primary flex-1">
-                                          {visit.patient?.first_name} {visit.patient?.last_name}
-                                        </p>
+                                      {/* Second row: Patient Name */}
+                                      <div className="font-medium text-gray-800 group-hover:text-brand-primary">
+                                        {visit.patient?.first_name} {visit.patient?.last_name}
                                       </div>
                                       
-                                      {/* Second row: Visit type and Doctor */}
-                                      <div className="text-xs text-gray-500 ml-[62px]">
+                                      {/* Third row: Visit type and Doctor */}
+                                      <div className="text-xs text-gray-500">
                                         {visit.visit_type || 'Consultation'} • Dr. {visit.doctor?.full_name || 'Unassigned'}
                                       </div>
                                     </div>
