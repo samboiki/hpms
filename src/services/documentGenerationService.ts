@@ -818,7 +818,7 @@ export class DocumentGenerationService {
                 <div class="signature-label">Patient Signature</div>
               </div>
               <div class="signature-box">
-                <div class="signature-line">
+                <div class="signature-line" style="display: flex; align-items: center; justify-content: center;">
                   ${doctor?.signature_url ? `<img src="${doctor.signature_url}" alt="Doctor Signature" style="max-height: 35px; margin-top: 5px; object-fit: contain;">` : ''}
                 </div>
                 <div class="signature-label">
@@ -1372,7 +1372,7 @@ export class DocumentGenerationService {
                 <div class="signature-label">Patient Signature</div>
               </div>
               <div class="signature-box">
-                <div class="signature-line">
+                <div class="signature-line" style="display: flex; align-items: center; justify-content: center;">
                   ${doctor?.signature_url ? `<img src="${doctor.signature_url}" alt="Doctor Signature" style="max-height: 35px; margin-top: 5px; object-fit: contain;">` : ''}
                 </div>
                 <div class="signature-label">
