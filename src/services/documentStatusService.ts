@@ -55,9 +55,23 @@ class DocumentStatusService {
         {
           event: '*',
           schema: 'public',
-          table: 'generated_documents'
+          table: 'visit_documents'
         },
-        (payload) => {
+        (payload: any) => {
+          const visitId = payload.new?.visit_id || payload.old?.visit_id;
+          if (visitId) {
+            this.notifyListeners(visitId);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leave_forms'
+        },
+        (payload: any) => {
           const visitId = payload.new?.visit_id || payload.old?.visit_id;
           if (visitId) {
             this.notifyListeners(visitId);
@@ -85,12 +99,12 @@ class DocumentStatusService {
    */
   private async checkDocumentStatus(visitId: string): Promise<DocumentStatus> {
     try {
-      const { data: documents } = await supabase
-        .from('generated_documents')
+      const { data: documents } = await (supabase as any)
+        .from('visit_documents')
         .select('document_type')
         .eq('visit_id', visitId);
 
-      const documentTypes = documents?.map(d => d.document_type) || [];
+      const documentTypes = documents?.map((d: any) => d.document_type) || [];
       
       return {
         visitId,

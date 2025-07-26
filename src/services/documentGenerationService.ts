@@ -167,7 +167,7 @@ export class DocumentGenerationService {
               break;
             case 'leave_form':
               if (hasLeaveForm) {
-                generatedDoc = await this.generateLeaveForm(visit, practice, leaveForm);
+                generatedDoc = await this.generateLeaveForm(visit, practice, leaveForm, medicalAid);
               } else {
                 console.log('ℹ️ Skipping leave form - no leave form data found');
               }
@@ -274,7 +274,7 @@ export class DocumentGenerationService {
   /**
    * Generate leave form PDF
    */
-  private async generateLeaveForm(visit: any, practice: any, leaveForm: any): Promise<GeneratedDocument | null> {
+  private async generateLeaveForm(visit: any, practice: any, leaveForm: any, medicalAid: any): Promise<GeneratedDocument | null> {
     try {
       if (!leaveForm) {
         console.log('ℹ️ No leave form data provided');
@@ -291,7 +291,7 @@ export class DocumentGenerationService {
       await document.fonts.ready;
 
       // Create HTML content for leave form
-      const html = this.createLeaveFormHTML(visit, practice, leaveForm);
+      const html = this.createLeaveFormHTML(visit, practice, leaveForm, medicalAid);
       
       // Generate PDF - A5 format for leave forms
       const pdfBlob = await this.htmlToPDF(html, 'a5');
@@ -470,7 +470,7 @@ export class DocumentGenerationService {
             font-family: 'Rubik', sans-serif;
             font-size: 18px;
             font-weight: 800;
-            color: ${primaryColor};
+            color: #5f6578;
             letter-spacing: -0.2px;
           }
           
@@ -515,7 +515,7 @@ export class DocumentGenerationService {
           }
           
           .prescription-number {
-            font-size: 12px;
+            font-size: 10px;
             font-weight: 600;
             color: #666;
             letter-spacing: 0.3px;
@@ -565,11 +565,7 @@ export class DocumentGenerationService {
           .patient-info {
             display: flex;
             justify-content: space-between;
-            gap: 20px;
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 3px solid ${primaryColor};
+            gap: 25px;
           }
           
           .patient-details {
@@ -596,9 +592,9 @@ export class DocumentGenerationService {
           }
           
           .medications-title {
-            font-size: 12px;
+            font-size: 14px;
             font-weight: 700;
-            color: ${primaryColor};
+            color: #5f6578;
             margin: 0 0 12px 0;
             padding-bottom: 8px;
             border-bottom: 1px solid #d1d5db;
@@ -615,12 +611,12 @@ export class DocumentGenerationService {
           }
           
           .medications-table thead {
-            background: ${primaryColor};
+            background: #5f6578;
             color: white;
           }
           
           .medications-table th {
-            padding: 10px 8px;
+            padding: 8px;
             text-align: left;
             font-weight: 600;
             font-size: 10px;
@@ -641,9 +637,10 @@ export class DocumentGenerationService {
           }
           
           .medications-table td {
-            padding: 10px 8px;
+            padding: 6px 8px;
             border-right: 1px solid #e5e7eb;
             font-size: 10px;
+            vertical-align: middle;
           }
           
           .medications-table td:last-child {
@@ -730,23 +727,11 @@ export class DocumentGenerationService {
             padding-top: 6px;
           }
           
-          .watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 60px;
-            color: rgba(95, 101, 120, 0.06);
-            font-weight: 700;
-            z-index: 0;
-            font-family: 'Rubik', sans-serif;
-            letter-spacing: 5px;
-          }
+          /* Watermark removed */
         </style>
       </head>
       <body>
         <div class="prescription-container">
-          <div class="watermark">PRESCRIPTION</div>
           
           <!-- Premium Header Section -->
           <div class="header">
@@ -767,7 +752,6 @@ export class DocumentGenerationService {
           <!-- Title Section -->
           <div class="title-section">
             <div class="rx-title">
-              <span class="rx-symbol">℞</span>
               <span class="prescription-title">MEDICAL PRESCRIPTION</span>
               <span class="prescription-number">#RX-${visit.id.substring(0, 8).toUpperCase()}</span>
             </div>
@@ -779,25 +763,22 @@ export class DocumentGenerationService {
             </div>
           </div>
           
-          <!-- Patient Information -->
+          <!-- PREPARED FOR Section - Matching Leave Form Style -->
           <div class="patient-section">
-            <h3 class="section-title">PATIENT INFORMATION</h3>
+            <h3 class="section-title">PREPARED FOR</h3>
             <div class="patient-info">
               <div class="patient-details">
                 <div class="patient-name">${patient.first_name} ${patient.last_name}</div>
-                ${patient.date_of_birth ? `<div class="patient-detail-line">Date of Birth: ${format(new Date(patient.date_of_birth), 'dd/MM/yyyy')}</div>` : ''}
-                ${patient.gender ? `<div class="patient-detail-line">Gender: ${patient.gender}</div>` : ''}
-                ${patient.cell_number ? `<div class="patient-detail-line">Phone: ${patient.cell_number}</div>` : ''}
-                ${patient.email ? `<div class="patient-detail-line">Email: ${patient.email}</div>` : ''}
-                ${patient.home_address ? `<div class="patient-detail-line">Address: ${patient.home_address}</div>` : ''}
-                ${medicalAid?.membership_number ? `<div class="patient-detail-line">Medical Aid Number: ${medicalAid.membership_number}</div>` : ''}
+                ${patient.cell_number ? `<div class="patient-detail-line">${patient.cell_number}</div>` : ''}
+                ${patient.email ? `<div class="patient-detail-line">${patient.email}</div>` : ''}
+                ${patient.home_address ? `<div class="patient-detail-line">${patient.home_address}</div>` : ''}
               </div>
-              ${visit.chief_complaint || visit.diagnosis ? `
-                <div class="patient-details">
-                  ${visit.chief_complaint ? `<div class="patient-detail-line"><strong>Chief Complaint:</strong> ${visit.chief_complaint}</div>` : ''}
-                  ${visit.diagnosis ? `<div class="patient-detail-line"><strong>Diagnosis:</strong> ${visit.diagnosis}</div>` : ''}
-                </div>
-              ` : ''}
+              
+              <div class="patient-details" style="text-align: right;">
+                <div class="patient-name">${medicalAid?.medical_aid_providers?.short_name || medicalAid?.medical_aid_providers?.name || 'N/A'}</div>
+                <div class="patient-detail-line">Scheme: ${medicalAid?.scheme || 'N/A'}</div>
+                <div class="patient-detail-line">Member: ${medicalAid?.membership_number || 'N/A'}</div>
+              </div>
             </div>
           </div>
           
@@ -828,12 +809,6 @@ export class DocumentGenerationService {
             </table>
           </div>
           
-          ${visit.treatment_plan ? `
-            <div class="diagnosis-section">
-              <h3 class="diagnosis-title">Treatment Plan</h3>
-              <div class="diagnosis-text">${visit.treatment_plan}</div>
-            </div>
-          ` : ''}
           
           <!-- Footer -->
           <div class="footer">
@@ -881,11 +856,34 @@ export class DocumentGenerationService {
   /**
    * Create leave form HTML with beautiful styling
    */
-  private createLeaveFormHTML(visit: any, practice: any, leaveForm: any): string {
+  private createLeaveFormHTML(visit: any, practice: any, leaveForm: any, medicalAid: any): string {
     const patient = visit.patients;
     const doctor = visit.users;
     const logoUrl = practice.logo_url || '';
     const primaryColor = practice.primary_color || '#5f6578';
+    
+    // Get medical aid provider name
+    let medicalAidName = '';
+    if (medicalAid?.medical_aid_providers) {
+      medicalAidName = medicalAid.medical_aid_providers.short_name || medicalAid.medical_aid_providers.name;
+    }
+    
+    // Helper function to convert number to words
+    const numberToWords = (num: number): string => {
+      const ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+      const teens = ['ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+      const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+      
+      if (num === 0) return 'zero';
+      if (num < 10) return ones[num];
+      if (num < 20) return teens[num - 10];
+      if (num < 100) {
+        const ten = Math.floor(num / 10);
+        const one = num % 10;
+        return tens[ten] + (one ? '-' + ones[one] : '');
+      }
+      return num.toString(); // fallback for larger numbers
+    };
     
     // Helper functions for color manipulation
     function hexToRgb(hex: string) {
@@ -972,7 +970,7 @@ export class DocumentGenerationService {
             font-family: 'Rubik', sans-serif;
             font-size: 18px;
             font-weight: 800;
-            color: ${primaryColor};
+            color: #5f6578;
             letter-spacing: -0.2px;
           }
           
@@ -1024,7 +1022,7 @@ export class DocumentGenerationService {
           }
           
           .certificate-number {
-            font-size: 12px;
+            font-size: 10px;
             font-weight: 600;
             color: #666;
             letter-spacing: 0.3px;
@@ -1057,7 +1055,7 @@ export class DocumentGenerationService {
             font-size: 10px;
           }
           
-          /* PREPARED FOR Section - Matching Invoice Style */
+          /* PREPARED FOR Section - Exactly Matching Invoice Style */
           .patient-section {
             margin-bottom: 20px;
           }
@@ -1072,54 +1070,52 @@ export class DocumentGenerationService {
           }
           
           .patient-info {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            gap: 25px;
           }
           
-          .info-item {
+          .patient-details {
+            flex: 1;
             line-height: 1.4;
           }
           
-          .info-label {
+          .patient-name {
+            font-weight: 700;
             font-size: 12px;
-            color: #6c757d;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            color: #1a1a1a;
             margin-bottom: 3px;
           }
           
-          .info-value {
-            font-size: 16px;
-            color: #333;
-            font-weight: 500;
+          .patient-contact {
+            color: #666;
+            margin-bottom: 2px;
+            font-size: 9px;
           }
           
-          /* Certification Section */
+          /* Certification Section - Clean Design */
           .certification-section {
             margin-bottom: 20px;
-            padding: 15px;
-            background: linear-gradient(135deg, ${adjustBrightness(primaryColor, 90)} 0%, ${adjustBrightness(primaryColor, 95)} 100%);
-            border-radius: 8px;
-            border: 1px solid ${adjustBrightness(primaryColor, 70)};
+          }
+          
+          .certification-header {
+            font-size: 14px;
+            font-weight: 700;
+            color: #5f6578;
+            margin: 0 0 12px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
           }
           
           .certification-text {
             font-size: 11px;
             line-height: 1.6;
             color: #333;
+            margin-bottom: 12px;
           }
           
-          .diagnosis-highlight {
+          .diagnosis-info {
             margin-top: 8px;
-            padding: 8px;
-            background: white;
-            border-radius: 4px;
-            border-left: 3px solid ${primaryColor};
           }
           
           .diagnosis-label {
@@ -1135,7 +1131,7 @@ export class DocumentGenerationService {
             font-size: 11px;
           }
           
-          /* Leave Period Section */
+          /* Leave Period Section - Compact with Grey Background */
           .leave-period-section {
             margin-bottom: 20px;
           }
@@ -1144,10 +1140,10 @@ export class DocumentGenerationService {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             gap: 15px;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #e5e7eb;
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
           }
           
           .period-item {
@@ -1155,23 +1151,23 @@ export class DocumentGenerationService {
           }
           
           .period-label {
-            font-size: 9px;
-            color: #999;
+            font-size: 8px;
+            color: #666;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
-            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+            margin-bottom: 3px;
           }
           
           .period-value {
             font-weight: 700;
-            font-size: 14px;
-            color: ${primaryColor};
+            font-size: 13px;
+            color: #1a1a1a;
           }
           
           .period-date {
-            font-size: 10px;
+            font-size: 9px;
             color: #666;
-            margin-top: 2px;
+            margin-top: 1px;
           }
           
           /* Removed fitness status styles */
@@ -1276,7 +1272,6 @@ export class DocumentGenerationService {
           <!-- Title Section -->
           <div class="title-section">
             <div class="cert-title">
-              <div class="cert-icon">📋</div>
               <span class="certificate-title">MEDICAL CERTIFICATE</span>
               <span class="certificate-number">${leaveForm.form_number ? `#${leaveForm.form_number}` : `#MC-${visit.id.substring(0, 8).toUpperCase()}`}</span>
             </div>
@@ -1288,38 +1283,37 @@ export class DocumentGenerationService {
             </div>
           </div>
           
-          <!-- PREPARED FOR Section - Matching Invoice Style -->
+          <!-- PREPARED FOR Section - Exactly Matching Invoice Style -->
           <div class="patient-section">
             <h3 class="section-title">PREPARED FOR</h3>
             <div class="patient-info">
-              <div class="info-item">
-                <div class="info-label">Name</div>
-                <div class="info-value">${patient.first_name} ${patient.last_name}</div>
+              <div class="patient-details">
+                <div class="patient-name">${patient.first_name} ${patient.last_name}</div>
+                ${patient.cell_number ? `<div class="patient-contact">${patient.cell_number}</div>` : ''}
+                ${patient.email ? `<div class="patient-contact">${patient.email}</div>` : ''}
+                ${patient.home_address ? `<div class="patient-contact">${patient.home_address}</div>` : ''}
               </div>
-              <div class="info-item">
-                <div class="info-label">ID/Passport</div>
-                <div class="info-value">${patient.id_number || patient.passport_number || 'N/A'}</div>
-              </div>
-              <div class="info-item">
-                <div class="info-label">Date of Birth</div>
-                <div class="info-value">${patient.date_of_birth ? format(new Date(patient.date_of_birth), 'dd MMM yyyy') : 'N/A'}</div>
-              </div>
-              <div class="info-item">
-                <div class="info-label">Age</div>
-                <div class="info-value">${patient.date_of_birth ? new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear() : 'N/A'} years</div>
+              
+              <div class="patient-details" style="text-align: right;">
+                <div class="patient-name">${medicalAidName || 'N/A'}</div>
+                <div class="patient-contact">Scheme: ${medicalAid?.scheme || 'N/A'}</div>
+                <div class="patient-contact">Member: ${medicalAid?.membership_number || 'N/A'}</div>
               </div>
             </div>
           </div>
           
-          <!-- Certification Text -->
+          <!-- Medical Justification for Absence Section -->
           <div class="certification-section">
+            <h3 class="certification-header">MEDICAL JUSTIFICATION FOR ABSENCE</h3>
             <div class="certification-text">
-              This is to certify that the individual known as <strong>${patient.first_name} ${patient.last_name}</strong>, 
-              was seen for a medical consultation on <strong>${format(new Date(visit.visit_date || visit.created_at), 'dd MMMM yyyy')}</strong>, 
-              and requires <strong>${this.calculateDays(leaveForm.from_date, leaveForm.to_date)} days</strong> sick leave.
+              This letter serves to certify that the patient, <strong>${patient.first_name} ${patient.last_name}</strong>, was examined and treated at our facility on <strong>${format(new Date(visit.visit_date || visit.created_at), 'dd MMMM yyyy')}</strong>.
+              <br><br>
+              Based on my medical assessment, the patient was found to be medically unfit for duty.
+              <br><br>
+              Therefore, I have recommended <strong>${numberToWords(daysDiff)}</strong> (<strong>${daysDiff}</strong>) ${daysDiff === 1 ? 'day' : 'days'} of sick leave, effective for the period of <strong>${format(fromDate, 'dd MMMM yyyy')}</strong>. The patient is expected to be fit to resume normal duties from <strong>${format(new Date(toDate.getTime() + 24 * 60 * 60 * 1000), 'dd MMMM yyyy')}</strong>.
             </div>
             ${leaveForm.diagnosis ? `
-              <div class="diagnosis-highlight">
+              <div class="diagnosis-info">
                 <div class="diagnosis-label">Medical Findings</div>
                 <div class="diagnosis-value">
                   ${leaveForm.diagnosis}

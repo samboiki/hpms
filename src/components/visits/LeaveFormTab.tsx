@@ -44,6 +44,7 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
   const [editingForm, setEditingForm] = useState<LeaveForm | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [pdfGenerationInProgress, setPdfGenerationInProgress] = useState<Set<string>>(new Set());
 
   const {
     register,
@@ -190,34 +191,45 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
         toast.success('Leave form created successfully');
       }
 
-      // Generate PDF in background - non-blocking
-      setTimeout(() => {
-        const generatePDFAsync = async () => {
-          try {
-            console.log('🚀 Generating leave form PDF in background...');
-            const generatedDocs = await documentGenerationService.generateVisitDocuments({
-              visitId: validVisitId,
-              patientId: validPatientId,
-              practiceId: validPracticeId,
-              documents: ['leave_form']
-            });
-            
-            if (generatedDocs.length > 0) {
-              console.log('✅ Leave form PDF generated successfully');
-              // Show subtle notification that PDF is ready
-              toast.success('Leave certificate ready', {
-                icon: '📄',
-                duration: 3000
+      // Generate PDF in background - non-blocking with deduplication
+      const pdfKey = `${validVisitId}_leave_form`;
+      if (!pdfGenerationInProgress.has(pdfKey)) {
+        setPdfGenerationInProgress(prev => new Set(prev).add(pdfKey));
+        
+        setTimeout(() => {
+          const generatePDFAsync = async () => {
+            try {
+              console.log('🚀 Generating leave form PDF in background...');
+              const generatedDocs = await documentGenerationService.generateVisitDocuments({
+                visitId: validVisitId,
+                patientId: validPatientId,
+                practiceId: validPracticeId,
+                documents: ['leave_form']
+              });
+              
+              if (generatedDocs.length > 0) {
+                console.log('✅ Leave form PDF generated successfully');
+                // Show subtle notification that PDF is ready
+                toast.success('Leave certificate ready', {
+                  icon: '📄',
+                  duration: 3000
+                });
+              }
+            } catch (pdfError) {
+              console.error('Background PDF generation failed:', pdfError);
+              // Silent failure - user can still generate manually
+            } finally {
+              setPdfGenerationInProgress(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(pdfKey);
+                return newSet;
               });
             }
-          } catch (pdfError) {
-            console.error('Background PDF generation failed:', pdfError);
-            // Silent failure - user can still generate manually
-          }
-        };
-        
-        generatePDFAsync();
-      }, 100); // Small delay to ensure save completes first
+          };
+          
+          generatePDFAsync();
+        }, 100); // Small delay to ensure save completes first
+      }
 
       // Reset form and reload
       setEditingForm(null);
@@ -279,32 +291,43 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
       if (error) throw error;
       toast.success('Leave form issued successfully');
       
-      // Generate PDF in background for issued leave form
-      setTimeout(() => {
-        const generateIssuedPDFAsync = async () => {
-          try {
-            console.log('🚀 Generating PDF for issued leave form in background...');
-            const generatedDocs = await documentGenerationService.generateVisitDocuments({
-              visitId: visitId,
-              patientId: patientId,
-              practiceId: practiceId,
-              documents: ['leave_form']
-            });
-            
-            if (generatedDocs.length > 0) {
-              console.log('✅ Issued leave form PDF generated successfully');
-              toast.success('Leave certificate ready', {
-                icon: '📄',
-                duration: 3000
+      // Generate PDF in background for issued leave form with deduplication
+      const pdfKey = `${visitId}_leave_form`;
+      if (!pdfGenerationInProgress.has(pdfKey)) {
+        setPdfGenerationInProgress(prev => new Set(prev).add(pdfKey));
+        
+        setTimeout(() => {
+          const generateIssuedPDFAsync = async () => {
+            try {
+              console.log('🚀 Generating PDF for issued leave form in background...');
+              const generatedDocs = await documentGenerationService.generateVisitDocuments({
+                visitId: visitId,
+                patientId: patientId,
+                practiceId: practiceId,
+                documents: ['leave_form']
+              });
+              
+              if (generatedDocs.length > 0) {
+                console.log('✅ Issued leave form PDF generated successfully');
+                toast.success('Leave certificate ready', {
+                  icon: '📄',
+                  duration: 3000
+                });
+              }
+            } catch (pdfError) {
+              console.error('Background PDF generation failed:', pdfError);
+            } finally {
+              setPdfGenerationInProgress(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(pdfKey);
+                return newSet;
               });
             }
-          } catch (pdfError) {
-            console.error('Background PDF generation failed:', pdfError);
-          }
-        };
-        
-        generateIssuedPDFAsync();
-      }, 100);
+          };
+          
+          generateIssuedPDFAsync();
+        }, 100);
+      }
       
       loadLeaveForms();
     } catch (error) {

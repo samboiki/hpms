@@ -224,7 +224,7 @@ const EditVisitTabs: React.FC<Props> = ({
   const [isPrintingDocument, setIsPrintingDocument] = useState<'prescription' | 'leave_form' | 'invoice' | null>(null);
   const [leaveFormExists, setLeaveFormExists] = useState(false);
 
-  const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm<EditVisitFormData>({
+  const { register, handleSubmit, formState: { errors, isDirty }, watch, setValue, reset } = useForm<EditVisitFormData>({
     defaultValues: {
       visit_type: 'consultation',
       visit_date: new Date(),
@@ -2621,6 +2621,20 @@ const EditVisitTabs: React.FC<Props> = ({
                               <div className="flex items-center gap-2">
                                 <button
                                   type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    // Set the medication data for editing
+                                    setNewMedication({
+                                      medication_name: med.medication_name || '',
+                                      dosage: med.dosage || '',
+                                      frequency: med.frequency || '',
+                                      duration: med.duration || '',
+                                      instructions: med.instructions || ''
+                                    });
+                                    // Remove the medication from the list so user can update it
+                                    setMedications(medications.filter((m: any) => m.id !== med.id));
+                                  }}
                                   className="p-1 text-blue-600 hover:bg-blue-100 rounded transition-colors"
                                   title="Edit medication"
                                 >
@@ -3529,7 +3543,7 @@ const EditVisitTabs: React.FC<Props> = ({
             type="submit"
             form="edit-visit-form"
             disabled={isSubmitting}
-            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-xl hover:shadow-lg transition-all flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-xl hover:shadow-lg transition-all flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed ${!isDirty && !isSubmitting ? 'opacity-60' : 'opacity-100'}`}
           >
             {isSubmitting ? (
               <>
