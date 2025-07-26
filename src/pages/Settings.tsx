@@ -1810,7 +1810,9 @@ const AccountTabContent: React.FC = () => {
   const { user, updateUser } = useAuthStore();
   const [accountTab, setAccountTab] = useState<'profile' | 'preferences' | 'security'>('profile');
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingSignature, setIsUploadingSignature] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
 
   const accountTabs = [
     { id: 'profile' as const, label: 'Profile', icon: SolarIcons.userCircle },
@@ -1877,6 +1879,70 @@ const AccountTabContent: React.FC = () => {
       alert('Failed to upload avatar. Please try again.');
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleSignatureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file size (max 2MB for signatures)
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Signature file size must be less than 2MB');
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file for your signature');
+      return;
+    }
+
+    setIsUploadingSignature(true);
+
+    try {
+      // Create a unique file name
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-signature-${Date.now()}.${fileExt}`;
+      const filePath = `signatures/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      // Update user profile in database
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ signature_url: publicUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      updateUser({ signature_url: publicUrl });
+
+      // Reset file input
+      if (signatureInputRef.current) {
+        signatureInputRef.current.value = '';
+      }
+
+      alert('E-signature uploaded successfully!');
+    } catch (error) {
+      console.error('Error uploading signature:', error);
+      alert('Failed to upload signature. Please try again.');
+    } finally {
+      setIsUploadingSignature(false);
     }
   };
 
@@ -2003,6 +2069,95 @@ const AccountTabContent: React.FC = () => {
                   <option value="nurse">Nurse</option>
                   <option value="receptionist">Receptionist</option>
                 </select>
+              </div>
+            </div>
+            
+            {/* E-Signature Section */}
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <Icon icon={SolarIcons.pen} className="w-5 h-5 text-purple-600" />
+                Digital Signature
+              </h3>
+              <div className="space-y-4">
+                {user?.signature_url ? (
+                  <div className="flex items-start gap-4">
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-600 mb-2">Current signature:</p>
+                      <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <img 
+                          src={user.signature_url} 
+                          alt="E-signature" 
+                          className="max-h-20 object-contain"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => signatureInputRef.current?.click()}
+                        disabled={isUploadingSignature}
+                      >
+                        <Icon icon={isUploadingSignature ? SolarIcons.loader : SolarIcons.upload} 
+                          className={`w-4 h-4 mr-2 ${isUploadingSignature ? 'animate-spin' : ''}`} />
+                        {isUploadingSignature ? 'Uploading...' : 'Replace'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          if (confirm('Are you sure you want to remove your signature?')) {
+                            try {
+                              const { error } = await supabase
+                                .from('users')
+                                .update({ signature_url: null })
+                                .eq('id', user.id);
+                              
+                              if (error) throw error;
+                              updateUser({ signature_url: null });
+                              alert('Signature removed successfully');
+                            } catch (error) {
+                              console.error('Error removing signature:', error);
+                              alert('Failed to remove signature');
+                            }
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Icon icon={SolarIcons.trash} className="w-4 h-4 mr-2" />
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Icon icon={SolarIcons.pen} className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-sm text-gray-600 mb-4">
+                      Upload your digital signature to automatically include it in generated documents
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => signatureInputRef.current?.click()}
+                      disabled={isUploadingSignature}
+                    >
+                      <Icon icon={isUploadingSignature ? SolarIcons.loader : SolarIcons.upload} 
+                        className={`w-4 h-4 mr-2 ${isUploadingSignature ? 'animate-spin' : ''}`} />
+                      {isUploadingSignature ? 'Uploading...' : 'Upload Signature'}
+                    </Button>
+                  </div>
+                )}
+                <input
+                  ref={signatureInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleSignatureUpload}
+                />
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-xs text-blue-700">
+                    <strong>Tip:</strong> For best results, upload a signature on a white background as a PNG or JPG file (max 2MB).
+                  </p>
+                </div>
               </div>
             </div>
             
