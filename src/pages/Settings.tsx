@@ -1888,13 +1888,51 @@ const AccountTabContent: React.FC = () => {
 
     // Validate file size (max 2MB for signatures)
     if (file.size > 2 * 1024 * 1024) {
-      alert('Signature file size must be less than 2MB');
+      // Show error modal
+      const errorModal = document.createElement('div');
+      errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
+      errorModal.innerHTML = `
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+          <div class="p-6">
+            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
+              <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">File Too Large</h3>
+            <p class="text-gray-600 text-center mb-6">Signature file size must be less than 2MB. Please choose a smaller image.</p>
+            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
+              OK
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(errorModal);
       return;
     }
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file for your signature');
+      // Show error modal
+      const errorModal = document.createElement('div');
+      errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
+      errorModal.innerHTML = `
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+          <div class="p-6">
+            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
+              <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Invalid File Type</h3>
+            <p class="text-gray-600 text-center mb-6">Please select an image file (PNG, JPG, or JPEG) for your signature.</p>
+            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
+              OK
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(errorModal);
       return;
     }
 
@@ -1937,10 +1975,55 @@ const AccountTabContent: React.FC = () => {
         signatureInputRef.current.value = '';
       }
 
-      alert('E-signature uploaded successfully!');
+      // Show success modal
+      const successModal = document.createElement('div');
+      successModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
+      successModal.innerHTML = `
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+          <div class="p-6">
+            <div class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mx-auto mb-4">
+              <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Signature Uploaded Successfully!</h3>
+            <p class="text-gray-600 text-center mb-6">Your digital signature has been saved and will be automatically included in generated documents.</p>
+            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-medium">
+              Done
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(successModal);
+      
+      // Auto-close after 5 seconds
+      setTimeout(() => {
+        if (document.body.contains(successModal)) {
+          successModal.remove();
+        }
+      }, 5000);
     } catch (error) {
       console.error('Error uploading signature:', error);
-      alert('Failed to upload signature. Please try again.');
+      // Show error modal
+      const errorModal = document.createElement('div');
+      errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
+      errorModal.innerHTML = `
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+          <div class="p-6">
+            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
+              <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Upload Failed</h3>
+            <p class="text-gray-600 text-center mb-6">Failed to upload signature. Please try again.</p>
+            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
+              OK
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(errorModal);
     } finally {
       setIsUploadingSignature(false);
     }
@@ -2115,10 +2198,53 @@ const AccountTabContent: React.FC = () => {
                               
                               if (error) throw error;
                               updateUser({ signature_url: null });
-                              alert('Signature removed successfully');
+                              // Show success modal
+                              const successModal = document.createElement('div');
+                              successModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
+                              successModal.innerHTML = `
+                                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+                                  <div class="p-6">
+                                    <div class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mx-auto mb-4">
+                                      <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                      </svg>
+                                    </div>
+                                    <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Signature Removed</h3>
+                                    <p class="text-gray-600 text-center mb-6">Your digital signature has been removed successfully.</p>
+                                    <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-medium">
+                                      Done
+                                    </button>
+                                  </div>
+                                </div>
+                              `;
+                              document.body.appendChild(successModal);
+                              setTimeout(() => {
+                                if (document.body.contains(successModal)) {
+                                  successModal.remove();
+                                }
+                              }, 3000);
                             } catch (error) {
                               console.error('Error removing signature:', error);
-                              alert('Failed to remove signature');
+                              // Show error modal
+                              const errorModal = document.createElement('div');
+                              errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
+                              errorModal.innerHTML = `
+                                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+                                  <div class="p-6">
+                                    <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
+                                      <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                      </svg>
+                                    </div>
+                                    <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Failed to Remove Signature</h3>
+                                    <p class="text-gray-600 text-center mb-6">Could not remove your signature. Please try again.</p>
+                                    <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
+                                      OK
+                                    </button>
+                                  </div>
+                                </div>
+                              `;
+                              document.body.appendChild(errorModal);
                             }
                           }
                         }}

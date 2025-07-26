@@ -77,7 +77,7 @@ export class DocumentGenerationService {
             cell_number, email, home_address, gender
           ),
           users!visits_doctor_id_fkey (
-            id, full_name, email, role
+            id, full_name, email, role, signature_url
           )
         `)
         .eq('id', options.visitId)
@@ -818,7 +818,9 @@ export class DocumentGenerationService {
                 <div class="signature-label">Patient Signature</div>
               </div>
               <div class="signature-box">
-                <div class="signature-line"></div>
+                <div class="signature-line">
+                  ${doctor?.signature_url ? `<img src="${doctor.signature_url}" alt="Doctor Signature" style="max-height: 35px; margin-top: 5px; object-fit: contain;">` : ''}
+                </div>
                 <div class="signature-label">
                   ${doctor?.full_name || 'Doctor'}<br>
                   Prescribing Physician
@@ -1370,7 +1372,9 @@ export class DocumentGenerationService {
                 <div class="signature-label">Patient Signature</div>
               </div>
               <div class="signature-box">
-                <div class="signature-line"></div>
+                <div class="signature-line">
+                  ${doctor?.signature_url ? `<img src="${doctor.signature_url}" alt="Doctor Signature" style="max-height: 35px; margin-top: 5px; object-fit: contain;">` : ''}
+                </div>
                 <div class="signature-label">
                   ${doctor?.full_name || 'Doctor'}<br>
                   Prescribing Physician
