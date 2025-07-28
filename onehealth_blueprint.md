@@ -72,6 +72,23 @@
   - **Polling Mechanism**: Checks for generated documents every 5 seconds
   - **Single Click**: Click once to view PDF (removed two-step generate then view process)
 
+### IntegrationsSlider Component Fixed - 2025-01-28
+- **Issue**: Second row of integration icons was being cut off at bottom
+- **Solution**:
+  - Increased container height from 200px to 280px to accommodate both rows
+  - Changed from absolute positioning to flexbox layout with proper gap
+  - Split integrations into two arrays for equal distribution across rows
+  - Made all icon boxes consistent 100px x 100px with larger icons (8x8)
+  - Added smooth fade gradients at edges instead of hard cutoff
+  - Gradients now match the background colors (purple-50 on left, blue-50 on right)
+  - Increased spacing between icons from gap-3 to gap-4
+- **Features**:
+  - Two-row infinite scrolling animation
+  - Top row scrolls forward, bottom row scrolls in reverse
+  - Hover effects with scale and elevation changes
+  - Professional fade transitions at edges
+  - Equal distribution of 39 integrations across both rows
+
 ---
 
 ## 🚨 QUICK REFERENCE GUIDE

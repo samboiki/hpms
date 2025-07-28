@@ -688,4 +688,37 @@
   .heartbeat-ring {
     animation: heartbeat 2s ease-in-out infinite;
   }
+
+  /* Integrations slider animations */
+  @keyframes scroll-forward {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+
+  @keyframes scroll-reverse {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(50%);
+    }
+  }
+
+  .animate-scroll-forward {
+    animation: scroll-forward 60s linear infinite;
+  }
+
+  .animate-scroll-reverse {
+    animation: scroll-reverse 60s linear infinite;
+  }
+
+  /* Pause animations on hover */
+  .animate-scroll-forward:hover,
+  .animate-scroll-reverse:hover {
+    animation-play-state: paused;
+  }
 }
