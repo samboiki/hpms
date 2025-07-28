@@ -39,13 +39,13 @@ export async function fetchPatientsDirectly(practiceId: string): Promise<Enhance
         .from('patients')
         .select(`
           *,
-          practice:practices (
+          practices!patients_practice_id_fkey (
             id,
             name
           ),
-          medical_aid_details!left (
+          medical_aid_details (
             *,
-            medical_aid_provider:medical_aid_providers (
+            medical_aid_providers (
               id,
               name,
               logo_url
@@ -73,7 +73,7 @@ export async function fetchPatientsDirectly(practiceId: string): Promise<Enhance
 
         return {
           ...patient,
-          practice: patient.practice,
+          practice: patient.practices || patient.practice,
           medical_aid_details: patient.medical_aid_details || [], // Preserve medical aid data
           visits: patientVisits,
           last_visit_date: lastCompletedVisit?.visit_date || null,
