@@ -300,22 +300,89 @@
     transform: translateX(0);
   }
   100% {
-    transform: translateX(-16.666%);
+    transform: translateX(-10%);
   }
 }
 
 @keyframes scroll-reverse-slow {
   0% {
-    transform: translateX(0);
+    transform: translateX(-10%);
   }
   100% {
-    transform: translateX(16.666%);
+    transform: translateX(0);
   }
 }
 
 /* Ensure Montserrat is applied to all body text */
 p, span, div {
   font-family: var(--font-montserrat), 'Montserrat', system-ui, sans-serif;
+}
+
+/* Premium scroll animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes float-delayed {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-15px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float-delayed 6s ease-in-out infinite 1s;
+}
+
+/* Premium hover effects */
+.premium-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.premium-hover:hover {
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Page transition animations */
+.page-enter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.5s ease-out;
+}
+
+/* 3D Card Flip Styles */
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -350,11 +417,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .animate-scroll-forward-slow {
-  animation: scroll-forward-slow 80s linear infinite;
+  animation: scroll-forward-slow 20s linear infinite;
 }
 
 .animate-scroll-reverse-slow {
-  animation: scroll-reverse-slow 80s linear infinite;
+  animation: scroll-reverse-slow 20s linear infinite;
 }
 
 .animate-scroll-reverse {

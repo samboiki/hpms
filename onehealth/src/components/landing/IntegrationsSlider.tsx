@@ -8,7 +8,7 @@ const integrations = [
   // Communication & Messaging
   { name: 'WhatsApp', icon: 'logos:whatsapp-icon', color: '#25D366' },
   { name: 'Telegram', icon: 'logos:telegram', color: '#0088CC' },
-  { name: 'SMS', icon: 'solar:chat-square-text-bold-duotone', color: '#6366F1' },
+  { name: 'SMS', icon: 'solar:chat-dots-bold-duotone', color: '#6366F1' },
   { name: 'Email', icon: 'logos:google-gmail', color: '#EA4335' },
   { name: 'Slack', icon: 'logos:slack-icon', color: '#4A154B' },
   
@@ -24,7 +24,7 @@ const integrations = [
   { name: 'PayFast', icon: 'simple-icons:paypal', color: '#2AA1E0' },
   
   // Medical Systems
-  { name: 'HL7 FHIR', icon: 'simple-icons:hl7', color: '#FF6B35' },
+  { name: 'HL7 FHIR', icon: 'solar:health-bold-duotone', color: '#FF6B35' },
   { name: 'Epic', icon: 'solar:health-bold-duotone', color: '#FF0080' },
   { name: 'Cerner', icon: 'solar:heart-pulse-bold-duotone', color: '#00A8E8' },
   
@@ -84,25 +84,26 @@ export function IntegrationsSlider() {
   const firstRowIntegrations = integrations.slice(0, halfPoint);
   const secondRowIntegrations = integrations.slice(halfPoint);
   
-  // Create enough copies for seamless infinite scroll
-  const infiniteFirstRow = [...firstRowIntegrations, ...firstRowIntegrations, ...firstRowIntegrations, ...firstRowIntegrations, ...firstRowIntegrations, ...firstRowIntegrations];
-  const infiniteSecondRow = [...secondRowIntegrations, ...secondRowIntegrations, ...secondRowIntegrations, ...secondRowIntegrations, ...secondRowIntegrations, ...secondRowIntegrations];
+  // Create enough copies for truly seamless infinite scroll
+  const infiniteFirstRow = [...firstRowIntegrations, ...firstRowIntegrations, ...firstRowIntegrations, ...firstRowIntegrations, ...firstRowIntegrations, ...firstRowIntegrations, ...firstRowIntegrations, ...firstRowIntegrations, ...firstRowIntegrations, ...firstRowIntegrations];
+  const infiniteSecondRow = [...secondRowIntegrations, ...secondRowIntegrations, ...secondRowIntegrations, ...secondRowIntegrations, ...secondRowIntegrations, ...secondRowIntegrations, ...secondRowIntegrations, ...secondRowIntegrations, ...secondRowIntegrations, ...secondRowIntegrations];
   
   return (
-    <section className="py-24 overflow-hidden bg-gradient-to-br from-purple-50 via-white to-blue-50 relative">
+    <section className="relative overflow-hidden bg-gradient-to-br from-purple-50 via-white to-blue-50">
       {/* Animated background patterns */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-purple-300/20 to-blue-300/20 rounded-full blur-3xl animate-pulse" />
         <div className="absolute -bottom-1/2 -right-1/2 w-full h-full bg-gradient-to-tr from-blue-300/20 to-purple-300/20 rounded-full blur-3xl animate-pulse" />
       </div>
       
-      <div className="container mx-auto px-4 relative z-10">
+      {/* Single seamless container */}
+      <div className="relative z-10 py-24">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           viewport={{ once: true }}
-          className="text-center mb-20"
+          className="text-center mb-20 px-4"
         >
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600 font-semibold text-sm uppercase tracking-wider">
             Integrations
@@ -115,12 +116,12 @@ export function IntegrationsSlider() {
           </p>
         </motion.div>
 
+        {/* Seamless slider without container borders */}
         <div className="relative">
-          {/* Slider container with proper height for both rows */}
-          <div className="relative h-[280px] flex flex-col justify-center gap-6 overflow-hidden">
-            {/* Fade gradients at edges */}
-            <div className="absolute left-0 top-0 bottom-0 w-40 bg-gradient-to-r from-purple-50 via-purple-50/90 via-purple-50/60 via-purple-50/30 to-transparent z-20 pointer-events-none" />
-            <div className="absolute right-0 top-0 bottom-0 w-40 bg-gradient-to-l from-blue-50 via-blue-50/90 via-blue-50/60 via-blue-50/30 to-transparent z-20 pointer-events-none" />
+          <div className="relative h-[240px] flex flex-col justify-center gap-6">
+            {/* Fade gradients matching exact background gradient */}
+            <div className="absolute left-0 top-0 bottom-0 w-48 bg-gradient-to-r from-purple-50 via-purple-50/90 via-white/80 to-transparent z-20 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-48 bg-gradient-to-l from-blue-50 via-blue-50/90 via-white/80 to-transparent z-20 pointer-events-none" />
             
             {/* Forward scrolling row - Top */}
             <div className="relative">
@@ -131,16 +132,16 @@ export function IntegrationsSlider() {
                     whileHover={{ scale: 1.1, y: -5 }}
                     className="group relative flex-shrink-0"
                   >
-                    <div className="flex flex-col items-center justify-center p-4 bg-white/90 backdrop-blur-md rounded-xl shadow-md hover:shadow-xl transition-all duration-300 w-[100px] h-[100px] border border-gray-100/50 group-hover:border-purple-200">
+                    <div className="flex flex-col items-center justify-center p-3 bg-white/90 backdrop-blur-md rounded-xl shadow-md hover:shadow-xl transition-all duration-300 min-w-[80px] border border-gray-100/50 group-hover:border-purple-200">
                       <div className="relative">
                         <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-blue-400 rounded-full blur-lg opacity-0 group-hover:opacity-20 transition-opacity" />
                         <Icon
                           icon={integration.icon}
-                          className="w-8 h-8 mb-2 relative z-10 transition-transform group-hover:scale-110"
+                          className="w-6 h-6 mb-1.5 relative z-10 transition-transform group-hover:scale-110"
                           style={{ color: integration.icon.includes('logos:') || integration.icon.includes('simple-icons:') || integration.icon.includes('vscode-icons:') ? undefined : integration.color }}
                         />
                       </div>
-                      <span className="text-xs font-medium text-gray-600 whitespace-nowrap group-hover:text-gray-800 text-center">
+                      <span className="text-[10px] font-medium text-gray-600 whitespace-nowrap group-hover:text-gray-800">
                         {integration.name}
                       </span>
                     </div>
@@ -158,16 +159,16 @@ export function IntegrationsSlider() {
                     whileHover={{ scale: 1.1, y: -5 }}
                     className="group relative flex-shrink-0"
                   >
-                    <div className="flex flex-col items-center justify-center p-4 bg-white/90 backdrop-blur-md rounded-xl shadow-md hover:shadow-xl transition-all duration-300 w-[100px] h-[100px] border border-gray-100/50 group-hover:border-blue-200">
+                    <div className="flex flex-col items-center justify-center p-3 bg-white/90 backdrop-blur-md rounded-xl shadow-md hover:shadow-xl transition-all duration-300 min-w-[80px] border border-gray-100/50 group-hover:border-blue-200">
                       <div className="relative">
                         <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full blur-lg opacity-0 group-hover:opacity-20 transition-opacity" />
                         <Icon
                           icon={integration.icon}
-                          className="w-8 h-8 mb-2 relative z-10 transition-transform group-hover:scale-110"
+                          className="w-6 h-6 mb-1.5 relative z-10 transition-transform group-hover:scale-110"
                           style={{ color: integration.icon.includes('logos:') || integration.icon.includes('simple-icons:') || integration.icon.includes('vscode-icons:') ? undefined : integration.color }}
                         />
                       </div>
-                      <span className="text-xs font-medium text-gray-600 whitespace-nowrap group-hover:text-gray-800 text-center">
+                      <span className="text-[10px] font-medium text-gray-600 whitespace-nowrap group-hover:text-gray-800">
                         {integration.name}
                       </span>
                     </div>
@@ -176,23 +177,23 @@ export function IntegrationsSlider() {
               </div>
             </div>
           </div>
-        </div>
 
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          viewport={{ once: true }}
-          className="text-center mt-16"
-        >
-          <a
-            href="/integrations"
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-xl font-semibold text-lg hover:shadow-lg transition-all hover:scale-[1.02]"
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            viewport={{ once: true }}
+            className="text-center mt-16"
           >
-            View all integrations
-            <Icon icon="solar:arrow-right-bold" className="w-5 h-5" />
-          </a>
-        </motion.div>
+            <a
+              href="/integrations"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-6 py-3 rounded-xl font-semibold text-lg hover:shadow-lg transition-all hover:scale-[1.02]"
+            >
+              View all integrations
+              <Icon icon="solar:arrow-right-bold" className="w-5 h-5" />
+            </a>
+          </motion.div>
+        </div>
       </div>
     </section>
   );

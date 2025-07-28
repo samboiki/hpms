@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, useMotionValue, useSpring } from 'framer-motion'
 
 export function CustomCursor() {
   const cursorRef = useRef<HTMLDivElement>(null)
   const dotRef = useRef<HTMLDivElement>(null)
+  const [ripples, setRipples] = useState<Array<{id: number, x: number, y: number}>>([])
   
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
@@ -20,6 +21,20 @@ export function CustomCursor() {
       mouseY.set(e.clientY)
     }
 
+    const handleMouseClick = (e: MouseEvent) => {
+      const newRipple = {
+        id: Date.now(),
+        x: e.clientX,
+        y: e.clientY
+      }
+      setRipples(prev => [...prev, newRipple])
+      
+      // Remove ripple after animation
+      setTimeout(() => {
+        setRipples(prev => prev.filter(ripple => ripple.id !== newRipple.id))
+      }, 1000)
+    }
+
     const handleMouseEnter = () => {
       if (cursorRef.current) cursorRef.current.style.opacity = '1'
       if (dotRef.current) dotRef.current.style.opacity = '1'
@@ -31,6 +46,7 @@ export function CustomCursor() {
     }
 
     window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('click', handleMouseClick)
     document.addEventListener('mouseenter', handleMouseEnter)
     document.addEventListener('mouseleave', handleMouseLeave)
 
@@ -73,6 +89,7 @@ export function CustomCursor() {
 
     return () => {
       window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('click', handleMouseClick)
       document.removeEventListener('mouseenter', handleMouseEnter)
       document.removeEventListener('mouseleave', handleMouseLeave)
       document.removeEventListener('mouseover', handleMouseOver)
@@ -120,6 +137,30 @@ export function CustomCursor() {
           transition: 'transform 0.3s',
         }}
       />
+      {/* Ripple effects */}
+      {ripples.map(ripple => (
+        <motion.div
+          key={ripple.id}
+          className="cursor-ripple"
+          initial={{ scale: 0, opacity: 1 }}
+          animate={{ scale: 4, opacity: 0 }}
+          transition={{ duration: 1, ease: 'easeOut' }}
+          style={{
+            position: 'fixed',
+            left: ripple.x,
+            top: ripple.y,
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            border: '2px solid rgba(147, 51, 234, 0.5)',
+            backgroundColor: 'rgba(147, 51, 234, 0.1)',
+            pointerEvents: 'none',
+            zIndex: 9998,
+            translateX: '-50%',
+            translateY: '-50%',
+          }}
+        />
+      ))}
     </>
   )
 }
