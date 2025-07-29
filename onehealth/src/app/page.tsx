@@ -15,8 +15,13 @@ import { ComparisonTable } from '@/components/landing/ComparisonTable'
 import { IntegrationsSlider } from '@/components/landing/IntegrationsSlider'
 import { Footer } from '@/components/landing/Footer'
 import { ScrollProgress } from '@/components/landing/ScrollProgress'
+import { redirect } from 'next/navigation'
 
 export default function HomePage() {
+  // Check if this is admin mode
+  if (process.env.NEXT_PUBLIC_APP_MODE === 'admin') {
+    redirect('/dashboard')
+  }
   return (
     <motion.div
       initial={{ opacity: 0 }}
