@@ -5,19 +5,19 @@
 1. ✅ Created new project: onehealth-marketing
 2. ✅ Removed onehealthsystems.com and www.onehealthsystems.com from old project
 3. ✅ Added environment variables to onehealth-marketing
-4. ❌ Build failing due to monorepo structure
+4. ✅ Removed admin/dashboard routes from marketing site (fixed build error)
+5. ❌ Root Directory incorrectly set to `onehealth/onehealth`
 
 ## Manual Steps Needed in Vercel Dashboard
-
-The build is failing because Vercel is trying to build from the root directory instead of the onehealth subdirectory.
 
 ### 1. Go to Vercel Dashboard
 - Visit: https://vercel.com/onehealth/onehealth-marketing/settings/general
 
-### 2. Update Root Directory Setting
+### 2. Fix Root Directory Setting
 - Find "Root Directory" setting
-- Change from: `./` (or empty)
-- Change to: `onehealth`
+- Current value appears to be: `onehealth` 
+- **IMPORTANT**: Since we're deploying FROM the onehealth directory, leave this EMPTY
+- Clear the field completely (no value)
 - Click Save
 
 ### 3. Update Build & Output Settings
