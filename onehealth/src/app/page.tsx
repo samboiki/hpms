@@ -1,4 +1,5 @@
 'use client'
+// Deployment trigger - Fixed build issues
 
 import { motion } from 'framer-motion'
 import { Header } from '@/components/landing/Header'
