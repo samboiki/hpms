@@ -66,3 +66,5 @@ xai-env/
 .venv/
 # Claude Code backups
 .claude/backups/
+
+.vercel
