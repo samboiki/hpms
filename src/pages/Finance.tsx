@@ -21,7 +21,6 @@ import {
   AreaChart
 } from 'recharts';
 import { supabase } from '../lib/supabase';
-import { supabaseEdgeFunctions } from '../lib/supabaseEdgeFunctions';
 import { useAuthStore } from '../stores/authStore';
 import { useTheme } from '../stores/themeStore';
 import { Card, CardContent } from '../components/ui/Card';
@@ -621,7 +620,7 @@ const Finance: React.FC = () => {
     try {
       console.log(`🚀 Invoking Edge Function 'send-batch-email' for batch: ${batchId}`);
       
-      const { data, error } = await supabaseEdgeFunctions.functions.invoke('send-batch-email', {
+      const { data, error } = await supabase.functions.invoke('send-batch-email', {
         body: { batchId },
       });
 
