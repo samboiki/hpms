@@ -2360,7 +2360,7 @@ OneHealth Medical Team`;
       {/* Floating Visit Tracker - Only render when modal is open */}
       {isOpen && createPortal(
         <FloatingVisitTracker 
-          practiceId={practiceId || 'default-practice'} 
+          practiceId={practiceId!} 
           selectedDate={new Date()} 
           zIndex={2147483648} 
         />,

@@ -178,9 +178,12 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
     const state = get();
     const currentPracticeId = practiceId || state.practiceId;
     
-    if (!currentPracticeId) {
-      console.warn('⚠️ visitsStore: No practice ID provided for fetchTodayVisits');
-      set({ visits: [], loading: false });
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    if (!currentPracticeId || currentPracticeId === 'default-practice' || !uuidRegex.test(currentPracticeId)) {
+      console.warn('⚠️ visitsStore: Invalid or missing practice ID:', currentPracticeId);
+      set({ visits: [], loading: false, error: 'Invalid practice ID' });
       return;
     }
     

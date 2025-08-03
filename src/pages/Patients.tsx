@@ -510,7 +510,7 @@ const Patients: React.FC = () => {
       </div>
       
       {/* Floating Visit Tracker - Same as Dashboard */}
-      <FloatingVisitTracker practiceId={practiceId || 'default-practice'} selectedDate={new Date()} />
+      {practiceId && <FloatingVisitTracker practiceId={practiceId} selectedDate={new Date()} />}
     </div>
   );
 };

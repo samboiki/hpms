@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
+import './lib/initializeQueryProtection'; // MUST BE FIRST
 import { supabase } from './lib/supabase';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
@@ -35,6 +36,7 @@ import { CustomCursor } from './components/ui/CustomCursor';
 import TestCursor from './pages/TestCursor';
 import { CacheWarmer } from './components/CacheWarmer';
 import TestCache from './pages/TestCache';
+import TestQueryProtection from './pages/TestQueryProtection';
 
 function App() {
   const { isAuthenticated, login } = useAuthStore();
@@ -127,6 +129,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/test-cursor" element={<><CustomCursor /><TestCursor /></>} />
             <Route path="/test-cache" element={<TestCache />} />
+            <Route path="/test-protection" element={<TestQueryProtection />} />
             <Route path="/oauth/universal-callback" element={<UniversalCallback />} />
             <Route path="/api/oauth/callback" element={<UniversalCallback />} />
             <Route path="/" element={<Layout />}>

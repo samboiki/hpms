@@ -79,3 +79,6 @@ export const logDatabaseError = (error: any, context: string) => {
     code: error.code
   });
 };
+
+// Export enhanced client with query protection
+export { supabaseEnhanced } from './supabaseEnhanced';
