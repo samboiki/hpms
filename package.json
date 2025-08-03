@@ -75,6 +75,7 @@
     "react-spring": "^10.0.1",
     "recharts": "^2.15.3",
     "recharts-scale": "^0.4.5",
+    "styled-jsx": "^5.1.7",
     "tailwind-merge": "^2.2.1",
     "xlsx": "^0.18.5",
     "zustand": "^4.5.2"

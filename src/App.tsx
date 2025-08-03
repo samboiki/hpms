@@ -31,6 +31,8 @@ import ThemeProvider from './components/providers/ThemeProvider';
 import EmergencySchemaExporter from './emergency-schema-exporter';
 import { automationProcessingService } from './services/automationProcessingService';
 import UniversalCallback from './pages/oauth/UniversalCallback';
+import { CustomCursor } from './components/ui/CustomCursor';
+import TestCursor from './pages/TestCursor';
 
 function App() {
   const { isAuthenticated, login } = useAuthStore();
@@ -85,13 +87,19 @@ function App() {
   }
 
   if (!isAuthenticated) {
-    return <Login />;
+    return (
+      <>
+        <CustomCursor />
+        <Login />
+      </>
+    );
   }
 
   return (
     <PracticeProvider>
       <ThemeProvider>
         <PracticeTariffsProvider>
+          <CustomCursor />
           <Toaster 
             position="top-right"
             toastOptions={{
@@ -114,6 +122,7 @@ function App() {
           />
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/test-cursor" element={<><CustomCursor /><TestCursor /></>} />
             <Route path="/oauth/universal-callback" element={<UniversalCallback />} />
             <Route path="/api/oauth/callback" element={<UniversalCallback />} />
             <Route path="/" element={<Layout />}>
