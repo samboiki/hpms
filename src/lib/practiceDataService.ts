@@ -183,25 +183,17 @@ class PracticeDataService {
     }
   }
 
-  // Get patients for practice (directly by practice_id)
+  // Get patients for practice (optimized query)
   async getPracticePatients(practiceId: string): Promise<any[]> {
     this.logWithContext(`Fetching patients for practice: ${practiceId}`);
     
     try {
-      // Directly fetch patients by practice_id with medical aid details
+      const startTime = performance.now();
+      
+      // First, fetch just the patient data without joins for better performance
       const { data: patients, error } = await supabase
         .from('patients')
-        .select(`
-          *,
-          medical_aid_details!patient_id (
-            *,
-            medical_aid_provider:medical_aid_providers (
-              id,
-              name,
-              logo_url
-            )
-          )
-        `)
+        .select('*')
         .eq('practice_id', practiceId)
         .order('last_name', { ascending: true })
         .order('first_name', { ascending: true });
@@ -211,16 +203,61 @@ class PracticeDataService {
         return [];
       }
 
-      this.logWithContext(`Found ${patients?.length || 0} patients for practice ${practiceId}`, {
-        patientCount: patients?.length || 0,
-        samplePatient: patients?.[0] ? {
+      if (!patients || patients.length === 0) {
+        this.logWithContext(`No patients found for practice ${practiceId}`);
+        return [];
+      }
+
+      // Only fetch medical aid details if there are patients
+      const patientIds = patients.map(p => p.id);
+      
+      // Fetch medical aid details separately for better performance
+      const { data: medicalAidData, error: medicalAidError } = await supabase
+        .from('medical_aid_details')
+        .select(`
+          *,
+          medical_aid_provider:medical_aid_providers (
+            id,
+            name,
+            logo_url
+          )
+        `)
+        .in('patient_id', patientIds);
+      
+      if (medicalAidError) {
+        this.logError('Failed to fetch medical aid details', medicalAidError);
+        // Continue without medical aid data rather than failing completely
+      }
+      
+      // Create a map for efficient lookup
+      const medicalAidMap = new Map<string, any[]>();
+      if (medicalAidData) {
+        medicalAidData.forEach(mad => {
+          if (!medicalAidMap.has(mad.patient_id)) {
+            medicalAidMap.set(mad.patient_id, []);
+          }
+          medicalAidMap.get(mad.patient_id)?.push(mad);
+        });
+      }
+      
+      // Combine patients with their medical aid details
+      const patientsWithMedicalAid = patients.map(patient => ({
+        ...patient,
+        medical_aid_details: medicalAidMap.get(patient.id) || []
+      }));
+
+      const queryTime = performance.now() - startTime;
+      this.logWithContext(`Found ${patients.length} patients for practice ${practiceId} in ${queryTime.toFixed(2)}ms`, {
+        patientCount: patients.length,
+        queryTime: queryTime.toFixed(2),
+        samplePatient: patients[0] ? {
           id: patients[0].id,
           name: `${patients[0].first_name} ${patients[0].last_name}`,
           practice_id: patients[0].practice_id
         } : null
       });
 
-      return patients || [];
+      return patientsWithMedicalAid;
 
     } catch (error) {
       this.logError('Exception fetching practice patients', error);
