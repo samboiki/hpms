@@ -147,14 +147,10 @@ export function useAppointments(filters?: {
       
       const patientIds = patients.map(p => p.id);
       
-      // Build query
+      // Build query - fetch appointments first without joins
       let query = supabase
         .from('appointments')
-        .select(`
-          *,
-          patient:patients!appointments_patient_id_fkey(id, first_name, last_name, email, cell_number),
-          doctor:users!appointments_doctor_id_fkey(id, full_name, email)
-        `)
+        .select('*')
         .in('patient_id', patientIds);
         
       // Apply filters
@@ -178,7 +174,45 @@ export function useAppointments(filters?: {
       
       if (error) throw error;
       
-      return appointments || [];
+      if (!appointments || appointments.length === 0) {
+        return [];
+      }
+      
+      // Get unique patient and doctor IDs
+      const uniquePatientIds = [...new Set(appointments.map(a => a.patient_id).filter(Boolean))];
+      const uniqueDoctorIds = [...new Set(appointments.map(a => a.doctor_id).filter(Boolean))];
+      
+      // Fetch patients and doctors in parallel
+      const [patientsResponse, doctorsResponse] = await Promise.all([
+        uniquePatientIds.length > 0 
+          ? supabase
+              .from('patients')
+              .select('id, first_name, last_name, email, cell_number')
+              .in('id', uniquePatientIds)
+          : Promise.resolve({ data: [], error: null }),
+        uniqueDoctorIds.length > 0
+          ? supabase
+              .from('users')
+              .select('id, full_name, email')
+              .in('id', uniqueDoctorIds)
+          : Promise.resolve({ data: [], error: null })
+      ]);
+      
+      if (patientsResponse.error) throw patientsResponse.error;
+      if (doctorsResponse.error) throw doctorsResponse.error;
+      
+      // Create lookup maps
+      const patientsMap = new Map((patientsResponse.data || []).map(p => [p.id, p]));
+      const doctorsMap = new Map((doctorsResponse.data || []).map(d => [d.id, d]));
+      
+      // Combine appointments with patient and doctor data
+      const appointmentsWithRelations = appointments.map(appointment => ({
+        ...appointment,
+        patient: appointment.patient_id ? patientsMap.get(appointment.patient_id) : undefined,
+        doctor: appointment.doctor_id ? doctorsMap.get(appointment.doctor_id) : undefined
+      }));
+      
+      return appointmentsWithRelations;
     },
     enabled: !!practiceId,
     staleTime: 1000 * 60 * 2, // Consider data stale after 2 minutes

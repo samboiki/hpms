@@ -107,11 +107,7 @@ class PracticeDataService {
       // INCLUDING pending appointments that don't have a doctor assigned yet
       let query = supabase
         .from('appointments')
-        .select(`
-          *,
-          patients!appointments_patient_id_fkey(id, first_name, last_name, cell_number, date_of_birth, gender),
-          users!appointments_doctor_id_fkey(id, full_name, practice_id)
-        `)
+        .select('*')
         .eq('practice_id', practiceId)
         .order('date', { ascending: true })
         .order('time', { ascending: true });
@@ -141,11 +137,42 @@ class PracticeDataService {
         } : null
       });
 
+      // Now fetch related patient and doctor data
+      const patientIds = [...new Set(filteredAppointments.map(apt => apt.patient_id).filter(Boolean))];
+      const doctorIds = [...new Set(filteredAppointments.map(apt => apt.doctor_id).filter(Boolean))];
+      
+      // Fetch patients and doctors in parallel
+      const [patientsResponse, doctorsResponse] = await Promise.all([
+        patientIds.length > 0 
+          ? supabase
+              .from('patients')
+              .select('id, first_name, last_name, cell_number, date_of_birth, gender')
+              .in('id', patientIds)
+          : Promise.resolve({ data: [], error: null }),
+        doctorIds.length > 0
+          ? supabase
+              .from('users')
+              .select('id, full_name, practice_id')
+              .in('id', doctorIds)
+          : Promise.resolve({ data: [], error: null })
+      ]);
+      
+      if (patientsResponse.error) {
+        this.logError('Failed to fetch patients for appointments', patientsResponse.error);
+      }
+      if (doctorsResponse.error) {
+        this.logError('Failed to fetch doctors for appointments', doctorsResponse.error);
+      }
+      
+      // Create lookup maps
+      const patientsMap = new Map((patientsResponse.data || []).map(p => [p.id, p]));
+      const doctorsMap = new Map((doctorsResponse.data || []).map(d => [d.id, d]));
+      
       // Transform the data to match the expected format
       const formattedAppointments = filteredAppointments.map(apt => ({
         ...apt,
-        patient: apt.patients,
-        doctor: apt.users
+        patient: apt.patient_id ? patientsMap.get(apt.patient_id) : undefined,
+        doctor: apt.doctor_id ? doctorsMap.get(apt.doctor_id) : undefined
       }));
 
       return formattedAppointments;

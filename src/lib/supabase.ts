@@ -18,6 +18,17 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     storageKey: 'hpms-auth',
     storage: window.localStorage,
   },
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+    heartbeatIntervalMs: 5000,
+    timeout: 10000,
+    reconnectAfterMs: (tries: number) => {
+      // Use exponential backoff with a maximum of 30 seconds
+      return Math.min(30000, Math.pow(2, tries) * 1000);
+    },
+  },
   global: {
     headers: {
       'x-application-name': 'HPMS'
