@@ -33,6 +33,8 @@ import { automationProcessingService } from './services/automationProcessingServ
 import UniversalCallback from './pages/oauth/UniversalCallback';
 import { CustomCursor } from './components/ui/CustomCursor';
 import TestCursor from './pages/TestCursor';
+import { CacheWarmer } from './components/CacheWarmer';
+import TestCache from './pages/TestCache';
 
 function App() {
   const { isAuthenticated, login } = useAuthStore();
@@ -99,6 +101,7 @@ function App() {
     <PracticeProvider>
       <ThemeProvider>
         <PracticeTariffsProvider>
+          <CacheWarmer />
           <CustomCursor />
           <Toaster 
             position="top-right"
@@ -123,6 +126,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/test-cursor" element={<><CustomCursor /><TestCursor /></>} />
+            <Route path="/test-cache" element={<TestCache />} />
             <Route path="/oauth/universal-callback" element={<UniversalCallback />} />
             <Route path="/api/oauth/callback" element={<UniversalCallback />} />
             <Route path="/" element={<Layout />}>

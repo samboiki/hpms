@@ -4,6 +4,13 @@ import { useAuthStore } from './authStore';
 import { practiceDataService } from '../lib/practiceDataService';
 import { comprehensiveSearch } from '../utils/searchUtils';
 import { fetchPatientsDirectly } from '../utils/directPatientFetch';
+import { 
+  getCachedPatients, 
+  searchCachedPatients, 
+  getCachedPracticeOverview,
+  invalidatePatientCache,
+  warmUpCache 
+} from '../lib/cachedQueries';
 
 export interface Patient {
   id: string;
@@ -75,27 +82,25 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
   
   fetchPatients: async () => {
     set({ isLoading: true, error: null });
+    const startTime = performance.now();
+    
     try {
-      console.log('🔄 [PatientsStore] Starting fetchPatients - USING DIRECT METHOD');
+      console.log('🚀 [PatientsStore] Using SUPERCHARGED CACHE for instant loading...');
       
-      // Get authenticated user context
-      const authContext = await practiceDataService.getAuthContext();
-      if (!authContext?.practiceId) {
-        console.error('❌ [PatientsStore] No practice ID found in auth context');
-        set({ patients: [], isLoading: false, error: 'No practice context found' });
-        return;
+      // Use cached query for instant results
+      const patients = await getCachedPatients();
+      
+      const loadTime = performance.now() - startTime;
+      console.log(`⚡ [PatientsStore] CACHE LOADED: ${patients.length} patients in ${loadTime.toFixed(2)}ms`);
+      
+      if (loadTime < 200) {
+        console.log('✅ OPTIMAL PERFORMANCE ACHIEVED!');
       }
       
-      const practiceId = authContext.practiceId;
-      console.log('🏥 Using practice ID:', practiceId);
-
-      // USE THE BULLETPROOF DIRECT FETCH
-      const patients = await fetchPatientsDirectly(practiceId);
-      
-      console.log(`✅ [PatientsStore] DIRECT FETCH result: ${patients.length} patients`);
-      console.log('📊 Sample patient with visits:', patients.find(p => p.total_visits > 0));
-      
       set({ patients, isLoading: false });
+      
+      // Warm up cache in background for next time
+      warmUpCache().catch(console.error);
     } catch (error) {
       console.error('❌ [PatientsStore] Error fetching patients:', error);
       set({ error: 'Failed to fetch patients', isLoading: false });
@@ -307,25 +312,18 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
 
   searchPatients: async (searchTerm) => {
     set({ isLoading: true, error: null });
+    const startTime = performance.now();
+    
     try {
-      // Get authenticated user context
-      const authContext = await practiceDataService.getAuthContext();
-      if (!authContext) {
-        set({ patients: [], isLoading: false });
-        return;
-      }
-
-      // Use practice data service to get practice patients first
-      const allPracticePatients = await practiceDataService.getPracticePatients(authContext.practiceId);
+      console.log('🔍 [PatientsStore] Using CACHED search for instant results...');
       
-      // Use comprehensive search for advanced filtering and fuzzy matching
-      const filteredPatients = comprehensiveSearch(allPracticePatients, searchTerm, {
-        threshold: 0.3,
-        minMatchCharLength: 2,
-        keys: ['first_name', 'last_name', 'email', 'cell_number', 'id_number', 'occupation', 'employer']
-      });
-
-      // Sort by relevance (already done in comprehensiveSearch) and then by name
+      // Use cached search for instant results
+      const filteredPatients = await searchCachedPatients(searchTerm);
+      
+      const searchTime = performance.now() - startTime;
+      console.log(`⚡ [PatientsStore] CACHED SEARCH: ${filteredPatients.length} results in ${searchTime.toFixed(2)}ms`);
+      
+      // Sort by relevance and then by name
       filteredPatients.sort((a, b) => {
         const lastNameCompare = (a.last_name || '').localeCompare(b.last_name || '');
         if (lastNameCompare !== 0) return lastNameCompare;
