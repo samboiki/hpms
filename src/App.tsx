@@ -31,13 +31,14 @@ import ThemeProvider from './components/providers/ThemeProvider';
 import EmergencySchemaExporter from './emergency-schema-exporter';
 import { automationProcessingService } from './services/automationProcessingService';
 import UniversalCallback from './pages/oauth/UniversalCallback';
-import { NaturalPremiumCursor } from './components/ui/NaturalPremiumCursor';
+import { LaggedPremiumCursor } from './components/ui/LaggedPremiumCursor';
 import TestCursor from './pages/TestCursor';
 import { CacheWarmer } from './components/CacheWarmer';
 import { RoutePrefetcher } from './components/RoutePrefetcher';
 import TestCache from './pages/TestCache';
 import TestQueryProtection from './pages/TestQueryProtection';
 import { PerformanceMonitor } from './components/PerformanceMonitor';
+import './styles/cursor-override.css';
 
 function App() {
   const { isAuthenticated, login } = useAuthStore();
@@ -94,7 +95,7 @@ function App() {
   if (!isAuthenticated) {
     return (
       <>
-        <NaturalPremiumCursor />
+        <LaggedPremiumCursor />
         <Login />
       </>
     );
@@ -106,7 +107,7 @@ function App() {
         <PracticeTariffsProvider>
           <CacheWarmer />
           <RoutePrefetcher />
-          <NaturalPremiumCursor />
+          <LaggedPremiumCursor />
           <PerformanceMonitor />
           <Toaster 
             position="top-right"
@@ -130,7 +131,7 @@ function App() {
           />
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/test-cursor" element={<><NaturalPremiumCursor /><TestCursor /></>} />
+            <Route path="/test-cursor" element={<><LaggedPremiumCursor /><TestCursor /></>} />
             <Route path="/test-cache" element={<TestCache />} />
             <Route path="/test-protection" element={<TestQueryProtection />} />
             <Route path="/oauth/universal-callback" element={<UniversalCallback />} />

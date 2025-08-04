@@ -76,7 +76,7 @@ export function LaggedPremiumCursor() {
       
       {/* Outer ring - lags behind */}
       <motion.div
-        className="pointer-events-none fixed z-[9999998]"
+        className="pointer-events-none fixed"
         style={{
           left: 0,
           top: 0,
@@ -84,6 +84,7 @@ export function LaggedPremiumCursor() {
           y: ringY,
           translateX: '-50%',
           translateY: '-50%',
+          zIndex: 2147483646,
         }}
         animate={{
           opacity: isVisible ? 1 : 0,
@@ -109,7 +110,7 @@ export function LaggedPremiumCursor() {
       
       {/* Inner dot - moves instantly */}
       <motion.div
-        className="pointer-events-none fixed z-[9999999]"
+        className="pointer-events-none fixed"
         style={{
           left: 0,
           top: 0,
@@ -117,6 +118,7 @@ export function LaggedPremiumCursor() {
           y: dotY,
           translateX: '-50%',
           translateY: '-50%',
+          zIndex: 2147483647,
         }}
         animate={{
           opacity: isVisible ? 1 : 0,

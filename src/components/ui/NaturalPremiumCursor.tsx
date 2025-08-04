@@ -85,8 +85,9 @@ export function NaturalPremiumCursor() {
       {/* Ring - smooth follow */}
       <div
         ref={cursorRingRef}
-        className="pointer-events-none fixed left-0 top-0 z-[9999998]"
+        className="pointer-events-none fixed left-0 top-0"
         style={{
+          zIndex: 2147483646,
           width: isPointer ? '48px' : '40px',
           height: isPointer ? '48px' : '40px',
           marginLeft: isPointer ? '-24px' : '-20px',

@@ -1,0 +1,25 @@
+/* Global cursor override to ensure visibility above all modals */
+
+/* Force cursor to show above all Tailwind modal classes */
+.fixed[role="dialog"],
+.fixed[aria-modal="true"],
+[data-radix-portal],
+[data-headlessui-portal],
+.modal,
+.modal-backdrop,
+.modal-content {
+  z-index: auto !important;
+  max-z-index: 999999 !important;
+}
+
+/* Ensure our cursor components are always on top */
+.pointer-events-none.fixed {
+  z-index: 2147483647 !important;
+}
+
+/* Override any inline z-index styles on modals */
+div[style*="z-index: 9999"],
+div[style*="z-index: 10000"],
+div[style*="z-index: 99999"] {
+  z-index: 999999 !important;
+}
