@@ -1,25 +1,46 @@
 /* Global cursor override to ensure visibility above all modals */
 
-/* Force cursor to show above all Tailwind modal classes */
+/* Reset all modal z-indexes to be below cursor */
 .fixed[role="dialog"],
 .fixed[aria-modal="true"],
 [data-radix-portal],
 [data-headlessui-portal],
 .modal,
 .modal-backdrop,
-.modal-content {
-  z-index: auto !important;
-  max-z-index: 999999 !important;
+.modal-content,
+[class*="Modal"],
+[class*="modal"],
+[class*="Dialog"],
+[class*="dialog"],
+[class*="Overlay"],
+[class*="overlay"] {
+  z-index: 9999 !important;
 }
 
-/* Ensure our cursor components are always on top */
-.pointer-events-none.fixed {
+/* Ensure backdrop/overlay elements don't block cursor */
+[class*="backdrop"],
+[class*="Backdrop"],
+.fixed.inset-0,
+.absolute.inset-0 {
+  z-index: 9998 !important;
+}
+
+/* Force cursor container to absolute maximum z-index */
+.pointer-events-none[style*="z-index: 2147483647"] {
   z-index: 2147483647 !important;
+  pointer-events: none !important;
+  position: fixed !important;
 }
 
 /* Override any inline z-index styles on modals */
-div[style*="z-index: 9999"],
-div[style*="z-index: 10000"],
-div[style*="z-index: 99999"] {
-  z-index: 999999 !important;
+[style*="z-index: 10000"],
+[style*="z-index: 99999"],
+[style*="z-index: 999999"] {
+  z-index: 9999 !important;
+}
+
+/* Ensure cursor works in portals */
+#headlessui-portal-root,
+#radix-portal {
+  z-index: 9999 !important;
 }
