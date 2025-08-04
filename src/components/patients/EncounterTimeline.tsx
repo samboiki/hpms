@@ -443,9 +443,11 @@ const TimelineNode: React.FC<{
                 {/* Animated diamond pattern */}
                 <motion.div
                   className="absolute inset-0"
-                  animate={{
+                  style={{
                     background: `linear-gradient(45deg, transparent 25%, rgba(255,255,255,0.2) 25%, rgba(255,255,255,0.2) 50%, transparent 50%, transparent 75%, rgba(255,255,255,0.2) 75%)`,
-                    backgroundSize: '8px 8px',
+                    backgroundSize: '8px 8px'
+                  }}
+                  animate={{
                     backgroundPosition: isHovered ? '8px 8px' : '0px 0px'
                   }}
                   transition={{ duration: 0.3 }}

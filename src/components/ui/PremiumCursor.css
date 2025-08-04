@@ -1,0 +1,75 @@
+/* Premium Cursor Styles */
+@media (pointer: fine) {
+  * {
+    cursor: none !important;
+  }
+  
+  /* Ensure cursor is always on top */
+  .premium-cursor-container {
+    pointer-events: none !important;
+    mix-blend-mode: normal;
+    isolation: isolate;
+  }
+  
+  .premium-cursor-main {
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    border-radius: 50%;
+    pointer-events: none !important;
+  }
+  
+  .premium-cursor-dot {
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  
+  .premium-cursor-trail {
+    will-change: transform, opacity;
+    pointer-events: none !important;
+  }
+}
+
+/* Optimize performance */
+.premium-cursor-main,
+.premium-cursor-dot,
+.premium-cursor-trail {
+  contain: layout style paint;
+}
+
+/* Ensure smooth rendering */
+@supports (backdrop-filter: blur(0px)) {
+  .premium-cursor-main {
+    backdrop-filter: blur(0px);
+  }
+}
+
+/* High refresh rate support */
+@media (prefers-reduced-motion: no-preference) {
+  .premium-cursor-main,
+  .premium-cursor-trail {
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .premium-cursor-main {
+    mix-blend-mode: screen;
+  }
+}
+
+/* Ensure cursor shows above everything including modals */
+.premium-cursor-container {
+  z-index: 2147483647 !important; /* Maximum z-index value */
+}
+
+/* Performance optimizations for smooth 60fps+ */
+.premium-cursor-main::before,
+.premium-cursor-main::after {
+  content: '';
+  display: none;
+}

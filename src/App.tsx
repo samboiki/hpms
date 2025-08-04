@@ -31,7 +31,7 @@ import ThemeProvider from './components/providers/ThemeProvider';
 import EmergencySchemaExporter from './emergency-schema-exporter';
 import { automationProcessingService } from './services/automationProcessingService';
 import UniversalCallback from './pages/oauth/UniversalCallback';
-import { CustomCursor } from './components/ui/CustomCursor';
+import { PremiumCursor } from './components/ui/PremiumCursor';
 import TestCursor from './pages/TestCursor';
 import { CacheWarmer } from './components/CacheWarmer';
 import { RoutePrefetcher } from './components/RoutePrefetcher';
@@ -94,7 +94,7 @@ function App() {
   if (!isAuthenticated) {
     return (
       <>
-        <CustomCursor />
+        <PremiumCursor />
         <Login />
       </>
     );
@@ -106,7 +106,7 @@ function App() {
         <PracticeTariffsProvider>
           <CacheWarmer />
           <RoutePrefetcher />
-          <CustomCursor />
+          <PremiumCursor />
           <PerformanceMonitor />
           <Toaster 
             position="top-right"
@@ -130,7 +130,7 @@ function App() {
           />
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/test-cursor" element={<><CustomCursor /><TestCursor /></>} />
+            <Route path="/test-cursor" element={<><PremiumCursor /><TestCursor /></>} />
             <Route path="/test-cache" element={<TestCache />} />
             <Route path="/test-protection" element={<TestQueryProtection />} />
             <Route path="/oauth/universal-callback" element={<UniversalCallback />} />
