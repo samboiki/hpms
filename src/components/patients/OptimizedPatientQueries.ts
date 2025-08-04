@@ -1,42 +1,64 @@
 import { supabase } from '../../lib/supabase';
+import { lightningCache } from '../../lib/lightningCache';
 
-// Ultra-optimized patient data fetching with maximum parallelization
+// Ultra-optimized patient data fetching with maximum parallelization and lightning cache
 export const fetchPatientDetailsOptimized = async (patientId: string) => {
   const startTime = performance.now();
-  console.log(`🚀 ULTRA-OPTIMIZED fetchPatientDetails for patient: ${patientId}`);
+  console.log(`🚀 ULTRA-OPTIMIZED fetchPatientDetails with LIGHTNING CACHE for patient: ${patientId}`);
 
   try {
-    // 🚀 PHASE 1: Core patient data (critical path) - 3 parallel queries
+    // 🚀 PHASE 1: Core patient data (critical path) - 3 parallel queries with caching
     const coreStartTime = performance.now();
     const [patientResult, nextOfKinResult, visitsResult] = await Promise.all([
-      // Patient details
-      supabase
-        .from('patient_details_view')
-        .select('*')
-        .eq('id', patientId)
-        .single(),
+      // Patient details with cache
+      lightningCache.get(
+        `patient:${patientId}:details`,
+        async () => {
+          const result = await supabase
+            .from('patient_details_view')
+            .select('*')
+            .eq('id', patientId)
+            .single();
+          return result;
+        },
+        5 * 60 * 1000 // 5 minutes cache
+      ),
         
-      // Next of kin
-      supabase
-        .from('next_of_kin')
-        .select('id, name, relationship, phone, address')
-        .eq('patient_id', patientId)
-        .limit(1)
-        .maybeSingle(),
+      // Next of kin with cache
+      lightningCache.get(
+        `patient:${patientId}:nextofkin`,
+        async () => {
+          const result = await supabase
+            .from('next_of_kin')
+            .select('id, name, relationship, phone, address')
+            .eq('patient_id', patientId)
+            .limit(1)
+            .maybeSingle();
+          return result;
+        },
+        5 * 60 * 1000
+      ),
         
-      // Visits with expanded data to reduce future queries
-      supabase
-        .from('visits')
-        .select(`
-          *,
-          doctor:users!doctor_id(id, full_name),
-          vitals(*),
-          lab_requests(id, test_name, status, urgency, expected_results_date),
-          medications(id, medication_name, dosage, frequency, duration, prescribed_date)
-        `)
-        .eq('patient_id', patientId)
-        .order('visit_date', { ascending: false })
-        .order('visit_time', { ascending: false })
+      // Visits with expanded data and cache
+      lightningCache.get(
+        `patient:${patientId}:visits-expanded`,
+        async () => {
+          const result = await supabase
+            .from('visits')
+            .select(`
+              *,
+              doctor:users!doctor_id(id, full_name),
+              vitals(*),
+              lab_requests(id, test_name, status, urgency, expected_results_date),
+              medications(id, medication_name, dosage, frequency, duration, prescribed_date)
+            `)
+            .eq('patient_id', patientId)
+            .order('visit_date', { ascending: false })
+            .order('visit_time', { ascending: false });
+          return result;
+        },
+        2 * 60 * 1000 // 2 minutes cache for visits
+      )
     ]);
     
     const coreTime = performance.now() - coreStartTime;
@@ -51,9 +73,9 @@ export const fetchPatientDetailsOptimized = async (patientId: string) => {
     const visitIds = visits.map(v => v.id);
     const labRequestIds = visits.flatMap(v => v.lab_requests?.map(lr => lr.id) || []);
 
-    // 🚀 PHASE 2: All remaining data in one massive parallel query (9 queries at once)
+    // 🚀 PHASE 2: All remaining data in one massive parallel query with caching
     const secondaryStartTime = performance.now();
-    console.log(`🔥 Starting MEGA PARALLEL queries for ${visitIds.length} visits...`);
+    console.log(`🔥 Starting MEGA PARALLEL cached queries for ${visitIds.length} visits...`);
     
     const [
       billingResult,
@@ -66,50 +88,85 @@ export const fetchPatientDetailsOptimized = async (patientId: string) => {
       visitCountsResult,
       practiceResult
     ] = await Promise.all([
-      // Billing data
-      supabase
-        .from('invoices_enhanced')
-        .select('*')
-        .eq('patient_id', patientId)
-        .order('created_at', { ascending: false }),
+      // Billing data with cache
+      lightningCache.get(
+        `patient:${patientId}:billing`,
+        async () => {
+          const result = await supabase
+            .from('invoices_enhanced')
+            .select('*')
+            .eq('patient_id', patientId)
+            .order('created_at', { ascending: false });
+          return result;
+        },
+        2 * 60 * 1000
+      ),
         
-      // Documents
-      supabase
-        .from('patient_documents')
-        .select('*')
-        .eq('patient_id', patientId)
-        .order('created_at', { ascending: false }),
+      // Documents with cache
+      lightningCache.get(
+        `patient:${patientId}:documents`,
+        async () => {
+          const result = await supabase
+            .from('patient_documents')
+            .select('*')
+            .eq('patient_id', patientId)
+            .order('created_at', { ascending: false });
+          return result;
+        },
+        3 * 60 * 1000
+      ),
         
-      // Lab results (if we have lab requests)
+      // Lab results with cache
       labRequestIds.length > 0 
-        ? supabase
-            .from('lab_results')
-            .select('*, lab_request_id')
-            .in('lab_request_id', labRequestIds)
-            .order('created_at', { ascending: false })
+        ? lightningCache.get(
+            `patient:${patientId}:lab-results`,
+            async () => {
+              const result = await supabase
+                .from('lab_results')
+                .select('*, lab_request_id')
+                .in('lab_request_id', labRequestIds)
+                .order('created_at', { ascending: false });
+              return result;
+            },
+            2 * 60 * 1000
+          )
         : Promise.resolve({ data: [], error: null }),
         
-      // Media files
-      supabase
-        .from('patient_media')
-        .select(`
-          id, title, original_name, file_size, file_type, category, 
-          storage_path, storage_bucket, created_at, visit_id,
-          visit:visits!visit_id(id, visit_date, visit_number)
-        `)
-        .eq('patient_id', patientId)
-        .order('created_at', { ascending: false }),
+      // Media files with cache
+      lightningCache.get(
+        `patient:${patientId}:media`,
+        async () => {
+          const result = await supabase
+            .from('patient_media')
+            .select(`
+              id, title, original_name, file_size, file_type, category, 
+              storage_path, storage_bucket, created_at, visit_id,
+              visit:visits!visit_id(id, visit_date, visit_number)
+            `)
+            .eq('patient_id', patientId)
+            .order('created_at', { ascending: false });
+          return result;
+        },
+        3 * 60 * 1000
+      ),
         
-      // Imaging data
-      supabase
-        .from('patient_imaging')
-        .select(`
-          id, imaging_type, study_date, body_part, file_size, file_type, 
-          storage_path, storage_bucket, original_name, visit_id,
-          visit:visits!visit_id(id, visit_date, visit_number)
-        `)
-        .eq('patient_id', patientId)
-        .order('study_date', { ascending: false }),
+      // Imaging data with cache
+      lightningCache.get(
+        `patient:${patientId}:imaging`,
+        async () => {
+          const result = await supabase
+            .from('patient_imaging')
+            .select(`
+              id, imaging_type, study_date, body_part, file_size, file_type, 
+              storage_path, storage_bucket, original_name, visit_id,
+              visit:visits!visit_id(id, visit_date, visit_number)
+            `)
+            .eq('patient_id', patientId)
+            .order('study_date', { ascending: false });
+          return result;
+        },
+        3 * 60 * 1000
+      ),
         
       // Appointments
       supabase

@@ -147,7 +147,7 @@ export function CustomCursor() {
               borderRadius: '50%',
               border: '2px solid rgb(147, 51, 234)',
               pointerEvents: 'none',
-              zIndex: 9997,
+              zIndex: 999997,
               x: ripple.x - 20,
               y: ripple.y - 20,
             }}
@@ -164,7 +164,7 @@ export function CustomCursor() {
           width: 0,
           height: 0,
           pointerEvents: 'none',
-          zIndex: 9999,
+          zIndex: 999999,
         }}
       >
         {/* Outer ring */}

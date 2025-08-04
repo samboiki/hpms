@@ -9,4 +9,21 @@
 .cursor-dot,
 .cursor-trail {
   will-change: transform, opacity, width, height;
+  pointer-events: none !important;
+  z-index: 999999 !important;
+}
+
+/* Ensure cursor shows above modals and overlays */
+[role="dialog"] {
+  position: relative;
+  z-index: 50;
+}
+
+/* Force cursor to show above everything */
+.cursor-ring,
+.custom-cursor,
+.cursor-dot,
+.cursor-trail {
+  position: fixed !important;
+  isolation: isolate;
 }
