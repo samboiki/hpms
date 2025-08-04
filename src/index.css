@@ -6,6 +6,7 @@
 @import '@fontsource/poppins/700.css';
 @import './styles/mobile-performance.css';
 @import './styles/custom-cursor.css';
+@import './styles/modal-fix.css';
 
 @tailwind base;
 @tailwind components;

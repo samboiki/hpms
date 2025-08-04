@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useModalClickFix } from '../../hooks/useModalClickFix';
 
 interface FullScreenModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ const FullScreenModal: React.FC<FullScreenModalProps> = ({
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
+  const { ensureClickable } = useModalClickFix(isOpen, modalId);
 
   // Lock body scroll when modal is open
   useEffect(() => {

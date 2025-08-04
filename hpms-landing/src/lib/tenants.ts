@@ -66,7 +66,7 @@ export async function getPracticeByDomain(domain: string, searchParams?: URLSear
     
     // Method 3: Port-based mapping (backward compatibility)
     const domainMap: Record<string, string> = {
-      'localhost:3000': 'cityclinic.vercel.app',
+      // LOCALHOST:3000 IS RESERVED FOR ONEHEALTH LANDING PAGE - NO TENANTS!
       'localhost:3001': 'coastalmed.vercel.app', 
       'localhost:3002': 'drpolina.vercel.app',
       'localhost:3003': 'newcharm.vercel.app',
@@ -104,11 +104,12 @@ export async function getPracticeByDomain(domain: string, searchParams?: URLSear
       return await getPracticeBySlug('newcharm-dental');
     }
     
-    if (!mappedDomain && domain.includes('localhost')) {
-      console.log('🏥 No specific practice mapping - will show practice directory');
-      return null;
+    // Use the mapped domain if available, otherwise use the original domain
+    if (mappedDomain) {
+      console.log('✅ Using mapped domain:', mappedDomain);
     } else {
-      mappedDomain = mappedDomain || domain;
+      mappedDomain = domain;
+      console.log('📍 Using original domain:', domain);
     }
     
     console.log('Looking for practice with domain:', mappedDomain);

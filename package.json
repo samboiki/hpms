@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently --kill-others --names \"🏥DASH,🌐LAND,⚡ADMIN\" --prefix \"[{name}]\" --prefix-colors \"cyan,green,yellow\" \"npm run dev:dashboard\" \"npm run dev:landing\" \"npm run dev:admin\"",
+    "dev": "concurrently --kill-others --names \"🏥HPMS,⚡ADMIN,🚀MRKT\" --prefix \"[{name}]\" --prefix-colors \"cyan,green,yellow\" \"npm run dev:dashboard\" \"npm run dev:admin\" \"npm run dev:landing\"",
     "dev:clean": "./start-dev-clean.sh",
-    "dev:safe": "concurrently --kill-others --names \"🏥DASH,🌐LAND,⚡ADMIN\" --prefix \"[{name}]\" --prefix-colors \"cyan,green,yellow\" \"npm run dev:dashboard\" \"npm run dev:landing:alt\" \"npm run dev:admin:alt\"",
+    "dev:safe": "concurrently --kill-others --names \"🏥DASH,⚡ADMIN,🌐LAND\" --prefix \"[{name}]\" --prefix-colors \"cyan,green,yellow\" \"npm run dev:dashboard\" \"npm run dev:admin:alt\" \"npm run dev:landing:alt\"",
     "dev:dashboard": "vite --host 0.0.0.0 --port 5000 --force",
     "dev:landing": "cd hpms-landing && npm run dev -- --port 3000",
     "dev:landing:alt": "cd hpms-landing && npm run dev -- --port 3001",

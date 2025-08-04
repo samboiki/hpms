@@ -1,0 +1,11 @@
+
+> healthsys-react-app@0.0.0 dev:dashboard
+> vite --host 0.0.0.0 --port 5000 --force
+
+Forced re-optimization of dependencies
+
+  VITE v5.4.19  ready in 612 ms
+
+  ➜  Local:   http://localhost:5000/
+  ➜  Network: http://10.255.255.254:5000/
+  ➜  Network: http://172.20.181.160:5000/
