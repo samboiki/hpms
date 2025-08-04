@@ -1,15 +1,31 @@
+// Use the optimized fast Supabase client
+export { supabase } from './supabaseProvider';
+export type { Database } from '../types/database.types';
+
+// Helper function to log database errors
+export const logDatabaseError = (error: any, context: string) => {
+  console.error(`Database Error in ${context}:`, {
+    message: error.message,
+    details: error.details,
+    hint: error.hint,
+    code: error.code
+  });
+};
+
+// Keep the original implementation commented for reference
+/*
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '../types/database.types';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
 // Create a typed Supabase client
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+const originalSupabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   db: {
     schema: 'public'
   },
@@ -17,6 +33,17 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     storageKey: 'hpms-auth',
     storage: window.localStorage,
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10,
+    },
+    heartbeatIntervalMs: 5000,
+    timeout: 10000,
+    reconnectAfterMs: (tries: number) => {
+      // Use exponential backoff with a maximum of 30 seconds
+      return Math.min(30000, Math.pow(2, tries) * 1000);
+    },
   },
   global: {
     headers: {
@@ -58,13 +85,4 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     }
   }
 });
-
-// Helper function to log database errors
-export const logDatabaseError = (error: any, context: string) => {
-  console.error(`Database Error in ${context}:`, {
-    message: error.message,
-    details: error.details,
-    hint: error.hint,
-    code: error.code
-  });
-};
+*/

@@ -1810,7 +1810,9 @@ const AccountTabContent: React.FC = () => {
   const { user, updateUser } = useAuthStore();
   const [accountTab, setAccountTab] = useState<'profile' | 'preferences' | 'security'>('profile');
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingSignature, setIsUploadingSignature] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
 
   const accountTabs = [
     { id: 'profile' as const, label: 'Profile', icon: SolarIcons.userCircle },
@@ -1877,6 +1879,153 @@ const AccountTabContent: React.FC = () => {
       alert('Failed to upload avatar. Please try again.');
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleSignatureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file size (max 2MB for signatures)
+    if (file.size > 2 * 1024 * 1024) {
+      // Show error modal
+      const errorModal = document.createElement('div');
+      errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
+      errorModal.innerHTML = `
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+          <div class="p-6">
+            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
+              <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">File Too Large</h3>
+            <p class="text-gray-600 text-center mb-6">Signature file size must be less than 2MB. Please choose a smaller image.</p>
+            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
+              OK
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(errorModal);
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      // Show error modal
+      const errorModal = document.createElement('div');
+      errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
+      errorModal.innerHTML = `
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+          <div class="p-6">
+            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
+              <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Invalid File Type</h3>
+            <p class="text-gray-600 text-center mb-6">Please select an image file (PNG, JPG, or JPEG) for your signature.</p>
+            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
+              OK
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(errorModal);
+      return;
+    }
+
+    setIsUploadingSignature(true);
+
+    try {
+      // Create a unique file name
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-signature-${Date.now()}.${fileExt}`;
+      const filePath = `signatures/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      // Update user profile in database
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ signature_url: publicUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      updateUser({ signature_url: publicUrl });
+
+      // Reset file input
+      if (signatureInputRef.current) {
+        signatureInputRef.current.value = '';
+      }
+
+      // Show success modal
+      const successModal = document.createElement('div');
+      successModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
+      successModal.innerHTML = `
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+          <div class="p-6">
+            <div class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mx-auto mb-4">
+              <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Signature Uploaded Successfully!</h3>
+            <p class="text-gray-600 text-center mb-6">Your digital signature has been saved and will be automatically included in generated documents.</p>
+            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-medium">
+              Done
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(successModal);
+      
+      // Auto-close after 5 seconds
+      setTimeout(() => {
+        if (document.body.contains(successModal)) {
+          successModal.remove();
+        }
+      }, 5000);
+    } catch (error) {
+      console.error('Error uploading signature:', error);
+      // Show error modal
+      const errorModal = document.createElement('div');
+      errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
+      errorModal.innerHTML = `
+        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+          <div class="p-6">
+            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
+              <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Upload Failed</h3>
+            <p class="text-gray-600 text-center mb-6">Failed to upload signature. Please try again.</p>
+            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
+              OK
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(errorModal);
+    } finally {
+      setIsUploadingSignature(false);
     }
   };
 
@@ -2003,6 +2152,138 @@ const AccountTabContent: React.FC = () => {
                   <option value="nurse">Nurse</option>
                   <option value="receptionist">Receptionist</option>
                 </select>
+              </div>
+            </div>
+            
+            {/* E-Signature Section */}
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <Icon icon={SolarIcons.pen} className="w-5 h-5 text-purple-600" />
+                Digital Signature
+              </h3>
+              <div className="space-y-4">
+                {user?.signature_url ? (
+                  <div className="flex items-start gap-4">
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-600 mb-2">Current signature:</p>
+                      <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <img 
+                          src={user.signature_url} 
+                          alt="E-signature" 
+                          className="max-h-20 object-contain"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => signatureInputRef.current?.click()}
+                        disabled={isUploadingSignature}
+                      >
+                        <Icon icon={isUploadingSignature ? SolarIcons.loader : SolarIcons.upload} 
+                          className={`w-4 h-4 mr-2 ${isUploadingSignature ? 'animate-spin' : ''}`} />
+                        {isUploadingSignature ? 'Uploading...' : 'Replace'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          if (confirm('Are you sure you want to remove your signature?')) {
+                            try {
+                              const { error } = await supabase
+                                .from('users')
+                                .update({ signature_url: null })
+                                .eq('id', user.id);
+                              
+                              if (error) throw error;
+                              updateUser({ signature_url: null });
+                              // Show success modal
+                              const successModal = document.createElement('div');
+                              successModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
+                              successModal.innerHTML = `
+                                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+                                  <div class="p-6">
+                                    <div class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mx-auto mb-4">
+                                      <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                      </svg>
+                                    </div>
+                                    <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Signature Removed</h3>
+                                    <p class="text-gray-600 text-center mb-6">Your digital signature has been removed successfully.</p>
+                                    <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-medium">
+                                      Done
+                                    </button>
+                                  </div>
+                                </div>
+                              `;
+                              document.body.appendChild(successModal);
+                              setTimeout(() => {
+                                if (document.body.contains(successModal)) {
+                                  successModal.remove();
+                                }
+                              }, 3000);
+                            } catch (error) {
+                              console.error('Error removing signature:', error);
+                              // Show error modal
+                              const errorModal = document.createElement('div');
+                              errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
+                              errorModal.innerHTML = `
+                                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
+                                  <div class="p-6">
+                                    <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
+                                      <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                      </svg>
+                                    </div>
+                                    <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Failed to Remove Signature</h3>
+                                    <p class="text-gray-600 text-center mb-6">Could not remove your signature. Please try again.</p>
+                                    <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
+                                      OK
+                                    </button>
+                                  </div>
+                                </div>
+                              `;
+                              document.body.appendChild(errorModal);
+                            }
+                          }
+                        }}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Icon icon={SolarIcons.trash} className="w-4 h-4 mr-2" />
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Icon icon={SolarIcons.pen} className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-sm text-gray-600 mb-4">
+                      Upload your digital signature to automatically include it in generated documents
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => signatureInputRef.current?.click()}
+                      disabled={isUploadingSignature}
+                    >
+                      <Icon icon={isUploadingSignature ? SolarIcons.loader : SolarIcons.upload} 
+                        className={`w-4 h-4 mr-2 ${isUploadingSignature ? 'animate-spin' : ''}`} />
+                      {isUploadingSignature ? 'Uploading...' : 'Upload Signature'}
+                    </Button>
+                  </div>
+                )}
+                <input
+                  ref={signatureInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleSignatureUpload}
+                />
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-xs text-blue-700">
+                    <strong>Tip:</strong> For best results, upload a signature on a white background as a PNG or JPG file (max 2MB).
+                  </p>
+                </div>
               </div>
             </div>
             

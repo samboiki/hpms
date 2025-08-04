@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { getCachedAutomationQueue } from '../lib/cachedQueries';
 
 /**
  * Enterprise Automation Queue Service
@@ -74,10 +75,10 @@ class AutomationQueueService {
       this.processQueue();
     });
 
-    // Set up periodic processing (every 15 seconds for reliability)
+    // Set up periodic processing (reduced frequency due to caching)
     this.processingInterval = setInterval(() => {
       this.processQueue();
-    }, 15000);
+    }, 60000); // Every minute instead of 15 seconds
 
     // Process immediately on start
     await this.processQueue();

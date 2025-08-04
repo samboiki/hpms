@@ -456,7 +456,7 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
     <div className="space-y-6">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
+        <Card className="bg-gradient-to-br from-gray-50 to-gray-100/30 border-gray-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -473,7 +473,7 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+        <Card className="bg-gradient-to-br from-gray-50 to-gray-100/30 border-gray-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -490,7 +490,7 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200">
+        <Card className="bg-gradient-to-br from-gray-50 to-gray-100/30 border-gray-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -507,7 +507,7 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
+        <Card className="bg-gradient-to-br from-gray-50 to-gray-100/30 border-gray-200">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -803,7 +803,7 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-red-600 border-red-600 hover:bg-red-50"
+                            className="text-red-600 border-red-600 hover:bg-gray-50"
                             onClick={() => updateLeaveStatus.mutate({ requestId: request.id, status: 'rejected' })}
                             disabled={updateLeaveStatus.isPending}
                           >
@@ -1043,8 +1043,8 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
                   {leaveRequestForm.leave_type_id && (() => {
                     const selectedType = leaveTypes.find(lt => lt.id === leaveRequestForm.leave_type_id);
                     return selectedType && (
-                      <div className="mt-2 p-3 bg-blue-50 rounded-lg">
-                        <div className="text-sm text-blue-800">
+                      <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                        <div className="text-sm text-gray-700">
                           <div className="font-medium mb-1">Leave Type Requirements:</div>
                           <ul className="space-y-1 text-xs">
                             <li className="flex items-center gap-1">
@@ -1188,7 +1188,7 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
                           </div>
                         </label>
                       ) : (
-                        <div className="flex items-center justify-between bg-green-50 p-3 rounded-lg">
+                        <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
                           <div className="flex items-center gap-2">
                             <Icon icon={SolarIcons.documentText} className="w-5 h-5 text-green-600" />
                             <span className="text-sm text-green-800">Document uploaded successfully</span>
@@ -1211,8 +1211,8 @@ export const LeaveManagement: React.FC<LeaveManagementProps> = ({ selectedUserId
 
                 {/* Display calculated days */}
                 {leaveRequestForm.start_date && leaveRequestForm.end_date && (
-                  <div className="bg-blue-50 p-3 rounded-lg">
-                    <p className="text-sm text-blue-800">
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <p className="text-sm text-gray-700">
                       Total days requested: {' '}
                       <span className="font-semibold">
                         {calculateLeaveDays(leaveRequestForm.start_date, leaveRequestForm.end_date, leaveRequestForm.is_half_day)} days

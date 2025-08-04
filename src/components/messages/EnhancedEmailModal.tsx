@@ -29,7 +29,7 @@ import {
 import FullScreenModal from '../ui/FullScreenModal';
 import { Patient } from '../../stores/patientsStoreNew';
 import { PremiumEmailTemplate } from './PremiumEmailTemplate';
-import { useCurrentUserAndPractice } from '../../hooks/useCurrentUserAndPractice';
+import { useCurrentUserAndPracticeFast as useCurrentUserAndPractice } from '../../hooks/useCurrentUserAndPracticeFast';
 import { emailEdgeService } from '../../services/emailEdgeService';
 import { toast } from 'react-hot-toast';
 import { usePractice } from '../../contexts/PracticeContext';

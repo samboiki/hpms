@@ -170,7 +170,7 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
         // For new visits (empty visitId), don't load any existing files
         console.log(`🆕 New visit detected - not loading existing files`);
         setFiles([]);
-        setIsLoading(false);
+        setLoading(false);
         return;
       }
       

@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 // Removed framer-motion for stable, premium experience
-import { Icon } from '@iconify/react';
 import { format, isSameDay } from 'date-fns';
 import { useTheme } from '../../stores/themeStore';
 import { useVisitsStore } from '../../stores/visitsStore';
@@ -9,17 +8,33 @@ import ComprehensivePatientModal from '../patients/ComprehensivePatientModal';
 import FullScreenEditVisitModal from '../visits/FullScreenEditVisitModal';
 import VisitActionModal from '../modals/VisitActionModal';
 import EnhancedSmsModal from '../messages/EnhancedSmsModal';
-import { Settings, MessageCircle } from 'lucide-react';
+import { 
+  Settings, 
+  MessageCircle, 
+  CheckCircle, 
+  PlayCircle, 
+  Clock, 
+  XCircle, 
+  X, 
+  Stethoscope, 
+  Bell, 
+  HandshakeIcon,
+  Calendar,
+  RefreshCcw,
+  User
+} from 'lucide-react';
 import { NotificationsList } from '../messages/InternalMessaging/NotificationsList';
 import { useMessagingStore } from '../../stores/messagingStore';
 import { useAuthStore } from '../../stores/authStore';
 import { cn } from '../../utils/cn';
 import { unreadMessagesService } from '../../services/unreadMessagesService';
 import { NotificationBadge } from '../ui/NotificationBadge';
+import { HandoffCardPrintButtons } from './HandoffCardPrintButtons';
 
 interface Visit {
   id: string;
   patient_id: string;
+  practice_id?: string;
   date: string;
   time: string;
   status: string;
@@ -39,9 +54,10 @@ interface FloatingVisitTrackerProps {
   selectedDate?: Date;
   disablePatientModal?: boolean;
   zIndex?: number;
+  onOpenPatientModal?: (patientId: string, defaultTab?: 'overview' | 'encounters') => void;
 }
 
-const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId, selectedDate, disablePatientModal = false, zIndex = 50 }) => {
+const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId, selectedDate, disablePatientModal = false, zIndex = 50, onOpenPatientModal }) => {
   const { currentTheme } = useTheme();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -53,6 +69,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [selectedVisitForEdit, setSelectedVisitForEdit] = useState<Visit | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [defaultDetailTab, setDefaultDetailTab] = useState<'overview' | 'encounters'>('overview');
 
   // Subscribe to unread messages
   useEffect(() => {
@@ -68,24 +85,39 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
   const { unreadNotificationCount } = useMessagingStore();
   
   // Use visits store instead of appointments
-  const { visits, loading, fetchTodayVisits, fetchVisits, startVisit } = useVisitsStore();
+  const { visits, loading, startVisit, checkInPatient } = useVisitsStore();
   
-  // Fetch visits for selected date when component mounts or date/practiceId changes
-  useEffect(() => {
-    if (practiceId) {
-      if (selectedDate) {
-        // Fetch visits for the selected date
-        const formattedDate = format(selectedDate, 'yyyy-MM-dd');
-        fetchVisits({ 
+  // Get stable references to avoid re-renders
+  const fetchTodayVisits = useVisitsStore(state => state.fetchTodayVisits);
+  const fetchVisits = useVisitsStore(state => state.fetchVisits);
+  
+  // Memoize the formatted date to prevent unnecessary re-renders
+  const formattedDate = useMemo(() => {
+    return selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null;
+  }, [selectedDate]);
+  
+  // Stable fetch function
+  const loadVisits = useCallback(async () => {
+    if (!practiceId) return;
+    
+    try {
+      if (formattedDate) {
+        await fetchVisits({ 
           date: formattedDate, 
           practiceId 
         });
       } else {
-        // Fallback to today's visits if no date selected
-        fetchTodayVisits(practiceId);
+        await fetchTodayVisits(practiceId);
       }
+    } catch (error) {
+      console.error('Error loading visits:', error);
     }
-  }, [practiceId, selectedDate, fetchVisits, fetchTodayVisits]);
+  }, [practiceId, formattedDate, fetchVisits, fetchTodayVisits]);
+  
+  // Fetch visits for selected date when component mounts or dependencies change
+  useEffect(() => {
+    loadVisits();
+  }, [loadVisits]);
 
   // Handle scroll shadows
   const handleScroll = () => {
@@ -150,40 +182,63 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'solar:check-circle-bold-duotone';
+        return CheckCircle;
       case 'in_progress':
-        return 'solar:play-circle-bold-duotone';
+        return PlayCircle;
       case 'scheduled':
       case 'confirmed':
-        return 'solar:clock-circle-bold-duotone';
+        return Clock;
       case 'cancelled':
-        return 'solar:close-circle-bold-duotone';
+        return XCircle;
       default:
-        return 'solar:question-circle-bold-duotone';
+        return Clock;
     }
   };
 
-  const handlePatientClick = (patientId: string) => {
-    if (disablePatientModal) {
-      // Just prevent the click action when disabled
+  const handlePatientClick = useCallback((patientId: string, openOnEncountersTab: boolean = false) => {
+    console.log('🔍 [FloatingVisitTracker] handlePatientClick called:', {
+      patientId,
+      openOnEncountersTab,
+      disablePatientModal,
+      hasCallback: !!onOpenPatientModal
+    });
+    
+    if (!patientId) {
+      console.log('❌ [FloatingVisitTracker] No patientId provided');
       return;
     }
-    setSelectedPatientId(patientId);
-    setIsPatientModalOpen(true);
-  };
-
-  const handleStartVisit = async (visit: any) => {
-    try {
-      // Update visit status to in-progress
-      await startVisit(visit.id);
-      
-      // Open the edit visit modal
-      setSelectedVisitForEdit(visit);
-      setIsEditVisitModalOpen(true);
-    } catch (error) {
-      console.error('Error starting visit:', error);
+    
+    // If we have a callback from parent (Dashboard), use it
+    if (onOpenPatientModal) {
+      console.log('✅ [FloatingVisitTracker] Using parent callback to open modal');
+      onOpenPatientModal(patientId, openOnEncountersTab ? 'encounters' : 'overview');
+      return;
     }
-  };
+    
+    // Otherwise, use local modal (if not disabled)
+    if (!disablePatientModal) {
+      console.log('✅ [FloatingVisitTracker] Opening local modal');
+      setSelectedPatientId(patientId);
+      setDefaultDetailTab(openOnEncountersTab ? 'encounters' : 'overview');
+      setIsPatientModalOpen(true);
+    } else {
+      console.log('❌ [FloatingVisitTracker] Modal disabled and no callback provided');
+    }
+  }, [disablePatientModal, onOpenPatientModal]);
+
+  const handleStartVisit = useCallback(async (visit: any) => {
+    // Update visit status to in-progress first
+    if (visit && visit.id) {
+      try {
+        await startVisit(visit.id);
+        // Then open edit visit modal
+        setSelectedVisitForEdit(visit);
+        setIsEditVisitModalOpen(true);
+      } catch (error) {
+        console.error('Error starting visit:', error);
+      }
+    }
+  }, [startVisit]);
 
   return (
     <>
@@ -295,7 +350,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                       onClick={() => setIsOpen(false)}
                       className="p-2 hover:bg-gray-100 rounded-xl"
                     >
-                      <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-400" />
+                      <X className="w-6 h-6 text-gray-400" />
                     </button>
                   </div>
                   
@@ -310,7 +365,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           : "text-gray-600 hover:text-gray-900"
                       )}
                     >
-                      <Icon icon="solar:stethoscope-bold-duotone" className="w-4 h-4" />
+                      <Stethoscope className="w-4 h-4" />
                       Visits
                       {nonCancelledCount > 0 && (
                         <span className="ml-1 px-2 py-0.5 bg-[#01b9d5] text-white text-xs rounded-full">
@@ -327,7 +382,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           : "text-gray-600 hover:text-gray-900"
                       )}
                     >
-                      <Icon icon="solar:bell-bing-bold-duotone" className="w-4 h-4" />
+                      <Bell className="w-4 h-4" />
                       Messages
                       {unreadNotificationCount > 0 && (
                         <span className="ml-1 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full">
@@ -384,7 +439,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                     {readyCount > 0 && (
                       <div className="p-3 bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg border border-emerald-200">
                         <div className="flex items-center gap-2 mb-2">
-                          <Icon icon="solar:notification-bold-duotone" className="w-5 h-5 text-emerald-600 animate-pulse" />
+                          <Bell className="w-5 h-5 text-emerald-600 animate-pulse" />
                           <h3 className="font-semibold text-emerald-700">Called & Ready</h3>
                           <span className="ml-auto text-sm font-medium text-emerald-600 bg-white px-2 py-0.5 rounded-full">
                             {readyCount} {readyCount === 1 ? 'patient' : 'patients'} waiting
@@ -397,7 +452,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                               className={`relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-emerald-200 ${
                                 disablePatientModal ? '' : 'cursor-pointer hover:bg-white'
                               }`}
-                              onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id)}
+                              onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id, true)}
                             >
                               {/* Ready Number Badge */}
                               <div className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
@@ -405,7 +460,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                               </div>
                               
                               <div className="flex items-center justify-center w-10 h-10 bg-emerald-100 rounded-full">
-                                <Icon icon="solar:bell-bing-bold-duotone" className="w-5 h-5 text-emerald-600" />
+                                <Bell className="w-5 h-5 text-emerald-600" />
                               </div>
                               <div className="flex-1">
                                 <p className="font-medium text-gray-800 text-sm">
@@ -416,7 +471,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                 </p>
                               </div>
                               <div className="flex items-center gap-1">
-                                <Icon icon="solar:hand-shake-bold-duotone" className="w-4 h-4 text-emerald-600" />
+                                <HandshakeIcon className="w-4 h-4 text-emerald-600" />
                                 <span className="text-xs font-medium text-emerald-600">Waiting</span>
                               </div>
                             </div>
@@ -429,7 +484,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                     {inProgressCount > 0 && (
                       <div className="p-3 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200">
                         <div className="flex items-center gap-2 mb-2">
-                          <Icon icon="solar:play-circle-bold-duotone" className="w-5 h-5 text-orange-600" />
+                          <PlayCircle className="w-5 h-5 text-orange-600" />
                           <h3 className="font-semibold text-orange-700">Currently In Progress</h3>
                           <span className="ml-auto text-sm font-medium text-orange-600 bg-white px-2 py-0.5 rounded-full">
                             {inProgressCount} {inProgressCount === 1 ? 'visit' : 'visits'}
@@ -439,28 +494,33 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           {safeVisits.filter(v => v?.status === 'in-progress' && !v?.is_cancelled && !v?.is_handoff).map((visit, index) => (
                             <div
                               key={visit.id}
-                              className={`relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-orange-100 ${
+                              className={`relative flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:pl-12 bg-white/80 backdrop-blur rounded-lg border border-orange-100 ${
                                 disablePatientModal ? '' : 'cursor-pointer hover:bg-white'
                               }`}
-                              onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id)}
+                              onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id, true)}
                             >
-                              {/* Progress Number Badge */}
-                              <div className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                              {/* Progress Number Badge - inline on mobile, absolute on desktop */}
+                              <div className="sm:absolute sm:left-2 sm:top-1/2 sm:-translate-y-1/2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
                                 {index + 1}
                               </div>
                               
-                              <div className="flex items-center justify-center w-10 h-10 bg-orange-100 rounded-full">
-                                <Icon icon="solar:stethoscope-bold-duotone" className="w-5 h-5 text-orange-600" />
+                              {/* Main content area */}
+                              <div className="flex items-start gap-3 flex-1">
+                                <div className="flex items-center justify-center w-10 h-10 bg-orange-100 rounded-full">
+                                  <Stethoscope className="w-5 h-5 text-orange-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-medium text-gray-800 text-sm">
+                                    {visit.patient?.first_name} {visit.patient?.last_name}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    Dr. {visit.doctor?.full_name || 'Unassigned'} • Started {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : '--:--'}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="flex-1">
-                                <p className="font-medium text-gray-800 text-sm">
-                                  {visit.patient?.first_name} {visit.patient?.last_name}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  Dr. {visit.doctor?.full_name || 'Unassigned'} • Started {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : '--:--'}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2">
+                              
+                              {/* Action buttons - separate row on mobile */}
+                              <div className="flex items-center gap-2 sm:ml-auto">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -477,7 +537,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                     const { completeVisit } = useVisitsStore.getState();
                                     completeVisit(visit.id);
                                   }}
-                                  className="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md"
+                                  className="px-3 py-1.5 bg-[#01b9d4] hover:bg-[#00a5be] text-white text-sm font-medium rounded-md"
                                 >
                                   Complete
                                 </button>
@@ -491,12 +551,12 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                     {/* Visits Grouped by Status */}
                     {loading ? (
                       <div className="text-center py-8">
-                        <Icon icon="solar:refresh-circle-bold-duotone" className="w-8 h-8 text-gray-400 animate-spin mx-auto" />
+                        <RefreshCcw className="w-8 h-8 text-gray-400 animate-spin mx-auto" />
                         <p className="text-sm text-gray-500 mt-2">Loading visits...</p>
                       </div>
                     ) : safeVisits.length === 0 ? (
                       <div className="text-center py-8">
-                        <Icon icon="solar:calendar-minimalistic-bold-duotone" className="w-12 h-12 text-gray-300 mx-auto" />
+                        <Calendar className="w-12 h-12 text-gray-300 mx-auto" />
                         <p className="text-sm text-gray-500 mt-2">No visits scheduled for today</p>
                       </div>
                     ) : (
@@ -506,7 +566,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           { 
                             key: 'scheduled', 
                             label: 'Scheduled', 
-                            icon: 'solar:clock-circle-bold-duotone',
+                            icon: Clock,
                             color: 'text-blue-600',
                             bgColor: 'bg-blue-50',
                             borderColor: 'border-blue-200',
@@ -530,7 +590,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           { 
                             key: 'completed', 
                             label: 'Completed', 
-                            icon: 'solar:verified-check-bold-duotone',
+                            icon: CheckCircle,
                             color: 'text-green-600',
                             bgColor: 'bg-green-50',
                             borderColor: 'border-green-200',
@@ -544,7 +604,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           { 
                             key: 'handedoff', 
                             label: 'Handed Off', 
-                            icon: 'solar:hand-shake-bold-duotone',
+                            icon: HandshakeIcon,
                             color: 'text-purple-600',
                             bgColor: 'bg-purple-50',
                             borderColor: 'border-purple-200',
@@ -558,7 +618,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           { 
                             key: 'cancelled', 
                             label: 'Cancelled', 
-                            icon: 'solar:close-circle-bold-duotone',
+                            icon: XCircle,
                             color: 'text-red-600',
                             bgColor: 'bg-red-50',
                             borderColor: 'border-red-200',
@@ -584,7 +644,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                             >
                               {/* Status Header */}
                               <div className={`flex items-center gap-3 p-3 rounded-lg ${category.bgColor} ${category.borderColor} border`}>
-                                <Icon icon={category.icon} className={`w-5 h-5 ${category.color}`} />
+                                {React.createElement(category.icon, { className: `w-5 h-5 ${category.color}` })}
                                 <h3 className={`font-semibold ${category.color}`}>
                                   {category.label}
                                 </h3>
@@ -602,103 +662,160 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                   return (
                                   <div
                                     key={visit.id}
-                                    className={`relative flex items-center gap-3 p-3 pl-12 bg-white rounded-lg border border-gray-100 group ${
-                                      disablePatientModal ? '' : 'hover:border-gray-200 hover:shadow-sm cursor-pointer'
+                                    className={`relative bg-white/80 backdrop-blur-xl rounded-xl border border-white/50 shadow-lg group overflow-hidden ${
+                                      disablePatientModal ? '' : 'hover:shadow-xl hover:bg-white/90 hover:scale-[1.02] cursor-pointer transition-all duration-200'
                                     }`}
-                                    onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id)}
+                                    onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id, true)}
                                   >
-                                    {/* Card Number Badge - Colored based on status */}
-                                    <div className={`absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-md ${
-                                      category.key === 'scheduled' && visit.is_checked_in
-                                        ? 'bg-[#01b8d8] text-white'
-                                        : category.key === 'scheduled'
-                                        ? 'bg-[#489bfd] text-white'
-                                        : category.key === 'completed'
-                                        ? 'bg-green-500 text-white'
-                                        : category.key === 'handedoff'
-                                        ? 'bg-purple-500 text-white'
-                                        : category.key === 'cancelled'
-                                        ? 'bg-red-500 text-white'
-                                        : 'bg-white text-gray-700 border border-gray-200'
-                                    }`}>
-                                      {cardNumber}
+                                    {/* Main card content */}
+                                    <div className="flex">
+                                      {/* Card Number Badge with glassmorphism */}
+                                      <div className="flex-shrink-0 p-3">
+                                        <div className={`w-9 h-9 rounded-lg backdrop-blur-md flex items-center justify-center text-sm font-bold shadow-lg ${
+                                          category.key === 'scheduled' && visit.is_checked_in
+                                            ? 'bg-gradient-to-br from-[#01b8d8]/90 to-[#00a0c1]/90 text-white'
+                                            : category.key === 'scheduled'
+                                            ? 'bg-gradient-to-br from-[#489bfd]/90 to-[#3a7fe5]/90 text-white'
+                                            : category.key === 'completed'
+                                            ? 'bg-gradient-to-br from-green-500/90 to-green-600/90 text-white'
+                                            : category.key === 'handedoff'
+                                            ? 'bg-gradient-to-br from-purple-500/90 to-purple-600/90 text-white'
+                                            : category.key === 'cancelled'
+                                            ? 'bg-gradient-to-br from-red-500/90 to-red-600/90 text-white'
+                                            : 'bg-white/70 text-gray-700 border border-gray-200/50 backdrop-blur-sm'
+                                        }`}>
+                                          {cardNumber}
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Main content area - compact spacing */}
+                                      <div className="flex-1 py-3 pr-3">
+                                        {/* Time with subtle background */}
+                                        <div className={`text-sm font-bold mb-1 inline-block px-2 py-0.5 rounded-md ${
+                                          category.key === 'scheduled' && visit.is_checked_in
+                                            ? 'bg-[#01b8d8]/10 text-[#01b8d8]'
+                                            : category.key === 'scheduled'
+                                            ? 'bg-[#489bfd]/10 text-[#489bfd]'
+                                            : category.key === 'completed'
+                                            ? 'bg-green-500/10 text-green-700'
+                                            : category.key === 'handedoff'
+                                            ? 'bg-purple-500/10 text-purple-700'
+                                            : category.key === 'cancelled'
+                                            ? 'bg-red-500/10 text-red-700'
+                                            : 'bg-gray-100 text-gray-900'
+                                        }`}>
+                                          {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : 
+                                           visit.visit_time ? format(new Date(`2000-01-01T${visit.visit_time}`), 'HH:mm') : '--:--'}
+                                        </div>
+
+                                        {/* Patient Name */}
+                                        <div className="font-medium text-gray-800 group-hover:text-brand-primary mb-0.5">
+                                          {visit.patient?.first_name} {visit.patient?.last_name}
+                                        </div>
+                                        
+                                        {/* Visit type and Doctor */}
+                                        <div className="text-xs text-gray-500 mb-2">
+                                          {visit.visit_type || 'Consultation'} • Dr. {visit.doctor?.full_name || 'Unassigned'}
+                                        </div>
+                                        
+                                        {/* Status and actions for non-handoff cards */}
+                                        {category.key !== 'handedoff' && (
+                                          <div className="flex items-center gap-2">
+                                            {category.key === 'scheduled' && visit.is_checked_in && (
+                                              <>
+                                                <div className="flex items-center gap-1">
+                                                  <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                                                  <span className="text-xs font-medium text-emerald-600">Checked In</span>
+                                                </div>
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    setIsOpen(false);
+                                                    requestAnimationFrame(() => {
+                                                      handleStartVisit(visit);
+                                                    });
+                                                  }}
+                                                  className="ml-auto px-3 py-1 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white text-xs font-medium rounded-md shadow-sm"
+                                                >
+                                                  Start Visit
+                                                </button>
+                                              </>
+                                            )}
+                                            {category.key === 'scheduled' && !visit.is_checked_in && (
+                                              <>
+                                                <div className="flex items-center gap-1">
+                                                  <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                                                  <span className="text-xs font-medium text-blue-600">Scheduled</span>
+                                                </div>
+                                                <button
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    try {
+                                                      await checkInPatient(visit.id);
+                                                    } catch (error) {
+                                                      console.error('Error checking in patient:', error);
+                                                    }
+                                                  }}
+                                                  className="ml-auto px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-xs font-medium rounded-md shadow-sm"
+                                                >
+                                                  Check In
+                                                </button>
+                                              </>
+                                            )}
+                                            {category.key === 'completed' && (
+                                              <div className="flex items-center gap-1">
+                                                <div className="w-2 h-2 bg-green-500 rounded-full" />
+                                                <span className="text-xs font-medium text-green-600">Completed</span>
+                                              </div>
+                                            )}
+                                            {category.key === 'cancelled' && (
+                                              <div className="flex items-center gap-1">
+                                                <div className="w-2 h-2 bg-red-500 rounded-full" />
+                                                <span className="text-xs font-medium text-red-600">Cancelled</span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                     
-                                    {/* Time */}
-                                    <div className="text-center min-w-[50px]">
-                                      <p className="text-sm font-semibold text-gray-800">
-                                        {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : 
-                                         visit.visit_time ? format(new Date(`2000-01-01T${visit.visit_time}`), 'HH:mm') : '--:--'}
-                                      </p>
-                                    </div>
-
-                                    {/* Patient Info */}
-                                    <div className="flex-1">
-                                      <p className="font-medium text-gray-800 group-hover:text-brand-primary">
-                                        {visit.patient?.first_name} {visit.patient?.last_name}
-                                      </p>
-                                      <p className="text-xs text-gray-500">
-                                        {visit.visit_type || 'Consultation'} • Dr. {visit.doctor?.full_name || 'Unassigned'}
-                                      </p>
-                                    </div>
-
-                                    {/* Status Indicator and Actions */}
-                                    <div className="flex items-center gap-2">
-                                      {category.key === 'scheduled' && visit.is_checked_in && (
-                                        <>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              e.preventDefault();
-                                              handleStartVisit(visit);
-                                            }}
-                                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-md"
-                                          >
-                                            Start Visit
-                                          </button>
-                                          <div className="flex items-center gap-1">
-                                            <div className="w-2 h-2 bg-emerald-500 rounded-full" />
-                                            <span className="text-xs font-medium text-emerald-600">Checked In</span>
+                                    {/* Handoff cards special section */}
+                                    {category.key === 'handedoff' && (
+                                      <div className="border-t border-purple-100/30 bg-gradient-to-r from-purple-50/50 to-purple-100/30 backdrop-blur-sm">
+                                        {/* Ready for checkout badge */}
+                                        <div className="px-3 pt-2 pb-1">
+                                          <div className="flex items-center gap-1.5">
+                                            <div className="w-2 h-2 bg-purple-500 rounded-full" />
+                                            <span className="text-xs font-medium text-purple-700">Ready for checkout</span>
                                           </div>
-                                        </>
-                                      )}
-                                      {category.key === 'scheduled' && !visit.is_checked_in && (
-                                        <>
-                                          <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                                          <span className="text-xs font-medium text-blue-600">Scheduled</span>
-                                        </>
-                                      )}
-                                      {category.key === 'completed' && (
-                                        <>
-                                          <div className="w-2 h-2 bg-green-500 rounded-full" />
-                                          <span className="text-xs font-medium text-green-600">Completed</span>
-                                        </>
-                                      )}
-                                      {category.key === 'cancelled' && (
-                                        <>
-                                          <div className="w-2 h-2 bg-red-500 rounded-full" />
-                                          <span className="text-xs font-medium text-red-600">Cancelled</span>
-                                        </>
-                                      )}
-                                      {category.key === 'handedoff' && (
-                                        <>
+                                        </div>
+                                        
+                                        {/* Actions row */}
+                                        <div className="px-3 pb-2 flex items-center justify-between gap-2">
+                                          {/* Print buttons */}
+                                          <HandoffCardPrintButtons
+                                            visitId={visit.id}
+                                            patientId={visit.patient_id}
+                                            practiceId={visit.practice_id || practiceId}
+                                            showLabels={false}
+                                          />
+                                          
+                                          {/* Complete button */}
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               const { completeVisit } = useVisitsStore.getState();
                                               completeVisit(visit.id);
                                             }}
-                                            className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-md"
+                                            className="px-3 py-1 bg-gradient-to-r from-[#01b9d4] to-[#00a5be] hover:from-[#00a5be] hover:to-[#0096b7] text-white text-xs font-medium rounded-md shadow-sm"
                                           >
                                             Complete
                                           </button>
-                                          <div className="flex items-center gap-1">
-                                            <div className="w-2 h-2 bg-purple-500 rounded-full" />
-                                            <span className="text-xs font-medium text-purple-600">Handed Off</span>
-                                          </div>
-                                        </>
-                                      )}
-                                    </div>
+                                        </div>
+                                      </div>
+                                    )}
                                   </div>
                                   );
                                 })}
@@ -725,14 +842,24 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
     )}
 
       {/* Patient Modal */}
+      {console.log('🏥 [FloatingVisitTracker] Modal render check:', {
+        disablePatientModal,
+        selectedPatientId,
+        isPatientModalOpen,
+        defaultDetailTab,
+        shouldRenderModal: !disablePatientModal && selectedPatientId
+      })}
       {!disablePatientModal && selectedPatientId && (
         <ComprehensivePatientModal
           isOpen={isPatientModalOpen}
           onClose={() => {
+            console.log('🚪 [FloatingVisitTracker] Modal closing');
             setIsPatientModalOpen(false);
             setSelectedPatientId(null);
+            setDefaultDetailTab('overview');
           }}
           patientId={selectedPatientId}
+          defaultDetailTab={defaultDetailTab}
         />
       )}
 

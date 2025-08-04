@@ -156,22 +156,22 @@ export function useBatchAppointments(patientIds: string[]) {
       const startTime = performance.now();
       console.log(`⏱️ useBatchAppointments: Fetching for ${patientIds.length} patients`);
 
-      // Batch fetch appointments for multiple patients
+      // Batch fetch visits for multiple patients (appointments are now part of visits)
       const { data, error } = await supabase
-        .from('appointments')
+        .from('visits')
         .select(`
           id,
           patient_id,
           doctor_id,
-          date,
-          time,
-          type,
+          scheduled_date,
+          scheduled_time,
+          visit_type,
           status,
-          patient:patients!appointments_patient_id_fkey(first_name, last_name)
+          patient:patients!visits_patient_id_fkey(first_name, last_name)
         `)
         .in('patient_id', patientIds)
-        .order('date', { ascending: false })
-        .order('time', { ascending: false })
+        .order('scheduled_date', { ascending: false })
+        .order('scheduled_time', { ascending: false })
         .limit(100);
 
       const queryTime = performance.now() - startTime;

@@ -72,8 +72,10 @@ export const PatientManagementView: React.FC = () => {
     fetchPatientsWithVisits
   } = usePatientsStoreNew();
   
+  // Detect if mobile or tablet
+  const isMobileOrTablet = window.innerWidth < 1024;
 
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(isMobileOrTablet ? 'grid' : 'list');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -1281,15 +1283,15 @@ export const PatientManagementView: React.FC = () => {
   return (
     <div>
       {/* Single Container for Search, Actions and Table */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-none sm:rounded-2xl shadow-lg border border-gray-200 border-x-0 sm:border-x overflow-hidden">
         {/* Header with Search and Actions */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {/* Top Row - Actions Only */}
           <div className="flex justify-end mb-4">
             {/* Actions Group */}
             <div className="flex items-center gap-3">
-              {/* View Toggle */}
-              <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              {/* View Toggle - Hidden on mobile */}
+              <div className="hidden lg:flex items-center bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('list')}
                   className={`p-2 rounded-md transition-all duration-200 ${
@@ -1403,21 +1405,22 @@ export const PatientManagementView: React.FC = () => {
                 <Icon icon="solar:file-bold-duotone" className="w-5 h-5" />
               </button>
 
-              {/* Add Patient Button */}
+              {/* Add Patient Button - Mobile optimized */}
               <button
                 onClick={() => setIsAddModalOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300"
+                className="inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl font-medium hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300"
               >
                 <Icon icon="solar:user-plus-bold-duotone" className="w-5 h-5" />
-                <span>Add Patient</span>
+                <span className="hidden sm:inline">Add Patient</span>
+                <span className="sm:hidden">Add</span>
               </button>
             </div>
           </div>
 
-          {/* Quick Filters Row */}
+          {/* Quick Filters Row - Hidden on mobile */}
           <div className="flex flex-col gap-4">
             {/* Filter Pills */}
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="hidden lg:flex flex-wrap items-center gap-2">
               {/* Status Filters */}
               <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
                 <button

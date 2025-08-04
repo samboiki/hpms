@@ -6,19 +6,15 @@ import { format, differenceInDays } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
+import { PremiumInput, PremiumTextarea } from '../ui/PremiumInput';
+import ModernDatePicker from '../ui/ModernDatePicker';
+import { documentGenerationService } from '../../services/documentGenerationService';
 
 interface LeaveFormData {
   from_date: string;
   to_date: string;
   diagnosis: string;
   diagnosis_code?: string;
-  fitness_status: 'unfit' | 'light_duty' | 'fit_with_restrictions';
-  restrictions?: string;
-  follow_up_required: boolean;
-  follow_up_date?: string;
-  notes?: string;
-  patient_employer?: string;
-  patient_occupation?: string;
 }
 
 interface LeaveFormTabProps {
@@ -28,138 +24,223 @@ interface LeaveFormTabProps {
   doctorId?: string;
 }
 
+interface LeaveForm {
+  id: string;
+  form_number: string;
+  status: string;
+  issue_date?: string;
+  from_date: string;
+  to_date: string;
+  diagnosis?: string;
+  diagnosis_code?: string;
+  days_off?: number;
+  created_at: string;
+}
+
 const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practiceId, doctorId }) => {
   const { user } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
-  interface LeaveForm {
-    id: string;
-    form_number: string;
-    status: string;
-    issue_date?: string;
-    from_date: string;
-    to_date: string;
-    diagnosis?: string;
-    diagnosis_code?: string;
-    fitness_status: 'unfit' | 'light_duty' | 'fit_with_restrictions';
-    restrictions?: string;
-    follow_up_required: boolean;
-    follow_up_date?: string;
-    notes?: string;
-    patient_employer?: string;
-    patient_occupation?: string;
-  }
-  
-  const [leaveForm, setLeaveForm] = useState<LeaveForm | null>(null);
+  const [leaveForms, setLeaveForms] = useState<LeaveForm[]>([]);
+  const [editingForm, setEditingForm] = useState<LeaveForm | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [pdfGenerationInProgress, setPdfGenerationInProgress] = useState<Set<string>>(new Set());
 
   const {
     register,
     handleSubmit,
     watch,
     reset,
-    formState: { errors, isDirty }
+    setValue,
+    formState: { errors }
   } = useForm<LeaveFormData>({
     defaultValues: {
       from_date: format(new Date(), 'yyyy-MM-dd'),
       to_date: format(new Date(), 'yyyy-MM-dd'),
-      fitness_status: 'unfit',
-      follow_up_required: false
+      diagnosis: '',
+      diagnosis_code: ''
     }
   });
 
   const fromDate = watch('from_date');
   const toDate = watch('to_date');
-  const fitnessStatus = watch('fitness_status');
-  const followUpRequired = watch('follow_up_required');
 
   const daysOff = fromDate && toDate 
     ? differenceInDays(new Date(toDate), new Date(fromDate)) + 1 
     : 0;
 
-  // Load existing leave form if any
+  // Load all leave forms for this visit
   useEffect(() => {
-    loadLeaveForm();
+    loadLeaveForms();
   }, [visitId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadLeaveForm = async () => {
+  const loadLeaveForms = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('leave_forms')
         .select('*')
         .eq('visit_id', visitId)
-        .single();
+        .order('created_at', { ascending: false });
 
-      if (data) {
-        setLeaveForm(data);
-        reset({
-          from_date: format(new Date(data.from_date), 'yyyy-MM-dd'),
-          to_date: format(new Date(data.to_date), 'yyyy-MM-dd'),
-          diagnosis: data.diagnosis || '',
-          diagnosis_code: data.diagnosis_code || '',
-          fitness_status: data.fitness_status,
-          restrictions: data.restrictions || '',
-          follow_up_required: data.follow_up_required,
-          follow_up_date: data.follow_up_date ? format(new Date(data.follow_up_date), 'yyyy-MM-dd') : '',
-          notes: data.notes || '',
-          patient_employer: data.patient_employer || '',
-          patient_occupation: data.patient_occupation || ''
-        });
+      if (error) {
+        console.error('Error loading leave forms:', error);
+        toast.error('Failed to load leave forms');
+      } else {
+        setLeaveForms(data || []);
       }
     } catch (err) {
-      console.error('Error loading leave form:', err);
+      console.error('Error loading leave forms:', err);
+      toast.error('Failed to load leave forms');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Helper function to validate UUID - returns null for empty strings or invalid values
+  const validateUUID = (value: string | undefined | null): string | null => {
+    if (!value || value.trim() === '') return null;
+    // Basic UUID format check
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(value) ? value : null;
   };
 
   const onSubmit = async (data: LeaveFormData) => {
     try {
       setIsSaving(true);
 
+      // Validate and clean UUID fields
+      const validDoctorId = validateUUID(doctorId) || validateUUID(user?.id);
+      const validPracticeId = validateUUID(practiceId);
+      const validPatientId = validateUUID(patientId);
+      const validVisitId = validateUUID(visitId);
+
+      // Check required fields and show errors in modal
+      const errors: string[] = [];
+      if (!validVisitId) errors.push('Invalid visit ID');
+      if (!validPatientId) errors.push('Invalid patient ID - please check patient data');
+      if (!validDoctorId) errors.push('Invalid doctor ID');
+      if (!validPracticeId) errors.push('Invalid practice ID');
+      
+      if (errors.length > 0) {
+        // Show error in a more prominent way
+        const errorMessage = errors.join('\n');
+        console.error('[LeaveFormTab] Validation errors:', errors);
+        
+        // Create a custom error display
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-red-50 border border-red-200 rounded-lg p-6 shadow-lg z-50 max-w-md';
+        errorDiv.innerHTML = `
+          <div class="flex items-start gap-3">
+            <div class="flex-shrink-0">
+              <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-red-800 mb-2">Cannot Save Leave Form</h3>
+              <div class="text-sm text-red-700 space-y-1">
+                ${errors.map(err => `<p>• ${err}</p>`).join('')}
+              </div>
+              <button onclick="this.parentElement.parentElement.parentElement.remove()" class="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-sm font-medium">
+                Close
+              </button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(errorDiv);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => errorDiv.remove(), 5000);
+        
+        return;
+      }
+
       const leaveFormData = {
-        visit_id: visitId,
-        patient_id: patientId,
-        doctor_id: doctorId || user?.id,
-        practice_id: practiceId,
+        visit_id: validVisitId,
+        patient_id: validPatientId,
+        doctor_id: validDoctorId,
+        practice_id: validPracticeId,
         from_date: data.from_date,
         to_date: data.to_date,
-        diagnosis: data.diagnosis,
+        diagnosis: data.diagnosis || null,
         diagnosis_code: data.diagnosis_code || null,
-        fitness_status: data.fitness_status,
-        restrictions: data.restrictions || null,
-        follow_up_required: data.follow_up_required,
-        follow_up_date: data.follow_up_date || null,
-        notes: data.notes || null,
-        patient_employer: data.patient_employer || null,
-        patient_occupation: data.patient_occupation || null,
         status: 'draft',
-        updated_by: user?.id
+        updated_by: validateUUID(user?.id)
       };
 
-      if (leaveForm) {
+      if (editingForm) {
         // Update existing
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('leave_forms')
           .update(leaveFormData)
-          .eq('id', leaveForm.id);
+          .eq('id', editingForm.id);
 
         if (error) throw error;
         toast.success('Leave form updated successfully');
       } else {
         // Create new
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from('leave_forms')
           .insert([{
             ...leaveFormData,
-            created_by: user?.id
+            created_by: user?.id || null
           }]);
 
         if (error) throw error;
         toast.success('Leave form created successfully');
       }
 
-      loadLeaveForm(); // Reload to get latest data
+      // Generate PDF in background - non-blocking with deduplication
+      const pdfKey = `${validVisitId}_leave_form`;
+      if (!pdfGenerationInProgress.has(pdfKey)) {
+        setPdfGenerationInProgress(prev => new Set(prev).add(pdfKey));
+        
+        setTimeout(() => {
+          const generatePDFAsync = async () => {
+            try {
+              console.log('🚀 Generating leave form PDF in background...');
+              const generatedDocs = await documentGenerationService.generateVisitDocuments({
+                visitId: validVisitId,
+                patientId: validPatientId,
+                practiceId: validPracticeId,
+                documents: ['leave_form']
+              });
+              
+              if (generatedDocs.length > 0) {
+                console.log('✅ Leave form PDF generated successfully');
+                // Show subtle notification that PDF is ready
+                toast.success('Leave certificate ready', {
+                  icon: '📄',
+                  duration: 3000
+                });
+              }
+            } catch (pdfError) {
+              console.error('Background PDF generation failed:', pdfError);
+              // Silent failure - user can still generate manually
+            } finally {
+              setPdfGenerationInProgress(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(pdfKey);
+                return newSet;
+              });
+            }
+          };
+          
+          generatePDFAsync();
+        }, 100); // Small delay to ensure save completes first
+      }
+
+      // Reset form and reload
+      setEditingForm(null);
+      setIsFormOpen(false);
+      reset({
+        from_date: format(new Date(), 'yyyy-MM-dd'),
+        to_date: format(new Date(), 'yyyy-MM-dd'),
+        diagnosis: '',
+        diagnosis_code: ''
+      });
+      loadLeaveForms();
     } catch (error) {
       console.error('Error saving leave form:', error);
       toast.error('Failed to save leave form');
@@ -168,24 +249,87 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
     }
   };
 
-  const handleIssueLeaveForm = async () => {
-    if (!leaveForm) {
-      toast.error('Please save the leave form first');
-      return;
-    }
+  const handleEdit = (form: LeaveForm) => {
+    setEditingForm(form);
+    reset({
+      from_date: format(new Date(form.from_date), 'yyyy-MM-dd'),
+      to_date: format(new Date(form.to_date), 'yyyy-MM-dd'),
+      diagnosis: form.diagnosis || '',
+      diagnosis_code: form.diagnosis_code || ''
+    });
+    setIsFormOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this leave form?')) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
+        .from('leave_forms')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success('Leave form deleted successfully');
+      loadLeaveForms();
+    } catch (error) {
+      console.error('Error deleting leave form:', error);
+      toast.error('Failed to delete leave form');
+    }
+  };
+
+  const handleIssueLeaveForm = async (id: string) => {
+    try {
+      const { error } = await (supabase as any)
         .from('leave_forms')
         .update({ 
           status: 'issued',
           issue_date: new Date().toISOString()
         })
-        .eq('id', leaveForm.id);
+        .eq('id', id);
 
       if (error) throw error;
       toast.success('Leave form issued successfully');
-      loadLeaveForm();
+      
+      // Generate PDF in background for issued leave form with deduplication
+      const pdfKey = `${visitId}_leave_form`;
+      if (!pdfGenerationInProgress.has(pdfKey)) {
+        setPdfGenerationInProgress(prev => new Set(prev).add(pdfKey));
+        
+        setTimeout(() => {
+          const generateIssuedPDFAsync = async () => {
+            try {
+              console.log('🚀 Generating PDF for issued leave form in background...');
+              const generatedDocs = await documentGenerationService.generateVisitDocuments({
+                visitId: visitId,
+                patientId: patientId,
+                practiceId: practiceId,
+                documents: ['leave_form']
+              });
+              
+              if (generatedDocs.length > 0) {
+                console.log('✅ Issued leave form PDF generated successfully');
+                toast.success('Leave certificate ready', {
+                  icon: '📄',
+                  duration: 3000
+                });
+              }
+            } catch (pdfError) {
+              console.error('Background PDF generation failed:', pdfError);
+            } finally {
+              setPdfGenerationInProgress(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(pdfKey);
+                return newSet;
+              });
+            }
+          };
+          
+          generateIssuedPDFAsync();
+        }, 100);
+      }
+      
+      loadLeaveForms();
     } catch (error) {
       console.error('Error issuing leave form:', error);
       toast.error('Failed to issue leave form');
@@ -206,282 +350,208 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      {/* Header with Status */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-1 h-6 bg-[#01b9d4] rounded-full"></div>
-          <h3 className="text-lg font-semibold text-gray-800">Medical Leave Certificate</h3>
-          {leaveForm && (
-            <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-              leaveForm.status === 'issued' 
-                ? 'bg-green-100 text-green-700'
-                : leaveForm.status === 'sent'
-                ? 'bg-blue-100 text-blue-700'
-                : 'bg-gray-100 text-gray-700'
-            }`}>
-              {leaveForm.status.charAt(0).toUpperCase() + leaveForm.status.slice(1)}
-            </span>
-          )}
+          <Icon icon="solar:document-medicine-bold-duotone" className="w-6 h-6 text-[#01b9d4]" />
+          <h3 className="text-lg font-semibold text-gray-800">Medical Leave Certificates</h3>
         </div>
-        {leaveForm && leaveForm.form_number && (
-          <div className="text-sm text-gray-600">
-            Form #: <span className="font-medium">{leaveForm.form_number}</span>
-          </div>
-        )}
+        <button
+          onClick={() => {
+            setEditingForm(null);
+            reset({
+              from_date: format(new Date(), 'yyyy-MM-dd'),
+              to_date: format(new Date(), 'yyyy-MM-dd'),
+              diagnosis: '',
+              diagnosis_code: ''
+            });
+            setIsFormOpen(!isFormOpen);
+          }}
+          className="px-4 py-2 bg-[#01b9d4] text-white rounded-lg font-medium hover:bg-[#00a5be] transition-all flex items-center gap-2"
+        >
+          <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />
+          Add Leave Form
+        </button>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {/* Leave Period Section */}
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100/30 p-6 rounded-xl border border-blue-200/50">
-          <h4 className="text-sm font-semibold text-blue-700 mb-4 flex items-center gap-2">
-            <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5" />
-            Leave Period
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Form */}
+      {isFormOpen && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50"
+        >
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            {/* Leave Period Section */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">From Date</label>
-              <input
-                type="date"
-                {...register('from_date', { required: 'From date is required' })}
-                className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-              />
-              {errors.from_date && (
-                <p className="text-red-500 text-xs mt-1">{errors.from_date.message}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">To Date</label>
-              <input
-                type="date"
-                {...register('to_date', {
-                  required: 'To date is required',
-                  validate: value => 
-                    new Date(value) >= new Date(fromDate) || 'To date must be after from date'
-                })}
-                className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-              />
-              {errors.to_date && (
-                <p className="text-red-500 text-xs mt-1">{errors.to_date.message}</p>
-              )}
-            </div>
-            <div className="flex items-end">
-              <div className="w-full p-3 bg-blue-100 rounded-lg text-center">
-                <p className="text-sm text-blue-600">Total Days</p>
-                <p className="text-2xl font-bold text-blue-700">{daysOff}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Medical Details Section */}
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100/30 p-6 rounded-xl border border-purple-200/50">
-          <h4 className="text-sm font-semibold text-purple-700 mb-4 flex items-center gap-2">
-            <Icon icon="solar:health-bold-duotone" className="w-5 h-5" />
-            Medical Details
-          </h4>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Diagnosis</label>
-                <input
-                  type="text"
-                  {...register('diagnosis', { required: 'Diagnosis is required' })}
-                  placeholder="e.g., Acute Upper Respiratory Infection"
-                  className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-                />
-                {errors.diagnosis && (
-                  <p className="text-red-500 text-xs mt-1">{errors.diagnosis.message}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">ICD-10 Code</label>
-                <input
-                  type="text"
-                  {...register('diagnosis_code')}
-                  placeholder="e.g., J06.9"
-                  className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-                />
+              <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5 text-blue-500" />
+                Leave Period
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <ModernDatePicker
+                    value={fromDate}
+                    onChange={(date) => setValue('from_date', date)}
+                    label="From Date"
+                    error={errors.from_date?.message}
+                  />
+                </div>
+                <div>
+                  <ModernDatePicker
+                    value={toDate}
+                    onChange={(date) => setValue('to_date', date)}
+                    label="To Date"
+                    error={errors.to_date?.message}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <div className="w-full p-3 bg-gray-100 rounded-lg text-center">
+                    <p className="text-sm text-gray-600">Total Days</p>
+                    <p className="text-2xl font-bold text-gray-700">{daysOff}</p>
+                  </div>
+                </div>
               </div>
             </div>
 
+            {/* Medical Details Section */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Fitness Status</label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {[
-                  { value: 'unfit', label: 'Unfit for Work', icon: 'solar:close-circle-bold-duotone', color: 'red' },
-                  { value: 'light_duty', label: 'Light Duty Only', icon: 'solar:shield-warning-bold-duotone', color: 'yellow' },
-                  { value: 'fit_with_restrictions', label: 'Fit with Restrictions', icon: 'solar:shield-check-bold-duotone', color: 'green' }
-                ].map((status) => (
-                  <label
-                    key={status.value}
-                    className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                      fitnessStatus === status.value
-                        ? `border-${status.color}-500 bg-${status.color}-50`
-                        : 'border-gray-200 bg-white hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      {...register('fitness_status')}
-                      value={status.value}
-                      className="sr-only"
-                    />
-                    <Icon 
-                      icon={status.icon} 
-                      className={`w-6 h-6 ${
-                        fitnessStatus === status.value 
-                          ? `text-${status.color}-600` 
-                          : 'text-gray-400'
-                      }`} 
-                    />
-                    <span className={`text-sm font-medium ${
-                      fitnessStatus === status.value ? 'text-gray-900' : 'text-gray-600'
+              <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <Icon icon="solar:health-bold-duotone" className="w-5 h-5 text-purple-500" />
+                Medical Details
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Diagnosis</label>
+                  <PremiumInput
+                    type="text"
+                    {...register('diagnosis')}
+                    placeholder="e.g., Acute Upper Respiratory Infection"
+                    icon="solar:health-bold-duotone"
+                    iconColor="text-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">ICD-10 Code</label>
+                  <PremiumInput
+                    type="text"
+                    {...register('diagnosis_code')}
+                    placeholder="e.g., J06.9"
+                    icon="solar:code-bold-duotone"
+                    iconColor="text-indigo-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons - Right Aligned */}
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsFormOpen(false);
+                  setEditingForm(null);
+                }}
+                className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="px-6 py-2.5 bg-[#01b9d4] text-white rounded-lg font-medium hover:bg-[#00a5be] transition-all flex items-center gap-2"
+              >
+                <Icon icon="solar:diskette-bold-duotone" className="w-5 h-5" />
+                {isSaving ? 'Saving...' : editingForm ? 'Update Leave Form' : 'Save Leave Form'}
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      )}
+
+      {/* Leave Forms Table */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Form #</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Period</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Days</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Diagnosis</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+              <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {leaveForms.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  No leave forms created yet
+                </td>
+              </tr>
+            ) : (
+              leaveForms.map((form) => (
+                <tr key={form.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {form.form_number || `LF-${form.id.substring(0, 8).toUpperCase()}`}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {format(new Date(form.from_date), 'dd/MM/yyyy')} - {format(new Date(form.to_date), 'dd/MM/yyyy')}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900">{form.days_off || daysOff}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900">
+                    {form.diagnosis || '-'}
+                    {form.diagnosis_code && (
+                      <span className="ml-2 text-gray-500">({form.diagnosis_code})</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      form.status === 'issued' 
+                        ? 'bg-green-100 text-green-700'
+                        : form.status === 'sent'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-gray-100 text-gray-700'
                     }`}>
-                      {status.label}
+                      {form.status.charAt(0).toUpperCase() + form.status.slice(1)}
                     </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {(fitnessStatus === 'light_duty' || fitnessStatus === 'fit_with_restrictions') && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-              >
-                <label className="block text-sm font-medium text-gray-700 mb-2">Restrictions/Limitations</label>
-                <textarea
-                  {...register('restrictions')}
-                  rows={3}
-                  placeholder="Specify work restrictions or limitations..."
-                  className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-                />
-              </motion.div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {form.status === 'draft' && (
+                        <>
+                          <button
+                            onClick={() => handleEdit(form)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                            title="Edit"
+                          >
+                            <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleIssueLeaveForm(form.id)}
+                            className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                            title="Issue Certificate"
+                          >
+                            <Icon icon="solar:check-circle-bold-duotone" className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={() => handleDelete(form.id)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                        title="Delete"
+                      >
+                        <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
             )}
-          </div>
-        </div>
-
-        {/* Patient Information Section */}
-        <div className="bg-gradient-to-br from-green-50 to-green-100/30 p-6 rounded-xl border border-green-200/50">
-          <h4 className="text-sm font-semibold text-green-700 mb-4 flex items-center gap-2">
-            <Icon icon="solar:user-id-bold-duotone" className="w-5 h-5" />
-            Patient Employment Information
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Employer</label>
-              <input
-                type="text"
-                {...register('patient_employer')}
-                placeholder="Company/Organization name"
-                className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Occupation</label>
-              <input
-                type="text"
-                {...register('patient_occupation')}
-                placeholder="Job title/position"
-                className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Follow-up Section */}
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100/30 p-6 rounded-xl border border-orange-200/50">
-          <h4 className="text-sm font-semibold text-orange-700 mb-4 flex items-center gap-2">
-            <Icon icon="solar:calendar-add-bold-duotone" className="w-5 h-5" />
-            Follow-up Information
-          </h4>
-          <div className="space-y-4">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                {...register('follow_up_required')}
-                className="w-5 h-5 text-[#01b9d4] rounded focus:ring-[#01b9d4]"
-              />
-              <span className="text-sm font-medium text-gray-700">Follow-up Required</span>
-            </label>
-
-            {followUpRequired && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-              >
-                <label className="block text-sm font-medium text-gray-700 mb-2">Follow-up Date</label>
-                <input
-                  type="date"
-                  {...register('follow_up_date')}
-                  className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-                />
-              </motion.div>
-            )}
-          </div>
-        </div>
-
-        {/* Additional Notes */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Additional Notes</label>
-          <textarea
-            {...register('notes')}
-            rows={4}
-            placeholder="Any additional information or special instructions..."
-            className="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
-          />
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center justify-between pt-4">
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              disabled={isSaving || !isDirty}
-              className={`px-6 py-2.5 rounded-lg font-medium transition-all flex items-center gap-2 ${
-                isDirty
-                  ? 'bg-[#01b9d4] text-white hover:bg-[#00a5be] shadow-lg hover:shadow-xl'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              <Icon icon="solar:diskette-bold-duotone" className="w-5 h-5" />
-              {isSaving ? 'Saving...' : 'Save Leave Form'}
-            </button>
-
-            {leaveForm && leaveForm.status === 'draft' && (
-              <button
-                type="button"
-                onClick={handleIssueLeaveForm}
-                className="px-6 py-2.5 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-all flex items-center gap-2 shadow-lg hover:shadow-xl"
-              >
-                <Icon icon="solar:document-add-bold-duotone" className="w-5 h-5" />
-                Issue Certificate
-              </button>
-            )}
-          </div>
-
-          {leaveForm && leaveForm.status === 'issued' && (
-            <div className="flex gap-3">
-              <button
-                type="button"
-                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all flex items-center gap-2 shadow-lg hover:shadow-xl"
-              >
-                <Icon icon="solar:letter-bold-duotone" className="w-5 h-5" />
-                Send via Email
-              </button>
-              <button
-                type="button"
-                className="px-6 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-all flex items-center gap-2 shadow-lg hover:shadow-xl"
-              >
-                <Icon icon="solar:printer-bold-duotone" className="w-5 h-5" />
-                Print
-              </button>
-            </div>
-          )}
-        </div>
-      </form>
+          </tbody>
+        </table>
+      </div>
     </motion.div>
   );
 };

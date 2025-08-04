@@ -1,0 +1,10 @@
+{
+  "autoFix": true,
+  "strictMode": false,
+  "backupBeforeFix": true,
+  "enabledFor": [".jsx", ".tsx"],
+  "maxAutoFixAttempts": 3,
+  "reportStyle": "detailed",
+  "customTransformsDir": ".claude/transforms",
+  "playCompletionSound": true
+}

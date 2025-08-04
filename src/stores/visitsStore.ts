@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { Visit } from '../types/enhanced-visit.types';
+import { validatePracticeId } from '../lib/supabaseValidator';
 
 interface VisitsState {
   visits: Visit[];
@@ -90,7 +91,6 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
   // Fetch visits with filters
   fetchVisits: async (filters?: VisitFilters) => {
     set({ loading: true, error: null });
-    const startTime = performance.now();
     
     try {
       let query = supabase
@@ -179,9 +179,10 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
     const state = get();
     const currentPracticeId = practiceId || state.practiceId;
     
-    if (!currentPracticeId) {
-      console.warn('⚠️ visitsStore: No practice ID provided for fetchTodayVisits');
-      set({ visits: [], loading: false });
+    // Validate practice ID
+    if (!validatePracticeId(currentPracticeId)) {
+      console.warn('⚠️ visitsStore: Invalid or missing practice ID:', currentPracticeId);
+      set({ visits: [], loading: false, error: 'Invalid practice ID' });
       return;
     }
     

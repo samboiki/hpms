@@ -93,11 +93,7 @@ export function useAppointments(filters?: {
       
       let query = supabase
         .from('appointments')
-        .select(`
-          *,
-          patient:patients(id, first_name, last_name, cell_number),
-          doctor:users!appointments_doctor_id_fkey(id, email, full_name)
-        `)
+        .select('*')
         .order('appointment_date', { ascending: true })
         .order('appointment_time', { ascending: true });
       
@@ -111,13 +107,54 @@ export function useAppointments(filters?: {
         query = query.eq('status', filters.status);
       }
       
-      const { data, error } = await query;
-      
-      const queryTime = performance.now() - startTime;
-      console.log(`⏱️ useAppointments: Query completed in ${queryTime.toFixed(2)}ms, returned ${data?.length || 0} records`);
+      const { data: appointments, error } = await query;
       
       if (error) throw error;
-      return data;
+      
+      if (!appointments || appointments.length === 0) {
+        const queryTime = performance.now() - startTime;
+        console.log(`⏱️ useAppointments: Query completed in ${queryTime.toFixed(2)}ms, returned 0 records`);
+        return [];
+      }
+      
+      // Get unique patient and doctor IDs
+      const uniquePatientIds = [...new Set(appointments.map(a => a.patient_id).filter(Boolean))];
+      const uniqueDoctorIds = [...new Set(appointments.map(a => a.doctor_id).filter(Boolean))];
+      
+      // Fetch patients and doctors in parallel
+      const [patientsResponse, doctorsResponse] = await Promise.all([
+        uniquePatientIds.length > 0 
+          ? supabase
+              .from('patients')
+              .select('id, first_name, last_name, cell_number')
+              .in('id', uniquePatientIds)
+          : Promise.resolve({ data: [], error: null }),
+        uniqueDoctorIds.length > 0
+          ? supabase
+              .from('users')
+              .select('id, email, full_name')
+              .in('id', uniqueDoctorIds)
+          : Promise.resolve({ data: [], error: null })
+      ]);
+      
+      if (patientsResponse.error) throw patientsResponse.error;
+      if (doctorsResponse.error) throw doctorsResponse.error;
+      
+      // Create lookup maps
+      const patientsMap = new Map((patientsResponse.data || []).map(p => [p.id, p]));
+      const doctorsMap = new Map((doctorsResponse.data || []).map(d => [d.id, d]));
+      
+      // Combine appointments with patient and doctor data
+      const appointmentsWithRelations = appointments.map(appointment => ({
+        ...appointment,
+        patient: appointment.patient_id ? patientsMap.get(appointment.patient_id) : undefined,
+        doctor: appointment.doctor_id ? doctorsMap.get(appointment.doctor_id) : undefined
+      }));
+      
+      const queryTime = performance.now() - startTime;
+      console.log(`⏱️ useAppointments: Query completed in ${queryTime.toFixed(2)}ms, returned ${appointmentsWithRelations.length} records`);
+      
+      return appointmentsWithRelations;
     }
   });
 }

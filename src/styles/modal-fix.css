@@ -1,0 +1,126 @@
+/* Global Modal Fix - Ensure all modals are clickable */
+
+/* Fix for modal portal root */
+#modal-portal-root {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+#modal-portal-root > * {
+  pointer-events: auto;
+}
+
+/* Ensure modals are always on top and clickable */
+[data-fullscreen-modal="true"],
+[role="dialog"],
+.modal-container,
+.fixed[class*="z-50"],
+.fixed[class*="z-40"] {
+  pointer-events: auto !important;
+  isolation: isolate !important;
+}
+
+/* Fix for modal backdrops */
+[data-fullscreen-modal="true"] > div:first-child,
+.modal-backdrop,
+.fixed.inset-0.bg-black,
+.fixed.inset-0[class*="bg-black"] {
+  pointer-events: auto !important;
+}
+
+/* Fix for modal content */
+[data-fullscreen-modal="true"] > div:last-child,
+.modal-content,
+[role="dialog"] > div {
+  pointer-events: auto !important;
+  position: relative !important;
+}
+
+/* Ensure buttons and interactive elements in modals are clickable */
+[data-fullscreen-modal="true"] button,
+[data-fullscreen-modal="true"] a,
+[data-fullscreen-modal="true"] input,
+[data-fullscreen-modal="true"] textarea,
+[data-fullscreen-modal="true"] select,
+[data-fullscreen-modal="true"] [role="button"],
+[role="dialog"] button,
+[role="dialog"] a,
+[role="dialog"] input,
+[role="dialog"] textarea,
+[role="dialog"] select,
+[role="dialog"] [role="button"] {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Fix for specific modal implementations */
+.fixed.inset-0[style*="z-index"] {
+  pointer-events: auto !important;
+}
+
+.fixed.inset-0[style*="z-index"] > * {
+  pointer-events: auto !important;
+}
+
+/* Ensure click events work on modal overlays */
+.absolute.inset-0[onClick],
+.fixed.inset-0[onClick] {
+  pointer-events: auto !important;
+}
+
+/* Fix for Framer Motion animated modals */
+.fixed.inset-0 > div[class*="motion"] {
+  pointer-events: auto !important;
+}
+
+/* Prevent any element from blocking modal interactions */
+body > *:not(#modal-portal-root):not(script):not(style) {
+  position: relative !important;
+  z-index: auto !important;
+}
+
+/* Special handling for high z-index elements that might interfere */
+*[style*="2147483647"] {
+  pointer-events: auto !important;
+  user-select: auto !important;
+}
+
+/* Fix for mobile devices */
+@media (max-width: 768px) {
+  [data-fullscreen-modal="true"],
+  [role="dialog"],
+  .modal-container {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  
+  [data-fullscreen-modal="true"] button,
+  [role="dialog"] button {
+    touch-action: manipulation;
+  }
+}
+
+/* Debug helper - remove in production */
+.modal-debug-overlay {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 0, 0, 0.1);
+  border: 2px solid red;
+  padding: 10px;
+  z-index: 2147483647;
+  pointer-events: none;
+}
+
+.modal-debug-overlay::after {
+  content: "Modal Debug Active";
+  color: red;
+  font-weight: bold;
+}

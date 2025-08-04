@@ -56,7 +56,7 @@ export class AppointmentService {
     try {
       // Create the main appointment
       const { data: appointment, error } = await supabase
-        .from('appointments')
+        .from('visits')
         .insert({
           ...data,
           practice_id: practiceId,
@@ -92,7 +92,7 @@ export class AppointmentService {
     try {
       // Get the parent appointment
       const { data: parent, error: parentError } = await supabase
-        .from('appointments')
+        .from('visits')
         .select('*')
         .eq('id', parentId)
         .single();
@@ -139,7 +139,7 @@ export class AppointmentService {
       // Bulk insert
       if (appointments.length > 0) {
         const { error } = await supabase
-          .from('appointments')
+          .from('visits')
           .insert(appointments);
 
         if (error) throw error;
@@ -165,7 +165,7 @@ export class AppointmentService {
   static async scheduleReminders(appointmentId: string, timings: string[]) {
     try {
       const { data: appointment, error: aptError } = await supabase
-        .from('appointments')
+        .from('visits')
         .select('*, patients(*), users!doctor_id(*), practices(*)')
         .eq('id', appointmentId)
         .single();
@@ -338,7 +338,7 @@ export class AppointmentService {
 
             // Update appointment
             await supabase
-              .from('appointments')
+              .from('visits')
               .update({ reminder_sent_at: new Date().toISOString() })
               .eq('id', appointment.id);
 
@@ -441,7 +441,7 @@ export class AppointmentService {
     try {
       // Get cancelled appointment details
       const { data: appointment, error: aptError } = await supabase
-        .from('appointments')
+        .from('visits')
         .select('*')
         .eq('id', appointmentId)
         .single();
@@ -578,7 +578,7 @@ export class AppointmentService {
     try {
       // Update appointment status
       const { error: updateError } = await supabase
-        .from('appointments')
+        .from('visits')
         .update({
           status: 'cancelled',
           notes: reason ? `Cancelled: ${reason}` : undefined,

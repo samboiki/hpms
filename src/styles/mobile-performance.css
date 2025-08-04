@@ -1,0 +1,314 @@
+/* Mobile Performance Optimizations */
+
+/* GPU Acceleration for smooth scrolling */
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+  transform: translateZ(0);
+  will-change: scroll-position;
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Optimize timeline cards for mobile */
+.timeline-card {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  contain: layout style paint;
+}
+
+/* Reduce motion for better performance */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Touch-friendly mobile optimizations */
+@media screen and (max-width: 768px) {
+  /* Remove heavy animations on mobile */
+  .framer-motion-disable * {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  /* Optimize scrolling performance */
+  .mobile-scroll-optimize {
+    -webkit-overflow-scrolling: touch;
+    transform: translateZ(0);
+    will-change: scroll-position;
+    contain: layout style paint;
+  }
+  
+  /* Reduce blur effects that cause performance issues */
+  .backdrop-blur-xl,
+  .backdrop-blur-lg,
+  .backdrop-blur-md {
+    backdrop-filter: blur(4px) !important;
+  }
+  
+  /* CRITICAL: Remove ALL padding/margins for true full-width encounter cards */
+  /* Target the main patient details container */
+  .space-y-6 > .relative.overflow-hidden > .relative.backdrop-blur-xl {
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+  
+  /* Remove padding from parent motion.div containers in patient details */
+  [class*="p-6"]:has(> .space-y-6) {
+    padding: 0.5rem 0 !important;
+  }
+  
+  /* Target ALL p-6 classes with higher specificity */
+  div.p-6 {
+    padding: 0.5rem !important;
+  }
+  
+  /* Target p-6 with additional context */
+  .p-6[style*="opacity"] {
+    padding: 0.5rem !important;
+  }
+  
+  /* Target the specific p-6 container in patient modal */
+  div[class="p-6"][style*="opacity: 1; transform: none;"] {
+    padding: 0.5rem !important;
+  }
+  
+  /* Maximum specificity override for ALL p-6 classes */
+  html body div.p-6,
+  html body [class*="p-6"],
+  html body *[class="p-6"] {
+    padding: 0.5rem !important;
+  }
+  
+  /* Remove ALL container padding that affects EncounterTimeline */
+  .space-y-6:has(.relative.overflow-hidden) {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Optimize timeline containers */
+  .timeline-container {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-left: -1rem !important;
+    margin-right: -1rem !important;
+  }
+  
+  /* Maximize card width on mobile */
+  .patient-journey-mobile {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+  
+  /* Full-width encounter cards */
+  .encounter-card {
+    margin-left: -1rem !important;
+    margin-right: -1rem !important;
+    border-radius: 0 !important;
+  }
+  
+  /* Hide journey progress section on mobile */
+  .journey-progress-section {
+    display: none !important;
+  }
+  
+  /* Hide play medical history section on mobile */
+  .play-medical-history-section {
+    display: none !important;
+  }
+  
+  /* Fix visit time overlap - move time under date */
+  .visit-time-mobile {
+    margin-top: 0.25rem !important;
+    margin-left: 0 !important;
+    position: static !important;
+  }
+  
+  /* Remove backgrounds and borders from mobile date/time containers */
+  div.block.mb-3.p-2.bg-gray-50.rounded-lg.border {
+    background: transparent !important;
+    border: none !important;
+    padding: 0.5rem 0 !important;
+  }
+  
+  /* Target mobile-only date containers */
+  .block[class*="sm:hidden"].mb-3.p-2.bg-gray-50 {
+    background: transparent !important;
+    border: none !important;
+    padding: 0.5rem 0 !important;
+  }
+  
+  /* Hide gradient backgrounds on mobile cards */
+  div.absolute.inset-0[class*="bg-gradient-to-br"] {
+    display: none !important;
+  }
+  
+  /* Hide specific gradient backgrounds */
+  .absolute.inset-0.bg-gradient-to-br.from-white.via-gray-50\/50.to-blue-50\/30 {
+    display: none !important;
+  }
+  
+  /* Premium mobile button layout for Media/Lab/Imaging/Edit */
+  .mobile-action-buttons {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.75rem !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+  
+  .mobile-action-button {
+    flex: 1 1 auto !important;
+    min-width: 75px !important;
+    max-width: 90px !important;
+    padding: 0.75rem 0.5rem !important;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    text-align: center !important;
+    border-radius: 12px !important;
+    border: 1.5px solid transparent !important;
+    background: linear-gradient(145deg, #ffffff, #f8fafc) !important;
+    color: #475569 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    touch-action: manipulation !important;
+    min-height: 70px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    transition: all 0.2s ease !important;
+    position: relative !important;
+    overflow: hidden !important;
+  }
+  
+  .mobile-action-button::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 2px !important;
+    background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.2), transparent) !important;
+    opacity: 0 !important;
+    transition: opacity 0.2s ease !important;
+  }
+  
+  .mobile-action-button:hover {
+    background: linear-gradient(145deg, #f1f5f9, #e2e8f0) !important;
+    border-color: rgba(99, 102, 241, 0.2) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+    transform: translateY(-1px) !important;
+  }
+  
+  .mobile-action-button:hover::before {
+    opacity: 1 !important;
+  }
+  
+  .mobile-action-button:active {
+    transform: translateY(0) !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  .mobile-action-button svg {
+    width: 18px !important;
+    height: 18px !important;
+    flex-shrink: 0 !important;
+    transition: all 0.2s ease !important;
+  }
+  
+  .mobile-action-button:hover svg {
+    transform: scale(1.1) !important;
+  }
+  
+  .mobile-action-button .count-badge {
+    font-size: 0.625rem !important;
+    font-weight: 600 !important;
+    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+    color: white !important;
+    border-radius: 50% !important;
+    width: 18px !important;
+    height: 18px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: absolute !important;
+    top: -6px !important;
+    right: -6px !important;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3) !important;
+    border: 2px solid white !important;
+  }
+  
+  /* Premium theme variations for different button types */
+  .mobile-action-button[class*="from-blue"] {
+    background: linear-gradient(145deg, #dbeafe, #bfdbfe) !important;
+    color: #1d4ed8 !important;
+  }
+  
+  .mobile-action-button[class*="from-blue"]:hover {
+    background: linear-gradient(145deg, #bfdbfe, #93c5fd) !important;
+    border-color: rgba(29, 78, 216, 0.3) !important;
+  }
+  
+  .mobile-action-button[class*="from-emerald"] {
+    background: linear-gradient(145deg, #d1fae5, #a7f3d0) !important;
+    color: #059669 !important;
+  }
+  
+  .mobile-action-button[class*="from-emerald"]:hover {
+    background: linear-gradient(145deg, #a7f3d0, #6ee7b7) !important;
+    border-color: rgba(5, 150, 105, 0.3) !important;
+  }
+  
+  .mobile-action-button[class*="from-purple"] {
+    background: linear-gradient(145deg, #e9d5ff, #d8b4fe) !important;
+    color: #7c3aed !important;
+  }
+  
+  .mobile-action-button[class*="from-purple"]:hover {
+    background: linear-gradient(145deg, #d8b4fe, #c4b5fd) !important;
+    border-color: rgba(124, 58, 237, 0.3) !important;
+  }
+  
+  /* Optimize button interactions */
+  .touch-button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    touch-action: manipulation;
+  }
+}
+
+/* Hardware acceleration for timeline elements */
+.timeline-node {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* Optimize visit cards for smooth scrolling */
+.visit-card {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  contain: layout style paint;
+}
+
+/* Remove expensive box-shadows on mobile */
+@media (max-width: 768px) {
+  .shadow-xl,
+  .shadow-2xl {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+  }
+  
+  .shadow-lg {
+    box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1) !important;
+  }
+}

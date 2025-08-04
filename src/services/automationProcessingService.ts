@@ -5,7 +5,7 @@ class AutomationProcessingService {
   private intervalId: NodeJS.Timeout | null = null;
   private isProcessing = false;
   private isStarted = false;
-  private intervalMinutes = 1; // Process every minute
+  private intervalMinutes = 5; // Process every 5 minutes (reduced for performance)
 
   async start() {
     try {
@@ -26,7 +26,7 @@ class AutomationProcessingService {
         await this.processAutomations();
       }, this.intervalMinutes * 60 * 1000);
       
-      console.log(`⏰ Automation processing scheduled every ${this.intervalMinutes} minute(s)`);
+      console.log(`⏰ Automation processing scheduled every ${this.intervalMinutes} minutes`);
       
       // Process after a short delay to not block app startup
       setTimeout(() => {

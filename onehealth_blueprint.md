@@ -1,7 +1,93 @@
 # 🏥 ONEHEALTH SYSTEM BLUEPRINT - COMPLETE TECHNICAL REFERENCE
-**Version**: 4.0  
-**Last Updated**: 2025-01-11 19:00:00 UTC  
-**Based on**: Commit b8d98e7 (Last Known Good State)
+**Version**: 4.1  
+**Last Updated**: 2025-01-25  
+**Based on**: Commit b8d98e7 (Last Known Good State) + Recent Updates
+
+---
+
+## 📋 RECENT UPDATES
+
+### Print Buttons on Handoff Cards (commit: a886471) - 2025-01-25
+- **Issue**: Users needed quick access to print documents from dashboard handoff cards
+- **Solution**:
+  - Created `HandoffCardPrintButtons` component with prescription, leave form, and invoice buttons
+  - Integrated into FloatingVisitTracker handoff card section
+  - Documents are generated on-demand or opened if already exists
+  - Added database indexes to optimize query performance
+- **Features**:
+  - Smart button states (loading spinner during generation)
+  - Green dot indicator for existing documents
+  - Error handling with user-friendly toast messages
+  - Only shows buttons for documents with available data
+
+### Enhanced Print Buttons UI - 2025-01-25
+- **Dashboard Handoff Cards (`PremiumAppointmentScheduler.tsx`)**:
+  - Print buttons moved to new row below grey divider
+  - Added text labels: "Prescription", "Leave Form", "Invoice"
+  - Solar Bold Duotone icons: medical-kit, document-text, wallet
+  - Buttons have colored backgrounds and animate with pulse effect only when data available
+  - "Ready for checkout" badge on same row as print buttons (no animation)
+  - Purple background row for better visual separation
+  - Complete button uses #00a7ad color
+  
+- **Floating Visit Tracker - Professional Redesign**:
+  - **Card Layout**:
+    - Card number badge (40x40) on left with proper padding
+    - Time on first row (bold, standalone)
+    - Patient name on second row
+    - Visit details on third row
+    - Status/actions integrated within card content area
+    - Professional spacing throughout (no cramping)
+  - **Print Buttons**:
+    - ONLY appear on handoff cards (removed from ALL other sections)
+    - Completely removed from in-progress, scheduled, completed, cancelled cards
+    - Handoff cards have special purple background section
+  - **Handoff Cards Special Section**:
+    - Purple tinted background (purple-50/20)
+    - "Ready for checkout" badge on its own row
+    - Print buttons (icons only) and Complete button on action row
+    - Complete button uses #00a7ad color
+    
+- **`HandoffCardPrintButtons` Component**:
+  - Added `showLabels` prop for conditional text display
+  - Smart data checking: buttons grey out when no data available
+  - Disabled buttons don't animate (no pulsing)
+  - Enhanced button styling with hover effects
+  - Uses @iconify/react for Solar icon integration
+
+### Leave Form & PDF Generation Updates (commit: fd0b3a7) - 2025-01-25
+- **Leave Form UI (`LeaveFormTab.tsx`)**:
+  - Removed Special Instructions/Restrictions field
+  - Removed Additional Notes field
+  - Added CRUD table similar to medications table
+  - Users can now add, edit, and delete multiple leave forms per visit
+  - Table shows: Form #, Period, Days, Diagnosis, Status, Actions
+  - Collapsible form for adding/editing leave forms
+
+- **PDF Generation Improvements**:
+  - **Banking Details**: Now matches invoice format exactly - plain text, no backgrounds
+  - **Signature Section**: Copied from prescription format with "Prescribing Physician" label
+  - **Automatic Generation**: PDFs generate automatically on visit save (no manual generation needed)
+  - **Dashboard Buttons**: Only show colored/enabled when PDFs are ready (grey/disabled otherwise)
+  - **Polling Mechanism**: Checks for generated documents every 5 seconds
+  - **Single Click**: Click once to view PDF (removed two-step generate then view process)
+
+### IntegrationsSlider Component Fixed - 2025-01-28
+- **Issue**: Second row of integration icons was being cut off at bottom
+- **Solution**:
+  - Increased container height from 200px to 280px to accommodate both rows
+  - Changed from absolute positioning to flexbox layout with proper gap
+  - Split integrations into two arrays for equal distribution across rows
+  - Made all icon boxes consistent 100px x 100px with larger icons (8x8)
+  - Added smooth fade gradients at edges instead of hard cutoff
+  - Gradients now match the background colors (purple-50 on left, blue-50 on right)
+  - Increased spacing between icons from gap-3 to gap-4
+- **Features**:
+  - Two-row infinite scrolling animation
+  - Top row scrolls forward, bottom row scrolls in reverse
+  - Hover effects with scale and elevation changes
+  - Professional fade transitions at edges
+  - Equal distribution of 39 integrations across both rows
 
 ---
 
@@ -1596,4 +1682,173 @@ const practiceId = getSafePracticeId(user); // ✅ SECURE
 
 ---
 
-**END OF BLUEPRINT v4.0**
+## 🎨 UI DESIGN PATTERNS & STYLING GUIDELINES
+
+### Component Styling Standards (Updated 2025-01-25)
+
+#### Section Backgrounds
+**Standard**: Use consistent gray gradient backgrounds for all form sections
+```css
+/* Primary section background */
+bg-gradient-to-br from-gray-50 to-gray-100/30
+
+/* Section borders */
+border border-gray-200/50
+
+/* Section padding */
+p-6 rounded-xl
+```
+
+#### Form Section Headers
+**Standard**: Gray text with colored icons
+```tsx
+// Example header structure
+<h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+  <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5 text-blue-500" />
+  Section Title
+</h4>
+```
+
+#### Clean Professional Styling
+- **Avoid**: Colorful gradient backgrounds (blue-50, purple-50, green-50, etc.)
+- **Use**: Gray tones with accent colors only in icons and buttons
+- **Reference**: General tab in AddVisitTabs.tsx and EditVisitTabs.tsx
+
+#### Radio/Toggle Options
+```css
+/* Selected state */
+border-gray-300 bg-gray-50
+
+/* Unselected state */
+border-gray-200 bg-white hover:border-gray-300
+
+/* Icons retain their semantic colors */
+text-red-600, text-yellow-600, text-green-600 (for status indicators)
+```
+
+#### Consistency Rules
+1. All form sections use gray-based backgrounds
+2. Section headers use gray-700 text with colored icons
+3. Interactive elements use subtle gray hovers
+4. Semantic colors only in icons and status indicators
+5. Professional, healthcare-appropriate appearance
+
+---
+
+### Automatic Document Generation System (Added 2025-07-26)
+
+#### Overview
+The system now automatically generates printable PDF documents when visits are created or updated. This includes prescriptions, leave forms, and invoices in A5 and A4 formats.
+
+#### Components
+
+##### 1. Document Generation Service
+**Location**: `src/services/documentGenerationService.ts`
+**Features**:
+- Generates prescriptions from visit prescription data
+- Creates medical leave certificates from leave_forms table
+- Produces professional invoices from invoice data
+- Uses html2canvas and jsPDF for client-side PDF generation
+- Stores PDFs in Supabase storage buckets
+- Tracks documents in visit_documents table
+
+##### 2. HandoffCard Component
+**Location**: `src/components/visits/HandoffCard.tsx`
+**Features**:
+- Displays all generated documents for a visit
+- Print button to open PDF in new tab
+- Download button for offline access
+- Manual "Generate Documents" button
+- Shows document type with appropriate icons
+- Real-time status updates
+
+##### 3. Visit Forms Integration
+**Modified Files**:
+- `src/components/visits/EditVisitTabs.tsx`
+- `src/components/visits/AddVisitTabs.tsx`
+
+**Automatic Generation Triggers**:
+- On visit creation (AddVisitTabs)
+- On visit update (EditVisitTabs)
+- Checks for presence of:
+  - Medications → Generates prescription
+  - Leave form data → Generates leave certificate
+  - Invoice services → Generates invoice
+
+#### Database Structure
+
+##### visit_documents Table
+```sql
+CREATE TABLE visit_documents (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    visit_id uuid NOT NULL REFERENCES visits(id) ON DELETE CASCADE,
+    patient_id uuid NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    practice_id uuid NOT NULL REFERENCES practices(id) ON DELETE CASCADE,
+    document_type varchar CHECK (document_type IN ('prescription', 'leave_form', 'invoice', 'receipt', 'other')),
+    document_name varchar NOT NULL,
+    file_path text NOT NULL,
+    storage_bucket varchar DEFAULT 'documents',
+    file_size integer,
+    file_type varchar,
+    generated_at timestamp with time zone DEFAULT now(),
+    generated_by uuid REFERENCES users(id),
+    status varchar DEFAULT 'active',
+    metadata jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+```
+
+#### Storage Structure
+- Bucket: `documents`
+- Folders:
+  - `/prescriptions/` - Prescription PDFs
+  - `/leave_forms/` - Leave certificate PDFs
+  - `/invoices/` - Invoice PDFs
+
+#### PDF Templates
+
+##### Prescription (A5)
+- Practice header with logo
+- ℞ symbol
+- Patient information
+- Medication list with dosage
+- Doctor signature line
+- Professional gray color scheme
+
+##### Leave Form (A5)
+- Medical certificate header
+- Patient employment details
+- Diagnosis and ICD-10 code
+- Leave period dates
+- Fitness status
+- Doctor signature
+- Form number tracking
+
+##### Invoice (A4)
+- Full practice branding
+- Patient billing information
+- Service line items
+- Medical aid coverage breakdown
+- Tax calculations
+- Payment terms
+- Banking details
+
+#### Usage Flow
+1. User creates/updates visit with relevant data
+2. System automatically generates applicable PDFs
+3. PDFs stored in Supabase storage
+4. References saved to visit_documents table
+5. HandoffCard displays available documents
+6. User can print or download as needed
+
+#### Tab Integration
+New "Documents" tab added to visit forms:
+- Icon: `solar:hand-shake-bold-duotone`
+- Color: Green (#4caf50)
+- Shows HandoffCard component
+- Available in both Add and Edit visit modals
+
+---
+
+**END OF BLUEPRINT v4.1**

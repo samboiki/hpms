@@ -96,7 +96,7 @@ module.exports = {
         "slide-in": "slide-in 0.3s ease-out",
       },
       fontFamily: {
-        'poppins': ['var(--font-poppins)', 'Poppins', 'sans-serif'],
+        'rubik': ['var(--font-rubik)', 'Rubik', 'sans-serif'],
         'montserrat': ['var(--font-montserrat)', 'Montserrat', 'sans-serif'],
         sans: ['var(--font-montserrat)', 'Montserrat', 'system-ui', 'sans-serif'],
       },

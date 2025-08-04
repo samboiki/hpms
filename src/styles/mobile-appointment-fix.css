@@ -1,0 +1,73 @@
+/* Mobile-specific fixes for appointment cards */
+@media (max-width: 640px) {
+  /* Fix for appointment cards with absolute positioned numbers */
+  .appointment-card-mobile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    padding-left: 0.75rem !important; /* Override pl-12 */
+  }
+  
+  /* Move the number badge to inline position on mobile */
+  .appointment-number-mobile {
+    position: static !important;
+    transform: none !important;
+    margin-bottom: 0.5rem;
+    align-self: flex-start;
+  }
+  
+  /* Stack appointment details vertically on mobile */
+  .appointment-details-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+  }
+  
+  /* Move status badge below on mobile */
+  .appointment-status-mobile {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  
+  /* Ensure time stays visible */
+  .appointment-time-mobile {
+    font-weight: 600;
+    color: #1f2937;
+  }
+}
+
+/* Hide scrollbar while maintaining scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+/* Alternative inline styles for React components */
+.mobile-appointment-card {
+  @apply relative flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:pl-12 bg-white rounded-lg border border-gray-100 hover:border-gray-200 hover:shadow-sm cursor-pointer;
+}
+
+.mobile-appointment-card.group {
+  /* Group utility applied separately if needed */
+}
+
+.mobile-appointment-number {
+  @apply sm:absolute sm:left-2 sm:top-1/2 sm:-translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-md;
+}
+
+.mobile-appointment-content {
+  @apply flex flex-col sm:flex-row sm:items-center gap-3 flex-1;
+}
+
+.mobile-appointment-status {
+  @apply flex items-center gap-2 sm:ml-auto mt-2 sm:mt-0;
+}

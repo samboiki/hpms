@@ -7,6 +7,7 @@ interface User {
   name: string;
   role: 'admin' | 'doctor' | 'nurse' | 'receptionist';
   avatar?: string | null;
+  signature_url?: string | null;
   practice_id?: string;
   practices?: {
     id: string;
@@ -62,6 +63,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               full_name, 
               role, 
               avatar, 
+              signature_url,
               practice_id, 
               is_super_admin, 
               can_manage_practices, 
@@ -94,6 +96,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           name: dbUser.full_name,
           role: dbUser.role,
           avatar: dbUser.avatar || null,
+          signature_url: dbUser.signature_url || null,
           practice_id: dbUser.practice_id,
           practices: dbUser.practices,
           is_super_admin: dbUser.is_super_admin || false,
@@ -155,6 +158,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             full_name, 
             role, 
             avatar, 
+            signature_url,
             practice_id, 
             is_super_admin, 
             can_manage_practices, 
@@ -205,6 +209,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           name: userData.full_name,
           role: userData.role,
           avatar: userData.avatar || null,
+          signature_url: userData.signature_url || null,
           practice_id: userData.practice_id,
           practices: userData.practices,
           is_super_admin: userData.is_super_admin || false,

@@ -3,6 +3,7 @@ import { Route, Routes } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
+import PatientDetail from './pages/PatientDetail';
 import Settings from './pages/Settings';
 import Communications from './pages/Communications';
 import TestCommunication from './pages/TestCommunication';
@@ -13,7 +14,7 @@ import TestSMSWithAuth from './pages/TestSMSWithAuth';
 import Encounters from './pages/Encounters';
 import Layout from './components/layout/Layout';
 import Login from './pages/auth/Login';
-import { useAuthStore } from './stores/authStore';
+import { useAuthStoreFast as useAuthStore } from './stores/authStoreFast';
 import NotFound from './pages/NotFound';
 import PracticeProfile from './pages/PracticeProfile';
 import EnhancedPracticeProfile from './pages/EnhancedPracticeProfile';
@@ -30,6 +31,13 @@ import ThemeProvider from './components/providers/ThemeProvider';
 import EmergencySchemaExporter from './emergency-schema-exporter';
 import { automationProcessingService } from './services/automationProcessingService';
 import UniversalCallback from './pages/oauth/UniversalCallback';
+import TestCursor from './pages/TestCursor';
+import { CacheWarmer } from './components/CacheWarmer';
+import { RoutePrefetcher } from './components/RoutePrefetcher';
+import TestCache from './pages/TestCache';
+import TestQueryProtection from './pages/TestQueryProtection';
+import TestModalClick from './pages/TestModalClick';
+import { PerformanceMonitor } from './components/PerformanceMonitor';
 
 function App() {
   const { isAuthenticated, login } = useAuthStore();
@@ -91,6 +99,9 @@ function App() {
     <PracticeProvider>
       <ThemeProvider>
         <PracticeTariffsProvider>
+          <CacheWarmer />
+          <RoutePrefetcher />
+          <PerformanceMonitor />
           <Toaster 
             position="top-right"
             toastOptions={{
@@ -113,11 +124,16 @@ function App() {
           />
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/test-cursor" element={<TestCursor />} />
+            <Route path="/test-cache" element={<TestCache />} />
+            <Route path="/test-protection" element={<TestQueryProtection />} />
+            <Route path="/test-modal-click" element={<TestModalClick />} />
             <Route path="/oauth/universal-callback" element={<UniversalCallback />} />
             <Route path="/api/oauth/callback" element={<UniversalCallback />} />
             <Route path="/" element={<Layout />}>
               <Route index element={<Dashboard />} />
               <Route path="patients" element={<Patients />} />
+              <Route path="patients/:patientId/visit/:visitId" element={<PatientDetail />} />
               <Route path="encounters" element={<Encounters />} />
               <Route path="communications" element={<Communications />} />
               <Route path="test-communication" element={<TestCommunication />} />

@@ -7,10 +7,21 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    domains: ['images.unsplash.com', 'via.placeholder.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'via.placeholder.com',
+      },
+    ],
   },
-  experimental: {
-    serverComponentsExternalPackages: ['@supabase/ssr'],
+  serverExternalPackages: ['@supabase/ssr'],
+  env: {
+    NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jjxlfunlbyayxwvlpgwt.supabase.co',
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable_dzxer8L4aIxCUOK7CnCM-A_YjHyS3En',
   },
 }
 

@@ -1,10 +1,32 @@
 # CLAUDE.md - ULTIMATE AI DEVELOPER MODE
 
-## 🛑 MANDATORY: READ THE BLUEPRINT FIRST!
-**CRITICAL: You MUST read `/onehealth_blueprint.md` BEFORE making ANY changes!**
-- It contains the ACTUAL system behavior, not assumptions
-- NEVER change fundamental behaviors without updating the blueprint
-- If confused, refer to commit b8d98e7 as the source of truth
+## 🛑 MANDATORY: READ THESE FIRST!
+**CRITICAL: You MUST read BOTH documents BEFORE making ANY changes!**
+1. `/onehealth_blueprint.md` - System behavior documentation
+2. `/ARCHITECTURE.md` - System architecture and deployment
+
+## 🚨 CRITICAL PORT & DOMAIN MAPPING - NEVER CHANGE THIS!
+
+### Local Development Ports:
+- **localhost:3000** → OneHealth Marketing Landing Page (Next.js in `/onehealth`)
+- **localhost:5000** → HPMS Doctor's Portal (React+Vite in root `/`)
+- **localhost:4000** → Admin Portal (Same React app with admin routes)
+
+### Production Domains:
+- **https://onehealthsystems.com** → Marketing site (from localhost:3000)
+- **https://app.onehealthsystems.com** → Doctor's portal (from localhost:5000)
+- **https://admin.onehealthsystems.com** → Admin portal (from localhost:4000)
+
+### NEVER:
+- Create new pages without explicit instructions
+- Change port mappings
+- Assume what should be deployed where
+- Deploy without understanding the existing Vercel projects
+
+### ALWAYS:
+- Check with Vercel to see what's already deployed
+- Respect the existing architecture
+- Ask before making structural changes
 
 ## 🚨 VALIDATION PROTOCOL - RESPOND TO THESE IMMEDIATELY
 

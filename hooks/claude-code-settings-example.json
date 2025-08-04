@@ -1,0 +1,13 @@
+{
+  "hooks": {
+    "after-task-complete": "/home/happy/projects/hpms/hooks/play-completion-sound.sh",
+    "after-task-complete-enhanced": "/home/happy/projects/hpms/hooks/play-completion-sound-enhanced.sh",
+    "before-task-start": "echo 'Starting new task...'",
+    "after-tool-use": "echo 'Tool executed: $TOOL_NAME'",
+    "on-error": "echo 'Error occurred!' && /home/happy/projects/hpms/hooks/play-error-sound.sh"
+  },
+  "environment": {
+    "CLAUDE_CODE_SOUND_ENABLED": "true",
+    "CLAUDE_CODE_NOTIFICATIONS_ENABLED": "true"
+  }
+}

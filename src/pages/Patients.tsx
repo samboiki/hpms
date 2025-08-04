@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { useAuthStore } from '../stores/authStore';
@@ -9,23 +9,48 @@ import PatientAnalytics from '../components/patients/PatientAnalytics';
 import { usePatientsStoreNew } from '../stores/patientsStoreNew';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePatientSettings } from '../hooks/usePatientSettings';
+import { useOutletContext } from 'react-router-dom';
+import { useTheme } from '../stores/themeStore';
+import { usePracticeData } from '../hooks/usePracticeData';
+
+interface LayoutContext {
+  toggleMobileSidebar: () => void;
+  isMobileSidebarOpen: boolean;
+}
 
 // Main Patients Page Component
 const Patients: React.FC = () => {
   const { practiceId } = usePractice();
   const { user, logout } = useAuthStore();
   const { patients } = usePatientsStoreNew();
+  const { toggleMobileSidebar } = useOutletContext<LayoutContext>();
+  const { currentTheme } = useTheme();
+  const { practiceData, colors } = usePracticeData();
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   const [activeTab, setActiveTab] = useState<'patients' | 'analytics' | 'settings'>('patients');
   const { settings, loading: settingsLoading, saving, saveSettings } = usePatientSettings();
   const [localSettings, setLocalSettings] = useState(settings);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
 
   // Update local settings when loaded from database
   React.useEffect(() => {
     setLocalSettings(settings);
   }, [settings]);
+
+  // Detect screen size
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 640);
+      setIsTablet(window.innerWidth >= 640 && window.innerWidth < 1024);
+    };
+    
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -36,123 +61,173 @@ const Patients: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
-        {/* Header Section - Clean Professional Style */}
-        <div className="rounded-xl">
+    <div className="min-h-screen bg-gray-100 relative" style={{
+      backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.1) 1px, transparent 0)',
+      backgroundSize: '20px 20px'
+    }}>
+      <div className="px-0 sm:px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+        {/* Compact Professional Header - Same style as Dashboard */}
+        <div className="mx-0 sm:mx-0 backdrop-blur-md rounded-none sm:rounded-xl shadow-sm border border-gray-100/50 border-x-0 sm:border-x">
           <div className="p-4 md:p-5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between w-full">
+              {/* Left Side - Mobile: User Avatar, Desktop: Page title */}
               <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg">
-                  <Icon icon="solar:user-bold-duotone" className="w-8 h-8 text-white" />
+                {/* User Avatar - Left side on mobile/tablet */}
+                {user && (
+                  <div className="relative lg:hidden">
+                    <button
+                      ref={avatarButtonRef}
+                      onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
+                      className="relative group focus:outline-none"
+                    >
+                      {/* Pulsating outer ring */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
+                      <div className={`absolute -inset-1 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full opacity-50`}></div>
+                      
+                      {/* Avatar circle */}
+                      <div className="relative h-12 w-12 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                        <img 
+                          src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
+                          alt={user.name}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
+                          }}
+                        />
+                      </div>
+                    </button>
+                  </div>
+                )}
+                
+                {/* Practice Logo/Icon - Desktop only */}
+                <div className="hidden lg:block p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg">
+                  <Icon icon="solar:users-group-two-rounded-bold-duotone" className="w-8 h-8 text-white" />
                 </div>
+                
+                {/* Title - Always visible */}
                 <div>
-                  <h1 className="text-2xl font-semibold text-gray-800">Patient Management</h1>
-                  <p className="text-sm text-gray-500 mt-0.5">Comprehensive patient database and management</p>
+                  <h1 className="text-2xl font-semibold text-gray-800">
+                    Patients
+                  </h1>
+                  <p className="text-sm text-gray-500 mt-0.5 hidden lg:block">Manage your patient database</p>
                 </div>
               </div>
               
-              {/* User Avatar with Dropdown - Same as Dashboard */}
-              {user && (
-                <div className="relative">
-                  <button
-                    ref={avatarButtonRef}
-                    onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
-                    className="relative group focus:outline-none"
+              {/* Right Side */}
+              <div className="flex items-center gap-3">
+                {/* Mobile Menu Button - Right side on mobile/tablet */}
+                <div className="lg:hidden">
+                  <button 
+                    onClick={toggleMobileSidebar}
+                    className="p-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
                   >
-                    {/* Pulsating outer ring - Purple theme */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
-                    <div className="absolute -inset-1 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full opacity-50"></div>
-                    
-                    {/* Avatar circle */}
-                    <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
-                      <img 
-                        src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                        alt={user.name}
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
-                        }}
-                      />
-                    </div>
+                    <Icon icon="solar:hamburger-menu-bold-duotone" className="w-5 h-5" />
+                    <span className="text-sm font-medium hidden sm:block">Menu</span>
                   </button>
-
-                  {/* Premium Dropdown Modal - Using Portal for maximum z-index control */}
-                  {isAvatarDropdownOpen && createPortal(
-                    <>
-                      {/* Backdrop */}
-                      <div 
-                        className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[99998] animate-in fade-in duration-200" 
-                        onClick={() => setIsAvatarDropdownOpen(false)}
-                      />
-                      
-                      {/* Premium Modal Dropdown */}
-                      <div 
-                        style={{
-                          position: 'fixed',
-                          top: avatarButtonRef.current ? avatarButtonRef.current.getBoundingClientRect().bottom + 16 : 0,
-                          right: avatarButtonRef.current ? window.innerWidth - avatarButtonRef.current.getBoundingClientRect().right : 0,
-                          zIndex: 99999
-                        }}
-                        className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 w-[320px] animate-in fade-in slide-in-from-top-3 duration-300"
-                      >
-                        {/* Header */}
-                        <div className="flex items-center justify-between mb-6">
-                          <h3 className="text-xl font-bold text-gray-900">User Profile</h3>
-                          <button 
-                            onClick={() => setIsAvatarDropdownOpen(false)}
-                            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                          >
-                            <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
-                          </button>
-                        </div>
-                        
-                        {/* User Info Card */}
-                        <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl p-4 mb-6">
-                          <div className="flex items-start gap-4">
-                            <div className="relative flex-shrink-0">
-                              <div className="h-14 w-14 rounded-full overflow-hidden border-3 border-white shadow-lg">
-                                <img 
-                                  src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                                  alt={user.name}
-                                  className="h-full w-full object-cover"
-                                />
-                              </div>
-                              <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
-                            </div>
-                            <div className="flex-1 overflow-hidden">
-                              <p className="text-base font-semibold text-gray-900">{user.name}</p>
-                              <p className="text-sm text-gray-500 break-words" style={{ wordBreak: 'break-word' }}>{user.email}</p>
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-500 to-indigo-600 text-white mt-1">
-                                {user.role}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        {/* Logout Button */}
-                        <button
-                          onClick={() => {
-                            setIsAvatarDropdownOpen(false);
-                            handleLogout();
-                          }}
-                          className="w-full px-4 py-3 text-sm bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl transition-colors font-semibold hover:shadow-lg flex items-center justify-center gap-2"
-                        >
-                          <Icon icon="solar:logout-3-bold-duotone" className="w-4 h-4" />
-                          Logout
-                        </button>
-                      </div>
-                    </>,
-                    document.body
-                  )}
                 </div>
-              )}
+                
+                {/* User Avatar - Desktop only (right side) */}
+                {user && (
+                  <div className="relative hidden lg:block">
+                    <button
+                      ref={avatarButtonRef}
+                      onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
+                      className="relative group focus:outline-none"
+                    >
+                      {/* Pulsating outer ring */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
+                      <div className={`absolute -inset-1 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full opacity-50`}></div>
+                      
+                      {/* Avatar circle */}
+                      <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                        <img 
+                          src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
+                          alt={user.name}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
+                          }}
+                        />
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
+        {/* Premium Dropdown Modal - Using Portal for maximum z-index control */}
+        {isAvatarDropdownOpen && createPortal(
+          <>
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[99998] animate-in fade-in duration-200" 
+              onClick={() => setIsAvatarDropdownOpen(false)}
+            />
+            
+            {/* Premium Modal Dropdown */}
+            <div 
+              style={{
+                position: 'fixed',
+                top: avatarButtonRef.current ? avatarButtonRef.current.getBoundingClientRect().bottom + 16 : 0,
+                right: avatarButtonRef.current ? window.innerWidth - avatarButtonRef.current.getBoundingClientRect().right : 0,
+                zIndex: 99999
+              }}
+              className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 w-[320px] animate-in fade-in slide-in-from-top-3 duration-300"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">User Profile</h3>
+                <button 
+                  onClick={() => setIsAvatarDropdownOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              
+              {/* User Info Card */}
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl p-4 mb-6">
+                <div className="flex items-start gap-4">
+                  <div className="relative flex-shrink-0">
+                    <div className="h-14 w-14 rounded-full overflow-hidden border-3 border-white shadow-lg">
+                      <img 
+                        src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
+                        alt={user.name}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <p className="text-base font-semibold text-gray-900">{user.name}</p>
+                    <p className="text-sm text-gray-500 break-words" style={{ wordBreak: 'break-word' }}>{user.email}</p>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-500 to-indigo-600 text-white mt-1">
+                      {user.role}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Logout Button */}
+              <button
+                onClick={() => {
+                  setIsAvatarDropdownOpen(false);
+                  handleLogout();
+                }}
+                className="w-full px-4 py-3 text-sm bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl transition-colors font-semibold hover:shadow-lg flex items-center justify-center gap-2"
+              >
+                <Icon icon="solar:logout-3-bold-duotone" className="w-4 h-4" />
+                Logout
+              </button>
+            </div>
+          </>,
+          document.body
+        )}
+
         {/* Main Tab Navigation - Professional Style */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-none sm:rounded-2xl shadow-lg border border-gray-200 border-x-0 sm:border-x overflow-hidden mx-0 sm:mx-0">
           <div className="grid grid-cols-3 gap-0 w-full">
             {(['patients', 'analytics', 'settings'] as const).map((tab, index) => {
               const tabConfig = {
@@ -169,20 +244,20 @@ const Patients: React.FC = () => {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`relative flex items-center justify-center gap-2 px-6 py-4 text-sm font-medium transition-all duration-200 capitalize ${
+                  className={`relative flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-all duration-200 capitalize ${
                     isFirst ? 'rounded-l-xl' : ''
                   } ${
                     isLast ? 'rounded-r-xl' : ''
                   } ${
                     !isFirst ? '-ml-px' : ''
-                  } ${
+                  } flex-1 ${
                     isActive
                       ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg z-10'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
                   <Icon icon={icon} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
-                  <span>{label}</span>
+                  <span className="text-[10px] sm:text-sm">{label}</span>
                 </button>
               );
             })}
@@ -435,7 +510,7 @@ const Patients: React.FC = () => {
       </div>
       
       {/* Floating Visit Tracker - Same as Dashboard */}
-      <FloatingVisitTracker practiceId={practiceId || 'default-practice'} selectedDate={new Date()} />
+      {practiceId && <FloatingVisitTracker practiceId={practiceId} selectedDate={new Date()} />}
     </div>
   );
 };

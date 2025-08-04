@@ -3,11 +3,11 @@ import { createPortal } from 'react-dom';
 import SearchDuotone from '../components/icons/SearchDuotone';
 import { Icon } from '@iconify/react';
 import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { format, eachDayOfInterval, isToday, isSameDay, isSameMonth, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { usePractice } from '../contexts/PracticeContext';
 import AddScheduledVisitForm from '../components/forms/AddScheduledVisitForm';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useVisitsStore } from '../stores/visitsStore';
 import { useTheme } from '../stores/themeStore';
 import { toast } from 'react-hot-toast';
@@ -18,7 +18,7 @@ import PracticeOverviewTile from '../components/dashboard/PracticeOverviewTile';
 import { dashboardStatsService, DashboardStats } from '../services/dashboardStatsService';
 import { useAuthStore } from '../stores/authStore';
 import { NotificationsPanel, Notification } from '../components/dashboard/NotificationsPanel';
-import ComprehensivePatientModal from '../components/patients/ComprehensivePatientModal';
+// import ComprehensivePatientModal from '../components/patients/ComprehensivePatientModal'; // Commented out - now navigating to patients page
 import { useOptimizedDashboardStats, useCommunicationStats } from '../hooks/useOptimizedDashboardStats';
 import { useTodayAppointments, useRealtimeAppointments } from '../hooks/useAppointments';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
@@ -58,8 +58,14 @@ interface ActivityItem {
   color: string;
 }
 
+interface LayoutContext {
+  toggleMobileSidebar: () => void;
+  isMobileSidebarOpen: boolean;
+}
+
 function Dashboard() {
   const { user, logout } = useAuthStore();
+  const { toggleMobileSidebar } = useOutletContext<LayoutContext>();
   const { currentTheme } = useTheme();
   const { practiceData, colors } = usePracticeData();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -101,6 +107,7 @@ function Dashboard() {
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   const [isEditVisitModalOpen, setIsEditVisitModalOpen] = useState(false);
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
+  const [editingVisitData, setEditingVisitData] = useState<{ id: string; patient_id: string } | null>(null);
   const [editingAppointment, setEditingAppointment] = useState<any>(null);
   const [isEditAppointmentModalOpen, setIsEditAppointmentModalOpen] = useState(false);
   const calendarScrollRef = useRef<HTMLDivElement>(null);
@@ -153,8 +160,9 @@ function Dashboard() {
   };
   
   const navigate = useNavigate();
-  const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  // const [isPatientModalOpen, setIsPatientModalOpen] = useState(false); // Commented out - now navigating to patients page
+  // const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null); // Commented out - now navigating to patients page
+  // const [defaultDetailTab, setDefaultDetailTab] = useState<'overview' | 'encounters'>('overview'); // Commented out - now navigating to patients page
 
   const handleLogout = async () => {
     // Clear any pending navigation
@@ -166,6 +174,8 @@ function Dashboard() {
     // Force navigation to login
     window.location.href = '/login';
   };
+
+  // Close mobile menu when clicking outside (handled by backdrop now)
 
   // Close calendar picker when clicking backdrop or pressing Escape
   useEffect(() => {
@@ -565,35 +575,61 @@ function Dashboard() {
       backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.1) 1px, transparent 0)',
       backgroundSize: '20px 20px'
     }}>
-      <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+      <div className="px-0 sm:px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
         {/* Compact Professional Header */}
-        <div className=" backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">
+        <div className="mx-0 sm:mx-0 backdrop-blur-md rounded-none sm:rounded-xl shadow-sm border border-gray-100/50 border-x-0 sm:border-x">
           <div className="p-4 md:p-5">
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-3">
-                  {/* Practice Logo */}
-                  <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg">
-                    <Icon icon="solar:buildings-bold-duotone" className="w-8 h-8 text-white" />
+            <div className="flex items-center justify-between w-full">
+              {/* Left Side - Mobile: User Avatar, Desktop: Practice logo + title */}
+              <div className="flex items-center gap-3">
+                {/* User Avatar - Left side on mobile/tablet */}
+                {user && (
+                  <div className="relative lg:hidden">
+                    <button
+                      ref={avatarButtonRef}
+                      onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
+                      className="relative group focus:outline-none"
+                    >
+                      {/* Pulsating outer ring */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
+                      <div className={`absolute -inset-1 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full opacity-50`}></div>
+                      
+                      {/* Avatar circle */}
+                      <div className="relative h-12 w-12 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                        <img 
+                          src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
+                          alt={user.name}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
+                          }}
+                        />
+                      </div>
+                    </button>
                   </div>
-                  <div>
-                    <h1 className="text-2xl font-semibold text-gray-800">
-                      Dashboard
-                    </h1>
-                    <p className="text-sm text-gray-500 mt-0.5">Welcome back! Here's your practice dashboard</p>
-                  </div>
+                )}
+                
+                {/* Practice Logo - Hidden on mobile/tablet */}
+                <div className="hidden lg:block p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg">
+                  <Icon icon="solar:buildings-bold-duotone" className="w-8 h-8 text-white" />
+                </div>
+                
+                {/* Dashboard Title */}
+                <div>
+                  <h1 className="text-2xl font-semibold text-gray-800">
+                    Dashboard
+                  </h1>
+                  <p className="text-sm text-gray-500 mt-0.5 hidden lg:block">Welcome back! Here's your practice dashboard</p>
                 </div>
               </div>
-              
-              <div className="flex items-center justify-end gap-3">
-                {/* Search Bar - Premium Grey with Hover Effects */}
-                <div className="w-[500px]">
+
+              {/* Right Side */}
+              <div className="flex items-center gap-3">
+                {/* Search Bar - Desktop only */}
+                <div className="hidden xl:block w-[400px]">
                   <div className="relative group">
-                    {/* Animated gradient glow on hover */}
                     <div className={`absolute -inset-0.5 bg-gradient-to-r ${currentTheme.gradients.sidebar} rounded-xl opacity-0 group-hover:opacity-75 blur transition duration-500 group-hover:duration-200`}></div>
-                    
                     <div className="relative bg-gray-200 rounded-xl overflow-hidden transition-colors duration-300 group-hover:bg-gray-100">
-                      {/* Duo-tone Search Icon */}
                       <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
                         <SearchDuotone 
                           className="w-5 h-5 transition-colors duration-300"
@@ -601,26 +637,32 @@ function Dashboard() {
                           secondaryColor="#37415180"
                         />
                       </div>
-                      
                       <input
                         type="text"
-                        placeholder="Search patients, appointments, or records..."
-                        className="relative w-full pl-12 pr-4 py-3.5 bg-transparent text-base text-gray-800 placeholder-gray-600 focus:outline-none focus:placeholder-gray-500 transition-colors duration-300"
+                        placeholder="Search patients, appointments..."
+                        className="relative w-full pl-12 pr-4 py-3 bg-transparent text-base text-gray-800 placeholder-gray-600 focus:outline-none focus:placeholder-gray-500 transition-colors duration-300"
                         onChange={(e) => {
-                          // TODO: Implement search functionality
                           console.log('Search:', e.target.value);
                         }}
                       />
-                      
-                      {/* Shimmer effect on hover */}
-                      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none"></div>
                     </div>
                   </div>
                 </div>
-                
-                {/* User Avatar with Dropdown */}
+
+                {/* Mobile Menu Button - Right side on mobile/tablet */}
+                <div className="lg:hidden">
+                  <button 
+                    onClick={toggleMobileSidebar}
+                    className="p-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
+                  >
+                    <Icon icon="solar:hamburger-menu-bold-duotone" className="w-5 h-5" />
+                    <span className="text-sm font-medium hidden sm:block">Menu</span>
+                  </button>
+                </div>
+
+                {/* User Avatar - Desktop only (right side) */}
                 {user && (
-                  <div className="relative">
+                  <div className="relative hidden lg:block">
                     <button
                       ref={avatarButtonRef}
                       onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
@@ -642,83 +684,90 @@ function Dashboard() {
                         />
                       </div>
                     </button>
-
-                    {/* Premium Dropdown Modal - Using Portal for maximum z-index control */}
-                    {isAvatarDropdownOpen && createPortal(
-                      <>
-                        {/* Backdrop */}
-                        <div 
-                          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[99998] animate-in fade-in duration-200" 
-                          onClick={() => setIsAvatarDropdownOpen(false)}
-                        />
-                        
-                        {/* Premium Modal Dropdown */}
-                        <div 
-                          style={{
-                            position: 'fixed',
-                            top: avatarButtonRef.current ? avatarButtonRef.current.getBoundingClientRect().bottom + 16 : 0,
-                            right: avatarButtonRef.current ? window.innerWidth - avatarButtonRef.current.getBoundingClientRect().right : 0,
-                            zIndex: 99999
-                          }}
-                          className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 w-[320px] animate-in fade-in slide-in-from-top-3 duration-300"
-                        >
-                          {/* Header */}
-                          <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-bold text-gray-900">User Profile</h3>
-                            <button 
-                              onClick={() => setIsAvatarDropdownOpen(false)}
-                              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                            >
-                              <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
-                            </button>
-                          </div>
-                          
-                          {/* User Info Card */}
-                          <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl p-4 mb-6">
-                            <div className="flex items-start gap-3">
-                              <div className="relative flex-shrink-0">
-                                <div className="h-14 w-14 rounded-full overflow-hidden border-3 border-white shadow-lg">
-                                  <img 
-                                    src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                                    alt={user.name}
-                                    className="h-full w-full object-cover"
-                                  />
-                                </div>
-                                <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
-                              </div>
-                              <div className="flex-1 min-w-0 overflow-hidden">
-                                <p className="text-base font-semibold text-gray-900 truncate">{user.name}</p>
-                                <p className="text-sm text-gray-500 break-words" style={{ wordBreak: 'break-word' }}>{user.email}</p>
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-500 to-indigo-600 text-white mt-1">
-                                  {user.role}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* Logout Button */}
-                          <button
-                            onClick={() => {
-                              setIsAvatarDropdownOpen(false);
-                              handleLogout();
-                            }}
-                            className="w-full px-4 py-3 text-sm bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl transition-colors font-semibold hover:shadow-lg flex items-center justify-center gap-2"
-                          >
-                            <Icon icon="solar:logout-3-bold-duotone" className="w-4 h-4" />
-                            Logout
-                          </button>
-                        </div>
-                      </>,
-                      document.body
-                    )}
                   </div>
+                )}
+
+                {/* User dropdown - shared for both mobile and desktop */}
+                {user && isAvatarDropdownOpen && createPortal(
+                  <>
+                    <div 
+                      className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[99998] animate-in fade-in duration-200" 
+                      onClick={() => setIsAvatarDropdownOpen(false)}
+                    />
+                    
+                    <div 
+                      style={{
+                        position: 'fixed',
+                        top: avatarButtonRef.current ? avatarButtonRef.current.getBoundingClientRect().bottom + 16 : 0,
+                        left: window.innerWidth < 1024 ? avatarButtonRef.current?.getBoundingClientRect().left : undefined,
+                        right: window.innerWidth >= 1024 ? (avatarButtonRef.current ? window.innerWidth - avatarButtonRef.current.getBoundingClientRect().right : 0) : undefined,
+                        zIndex: 99999
+                      }}
+                      className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 w-[320px] animate-in fade-in slide-in-from-top-3 duration-300"
+                    >
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xl font-bold text-gray-900">User Profile</h3>
+                        <button 
+                          onClick={() => setIsAvatarDropdownOpen(false)}
+                          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                        >
+                          <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
+                        </button>
+                      </div>
+                      
+                      <div className="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl p-4 mb-6">
+                        <div className="flex items-start gap-3">
+                          <div className="relative flex-shrink-0">
+                            <div className="h-14 w-14 rounded-full overflow-hidden border-3 border-white shadow-lg">
+                              <img 
+                                src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
+                                alt={user.name}
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                            <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
+                          </div>
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <p className="text-base font-semibold text-gray-900 truncate">{user.name}</p>
+                            <p className="text-sm text-gray-500 break-words" style={{ wordBreak: 'break-word' }}>{user.email}</p>
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-500 to-indigo-600 text-white mt-1">
+                              {user.role}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={() => {
+                          setIsAvatarDropdownOpen(false);
+                          navigate('/settings');
+                        }}
+                        className="w-full px-4 py-3 text-sm bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl transition-colors font-semibold hover:shadow-lg flex items-center justify-center gap-2 mb-2"
+                      >
+                        <Icon icon="solar:settings-bold-duotone" className="w-4 h-4" />
+                        Settings
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setIsAvatarDropdownOpen(false);
+                          handleLogout();
+                        }}
+                        className="w-full px-4 py-3 text-sm bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl transition-colors font-semibold hover:shadow-lg flex items-center justify-center gap-2"
+                      >
+                        <Icon icon="solar:logout-3-bold-duotone" className="w-4 h-4" />
+                        Logout
+                      </button>
+                    </div>
+                  </>,
+                  document.body
                 )}
               </div>
             </div>
 
 
             {/* Premium Dashboard Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
               {true ? [
                 // Patients Card - Now using real database stats by practice
                 <PremiumStatCard
@@ -747,7 +796,7 @@ function Dashboard() {
                     isPositive: realPatientStats.newThisMonth > 0
                   }}
                   onClick={() => {
-                    setIsPatientModalOpen(true);
+                    navigate('/patients');
                   }}
                   patientStats={realPatientStats}
                 />,
@@ -880,15 +929,16 @@ function Dashboard() {
             <div className="mt-6">
               {/* Week Calendar and Notifications Row */}
               <div className="grid grid-cols-12 gap-4">
-                {/* Premium Month Calendar - Glassmorphic - 8 columns */}
-                <div className="relative col-span-8">
+                {/* Premium Month Calendar - Glassmorphic - Full width on mobile/tablet, 8 columns on desktop */}
+                <div className="relative col-span-12 lg:col-span-8">
                   {/* Glassmorphic background */}
                   <div className="bg-white/20 backdrop-blur-xl rounded-2xl p-4 shadow-2xl border border-white/30">
-                    {/* Month Navigation Header - Using grid for true centering */}
-                    <div className="grid grid-cols-3 items-center mb-4">
-                      {/* Grid/Timeline Filters on left */}
-                      <div className="flex items-center gap-3">
-                        {(viewMode === 'day' || viewMode === 'week') && (
+                    {/* Month Navigation Header - Different layouts for mobile vs desktop */}
+                    <div className="mb-4">
+                      {/* Desktop Layout - 3-column grid */}
+                      <div className="hidden lg:grid lg:grid-cols-3 lg:items-center lg:gap-4">
+                        {/* Grid/Timeline Filters on left */}
+                        <div className="flex items-center gap-3">
                           <div className="flex items-center bg-white/30 backdrop-blur-sm rounded-lg p-1 shadow-sm border border-white/20">
                             <button
                               onClick={() => setInternalViewMode('grid')}
@@ -913,61 +963,138 @@ function Dashboard() {
                               Timeline
                             </button>
                           </div>
-                        )}
-                      </div>
-                      
-                      {/* Selected Date truly centered */}
-                      <div className="flex items-center justify-center gap-3">
-                        <button
-                          onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
-                          className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
+                        </div>
+                        
+                        {/* Selected Date truly centered */}
+                        <div className="flex items-center justify-center gap-3">
+                          <button
+                            onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
+                            className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
+                          >
+                            <Icon icon="solar:map-arrow-left-bold-duotone" className="w-5 h-5 text-gray-600" />
+                          </button>
+                          <button
+                            onClick={() => setShowCalendarPicker(!showCalendarPicker)}
+                            className="text-lg font-bold text-gray-700 min-w-[140px] text-center hover:bg-white/20 rounded-lg px-2 py-1 transition-colors duration-200 flex items-center justify-center gap-2"
+                          >
+                            <span>{format(selectedDate, 'MMMM yyyy')}</span>
+                            <Icon icon="solar:calendar-bold-duotone" className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
+                            className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
+                          >
+                            <Icon icon="solar:map-arrow-right-bold-duotone" className="w-5 h-5 text-gray-600" />
+                          </button>
+                        </div>
+                        
+                        {/* Today Button on right */}
+                        <div className="flex justify-end">
+                          <button
+                          onClick={() => {
+                            const today = new Date();
+                            setSelectedDate(today);
+                            // Only scroll if we're not already looking at the current month
+                            if (!isSameMonth(selectedDate, today)) {
+                              setTimeout(() => {
+                                const todayButton = document.querySelector('[data-is-today="true"]');
+                                if (todayButton && calendarScrollRef.current) {
+                                  const container = calendarScrollRef.current;
+                                  const buttonRect = todayButton.getBoundingClientRect();
+                                  const containerRect = container.getBoundingClientRect();
+                                  const scrollLeft = buttonRect.left - containerRect.left - (containerRect.width / 2) + (buttonRect.width / 2) + container.scrollLeft;
+                                  container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+                                }
+                              }, 100);
+                            }
+                          }}
+                          className={`px-4 py-2 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl flex items-center gap-2 hover:shadow-lg transition-colors duration-200 font-medium text-sm`}
                         >
-                          <Icon icon="solar:map-arrow-left-bold-duotone" className="w-5 h-5 text-gray-600" />
-                        </button>
-                        <button
-                          onClick={() => setShowCalendarPicker(!showCalendarPicker)}
-                          className="text-lg font-bold text-gray-700 min-w-[140px] text-center hover:bg-white/20 rounded-lg px-2 py-1 transition-colors duration-200 flex items-center justify-center gap-2"
-                        >
-                          <span>{format(selectedDate, 'MMMM yyyy')}</span>
-                          <Icon icon="solar:calendar-bold-duotone" className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
-                          className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
-                        >
-                          <Icon icon="solar:map-arrow-right-bold-duotone" className="w-5 h-5 text-gray-600" />
-                        </button>
+                            <Icon icon="solar:calendar-mark-bold-duotone" className="w-4 h-4" />
+                            <span>Today</span>
+                          </button>
+                        </div>
                       </div>
-                      
-                      {/* Today Button on right */}
-                      <div className="flex justify-end">
-                        <button
-                        onClick={() => {
-                          const today = new Date();
-                          setSelectedDate(today);
-                          // Only scroll if we're not already looking at the current month
-                          if (!isSameMonth(selectedDate, today)) {
-                            setTimeout(() => {
-                              const todayButton = document.querySelector('[data-is-today="true"]');
-                              if (todayButton && calendarScrollRef.current) {
-                                const container = calendarScrollRef.current;
-                                const buttonRect = todayButton.getBoundingClientRect();
-                                const containerRect = container.getBoundingClientRect();
-                                const scrollLeft = buttonRect.left - containerRect.left - (containerRect.width / 2) + (buttonRect.width / 2) + container.scrollLeft;
-                                container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
-                              }
-                            }, 100);
-                          }
-                        }}
-                        className={`px-4 py-2 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl flex items-center gap-2 hover:shadow-lg transition-colors duration-200 font-medium text-sm`}
-                      >
-                          <Icon icon="solar:calendar-mark-bold-duotone" className="w-4 h-4" />
-                          <span>Today</span>
-                        </button>
+
+                      {/* Mobile Layout - Stacked rows for better spacing */}
+                      <div className="lg:hidden space-y-3">
+                        {/* First Row: Grid/Timeline + Today Button */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center bg-white/30 backdrop-blur-sm rounded-lg p-1 shadow-sm border border-white/20">
+                            <button
+                              onClick={() => setInternalViewMode('grid')}
+                              className={`px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+                                internalViewMode === 'grid'
+                                  ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                              }`}
+                            >
+                              <Icon icon="solar:widget-2-bold-duotone" className="h-4 w-4" />
+                              <span className="hidden sm:inline">Grid</span>
+                            </button>
+                            <button
+                              onClick={() => setInternalViewMode('timeline')}
+                              className={`px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+                                internalViewMode === 'timeline'
+                                  ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                              }`}
+                            >
+                              <Icon icon="solar:calendar-line-duotone" className="h-4 w-4" />
+                              <span className="hidden sm:inline">Timeline</span>
+                            </button>
+                          </div>
+                          
+                          <button
+                          onClick={() => {
+                            const today = new Date();
+                            setSelectedDate(today);
+                            // Only scroll if we're not already looking at the current month
+                            if (!isSameMonth(selectedDate, today)) {
+                              setTimeout(() => {
+                                const todayButton = document.querySelector('[data-is-today="true"]');
+                                if (todayButton && calendarScrollRef.current) {
+                                  const container = calendarScrollRef.current;
+                                  const buttonRect = todayButton.getBoundingClientRect();
+                                  const containerRect = container.getBoundingClientRect();
+                                  const scrollLeft = buttonRect.left - containerRect.left - (containerRect.width / 2) + (buttonRect.width / 2) + container.scrollLeft;
+                                  container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+                                }
+                              }, 100);
+                            }
+                          }}
+                          className={`px-3 py-2 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl flex items-center gap-2 hover:shadow-lg transition-colors duration-200 font-medium text-sm`}
+                        >
+                            <Icon icon="solar:calendar-mark-bold-duotone" className="w-4 h-4" />
+                            <span className="hidden sm:inline">Today</span>
+                          </button>
+                        </div>
+
+                        {/* Second Row: Calendar Navigation (centered) */}
+                        <div className="flex items-center justify-center gap-3">
+                          <button
+                            onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
+                            className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
+                          >
+                            <Icon icon="solar:map-arrow-left-bold-duotone" className="w-5 h-5 text-gray-600" />
+                          </button>
+                          <button
+                            onClick={() => setShowCalendarPicker(!showCalendarPicker)}
+                            className="text-lg font-bold text-gray-700 min-w-[140px] text-center hover:bg-white/20 rounded-lg px-2 py-1 transition-colors duration-200 flex items-center justify-center gap-2"
+                          >
+                            <span>{format(selectedDate, 'MMMM yyyy')}</span>
+                            <Icon icon="solar:calendar-bold-duotone" className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
+                            className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
+                          >
+                            <Icon icon="solar:map-arrow-right-bold-duotone" className="w-5 h-5 text-gray-600" />
+                          </button>
+                        </div>
                       </div>
+
                     </div>
-                    
-                    
                     
                     {/* Month Days - All days in one horizontal row */}
                     <div 
@@ -1064,6 +1191,25 @@ function Dashboard() {
                       {/* Appointment Scheduler */}
                       <div>
                         <PremiumAppointmentScheduler
+                          onEditVisit={(visit) => {
+                            console.log('[Dashboard] onEditVisit called with visit:', {
+                              id: visit.id,
+                              patient_id: visit.patient_id,
+                              patient: visit.patient,
+                              fullVisit: visit
+                            });
+                            
+                            if (!visit.patient_id || visit.patient_id === '') {
+                              console.error('[Dashboard] Invalid patient_id in visit:', visit);
+                              toast.error('Cannot open visit - patient information missing');
+                              return;
+                            }
+                            
+                            // Store both the ID and the complete visit data
+                            setEditingVisitId(visit.id);
+                            setEditingVisitData({ id: visit.id, patient_id: visit.patient_id });
+                            setIsEditVisitModalOpen(true);
+                          }}
                           appointments={visits.map(v => {
                             // Debug logging for website bookings
                             if (v.is_from_website) {
@@ -1120,10 +1266,9 @@ function Dashboard() {
                           selectedDate={selectedDate}
                           onDateChange={setSelectedDate}
                           onAppointmentClick={(apt) => {
-                            // Open patient modal on encounters tab
+                            // Navigate to patient page on encounters tab
                             if (apt.patient_id) {
-                              setSelectedPatientId(apt.patient_id);
-                              setIsPatientModalOpen(true);
+                              navigate(`/patients/${apt.patient_id}?tab=encounters`);
                             }
                           }}
                           onEditAppointment={async (appointment) => {
@@ -1173,8 +1318,8 @@ function Dashboard() {
                   </div>
                 </div>
 
-                {/* Notifications Panel and Practice Overview - 4 columns */}
-                <div className="relative col-span-4 space-y-4">
+                {/* Notifications Panel and Practice Overview - Hidden on mobile/tablet, 4 columns on desktop */}
+                <div className="relative col-span-4 space-y-4 hidden lg:block">
                   <NotificationsPanel
                     notifications={notifications}
                     onNotificationAction={(notificationId, action) => {
@@ -1205,6 +1350,41 @@ function Dashboard() {
                     practiceStatus={pendingAppointments.length > 5 ? 'busy' : todayAppointments.length === 0 ? 'quiet' : 'operational'}
                   />
                 </div>
+              </div>
+            </div>
+            
+            {/* Mobile Notifications Section - Only visible on mobile/tablet */}
+            <div className="mt-6 lg:hidden">
+              <div className="space-y-4">
+                <NotificationsPanel
+                  notifications={notifications}
+                  onNotificationAction={(notificationId, action) => {
+                    // Handle notification actions here
+                  }}
+                  onMarkAsRead={(notificationId) => {
+                    setNotifications(prev => 
+                      prev.map(notif => 
+                        notif.id === notificationId 
+                          ? { ...notif, read: true }
+                          : notif
+                      )
+                    );
+                  }}
+                  onMarkAllAsRead={() => {
+                    setNotifications(prev => 
+                      prev.map(notif => ({ ...notif, read: true }))
+                    );
+                  }}
+                />
+
+                {/* Mobile Practice Overview */}
+                <PracticeOverviewTile
+                  totalPatients={patientsData.length}
+                  todayAppointments={todayAppointments.length}
+                  pendingAppointments={pendingAppointments.length}
+                  completedToday={completedToday}
+                  practiceStatus={pendingAppointments.length > 5 ? 'busy' : todayAppointments.length === 0 ? 'quiet' : 'operational'}
+                />
               </div>
             </div>
           </div>
@@ -1726,35 +1906,46 @@ function Dashboard() {
         document.body
       )}
 
-      {/* Enhanced Patient Modal */}
-      <ComprehensivePatientModal
+      {/* Enhanced Patient Modal - Commented out as we now navigate to patients page */}
+      {/* <ComprehensivePatientModal
         isOpen={isPatientModalOpen}
         onClose={() => {
           setIsPatientModalOpen(false);
           setSelectedPatientId(null);
+          setDefaultDetailTab('overview');
         }}
         patientId={selectedPatientId}
-        defaultDetailTab="encounters"
-      />
+        defaultDetailTab={defaultDetailTab}
+      /> */}
 
       {/* Floating Visit Tracker */}
       {currentPracticeId && (
-        <FloatingVisitTracker practiceId={currentPracticeId} selectedDate={selectedDate} />
+        <FloatingVisitTracker 
+          practiceId={currentPracticeId} 
+          selectedDate={selectedDate} 
+          disablePatientModal={true}
+          onOpenPatientModal={(patientId, defaultTab) => {
+            // Navigate to patient page with optional tab parameter
+            navigate(`/patients/${patientId}?tab=${defaultTab || 'overview'}`);
+          }}
+        />
       )}
 
       {/* Full Screen Edit Visit Modal */}
-      {editingVisitId && (
+      {editingVisitData && (
         <FullScreenEditVisitModal
           isOpen={isEditVisitModalOpen}
           onClose={() => {
             setIsEditVisitModalOpen(false);
             setEditingVisitId(null);
+            setEditingVisitData(null);
           }}
-          visitId={editingVisitId}
-          patientId={visits.find(v => v.id === editingVisitId)?.patient_id || ''}
+          visitId={editingVisitData.id}
+          patientId={editingVisitData.patient_id}
           onSuccess={() => {
             setIsEditVisitModalOpen(false);
             setEditingVisitId(null);
+            setEditingVisitData(null);
             // Refresh visits
             if (currentPracticeId) {
               fetchTodayVisits(currentPracticeId);
@@ -1795,59 +1986,61 @@ function Dashboard() {
           }}
         />
       </FormModal>
+      
     </div>
   );
+}
 
-  // Helper function to generate financial report data
-  function generateFinancialReportData(stats: DashboardStats) {
-    return {
-      type: 'finance' as const,
-      title: 'Financial Overview',
-      subtitle: 'Revenue analysis and payment tracking',
-      overview: {
-        total: stats.finance.totalRevenue,
-        change: `N$${(stats.finance.thisMonth / 1000).toFixed(1)}k`,
-        isPositive: stats.finance.thisMonth > 0,
-        period: 'This Month'
-      },
-      breakdown: [
-        { label: 'Total Revenue', value: stats.finance.totalRevenue, percentage: 100, color: '#8B5CF6' },
-        { label: 'This Month', value: stats.finance.thisMonth, percentage: Math.round((stats.finance.thisMonth / stats.finance.totalRevenue) * 100), color: '#7C3AED' },
-        { label: 'Outstanding', value: stats.finance.outstanding, percentage: Math.round((stats.finance.outstanding / stats.finance.totalRevenue) * 100), color: '#EF4444' },
-        { label: 'Collection Rate', value: Math.round(((stats.finance.totalRevenue - stats.finance.outstanding) / stats.finance.totalRevenue) * 100), percentage: Math.round(((stats.finance.totalRevenue - stats.finance.outstanding) / stats.finance.totalRevenue) * 100), color: '#10B981' }
-      ],
-      chartData: {
-        labels: stats.finance.paymentMethods.map(p => p.method),
-        datasets: [{
-          label: 'Payment Methods',
-          data: stats.finance.paymentMethods.map(p => p.amount)
-        }]
-      },
-      timeSeriesData: {
-        labels: ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'],
-        datasets: [{
-          label: 'Monthly Revenue',
-          data: stats.finance.revenueData
-        }]
-      },
-      insights: [
-        `N$${(stats.finance.outstanding / 1000).toFixed(1)}k in outstanding payments needs collection`,
-        `Average monthly revenue: N$${(stats.finance.totalRevenue / 6 / 1000).toFixed(1)}k`,
-        `${stats.finance.paidInvoices} invoices paid vs ${stats.finance.unpaidInvoices} unpaid`,
-        `Most popular payment method: ${stats.finance.paymentMethods[0]?.method || 'Cash'}`
-      ],
-      actionItems: [
-        'Follow up on outstanding payments',
-        'Send payment reminders to overdue accounts',
-        'Review and optimize payment processes'
-      ]
-    };
-  }
+// Helper function to generate financial report data
+function generateFinancialReportData(stats: DashboardStats) {
+  return {
+    type: 'finance' as const,
+    title: 'Financial Overview',
+    subtitle: 'Revenue analysis and payment tracking',
+    overview: {
+      total: stats.finance.totalRevenue,
+      change: `N$${(stats.finance.thisMonth / 1000).toFixed(1)}k`,
+      isPositive: stats.finance.thisMonth > 0,
+      period: 'This Month'
+    },
+    breakdown: [
+      { label: 'Total Revenue', value: stats.finance.totalRevenue, percentage: 100, color: '#8B5CF6' },
+      { label: 'This Month', value: stats.finance.thisMonth, percentage: Math.round((stats.finance.thisMonth / stats.finance.totalRevenue) * 100), color: '#7C3AED' },
+      { label: 'Outstanding', value: stats.finance.outstanding, percentage: Math.round((stats.finance.outstanding / stats.finance.totalRevenue) * 100), color: '#EF4444' },
+      { label: 'Collection Rate', value: Math.round(((stats.finance.totalRevenue - stats.finance.outstanding) / stats.finance.totalRevenue) * 100), percentage: Math.round(((stats.finance.totalRevenue - stats.finance.outstanding) / stats.finance.totalRevenue) * 100), color: '#10B981' }
+    ],
+    chartData: {
+      labels: stats.finance.paymentMethods.map(p => p.method),
+      datasets: [{
+        label: 'Payment Methods',
+        data: stats.finance.paymentMethods.map(p => p.amount)
+      }]
+    },
+    timeSeriesData: {
+      labels: ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'],
+      datasets: [{
+        label: 'Monthly Revenue',
+        data: stats.finance.revenueData
+      }]
+    },
+    insights: [
+      `N$${(stats.finance.outstanding / 1000).toFixed(1)}k in outstanding payments needs collection`,
+      `Average monthly revenue: N$${(stats.finance.totalRevenue / 6 / 1000).toFixed(1)}k`,
+      `${stats.finance.paidInvoices} invoices paid vs ${stats.finance.unpaidInvoices} unpaid`,
+      `Most popular payment method: ${stats.finance.paymentMethods && stats.finance.paymentMethods[0] ? stats.finance.paymentMethods[0].method : 'Cash'}`
+    ],
+    actionItems: [
+      'Follow up on outstanding payments',
+      'Send payment reminders to overdue accounts',
+      'Review and optimize payment processes'
+    ]
+  };
+}
 
-  // Helper function to generate report data
-  function generateReportData(type: 'patients' | 'notifications' | 'encounters' | 'finance', stats: DashboardStats) {
-    switch (type) {
-      case 'patients':
+// Helper function to generate report data
+function generateReportData(type: 'patients' | 'notifications' | 'encounters' | 'finance', stats: DashboardStats) {
+  switch (type) {
+    case 'patients':
         return {
           type: 'patients' as const,
           title: 'Patient Analytics',
@@ -1979,12 +2172,11 @@ function Dashboard() {
           ]
         };
 
-      case 'finance':
-        return generateFinancialReportData(stats);
+    case 'finance':
+      return generateFinancialReportData(stats);
 
-      default:
-        throw new Error(`Unknown report type: ${type}`);
-    }
+    default:
+      throw new Error(`Unknown report type: ${type}`);
   }
 }
 
