@@ -263,11 +263,12 @@ export function UltraPremiumCursor() {
         className="ultra-cursor-main"
         style={{
           position: 'fixed',
+          left: 0,
+          top: 0,
           x: cursorX,
           y: cursorY,
-          width: 0,
-          height: 0,
           pointerEvents: 'none',
+          zIndex: 2147483647,
         }}
       >
         {/* Outer ring with gradient */}
@@ -284,13 +285,14 @@ export function UltraPremiumCursor() {
           }}
           style={{
             position: 'absolute',
+            left: '50%',
+            top: '50%',
             width: 40,
             height: 40,
             borderRadius: cursorVariant === 'text' ? '2px' : '50%',
-            border: '2px solid transparent',
-            backgroundImage: 'linear-gradient(45deg, rgb(147, 51, 234), rgb(236, 72, 153))',
-            backgroundClip: 'padding-box',
+            border: '2px solid rgb(147, 51, 234)',
             transform: 'translate(-50%, -50%)',
+            zIndex: 2,
           }}
         />
 
@@ -311,9 +313,12 @@ export function UltraPremiumCursor() {
           }}
           style={{
             position: 'absolute',
+            left: '50%',
+            top: '50%',
             backgroundColor: 'rgb(147, 51, 234)',
             transform: 'translate(-50%, -50%)',
             boxShadow: '0 0 20px rgba(147, 51, 234, 0.5)',
+            zIndex: 3,
           }}
         />
 
