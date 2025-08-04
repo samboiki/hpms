@@ -1266,6 +1266,10 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       setDocuments(result.documents);
       setPracticeData(result.practiceData);
       
+      // SKIP ALL THE DUPLICATE QUERIES - WE ALREADY HAVE THE DATA!
+      setIsLoadingDetails(false);
+      return;
+      
       // ⏱️ TIMING: Initial parallel queries (MAJOR OPTIMIZATION)
       const initialStartTime = performance.now();
       console.log('🚀 Starting PARALLEL initial queries for patient details, next of kin, and visits...');

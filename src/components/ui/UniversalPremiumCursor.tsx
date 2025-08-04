@@ -92,18 +92,7 @@ export function UniversalPremiumCursor() {
   }
 
   return (
-    <div 
-      className="pointer-events-none"
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        zIndex: 2147483647,
-        isolation: 'isolate',
-      }}
-    >
+    <>
       {/* Ripple effects */}
       <AnimatePresence>
         {ripples.map(ripple => (
@@ -124,6 +113,7 @@ export function UniversalPremiumCursor() {
               borderRadius: '50%',
               border: '2px solid rgb(147, 51, 234)',
               pointerEvents: 'none',
+              zIndex: 2147483647,
             }}
           />
         ))}
@@ -131,14 +121,17 @@ export function UniversalPremiumCursor() {
 
       {/* Outer ring - lags behind */}
       <motion.div
+        className="pointer-events-none"
         style={{
-          position: 'absolute',
+          position: 'fixed',
           left: 0,
           top: 0,
           x: ringX,
           y: ringY,
           translateX: '-50%',
           translateY: '-50%',
+          zIndex: 2147483647,
+          pointerEvents: 'none',
         }}
         animate={{
           opacity: isVisible ? 0.8 : 0,
@@ -165,14 +158,17 @@ export function UniversalPremiumCursor() {
       
       {/* Inner dot - moves instantly */}
       <motion.div
+        className="pointer-events-none"
         style={{
-          position: 'absolute',
+          position: 'fixed',
           left: 0,
           top: 0,
           x: cursorX,
           y: cursorY,
           translateX: '-50%',
           translateY: '-50%',
+          zIndex: 2147483647,
+          pointerEvents: 'none',
         }}
         animate={{
           opacity: isVisible ? 1 : 0,
@@ -197,6 +193,6 @@ export function UniversalPremiumCursor() {
           }}
         />
       </motion.div>
-    </div>
+    </>
   )
 }
