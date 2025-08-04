@@ -1,3 +1,19 @@
+// Use the optimized fast Supabase client
+export { supabase } from './supabaseProvider';
+export type { Database } from '../types/database.types';
+
+// Helper function to log database errors
+export const logDatabaseError = (error: any, context: string) => {
+  console.error(`Database Error in ${context}:`, {
+    message: error.message,
+    details: error.details,
+    hint: error.hint,
+    code: error.code
+  });
+};
+
+// Keep the original implementation commented for reference
+/*
 import { createClient } from '@supabase/supabase-js';
 import { Database } from '../types/database.types';
 
@@ -9,7 +25,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Create a typed Supabase client
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+const originalSupabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   db: {
     schema: 'public'
   },
@@ -69,16 +85,4 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     }
   }
 });
-
-// Helper function to log database errors
-export const logDatabaseError = (error: any, context: string) => {
-  console.error(`Database Error in ${context}:`, {
-    message: error.message,
-    details: error.details,
-    hint: error.hint,
-    code: error.code
-  });
-};
-
-// Export enhanced client with query protection
-export { supabaseEnhanced } from './supabaseEnhanced';
+*/

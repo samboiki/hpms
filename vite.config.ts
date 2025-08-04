@@ -7,10 +7,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      // Redirect all supabase imports to the protected version
-      './supabase': path.resolve(__dirname, 'src/lib/supabaseWrapper.ts'),
-      '../lib/supabase': path.resolve(__dirname, 'src/lib/supabaseWrapper.ts'),
-      '@/lib/supabase': path.resolve(__dirname, 'src/lib/supabaseWrapper.ts'),
+      '@': path.resolve(__dirname, 'src'),
     },
   },
   optimizeDeps: {

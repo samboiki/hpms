@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, useSpring, useMotionValue, AnimatePresence } from 'framer-motion'
+import './CustomCursor.css'
 
 export function CustomCursor() {
   const [isPointer, setIsPointer] = useState(false)
@@ -18,10 +19,6 @@ export function CustomCursor() {
   const cursorXSpring = useSpring(cursorX, springConfig)
   const cursorYSpring = useSpring(cursorY, springConfig)
 
-  // Slower spring for the outer ring
-  const slowSpringConfig = { damping: 25, stiffness: 150 }
-  const ringXSpring = useSpring(cursorX, slowSpringConfig)
-  const ringYSpring = useSpring(cursorY, slowSpringConfig)
 
   useEffect(() => {
     // Only show on non-touch devices
@@ -250,22 +247,6 @@ export function CustomCursor() {
           }}
         />
       </motion.div>
-
-      {/* Global styles to ensure everything works */}
-      <style jsx global>{`
-        @media (pointer: fine) {
-          * {
-            cursor: none !important;
-          }
-        }
-
-        .cursor-ring,
-        .custom-cursor,
-        .cursor-dot,
-        .cursor-trail {
-          will-change: transform, opacity, width, height;
-        }
-      `}</style>
     </>
   )
 }

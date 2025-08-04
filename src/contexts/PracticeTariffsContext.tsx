@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { getOptimizedTariffs, getOptimizedFrequentTariffs } from '../lib/optimizedQueries';
 
 interface PracticeTariff {
   id: string;
@@ -170,61 +171,56 @@ export const PracticeTariffsProvider: React.FC<PracticeTariffsProviderProps> = (
 
       console.log('🔍 Fetching fresh tariff data...');
 
-      // Fetch all practice tariffs for the practice type
-      const { data: allTariffsData, error: allTariffsError } = await supabase
-        .from('practice_tariffs_with_types')
-        .select('*')
-        .eq('practice_type_name', currentPracticeType)
-        .not('price', 'is', null)
-        .gt('price', 0)
-        .order('code');
+      try {
+        // Use optimized queries with caching
+        const [allTariffsData, frequentData] = await Promise.all([
+          getOptimizedTariffs(currentPracticeType),
+          getOptimizedFrequentTariffs(currentPracticeType)
+        ]);
 
-      if (allTariffsError) {
-        console.warn('Database fetch failed, using fallback tariffs:', allTariffsError);
+        if (!allTariffsData || allTariffsData.length === 0) {
+          console.warn('No tariffs found, using fallback tariffs');
+          const fallbackTariffs = getFallbackTariffs();
+          setAllTariffs(fallbackTariffs);
+          setFrequentTariffs(fallbackTariffs.slice(0, 8));
+          setError(null); // Don't show error if we have fallback
+          return;
+        }
+
+        // If no frequent data, use first 8 tariffs as frequent
+        const frequentTariffsToUse = frequentData?.length > 0 
+          ? frequentData 
+          : allTariffsData.slice(0, 8);
+
+        const tariffs = allTariffsData || [];
+        setAllTariffs(tariffs);
+        setFrequentTariffs(frequentTariffsToUse);
+
+        // Save to cache
+        if (tariffs.length > 0) {
+          saveToCache(currentPracticeType, tariffs, frequentTariffsToUse);
+        }
+
+        console.log(`✅ Loaded ${tariffs.length} tariffs, ${frequentTariffsToUse.length} frequent`);
+      } catch (err) {
+        console.error('Error fetching tariffs:', err);
+        
+        // Use fallback tariffs
         const fallbackTariffs = getFallbackTariffs();
         setAllTariffs(fallbackTariffs);
         setFrequentTariffs(fallbackTariffs.slice(0, 8));
-        setError(null); // Don't show error if we have fallback
-        return;
+        setError(null); // Don't show error if we have fallback data
+        
+        console.log('✅ Using fallback tariffs due to fetch error');
       }
-
-      // Fetch frequent tariffs (try view first, then fallback to most common codes)
-      let frequentData: PracticeTariff[] = [];
-      const { data: frequentViewData, error: frequentError } = await supabase
-        .from('frequent_tariff_codes')
-        .select('*')
-        .eq('practice_type_name', currentPracticeType)
-        .limit(12);
-
-      if (frequentError || !frequentViewData?.length) {
-        // Fallback: use first 8 tariffs as frequent
-        frequentData = (allTariffsData || []).slice(0, 8);
-        console.log('Using fallback frequent codes');
-      } else {
-        frequentData = frequentViewData;
-      }
-
-      const tariffs = allTariffsData || [];
-      setAllTariffs(tariffs);
-      setFrequentTariffs(frequentData);
-
-      // Save to cache
-      if (tariffs.length > 0) {
-        saveToCache(currentPracticeType, tariffs, frequentData);
-      }
-
-      console.log(`✅ Loaded ${tariffs.length} tariffs, ${frequentData.length} frequent`);
-
     } catch (err) {
-      console.error('Error fetching tariffs:', err);
+      console.error('Error in fetchTariffs:', err);
+      setError('Failed to load tariffs');
       
       // Use fallback tariffs
       const fallbackTariffs = getFallbackTariffs();
       setAllTariffs(fallbackTariffs);
       setFrequentTariffs(fallbackTariffs.slice(0, 8));
-      setError(null); // Don't show error if we have fallback data
-      
-      console.log('✅ Using fallback tariffs due to fetch error');
     } finally {
       setIsLoading(false);
     }

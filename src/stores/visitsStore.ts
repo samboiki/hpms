@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { Visit } from '../types/enhanced-visit.types';
+import { validatePracticeId } from '../lib/supabaseValidator';
 
 interface VisitsState {
   visits: Visit[];
@@ -178,10 +179,8 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
     const state = get();
     const currentPracticeId = practiceId || state.practiceId;
     
-    // Validate UUID format
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    
-    if (!currentPracticeId || currentPracticeId === 'default-practice' || !uuidRegex.test(currentPracticeId)) {
+    // Validate practice ID
+    if (!validatePracticeId(currentPracticeId)) {
       console.warn('⚠️ visitsStore: Invalid or missing practice ID:', currentPracticeId);
       set({ visits: [], loading: false, error: 'Invalid practice ID' });
       return;

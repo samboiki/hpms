@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
-import './lib/initializeQueryProtection'; // MUST BE FIRST
 import { supabase } from './lib/supabase';
 import Dashboard from './pages/Dashboard';
 import Patients from './pages/Patients';
@@ -15,7 +14,7 @@ import TestSMSWithAuth from './pages/TestSMSWithAuth';
 import Encounters from './pages/Encounters';
 import Layout from './components/layout/Layout';
 import Login from './pages/auth/Login';
-import { useAuthStore } from './stores/authStore';
+import { useAuthStoreFast as useAuthStore } from './stores/authStoreFast';
 import NotFound from './pages/NotFound';
 import PracticeProfile from './pages/PracticeProfile';
 import EnhancedPracticeProfile from './pages/EnhancedPracticeProfile';
@@ -35,8 +34,10 @@ import UniversalCallback from './pages/oauth/UniversalCallback';
 import { CustomCursor } from './components/ui/CustomCursor';
 import TestCursor from './pages/TestCursor';
 import { CacheWarmer } from './components/CacheWarmer';
+import { RoutePrefetcher } from './components/RoutePrefetcher';
 import TestCache from './pages/TestCache';
 import TestQueryProtection from './pages/TestQueryProtection';
+import { PerformanceMonitor } from './components/PerformanceMonitor';
 
 function App() {
   const { isAuthenticated, login } = useAuthStore();
@@ -104,7 +105,9 @@ function App() {
       <ThemeProvider>
         <PracticeTariffsProvider>
           <CacheWarmer />
+          <RoutePrefetcher />
           <CustomCursor />
+          <PerformanceMonitor />
           <Toaster 
             position="top-right"
             toastOptions={{

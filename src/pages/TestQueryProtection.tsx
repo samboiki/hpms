@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Icon } from '@iconify/react';
 import { supabase } from '../lib/supabase';
-import { getQueryStats } from '../lib/supabaseProtected';
-import { getBlockedQueries } from '../lib/supabaseEnhanced';
+// import { getQueryStats } from '../lib/supabaseProtected';
+// import { getBlockedQueries } from '../lib/supabaseEnhanced';
 import { superchargedCache } from '../lib/superchargedCache';
 import { usePractice } from '../contexts/PracticeContext';
 
@@ -127,8 +127,9 @@ export default function TestQueryProtection() {
     setIsRunning(false);
   };
 
-  const queryStats = getQueryStats();
+  // const queryStats = getQueryStats();
   const cacheStats = superchargedCache.getStats();
+  const queryStats = { total: 0, blocked: 0, cached: 0, executed: 0, blockRate: '0%', cacheRate: '0%' };
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">

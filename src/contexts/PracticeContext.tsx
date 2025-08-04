@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
-import { isValidUUID } from '../lib/queryInterceptor';
+import { validatePracticeId } from '../lib/supabaseValidator';
 
 interface PracticeContextType {
   practiceId: string | null;
@@ -74,7 +74,7 @@ export const PracticeProvider: React.FC<{ children: ReactNode }> = ({ children }
         }
         
         // Validate UUID format
-        if (!isValidUUID(currentPracticeId)) {
+        if (!validatePracticeId(currentPracticeId)) {
           throw new Error(`Invalid practice_id format: ${currentPracticeId}`);
         }
 

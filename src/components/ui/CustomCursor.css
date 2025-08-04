@@ -1,0 +1,12 @@
+@media (pointer: fine) {
+  * {
+    cursor: none !important;
+  }
+}
+
+.cursor-ring,
+.custom-cursor,
+.cursor-dot,
+.cursor-trail {
+  will-change: transform, opacity, width, height;
+}

@@ -11,6 +11,7 @@ import {
   invalidatePatientCache,
   warmUpCache 
 } from '../lib/cachedQueries';
+import { lightning, lightningCache } from '../lib/lightningCache';
 
 export interface Patient {
   id: string;
@@ -85,22 +86,32 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
     const startTime = performance.now();
     
     try {
-      console.log('🚀 [PatientsStore] Using SUPERCHARGED CACHE for instant loading...');
+      console.log('⚡ [PatientsStore] Using LIGHTNING CACHE for instant loading...');
       
-      // Use cached query for instant results
-      const patients = await getCachedPatients();
+      // Get practice ID from auth context
+      const authContext = await practiceDataService.getAuthContext();
+      if (!authContext?.practiceId) {
+        throw new Error('No practice context found');
+      }
+      
+      // Use lightning cache for instant results
+      const patients = await lightning.getPatients(authContext.practiceId);
       
       const loadTime = performance.now() - startTime;
-      console.log(`⚡ [PatientsStore] CACHE LOADED: ${patients.length} patients in ${loadTime.toFixed(2)}ms`);
+      console.log(`⚡ [PatientsStore] LIGHTNING LOADED: ${patients.length} patients in ${loadTime.toFixed(2)}ms`);
       
-      if (loadTime < 200) {
-        console.log('✅ OPTIMAL PERFORMANCE ACHIEVED!');
+      if (loadTime < 50) {
+        console.log('🚀 LIGHTNING SPEED ACHIEVED!');
       }
       
       set({ patients, isLoading: false });
       
-      // Warm up cache in background for next time
-      warmUpCache().catch(console.error);
+      // Pre-warm visit counts for visible patients
+      setTimeout(() => {
+        patients.slice(0, 10).forEach(patient => {
+          lightning.getVisitCount(patient.id).catch(() => {});
+        });
+      }, 100);
     } catch (error) {
       console.error('❌ [PatientsStore] Error fetching patients:', error);
       set({ error: 'Failed to fetch patients', isLoading: false });
