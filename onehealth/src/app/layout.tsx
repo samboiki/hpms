@@ -3,7 +3,6 @@ import { Rubik, Montserrat } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/providers'
 import { Toaster } from '@/components/ui/toaster'
-import { CustomCursor } from '@/components/CustomCursor'
 
 const rubik = Rubik({ 
   subsets: ['latin'],
@@ -64,7 +63,6 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased">
         <Providers>
-          <CustomCursor />
           <div className="min-h-screen bg-background">
             {children}
           </div>
