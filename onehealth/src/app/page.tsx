@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
+// Redirect to login page for admin portal
 export default function HomePage() {
   const router = useRouter()
 
