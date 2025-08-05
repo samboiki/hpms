@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { fastAuth } from '../lib/supabaseFast';
 import { lightningCache } from '../lib/lightningCache';
 
 interface CurrentUser {
@@ -82,7 +81,7 @@ export const useCurrentUserAndPracticeFast = (): UseCurrentUserAndPracticeReturn
       setError(null);
 
       // Use fast auth to get session
-      const { data: { session }, error: sessionError } = await fastAuth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
         throw new Error('Failed to get session: ' + sessionError.message);

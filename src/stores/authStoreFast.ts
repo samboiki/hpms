@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabaseFast, fastAuth } from '../lib/supabaseFast';
+import { supabase } from '../lib/supabase';
 
 interface User {
   id: string;
@@ -55,7 +55,7 @@ export const useAuthStoreFast = create<AuthState>((set, get) => ({
     
     try {
       // Use fast auth helper
-      const { data: { session }, error } = await fastAuth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error || !session?.user) {
         return false;
@@ -70,7 +70,7 @@ export const useAuthStoreFast = create<AuthState>((set, get) => ({
       }
       
       // Fetch user data only if not cached
-      const { data: dbUser } = await supabaseFast
+      const { data: dbUser } = await supabase
         .from('users')
         .select(`
           id, email, full_name, role, avatar, signature_url,
@@ -121,7 +121,7 @@ export const useAuthStoreFast = create<AuthState>((set, get) => ({
     }
     
     try {
-      const { data, error } = await supabaseFast.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
@@ -129,7 +129,7 @@ export const useAuthStoreFast = create<AuthState>((set, get) => ({
       if (error) throw error;
       
       // Fetch user details
-      const { data: dbUser } = await supabaseFast
+      const { data: dbUser } = await supabase
         .from('users')
         .select(`
           id, email, full_name, role, avatar, signature_url,
@@ -173,7 +173,7 @@ export const useAuthStoreFast = create<AuthState>((set, get) => ({
   },
   
   logout: async () => {
-    await supabaseFast.auth.signOut();
+    await supabase.auth.signOut();
     set({
       isAuthenticated: false,
       user: null,
@@ -197,7 +197,7 @@ export const useAuthStoreFast = create<AuthState>((set, get) => ({
       const currentUser = get().user;
       if (!currentUser) return false;
       
-      const { error } = await supabaseFast
+      const { error } = await supabase
         .from('users')
         .update({ practice_id: practiceId })
         .eq('id', currentUser.id);
@@ -221,7 +221,7 @@ export const useAuthStoreFast = create<AuthState>((set, get) => ({
     if (!user) return [];
     
     try {
-      const { data } = await supabaseFast
+      const { data } = await supabase
         .from('practice_staff')
         .select('practice:practices(*)')
         .eq('user_id', user.id);
