@@ -30,6 +30,9 @@ import NewCharmSchema from '@/components/newcharm/NewCharmSchema';
 import ImprovedBookingModal from '@/components/newcharm/ImprovedBookingModal';
 import { BookingModalProvider, useBookingModal } from '@/contexts/BookingModalContext';
 
+// Farmaris specific components
+import FarmarisLanding from '@/components/farmaris/FarmarisLanding';
+
 interface PageWrapperProps {
   practice: Practice;
 }

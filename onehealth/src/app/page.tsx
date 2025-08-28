@@ -2,6 +2,8 @@
 // Deployment trigger - Fixed build issues
 
 import { motion } from 'framer-motion'
+import { useSearchParams } from 'next/navigation'
+import { Suspense } from 'react'
 import { Header } from '@/components/landing/Header'
 import { HeroSection } from '@/components/landing/HeroSection'
 import { BannerSection } from '@/components/landing/BannerSection'
@@ -15,8 +17,18 @@ import { ComparisonTable } from '@/components/landing/ComparisonTable'
 import { IntegrationsSlider } from '@/components/landing/IntegrationsSlider'
 import { Footer } from '@/components/landing/Footer'
 import { ScrollProgress } from '@/components/landing/ScrollProgress'
+import FarmarisLanding from '@/components/farmaris/FarmarisLanding'
 
-export default function HomePage() {
+function HomeContent() {
+  const searchParams = useSearchParams()
+  const practice = searchParams.get('practice')
+  
+  // Show Farmaris landing if practice=farmaris
+  if (practice === 'farmaris') {
+    return <FarmarisLanding />
+  }
+  
+  // Default OneHealth landing
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -60,5 +72,13 @@ export default function HomePage() {
 
       <Footer />
     </motion.div>
+  )
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   )
 }

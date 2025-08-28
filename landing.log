@@ -1,0 +1,14 @@
+
+> medcenter-landing@0.1.0 dev
+> next dev -H 0.0.0.0 --port 3000
+
+   ▲ Next.js 15.3.2
+   - Local:        http://localhost:3000
+   - Network:      http://0.0.0.0:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 4.1s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 1210ms (108 modules)
+ ○ Compiling / ...

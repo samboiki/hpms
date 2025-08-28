@@ -1,36 +1,159 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
-// Optimized configuration for large icon libraries
+// Ultra-optimized configuration for blazing fast performance
 export default defineConfig({
   plugins: [react()],
+  root: process.cwd(),
+  publicDir: 'public',
+  
+  // Aggressive dependency optimization
   optimizeDeps: {
-    include: ['lucide-react'], // Include instead of exclude
+    include: [
+      'react',
+      'react-dom',
+      'lucide-react',
+      '@iconify/react',
+      'react-day-picker',
+      'date-fns'
+    ],
     force: true,
+    esbuildOptions: {
+      target: 'esnext',
+      // Enable aggressive optimizations
+      minify: true,
+      treeShaking: true,
+    }
   },
+  
   server: {
     host: true,
     port: 5000,
     cors: true,
+    strictPort: false, // Find another port if 5000 is taken
+    
     hmr: {
-      port: 5000, // Use same port to avoid polling errors
+      port: 5000,
       host: 'localhost',
+      overlay: true,
     },
+    
     watch: {
-      usePolling: true,
-      interval: 500,
+      // Optimized watching with explicit excludes
+      ignored: [
+        '**/onehealth/**',
+        '**/hpms-landing/**',
+        '**/.next/**',
+        '**/node_modules/**',
+        '**/.git/**',
+        '**/dist/**',
+        '**/.vscode/**',
+        '**/.claude/**',
+        '**/temp/**',
+        '**/automations/**',
+        '**/supabase/**',
+        '**/public/medical aids/**'
+      ],
+      usePolling: false,
+      interval: 1000,
     },
+    
+    fs: {
+      // Allow serving from node_modules for all necessary dependencies
+      strict: false,
+      allow: [
+        // Search from project root
+        path.resolve(process.cwd())
+      ]
+    },
+    
+    // Warmup frequently used files for faster initial load
+    warmup: {
+      clientFiles: [
+        './src/main.tsx',
+        './src/App.tsx',
+        './src/pages/Dashboard.tsx',
+        './src/lib/supabase.ts'
+      ]
+    }
   },
+  
   build: {
     target: 'esnext',
-    minify: false,
+    minify: 'esbuild',
+    sourcemap: false, // Disable in production for faster builds
+    outDir: 'dist',
+    
+    // Aggressive chunking for better caching
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          icons: ['lucide-react'],
+        manualChunks: (id) => {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'react-vendor';
+            }
+            if (id.includes('lucide') || id.includes('iconify')) {
+              return 'icons';
+            }
+            if (id.includes('supabase')) {
+              return 'supabase';
+            }
+            if (id.includes('fontsource')) {
+              return 'fonts';
+            }
+            if (id.includes('date-fns') || id.includes('day-picker')) {
+              return 'date-utils';
+            }
+            return 'vendor';
+          }
+        },
+        assetFileNames: (assetInfo) => {
+          const info = assetInfo.name.split('.');
+          const ext = info[info.length - 1];
+          if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(ext)) {
+            return `assets/images/[name]-[hash][extname]`;
+          }
+          if (/woff2?|ttf|eot/i.test(ext)) {
+            return `assets/fonts/[name]-[hash][extname]`;
+          }
+          return `assets/[name]-[hash][extname]`;
         },
       },
+    },
+    
+    // Increase chunk size warning limit for production
+    chunkSizeWarningLimit: 1000,
+    
+    // Enable CSS code splitting
+    cssCodeSplit: true,
+    
+    // Optimize CSS
+    cssMinify: true,
+  },
+  
+  // Performance optimizations
+  esbuild: {
+    logLevel: 'error',
+    target: 'esnext',
+    tsconfigRaw: {
+      compilerOptions: {
+        useDefineForClassFields: true,
+      },
+    },
+  },
+  
+  // Resolve aliases for cleaner imports
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@components': path.resolve(__dirname, './src/components'),
+      '@pages': path.resolve(__dirname, './src/pages'),
+      '@lib': path.resolve(__dirname, './src/lib'),
+      '@hooks': path.resolve(__dirname, './src/hooks'),
+      '@services': path.resolve(__dirname, './src/services'),
+      '@utils': path.resolve(__dirname, './src/utils'),
+      '@types': path.resolve(__dirname, './src/types'),
     },
   },
 });

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Montserrat, Poppins, Lexend, Rubik } from "next/font/google";
 import "@/lib/env-polyfill"; // Import environment polyfill before anything else
 import "./globals.css";
-import { Providers } from "./providers";
 
 const montserrat = Montserrat({
   variable: "--font-montserrat",
@@ -92,7 +91,7 @@ export default function RootLayout({
         className={`${montserrat.variable} ${poppins.variable} ${lexend.variable} ${rubik.variable} font-montserrat antialiased`}
         suppressHydrationWarning
       >
-        <Providers>{children}</Providers>
+        {children}
       </body>
     </html>
   );

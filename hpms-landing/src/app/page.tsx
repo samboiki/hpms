@@ -2,6 +2,8 @@ import { headers } from 'next/headers';
 import { getPracticeByDomain } from '@/lib/tenants';
 import PageWrapper from '@/components/PageWrapper';
 import PracticeDirectory from '@/components/PracticeDirectory';
+import FarmarisLanding from '@/components/farmaris/FarmarisLanding';
+import AdminMain from '@/components/farmaris/AdminMain';
 
 export default async function Home({
   searchParams,
@@ -20,10 +22,20 @@ export default async function Home({
     }
   });
   
+  // Check if Farmaris is requested directly
+  const practiceParam = urlSearchParams.get('practice');
+  const pageParam = urlSearchParams.get('page');
+  
+  if (practiceParam === 'farmaris') {
+    if (pageParam === 'admin') {
+      return <AdminMain />;
+    }
+    return <FarmarisLanding />;
+  }
+
   const practice = await getPracticeByDomain(domain, urlSearchParams);
   
   // If no specific practice is requested, show the practice directory
-  const practiceParam = urlSearchParams.get('practice');
   if (!practiceParam && !practice) {
     return <PracticeDirectory />;
   }
