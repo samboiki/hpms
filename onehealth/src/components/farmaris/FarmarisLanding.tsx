@@ -461,12 +461,12 @@ function FarmarisLanding() {
       <FarmLocation />
 
       {/* Registration Form */}
-      <section id="registration" className="py-16 bg-gradient-to-b from-green-50 to-yellow-50">
+      <section id="registration" className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-4">
           <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12">
             {!isSubmitted ? (
               <>
-                <h2 className="text-3xl font-bold text-center text-green-800 mb-8">Reserve Your Spot</h2>
+                <h2 className="text-3xl font-bold text-center bg-gradient-to-r from-amber-800 via-yellow-700 to-orange-600 bg-clip-text text-transparent mb-8">Reserve Your Spot</h2>
                 <form onSubmit={handleRegistration} className="space-y-6">
                   <div className="grid md:grid-cols-2 gap-6">
                     <div>
@@ -476,7 +476,7 @@ function FarmarisLanding() {
                         required
                         value={registrationData.fullName}
                         onChange={(e) => setRegistrationData({...registrationData, fullName: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                       />
                     </div>
                     <div>
@@ -486,7 +486,7 @@ function FarmarisLanding() {
                         required
                         value={registrationData.email}
                         onChange={(e) => setRegistrationData({...registrationData, email: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                       />
                     </div>
                   </div>
@@ -499,7 +499,7 @@ function FarmarisLanding() {
                         required
                         value={registrationData.phone}
                         onChange={(e) => setRegistrationData({...registrationData, phone: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
                       />
                     </div>
                     <div>
@@ -508,17 +508,17 @@ function FarmarisLanding() {
                         <button
                           type="button"
                           onClick={() => setRegistrationData({...registrationData, attendees: Math.max(1, registrationData.attendees - 1)})}
-                          className="p-2 bg-green-100 rounded-lg hover:bg-green-200"
+                          className="p-2 bg-yellow-100 rounded-lg hover:bg-yellow-200"
                         >
-                          <Minus className="w-4 h-4 text-green-800" />
+                          <Minus className="w-4 h-4 text-yellow-800" />
                         </button>
                         <span className="px-4 py-2 bg-gray-100 rounded-lg font-semibold">{registrationData.attendees}</span>
                         <button
                           type="button"
                           onClick={() => setRegistrationData({...registrationData, attendees: registrationData.attendees + 1})}
-                          className="p-2 bg-green-100 rounded-lg hover:bg-green-200"
+                          className="p-2 bg-yellow-100 rounded-lg hover:bg-yellow-200"
                         >
-                          <Plus className="w-4 h-4 text-green-800" />
+                          <Plus className="w-4 h-4 text-yellow-800" />
                         </button>
                       </div>
                     </div>
@@ -589,7 +589,7 @@ function FarmarisLanding() {
 
                   <button
                     type="submit"
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-lg text-lg transition-all duration-300 hover:scale-105"
+                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-4 px-8 rounded-lg text-lg transition-all duration-300 hover:scale-105"
                   >
                     Confirm Registration
                   </button>
@@ -597,15 +597,15 @@ function FarmarisLanding() {
               </>
             ) : (
               <div className="text-center py-12">
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Star className="w-10 h-10 text-green-600" />
+                <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Star className="w-10 h-10 text-yellow-600" />
                 </div>
-                <h2 className="text-3xl font-bold text-green-800 mb-4">Registration Confirmed!</h2>
+                <h2 className="text-3xl font-bold text-amber-800 mb-4">Registration Confirmed!</h2>
                 <p className="text-lg text-gray-700 mb-6">
                   Thank you for registering! We've sent a confirmation with your QR code ticket to your email and WhatsApp.
                 </p>
-                <div className="bg-green-50 rounded-lg p-4 mb-6">
-                  <p className="font-semibold text-green-800">Confirmation ID: AF2025-{Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
+                <div className="bg-yellow-50 rounded-lg p-4 mb-6">
+                  <p className="font-semibold text-amber-800">Confirmation ID: AF2025-{Math.random().toString(36).substr(2, 9).toUpperCase()}</p>
                   <p className="text-sm text-gray-600 mt-2">Save this ID for event check-in</p>
                 </div>
               </div>
