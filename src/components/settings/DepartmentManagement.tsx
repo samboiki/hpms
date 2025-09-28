@@ -3,16 +3,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
+import { usePractice } from '../../contexts/PracticeContext';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import Icon, { SolarIcons } from '../ui/Icon';
+import { Icon } from '@iconify/react';
+import FullScreenDepartmentModalClean from './FullScreenDepartmentModalClean';
+import { wardManagementService } from '../../services/wardManagementService';
 
 interface Department {
   id: string;
   practice_id: string;
-  name: string;
+  department_name?: string;
+  name?: string;
+  department_code?: string;
   description?: string;
   head_user_id?: string;
+  head_of_department?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  location?: string;
   color?: string;
   is_active: boolean;
   created_at: string;
@@ -28,6 +37,7 @@ interface DepartmentUser {
 
 const DepartmentManagement: React.FC = () => {
   const { user } = useAuthStore();
+  const { practiceId } = usePractice();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -40,6 +50,9 @@ const DepartmentManagement: React.FC = () => {
     is_active: true
   });
   const [users, setUsers] = useState<DepartmentUser[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
+  const [showDepartmentModal, setShowDepartmentModal] = useState(false);
+  const [departmentStats, setDepartmentStats] = useState<Record<string, any>>({});
 
   // Predefined department colors
   const departmentColors = [
@@ -59,6 +72,12 @@ const DepartmentManagement: React.FC = () => {
       loadUsers();
     }
   }, [user?.practice_id]);
+
+  useEffect(() => {
+    if (departments.length > 0 && practiceId) {
+      loadDepartmentStats();
+    }
+  }, [departments, practiceId]);
 
   const loadDepartments = async () => {
     try {
@@ -91,6 +110,23 @@ const DepartmentManagement: React.FC = () => {
       setUsers(data || []);
     } catch (error) {
       console.error('Error loading users:', error);
+    }
+  };
+
+  const loadDepartmentStats = async () => {
+    try {
+      const stats: Record<string, any> = {};
+
+      for (const dept of departments) {
+        const { data } = await wardManagementService.getDepartmentWardStatistics(dept.id);
+        if (data) {
+          stats[dept.id] = data;
+        }
+      }
+
+      setDepartmentStats(stats);
+    } catch (error) {
+      console.error('Error loading department statistics:', error);
     }
   };
 
@@ -200,6 +236,11 @@ const DepartmentManagement: React.FC = () => {
     return users.filter(u => u.job_title?.toLowerCase().includes(departmentName.toLowerCase()));
   };
 
+  const handleOpenDepartmentModal = (department: Department) => {
+    setSelectedDepartment(department);
+    setShowDepartmentModal(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -229,7 +270,7 @@ const DepartmentManagement: React.FC = () => {
               }}
               className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:shadow-lg transition-all duration-200"
             >
-              <Icon icon={SolarIcons.plus} className="w-5 h-5 mr-2" />
+              <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5 mr-2" />
               Add Department
             </Button>
           </div>
@@ -237,97 +278,182 @@ const DepartmentManagement: React.FC = () => {
           {/* Departments Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {departments.length === 0 ? (
-              <div className="col-span-full bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl p-12 text-center">
-                <Icon icon={SolarIcons.building} className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-700 font-medium">No departments yet</p>
-                <p className="text-sm text-gray-500 mt-1">Create your first department to organize your team</p>
+              <div className="col-span-full bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-300 rounded-2xl p-12 text-center">
+                <Icon icon="solar:hospital-bold-duotone" className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-lg font-semibold text-gray-700">No departments yet</p>
+                <p className="text-sm text-gray-500 mt-2">Create your first department to organize your healthcare facility</p>
               </div>
             ) : (
               departments.map((department) => {
-                const usersInDept = getUsersInDepartment(department.name);
+                const usersInDept = getUsersInDepartment(department.name || department.department_name || '');
                 const departmentHead = users.find(u => u.id === department.head_user_id);
-                
+                const stats = departmentStats[department.id] || {};
+                const displayName = department.department_name || department.name || 'Unnamed';
+
                 return (
-                  <div
+                  <motion.div
                     key={department.id}
-                    className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-all duration-200"
+                    whileHover={{ scale: 1.02, y: -2 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    className="relative bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden cursor-pointer group"
+                    onClick={() => handleOpenDepartmentModal(department)}
                   >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div 
-                          className="w-12 h-12 rounded-lg flex items-center justify-center"
-                          style={{ backgroundColor: `${department.color}20` }}
-                        >
-                          <Icon 
-                            icon={SolarIcons.building} 
-                            className="w-6 h-6" 
-                            style={{ color: department.color }}
-                          />
+                    {/* Decorative Gradient Bar */}
+                    <div
+                      className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r"
+                      style={{
+                        backgroundImage: `linear-gradient(90deg, ${department.color || '#8B5CF6'}, ${department.color || '#8B5CF6'}dd)`
+                      }}
+                    />
+
+                    <div className="p-6">
+                      {/* Header Section */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <motion.div
+                            whileHover={{ rotate: 360 }}
+                            transition={{ duration: 0.5 }}
+                            className="relative"
+                          >
+                            <div
+                              className="w-14 h-14 rounded-xl flex items-center justify-center shadow-lg"
+                              style={{
+                                backgroundColor: `${department.color || '#8B5CF6'}15`,
+                                border: `2px solid ${department.color || '#8B5CF6'}30`
+                              }}
+                            >
+                              <Icon
+                                icon="solar:hospital-bold-duotone"
+                                className="w-7 h-7"
+                                style={{ color: department.color || '#8B5CF6' }}
+                              />
+                            </div>
+                            {department.is_active && (
+                              <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white animate-pulse" />
+                            )}
+                          </motion.div>
+                          <div>
+                            <h5 className="font-bold text-gray-900 text-lg">{displayName}</h5>
+                            {department.department_code && (
+                              <p className="text-sm text-gray-500">{department.department_code}</p>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <h5 className="font-semibold text-gray-900">{department.name}</h5>
-                          {department.is_active ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full mt-1">
-                              <div className="w-1.5 h-1.5 bg-green-600 rounded-full" />
-                              Active
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-full mt-1">
-                              <div className="w-1.5 h-1.5 bg-gray-500 rounded-full" />
-                              Inactive
-                            </span>
-                          )}
+
+                        {/* Quick Actions (prevent event bubbling) */}
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleActive(department);
+                            }}
+                            className={`p-1.5 rounded-lg transition-all duration-200 ${
+                              department.is_active
+                                ? 'text-green-600 hover:bg-green-50'
+                                : 'text-gray-400 hover:bg-gray-50'
+                            }`}
+                            title={department.is_active ? 'Deactivate' : 'Activate'}
+                          >
+                            <Icon icon={department.is_active ? "solar:check-circle-bold-duotone" : "solar:close-circle-bold-duotone"} className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Open the main department management modal instead of separate edit modal
+                              handleOpenDepartmentModal(department);
+                            }}
+                            className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-all duration-200"
+                            title="Edit"
+                          >
+                            <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(department.id);
+                            }}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                            title="Delete"
+                          >
+                            <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => handleToggleActive(department)}
-                          className={`p-1.5 rounded-lg transition-all duration-200 ${
-                            department.is_active 
-                              ? 'text-green-600 hover:bg-green-50' 
-                              : 'text-gray-400 hover:bg-gray-50'
-                          }`}
-                          title={department.is_active ? 'Deactivate department' : 'Activate department'}
-                        >
-                          <Icon icon={department.is_active ? SolarIcons.checkCircle : SolarIcons.dangerCircle} className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(department)}
-                          className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-all duration-200"
-                          title="Edit department"
-                        >
-                          <Icon icon={SolarIcons.edit} className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(department.id)}
-                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-                          title="Delete department"
-                        >
-                          <Icon icon={SolarIcons.trash} className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
 
-                    {department.description && (
-                      <p className="text-sm text-gray-600 mb-3">{department.description}</p>
-                    )}
-
-                    <div className="space-y-3">
-                      {departmentHead && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <Icon icon={SolarIcons.userCircle} className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-600">Head:</span>
-                          <span className="font-medium text-gray-900">{departmentHead.full_name}</span>
-                        </div>
+                      {department.description && (
+                        <p className="text-sm text-gray-600 mb-4 line-clamp-2">{department.description}</p>
                       )}
-                      
-                      <div className="flex items-center gap-2 text-sm">
-                        <Icon icon={SolarIcons.users} className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-600">Staff:</span>
-                        <span className="font-medium text-gray-900">{usersInDept.length} members</span>
+
+                      {/* Stats Grid */}
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="bg-purple-50 rounded-lg p-2.5">
+                          <div className="flex items-center gap-2">
+                            <Icon icon="solar:hospital-bold-duotone" className="w-4 h-4 text-purple-600" />
+                            <span className="text-xs text-gray-600">Wards</span>
+                          </div>
+                          <p className="text-lg font-bold text-gray-900 mt-1">{stats.totalWards || 0}</p>
+                        </div>
+                        <div className="bg-blue-50 rounded-lg p-2.5">
+                          <div className="flex items-center gap-2">
+                            <Icon icon="solar:bed-bold-duotone" className="w-4 h-4 text-blue-600" />
+                            <span className="text-xs text-gray-600">Beds</span>
+                          </div>
+                          <p className="text-lg font-bold text-gray-900 mt-1">{stats.totalBeds || 0}</p>
+                        </div>
+                      </div>
+
+                      {/* Department Info */}
+                      <div className="space-y-2">
+                        {departmentHead && (
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center">
+                              <Icon icon="solar:user-bold-duotone" className="w-3 h-3 text-white" />
+                            </div>
+                            <span className="text-xs text-gray-600">Head:</span>
+                            <span className="text-xs font-medium text-gray-900">{departmentHead.full_name}</span>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center">
+                            <Icon icon="solar:users-group-rounded-bold-duotone" className="w-3 h-3 text-white" />
+                          </div>
+                          <span className="text-xs text-gray-600">Staff:</span>
+                          <span className="text-xs font-medium text-gray-900">{usersInDept.length} members</span>
+                        </div>
+
+                        {stats.availableBeds !== undefined && (
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 flex items-center justify-center">
+                              <Icon icon="solar:check-circle-bold-duotone" className="w-3 h-3 text-white" />
+                            </div>
+                            <span className="text-xs text-gray-600">Available:</span>
+                            <span className="text-xs font-medium text-green-600">{stats.availableBeds} beds</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Status Badge */}
+                      <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+                        <span className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold rounded-full ${
+                          department.is_active
+                            ? 'bg-gradient-to-r from-green-100 to-emerald-100 text-green-700'
+                            : 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700'
+                        }`}>
+                          {department.is_active ? (
+                            <><Icon icon="solar:check-circle-bold" className="w-3 h-3" /> Active</>
+                          ) : (
+                            <><Icon icon="solar:close-circle-bold" className="w-3 h-3" /> Inactive</>
+                          )}
+                        </span>
+
+                        <div className="flex items-center gap-1 text-purple-600">
+                          <span className="text-xs font-medium">View Details</span>
+                          <Icon icon="solar:arrow-right-bold-duotone" className="w-4 h-4" />
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })
             )}
@@ -354,7 +480,7 @@ const DepartmentManagement: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                      <Icon icon={SolarIcons.building} className="w-6 h-6 text-white" />
+                      <Icon icon="solar:buildings-2-bold-duotone" className="w-6 h-6 text-white" />
                     </div>
                     <h3 className="text-xl font-bold text-white">
                       {editingDepartment ? 'Edit Department' : 'Add New Department'}
@@ -369,7 +495,7 @@ const DepartmentManagement: React.FC = () => {
                     }}
                     className="p-2 hover:bg-white/20 rounded-lg transition-colors"
                   >
-                    <Icon icon={SolarIcons.close} className="w-5 h-5 text-white" />
+                    <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-white" />
                   </button>
                 </div>
               </div>
@@ -468,7 +594,7 @@ const DepartmentManagement: React.FC = () => {
                     type="submit"
                     className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
                   >
-                    <Icon icon={editingDepartment ? SolarIcons.save : SolarIcons.plus} className="w-5 h-5 mr-2" />
+                    <Icon icon={editingDepartment ? "solar:diskette-bold-duotone" : "solar:add-circle-bold-duotone"} className="w-5 h-5 mr-2" />
                     {editingDepartment ? 'Update Department' : 'Create Department'}
                   </Button>
                 </div>
@@ -477,6 +603,20 @@ const DepartmentManagement: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Full Screen Department Modal */}
+      {selectedDepartment && practiceId && (
+        <FullScreenDepartmentModalClean
+          isOpen={showDepartmentModal}
+          onClose={() => {
+            setShowDepartmentModal(false);
+            setSelectedDepartment(null);
+            loadDepartmentStats(); // Refresh statistics after changes
+          }}
+          department={selectedDepartment}
+          onUpdate={loadDepartments}
+        />
+      )}
     </div>
   );
 };
