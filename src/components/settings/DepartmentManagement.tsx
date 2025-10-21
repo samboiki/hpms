@@ -384,24 +384,6 @@ const DepartmentManagement: React.FC = () => {
                         <p className="text-sm text-gray-600 mb-4 line-clamp-2">{department.description}</p>
                       )}
 
-                      {/* Stats Grid */}
-                      <div className="grid grid-cols-2 gap-3 mb-4">
-                        <div className="bg-purple-50 rounded-lg p-2.5">
-                          <div className="flex items-center gap-2">
-                            <Icon icon="solar:hospital-bold-duotone" className="w-4 h-4 text-purple-600" />
-                            <span className="text-xs text-gray-600">Wards</span>
-                          </div>
-                          <p className="text-lg font-bold text-gray-900 mt-1">{stats.totalWards || 0}</p>
-                        </div>
-                        <div className="bg-blue-50 rounded-lg p-2.5">
-                          <div className="flex items-center gap-2">
-                            <Icon icon="solar:bed-bold-duotone" className="w-4 h-4 text-blue-600" />
-                            <span className="text-xs text-gray-600">Beds</span>
-                          </div>
-                          <p className="text-lg font-bold text-gray-900 mt-1">{stats.totalBeds || 0}</p>
-                        </div>
-                      </div>
-
                       {/* Department Info */}
                       <div className="space-y-2">
                         {departmentHead && (
@@ -614,6 +596,7 @@ const DepartmentManagement: React.FC = () => {
             loadDepartmentStats(); // Refresh statistics after changes
           }}
           department={selectedDepartment}
+          practiceId={practiceId}
           onUpdate={loadDepartments}
         />
       )}

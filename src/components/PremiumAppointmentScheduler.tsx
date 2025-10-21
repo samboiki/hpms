@@ -60,6 +60,7 @@ import { Icon } from '@iconify/react';
 import VisitActionModal from './modals/VisitActionModal';
 import BookingRequestModal from './modals/BookingRequestModal';
 import EnhancedSmsModal from './messages/EnhancedSmsModal';
+import ComprehensivePatientModal from './patients/ComprehensivePatientModal';
 import { useVisitsStore } from '../stores/visitsStore';
 import { HandoffCardPrintButtons } from './dashboard/HandoffCardPrintButtons';
 
@@ -274,6 +275,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   const [isSMSModalOpen, setIsSMSModalOpen] = useState(false);
   const [selectedBookingRequest, setSelectedBookingRequest] = useState<Appointment | null>(null);
   const [isBookingRequestModalOpen, setIsBookingRequestModalOpen] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -2514,6 +2517,21 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             setSelectedVisitForSMS(selectedVisitForAction);
             setIsSMSModalOpen(true);
           }}
+          onViewPatientProfile={() => {
+            console.log('[PremiumAppointmentScheduler] onViewPatientProfile clicked', {
+              selectedVisitForAction,
+              patient_id: selectedVisitForAction?.patient_id
+            });
+            if (selectedVisitForAction?.patient_id) {
+              console.log('[PremiumAppointmentScheduler] Setting patient modal open for patient:', selectedVisitForAction.patient_id);
+              setSelectedPatientId(selectedVisitForAction.patient_id);
+              setIsPatientModalOpen(true);
+              setIsActionModalOpen(false);
+              setSelectedVisitForAction(null);
+            } else {
+              console.error('[PremiumAppointmentScheduler] No patient_id found in visit');
+            }
+          }}
         />
       )}
 
@@ -2548,6 +2566,24 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               onRefresh();
             }
           }}
+        />
+      )}
+
+      {/* Patient Profile Modal */}
+      {console.log('[PremiumAppointmentScheduler] Patient Modal Render Check:', {
+        selectedPatientId,
+        isPatientModalOpen,
+        shouldRender: !!selectedPatientId
+      })}
+      {selectedPatientId && (
+        <ComprehensivePatientModal
+          isOpen={isPatientModalOpen}
+          onClose={() => {
+            console.log('[PremiumAppointmentScheduler] Closing patient modal');
+            setIsPatientModalOpen(false);
+            setSelectedPatientId(null);
+          }}
+          patientId={selectedPatientId}
         />
       )}
     </div>

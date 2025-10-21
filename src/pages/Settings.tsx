@@ -18,6 +18,10 @@ import TimePickerModal from '../components/ui/TimePickerModal';
 import { platformSettings, getPlatformDefaults } from '../config/socialPlatformSettings';
 import { GmailSettingsModal } from '../components/settings/GmailSettingsModal';
 import { GmailOAuthSettings } from '../components/settings/GmailOAuthSettings';
+import { useSettingsBundle, useInvalidateSettings } from '../hooks/useSettingsBundle';
+
+// Feature flag for optimized data fetching
+const USE_OPTIMIZED_BUNDLE = true;
 
 // Iconify is now handled by @iconify/react package
 
@@ -32,6 +36,16 @@ interface BusinessHours {
 const Settings: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { currentTheme, themes, setTheme } = useTheme();
+
+  // Use optimized bundle for all settings data
+  const {
+    data: bundleData,
+    isLoading: bundleLoading,
+    error: bundleError,
+    refetch: refetchBundle
+  } = useSettingsBundle();
+  const invalidateSettings = useInvalidateSettings();
+
   // Check URL params to determine initial tab
   const getInitialTab = () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -45,7 +59,7 @@ const Settings: React.FC = () => {
     }
     return 'account';
   };
-  
+
   const [activeTab, setActiveTab] = useState<'account' | 'users' | 'practice' | 'documents' | 'social' | 'system'>(getInitialTab());
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
@@ -778,11 +792,18 @@ const Settings: React.FC = () => {
           )}
           
           {activeTab === 'practice' && (
-            <PracticeProfileContent onTabChange={setActiveTab} />
+            <PracticeProfileContent
+              onTabChange={setActiveTab}
+              bundleData={bundleData}
+              bundleLoading={bundleLoading}
+            />
           )}
           
           {activeTab === 'documents' && (
-            <PracticeDocumentsContent />
+            <PracticeDocumentsContent
+              bundleData={bundleData}
+              bundleLoading={bundleLoading}
+            />
           )}
           
           {activeTab === 'social' && (
@@ -867,7 +888,11 @@ const convertBusinessHoursObjectToArray = (hoursObj: BusinessHoursData | Busines
 };
 
 // Practice Profile Component
-const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> = () => {
+const PracticeProfileContent: React.FC<{
+  onTabChange?: (tab: string) => void;
+  bundleData?: any;
+  bundleLoading?: boolean;
+}> = ({ bundleData, bundleLoading }) => {
   const { user } = useAuthStore();
   const { currentTheme } = useTheme();
   const [practiceTab, setPracticeTab] = useState<'profile' | 'hours' | 'branches' | 'expenses' | 'departments' | 'inventory'>('profile');
@@ -926,7 +951,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
     ]
   };
 
-  // Load practice data from database
+  // Load practice data from bundle or database
   useEffect(() => {
     const loadPracticeData = async () => {
       if (!user?.practice_id) {
@@ -934,23 +959,14 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
         return;
       }
 
-      try {
-        console.log('📊 Loading practice data for ID:', user.practice_id);
-        
-        const { data: practice, error } = await supabase
-          .from('practices')
-          .select('*')
-          .eq('id', user.practice_id)
-          .single();
-
-        if (error) {
-          console.error('❌ Error loading practice data:', error);
-          return;
-        }
+      // Use bundled data if available and feature flag is enabled
+      if (USE_OPTIMIZED_BUNDLE && bundleData?.practice) {
+        console.log('⚡ Using optimized bundle data for practice');
+        const practice = bundleData.practice;
 
         if (practice) {
-          console.log('✅ Practice data loaded:', practice.name);
-          
+          console.log('✅ Practice data loaded from bundle:', practice.name);
+
           const practiceInfo = {
             id: practice.id,
             name: practice.name || '',
@@ -974,21 +990,71 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
             practice_number: practice.practice_number || '',
             tax_number: practice.tax_number || ''
           };
-          
+
           setPracticeData(practiceInfo);
           setFormData(practiceInfo);
         }
-
-
-      } catch (error) {
-        console.error('❌ Error loading practice data:', error);
-      } finally {
         setLoading(false);
+      } else if (!USE_OPTIMIZED_BUNDLE) {
+        // Fallback to direct Supabase call if feature flag is disabled
+        try {
+          console.log('📊 Loading practice data for ID:', user.practice_id);
+
+          const { data: practice, error } = await supabase
+            .from('practices')
+            .select('*')
+            .eq('id', user.practice_id)
+            .single();
+
+          if (error) {
+            console.error('❌ Error loading practice data:', error);
+            setLoading(false);
+            return;
+          }
+
+          if (practice) {
+            console.log('✅ Practice data loaded:', practice.name);
+
+            const practiceInfo = {
+              id: practice.id,
+              name: practice.name || '',
+              logo_url: practice.logo_url || '',
+              address: practice.address || '',
+              city: practice.city || '',
+              postal_code: practice.postal_code || '',
+              country: practice.country || 'Namibia',
+              contact_phone: practice.contact_phone || '',
+              contact_email: practice.contact_email || '',
+              about_text: practice.about_text || '',
+              website_url: practice.website_url || practice.domain || '',
+              business_hours: convertBusinessHoursObjectToArray(practice.business_hours),
+              services: practice.services || defaultMockData.specialties,
+              social_links: practice.social_links || {},
+              primary_color: practice.primary_color || '#01b9d5',
+              secondary_color: practice.secondary_color || '#0196be',
+              hero_title: practice.hero_title || '',
+              hero_subtitle: practice.hero_subtitle || '',
+              license_number: practice.license_number || '',
+              practice_number: practice.practice_number || '',
+              tax_number: practice.tax_number || ''
+            };
+
+            setPracticeData(practiceInfo);
+            setFormData(practiceInfo);
+          }
+        } catch (error) {
+          console.error('❌ Error loading practice data:', error);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        // Bundle is still loading
+        setLoading(bundleLoading || false);
       }
     };
 
     loadPracticeData();
-  }, [user?.practice_id]);
+  }, [user?.practice_id, bundleData, bundleLoading]);
 
   // Helper function to convert array format to object format for practices table
   const convertBusinessHoursArrayToObject = (hoursArray: BusinessHours[]) => {
@@ -2526,7 +2592,10 @@ const AccountTabContent: React.FC = () => {
 };
 
 // Practice Documents Content Component
-const PracticeDocumentsContent: React.FC = () => {
+const PracticeDocumentsContent: React.FC<{
+  bundleData?: any;
+  bundleLoading?: boolean;
+}> = ({ bundleData, bundleLoading }) => {
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -2550,34 +2619,48 @@ const PracticeDocumentsContent: React.FC = () => {
 
   const loadDocuments = async () => {
     if (!practiceId) return;
-    
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('practice_documents')
-        .select(`
-          *,
-          uploaded_by_user:users!practice_documents_uploaded_by_fkey(
-            full_name,
-            email
-          )
-        `)
-        .eq('practice_id', practiceId)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setDocuments(data || []);
-    } catch (error) {
-      console.error('Error loading documents:', error);
-    } finally {
+    // Use bundled data if available and feature flag is enabled
+    if (USE_OPTIMIZED_BUNDLE && bundleData?.documents) {
+      console.log('⚡ Using optimized bundle data for documents');
+      setDocuments(bundleData.documents);
       setLoading(false);
+      return;
+    }
+
+    // Fallback to direct Supabase call if feature flag is disabled
+    if (!USE_OPTIMIZED_BUNDLE) {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('practice_documents')
+          .select(`
+            *,
+            uploaded_by_user:users!practice_documents_uploaded_by_fkey(
+              full_name,
+              email
+            )
+          `)
+          .eq('practice_id', practiceId)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        setDocuments(data || []);
+      } catch (error) {
+        console.error('Error loading documents:', error);
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      // Bundle is still loading
+      setLoading(bundleLoading || false);
     }
   };
 
   useEffect(() => {
     loadDocuments();
-  }, [practiceId]);
+  }, [practiceId, bundleData, bundleLoading]);
 
   const handleFileUpload = async (files: FileList) => {
     if (!practiceId || !files.length) return;

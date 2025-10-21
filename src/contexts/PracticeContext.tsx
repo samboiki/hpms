@@ -102,10 +102,9 @@ export const PracticeProvider: React.FC<{ children: ReactNode }> = ({ children }
         setUserId(null);
         setUserRole(null);
         setIsLoading(false);
-      } else if (event === 'SIGNED_IN' && session) {
-        // Only refetch on actual sign in, not on token refresh
-        fetchPracticeData();
       }
+      // Fixed: Removed SIGNED_IN handler - App.tsx already handles authentication
+      // This prevents dual auth processing that was causing infinite loops
     });
 
     return () => {

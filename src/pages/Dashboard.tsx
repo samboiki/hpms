@@ -33,6 +33,11 @@ import AppointmentApprovalModal from '../components/modals/AppointmentApprovalMo
 import AppointmentGridView from '../components/appointments/AppointmentGridView';
 import FullScreenEditVisitModal from '../components/visits/FullScreenEditVisitModal';
 import { usePracticeData } from '../hooks/usePracticeData';
+import { useDashboardBundle } from '../hooks/useDashboardBundle';
+import { runNetworkDiagnostics } from '../utils/networkDiagnostics';
+import { localCache } from '../services/localCacheService';
+import { usePerformanceMonitor } from '../hooks/usePerformanceMonitor';
+import clearDashboardCache from '../utils/clearDashboardCache';
 
 // Using Visit type from enhanced-visit.types
 import { Visit } from '../types/enhanced-visit.types';
@@ -64,6 +69,12 @@ interface LayoutContext {
 }
 
 function Dashboard() {
+  // ⚡ PERFORMANCE OPTIMIZATION: Toggle this to use blazing fast centralized service
+  const USE_OPTIMIZED_BUNDLE = true; // Set to false to use old implementation
+
+  // Monitor performance and show warnings for slow queries
+  const { recordSlowQuery, showCacheStatus } = usePerformanceMonitor('Dashboard');
+
   const { user, logout } = useAuthStore();
   const { toggleMobileSidebar } = useOutletContext<LayoutContext>();
   const { currentTheme } = useTheme();
@@ -112,12 +123,19 @@ function Dashboard() {
   const [isEditAppointmentModalOpen, setIsEditAppointmentModalOpen] = useState(false);
   const calendarScrollRef = useRef<HTMLDivElement>(null);
   
+  // ⚡ OPTIMIZED: Fetch ALL dashboard data in parallel (7 queries instead of 30+)
+  const {
+    data: bundleData,
+    isLoading: isBundleLoading,
+    error: bundleError
+  } = useDashboardBundle();
+
   // Fetch all dashboard stats using optimized hook (includes communication stats)
   const { data: dashboardData, isLoading: isDashboardLoading } = useOptimizedDashboardStats();
 
   // REMOVED: useCommunicationStats() - communication stats already included in dashboardData
   // This was causing duplicate queries and slowing down the dashboard
-  
+
   // Use shared appointments data
   const { data: todayAppointments = [], isLoading: isAppointmentsLoading } = useTodayAppointments();
   
@@ -230,6 +248,46 @@ function Dashboard() {
     };
   }, [currentPracticeId, fetchTodayVisits, subscribeToVisitChanges, unsubscribeFromVisitChanges]);
 
+  // Check for diagnostics mode and keyboard shortcuts
+  useEffect(() => {
+    // Check if URL has #diagnostics
+    if (window.location.hash === '#diagnostics') {
+      console.log('🔍 Running network diagnostics...');
+      runNetworkDiagnostics();
+      window.location.hash = ''; // Clear the hash
+    }
+
+    // Add keyboard shortcuts
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + Shift + D for diagnostics
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'D') {
+        e.preventDefault();
+        console.log('🔍 Running diagnostics via keyboard shortcut...');
+        runNetworkDiagnostics();
+      }
+
+      // Ctrl/Cmd + Shift + C for cache status
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+        e.preventDefault();
+        showCacheStatus();
+        const stats = localCache.getStats();
+        console.log('📊 Cache Statistics:', stats);
+      }
+
+      // Ctrl/Cmd + Shift + R for clear cache and reload
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'R') {
+        e.preventDefault();
+        if (confirm('Clear all cache and reload the page?')) {
+          localCache.clearAll();
+          window.location.reload();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [showCacheStatus]);
+
   // Fetch visits when selected date changes
   useEffect(() => {
     if (currentPracticeId && selectedDate) {
@@ -287,41 +345,66 @@ function Dashboard() {
 
   const fetchDashboardData = async () => {
     if (!practiceId) return;
-    
+
     const startTime = performance.now();
     try {
       setIsLoading(true);
-      
-      // Fetch doctors for the practice
-      const { data: practiceDoctors, error: doctorsError } = await supabase
-        .from('users')
-        .select('id, email, full_name, role')
-        .eq('practice_id', practiceId)
-        .eq('role', 'doctor');
 
-      if (doctorsError) throw doctorsError;
+      // ⚡ USE OPTIMIZED BUNDLE if enabled and data is available
+      if (USE_OPTIMIZED_BUNDLE && bundleData) {
+        console.log('⚡ Using optimized bundle data - NO additional queries needed!');
 
-      // Format doctors for dropdown
-      const formattedDoctors = (practiceDoctors || []).map(doctor => ({
-        id: doctor.id,
-        email: doctor.email,
-        user_metadata: {
-          full_name: doctor.full_name,
-          role: doctor.role
-        }
-      }));
-      setDoctors(formattedDoctors);
+        // Use bundled doctors data
+        const formattedDoctors = (bundleData.doctors || []).map(doctor => ({
+          id: doctor.id,
+          email: doctor.email,
+          user_metadata: {
+            full_name: doctor.full_name,
+            role: doctor.role
+          }
+        }));
+        setDoctors(formattedDoctors);
 
-      // Fetch patients for activities (limit to recent for performance)
-      const { data: practicePatients, error: patientsError } = await supabase
-        .from('patients')
-        .select('id, first_name, last_name, gender, date_of_birth, created_at')
-        .eq('practice_id', practiceId)
-        .order('created_at', { ascending: false })
-        .limit(20); // Reduced from 100 to 20 for better performance
+        // Use bundled patients data
+        setPatientsData(bundleData.recentPatients || []);
 
-      if (patientsError) throw patientsError;
-      setPatientsData(practicePatients || []);
+        const endTime = performance.now();
+        console.log(`✅ Dashboard data loaded from bundle in ${(endTime - startTime).toFixed(2)}ms`);
+      } else {
+        // FALLBACK: Use original implementation if optimization is disabled
+        console.log('⚠️ Using legacy data fetching - this is slower');
+
+        // Fetch doctors for the practice
+        const { data: practiceDoctors, error: doctorsError } = await supabase
+          .from('users')
+          .select('id, email, full_name, role')
+          .eq('practice_id', practiceId)
+          .eq('role', 'doctor');
+
+        if (doctorsError) throw doctorsError;
+
+        // Format doctors for dropdown
+        const formattedDoctors = (practiceDoctors || []).map(doctor => ({
+          id: doctor.id,
+          email: doctor.email,
+          user_metadata: {
+            full_name: doctor.full_name,
+            role: doctor.role
+          }
+        }));
+        setDoctors(formattedDoctors);
+
+        // Fetch patients for activities (limit to recent for performance)
+        const { data: practicePatients, error: patientsError } = await supabase
+          .from('patients')
+          .select('id, first_name, last_name, gender, date_of_birth, created_at')
+          .eq('practice_id', practiceId)
+          .order('created_at', { ascending: false })
+          .limit(20); // Reduced from 100 to 20 for better performance
+
+        if (patientsError) throw patientsError;
+        setPatientsData(practicePatients || []);
+      }
 
       // Generate recent activities from visits data
       const activities: ActivityItem[] = [];
@@ -434,11 +517,18 @@ function Dashboard() {
   };
 
   // Fetch dashboard data when practice ID is available
+  // ⚡ OPTIMIZED: Also trigger when bundle data becomes available
   useEffect(() => {
     if (practiceId && !isPracticeLoading) {
-      fetchDashboardData();
+      // If using optimized bundle and data is ready, use it immediately
+      if (USE_OPTIMIZED_BUNDLE && bundleData) {
+        fetchDashboardData();
+      } else if (!USE_OPTIMIZED_BUNDLE) {
+        // Use legacy fetching if optimization is disabled
+        fetchDashboardData();
+      }
     }
-  }, [practiceId, isPracticeLoading]);
+  }, [practiceId, isPracticeLoading, bundleData]); // Added bundleData as dependency
 
 
 

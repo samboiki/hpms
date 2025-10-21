@@ -49,7 +49,7 @@ const Layout: React.FC = () => {
           isMobile={false}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
-          onOpenPatients={() => setIsPatientModalOpen(true)}
+          onOpenPatients={() => {}}
         />
       </div>
       
@@ -70,7 +70,7 @@ const Layout: React.FC = () => {
             onMobileClose={() => setIsMobileSidebarOpen(false)}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
-            onOpenPatients={() => setIsPatientModalOpen(true)}
+            onOpenPatients={() => {}}
           />
         </>
       )}

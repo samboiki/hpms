@@ -18,6 +18,7 @@ interface DepartmentGeneralTabProps {
   onSaveClick: () => void;
   onEditFormDataChange: (data: any) => void;
   onHeadUserChange: (user: any) => void;
+  loading?: boolean;
 }
 
 const DepartmentGeneralTab: React.FC<DepartmentGeneralTabProps> = ({
@@ -32,6 +33,7 @@ const DepartmentGeneralTab: React.FC<DepartmentGeneralTabProps> = ({
   onSaveClick,
   onEditFormDataChange,
   onHeadUserChange,
+  loading = false,
 }) => {
   return (
     <div className="p-6 space-y-6">
@@ -59,10 +61,15 @@ const DepartmentGeneralTab: React.FC<DepartmentGeneralTabProps> = ({
               </button>
               <button
                 onClick={onSaveClick}
-                className="px-4 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2 bg-purple-100 text-purple-600 hover:bg-purple-200"
+                disabled={loading}
+                className="px-4 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2 bg-purple-100 text-purple-600 hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Icon icon="solar:diskette-bold-duotone" className="w-4 h-4" />
-                Save Department
+                {loading ? (
+                  <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Icon icon="solar:diskette-bold-duotone" className="w-4 h-4" />
+                )}
+                {loading ? 'Saving...' : 'Save Department'}
               </button>
             </div>
           ) : (
@@ -79,8 +86,8 @@ const DepartmentGeneralTab: React.FC<DepartmentGeneralTabProps> = ({
 
       {/* Content Section - Shows based on isEditing */}
       {isEditing ? (
-        <div className="space-y-6">
-          {/* Department Information Section - White Background */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column - Department Information */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
             <div className="flex items-center mb-4">
               <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 shadow-md">
@@ -91,7 +98,7 @@ const DepartmentGeneralTab: React.FC<DepartmentGeneralTabProps> = ({
                 <p className="text-sm text-gray-600">Basic department details and configuration</p>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Department Name</label>
                 <PremiumInput
@@ -122,7 +129,7 @@ const DepartmentGeneralTab: React.FC<DepartmentGeneralTabProps> = ({
                   iconColor="text-indigo-500"
                 />
               </div>
-              <div className="md:col-span-2">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
                 <PremiumTextarea
                   value={editFormData?.description || ''}
@@ -171,7 +178,7 @@ const DepartmentGeneralTab: React.FC<DepartmentGeneralTabProps> = ({
                         title={color.name}
                       >
                         <div
-                          className={`h-12 rounded-lg bg-gradient-to-br ${color.gradient} transition-all duration-200 ${
+                          className={`relative h-12 rounded-lg bg-gradient-to-br ${color.gradient} transition-all duration-200 ${
                             editFormData?.color === color.value
                               ? 'ring-2 ring-offset-2 ring-purple-500 shadow-lg'
                               : 'hover:shadow-md'
@@ -179,7 +186,7 @@ const DepartmentGeneralTab: React.FC<DepartmentGeneralTabProps> = ({
                         >
                           {editFormData?.color === color.value && (
                             <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="bg-white rounded-full p-1">
+                              <div className="bg-white rounded-full p-1 shadow-md">
                                 <Icon icon="solar:check-circle-bold" className="w-4 h-4 text-purple-600" />
                               </div>
                             </div>
@@ -219,7 +226,7 @@ const DepartmentGeneralTab: React.FC<DepartmentGeneralTabProps> = ({
             </div>
           </div>
 
-          {/* Contact Information Section - White Background */}
+          {/* Right Column - Contact Information */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
             <div className="flex items-center mb-4">
               <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 shadow-md">
@@ -230,8 +237,8 @@ const DepartmentGeneralTab: React.FC<DepartmentGeneralTabProps> = ({
                 <p className="text-sm text-gray-600">Department head and contact details</p>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
+            <div className="space-y-4">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Department Head</label>
                 <PremiumSelect
                   value={editFormData?.head_user_id || ''}
@@ -239,8 +246,7 @@ const DepartmentGeneralTab: React.FC<DepartmentGeneralTabProps> = ({
                     const selectedStaff = practiceStaff.find(s => s.id === e.target.value);
                     onEditFormDataChange({
                       ...editFormData,
-                      head_user_id: e.target.value,
-                      head_of_department: selectedStaff?.full_name
+                      head_user_id: e.target.value
                     });
                     onHeadUserChange(selectedStaff || null);
                   }}
@@ -306,8 +312,8 @@ const DepartmentGeneralTab: React.FC<DepartmentGeneralTabProps> = ({
           </div>
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* Department Information Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column - Department Information View Mode */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
             <div className="flex items-center mb-4">
               <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 shadow-md">
@@ -318,89 +324,87 @@ const DepartmentGeneralTab: React.FC<DepartmentGeneralTabProps> = ({
                 <p className="text-sm text-gray-600">Basic department details and configuration</p>
               </div>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  {/* Department Name with Color */}
-                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="p-2 rounded-lg"
-                        style={{
-                          background: `linear-gradient(135deg, ${selectedDepartment?.color || '#30b4be'}20, ${selectedDepartment?.color || '#2a9da6'}20)`
-                        }}
-                      >
-                        <Icon
-                          icon="solar:hospital-bold-duotone"
-                          className="w-4 h-4"
-                          style={{ color: selectedDepartment?.color || '#30b4be' }}
+            <div className="space-y-4">
+              {/* Department Name with Color */}
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="p-2 rounded-lg"
+                    style={{
+                      background: `linear-gradient(135deg, ${selectedDepartment?.color || '#30b4be'}20, ${selectedDepartment?.color || '#2a9da6'}20)`
+                    }}
+                  >
+                    <Icon
+                      icon="solar:hospital-bold-duotone"
+                      className="w-4 h-4"
+                      style={{ color: selectedDepartment?.color || '#30b4be' }}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-sm font-semibold text-gray-900">Department Name</span>
+                    <p className="text-xs text-gray-600">{selectedDepartment?.name || selectedDepartment?.department_name}</p>
+                    {selectedDepartment?.color && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <div
+                          className="w-5 h-5 rounded-md border-2 border-gray-200 shadow-sm"
+                          style={{ backgroundColor: selectedDepartment.color }}
                         />
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-sm font-semibold text-gray-900">Department Name</span>
-                        <p className="text-xs text-gray-600">{selectedDepartment?.name || selectedDepartment?.department_name}</p>
-                        {selectedDepartment?.color && (
-                          <div className="flex items-center gap-2 mt-1">
-                            <div
-                              className="w-5 h-5 rounded-md border-2 border-gray-200 shadow-sm"
-                              style={{ backgroundColor: selectedDepartment.color }}
-                            />
-                            <span className="text-xs font-medium text-gray-600">
-                              {departmentColors.find(c => c.value === selectedDepartment.color)?.name || selectedDepartment.color}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Department Code */}
-                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
-                        <Icon icon="solar:code-bold-duotone" className="w-4 h-4" style={{ color: '#30b4be' }} />
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-sm font-semibold text-gray-900">Department Code</span>
-                        <p className="text-xs text-gray-600">{selectedDepartment?.code || selectedDepartment?.department_code || 'Not set'}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Additional Options */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
-                          <Icon icon="solar:document-text-bold-duotone" className="w-4 h-4" style={{ color: '#30b4be' }} />
-                        </div>
-                        <span className="text-sm font-semibold text-gray-900">Description</span>
-                      </div>
-                      <p className="text-xs text-gray-600">{selectedDepartment?.description || 'No description'}</p>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
-                          <Icon icon="solar:shield-check-bold-duotone" className="w-4 h-4" style={{ color: '#30b4be' }} />
-                        </div>
-                        <span className="text-sm font-semibold text-gray-900">Status</span>
-                      </div>
-                      <p className="text-xs text-gray-600">
-                        <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
-                          selectedDepartment?.is_active
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}>
-                          {selectedDepartment?.is_active ? 'Active' : 'Inactive'}
+                        <span className="text-xs font-medium text-gray-600">
+                          {departmentColors.find(c => c.value === selectedDepartment.color)?.name || selectedDepartment.color}
                         </span>
-                      </p>
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
+              </div>
+
+              {/* Department Code */}
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
+                    <Icon icon="solar:code-bold-duotone" className="w-4 h-4" style={{ color: '#30b4be' }} />
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-sm font-semibold text-gray-900">Department Code</span>
+                    <p className="text-xs text-gray-600">{selectedDepartment?.code || selectedDepartment?.department_code || 'Not set'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Description and Status */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
+                      <Icon icon="solar:document-text-bold-duotone" className="w-4 h-4" style={{ color: '#30b4be' }} />
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900">Description</span>
+                  </div>
+                  <p className="text-xs text-gray-600">{selectedDepartment?.description || 'No description'}</p>
+                </div>
+
+                <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
+                      <Icon icon="solar:shield-check-bold-duotone" className="w-4 h-4" style={{ color: '#30b4be' }} />
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900">Status</span>
+                  </div>
+                  <p className="text-xs text-gray-600">
+                    <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                      selectedDepartment?.is_active
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {selectedDepartment?.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Contact Information Section */}
+          {/* Right Column - Contact Information View Mode */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
             <div className="flex items-center mb-4">
               <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 shadow-md">
@@ -411,79 +415,77 @@ const DepartmentGeneralTab: React.FC<DepartmentGeneralTabProps> = ({
                 <p className="text-sm text-gray-600">Department head and contact details</p>
               </div>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  {/* Head of Department */}
-                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      {selectedDepartment?.head_user_id ? (
-                        <>
-                          {(() => {
-                            const headUser = practiceStaff.find(s => s.id === selectedDepartment.head_user_id);
-                            return headUser?.avatar ? (
-                              <img
-                                src={headUser.avatar}
-                                alt={headUser.full_name}
-                                className="w-10 h-10 rounded-full object-cover border-2 border-purple-200"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center">
-                                <Icon icon="solar:user-bold-duotone" className="w-6 h-6 text-white" />
-                              </div>
-                            );
-                          })()}
-                          <div className="flex-1">
-                            <span className="text-sm font-semibold text-gray-900">Head of Department</span>
-                            <p className="text-xs text-gray-600">
-                              {practiceStaff.find(s => s.id === selectedDepartment.head_user_id)?.full_name || 'Not assigned'}
-                            </p>
-                            {practiceStaff.find(s => s.id === selectedDepartment.head_user_id)?.job_title && (
-                              <p className="text-xs text-gray-500">
-                                {practiceStaff.find(s => s.id === selectedDepartment.head_user_id)?.job_title}
-                              </p>
-                            )}
+            <div className="space-y-4">
+              {/* Head of Department */}
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex items-center gap-3">
+                  {selectedDepartment?.head_user_id ? (
+                    <>
+                      {(() => {
+                        const headUser = practiceStaff.find(s => s.id === selectedDepartment.head_user_id);
+                        return headUser?.avatar ? (
+                          <img
+                            src={headUser.avatar}
+                            alt={headUser.full_name}
+                            className="w-10 h-10 rounded-full object-cover border-2 border-purple-200"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-indigo-500 flex items-center justify-center">
+                            <Icon icon="solar:user-bold-duotone" className="w-6 h-6 text-white" />
                           </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
-                            <Icon icon="solar:user-bold-duotone" className="w-4 h-4" style={{ color: '#30b4be' }} />
-                          </div>
-                          <div className="flex-1">
-                            <span className="text-sm font-semibold text-gray-900">Head of Department</span>
-                            <p className="text-xs text-gray-600">Not assigned</p>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Email */}
-                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center gap-3">
+                        );
+                      })()}
+                      <div className="flex-1">
+                        <span className="text-sm font-semibold text-gray-900">Head of Department</span>
+                        <p className="text-xs text-gray-600">
+                          {practiceStaff.find(s => s.id === selectedDepartment.head_user_id)?.full_name || 'Not assigned'}
+                        </p>
+                        {practiceStaff.find(s => s.id === selectedDepartment.head_user_id)?.job_title && (
+                          <p className="text-xs text-gray-500">
+                            {practiceStaff.find(s => s.id === selectedDepartment.head_user_id)?.job_title}
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
                       <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
-                        <Icon icon="solar:letter-bold-duotone" className="w-4 h-4" style={{ color: '#30b4be' }} />
+                        <Icon icon="solar:user-bold-duotone" className="w-4 h-4" style={{ color: '#30b4be' }} />
                       </div>
                       <div className="flex-1">
-                        <span className="text-sm font-semibold text-gray-900">Email</span>
-                        <p className="text-xs text-gray-600">{selectedDepartment?.contact_email || 'Not specified'}</p>
+                        <span className="text-sm font-semibold text-gray-900">Head of Department</span>
+                        <p className="text-xs text-gray-600">Not assigned</p>
                       </div>
-                    </div>
-                  </div>
+                    </>
+                  )}
+                </div>
+              </div>
 
-                  {/* Phone */}
-                  <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
-                        <Icon icon="solar:phone-bold-duotone" className="w-4 h-4" style={{ color: '#30b4be' }} />
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-sm font-semibold text-gray-900">Phone</span>
-                        <p className="text-xs text-gray-600">{selectedDepartment?.contact_phone || 'Not specified'}</p>
-                      </div>
-                    </div>
+              {/* Email */}
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
+                    <Icon icon="solar:letter-bold-duotone" className="w-4 h-4" style={{ color: '#30b4be' }} />
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-sm font-semibold text-gray-900">Email</span>
+                    <p className="text-xs text-gray-600">{selectedDepartment?.contact_email || 'Not specified'}</p>
                   </div>
                 </div>
+              </div>
+
+              {/* Phone */}
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
+                    <Icon icon="solar:phone-bold-duotone" className="w-4 h-4" style={{ color: '#30b4be' }} />
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-sm font-semibold text-gray-900">Phone</span>
+                    <p className="text-xs text-gray-600">{selectedDepartment?.contact_phone || 'Not specified'}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

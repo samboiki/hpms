@@ -15,6 +15,17 @@ interface ProfessionalSmsModalProps {
   onSend?: (recipients: any[], message: string) => Promise<{ success: boolean; successCount: number; failureCount: number }>;
   isSending?: boolean;
   recipients?: Array<{ id: string; first_name: string; last_name: string; cell_number?: string }>;
+  // Inpatient context
+  wardContext?: {
+    wardName?: string;
+    admissionNumber?: string;
+    visitingHours?: string;
+    dischargeTime?: string;
+    patientCondition?: string;
+    nextRoundTime?: string;
+    nextMedicationTime?: string;
+    surgeonMeetTime?: string;
+  };
 }
 
 interface SmsTemplate {
@@ -54,6 +65,56 @@ const smsTemplates: SmsTemplate[] = [
     icon: 'solar:gift-bold-duotone',
     color: 'yellow'
   },
+  // Ward/Inpatient specific templates
+  {
+    id: 'admission-notification',
+    name: 'Admission Notification',
+    content: 'Dear {{patientName}}, you have been admitted to {{wardName}} at {{practiceName}}. Your admission number is {{admissionNumber}}. Visiting hours are {{visitingHours}}. For inquiries, call {{practicePhone}}.',
+    icon: 'solar:hospital-bed-bold-duotone',
+    color: 'cyan'
+  },
+  {
+    id: 'discharge-ready',
+    name: 'Discharge Ready',
+    content: 'Hi {{patientName}}, good news! You are cleared for discharge from {{wardName}}. Please prepare your belongings. Our staff will assist you with the discharge process. Estimated time: {{dischargeTime}}.',
+    icon: 'solar:home-smile-bold-duotone',
+    color: 'green'
+  },
+  {
+    id: 'ward-round-update',
+    name: 'Ward Round Update',
+    content: 'Dear family of {{patientName}}, the doctor has completed today\'s ward round. Current condition: {{patientCondition}}. Next doctor visit scheduled for {{nextRoundTime}}. - {{practiceName}}',
+    icon: 'solar:stethoscope-bold-duotone',
+    color: 'purple'
+  },
+  {
+    id: 'visiting-hours',
+    name: 'Visiting Hours Reminder',
+    content: 'Reminder: Visiting hours for {{patientName}} in {{wardName}} are {{visitingHours}}. Please bring a valid ID. Maximum 2 visitors at a time. Thank you for your cooperation. - {{practiceName}}',
+    icon: 'solar:clock-circle-bold-duotone',
+    color: 'orange'
+  },
+  {
+    id: 'medication-schedule',
+    name: 'Medication Update',
+    content: 'Update for {{patientName}}: Medications have been administered as scheduled. Next dose at {{nextMedicationTime}}. Patient is responding well to treatment. - {{practiceName}} Nursing Team',
+    icon: 'solar:pills-bold-duotone',
+    color: 'teal'
+  },
+  {
+    id: 'critical-alert',
+    name: 'Critical Alert',
+    content: 'URGENT: {{patientName}} in {{wardName}} requires immediate family presence. Please contact the ward at {{practicePhone}} or come to the hospital immediately. - {{practiceName}}',
+    icon: 'solar:danger-triangle-bold-duotone',
+    color: 'red'
+  },
+  {
+    id: 'surgery-update',
+    name: 'Surgery Update',
+    content: 'Update: {{patientName}} has successfully completed surgery and is now in recovery. Moved to {{wardName}}. The surgeon will meet with family at {{surgeonMeetTime}}. - {{practiceName}}',
+    icon: 'solar:heart-pulse-bold-duotone',
+    color: 'indigo'
+  },
   {
     id: 'custom',
     name: 'Custom Message',
@@ -73,6 +134,15 @@ const availableVariables = [
   { key: '{{currentDate}}', description: 'Today\'s date' },
   { key: '{{currentTime}}', description: 'Current time' },
   { key: '{{birthdayOffer}}', description: 'Birthday discount' },
+  // Ward/Inpatient specific variables
+  { key: '{{wardName}}', description: 'Ward name' },
+  { key: '{{admissionNumber}}', description: 'Admission number' },
+  { key: '{{visitingHours}}', description: 'Visiting hours' },
+  { key: '{{dischargeTime}}', description: 'Discharge time' },
+  { key: '{{patientCondition}}', description: 'Patient condition' },
+  { key: '{{nextRoundTime}}', description: 'Next ward round' },
+  { key: '{{nextMedicationTime}}', description: 'Next medication' },
+  { key: '{{surgeonMeetTime}}', description: 'Surgeon meeting' },
 ];
 
 export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
@@ -83,7 +153,8 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
   patientPhone,
   onSend,
   isSending = false,
-  recipients = []
+  recipients = [],
+  wardContext
 }) => {
   const [phone, setPhone] = useState('');
   const [message, setMessage] = useState('');
@@ -120,7 +191,7 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
     const firstName = patient?.first_name || recipients[0]?.first_name || 'John';
     const lastName = patient?.last_name || recipients[0]?.last_name || 'Smith';
     const fullName = `${firstName} ${lastName}`;
-    
+
     const variables: Record<string, string> = {
       '{{patientName}}': fullName,
       '{{patientFirstName}}': firstName,
@@ -131,13 +202,22 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
       '{{currentDate}}': new Date().toLocaleDateString(),
       '{{currentTime}}': new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       '{{birthdayOffer}}': '15% off',
+      // Ward/Inpatient specific variables
+      '{{wardName}}': wardContext?.wardName || 'General Ward',
+      '{{admissionNumber}}': wardContext?.admissionNumber || 'ADM-001',
+      '{{visitingHours}}': wardContext?.visitingHours || '10:00 AM - 8:00 PM',
+      '{{dischargeTime}}': wardContext?.dischargeTime || '2:00 PM',
+      '{{patientCondition}}': wardContext?.patientCondition || 'Stable',
+      '{{nextRoundTime}}': wardContext?.nextRoundTime || '9:00 AM tomorrow',
+      '{{nextMedicationTime}}': wardContext?.nextMedicationTime || '6:00 PM',
+      '{{surgeonMeetTime}}': wardContext?.surgeonMeetTime || '3:00 PM',
     };
 
     let processedText = text;
     Object.entries(variables).forEach(([key, value]) => {
       processedText = processedText.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
     });
-    
+
     return processedText;
   };
 

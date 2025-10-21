@@ -2359,18 +2359,18 @@ OneHealth Medical Team`;
     <>
       {/* Floating Visit Tracker - Only render when modal is open */}
       {isOpen && createPortal(
-        <FloatingVisitTracker 
-          practiceId={practiceId || 'default-practice'} 
-          selectedDate={new Date()} 
-          zIndex={2147483648} 
+        <FloatingVisitTracker
+          practiceId={practiceId || 'default-practice'}
+          selectedDate={new Date()}
+          zIndex={2147483648}
         />,
         document.body
       )}
-      
+
       {!isOpen ? (
         console.log('🚫 [ComprehensivePatientModal] Modal backdrop not rendered - isOpen is false') || null
-      ) : (
-      <div 
+      ) : createPortal(
+      <div
         className={`fixed inset-0 z-[9999] ${
           modalState.modalState.isFullScreen 
             ? 'bg-black/20 p-0' 
@@ -3813,7 +3813,8 @@ OneHealth Medical Team`;
           </div>
         </motion.div>
 
-      </div>
+      </div>,
+      document.body
       )}
 
       {/* Sub-modals */}

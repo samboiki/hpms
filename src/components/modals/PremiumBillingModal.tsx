@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../stores/themeStore';
@@ -20,19 +20,34 @@ import {
   Wallet,
   PieChart,
   BarChart,
-  Activity
+  Activity,
+  TestTube,
+  ImageIcon,
+  Pill
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { Icon } from '@iconify/react';
+import { format, differenceInDays } from 'date-fns';
 
 interface BillingItem {
   id: string;
   date: string;
-  type: 'consultation' | 'procedure' | 'lab' | 'imaging' | 'medication';
+  type: 'consultation' | 'procedure' | 'lab' | 'imaging' | 'medication' | 'ward' | 'nursing' | 'meals' | 'equipment';
   description: string;
   amount: number;
   status: 'paid' | 'pending' | 'overdue';
   paymentMethod?: string;
   invoiceNumber?: string;
+  quantity?: number;
+  unitPrice?: number;
+}
+
+interface WardFeeDetails {
+  wardType: 'general' | 'private' | 'icu' | 'nicu' | 'maternity';
+  dailyRate: number;
+  admissionDate: Date;
+  dischargeDate?: Date;
+  totalDays: number;
+  totalWardFees: number;
 }
 
 interface PremiumBillingModalProps {
@@ -41,6 +56,9 @@ interface PremiumBillingModalProps {
   patientName?: string;
   totalSpent?: number;
   billingItems?: BillingItem[];
+  isInpatient?: boolean;
+  wardDetails?: WardFeeDetails;
+  admissionId?: string;
 }
 
 const PremiumBillingModal: React.FC<PremiumBillingModalProps> = ({
@@ -48,12 +66,28 @@ const PremiumBillingModal: React.FC<PremiumBillingModalProps> = ({
   onClose,
   patientName = 'Patient',
   totalSpent = 0,
-  billingItems = []
+  billingItems = [],
+  isInpatient = false,
+  wardDetails,
+  admissionId
 }) => {
   const { currentTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('summary');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [calculatedWardFees, setCalculatedWardFees] = useState<number>(0);
+
+  // Calculate ward fees if inpatient
+  useEffect(() => {
+    if (isInpatient && wardDetails) {
+      const days = wardDetails.dischargeDate
+        ? differenceInDays(wardDetails.dischargeDate, wardDetails.admissionDate) + 1
+        : differenceInDays(new Date(), wardDetails.admissionDate) + 1;
+
+      const fees = days * wardDetails.dailyRate;
+      setCalculatedWardFees(fees);
+    }
+  }, [isInpatient, wardDetails]);
 
   if (!isOpen) return null;
 
@@ -132,6 +166,10 @@ const PremiumBillingModal: React.FC<PremiumBillingModalProps> = ({
       case 'lab': return <TestTube className="w-4 h-4" />;
       case 'imaging': return <ImageIcon className="w-4 h-4" />;
       case 'medication': return <Pill className="w-4 h-4" />;
+      case 'ward': return <Icon icon="solar:hospital-bed-bold-duotone" className="w-4 h-4" />;
+      case 'nursing': return <Icon icon="solar:stethoscope-bold-duotone" className="w-4 h-4" />;
+      case 'meals': return <Icon icon="solar:dish-2-bold-duotone" className="w-4 h-4" />;
+      case 'equipment': return <Icon icon="solar:medical-kit-bold-duotone" className="w-4 h-4" />;
       default: return <Receipt className="w-4 h-4" />;
     }
   };
@@ -143,6 +181,10 @@ const PremiumBillingModal: React.FC<PremiumBillingModalProps> = ({
       case 'lab': return 'from-emerald-500 to-green-600';
       case 'imaging': return 'from-amber-500 to-orange-600';
       case 'medication': return 'from-red-500 to-rose-600';
+      case 'ward': return 'from-cyan-500 to-cyan-600';
+      case 'nursing': return 'from-pink-500 to-pink-600';
+      case 'meals': return 'from-yellow-500 to-amber-600';
+      case 'equipment': return 'from-indigo-500 to-purple-600';
       default: return 'from-gray-500 to-slate-600';
     }
   };
@@ -217,6 +259,129 @@ const PremiumBillingModal: React.FC<PremiumBillingModalProps> = ({
                 </div>
               </motion.div>
             </div>
+
+            {/* Ward Fees Breakdown for Inpatients */}
+            {isInpatient && wardDetails && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl p-6 border border-cyan-200"
+              >
+                <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                  <Icon icon="solar:hospital-bed-bold-duotone" className="w-5 h-5 text-cyan-600" />
+                  Ward Accommodation Fees
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Ward Details */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between py-2 border-b border-cyan-100">
+                      <span className="text-sm text-gray-600 flex items-center gap-2">
+                        <Icon icon="solar:bed-bold-duotone" className="w-4 h-4 text-cyan-500" />
+                        Ward Type
+                      </span>
+                      <span className="font-semibold text-gray-900 capitalize">
+                        {wardDetails.wardType === 'icu' ? 'ICU' :
+                         wardDetails.wardType === 'nicu' ? 'NICU' :
+                         wardDetails.wardType} Ward
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2 border-b border-cyan-100">
+                      <span className="text-sm text-gray-600 flex items-center gap-2">
+                        <Icon icon="solar:calendar-add-bold-duotone" className="w-4 h-4 text-cyan-500" />
+                        Admission Date
+                      </span>
+                      <span className="font-semibold text-gray-900">
+                        {format(wardDetails.admissionDate, 'dd MMM yyyy')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2 border-b border-cyan-100">
+                      <span className="text-sm text-gray-600 flex items-center gap-2">
+                        <Icon icon="solar:calendar-remove-bold-duotone" className="w-4 h-4 text-cyan-500" />
+                        Expected Discharge
+                      </span>
+                      <span className="font-semibold text-gray-900">
+                        {wardDetails.dischargeDate ?
+                          format(wardDetails.dischargeDate, 'dd MMM yyyy') :
+                          'Not yet scheduled'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between py-2">
+                      <span className="text-sm text-gray-600 flex items-center gap-2">
+                        <Icon icon="solar:clock-circle-bold-duotone" className="w-4 h-4 text-cyan-500" />
+                        Total Days
+                      </span>
+                      <span className="font-semibold text-gray-900">
+                        {wardDetails.dischargeDate ?
+                          differenceInDays(wardDetails.dischargeDate, wardDetails.admissionDate) + 1 :
+                          differenceInDays(new Date(), wardDetails.admissionDate) + 1} days
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Fee Calculation */}
+                  <div className="bg-white rounded-xl p-4 border border-cyan-200">
+                    <h5 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                      <Icon icon="solar:calculator-bold-duotone" className="w-4 h-4 text-cyan-600" />
+                      Fee Breakdown
+                    </h5>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-600">Daily Rate</span>
+                        <span className="font-medium text-gray-900">N$ {wardDetails.dailyRate.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-gray-600">Number of Days</span>
+                        <span className="font-medium text-gray-900">
+                          {wardDetails.dischargeDate ?
+                            differenceInDays(wardDetails.dischargeDate, wardDetails.admissionDate) + 1 :
+                            differenceInDays(new Date(), wardDetails.admissionDate) + 1}
+                        </span>
+                      </div>
+                      <div className="border-t border-gray-200 pt-2 mt-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-semibold text-gray-700">Total Ward Fees</span>
+                          <span className="text-xl font-bold text-cyan-600">
+                            N$ {calculatedWardFees.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    {!wardDetails.dischargeDate && (
+                      <div className="mt-3 p-2 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <p className="text-xs text-yellow-800 flex items-start gap-1">
+                          <Icon icon="solar:info-circle-bold-duotone" className="w-3 h-3 mt-0.5 text-yellow-600" />
+                          <span>Fees calculated up to today. Final amount will be determined at discharge.</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Additional Services */}
+                <div className="mt-4 p-4 bg-white/50 rounded-xl">
+                  <h5 className="text-sm font-semibold text-gray-700 mb-3">Included Services</h5>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <Icon icon="solar:stethoscope-bold-duotone" className="w-4 h-4 text-pink-500" />
+                      <span>Nursing Care</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <Icon icon="solar:dish-2-bold-duotone" className="w-4 h-4 text-yellow-500" />
+                      <span>Meals</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <Icon icon="solar:washing-machine-bold-duotone" className="w-4 h-4 text-blue-500" />
+                      <span>Laundry</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <Icon icon="solar:shield-check-bold-duotone" className="w-4 h-4 text-green-500" />
+                      <span>Room Service</span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
             {/* Payment Methods Breakdown */}
             <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl p-6 border border-gray-100">
@@ -479,6 +644,5 @@ const PremiumBillingModal: React.FC<PremiumBillingModalProps> = ({
 };
 
 // Add missing imports
-import { TestTube, ImageIcon, Pill } from 'lucide-react';
 
 export default PremiumBillingModal;

@@ -12,6 +12,7 @@ import VisitConfirmationModal from '../modals/VisitConfirmationModal';
 import RescheduleVisitModal from '../modals/RescheduleVisitModal';
 import VisitActionModal from '../modals/VisitActionModal';
 import EnhancedSmsModal from '../messages/EnhancedSmsModal';
+import ComprehensivePatientModal from '../patients/ComprehensivePatientModal';
 
 interface VisitGridViewProps {
   filterStatus?: 'all' | 'unconfirmed' | 'scheduled' | 'in-practice' | 'completed' | 'cancelled' | 'handed-off' | 'no-show' | 'booking-requests';
@@ -34,6 +35,8 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   const [selectedVisitForSMS, setSelectedVisitForSMS] = useState<Visit | null>(null);
   const [isSMSModalOpen, setIsSMSModalOpen] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
 
   useEffect(() => {
     fetchVisits();
@@ -735,6 +738,14 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
             setSelectedVisitForSMS(selectedVisitForAction);
             setIsSMSModalOpen(true);
           }}
+          onViewPatientProfile={() => {
+            if (selectedVisitForAction?.patient_id) {
+              setSelectedPatientId(selectedVisitForAction.patient_id);
+              setIsPatientModalOpen(true);
+              setIsActionModalOpen(false);
+              setSelectedVisitForAction(null);
+            }
+          }}
         />
       )}
 
@@ -749,6 +760,18 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
           patientId={selectedVisitForSMS.patient_id}
           patientName={`${selectedVisitForSMS.patient?.first_name || ''} ${selectedVisitForSMS.patient?.last_name || ''}`}
           patientPhone={selectedVisitForSMS.patient?.cell_number || ''}
+        />
+      )}
+
+      {/* Patient Profile Modal */}
+      {selectedPatientId && (
+        <ComprehensivePatientModal
+          isOpen={isPatientModalOpen}
+          onClose={() => {
+            setIsPatientModalOpen(false);
+            setSelectedPatientId(null);
+          }}
+          patientId={selectedPatientId}
         />
       )}
     </div>

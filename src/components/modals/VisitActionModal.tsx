@@ -20,6 +20,16 @@ interface VisitActionModalProps {
   onSendEmail?: () => void;
   onCall?: () => void;
   onViewDetails?: () => void;
+  onViewPatientProfile?: () => void;
+  onPrintPsemasForm?: () => void;
+  // Inpatient-specific actions
+  isInpatient?: boolean;
+  onRecordVitals?: () => void;
+  onNursingNotes?: () => void;
+  onWardRound?: () => void;
+  onRequestAuthorization?: () => void;
+  onDischargePlanning?: () => void;
+  onMedicationAdmin?: () => void;
 }
 
 const VisitActionModal: React.FC<VisitActionModalProps> = ({
@@ -39,7 +49,17 @@ const VisitActionModal: React.FC<VisitActionModalProps> = ({
   onSendSMS,
   onSendEmail,
   onCall,
-  onViewDetails
+  onViewDetails,
+  onViewPatientProfile,
+  onPrintPsemasForm,
+  // Inpatient-specific props
+  isInpatient = false,
+  onRecordVitals,
+  onNursingNotes,
+  onWardRound,
+  onRequestAuthorization,
+  onDischargePlanning,
+  onMedicationAdmin
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
@@ -81,6 +101,73 @@ const VisitActionModal: React.FC<VisitActionModalProps> = ({
         iconColor: 'text-blue-600',
         primary: true
       });
+    }
+
+    // Inpatient-specific actions
+    if (isInpatient) {
+      // Clinical actions
+      if (onRecordVitals) {
+        actions.push({
+          label: 'Record Vitals',
+          icon: <Icon icon="solar:heart-pulse-bold-duotone" className="w-5 h-5" />,
+          onClick: onRecordVitals,
+          color: 'text-red-600 hover:bg-red-50',
+          iconColor: 'text-red-600',
+          divider: true
+        });
+      }
+
+      if (onNursingNotes) {
+        actions.push({
+          label: 'Nursing Notes',
+          icon: <Icon icon="solar:clipboard-text-bold-duotone" className="w-5 h-5" />,
+          onClick: onNursingNotes,
+          color: 'text-pink-600 hover:bg-pink-50',
+          iconColor: 'text-pink-600'
+        });
+      }
+
+      if (onWardRound) {
+        actions.push({
+          label: 'Ward Round',
+          icon: <Icon icon="solar:stethoscope-bold-duotone" className="w-5 h-5" />,
+          onClick: onWardRound,
+          color: 'text-purple-600 hover:bg-purple-50',
+          iconColor: 'text-purple-600'
+        });
+      }
+
+      if (onMedicationAdmin) {
+        actions.push({
+          label: 'Administer Medication',
+          icon: <Icon icon="solar:pills-bold-duotone" className="w-5 h-5" />,
+          onClick: onMedicationAdmin,
+          color: 'text-teal-600 hover:bg-teal-50',
+          iconColor: 'text-teal-600'
+        });
+      }
+
+      // Administrative actions
+      if (onRequestAuthorization) {
+        actions.push({
+          label: 'Request Authorization',
+          icon: <Icon icon="solar:shield-check-bold-duotone" className="w-5 h-5" />,
+          onClick: onRequestAuthorization,
+          color: 'text-amber-600 hover:bg-amber-50',
+          iconColor: 'text-amber-600',
+          divider: true
+        });
+      }
+
+      if (onDischargePlanning) {
+        actions.push({
+          label: 'Discharge Planning',
+          icon: <Icon icon="solar:home-smile-bold-duotone" className="w-5 h-5" />,
+          onClick: onDischargePlanning,
+          color: 'text-green-600 hover:bg-green-50',
+          iconColor: 'text-green-600'
+        });
+      }
     }
 
     // Status-specific actions
@@ -187,6 +274,35 @@ const VisitActionModal: React.FC<VisitActionModalProps> = ({
       divider: true
     });
 
+    // View patient profile action
+    actions.push({
+      label: 'View Patient Profile',
+      icon: <Icon icon="solar:user-id-bold-duotone" className="w-5 h-5" />,
+      onClick: onViewPatientProfile,
+      color: 'text-indigo-600 hover:bg-indigo-50',
+      iconColor: 'text-indigo-600',
+      divider: true
+    });
+
+    // Print PSEMAS Form action - only for completed visits with PSEMAS medical aid
+    // PSEMAS medical_aid_provider_id: 2d172f06-a899-48f9-88d0-1d10792fdea4
+    if (visitStatus === 'completed' && onPrintPsemasForm && visit?.patient?.medical_aid_details) {
+      const isPsemasPatient = visit.patient.medical_aid_details.some(
+        (aid: any) => aid.medical_aid_provider_id === '2d172f06-a899-48f9-88d0-1d10792fdea4'
+      );
+
+      if (isPsemasPatient) {
+        actions.push({
+          label: 'Print PSEMAS Form',
+          icon: <Icon icon="solar:printer-bold-duotone" className="w-5 h-5" />,
+          onClick: onPrintPsemasForm,
+          color: 'text-emerald-600 hover:bg-emerald-50',
+          iconColor: 'text-emerald-600',
+          primary: true
+        });
+      }
+    }
+
     return actions;
   };
 
@@ -292,13 +408,103 @@ const VisitActionModal: React.FC<VisitActionModalProps> = ({
                 return null;
               })}
 
+              {/* Inpatient Clinical Actions - Full width cards if in inpatient mode */}
+              {isInpatient && (
+                <div className="space-y-3 mb-4">
+                  <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Icon icon="solar:health-bold-duotone" className="w-4 h-4 text-cyan-600" />
+                    Clinical Actions
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {actions.filter(action =>
+                      ['Record Vitals', 'Nursing Notes', 'Ward Round', 'Administer Medication'].includes(action.label)
+                    ).map((action, index) => (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          if (action.onClick) {
+                            action.onClick();
+                            onClose();
+                          }
+                        }}
+                        className="group relative overflow-hidden rounded-xl transition-all duration-200 transform hover:scale-[1.02] border border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50"
+                        disabled={!action.onClick}
+                      >
+                        <div className="relative z-10 flex items-center gap-3 p-4">
+                          <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${
+                            action.label === 'Record Vitals' ? 'bg-red-100' :
+                            action.label === 'Nursing Notes' ? 'bg-pink-100' :
+                            action.label === 'Ward Round' ? 'bg-purple-100' :
+                            action.label === 'Administer Medication' ? 'bg-teal-100' :
+                            'bg-gray-100'
+                          }`}>
+                            <div className={action.iconColor}>
+                              {React.cloneElement(action.icon, { className: 'w-5 h-5' })}
+                            </div>
+                          </div>
+                          <div className="flex-1 text-left">
+                            <span className="block font-medium text-gray-800 text-sm">{action.label}</span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  {actions.filter(action =>
+                    ['Request Authorization', 'Discharge Planning'].includes(action.label)
+                  ).length > 0 && (
+                    <>
+                      <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mt-4">
+                        <Icon icon="solar:clipboard-list-bold-duotone" className="w-4 h-4 text-amber-600" />
+                        Administrative Actions
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        {actions.filter(action =>
+                          ['Request Authorization', 'Discharge Planning'].includes(action.label)
+                        ).map((action, index) => (
+                          <button
+                            key={index}
+                            onClick={() => {
+                              if (action.onClick) {
+                                action.onClick();
+                                onClose();
+                              }
+                            }}
+                            className="group relative overflow-hidden rounded-xl transition-all duration-200 transform hover:scale-[1.02] border border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50"
+                            disabled={!action.onClick}
+                          >
+                            <div className="relative z-10 flex items-center gap-3 p-4">
+                              <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${
+                                action.label === 'Request Authorization' ? 'bg-amber-100' :
+                                action.label === 'Discharge Planning' ? 'bg-green-100' :
+                                'bg-gray-100'
+                              }`}>
+                                <div className={action.iconColor}>
+                                  {React.cloneElement(action.icon, { className: 'w-5 h-5' })}
+                                </div>
+                              </div>
+                              <div className="flex-1 text-left">
+                                <span className="block font-medium text-gray-800 text-sm">{action.label}</span>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* Secondary Actions - Responsive Grid */}
               {(() => {
-                const secondaryActions = actions.filter(action => 
-                  action.label !== 'Handoff to Nurse' && 
-                  action.label !== 'Send SMS' && 
+                const secondaryActions = actions.filter(action =>
+                  action.label !== 'Handoff to Nurse' &&
+                  action.label !== 'Send SMS' &&
                   action.label !== 'View Details' &&
+                  action.label !== 'View Patient Profile' &&
                   action.label !== 'Mark No Show' && // Exclude Mark No Show from grid
+                  // Exclude inpatient actions from regular grid
+                  !['Record Vitals', 'Nursing Notes', 'Ward Round', 'Administer Medication',
+                    'Request Authorization', 'Discharge Planning'].includes(action.label) &&
                   !(
                     (visitStatus === 'scheduled' && isCheckedIn && action.label === 'Start Visit') ||
                     (visitStatus === 'scheduled' && !isCheckedIn && action.label === 'Check In') ||
@@ -392,13 +598,17 @@ const VisitActionModal: React.FC<VisitActionModalProps> = ({
 
               {/* Bottom Actions */}
               <div className="space-y-3 border-t border-gray-200 pt-6">
-                {actions.filter(action => action.label === 'Send SMS' || action.label === 'View Details').map((action, index) => (
+                {actions.filter(action => action.label === 'Send SMS' || action.label === 'View Details' || action.label === 'View Patient Profile' || action.label === 'Print PSEMAS Form').map((action, index) => (
                   <button
                     key={index}
                     onClick={() => {
+                      console.log('[VisitActionModal] Button clicked:', action.label);
                       if (action.onClick) {
+                        console.log('[VisitActionModal] Calling action onClick for:', action.label);
                         action.onClick();
                         onClose();
+                      } else {
+                        console.warn('[VisitActionModal] No onClick handler for:', action.label);
                       }
                     }}
                     className="w-full group relative overflow-hidden rounded-2xl transition-all duration-300 transform hover:scale-[1.01] hover:shadow-md"
@@ -409,10 +619,14 @@ const VisitActionModal: React.FC<VisitActionModalProps> = ({
                       ? 'bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600'
                       : action.label === 'View Details'
                       ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700'
+                      : action.label === 'View Patient Profile'
+                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700'
+                      : action.label === 'Print PSEMAS Form'
+                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700'
                       : 'bg-white hover:bg-gray-50 border border-gray-200'
                     }`}>
                       <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${
-                        action.label === 'Send SMS' || action.label === 'View Details'
+                        action.label === 'Send SMS' || action.label === 'View Details' || action.label === 'View Patient Profile' || action.label === 'Print PSEMAS Form'
                         ? 'bg-white/20 text-white'
                         : 'bg-gray-100 text-gray-600'
                       }`}>
@@ -420,17 +634,19 @@ const VisitActionModal: React.FC<VisitActionModalProps> = ({
                       </div>
                       <div className="flex-1 text-left">
                         <span className={`block font-medium text-sm ${
-                          action.label === 'Send SMS' || action.label === 'View Details'
+                          action.label === 'Send SMS' || action.label === 'View Details' || action.label === 'View Patient Profile' || action.label === 'Print PSEMAS Form'
                           ? 'text-white'
                           : 'text-gray-700'
                         }`}>{action.label}</span>
                         <span className={`block text-xs mt-0.5 ${
-                          action.label === 'Send SMS' || action.label === 'View Details'
+                          action.label === 'Send SMS' || action.label === 'View Details' || action.label === 'View Patient Profile' || action.label === 'Print PSEMAS Form'
                           ? 'text-white/80'
                           : 'text-gray-500'
                         }`}>
                           {action.label === 'Send SMS' && 'Send a text message to the patient'}
                           {action.label === 'View Details' && 'See complete visit information'}
+                          {action.label === 'View Patient Profile' && 'View comprehensive patient profile'}
+                          {action.label === 'Print PSEMAS Form' && 'Generate PSEMAS medical aid form for this visit'}
                         </span>
                       </div>
                     </div>

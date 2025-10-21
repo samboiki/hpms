@@ -96,12 +96,20 @@ const Sidebar: React.FC<SidebarProps> = ({
       bgGradient: 'bg-gradient-to-br from-amber-500 to-orange-600',
       iconColor: 'text-white'
     },
-    { 
-      icon: 'solar:wallet-money-bold-duotone', 
-      label: 'Finance', 
-      path: '/finance', 
-      isRoute: true, 
+    {
+      icon: 'solar:wallet-money-bold-duotone',
+      label: 'Finance',
+      path: '/finance',
+      isRoute: true,
       bgGradient: 'bg-gradient-to-r from-cyan-500 to-cyan-600',
+      iconColor: 'text-white'
+    },
+    {
+      icon: 'solar:hospital-bold-duotone',
+      label: 'Inpatient',
+      path: '/inpatient',
+      isRoute: true,
+      bgGradient: 'bg-gradient-to-br from-[#01b9d4] to-[#0197d4]',
       iconColor: 'text-white'
     },
   ];

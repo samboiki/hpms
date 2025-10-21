@@ -29,40 +29,28 @@ import { PracticeTariffsProvider } from './contexts/PracticeTariffsContext';
 import { PracticeProvider } from './contexts/PracticeContext';
 import ThemeProvider from './components/providers/ThemeProvider';
 import EmergencySchemaExporter from './emergency-schema-exporter';
-import { automationProcessingService } from './services/automationProcessingService';
+// import { automationProcessingService } from './services/automationProcessingService';
 import UniversalCallback from './pages/oauth/UniversalCallback';
 import TestCursor from './pages/TestCursor';
+
+// Inpatient Module Pages
+import InpatientDashboard from './pages/inpatient/InpatientDashboard';
+import InpatientCenter from './components/inpatient/InpatientCenter';
+import InpatientCenterEnhanced from './components/inpatient/InpatientCenterEnhanced';
+import AdmissionsManagement from './pages/inpatient/AdmissionsManagement';
+import NewAdmission from './pages/inpatient/NewAdmission';
+import WardManagement from './pages/inpatient/WardManagement';
+import BedManagement from './pages/inpatient/BedManagement';
 
 function App() {
   const { isAuthenticated, login } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        login(session.user.email!, '');
-        
-        // Start automatic automation processing when user is authenticated
-        // Don't await to prevent blocking
-        automationProcessingService.start().catch(error => {
-          console.error('Failed to start automation service:', error);
-        });
-      } else {
-        // Stop processing when user logs out
-        automationProcessingService.stop();
-      }
-      setIsLoading(false);
-    });
-
-    // Check initial session
+    // Check initial session ONCE on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         login(session.user.email!, '');
-        // Don't await to prevent blocking
-        automationProcessingService.start().catch(error => {
-          console.error('Failed to start automation service:', error);
-        });
       }
       setIsLoading(false);
     }).catch(error => {
@@ -70,12 +58,9 @@ function App() {
       setIsLoading(false);
     });
 
-    // Cleanup subscription
-    return () => {
-      subscription.unsubscribe();
-      automationProcessingService.stop();
-    };
-  }, [login]);
+    // REMOVED auth state listener - it was causing infinite loop
+    // by calling login() which updates state which triggers listener again
+  }, []);
 
   if (isLoading) {
     return (
@@ -138,6 +123,16 @@ function App() {
               <Route path="admin/tariffs" element={<TariffManagement />} />
               <Route path="admin/blueprint" element={<SystemBlueprint />} />
               <Route path="settings" element={<Settings />} />
+              {/* Inpatient Module Routes */}
+              <Route path="inpatient">
+                <Route index element={<InpatientCenterEnhanced />} />
+                <Route path="basic" element={<InpatientCenter />} />
+                <Route path="dashboard" element={<InpatientDashboard />} />
+                <Route path="admissions" element={<AdmissionsManagement />} />
+                <Route path="admissions/new" element={<NewAdmission />} />
+                <Route path="wards" element={<WardManagement />} />
+                <Route path="beds" element={<BedManagement />} />
+              </Route>
               <Route path="emergency-export" element={<EmergencySchemaExporter />} />
               <Route path="*" element={<NotFound />} />
             </Route>

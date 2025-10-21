@@ -449,8 +449,8 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           {safeVisits.filter(v => v?.is_ready && !v?.is_cancelled && v?.status !== 'in-progress').map((visit, index) => (
                             <div
                               key={visit.id}
-                              className={`relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-emerald-200 ${
-                                disablePatientModal ? '' : 'cursor-pointer hover:bg-white'
+                              className={`relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border-2 border-dashed border-emerald-200 ${
+                                disablePatientModal ? '' : 'cursor-pointer hover:bg-white hover:border-emerald-300'
                               }`}
                               onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id, true)}
                             >
@@ -494,8 +494,8 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                           {safeVisits.filter(v => v?.status === 'in-progress' && !v?.is_cancelled && !v?.is_handoff).map((visit, index) => (
                             <div
                               key={visit.id}
-                              className={`relative flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:pl-12 bg-white/80 backdrop-blur rounded-lg border border-orange-100 ${
-                                disablePatientModal ? '' : 'cursor-pointer hover:bg-white'
+                              className={`relative flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:pl-12 bg-white/80 backdrop-blur rounded-lg border-2 border-dashed border-orange-100 ${
+                                disablePatientModal ? '' : 'cursor-pointer hover:bg-white hover:border-orange-200'
                               }`}
                               onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id, true)}
                             >
@@ -662,8 +662,8 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                   return (
                                   <div
                                     key={visit.id}
-                                    className={`relative bg-white/80 backdrop-blur-xl rounded-xl border border-white/50 shadow-lg group overflow-hidden ${
-                                      disablePatientModal ? '' : 'hover:shadow-xl hover:bg-white/90 hover:scale-[1.02] cursor-pointer transition-all duration-200'
+                                    className={`relative bg-white/80 backdrop-blur-xl rounded-xl border-2 border-dashed border-gray-300 shadow-lg group overflow-hidden ${
+                                      disablePatientModal ? '' : 'hover:shadow-xl hover:bg-white/90 hover:scale-[1.02] hover:border-gray-400 cursor-pointer transition-all duration-200'
                                     }`}
                                     onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id, true)}
                                   >
@@ -842,13 +842,6 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
     )}
 
       {/* Patient Modal */}
-      {console.log('🏥 [FloatingVisitTracker] Modal render check:', {
-        disablePatientModal,
-        selectedPatientId,
-        isPatientModalOpen,
-        defaultDetailTab,
-        shouldRenderModal: !disablePatientModal && selectedPatientId
-      })}
       {!disablePatientModal && selectedPatientId && (
         <ComprehensivePatientModal
           isOpen={isPatientModalOpen}
@@ -895,4 +888,5 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
   );
 };
 
-export default FloatingVisitTracker;
+// Memoize component to prevent unnecessary re-renders
+export default React.memo(FloatingVisitTracker);

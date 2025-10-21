@@ -26,6 +26,10 @@ import { useTheme } from '../stores/themeStore';
 import { Card, CardContent } from '../components/ui/Card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { toast } from 'react-hot-toast';
+import { useFinanceBundle, useInvalidateFinance } from '../hooks/useFinanceBundle';
+
+// Feature flag for optimized data fetching
+const USE_OPTIMIZED_BUNDLE = true;
 
 interface BatchData {
   batch_id: string;
@@ -125,7 +129,16 @@ const lightenColor = (hex: string, percent: number) => {
 const Finance: React.FC = () => {
   const { currentTheme } = useTheme();
   const { user, selectedPracticeId } = useAuthStore();
-  
+
+  // Use optimized bundle for all finance data
+  const {
+    data: bundleData,
+    isLoading: bundleLoading,
+    error: bundleError,
+    refetch: refetchBundle
+  } = useFinanceBundle();
+  const invalidateFinance = useInvalidateFinance();
+
   // Inject heartbeat animation styles
   React.useEffect(() => {
     const styleId = 'heartbeat-animation-styles';
@@ -135,7 +148,7 @@ const Finance: React.FC = () => {
       style.textContent = heartbeatStyles;
       document.head.appendChild(style);
     }
-    
+
     return () => {
       const existingStyle = document.getElementById(styleId);
       if (existingStyle) {
@@ -168,54 +181,75 @@ const Finance: React.FC = () => {
     try {
       const now = new Date();
       const monthStart = startOfMonth(now);
-      
+
       // Calculate date ranges based on selection
-      const monthsBack = dateRange === '30d' ? 1 : 
-                        dateRange === '3m' ? 3 : 
+      const monthsBack = dateRange === '30d' ? 1 :
+                        dateRange === '3m' ? 3 :
                         dateRange === '6m' ? 6 : 12;
-      
+
       const periodStart = subMonths(now, monthsBack);
 
-      // Single optimized query for invoices data
-      const { data: invoicesData, error: invoicesError } = await supabase
-        .from('invoices_enhanced')
-        .select(`
-          id,
-          total,
-          medical_aid_total,
-          patient_total,
-          payment_status,
-          issue_date,
-          due_date,
-          practitioner_id,
-          patient_id
-        `)
-        .gte('issue_date', periodStart.toISOString().split('T')[0])
-        .order('issue_date', { ascending: false });
+      let invoices = [];
+      let services = [];
+      let batches = [];
 
-      // Single query for services data
-      const { data: servicesData, error: servicesError } = await supabase
-        .from('invoice_services')
-        .select(`
-          description,
-          total_price,
-          quantity,
-          invoice_id
-        `);
+      // Use bundled data if available and feature flag is enabled
+      if (USE_OPTIMIZED_BUNDLE && bundleData) {
+        console.log('⚡ Using optimized bundle data for financial KPIs');
 
-      // Single query for batch data (claims in progress)
-      const { data: batchData, error: batchError } = await supabase
-        .from('batch_headers')
-        .select('total_amount, status')
-        .eq('status', 'sent');
+        // Filter invoices based on date range
+        invoices = (bundleData.invoices || []).filter(inv =>
+          new Date(inv.issue_date) >= periodStart
+        );
 
-      if (invoicesError) throw invoicesError;
-      if (servicesError) throw servicesError;
-      if (batchError) throw batchError;
+        // For services and batches, use all data from bundle
+        // since they might be needed for various calculations
+        services = bundleData.invoices?.flatMap(inv => inv.services || []) || [];
+        batches = [];  // TODO: Add batch data to bundle if needed
 
-      const invoices = invoicesData || [];
-      const services = servicesData || [];
-      const batches = batchData || [];
+      } else if (!USE_OPTIMIZED_BUNDLE) {
+        // Fallback to direct Supabase calls if feature flag is disabled
+        // Single optimized query for invoices data
+        const { data: invoicesData, error: invoicesError } = await supabase
+          .from('invoices_enhanced')
+          .select(`
+            id,
+            total,
+            medical_aid_total,
+            patient_total,
+            payment_status,
+            issue_date,
+            due_date,
+            practitioner_id,
+            patient_id
+          `)
+          .gte('issue_date', periodStart.toISOString().split('T')[0])
+          .order('issue_date', { ascending: false });
+
+        // Single query for services data
+        const { data: servicesData, error: servicesError } = await supabase
+          .from('invoice_services')
+          .select(`
+            description,
+            total_price,
+            quantity,
+            invoice_id
+          `);
+
+        // Single query for batch data (claims in progress)
+        const { data: batchData, error: batchError } = await supabase
+          .from('batch_headers')
+          .select('total_amount, status')
+          .eq('status', 'sent');
+
+        if (invoicesError) throw invoicesError;
+        if (servicesError) throw servicesError;
+        if (batchError) throw batchError;
+
+        invoices = invoicesData || [];
+        services = servicesData || [];
+        batches = batchData || [];
+      }
 
       // Calculate KPIs efficiently
       const totalBilledMTD = invoices
@@ -386,7 +420,7 @@ const Finance: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, bundleData]);
 
   // Fetch batch management data
   const fetchBatchData = useCallback(async () => {
@@ -945,16 +979,21 @@ const Finance: React.FC = () => {
     console.log('🚀 Finance page loaded - activeTab:', activeTab);
     console.log('🏥 selectedPracticeId:', selectedPracticeId);
     console.log('👤 user:', user);
-    
-    // Always fetch financial KPIs
-    fetchFinancialKPIs();
-    
+
+    // Only fetch financial KPIs if not using bundle or if bundle is not available
+    if (!USE_OPTIMIZED_BUNDLE || !bundleData) {
+      fetchFinancialKPIs();
+    } else if (USE_OPTIMIZED_BUNDLE && bundleData) {
+      // Process bundled data for KPIs
+      fetchFinancialKPIs();
+    }
+
     // Only fetch batch data when on batch-management tab
     if (activeTab === 'batch-management') {
       console.log('📊 Batch management tab active - triggering fetch');
       fetchBatchData();
     }
-  }, [activeTab]); // Removed fetchFinancialKPIs and fetchBatchData from dependencies
+  }, [activeTab, bundleData]); // Added bundleData to dependencies
 
   // Refetch data when filter changes (only for batch-management tab)
   useEffect(() => {

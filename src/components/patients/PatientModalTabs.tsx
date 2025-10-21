@@ -19,18 +19,20 @@ import {
   X,
   MessageCircle,
   Mail,
-  Edit
+  Edit,
+  Bed
 } from 'lucide-react';
 import { Icon } from '@iconify/react';
 
 interface Tab {
   id: string;
   label: string;
-  icon: React.ElementType;
+  icon: React.ElementType | string;
   count?: number;
   hasNew?: boolean;
   loading?: boolean;
   tooltip?: string;
+  isSolarIcon?: boolean;
 }
 
 interface PatientModalTabsProps {
@@ -46,6 +48,8 @@ interface PatientModalTabsProps {
   billingData?: any[];
   loadingTabs?: string[];
   newDataTabs?: string[];
+  isPatientAdmitted?: boolean;
+  admissionData?: any;
 }
 
 const listTabs: Tab[] = [
@@ -112,9 +116,9 @@ const detailTabs: Tab[] = [
   }
 ];
 
-const PatientModalTabs: React.FC<PatientModalTabsProps> = ({ 
-  activeTab, 
-  onTabChange, 
+const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
+  activeTab,
+  onTabChange,
   mode,
   selectedPatient,
   visits = [],
@@ -124,9 +128,26 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
   imaging = [],
   billingData = [],
   loadingTabs = [],
-  newDataTabs = []
+  newDataTabs = [],
+  isPatientAdmitted = false,
+  admissionData = null
 }) => {
-  const tabs = mode === 'list' ? listTabs : detailTabs;
+  // Dynamically add Inpatient tab if patient is admitted
+  let tabs = mode === 'list' ? listTabs : [...detailTabs];
+
+  // Add Inpatient tab after Billing tab if patient is admitted
+  if (mode === 'details' && isPatientAdmitted) {
+    const billingIndex = tabs.findIndex(tab => tab.id === 'billing');
+    const inpatientTab: Tab = {
+      id: 'inpatient',
+      label: 'Inpatient',
+      icon: 'solar:hospital-bed-bold-duotone',
+      tooltip: 'Hospital admission and ward information',
+      isSolarIcon: true,
+      hasNew: admissionData?.hasNewAlerts
+    };
+    tabs.splice(billingIndex + 1, 0, inpatientTab);
+  }
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
   const tabRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   
@@ -219,27 +240,26 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
         <div className="px-4 sm:px-6">
           <div className="flex overflow-x-auto scrollbar-none sm:overflow-x-visible" role="tablist">
           {tabs.map((tab, index) => {
-            const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             const count = getTabCount(tab.id);
             const isLoading = loadingTabs.includes(tab.id);
             const hasNewData = newDataTabs.includes(tab.id);
             const isHovered = hoveredTab === tab.id;
-            
+
             return (
               <motion.button
                 ref={el => tabRefs.current[tab.id] = el}
                 key={tab.id}
                 initial={{ opacity: 0, y: 10 }}
-                animate={{ 
-                  opacity: 1, 
+                animate={{
+                  opacity: 1,
                   y: 0
                 }}
-                transition={{ 
+                transition={{
                   opacity: { delay: index * 0.05, duration: 0.2 },
                   y: { delay: index * 0.05, duration: 0.2 }
                 }}
-                whileHover={{ 
+                whileHover={{
                   scale: 1.02,
                   transition: { duration: 0.2 }
                 }}
@@ -248,18 +268,18 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
                 onMouseEnter={() => setHoveredTab(tab.id)}
                 onMouseLeave={() => setHoveredTab(null)}
                 className={`
-                  flex-shrink-0 sm:flex-1 
-                  flex items-center justify-center gap-2 
-                  px-3 sm:px-4 py-4 
+                  flex-shrink-0 sm:flex-1
+                  flex items-center justify-center gap-2
+                  px-3 sm:px-4 py-4
                   min-w-[100px] sm:min-w-0
                   min-h-[48px]
-                  text-xs sm:text-sm font-medium 
-                  border-b-2 transition-all duration-200 
+                  text-xs sm:text-sm font-medium
+                  border-b-2 transition-all duration-200
                   relative group
                   touch-manipulation
                   ${
                   isActive
-                    ? mode === 'list' 
+                    ? mode === 'list'
                       ? 'text-white border-white bg-gradient-to-t from-white/20 to-white/5'
                       : 'text-purple-600 border-purple-600 bg-gradient-to-t from-purple-50/50 to-transparent'
                     : mode === 'list'
@@ -283,14 +303,20 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
                     <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45" />
                   </motion.div>
                 )}
-                
+
                 {/* Loading state */}
                 {isLoading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Icon className={`w-4 h-4 transition-all duration-200 ${
+                ) : tab.isSolarIcon ? (
+                  <Icon icon={tab.icon as string} className={`w-4 h-4 transition-all duration-200 ${
                     isActive ? (mode === 'list' ? 'text-white' : 'text-purple-600') : ''
                   }`} />
+                ) : (
+                  React.createElement(tab.icon as React.ElementType, {
+                    className: `w-4 h-4 transition-all duration-200 ${
+                      isActive ? (mode === 'list' ? 'text-white' : 'text-purple-600') : ''
+                    }`
+                  })
                 )}
                 
                 <span className="font-medium whitespace-nowrap text-xs sm:text-sm">{tab.label}</span>
