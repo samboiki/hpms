@@ -144,43 +144,41 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
 
       console.log('📊 Fetched patients:', patientsWithData?.length);
 
-      // APPROACH 2: Fetch visits separately for each patient
-      const patientsWithVisits = await Promise.all(
-        (patientsWithData || []).map(async (patient) => {
-          try {
-            // Get visits for this specific patient
-            const { data: visits, error: visitsError } = await supabase
-              .from('visits')
-              .select('id, visit_date, status')
-              .eq('patient_id', patient.id)
-              .order('visit_date', { ascending: false });
+      // APPROACH 2: Fetch ALL visits in a SINGLE BATCH QUERY (Fixed N+1 problem!)
+      const patientIds = (patientsWithData || []).map(p => p.id);
 
-            if (visitsError) {
-              console.error(`❌ Error fetching visits for ${patient.first_name}:`, visitsError);
-              return { ...patient, visits: [], last_visit_date: null, total_visits: 0 };
-            }
+      // ⚡ SINGLE QUERY for all visits instead of 71 separate queries!
+      const { data: allVisits, error: visitsError } = await supabase
+        .from('visits')
+        .select('id, visit_date, status, patient_id')
+        .in('patient_id', patientIds)
+        .order('visit_date', { ascending: false });
 
-            // Calculate visit statistics
-            const completedVisits = (visits || []).filter(v => v.status === 'completed');
-            const lastVisit = completedVisits[0];
+      if (visitsError) {
+        console.error('❌ Error fetching visits in batch:', visitsError);
+        // Continue without visits data rather than failing entirely
+        set({ patients: patientsWithData || [], isLoading: false });
+        return;
+      }
 
-            // Debug specific patients
-            if (patient.first_name === 'Mirjam' || patient.first_name === 'Imms') {
-              console.log(`🔍 ${patient.first_name} ${patient.last_name} visits:`, visits);
-            }
+      console.log(`⚡ Fetched ${allVisits?.length || 0} visits in SINGLE QUERY (was ${patientIds.length} queries before!)`);
 
-            return {
-              ...patient,
-              visits: visits || [],
-              last_visit_date: lastVisit?.visit_date || null,
-              total_visits: completedVisits.length
-            };
-          } catch (err) {
-            console.error(`Error processing patient ${patient.id}:`, err);
-            return { ...patient, visits: [], last_visit_date: null, total_visits: 0 };
-          }
-        })
-      );
+      // Map visits to their respective patients in memory
+      const patientsWithVisits = (patientsWithData || []).map(patient => {
+        // Filter visits for this patient
+        const patientVisits = (allVisits || []).filter(v => v.patient_id === patient.id);
+
+        // Calculate visit statistics
+        const completedVisits = patientVisits.filter(v => v.status === 'completed');
+        const lastVisit = completedVisits[0];
+
+        return {
+          ...patient,
+          visits: patientVisits,
+          last_visit_date: lastVisit?.visit_date || null,
+          total_visits: completedVisits.length
+        };
+      });
       
       console.log('✅ [PatientsStore] Successfully processed all patients with visits');
       console.log('📊 Patients with visits:', patientsWithVisits.filter(p => p.total_visits > 0).length);

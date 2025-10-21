@@ -112,11 +112,11 @@ function Dashboard() {
   const [isEditAppointmentModalOpen, setIsEditAppointmentModalOpen] = useState(false);
   const calendarScrollRef = useRef<HTMLDivElement>(null);
   
-  // Fetch all dashboard stats using optimized hook
+  // Fetch all dashboard stats using optimized hook (includes communication stats)
   const { data: dashboardData, isLoading: isDashboardLoading } = useOptimizedDashboardStats();
-  
-  // Fetch communication stats separately for PremiumStatCard
-  const { data: realCommunicationStats, isLoading: isCommunicationLoading } = useCommunicationStats();
+
+  // REMOVED: useCommunicationStats() - communication stats already included in dashboardData
+  // This was causing duplicate queries and slowing down the dashboard
   
   // Use shared appointments data
   const { data: todayAppointments = [], isLoading: isAppointmentsLoading } = useTodayAppointments();
@@ -129,6 +129,8 @@ function Dashboard() {
   
   // Extract individual stats for compatibility
   const communicationStats = dashboardData?.communication || null;
+  // Alias for backward compatibility with existing code
+  const realCommunicationStats = communicationStats;
   const realPatientStats = dashboardData?.patient || {
     total: 0,
     male: 0,
@@ -316,7 +318,7 @@ function Dashboard() {
         .select('id, first_name, last_name, gender, date_of_birth, created_at')
         .eq('practice_id', practiceId)
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(20); // Reduced from 100 to 20 for better performance
 
       if (patientsError) throw patientsError;
       setPatientsData(practicePatients || []);

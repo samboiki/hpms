@@ -33,14 +33,7 @@ export interface DashboardStats {
     quarterlyPercentageOutstanding: number;
     currentQuarter: number;
   };
-  communication: {
-    smsUsed: number;
-    smsLimit: number;
-    smsPercentage: number;
-    emailUsed: number;
-    emailLimit: number;
-    emailPercentage: number;
-  };
+  communication: CommunicationStats; // Use raw CommunicationStats to avoid duplicate queries
   lastRefreshed?: string;
 }
 
@@ -74,21 +67,11 @@ export function useOptimizedDashboardStats() {
 
         // Parse the JSONB response from RPC
         const baseStats = data as Omit<DashboardStats, 'communication'>;
-        
-        // Transform communication stats to match the DashboardStats interface
-        const transformedCommunicationStats = {
-          smsUsed: communicationStats.sms.current_usage,
-          smsLimit: communicationStats.sms.monthly_limit,
-          smsPercentage: communicationStats.sms.percentage_available,
-          emailUsed: communicationStats.email.current_usage,
-          emailLimit: communicationStats.email.monthly_limit,
-          emailPercentage: communicationStats.email.percentage_available
-        };
 
-        // Combine base stats with communication stats
+        // Combine base stats with raw communication stats (no transformation to avoid duplicate data structures)
         const stats: DashboardStats = {
           ...baseStats,
-          communication: transformedCommunicationStats
+          communication: communicationStats
         };
         
         // Log cache age if available
@@ -108,7 +91,11 @@ export function useOptimizedDashboardStats() {
           patient: { total: 0, male: 0, female: 0, newThisMonth: 0, newThisWeek: 0, averageAge: 0, activePatients: 0 },
           encounter: { total: 0, completed: 0, pending: 0, inProgress: 0, percentageCompleted: 0, percentagePending: 0, newThisMonth: 0 },
           invoice: { totalInvoices: 0, totalRevenue: 0, quarterlyRevenue: 0, quarterlyInvoices: 0, quarterlyPaidInvoices: 0, quarterlyOutstandingInvoices: 0, quarterlyPercentagePaid: 0, quarterlyPercentageOutstanding: 0, currentQuarter: Math.floor(new Date().getMonth() / 3) + 1 },
-          communication: { smsUsed: 0, smsLimit: 0, smsPercentage: 0, emailUsed: 0, emailLimit: 0, emailPercentage: 0 }
+          communication: {
+            sms: { current_usage: 0, monthly_limit: 0, additional_purchased: 0, available: 0, percentage_available: 0 },
+            email: { current_usage: 0, monthly_limit: 0, additional_purchased: 0, available: 0, percentage_available: 0 },
+            overall_percentage_available: 0
+          }
         } as DashboardStats;
       }
     },
